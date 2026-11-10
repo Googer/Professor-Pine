@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { MAX_KML_AREAS, MAX_KML_CORNERS } from './kml.js';
 import type { LatLon } from './lat-lon.js';
 import {
+  fitsStructure,
   MAX_EXPORT_CELLS,
-  MAX_EXPORT_PARTS,
   MAX_EXPORT_WAYSPOTS,
+  MAX_STRUCTURE,
   MAX_WAYSPOT_TEXT,
   readWayspotExport,
+  structureBound,
   writeWayspotExport,
   type ExportProblem,
   type ExportReading,
@@ -23,38 +25,41 @@ function ring(corners: number, n: number): LatLon[] {
 }
 
 /**
- * The largest export the format allows, as the tool would write it: as many areas as a KML file
- * holds, with as many corners in all, as many cells and Wayspots as a file may list, and a part
- * of a saving in parts. Its texts are short: only the structure is at its maximum.
+ * The maxima of a small format: as many areas, corners, cells and Wayspots as the export below
+ * has. `structureBound` of these is what the writer's text of it has, exactly.
  */
-function largestExport(): WayspotExport {
-  const corners = MAX_KML_CORNERS / MAX_KML_AREAS;
+const SMALL = { wayspots: 3, cells: 4, areas: 2, corners: 7 };
+
+/**
+ * An export at `SMALL`'s maxima, as the tool would write it: two areas of 3 and 4 corners, every
+ * cell in `cells` (the commas of the two lists are most with all in one), and a part of a saving
+ * in parts. `text` fills every text of its Wayspots.
+ */
+function smallExport(text: (n: number) => string = () => ''): WayspotExport {
   return {
     format: 'pine-wayspots',
     version: 1,
     script: '1.0.0',
     startedAt: '2026-10-20T14:02:11Z',
     finishedAt: '2026-10-20T18:40:52Z',
-    regions: Array.from({ length: MAX_KML_AREAS }, (_unused, n) => `area-${n}`),
-    outlines: Array.from({ length: MAX_KML_AREAS }, (_unused, n) => ring(corners, n)),
+    regions: ['area-0', 'area-1'],
+    outlines: [ring(3, 0), ring(4, 1)],
     margin: 500,
     // Level-14 tokens: eight hexadecimal digits that end in the cell's own bit.
-    cells: Array.from({ length: MAX_EXPORT_CELLS }, (_unused, n) =>
-      (0x8834_0001 + 2 * n).toString(16),
-    ),
+    cells: Array.from({ length: SMALL.cells }, (_unused, n) => (0x8834_0001 + 2 * n).toString(16)),
     bareCells: [],
-    wayspots: Array.from({ length: MAX_EXPORT_WAYSPOTS }, (_unused, n) => ({
+    wayspots: Array.from({ length: SMALL.wayspots }, (_unused, n) => ({
       id: `${n.toString(16).padStart(32, '0')}.16`,
       kind: 'stop' as const,
       status: 'ACTIVE',
       lat: 40.4,
       lon: -79.9,
-      title: '',
-      address: '',
-      description: '',
-      image: '',
+      title: text(n),
+      address: text(n),
+      description: text(n),
+      image: text(n),
     })),
-    part: { index: 1, count: MAX_EXPORT_PARTS, runId: 'run-1' },
+    part: { index: 1, count: 5, runId: 'run-1' },
   };
 }
 
@@ -90,58 +95,58 @@ describe('the Wayspot export file: what a text may cost before it is parsed', ()
     }
   });
 
+  it('bounds the text by exactly what the writer writes of an export at the maxima', () => {
+    // The bound of small maxima, against the real writer's text of an export at them: equal in
+    // each count (it fits, and fits no bound one less), so a field the writer gains fails here.
+    const text = writeWayspotExport(smallExport());
+    const bound = structureBound(SMALL);
+    expect(fitsStructure(text, bound)).toBe(true);
+    for (const count of ['objects', 'lists', 'commas'] as const) {
+      expect(fitsStructure(text, { ...bound, [count]: bound[count] - 1 })).toBe(false);
+    }
+    // The same text with one object, one list or one entry more than the format has room for.
+    const more = [
+      text.replace('"margin":500', '"margin":{}'),
+      text.replace('"margin":500', '"margin":[]'),
+      text.replace('"margin":500', '"margin":500,"more":1'),
+    ];
+    for (const one of more) {
+      expect(one).not.toBe(text);
+      expect(fitsStructure(one, bound)).toBe(false);
+    }
+  });
+
+  it('bounds a text by the format’s own maxima', () => {
+    expect(MAX_STRUCTURE).toEqual(
+      structureBound({
+        wayspots: MAX_EXPORT_WAYSPOTS,
+        cells: MAX_EXPORT_CELLS,
+        areas: MAX_KML_AREAS,
+        corners: MAX_KML_CORNERS,
+      }),
+    );
+    // By hand, from 250,000 Wayspots and cells, 200 areas and 20,000 corners (each ring's
+    // closing corner one more, 20,200 corner objects): the file, its part, the corners, the
+    // Wayspots; five lists and each outline; the file's 12 fields and the part's 3, between
+    // the region names and between the outlines, between the corners of the outlines and in
+    // each, between the cells, between the Wayspots and in each of their 9 fields.
+    expect(MAX_STRUCTURE).toEqual({
+      objects: 1 + 1 + 20_200 + 250_000,
+      lists: 5 + 200,
+      commas: 11 + 2 + 2 * 199 + 20_000 + 20_200 + 249_999 + 249_999 + 250_000 * 8,
+    });
+  });
+
   it('counts nothing inside a text, whatever the text holds', () => {
-    // Braces, brackets and commas in the texts of a thousand Wayspots, after escaped quotes and
-    // before a text's last backslash: over three million of each, more than a whole export may
-    // have outside its texts.
+    // Braces, brackets and commas in every text of the Wayspots, after escaped quotes and before
+    // a text's last backslash: thousands of each, far more than the small format has room for
+    // outside its texts.
     const words = (n: number): string => `${n} `.padEnd(MAX_WAYSPOT_TEXT - 1, '{[,"\\') + '\\';
-    const largest = largestExport();
-    const file: WayspotExport = {
-      ...largest,
-      cells: [],
-      wayspots: largest.wayspots.slice(0, 1_000).map((wayspot, n) => ({
-        ...wayspot,
-        title: words(n),
-        address: words(n),
-        description: words(n),
-        image: words(n),
-      })),
-    };
-    const { read } = reading(writeWayspotExport(file));
+    const file = smallExport(words);
+    const text = writeWayspotExport(file);
+    expect(fitsStructure(text, structureBound(SMALL))).toBe(true);
+    const { read } = reading(text);
     expect(problemOf(read)).toBeUndefined();
     expect(read.ok && read.file.wayspots).toEqual(file.wayspots);
   });
-
-  // The whole of a largest export is read here, 42 MB of text: about three seconds on a quiet
-  // machine (over one of them checking a quarter of a million cell tokens), so it gets more time
-  // than a unit test has, for a machine that is busy.
-  it(
-    'reads the largest export the format allows, and parses nothing with one thing more',
-    {
-      timeout: 60_000,
-    },
-    () => {
-      const file = largestExport();
-      const text = writeWayspotExport(file);
-      const { read, parsed } = reading(text);
-      expect(parsed).toBe(true);
-      expect(problemOf(read)).toBeUndefined();
-      expect(read.ok && read.file.wayspots.length).toBe(MAX_EXPORT_WAYSPOTS);
-      expect(read.ok && read.file.cells.length).toBe(MAX_EXPORT_CELLS);
-      expect(read.ok && read.file.outlines.length).toBe(MAX_KML_AREAS);
-
-      // The same text with one object, one list or one entry more than the format has room for.
-      const more = [
-        text.replace('"margin":500', '"margin":{}'),
-        text.replace('"margin":500', '"margin":[]'),
-        text.replace('"margin":500', '"margin":500,"more":1'),
-      ];
-      for (const one of more) {
-        expect(one).not.toBe(text);
-        const refused = reading(one);
-        expect(problemOf(refused.read)).toEqual({ kind: 'too-many' });
-        expect(refused.parsed).toBe(false);
-      }
-    },
-  );
 });

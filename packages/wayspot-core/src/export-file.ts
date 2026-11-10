@@ -240,44 +240,69 @@ function readCells(values: readonly unknown[]): string[] | number {
 
 /**
  * How many fields the file itself has (with `part`), and a part, a corner of an outline and a
- * Wayspot: the keys `writeWayspotExport` writes. `export-file.limits.test.ts` reads the largest
- * export the writer makes, so a field added there without its count here fails.
+ * Wayspot: the keys `writeWayspotExport` writes. `export-file.limits.test.ts` holds the writer's
+ * text of an export at small maxima to `structureBound` of them, exactly, so a field added there
+ * without its count here fails.
  */
 const FILE_FIELDS = 12;
 const PART_FIELDS = 3;
 const CORNER_FIELDS = 2;
 const WAYSPOT_FIELDS = 9;
 
-/** The corners the outlines of a file hold at most: each ring's closing one beside its corners. */
-const MAX_CORNER_ENTRIES = MAX_KML_CORNERS + MAX_EXPORT_REGIONS;
-
 /** The commas of a list of this many entries, or of an object of this many fields. */
 const commasAmong = (entries: number): number => entries - 1;
 
+/** How many objects, lists and commas a text has outside its texts, at most. */
+export interface StructureBound {
+  objects: number;
+  lists: number;
+  commas: number;
+}
+
 /**
- * How many objects, lists and commas the text of the largest export has outside its texts, each
- * worked out from the format's own maxima and from nothing else: a text with more of one cannot
- * be an export, however it is read.
+ * How many objects, lists and commas the text of the largest export has outside its texts, for
+ * the maxima of its Wayspots, its cells (both lists), its areas and the corners of their outlines
+ * (each ring's closing corner beside them), each worked out from these and the fields of each
+ * record and from nothing else: a text with more of one cannot be an export, however it is read.
+ * `MAX_STRUCTURE` is it of the format's own maxima; a test holds it to the writer's text of an
+ * export at small maxima, exactly.
  */
-const MAX_STRUCTURE = {
-  // The file, its part, the corners of its outlines, its Wayspots.
-  objects: 1 + 1 + MAX_CORNER_ENTRIES + MAX_EXPORT_WAYSPOTS,
-  // `regions`, `outlines`, `cells`, `bareCells`, `wayspots`, and each outline.
-  lists: 5 + MAX_EXPORT_REGIONS,
-  commas:
-    commasAmong(FILE_FIELDS) +
-    commasAmong(PART_FIELDS) +
-    // Between the names of the regions, and between their outlines.
-    2 * commasAmong(MAX_EXPORT_REGIONS) +
-    // Between the corners of every outline (its closing corner is the one more), and in each.
-    MAX_KML_CORNERS +
-    MAX_CORNER_ENTRIES * commasAmong(CORNER_FIELDS) +
-    // Between the cells: the two lists share `MAX_EXPORT_CELLS`, most commas with all in one.
-    commasAmong(MAX_EXPORT_CELLS) +
-    // Between the Wayspots, and in each.
-    commasAmong(MAX_EXPORT_WAYSPOTS) +
-    MAX_EXPORT_WAYSPOTS * commasAmong(WAYSPOT_FIELDS),
-} as const;
+export function structureBound(maxima: {
+  wayspots: number;
+  cells: number;
+  areas: number;
+  corners: number;
+}): StructureBound {
+  const { wayspots, cells, areas, corners } = maxima;
+  const cornerEntries = corners + areas;
+  return {
+    // The file, its part, the corners of its outlines, its Wayspots.
+    objects: 1 + 1 + cornerEntries + wayspots,
+    // `regions`, `outlines`, `cells`, `bareCells`, `wayspots`, and each outline.
+    lists: 5 + areas,
+    commas:
+      commasAmong(FILE_FIELDS) +
+      commasAmong(PART_FIELDS) +
+      // Between the names of the regions, and between their outlines.
+      2 * commasAmong(areas) +
+      // Between the corners of every outline (its closing corner is the one more), and in each.
+      corners +
+      cornerEntries * commasAmong(CORNER_FIELDS) +
+      // Between the cells: the two lists share the maximum, most commas with all in one.
+      commasAmong(cells) +
+      // Between the Wayspots, and in each.
+      commasAmong(wayspots) +
+      wayspots * commasAmong(WAYSPOT_FIELDS),
+  };
+}
+
+/** `structureBound` of the format's own maxima: as many areas and corners as a KML file holds. */
+export const MAX_STRUCTURE: Readonly<StructureBound> = structureBound({
+  wayspots: MAX_EXPORT_WAYSPOTS,
+  cells: MAX_EXPORT_CELLS,
+  areas: MAX_EXPORT_REGIONS,
+  corners: MAX_KML_CORNERS,
+});
 
 const QUOTE = 0x22;
 const BACKSLASH = 0x5c;
@@ -286,16 +311,16 @@ const OPEN_BRACE = 0x7b;
 const OPEN_BRACKET = 0x5b;
 
 /**
- * Whether a text has no more objects, lists and commas than the largest export
- * (`MAX_STRUCTURE`): one pass over its characters, which passes over the texts in it (a
- * backslash takes the character after it along, so an escaped quote ends no text) and stops at
- * the first count that is over. It keeps nothing, and is asked before `JSON.parse`, which makes
- * an object of every `{}` of a text, however small the text was packed (plan 8Z-2: 64 MB of
- * `{}` took seconds and over a gigabyte). On JSON it counts exactly what the parser would
+ * Whether a text has no more objects, lists and commas than `bound` (the largest export's,
+ * `MAX_STRUCTURE`, by default): one pass over its characters, which passes over the texts in it
+ * (a backslash takes the character after it along, so an escaped quote ends no text) and stops
+ * at the first count that is over. It keeps nothing, and is asked before `JSON.parse`, which
+ * makes an object of every `{}` of a text, however small the text was packed (plan 8Z-2: 64 MB
+ * of `{}` took seconds and over a gigabyte). On JSON it counts exactly what the parser would
  * build; what is no JSON, the parser refuses at its first wrong character, and up to there the
  * count holds as well.
  */
-function fitsAnExport(text: string): boolean {
+export function fitsStructure(text: string, bound: StructureBound = MAX_STRUCTURE): boolean {
   let objects = 0;
   let lists = 0;
   let commas = 0;
@@ -308,11 +333,11 @@ function fitsAnExport(text: string): boolean {
     } else if (code === QUOTE) {
       inText = true;
     } else if (code === COMMA) {
-      if (++commas > MAX_STRUCTURE.commas) return false;
+      if (++commas > bound.commas) return false;
     } else if (code === OPEN_BRACE) {
-      if (++objects > MAX_STRUCTURE.objects) return false;
+      if (++objects > bound.objects) return false;
     } else if (code === OPEN_BRACKET) {
-      if (++lists > MAX_STRUCTURE.lists) return false;
+      if (++lists > bound.lists) return false;
     }
   }
   return true;
@@ -323,10 +348,10 @@ function fitsAnExport(text: string): boolean {
  * Wayfarer's form, a known kind, a place in range, texts of at most `MAX_WAYSPOT_TEXT`) and
  * every cell. Of several Wayspots with one id the last one counts (it stays where the first
  * stood in the list). Nothing of a file that fails is used. A text with more objects, lists or
- * entries than the largest export has is `too-many` before any of it is parsed (`fitsAnExport`).
+ * entries than the largest export has is `too-many` before any of it is parsed (`fitsStructure`).
  */
 export function readWayspotExport(text: string): ExportReading {
-  if (!fitsAnExport(text)) return { ok: false, problem: { kind: 'too-many' } };
+  if (!fitsStructure(text)) return { ok: false, problem: { kind: 'too-many' } };
   let json: unknown;
   try {
     json = JSON.parse(text);
