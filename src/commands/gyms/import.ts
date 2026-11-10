@@ -17,8 +17,6 @@ import { UserError } from '../../discord/errors.js';
 import { discordPayload } from '../../discord/party-gateway.js';
 import type { Throttle } from '../../discord/throttle.js';
 import {
-  MAX_EXPORT_CELLS,
-  MAX_EXPORT_WAYSPOTS,
   MAX_EXPORT_PARTS,
   MAX_WAYSPOT_TEXT,
   fitOneExport,
@@ -199,10 +197,12 @@ function problemText(problem: ExportProblem, tool: string): string {
         'The bot has to be updated first, or the export saved again with the version handed ' +
         `out at ${tool}.`
       );
+    // More Wayspots or cells than a file may hold, or a text no export's could be (plan 8Z-2):
+    // one sentence true of both.
     case 'too-many':
       return (
-        `That export holds more than ${MAX_EXPORT_WAYSPOTS.toLocaleString('en-US')} Wayspots ` +
-        `or ${MAX_EXPORT_CELLS.toLocaleString('en-US')} cells. Scan fewer regions in one run.`
+        'That file holds more than an export can. If it is a real export, scan fewer regions ' +
+        'in one run; otherwise save the export again.'
       );
     case 'bad-wayspot':
       return (

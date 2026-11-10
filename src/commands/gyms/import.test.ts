@@ -761,8 +761,8 @@ describe('/gym import: files it refuses', () => {
     const bomb = gzipSync(`[${'{},'.repeat(1_000_000)}{}]`);
     expect(bomb.byteLength).toBeLessThan(20_000);
     expect((await refused(bomb)).text).toBe(
-      'That export holds more than 250,000 Wayspots or 250,000 cells. Scan fewer regions in ' +
-        'one run.',
+      'That file holds more than an export can. If it is a real export, scan fewer regions in ' +
+        'one run; otherwise save the export again.',
     );
   });
 });
