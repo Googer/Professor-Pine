@@ -7,6 +7,7 @@ import {
   PermissionFlagsBits,
   PermissionsBitField,
   RESTJSONErrorCodes,
+  SnowflakeUtil,
 } from 'discord.js';
 import {
   channelPermissions,
@@ -491,9 +492,17 @@ export class FakePartyGateway implements PartyGateway {
   /** The edits of each post's message, by post (`postEdits`). */
   private readonly editsOf = new Map<string, Tally>();
   private next = 1;
+  /**
+   * The clock the ids of what the fake makes are of, in epoch milliseconds: unset, they are
+   * `900000000000000001` and on (made in 2021); set, snowflakes of its time as Discord makes them,
+   * for code that reads when something was made from its id (the events forum's cap, plan 8Z-2).
+   */
+  clock: (() => number) | undefined;
 
   private id(): string {
-    return `90000000000000${String(this.next++).padStart(4, '0')}`;
+    const next = this.next++;
+    if (this.clock === undefined) return `90000000000000${String(next).padStart(4, '0')}`;
+    return SnowflakeUtil.generate({ timestamp: this.clock(), increment: BigInt(next) }).toString();
   }
 
   private begin(method: Method, id: string, listed: boolean): void {

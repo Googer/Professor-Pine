@@ -1048,6 +1048,8 @@ describe('EventForumService: how many posts a feed may make (plan 8Z-2)', () => 
   /** The forum set up and drawn with nothing listed yet. */
   const empty = async () => {
     const made = eventForumWith({ events: [] });
+    // Posts made with ids of the clock's time, as Discord's are: the cap counts by them.
+    made.gateway.clock = () => made.clock.now;
     await made.service.setup(SERVER);
     made.service.start();
     await made.service.flush();
@@ -1100,8 +1102,9 @@ describe('EventForumService: how many posts a feed may make (plan 8Z-2)', () => 
     expect(later()).toHaveLength(1);
   });
 
-  it('makes no post beyond fifty of events not over for three days, said once, until one is', async () => {
+  it('makes no post beyond fifty made in three days, said once, until one is older', async () => {
     const { read, posted, drawRest, entries, clock, gateway, store, service } = await empty();
+    const madeAt = clock.now;
     const listed = events(60);
     const ids = listed.map((event) => event.id);
     const full = () =>
@@ -1124,11 +1127,39 @@ describe('EventForumService: how many posts a feed may make (plan 8Z-2)', () => 
     expect((await store.posts(SERVER)).find((one) => one.eventId === 'event-10')?.gone).toBe(true);
     await drawRest();
     expect(await posted()).toHaveLength(MAX_OPEN_EVENT_POSTS);
-    // The first event is over for three days: the next in line gets its post.
-    clock.now = (listed[0]?.end ?? 0) + 3 * DAY;
+    // Just under three days after they were made, they still count.
+    clock.now = madeAt + 3 * DAY - 1;
     await read(listed);
     await drawRest();
-    expect(await posted()).toEqual(ids.slice(0, MAX_OPEN_EVENT_POSTS + 1));
+    expect(await posted()).toHaveLength(MAX_OPEN_EVENT_POSTS);
+    // Three days after: the events still due get theirs.
+    clock.now = madeAt + 3 * DAY;
+    await read(listed);
+    await drawRest();
+    expect(await posted()).toEqual(ids);
+  });
+
+  it('is filled for three days at most by events that end far in the future', async () => {
+    // A feed in other hands lists sixty events that end in 2099: before plan 8Z-2's fix round,
+    // their fifty posts counted until 2099, and no real event was posted again.
+    const { read, posted, drawRest, clock } = await empty();
+    const madeAt = clock.now;
+    const far = events(60).map((event) => ({ ...event, end: at('2099-01-01T00:00') }));
+    await read(far);
+    await drawRest();
+    expect(await posted()).toHaveLength(MAX_OPEN_EVENT_POSTS);
+    clock.now = madeAt + 3 * DAY;
+    const real = listedEvent({
+      id: 'real-event',
+      name: 'A real event',
+      eventType: 'event',
+      image: null,
+      start: madeAt + 3 * DAY + 60 * 60_000,
+      end: madeAt + 4 * DAY,
+    });
+    await read([real]);
+    await drawRest();
+    expect(await posted()).toContain('real-event');
   });
 
   // The real feed stays far below both limits: 64 events, 17 of them listed and of posted kinds.

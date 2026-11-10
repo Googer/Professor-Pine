@@ -1,4 +1,6 @@
+import { SnowflakeUtil } from 'discord.js';
 import type { Settings } from '../config/settings.js';
+import { isSnowflake } from '../db/snowflake.js';
 import type {
   EventForumRecord,
   EventForumStorage,
@@ -64,14 +66,17 @@ export const MAX_NEW_POSTS_PER_DRAW = 10;
 /** How long after a draw that left posts unmade the next one makes more of them. */
 export const MORE_POSTS_AFTER_MS = 60_000;
 /**
- * The most event posts a server has of events not over for three days (`ARCHIVE_AFTER_END_MS`,
- * the time a post stays open), whatever became of them (dropped, deleted by a moderator: taking
- * posts away makes room for no others); "On this day" is not counted. About three times the
- * posted events of the whole kept feed (17; 7 have a post at once by the default, 12 at 35 days
- * ahead): the feed as it is never comes near, and one in other hands makes fifty posts in three
- * days at most (plan 8Z-2).
+ * The most event posts a server makes in three days (`RECENT_POSTS_MS`), by when each was made
+ * (its id's time), whatever became of them (dropped, deleted by a moderator: taking posts away
+ * makes room for no others); "On this day" is not counted. About three times the posted events
+ * of the whole kept feed (17; 7 have a post at once by the default, 12 at 35 days ahead): the
+ * feed as it is never comes near, and one in other hands makes fifty posts in three days at most
+ * (plan 8Z-2). Counted by when posts were made, not by their events' ends, which a feed sets: an
+ * event that ends in 2099 would otherwise hold its place until then.
  */
 export const MAX_OPEN_EVENT_POSTS = 50;
+/** How long a post counts against `MAX_OPEN_EVENT_POSTS` after it was made. */
+const RECENT_POSTS_MS = 3 * DAY_MS;
 /** The longest delay `setTimeout` accepts; anything longer fires at once. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 /**
@@ -93,11 +98,14 @@ const ON_THIS_DAY_ARCHIVE_MINUTES = 1_440;
 export const EVENT_PARTY_REDRAW_MS = 5_000;
 
 /**
- * Whether a post's row counts against `MAX_OPEN_EVENT_POSTS`: an event's (not "On this day"),
- * whose event, by the times the row has, is not over for three days.
+ * Whether a post's row counts against `MAX_OPEN_EVENT_POSTS`: an event's (not "On this day")
+ * made less than `RECENT_POSTS_MS` ago, by the time in its post's id (Discord's snowflake); a row
+ * whose id is no snowflake counts.
  */
 function countsAsOpen(row: EventPostRecord, now: number): boolean {
-  return !row.eventId.startsWith(ON_THIS_DAY_KEY) && row.end + ARCHIVE_AFTER_END_MS > now;
+  if (row.eventId.startsWith(ON_THIS_DAY_KEY)) return false;
+  if (!isSnowflake(row.postId)) return true;
+  return SnowflakeUtil.timestampFrom(row.postId) + RECENT_POSTS_MS > now;
 }
 
 /** The step of a post's part of a draw that failed (`perPost`, BR-5). */
@@ -763,8 +771,8 @@ export class EventForumService {
       if (await store.movePost(serverId, row.eventId, moved.id)) row.eventId = moved.id;
     }
     const known = new Set(rows.map((row) => row.eventId));
-    // What a feed may make (plan 8Z-2): so many posts a draw, so many of events not yet over
-    // for three days. The events come in order of their start: the earliest get theirs first.
+    // What a feed may make (plan 8Z-2): so many posts a draw, so many in three days. The events
+    // come in order of their start: the earliest get theirs first.
     let open = rows.filter((row) => countsAsOpen(row, now)).length;
     let tried = 0;
     let made = 0;
