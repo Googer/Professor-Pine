@@ -35,11 +35,22 @@ const PICTURE_FORMATS: ReadonlySet<string> = new Set(['png', 'jpeg', 'webp', 'gi
 export const MAX_PICTURES = 2_000;
 
 /**
- * How many bytes of pictures read for the web server are kept in memory (plan 8Z-2), the oldest
- * read first out: some thousand of Leek Duck's icons, so that a day's pictures are read from
- * the folder once.
+ * The size a kept picture has on average (8Z-2 final fix F3): 262 of them kept on the
+ * development laptop on 2026-11-10 averaged 18 KB (the median about 12 KB, 95 in 100 under
+ * 52 KB, the largest 236 KB). Leek Duck's icons, padded to a square without scaling.
  */
-export const PICTURE_MEMORY_BYTES = 32 * 1024 * 1024;
+export const TYPICAL_PICTURE_BYTES = 18 * 1024;
+
+/**
+ * How many bytes of pictures read for the web server are kept in memory (plan 8Z-2), the oldest
+ * read first out: the whole index at its usual size, so that a kept picture is read from the
+ * folder once a run, and a stranger cycling real keys causes no read after (8Z-2 final fix F3).
+ * The largest a kept picture can be is a 1024 by 1024 PNG, some 4 MB, which makes 8 GB for the
+ * index: more than memory should hold. So `MAX_PICTURES` at 32 KB each, the usual size
+ * (`TYPICAL_PICTURE_BYTES`) with a margin of 1.8 (an index of 2,000 of today's pictures needs
+ * about 36 MB).
+ */
+export const PICTURE_MEMORY_BYTES = MAX_PICTURES * 32 * 1024;
 
 /** A picture is fetched again after this long, so one Leek Duck changes at its address is renewed. */
 export const RENEW_MS = 7 * 24 * 60 * 60_000;

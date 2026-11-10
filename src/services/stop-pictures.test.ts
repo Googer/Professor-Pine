@@ -11,9 +11,11 @@ import { PINE_USER_AGENT } from './research-task-service.js';
 import {
   FAILED_AGAIN_MS,
   MAX_PICTURE_BYTES,
+  MAX_PICTURES,
   PREPARE_DEADLINE_MS,
   RENEW_MS,
   StopPictures,
+  TYPICAL_PICTURE_BYTES,
   type FetchPicture,
 } from './stop-pictures.js';
 
@@ -416,6 +418,37 @@ describe('StopPictures (plan 8R-6)', () => {
       await pictures.prepare([CANDY]);
       await pictures.idle();
       expect(await pictures.read(key)).toBeUndefined();
+    });
+
+    // 8Z-2 final fix F3: a stranger cycling real keys causes no miss once every picture was read.
+    it('holds the bytes of a full folder of pictures of the usual size: each read from it once a run', async () => {
+      const dir = folder();
+      // The bytes of as many pictures as are kept, each of the size the kept ones have on
+      // average, in a hundred files: memory is bounded by bytes, and a file is slow to make here.
+      const files = 100;
+      const bytes = Buffer.alloc(Math.ceil((MAX_PICTURES * TYPICAL_PICTURE_BYTES) / files), 1);
+      const keys = Array.from({ length: files }, (_, index) =>
+        index.toString(16).padStart(32, '0'),
+      );
+      for (const key of keys) writeFileSync(path.join(dir, `${key}.png`), bytes);
+      const { pictures } = picturesWith({ dir });
+      await pictures.start();
+      /** How many of the keys `read` answered with the picture's bytes. */
+      const answered = async (mayCost: () => boolean) => {
+        let count = 0;
+        for (const key of keys) {
+          const answer = await pictures.read(key, mayCost);
+          if (Buffer.isBuffer(answer) && answer.equals(bytes)) count += 1;
+        }
+        return count;
+      };
+      const open = gate(true);
+      expect(await answered(open.mayCost)).toBe(files);
+      expect(open.asked.times).toBe(files);
+      // Every one again, in the same order: from memory, nothing read nor asked of the gate.
+      const shut = gate(false);
+      expect(await answered(shut.mayCost)).toBe(files);
+      expect(shut.asked.times).toBe(0);
     });
 
     it('keeps at most so many bytes in memory, the oldest read first out', async () => {
