@@ -104,8 +104,8 @@ describe('Manage…’s Submit as one code path for the dialog and the map (plan
     const hour = 3_600_000;
     const from = Math.ceil(made.current().createdAt / hour) * hour;
     const alice = { id: ALICE, name: 'Alice' };
-    await made.timed.setStartTime(made.party.id, alice, from + hour);
-    await made.timed.setEndTime(made.party.id, alice, from + 2 * hour);
+    await made.timed.setStartTime(made.party.id, alice, false, from + hour);
+    await made.timed.setEndTime(made.party.id, alice, false, from + 2 * hour);
     const manage = async (start: number, end: string) =>
       manageTrainAs(
         made.ctx,
@@ -133,8 +133,8 @@ describe('Manage…’s Submit as one code path for the dialog and the map (plan
     const hour = 3_600_000;
     const from = Math.ceil(made.current().createdAt / hour) * hour;
     const alice = { id: ALICE, name: 'Alice' };
-    await made.timed.setStartTime(made.party.id, alice, from + hour);
-    await made.timed.setEndTime(made.party.id, alice, from + 2 * hour);
+    await made.timed.setStartTime(made.party.id, alice, false, from + hour);
+    await made.timed.setEndTime(made.party.id, alice, false, from + 2 * hour);
     await made.timed.flush();
     await made.attendance.flush();
     const seen = made.gateway.messagesIn(made.postId).length;
@@ -228,7 +228,7 @@ describe('Manage…’s Submit as one code path for the dialog and the map (plan
   it('marks a refused start after the rest went through as a change that was made', async () => {
     const made = await setup();
     const end = made.current().createdAt + 3_600_000;
-    await made.timed.setEndTime(made.party.id, { id: ALICE, name: 'Alice' }, end);
+    await made.timed.setEndTime(made.party.id, { id: ALICE, name: 'Alice' }, false, end);
     const answer = await manageTrainAs(
       made.ctx,
       made.current(),

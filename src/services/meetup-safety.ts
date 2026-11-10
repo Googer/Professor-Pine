@@ -43,7 +43,7 @@ import {
   meetupChangeNotice,
   requestMessage,
   requestOutcomeDm,
-  type MeetupTextChange,
+  type MeetupChangeTold,
 } from '../render/meetup-safety.js';
 import { postLink } from '../render/notify-dm.js';
 import { ASK_OPEN_DAYS, askMessage, askOutcomeDm } from '../render/place-asks.js';
@@ -140,13 +140,14 @@ export type CloseIfBlocked =
   /** Blocked, but the meetup could not be closed (logged): it is still there. */
   | 'close-failed';
 
-/** A change of a meetup's name or information that the moderators may have to hear of. */
+/** Changes of a meetup's name, information or times that the moderators may have to hear of. */
 export interface ApprovedMeetupChange {
   serverId: string;
   /** The meetup as it is now. */
   party: Pick<MeetupParty, 'id' | 'createdById' | 'forumPostId' | 'timed'>;
   by: { id: string; name?: string | undefined };
-  change: MeetupTextChange;
+  /** What changed, as it is now; more than one for changes made together (both times). */
+  changes: readonly MeetupChangeTold[];
 }
 
 export interface MeetupSafetyOptions {
@@ -314,13 +315,18 @@ export class MeetupSafety {
     this.changesOnTheirWay.add(telling);
   }
 
-  private async tellOfChange({ serverId, party, by, change }: ApprovedMeetupChange): Promise<void> {
+  private async tellOfChange({
+    serverId,
+    party,
+    by,
+    changes,
+  }: ApprovedMeetupChange): Promise<void> {
     const { storage, gateway } = this.options;
     const request = await storage.approvedRequestOf(serverId, party.createdById, party.id);
     if (request === undefined) return;
     await gateway.sendMessage(
       request.channelId,
-      meetupChangeNotice(party.timed.name, by, change, {
+      meetupChangeNotice(party.timed.name, by, changes, {
         post: party.forumPostId === null ? undefined : postLink(serverId, party.forumPostId),
         request: postLink(serverId, request.channelId, request.messageId),
       }),

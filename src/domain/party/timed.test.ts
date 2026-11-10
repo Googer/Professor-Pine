@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALICE,
+  AS_MAKER,
   BOB,
   MINUTE,
   PARTY_NOW,
   REPORTER,
   testMeetup,
+  testTrain,
   withAttendees,
 } from '../../../test/support/parties.js';
 import { MAX_PARTY_NAME, type MeetupParty } from './party.js';
@@ -21,6 +23,7 @@ import {
   tidyName,
   timedOver,
   timesInOrder,
+  timesRefusal,
 } from './timed.js';
 
 const HOUR = 3_600_000;
@@ -204,27 +207,53 @@ describe('setStartTime', () => {
   const meetup = withAttendees(testMeetup(), { [ALICE]: {}, [BOB]: {} });
 
   it('sets the start for everybody, drops the seconds and tells the others', () => {
-    const set = setStartTime(meetup, ALICE, START + 45_678, PARTY_NOW);
-    expect(set).toMatchObject({ ok: true, others: [REPORTER, BOB] });
+    const set = setStartTime(meetup, AS_MAKER, START + 45_678, PARTY_NOW);
+    expect(set).toMatchObject({ ok: true, others: [ALICE, BOB] });
     expect(set.ok && startTimeOf(set.party)).toBe(START);
     // The groups have no meeting time: a meetup starts for everybody at once.
     expect(set.ok && set.party.groups).toEqual([{ id: 'A' }]);
   });
 
   it('moves the last possible time: a day after the start while there is no end', () => {
-    const set = setStartTime(meetup, ALICE, START, PARTY_NOW);
+    const set = setStartTime(meetup, AS_MAKER, START, PARTY_NOW);
     expect(set.ok && set.party.lastPossibleTime).toBe(START + DAY);
     const ending = { ...meetup, endTime: START + HOUR, lastPossibleTime: START + HOUR };
-    const withEnd = setStartTime(ending, ALICE, START, PARTY_NOW);
+    const withEnd = setStartTime(ending, AS_MAKER, START, PARTY_NOW);
     expect(withEnd.ok && withEnd.party.lastPossibleTime).toBe(START + HOUR);
   });
 
-  it('is only for somebody who is signed up', () => {
-    expect(setStartTime(meetup, '200000000000000099', START, PARTY_NOW)).toEqual({
-      ok: false,
-      reason: 'not-attending',
+  it("is only for a meetup's maker and staff, signed up or not (plan 8Z-2)", () => {
+    // Alice is signed up for it, and did not make it.
+    for (const time of [START, null]) {
+      expect(setStartTime(meetup, { id: ALICE, staff: false }, time, PARTY_NOW)).toEqual({
+        ok: false,
+        reason: 'not-yours',
+      });
+    }
+    // Its maker, off its list, and staff who never were on it.
+    const { [REPORTER]: _maker, ...others } = meetup.attendees;
+    const left = { ...meetup, attendees: others };
+    expect(setStartTime(left, AS_MAKER, START, PARTY_NOW)).toMatchObject({
+      ok: true,
+      others: [ALICE, BOB],
     });
-    expect(setStartTime(meetup, '200000000000000099', null, PARTY_NOW)).toEqual({
+    const stranger = { id: '200000000000000099', staff: true };
+    expect(setStartTime(meetup, stranger, START, PARTY_NOW)).toMatchObject({
+      ok: true,
+      others: [REPORTER, ALICE, BOB],
+    });
+    expect(timesRefusal(meetup, { ...stranger, staff: false }, 'start')).toEqual({
+      ok: false,
+      reason: 'not-yours',
+    });
+  });
+
+  it("keeps a train's rule: whoever is signed up, and its maker", () => {
+    const train = withAttendees(testTrain(), { [ALICE]: {} });
+    expect(setStartTime(train, { id: ALICE, staff: false }, START, PARTY_NOW).ok).toBe(true);
+    expect(setStartTime(train, AS_MAKER, START, PARTY_NOW).ok).toBe(true);
+    // Staff who are not signed up are nobody to a train's start, as they were.
+    expect(setStartTime(train, { id: BOB, staff: true }, START, PARTY_NOW)).toEqual({
       ok: false,
       reason: 'not-attending',
     });
@@ -232,14 +261,14 @@ describe('setStartTime', () => {
 
   it('refuses a start that does not lie before the end', () => {
     const ending = { ...meetup, endTime: START };
-    expect(setStartTime(ending, ALICE, START - MINUTE, PARTY_NOW).ok).toBe(true);
-    expect(setStartTime(ending, ALICE, START, PARTY_NOW)).toEqual({
+    expect(setStartTime(ending, AS_MAKER, START - MINUTE, PARTY_NOW).ok).toBe(true);
+    expect(setStartTime(ending, AS_MAKER, START, PARTY_NOW)).toEqual({
       ok: false,
       reason: 'start-after-end',
     });
     // Seconds are dropped before the comparison.
-    expect(setStartTime(ending, ALICE, START - 1, PARTY_NOW).ok).toBe(true);
-    expect(setStartTime(ending, ALICE, START + HOUR, PARTY_NOW)).toEqual({
+    expect(setStartTime(ending, AS_MAKER, START - 1, PARTY_NOW).ok).toBe(true);
+    expect(setStartTime(ending, AS_MAKER, START + HOUR, PARTY_NOW)).toEqual({
       ok: false,
       reason: 'start-after-end',
     });
@@ -257,21 +286,21 @@ describe('setStartTime', () => {
   });
 
   it('removes the start with null, and tells the others', () => {
-    const set = setStartTime(meetup, ALICE, START, PARTY_NOW);
+    const set = setStartTime(meetup, AS_MAKER, START, PARTY_NOW);
     if (!set.ok) throw new Error(set.reason);
-    const removed = setStartTime(set.party, BOB, null, PARTY_NOW);
-    expect(removed).toMatchObject({ ok: true, others: [REPORTER, ALICE] });
+    const removed = setStartTime(set.party, AS_MAKER, null, PARTY_NOW);
+    expect(removed).toMatchObject({ ok: true, others: [ALICE, BOB] });
     expect(removed.ok && startTimeOf(removed.party)).toBeNull();
     expect(removed.ok && removed.party.lastPossibleTime).toBe(PARTY_NOW + DAY);
   });
 
   it('gives an old meetup a day from now when its only time is taken away', () => {
-    const set = setStartTime(meetup, ALICE, START, PARTY_NOW);
+    const set = setStartTime(meetup, AS_MAKER, START, PARTY_NOW);
     if (!set.ok) throw new Error(set.reason);
     // Three days on, long past the day it had from its start, and warned.
     const late = START + 3 * DAY;
     const warned = { ...set.party, deletionTime: late + HOUR };
-    const removed = setStartTime(warned, ALICE, null, late);
+    const removed = setStartTime(warned, AS_MAKER, null, late);
     expect(removed).toMatchObject({
       ok: true,
       party: { lastPossibleTime: late + DAY, deletionTime: null },
@@ -279,21 +308,21 @@ describe('setStartTime', () => {
   });
 
   it('returns the very same party, and tells nobody, when the start is what it was', () => {
-    const set = setStartTime(meetup, ALICE, START, PARTY_NOW);
+    const set = setStartTime(meetup, AS_MAKER, START, PARTY_NOW);
     if (!set.ok) throw new Error(set.reason);
-    const again = setStartTime(set.party, BOB, START + 30_000, PARTY_NOW);
+    const again = setStartTime(set.party, AS_MAKER, START + 30_000, PARTY_NOW);
     expect(again).toEqual({ ok: true, party: set.party, others: [] });
     expect(again.party).toBe(set.party);
-    expect(setStartTime(meetup, ALICE, null, PARTY_NOW).party).toBe(meetup);
+    expect(setStartTime(meetup, AS_MAKER, null, PARTY_NOW).party).toBe(meetup);
   });
 
   it('takes a warning away: a start that makes the meetup go on calls the archiving off', () => {
     const late = PARTY_NOW + DAY + HOUR;
     const warned = { ...meetup, deletionTime: late + HOUR };
-    const set = setStartTime(warned, ALICE, late + 2 * HOUR, late);
+    const set = setStartTime(warned, AS_MAKER, late + 2 * HOUR, late);
     expect(set.ok && set.party.deletionTime).toBeNull();
     // A start in the past that leaves it over changes nothing about the archiving.
-    const past = setStartTime(warned, ALICE, PARTY_NOW + MINUTE, late);
+    const past = setStartTime(warned, AS_MAKER, PARTY_NOW + MINUTE, late);
     expect(past.ok && past.party.deletionTime).toBe(late + HOUR);
   });
 });
@@ -303,31 +332,54 @@ describe('setTimedEnd', () => {
   const END = START + 2 * HOUR;
 
   it('sets the end, drops the seconds, and makes it the last possible time', () => {
-    const set = setTimedEnd(withTimes(START, null), END + 59_000, PARTY_NOW);
+    const set = setTimedEnd(withTimes(START, null), AS_MAKER, END + 59_000, PARTY_NOW);
     expect(set).toMatchObject({ ok: true, party: { endTime: END, lastPossibleTime: END } });
   });
 
-  it('works for a meetup without a start, and for anybody (it asks for no member)', () => {
-    const set = setTimedEnd(testMeetup(), END, PARTY_NOW);
+  it('works for a meetup without a start', () => {
+    const set = setTimedEnd(testMeetup(), AS_MAKER, END, PARTY_NOW);
     expect(set).toMatchObject({ ok: true, party: { endTime: END, lastPossibleTime: END } });
+  });
+
+  it("is only for a meetup's maker and staff, signed up or not (plan 8Z-2)", () => {
+    const meetup = withAttendees(testMeetup(), { [ALICE]: {} });
+    for (const time of [END, null]) {
+      expect(setTimedEnd(meetup, { id: ALICE, staff: false }, time, PARTY_NOW)).toEqual({
+        ok: false,
+        reason: 'not-yours',
+      });
+    }
+    expect(setTimedEnd(meetup, { id: BOB, staff: true }, END, PARTY_NOW).ok).toBe(true);
+  });
+
+  it("keeps a train's rule: anybody sets its end", () => {
+    expect(setTimedEnd(testTrain(), { id: BOB, staff: false }, END, PARTY_NOW)).toMatchObject({
+      ok: true,
+      party: { endTime: END },
+    });
+  });
+
+  it('makes a meetup with an end as its maker sets one', () => {
+    const made = testMeetup({ startTime: START, endTime: END + 59_000 });
+    expect(made).toMatchObject({ endTime: END, lastPossibleTime: END });
   });
 
   it('refuses an end that does not lie after the start', () => {
     const started = withTimes(START, null);
-    expect(setTimedEnd(started, START - HOUR, PARTY_NOW)).toEqual({
+    expect(setTimedEnd(started, AS_MAKER, START - HOUR, PARTY_NOW)).toEqual({
       ok: false,
       reason: 'end-before-start',
     });
-    expect(setTimedEnd(started, START + 30_000, PARTY_NOW)).toEqual({
+    expect(setTimedEnd(started, AS_MAKER, START + 30_000, PARTY_NOW)).toEqual({
       ok: false,
       reason: 'end-before-start',
     });
-    expect(setTimedEnd(started, START + MINUTE, PARTY_NOW).ok).toBe(true);
+    expect(setTimedEnd(started, AS_MAKER, START + MINUTE, PARTY_NOW).ok).toBe(true);
   });
 
   it('removes the end with null: the meetup is open again, for a day after its start', () => {
     const ending = settled(withTimes(START, END), PARTY_NOW);
-    const open = setTimedEnd(ending, null, PARTY_NOW);
+    const open = setTimedEnd(ending, AS_MAKER, null, PARTY_NOW);
     expect(open).toMatchObject({
       ok: true,
       party: { endTime: null, lastPossibleTime: START + DAY },
@@ -337,14 +389,14 @@ describe('setTimedEnd', () => {
   it('gives an old meetup without a start a day from now when its end is taken away', () => {
     const ended = settled(withTimes(null, END), PARTY_NOW);
     const late = END + 3 * DAY;
-    const open = setTimedEnd({ ...ended, deletionTime: late + HOUR }, null, late);
+    const open = setTimedEnd({ ...ended, deletionTime: late + HOUR }, AS_MAKER, null, late);
     expect(open).toMatchObject({
       ok: true,
       party: { endTime: null, lastPossibleTime: late + DAY, deletionTime: null },
     });
     // With a start it is the start that counts, however long ago: it stays over.
     const started = { ...settled(withTimes(START, END), PARTY_NOW), deletionTime: late + HOUR };
-    expect(setTimedEnd(started, null, late)).toMatchObject({
+    expect(setTimedEnd(started, AS_MAKER, null, late)).toMatchObject({
       ok: true,
       party: { lastPossibleTime: START + DAY, deletionTime: late + HOUR },
     });
@@ -352,18 +404,18 @@ describe('setTimedEnd', () => {
 
   it('returns the very same party when the end is what it was', () => {
     const ending = settled(withTimes(START, END), PARTY_NOW);
-    expect(setTimedEnd(ending, END + 1_000, PARTY_NOW).party).toBe(ending);
+    expect(setTimedEnd(ending, AS_MAKER, END + 1_000, PARTY_NOW).party).toBe(ending);
     const open = testMeetup();
-    expect(setTimedEnd(open, null, PARTY_NOW).party).toBe(open);
+    expect(setTimedEnd(open, AS_MAKER, null, PARTY_NOW).party).toBe(open);
   });
 
   it('takes a warning away when the new end lies ahead', () => {
     const late = END + HOUR;
     const warned = { ...settled(withTimes(START, END), PARTY_NOW), deletionTime: late + HOUR };
-    const longer = setTimedEnd(warned, late + 2 * HOUR, late);
+    const longer = setTimedEnd(warned, AS_MAKER, late + 2 * HOUR, late);
     expect(longer.ok && longer.party.deletionTime).toBeNull();
     // Removing the end of a meetup that started less than a day ago does the same.
-    const open = setTimedEnd(warned, null, late);
+    const open = setTimedEnd(warned, AS_MAKER, null, late);
     expect(open.ok && open.party.deletionTime).toBeNull();
   });
 });

@@ -16,6 +16,7 @@ import { InteractionRouter, variedThrottleKey } from '../../discord/router.js';
 import type { Throttle } from '../../discord/throttle.js';
 import { START_THROTTLE } from '../parties/timed.js';
 import { CHANGE_THROTTLE } from '../raids/change.js';
+import { attendeeOf } from '../../domain/party/party.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { NOTHING_CHANGED } from '../../domain/web/raid-manage.js';
 import {
@@ -120,15 +121,20 @@ describe('Manage… of a meetup’s post (plan 8M-21: the map’s editor as a di
     expect(sent(pressed.reply).content).toBe(MEETUP_NOT_YOURS);
   });
 
-  it('asks staff who are not signed up no start, saying why, as the map’s editor', async () => {
+  it('asks staff who are not signed up the start too, and they set it (plan 8Z-2)', async () => {
     const made = await setup();
     const dialog = shownDialog(await made.open(TEST_OWNER_ID));
     expect(dialogFields(dialog).map((field) => field.label)).toEqual([
       'Name',
       'Information',
+      'Starts',
       'Ends',
     ]);
-    expect(dialogText(dialog)).toContain('Sign up for it to change when it starts.');
+    expect(dialogText(dialog)).toBe('Starts now: 6:00 PM (Eastern)\nEnds now: none');
+    const done = await made.submit(dialog, { start: '7pm' }, TEST_OWNER_ID);
+    expect(made.answerOf(done)).toMatch(/^This meetup starts at /u);
+    expect(made.current().timed.startTime).toBe(at('2026-10-13T19:00'));
+    expect(attendeeOf(made.current(), TEST_OWNER_ID)).toBeUndefined();
   });
 
   it('changes what was changed, in the commands’ words, and nothing for an untouched Submit', async () => {
@@ -236,13 +242,31 @@ describe('Manage… of a meetup’s post (plan 8M-21: the map’s editor as a di
     expect(said.mock.invocationCallOrder[renamed]).toBeLessThan(answered);
   });
 
-  it('refuses a start of a member who is not signed up before it counts', async () => {
+  it('lets its maker set the start without being signed up (plan 8Z-2)', async () => {
     const made = await setup();
     const dialog = shownDialog(await made.open());
     await made.attendance.leave(made.party.id, { id: ALICE });
-    const refused = await made.submit(dialog, { start: '7pm' });
-    expect(sent(refused.reply).content).toMatch(/signed up/u);
-    expect(made.current().timed.startTime).toBe(START);
+    const done = await made.submit(dialog, { start: '7pm' });
+    expect(made.answerOf(done)).toMatch(/^This meetup starts at /u);
+    expect(made.current().timed.startTime).toBe(at('2026-10-13T19:00'));
+  });
+
+  it('refuses the times of a Submit by a member who is signed up but neither its maker nor staff', async () => {
+    const made = await setup();
+    // A dialog only its maker could open, sent by Carol, who is signed up.
+    const dialog = shownDialog(await made.open());
+    // More often than `/meet`'s window takes: a refusal counts nothing.
+    for (const typed of [
+      { start: '7pm' },
+      { end: '9pm' },
+      { start: '7pm', end: '9pm' },
+      { start: '7:10pm' },
+      { start: '7:20pm' },
+    ]) {
+      const refused = await made.submit(dialog, typed, CAROL);
+      expect(made.answerOf(refused)).toBe(MEETUP_NOT_YOURS);
+    }
+    expect(made.current()).toMatchObject({ endTime: null, timed: { startTime: START } });
   });
 });
 

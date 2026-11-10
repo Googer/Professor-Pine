@@ -204,7 +204,7 @@ describe('changing a meetup on the map', () => {
     expect(map.made.current().timed.name).toBe('Lake picnic');
   });
 
-  it('lets its maker and staff change it here, nobody else; a start only as /meet allows it, signed up', async () => {
+  it('lets its maker and staff change it here, nobody else; its times too, signed up or not', async () => {
     const map = await changing();
     web = map.web;
     const bob = await map.change(
@@ -213,21 +213,36 @@ describe('changing a meetup on the map', () => {
       await map.web.posting(BOB, 'Bob'),
     );
     expect(bob).toMatchObject({ status: 403, json: { ok: false, text: NOT_YOURS } });
-    // Carol is signed up, but did not make it.
+    // Carol is signed up, but did not make it: neither its text nor its times are hers.
     const carol = await map.web.posting(CAROL, 'Carol');
-    expect((await map.change('info', { drawn: 'Bring snacks.', info: 'x' }, carol)).status).toBe(
-      403,
-    );
+    for (const [what, body] of [
+      ['info', { drawn: 'Bring snacks.', info: 'x' }],
+      ['start', { drawn: START, time: '7pm' }],
+      ['end', { drawn: null, time: '8pm' }],
+      ['times', { start: { drawn: START, time: '7pm' }, end: { drawn: null, time: '8pm' } }],
+    ] as const) {
+      expect(await map.change(what, body, carol)).toMatchObject({
+        status: 403,
+        json: { ok: false, text: NOT_YOURS },
+      });
+    }
+    expect(map.made.current()).toMatchObject({ endTime: null, timed: { startTime: START } });
+    // Staff, who are not signed up, set the start too (plan 8Z-2).
     const owner = await map.web.posting(TEST_OWNER_ID, 'Owner');
     expect(
       (await map.change('name', { drawn: 'Picnic', name: 'Staff picnic' }, owner)).status,
     ).toBe(200);
     const start = await map.change('start', { drawn: START, time: '7pm' }, owner);
-    expect(start).toMatchObject({
-      status: 403,
-      json: { ok: false, text: 'You are not signed up for this meetup.' },
+    expect(start).toMatchObject({ status: 200, json: { ok: true } });
+    expect(map.made.current().timed).toMatchObject({
+      name: 'Staff picnic',
+      startTime: at('2026-10-13T19:00'),
     });
-    expect(map.made.current().timed).toMatchObject({ name: 'Staff picnic', startTime: START });
+    // And its maker, once they have left it.
+    await map.made.attendance.leave(map.made.party.id, { id: ALICE, name: 'Alice' });
+    const left = await map.change('start', { drawn: at('2026-10-13T19:00'), time: '6:30pm' });
+    expect(left).toMatchObject({ status: 200, json: { ok: true } });
+    expect(map.made.current().timed.startTime).toBe(at('2026-10-13T18:30'));
   });
 
   describe('with meetup safety on', () => {
@@ -268,30 +283,69 @@ describe('changing a meetup on the map', () => {
       return { made, web, send, partyId: party.id, requestPost: request.messageId };
     };
 
+    /** What the moderators' channel holds beyond the request's own post, as text. */
+    const toldOf = async (map: Awaited<ReturnType<typeof approved>>) => {
+      await map.made.safety.flushChanges();
+      return map.made.gateway
+        .messagesIn(MOD_CHANNEL)
+        .filter((message) => message.id !== map.requestPost)
+        .map((message) => textOf(message.message));
+    };
+
     it('tells the moderators of a new name and new information from the map, once each', async () => {
       const map = await approved();
       web = map.web;
       await map.send('name', { drawn: 'Book swap', name: 'Paperback swap' });
       await map.send('info', { drawn: 'Bring a book.', info: 'Bring two.' });
-      // A start is no such change.
+      // An end it does not have, removed: no change, nobody told.
       await map.send('end', { drawn: null, time: 'none' });
-      await map.made.safety.flushChanges();
-      const told = map.made.gateway
-        .messagesIn(MOD_CHANNEL)
-        .filter((message) => message.id !== map.requestPost)
-        .map((message) => textOf(message.message));
+      const told = await toldOf(map);
       expect(told).toHaveLength(2);
       expect(told[0]).toContain('renamed it: **Paperback swap**.');
       expect(told[1]).toContain('Bring two.');
     });
 
-    it('refuses a blocked maker a new name and new information, not the times; staff are never blocked', async () => {
+    it('tells the moderators of new times from the map (plan 8Z-2): each change, and both times of one request in one notice', async () => {
+      const map = await approved();
+      web = map.web;
+      // The book swap starts a day after the parties' clock, at 14:00.
+      const start = map.made.clock.now + 24 * 3_600_000;
+      const three = at('2026-10-14T15:00');
+      const five = at('2026-10-14T17:00');
+      const six = at('2026-10-14T18:00');
+      const stamp = (time: number) => `<t:${String(time / 1000)}:F>`;
+      expect((await map.send('start', { drawn: start, time: '10-14 3pm' })).status).toBe(200);
+      expect((await map.send('end', { drawn: null, time: '5pm' })).status).toBe(200);
+      const both = await map.send('times', {
+        start: { drawn: three, time: '10-14 5pm' },
+        end: { drawn: five, time: '6pm' },
+      });
+      expect(both.status).toBe(200);
+      const told = await toldOf(map);
+      expect(told).toHaveLength(3);
+      expect(told[0]).toContain(`set its start: ${stamp(three)}`);
+      expect(told[0]).not.toContain('its end');
+      expect(told[1]).toContain(`set its end: ${stamp(five)}`);
+      // Both moved later (the end went first): one notice, the start said first.
+      expect(told[2]).toMatch(
+        new RegExp(`set its start: ${stamp(five)}[^]*set its end: ${stamp(six)}`, 'u'),
+      );
+    });
+
+    it('refuses a blocked maker every change, its times too (plan 8Z-2); staff are never blocked', async () => {
       const map = await approved();
       web = map.web;
       await map.made.storage.addBlock(SAFETY_SERVER, ALICE, MOD);
+      const start = map.made.clock.now + 24 * 3_600_000;
       for (const [what, body] of [
         ['name', { drawn: 'Book swap', name: 'Still mine' }],
         ['info', { drawn: 'Bring a book.', info: 'Still mine.' }],
+        ['start', { drawn: start, time: '10-14 3pm' }],
+        ['end', { drawn: null, time: '10-14 5pm' }],
+        [
+          'times',
+          { start: { drawn: start, time: '10-14 3pm' }, end: { drawn: null, time: '5pm' } },
+        ],
       ] as const) {
         const refused = await map.send(what, body);
         expect(refused).toMatchObject({
@@ -301,10 +355,12 @@ describe('changing a meetup on the map', () => {
       }
       const party = map.made.store.get(map.partyId);
       expect(party?.type === 'meetup' ? party.timed.name : '').toBe('Book swap');
-      expect((await map.send('end', { drawn: null, time: 'none' })).status).toBe(200);
+      expect(party).toMatchObject({ endTime: null, timed: { startTime: start } });
       const owner = await map.web.posting(TEST_OWNER_ID, 'Owner');
       const staff = await map.send('name', { drawn: 'Book swap', name: 'Staff swap' }, owner);
       expect(staff.status).toBe(200);
+      const ended = await map.send('end', { drawn: null, time: '10-14 5pm' }, owner);
+      expect(ended.status).toBe(200);
     });
   });
 
@@ -465,7 +521,7 @@ describe('changing a meetup on the map', () => {
       expect(throttles.wait('end', ALICE, CHANGE_THROTTLE, PARTY_NOW)).toBeDefined();
     });
 
-    it('guards as the other changes: stale, not signed up, a stranger, malformed, over', async () => {
+    it('guards as the other changes: stale, a stranger, malformed, over; staff need no sign-up', async () => {
       const map = await sixToSeven();
       const stale = await map.change('times', {
         start: { drawn: START + 60_000, time: '8pm' },
@@ -473,11 +529,13 @@ describe('changing a meetup on the map', () => {
       });
       expect(stale.status).toBe(409);
       expect(stale.json.meetup?.startTime).toBe(START);
-      const staff = await map.web.posting(TEST_OWNER_ID, 'Owner');
-      expect((await map.times('8pm', '9pm', staff)).status).toBe(403);
       const bob = await map.web.posting(BOB, 'Bob');
       expect((await map.times('8pm', '9pm', bob)).json.text).toBe(NOT_YOURS);
       expect(map.made.current().endTime).toBe(SEVEN);
+      // Staff who are not signed up (plan 8Z-2), then both put back.
+      const staff = await map.web.posting(TEST_OWNER_ID, 'Owner');
+      expect((await map.times('6:10pm', '7:10pm', staff)).status).toBe(200);
+      expect((await map.times('6pm', '7pm', staff)).status).toBe(200);
       const extra = {
         start: { drawn: START, time: '8pm' },
         end: { drawn: SEVEN, time: '9pm' },

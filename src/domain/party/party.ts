@@ -627,6 +627,8 @@ export function hasGroups(party: Party): boolean {
 export type PartyProblem =
   /** The member has no attendee record. */
   | 'not-attending'
+  /** A meetup's times are set by its maker and staff alone (`mayEditMeetup`). */
+  | 'not-yours'
   | 'no-such-group'
   /** A head count below 1 or above the allowed maximum. */
   | 'bad-count'
@@ -782,16 +784,32 @@ export function attendeeOf(party: PartyCore, memberId: string): Attendee | undef
 }
 
 /**
- * Whether a member may arrange a party: lay its route and set its times. Whoever is signed
+ * Whether a member may arrange a party: lay its route and set its start. Whoever is signed
  * up; and of a train also the member who made it, signed up or not (Matt, 2026-10-13: a maker
  * whose automatic status is None could otherwise do nothing to their own train). Moving a
- * train and being its conductor still take a sign-up.
+ * train and being its conductor still take a sign-up. Since plan 8Z-2 only a train's changes
+ * ask it: a meetup's times are its maker's and staff's (`mayEditMeetup`, `timesRefusal`).
  */
 export function mayArrange(party: PartyCore & { type: string }, memberId: string): boolean {
   return (
     attendeeOf(party, memberId) !== undefined ||
     (party.type === 'train' && party.createdById === memberId)
   );
+}
+
+/**
+ * Whether a member may change a meetup: its text (`/name`, `/info`) and its times (`/meet`,
+ * `/cancel-meet`, `/end`), on Discord and on the map alike (spec 3.7, "its maker and staff";
+ * plan 8Z for the text, plan 8Z-2 for the times: Matt, 2026-11-10): the member who made it, or
+ * staff (an admin, a moderator, the bot's owner). No sign-up is asked: a meetup's text and times
+ * are safety-relevant since plan 8S-1, and are its maker's whether they are on its list or not.
+ */
+export function mayEditMeetup(
+  party: Pick<MeetupParty, 'createdById'>,
+  memberId: string,
+  staff: boolean,
+): boolean {
+  return staff || party.createdById === memberId;
 }
 
 /**

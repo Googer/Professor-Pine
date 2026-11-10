@@ -8,7 +8,6 @@ import {
   isMax,
   isRaid,
   isTimed,
-  mayArrange,
   remoteAllowed,
   type Attendee,
   type MaxParty,
@@ -497,11 +496,12 @@ const MEETUP_PLACE_KEYS = { gym: 'gym', stop: 'stop', powerspot: 'spot' } as con
 
 /**
  * The editor of a meetup on the map as the member may use it (plan 8M-5M): its maker and staff
- * (`mayEditMeetup`), the start only signed up (`mayArrange`, as `/meet`); none while read-only.
+ * (`mayEditMeetup`), the start with the rest whether they are signed up or not (plan 8Z-2, as
+ * `/meet`); none while read-only.
  */
 export function meetupPanelOf(party: MeetupParty, input: PartyViewInput): MapMeetup['panel'] {
   if (input.readOnly || !mayEditMeetup(party, input.memberId, input.staff)) return null;
-  return { start: mayArrange(party, input.memberId) };
+  return { start: true };
 }
 
 function meetupOf(party: MeetupParty, link: string, input: PartyViewInput): MapMeetup {

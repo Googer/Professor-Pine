@@ -494,7 +494,7 @@ describe('PartyScheduler: a train', () => {
 
     const ended = await createdTrain();
     const end = PARTY_NOW + 2 * HOUR;
-    await ended.timed.setEndTime(ended.party.id, { id: REPORTER }, end);
+    await ended.timed.setEndTime(ended.party.id, { id: REPORTER }, false, end);
     await ended.attendance.flush();
     await tickAt(ended, end + 6 * MINUTE);
     expect(ended.gateway.messagesIn(ended.postId).at(-1)?.message).toEqual({

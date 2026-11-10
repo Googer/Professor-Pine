@@ -1,4 +1,9 @@
-import { setTimesAs, typedTimedTime, type TimeAsked, type TimesRead } from '../parties/timed.js';
+import {
+  setTrainTimesAs,
+  typedTimedTime,
+  type TimeAsked,
+  type TimesRead,
+} from '../parties/timed.js';
 import type { Throttle } from '../../discord/throttle.js';
 import type { AppContext } from '../../app-context.js';
 import {
@@ -571,8 +576,8 @@ function managedWords(
  * and the stop the route began with). A refusal of a route change from a form drawn where the
  * train no longer is says where it is now (`movedOnWords`); a refusal of several parts adds that
  * nothing was changed (review r0 B2). `surface` names what takes a finished route back. The start
- * and the end go `/meet`'s and `/end`'s way once the rest went through (`setTimesAs`, which a
- * meetup's editor shares, and who may arrange the train).
+ * and the end go `/meet`'s and `/end`'s way once the rest went through (`setTrainTimesAs`, the
+ * steps of a meetup's editor's `setTimesAs`, and who may arrange the train).
  */
 export function manageTrainAs(
   ctx: TrainManaging,
@@ -613,7 +618,7 @@ async function manageInTurn(
       ...(start === undefined ? {} : { start }),
       ...(end === undefined ? {} : { end }),
     };
-    const answer = await setTimesAs(ctx, party, member, times, now);
+    const answer = await setTrainTimesAs(ctx, party, { member, staff }, times, now);
     const text = done === undefined ? answer.text : `${done} ${answer.text}`;
     if (answer.kind !== 'refused') return { ...answer, text };
     const applied = done !== undefined || (answer.went ?? []).length > 0;

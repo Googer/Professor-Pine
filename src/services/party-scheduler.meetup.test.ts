@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import {
   ALICE,
+  AS_MAKER,
   asMeetup,
   at,
   BOB,
@@ -49,8 +50,8 @@ const shownPost = (made: Made) => made.gateway.posts.get(made.postId)?.message;
 async function planned(): Promise<Made> {
   const made = await createdMeetup();
   const id = made.party.id;
-  await made.store.update(id, (party) => setStartTime(asMeetup(party), REPORTER, START, PARTY_NOW));
-  await made.store.update(id, (party) => setTimedEnd(asMeetup(party), END, PARTY_NOW));
+  await made.store.update(id, (party) => setStartTime(asMeetup(party), AS_MAKER, START, PARTY_NOW));
+  await made.store.update(id, (party) => setTimedEnd(asMeetup(party), AS_MAKER, END, PARTY_NOW));
   await made.attendance.signUp(id, alice, PartyStatus.Present);
   await made.attendance.signUp(id, bob, PartyStatus.Present);
   await made.attendance.flush();
@@ -126,7 +127,7 @@ describe('PartyScheduler: a meetup while it goes on', () => {
     const made = await createdMeetup();
     const tomorrow = at('2026-10-14T10:00');
     await made.store.update(made.party.id, (party) =>
-      setStartTime(asMeetup(party), REPORTER, tomorrow, PARTY_NOW),
+      setStartTime(asMeetup(party), AS_MAKER, tomorrow, PARTY_NOW),
     );
     await tickAt(made, PARTY_NOW + MINUTE);
     expect(textOf(shownPost(made))).toContain(`at ${stamp(tomorrow, 'F')}.`);
@@ -204,7 +205,7 @@ describe('PartyScheduler: archiving a meetup', () => {
   it('shows a meetup that only had a start as over too when its day has run out', async () => {
     const made = await createdMeetup();
     await made.store.update(made.party.id, (party) =>
-      setStartTime(asMeetup(party), REPORTER, START, PARTY_NOW),
+      setStartTime(asMeetup(party), AS_MAKER, START, PARTY_NOW),
     );
     await tickAt(made, START + DAY + 6 * MINUTE);
     await tickAt(made, START + DAY + 66 * MINUTE);
@@ -276,9 +277,11 @@ describe('PartyScheduler: archiving a meetup', () => {
     // Kept by nobody, long over, and warned.
     await tickAt(made, late);
     expect(made.current().deletionTime).not.toBeNull();
-    await made.store.update(made.party.id, (party) => setTimedEnd(asMeetup(party), null, late));
     await made.store.update(made.party.id, (party) =>
-      setStartTime(asMeetup(party), REPORTER, null, late),
+      setTimedEnd(asMeetup(party), AS_MAKER, null, late),
+    );
+    await made.store.update(made.party.id, (party) =>
+      setStartTime(asMeetup(party), AS_MAKER, null, late),
     );
     expect(made.current()).toMatchObject({ deletionTime: null, lastPossibleTime: late + DAY });
     await tickAt(made, late + MINUTE);
@@ -298,7 +301,7 @@ describe('PartyScheduler: archiving a meetup', () => {
     // The tick is queued, and right behind it a later end.
     const ticking = made.scheduler.tick();
     const corrected = made.store.update(made.party.id, (party) =>
-      setTimedEnd(asMeetup(party), due + 2 * HOUR, made.clock.now),
+      setTimedEnd(asMeetup(party), AS_MAKER, due + 2 * HOUR, made.clock.now),
     );
     await Promise.all([ticking, corrected]);
     await made.scheduler.whenIdle();
@@ -310,7 +313,7 @@ describe('PartyScheduler: archiving a meetup', () => {
   it('counts the day from the start of a meetup that has one', async () => {
     const made = await createdMeetup();
     await made.store.update(made.party.id, (party) =>
-      setStartTime(asMeetup(party), REPORTER, START, PARTY_NOW),
+      setStartTime(asMeetup(party), AS_MAKER, START, PARTY_NOW),
     );
     await tickAt(made, PARTY_NOW + DAY + 6 * MINUTE);
     expect(made.current().deletionTime).toBeNull();
@@ -327,7 +330,7 @@ describe('PartyScheduler: archiving a meetup', () => {
     // Somebody says when it ends after all.
     const later = warnedAt + 3 * HOUR;
     await made.store.update(made.party.id, (party) =>
-      setTimedEnd(asMeetup(party), later, made.clock.now),
+      setTimedEnd(asMeetup(party), AS_MAKER, later, made.clock.now),
     );
     expect(made.current().deletionTime).toBeNull();
     await tickAt(made, warnedAt + MINUTE);

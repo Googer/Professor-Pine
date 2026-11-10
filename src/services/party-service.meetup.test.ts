@@ -10,6 +10,7 @@ import {
 } from '../../test/support/gyms.js';
 import {
   ALICE,
+  AS_MAKER,
   asMeetup,
   at,
   BOB,
@@ -348,9 +349,11 @@ describe('PartyService: the post of a meetup', () => {
     const { store, service, gateway, postId, clock } = made;
     await store.update(made.party.id, (party) => setName(asMeetup(party), 'Raid hour meet'));
     await store.update(made.party.id, (party) =>
-      setStartTime(asMeetup(party), REPORTER, START, clock.now),
+      setStartTime(asMeetup(party), AS_MAKER, START, clock.now),
     );
-    await store.update(made.party.id, (party) => setTimedEnd(asMeetup(party), END, clock.now));
+    await store.update(made.party.id, (party) =>
+      setTimedEnd(asMeetup(party), AS_MAKER, END, clock.now),
+    );
     await store.update(made.party.id, (party) => setDescription(asMeetup(party), 'Bring snacks.'));
     service.changed(made.party.id);
     await service.flush();
@@ -614,7 +617,7 @@ describe('PartyService: a meetup after a restart', () => {
   it('shows the post anew from what is stored, and finds the meetup by its post', async () => {
     const made = await createdMeetup();
     await made.store.update(made.party.id, (party) =>
-      setStartTime(asMeetup(party), REPORTER, START, made.clock.now),
+      setStartTime(asMeetup(party), AS_MAKER, START, made.clock.now),
     );
     const again = await restarted(made);
     expect(again.store.byPost(made.postId)).toEqual(made.current());

@@ -45,6 +45,12 @@ export const ALICE = '200000000000000002';
 export const BOB = '200000000000000003';
 export const CAROL = '200000000000000004';
 
+/**
+ * `REPORTER`, who made the test meetup and the test train, as who asks to set a time of one
+ * (`TimesAsker`): its maker, no staff.
+ */
+export const AS_MAKER = { id: REPORTER, staff: false } as const;
+
 /** Epoch ms of a wall-clock time in the zone of the test settings. */
 export function at(iso: string): number {
   return zonedAt(iso, PARTY_ZONE);

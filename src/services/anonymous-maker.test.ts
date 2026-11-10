@@ -91,8 +91,8 @@ describe('the lines of a train whose maker asked not to be named', () => {
     await made.trains.setBoss(id, maker, { boss: { name: 'Mewtwo' }, label: 'Mewtwo' });
     await made.trains.setBoss(id, maker, { boss: null, label: '' });
     await made.timed.setName(id, maker, 'Sunday legendaries');
-    await made.timed.setEndTime(id, maker, made.clock.now + 3 * 60 * 60_000);
-    await made.timed.setEndTime(id, maker, null);
+    await made.timed.setEndTime(id, maker, false, made.clock.now + 3 * 60 * 60_000);
+    await made.timed.setEndTime(id, maker, false, null);
     const said = await lines(made);
     expect(said.join('\n')).not.toMatch(/Rhea|<@/);
     expect(said).toEqual([
@@ -114,7 +114,7 @@ describe('the lines of a train whose maker asked not to be named', () => {
   it('do not name the maker in the direct message about the start either', async () => {
     const made = await createdTrain({ anonymous: true, autoStatus: PartyStatus.NotInterested });
     await made.attendance.signUp(made.party.id, bob, PartyStatus.Coming);
-    await made.timed.setStartTime(made.party.id, maker, made.clock.now + 2 * 60 * 60_000);
+    await made.timed.setStartTime(made.party.id, maker, false, made.clock.now + 2 * 60 * 60_000);
     await made.timed.flush();
     await made.notify.flush();
     const dm = classic(made.dms.to(BOB)[0]);

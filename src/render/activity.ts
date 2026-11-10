@@ -97,6 +97,13 @@ export function standingLine(
 }
 
 /**
+ * What a member is told who is neither a meetup's maker nor staff (`mayEditMeetup`), by `/name`,
+ * `/info`, `/meet`, `/cancel-meet` and `/end` in its post alike.
+ */
+export const NOT_YOUR_MEETUP =
+  "Only its maker and moderators can change this meetup's name, information and times.";
+
+/**
  * Why a change was refused, as a sentence for the member. `word` is what the party is called
  * (`partyWord`): the reasons that any kind of party can give name it.
  */
@@ -108,6 +115,8 @@ export function problemText(
   switch (reason) {
     case 'not-attending':
       return `You are not signed up for this ${word}.`;
+    case 'not-yours':
+      return NOT_YOUR_MEETUP;
     case 'no-such-group':
       return `This ${word} has no such group.`;
     case 'bad-count':

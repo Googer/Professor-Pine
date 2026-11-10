@@ -427,8 +427,9 @@ export interface MapMeetup {
   info: string | null;
   /**
    * The editor on the map for who may change it (plan 8M-5M: its maker and staff; never while
-   * read-only), null for anybody else: name, information and end, and the start (`start`) only
-   * for a member signed up, as `/meet` has it.
+   * read-only), null for anybody else: name, information, start and end. `start` is always true
+   * since plan 8Z-2 (who may change a meetup sets its start signed up or not, as `/meet` has it);
+   * it stays for a page loaded before, which asks no start without it.
    */
   panel: { start: boolean } | null;
   /** Staff's Delete… (plan 8M-8B); absent for anybody else. */

@@ -1,7 +1,6 @@
 import type { AppContext } from '../../app-context.js';
 import { UserError } from '../../discord/errors.js';
-import { mayEditMeetup } from '../../domain/party/meetup.js';
-import { mayArrange, type MeetupParty } from '../../domain/party/party.js';
+import type { MeetupParty } from '../../domain/party/party.js';
 import { asDrawn } from '../../domain/party/timed.js';
 import type { MeetupChange } from '../../domain/web/meetup-data.js';
 import type { Member } from '../../services/attendance-service.js';
@@ -28,7 +27,7 @@ import { meetupChangeRefusal } from './meetup-changes.js';
 
 /** Why a change of a meetup was refused before anything counted. */
 export type MeetupChangeRefused =
-  | { reason: 'not-yours' | 'blocked' | 'changed-meanwhile' | 'not-attending' }
+  | { reason: 'not-yours' | 'blocked' | 'changed-meanwhile' }
   /** A time the commands' reader could not take, in its words. */
   | { reason: 'unread'; text: string };
 
@@ -53,10 +52,10 @@ export function meetupDrawnOf(party: MeetupParty, change: MeetupChange): string 
 }
 
 /**
- * The checks of one change, in the map's order: who may (the text by the rule of `/name` and
- * `/info`, `meetupChangeRefusal`; the times by `mayEditMeetup`), whether it was drawn from what the
- * meetup is now, and of a start what `/meet`'s guard refuses (not signed up, a time it cannot
- * read). The start as read where it passes.
+ * The checks of one change, in the map's order: who may, by the one rule of every change of a
+ * meetup, its text and its times alike (`meetupChangeRefusal`: its maker and staff, a blocked
+ * maker refused; plan 8Z-2), whether it was drawn from what the meetup is now, and of a start a
+ * time `/meet`'s guard cannot read. The start as read where it passes.
  */
 export async function meetupChangeCheck(
   ctx: Pick<AppContext, 'meetupSafety' | 'config'>,
@@ -67,17 +66,12 @@ export async function meetupChangeCheck(
   input: MeetupChangeInput,
   now: number,
 ): Promise<{ refused: MeetupChangeRefused } | { start: number | null }> {
-  if (input.change === 'name' || input.change === 'info') {
-    const refusal = await meetupChangeRefusal(ctx, serverId, party, userId, staff);
-    if (refusal !== undefined) return { refused: { reason: refusal } };
-  } else if (!mayEditMeetup(party, userId, staff)) {
-    return { refused: { reason: 'not-yours' } };
-  }
+  const refusal = await meetupChangeRefusal(ctx, serverId, party, userId, staff);
+  if (refusal !== undefined) return { refused: { reason: refusal } };
   if (asDrawn(meetupDrawnOf(party, input.change), input.drawn) !== undefined) {
     return { refused: { reason: 'changed-meanwhile' } };
   }
   if (input.change !== 'start') return { start: null };
-  if (!mayArrange(party, userId)) return { refused: { reason: 'not-attending' } };
   try {
     const typed = typedTimedTime(ctx, party, 'meet', input.time, now);
     return { start: typed === 'unset' ? null : typed.at };
@@ -88,11 +82,13 @@ export async function meetupChangeCheck(
 }
 
 /**
- * The checks of both times at once, in the map's order: who may, both drawn values, `/meet`'s
- * guard, and both read together (`readTimes`: unreadable or out of order refused, nothing changed).
+ * The checks of both times at once, in the map's order: who may (`meetupChangeRefusal`, as every
+ * change of a meetup), both drawn values, and both read together (`readTimes`: unreadable or out
+ * of order refused, nothing changed).
  */
-export function meetupTimesCheck(
-  ctx: Pick<AppContext, 'config' | 'attendance'>,
+export async function meetupTimesCheck(
+  ctx: Pick<AppContext, 'meetupSafety' | 'config' | 'attendance'>,
+  serverId: string,
   party: MeetupParty,
   userId: string,
   staff: boolean,
@@ -101,15 +97,15 @@ export function meetupTimesCheck(
     end: { drawn: number | null; time: string };
   },
   now: number,
-): { refused: MeetupChangeRefused } | { read: TimesRead } {
-  if (!mayEditMeetup(party, userId, staff)) return { refused: { reason: 'not-yours' } };
+): Promise<{ refused: MeetupChangeRefused } | { read: TimesRead }> {
+  const refusal = await meetupChangeRefusal(ctx, serverId, party, userId, staff);
+  if (refusal !== undefined) return { refused: { reason: refusal } };
   if (
     asDrawn(party.timed.startTime, times.start.drawn) !== undefined ||
     asDrawn(party.endTime, times.end.drawn) !== undefined
   ) {
     return { refused: { reason: 'changed-meanwhile' } };
   }
-  if (!mayArrange(party, userId)) return { refused: { reason: 'not-attending' } };
   try {
     return {
       read: readTimes(ctx, party, { start: times.start.time, end: times.end.time }, now),
@@ -122,13 +118,15 @@ export function meetupTimesCheck(
 
 /**
  * One change as its command makes it, with the value drawn (`start` as `meetupChangeCheck` read
- * it). `/end`'s reader throws a `UserError` for a time it cannot read.
+ * it), by the member, staff or not as the caller knows it (the times ask it again inside the
+ * store). `/end`'s reader throws a `UserError` for a time it cannot read.
  */
 export function meetupChangeAs(
   ctx: TimedChanging,
   serverId: string,
   party: MeetupParty,
   member: Member,
+  staff: boolean,
   input: MeetupChangeInput,
   start: number | null,
   now: number,
@@ -139,8 +137,8 @@ export function meetupChangeAs(
     case 'info':
       return describeAs(ctx, serverId, party, member, input.info, input.drawn);
     case 'start':
-      return startAs(ctx, party, member, start, now, input.drawn);
+      return startAs(ctx, serverId, party, { member, staff }, start, now, input.drawn);
     case 'end':
-      return endAs(ctx, party, member, input.time, now, input.drawn);
+      return endAs(ctx, serverId, party, { member, staff }, input.time, now, input.drawn);
   }
 }

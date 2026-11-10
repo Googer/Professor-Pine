@@ -13,6 +13,7 @@ import { memberInfo } from '../../discord/member-info.js';
 import type { Throttle } from '../../discord/throttle.js';
 import { isMax, isRaid, isTimed, type RaidParty } from '../../domain/party/party.js';
 import { changeMaxEnd } from '../max/max-changes.js';
+import { requireMeetupChanger } from '../meetups/meetup-changes.js';
 import type { Member } from '../../services/attendance-service.js';
 import type { RaidChangeOutcome } from '../../services/raid-change-service.js';
 import { commandParty, commandRaid } from '../parties/reply.js';
@@ -117,8 +118,9 @@ export const hatch: SimpleCommand = {
 };
 
 /**
- * `/end`: when a raid ends (its hatch time follows), or when a train or meetup ends. There anybody
- * in the post may set it, and `none` removes it (`changeEnd`).
+ * `/end`: when a raid ends (its hatch time follows), or when a train or meetup ends, where `none`
+ * removes it (`changeEnd`). Anybody in a train's post may set it; a meetup's end is for its maker
+ * and staff, a blocked maker refused (`requireMeetupChanger`, plan 8Z-2).
  */
 export const end: SimpleCommand = {
   data: new SlashCommandBuilder()
@@ -147,7 +149,7 @@ export const end: SimpleCommand = {
       'tomorrow. A date comes first, month-day ' +
       `(\`${DATE_EXAMPLE} 9pm\`).\n\nA train or meetup without an end is over a day after it ` +
       'started. One without any time is archived a day after it was made, or after its last ' +
-      'time was removed.',
+      'time was removed.\n\nOnly its maker or a moderator can set when a meetup ends.',
     examples: [
       '/end time:20',
       '/end time:6:15pm',
@@ -155,7 +157,7 @@ export const end: SimpleCommand = {
       '/end time:none',
     ],
   },
-  guards: [requireParty],
+  guards: [requireParty, requireMeetupChanger],
   throttle: CHANGE_THROTTLE,
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);

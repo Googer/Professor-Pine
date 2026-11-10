@@ -210,7 +210,7 @@ export async function describeAs(
       serverId,
       party: outcome.party,
       by: member,
-      change: { kind: 'info', info: outcome.party.meetup.description },
+      changes: [{ kind: 'info', info: outcome.party.meetup.description }],
     });
   }
   return timedAnswer(ctx, party, outcome, (ok) =>

@@ -604,8 +604,13 @@ describe('NotifyService: a meeting time', () => {
       await made.attendance.signUp(made.party.id, member(id, name), PartyStatus.Coming);
     }
     const start = at('2026-10-13T16:00');
-    await made.timed.setStartTime(made.party.id, member(ALICE, 'Alice'), start - 30 * MINUTE);
-    await made.timed.setStartTime(made.party.id, member(ALICE, 'Alice'), start);
+    await made.timed.setStartTime(
+      made.party.id,
+      member(ALICE, 'Alice'),
+      false,
+      start - 30 * MINUTE,
+    );
+    await made.timed.setStartTime(made.party.id, member(ALICE, 'Alice'), false, start);
     await made.timed.flush();
     await made.notify.flush();
     expect(made.dms.recipients.sort()).toEqual([BOB, REPORTER].sort());
@@ -616,7 +621,7 @@ describe('NotifyService: a meeting time', () => {
       ],
     ]);
     expect(made.dms.jobs[0]).toMatchObject({ priority: DM_PRIORITY.urgent, expiresAt: start });
-    await made.timed.setStartTime(made.party.id, member(BOB, 'Bob'), null);
+    await made.timed.setStartTime(made.party.id, member(BOB, 'Bob'), false, null);
     await made.timed.flush();
     await made.notify.flush();
     expect(told(made, ALICE)).toEqual([
@@ -637,7 +642,7 @@ describe('NotifyService: a meeting time', () => {
     );
     await made.attendance.signUp(made.party.id, member(ALICE, 'Alice'), PartyStatus.Coming);
     const start = at('2026-10-13T16:00');
-    await made.timed.setStartTime(made.party.id, member(ALICE, 'Alice'), start);
+    await made.timed.setStartTime(made.party.id, member(ALICE, 'Alice'), false, start);
     await made.timed.flush();
     await made.notify.flush();
     expect(made.said().some((line) => line.includes('set the start of this train'))).toBe(true);
@@ -695,7 +700,12 @@ describe('NotifyService: a meeting time', () => {
     );
     await wayspots.load();
     await made.attendance.signUp(made.party.id, member(ALICE, 'Alice'), PartyStatus.Coming);
-    await made.timed.setStartTime(made.party.id, member(REPORTER, 'Rhea'), at('2026-10-13T16:00'));
+    await made.timed.setStartTime(
+      made.party.id,
+      member(REPORTER, 'Rhea'),
+      false,
+      at('2026-10-13T16:00'),
+    );
     await made.timed.flush();
     await made.notify.flush();
     const [sentence, where] = told(made, ALICE)[0] ?? [];
@@ -709,7 +719,7 @@ describe('NotifyService: a meeting time', () => {
     const made = await createdMeetup();
     await made.attendance.signUp(made.party.id, member(ALICE, 'Alice'), PartyStatus.Coming);
     const start = at('2026-10-17T11:00');
-    await made.timed.setStartTime(made.party.id, member(REPORTER, 'Rhea'), start);
+    await made.timed.setStartTime(made.party.id, member(REPORTER, 'Rhea'), false, start);
     await made.timed.flush();
     await made.notify.flush();
     expect(told(made, ALICE)[0]?.[0]).toContain(

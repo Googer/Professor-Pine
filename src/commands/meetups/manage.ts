@@ -7,10 +7,9 @@ import { UserError } from '../../discord/errors.js';
 import { guildIdOf, isStaff, requireGuild } from '../../discord/guards.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import { mayEditMeetup } from '../../domain/party/meetup.js';
-import { isMeetup, mayArrange, type MeetupParty } from '../../domain/party/party.js';
+import { isMeetup, type MeetupParty } from '../../domain/party/party.js';
 import { MEETUP_NOT_YOURS } from '../../domain/web/meetup-data.js';
 import { manageWords } from '../../domain/web/raid-manage.js';
-import { problemText } from '../../render/activity.js';
 import {
   drawnMark,
   MEETUP_END_INPUT,
@@ -62,14 +61,16 @@ export async function openMeetupManage(
   await interaction.showModal(
     meetupManageDialog({
       party,
-      asksStart: mayArrange(party, userId),
       now: Date.now(),
       zone: ctx.config.settings.timezone,
     }),
   );
 }
 
-/** A line of the Submit; undefined for one the dialog did not have (the start, unasked). */
+/**
+ * A line of the Submit; undefined for one the dialog did not have (the start of a dialog opened
+ * before plan 8Z-2 for staff who were not signed up).
+ */
 function typedLine(interaction: ModalSubmitInteraction, id: string): string | undefined {
   return interaction.fields.fields.has(id) ? interaction.fields.getTextInputValue(id) : undefined;
 }
@@ -81,9 +82,10 @@ function typedTime(interaction: ModalSubmitInteraction, id: string): string {
 
 /**
  * A Submit's times, refused before anything counts, as `/meet`'s guard and the map refuse them: a
- * start of a member who is not signed up or that is no time; both at once read together
- * (`readTimes`, review M2: unreadable or out of order), as the map's `…/times` reads them. An end
- * alone is read as `/end` reads it, after it counted, as on the map.
+ * start that is no time; both at once read together (`readTimes`, review M2: unreadable or out of
+ * order), as the map's `…/times` reads them. An end alone is read as `/end` reads it, after it
+ * counted, as on the map. Who may is asked at the Submit's own turn (`meetupChangeCheck`,
+ * `meetupTimesCheck`).
  */
 const requireTimesChange: Guard = (interaction, ctx) => {
   if (!interaction.isModalSubmit()) return;
@@ -91,9 +93,6 @@ const requireTimesChange: Guard = (interaction, ctx) => {
   const end = typedTime(interaction, MEETUP_END_INPUT);
   const party = ctx.parties.get(decodeCustomId(interaction.customId)?.id ?? '');
   if (start === '' || !party || !isMeetup(party)) return;
-  if (!mayArrange(party, interaction.user.id)) {
-    throw new UserError(problemText('not-attending', ctx.attendance.limits(), 'meetup'));
-  }
   if (end === '') typedTimedTime(ctx, party, 'meet', start, Date.now());
   else readTimes(ctx, party, { start, end }, Date.now());
 };
@@ -220,11 +219,18 @@ export async function submitMeetupManage(
         return BLOCKED_FROM_CHANGING;
       case 'changed-meanwhile':
         return MEETUP_CHANGED_MEANWHILE;
-      case 'not-attending':
-        return problemText('not-attending', ctx.attendance.limits(), 'meetup');
       case 'unread':
         return why.text;
     }
+  };
+  /** A turn refused by its checks: a blocked maker, nothing said yet, with Appeal…. */
+  const refusedBefore = (why: MeetupChangeRefused): string => {
+    if (why.reason === 'blocked' && said.length === 0) {
+      throw new UserError(BLOCKED_FROM_CHANGING, {
+        answer: blockedAnswer(BLOCKED_FROM_CHANGING, serverId),
+      });
+    }
+    return refusalWords(why);
   };
   const now = Date.now();
   // One Submit is one message in the post where it moves the start (review SF1-6): its lines
@@ -250,14 +256,7 @@ export async function submitMeetupManage(
             turn.one,
             now,
           );
-          if ('refused' in checked) {
-            if (checked.refused.reason === 'blocked' && said.length === 0) {
-              throw new UserError(BLOCKED_FROM_CHANGING, {
-                answer: blockedAnswer(BLOCKED_FROM_CHANGING, serverId),
-              });
-            }
-            return refusalWords(checked.refused);
-          }
+          if ('refused' in checked) return refusedBefore(checked.refused);
           const window = meetupChangeWindow(turn.one.change);
           const counted = countUse(ctx.throttles, window, userId, Date.now());
           if ('refusal' in counted) return counted.refusal;
@@ -267,6 +266,7 @@ export async function submitMeetupManage(
               serverId,
               current,
               member,
+              staff,
               turn.one,
               checked.start,
               now,
@@ -278,15 +278,28 @@ export async function submitMeetupManage(
             return err.message;
           }
         } else {
-          const checked = meetupTimesCheck(ctx, current, userId, staff, turn.times, now);
-          if ('refused' in checked) return refusalWords(checked.refused);
+          const checked = await meetupTimesCheck(
+            ctx,
+            serverId,
+            current,
+            userId,
+            staff,
+            turn.times,
+            now,
+          );
+          if ('refused' in checked) return refusedBefore(checked.refused);
           const counted = countTimes(ctx.throttles, userId, checked.read, Date.now());
           if ('refusal' in counted) return counted.refusal;
           try {
-            answer = await setTimesAs(ctx, current, member, checked.read, now, {
-              start: turn.times.start.drawn,
-              end: turn.times.end.drawn,
-            });
+            answer = await setTimesAs(
+              ctx,
+              serverId,
+              current,
+              { member, staff },
+              checked.read,
+              now,
+              { start: turn.times.start.drawn, end: turn.times.end.drawn },
+            );
           } catch (err) {
             // As the map's: any failure of both times gives their uses back.
             counted.givenBack(Date.now());

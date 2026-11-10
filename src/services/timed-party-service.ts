@@ -192,32 +192,38 @@ export class TimedPartyService {
   }
 
   /**
-   * When the party starts, for everybody, or no start any more with null. Only for a member who
-   * is signed up (`not-attending`); refused when it would not lie before the end. `others` are
-   * the members who will be told. The caller has checked the time (`typedTimedTime`).
+   * When the party starts, for everybody, or no start any more with null. Only for who may, as
+   * the domain decides it inside the store (`timesRefusal`): a meetup's maker and staff
+   * (`not-yours`; `staff` as the caller knows it, `isStaff` or `isMapStaff`), of a train a
+   * member who is signed up and its maker (`not-attending`); refused when it would not lie before
+   * the end. `others` are the members who will be told. The caller has checked the time
+   * (`typedTimedTime`).
    */
   async setStartTime(
     partyId: string,
     member: Member,
+    staff: boolean,
     time: number | null,
     drawn?: number | null,
   ): Promise<TimedChangeOutcome<{ others: string[] }>> {
     let before: number | null = null;
     const outcome = await this.apply(partyId, member, isTimed, (party, now) => {
       before = startTimeOf(party);
-      return asDrawn(before, drawn) ?? setStartTime(party, member.id, time, now);
+      return asDrawn(before, drawn) ?? setStartTime(party, { id: member.id, staff }, time, now);
     });
     if (outcome.kind === 'ok' && outcome.changed) this.announceLater(partyId, before, member);
     return outcome;
   }
 
   /**
-   * When the party ends, or no end any more with null. Anybody in the post may (as with the
-   * legacy bot); refused when it would not lie after the start. The caller has checked the time.
+   * When the party ends, or no end any more with null. Only for who may (`timesRefusal`): a
+   * meetup's maker and staff (`not-yours`), of a train anybody in the post (as with the legacy
+   * bot); refused when it would not lie after the start. The caller has checked the time.
    */
   setEndTime(
     partyId: string,
     member: Member,
+    staff: boolean,
     time: number | null,
     drawn?: number | null,
   ): Promise<TimedChangeOutcome> {
@@ -225,7 +231,8 @@ export class TimedPartyService {
       partyId,
       member,
       isTimed,
-      (party, now) => asDrawn(party.endTime, drawn) ?? setTimedEnd(party, time, now),
+      (party, now) =>
+        asDrawn(party.endTime, drawn) ?? setTimedEnd(party, { id: member.id, staff }, time, now),
       (party) => {
         const who = doer(party, member);
         const word = partyWord(party);

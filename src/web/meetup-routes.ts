@@ -475,9 +475,10 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // the session (403) and the body (400), who changes it (`actingOnTheMap`), the meetup (an
   // active meetup of this server as the store has it; anything else 409 as the commands answer
   // it), its forum (barred 403; Discord unreachable 503), whether the member may change it here
-  // (its maker or staff: 403, with the meetup), a change drawn from what the meetup no longer is
+  // (its maker or staff, a maker blocked from meetups refused, for its times as for its text: 403,
+  // with the meetup), a change drawn from what the meetup no longer is
   // (409 with the meetup as it is now; the service checks it again inside the store), and what
-  // `/meet`'s guard refuses of a start (not signed up, 403; a time it cannot read, 422); only then
+  // `/meet`'s guard refuses of a start (a time it cannot read, 422); only then
   // the command's throttle in its window (`/name`, `/info`, `/end`: `CHANGE_THROTTLE`; a start in
   // `/meet`'s, `START_THROTTLE`); then its code path as the member, with the value drawn.
   /**
@@ -524,8 +525,6 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
         return refuse(reply, 403, MAP_BLOCKED_FROM_CHANGING, meetup);
       case 'changed-meanwhile':
         return refuse(reply, 409, problemText('changed-meanwhile', limits, 'meetup'), meetup);
-      case 'not-attending':
-        return refuse(reply, 403, problemText('not-attending', limits, 'meetup'), meetup);
       case 'unread':
         return refuse(reply, 422, refused.text, meetup);
     }
@@ -565,7 +564,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       let answer: TimedAnswer;
       try {
         answer = await countedOnTheMap(deps, counted, userId, throttle, () =>
-          meetupChangeAs(ctx, guild, party, member, input, start, now),
+          meetupChangeAs(ctx, guild, party, member, staff, input, start, now),
         );
       } catch (err) {
         // `/end`'s reader, after its limit as in the command.
@@ -602,7 +601,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const { row, party, member, standing, meetupNow } = writing;
       const now = deps.now();
       const staff = isMapStaff(standing, userId, parties.ownerId);
-      const checked = meetupTimesCheck(ctx, party, userId, staff, { start, end }, now);
+      const checked = await meetupTimesCheck(ctx, guild, party, userId, staff, { start, end }, now);
       if ('refused' in checked) return refusedChange(reply, checked.refused, meetupNow());
       const { read } = checked;
       const counting = timesCountedOnTheMap(deps, reply, userId, read);
@@ -610,7 +609,10 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       let answer: TimedAnswer;
       try {
         answer = await counting.run(() =>
-          setTimesAs(ctx, party, member, read, now, { start: start.drawn, end: end.drawn }),
+          setTimesAs(ctx, guild, party, { member, staff }, read, now, {
+            start: start.drawn,
+            end: end.drawn,
+          }),
         );
       } catch (err) {
         if (!(err instanceof UserError)) throw err;

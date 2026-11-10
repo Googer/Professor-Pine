@@ -55,7 +55,7 @@ describe('pings of a group or a party in as many messages as it takes (plan 8X-4
     const made = await createdTrain({ kind: 'gigantamax' });
     await made.store.update(made.party.id, (party) => ({ party: withCrowd(party, many) }));
     const before = made.gateway.messagesIn(made.postId).length;
-    await made.timed.setStartTime(made.party.id, { id: REPORTER }, PARTY_NOW + 60 * MINUTE);
+    await made.timed.setStartTime(made.party.id, { id: REPORTER }, false, PARTY_NOW + 60 * MINUTE);
     await made.timed.flush();
     const pinged = pingedIn(made.gateway, made.postId, before);
     expect(new Set(pinged.users)).toEqual(new Set(many));

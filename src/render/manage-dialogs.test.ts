@@ -81,7 +81,6 @@ describe('meetupManageDialog (review M3, M7)', () => {
     const meetup = testMeetup({ startTime: start, place: STOP });
     const dialog = meetupManageDialog({
       party: meetup,
-      asksStart: true,
       now: PARTY_NOW,
       zone: PARTY_ZONE,
     });
@@ -100,7 +99,6 @@ describe('meetupManageDialog (review M3, M7)', () => {
   it("asks where to meet and what to bring in the information's hint, not how long it goes", () => {
     const dialog = meetupManageDialog({
       party: testMeetup({}),
-      asksStart: true,
       now: PARTY_NOW,
       zone: PARTY_ZONE,
     });

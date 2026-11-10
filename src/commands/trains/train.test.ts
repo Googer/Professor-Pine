@@ -272,7 +272,9 @@ describe('/train', () => {
       kind: 'refused',
       reason: 'not-attending',
     });
-    expect(await made.timed.setStartTime(id, alice, made.clock.now + 3_600_000)).toMatchObject({
+    expect(
+      await made.timed.setStartTime(id, alice, false, made.clock.now + 3_600_000),
+    ).toMatchObject({
       kind: 'ok',
     });
     expect(await made.ctx.trains.move(id, alice, 'next', false)).toMatchObject({

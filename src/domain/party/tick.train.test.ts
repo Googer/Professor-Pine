@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALICE,
+  AS_MAKER,
   at,
   BOB,
   MINUTE,
@@ -69,7 +70,12 @@ const boarded: TrainParty = {
 };
 /** The same from 16:00 to 18:00. */
 const planned = changed(
-  setTimedEnd(changed(setStartTime(boarded, ALICE, START, PARTY_NOW)), END, PARTY_NOW),
+  setTimedEnd(
+    changed(setStartTime(boarded, { id: ALICE, staff: false }, START, PARTY_NOW)),
+    AS_MAKER,
+    END,
+    PARTY_NOW,
+  ),
 );
 
 describe('partyTick for a train: the clock of a timed party', () => {
@@ -131,7 +137,7 @@ describe('partyTick for a train: archiving', () => {
   });
 
   it('gives a train without an end a day from its start, and one without times a day from when it was made', () => {
-    const open = changed(setStartTime(boarded, ALICE, START, PARTY_NOW));
+    const open = changed(setStartTime(boarded, { id: ALICE, staff: false }, START, PARTY_NOW));
     expect(tick(open, START + DAY + 5 * MINUTE).effects).toEqual([]);
     const now = START + DAY + 6 * MINUTE;
     expect(tick(open, now).effects).toEqual([{ kind: 'warn', deletionTime: now + 60 * MINUTE }]);
@@ -147,7 +153,7 @@ describe('partyTick for a train: archiving', () => {
     const late = PARTY_NOW + DAY + 6 * MINUTE;
     const warned = tick(testTrain(), late).party;
     expect(warned.deletionTime).not.toBeNull();
-    const going = changed(setTimedEnd(warned, late + 2 * HOUR, late + MINUTE));
+    const going = changed(setTimedEnd(warned, AS_MAKER, late + 2 * HOUR, late + MINUTE));
     expect(going.deletionTime).toBeNull();
     expect(tick(going, late + 2 * MINUTE).effects).toEqual([]);
   });

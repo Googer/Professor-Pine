@@ -2,13 +2,15 @@ import { MessageFlags, type ChatInputCommandInteraction } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import type { Guard } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
-import { partyOf, regionChannelOf } from '../../discord/guards.js';
+import { guildIdOf, isStaff, partyOf, regionChannelOf } from '../../discord/guards.js';
 import type { Throttle } from '../../discord/throttle.js';
 import {
   isMeetup,
   partyWord,
+  type MeetupParty,
   type PartyProblem,
   type TimedParty,
+  type TrainParty,
 } from '../../domain/party/party.js';
 import {
   nameOf,
@@ -21,6 +23,7 @@ import { dateExample } from '../../domain/time/clock-input.js';
 import { resolvePartyTime } from '../../domain/time/party-time.js';
 import { addDays, zoned } from '../../domain/time/zoned.js';
 import { problemText } from '../../render/activity.js';
+import type { MeetupChangeTold } from '../../render/meetup-safety.js';
 import { clockOrDay, plain, timestamp, truncate } from '../../render/text.js';
 import type { TimedChangeOutcome } from '../../services/timed-party-service.js';
 import type { Member } from '../../services/attendance-service.js';
@@ -194,13 +197,16 @@ function when(ctx: Pick<AppContext, 'config'>, time: number, now: number): strin
 }
 
 /**
- * What `/name`, `/meet`, `/cancel-meet`, `/end` (of a timed party) and `/info` need of the bot to
- * change a timed party (plan 8M-5M: the live map calls the same functions): the timed parties,
- * the limits of the words, the settings (the zone of the times).
+ * What setting a train's times needs of the bot (`setTrainTimesAs`): the timed parties, the limits
+ * of the words, the settings (the zone of the times).
  */
 export type TimesChanging = Pick<AppContext, 'timedParties' | 'attendance' | 'config'>;
 
-/** `TimesChanging`, and for `/name` and `/info` who tells the moderators of the change. */
+/**
+ * What `/name`, `/meet`, `/cancel-meet`, `/end` (of a timed party) and `/info` need of the bot to
+ * change a timed party (plan 8M-5M: the live map calls the same functions): `TimesChanging`, and
+ * who tells the moderators of a change of an approved meetup (its times too since plan 8Z-2).
+ */
 export type TimedChanging = TimesChanging & Pick<AppContext, 'meetupSafety'>;
 
 /**
@@ -269,7 +275,7 @@ export async function renameAs(
       serverId,
       party: outcome.party,
       by: member,
-      change: { kind: 'name', name: nameOf(outcome.party) },
+      changes: [{ kind: 'name', name: nameOf(outcome.party) }],
     });
   }
   return timedAnswer(ctx, party, outcome, (ok) => {
@@ -280,23 +286,67 @@ export async function renameAs(
   });
 }
 
+/** Who changes a timed party's times: the member, and whether they are staff (`isStaff`). */
+export interface TimesBy {
+  member: Member;
+  /** An admin, a moderator or the bot's owner: a meetup's times are its maker's and theirs. */
+  staff: boolean;
+}
+
+/** A time of a meetup that changed, as the moderators are to hear of it. */
+interface ToldTime {
+  /** The meetup as the change left it. */
+  party: MeetupParty;
+  change: MeetupChangeTold;
+}
+
+/** What came of setting one time: the answer, and what the moderators are to hear of it. */
+interface TimeSet {
+  answer: TimedAnswer;
+  /** Only of a meetup, only when the time changed. */
+  told?: ToldTime;
+}
+
+/** What the moderators are to hear of a time as a change left it: of a meetup that changed. */
+function toldTime(outcome: TimedChangeOutcome, kind: TimeAsked): { told?: ToldTime } {
+  if (outcome.kind !== 'ok' || !outcome.changed || !isMeetup(outcome.party)) return {};
+  const { party } = outcome;
+  const at = kind === 'start' ? startTimeOf(party) : party.endTime;
+  return { told: { party, change: { kind, at } } };
+}
+
 /**
- * `/meet` and `/cancel-meet` as the member in a timed party: when it starts, for everybody, or
- * no start (`time` null), in their words. The others are told a moment later, once the start has
- * stood for a few seconds (`TimedPartyService`). `drawn`: the start the change was drawn from
- * (the live map).
+ * Tells the moderators of the times of an approved meetup that changed (plan 8Z-2), in one notice,
+ * the start first, in the background (`MeetupSafety.tellChange`, as `renameAs` tells a name):
+ * nobody of a train, of a time that stayed, or of a meetup that needed no approval.
  */
-export async function startAs(
+function tellTimes(
+  ctx: Pick<AppContext, 'meetupSafety'>,
+  serverId: string,
+  member: Member,
+  told: readonly ToldTime[],
+): void {
+  const last = told.at(-1);
+  if (last === undefined) return;
+  const changes = [
+    ...told.filter(({ change }) => change.kind === 'start'),
+    ...told.filter(({ change }) => change.kind !== 'start'),
+  ].map(({ change }) => change);
+  ctx.meetupSafety.tellChange({ serverId, party: last.party, by: member, changes });
+}
+
+/** The start set as `startAs` sets it, the moderators not told yet (`setTimesAs` tells once). */
+async function setStart(
   ctx: TimesChanging,
   party: TimedParty,
-  member: Member,
+  { member, staff }: TimesBy,
   time: number | null,
   now: number,
   drawn?: number | null,
-): Promise<TimedAnswer> {
+): Promise<TimeSet> {
   const word = partyWord(party);
-  const outcome = await ctx.timedParties.setStartTime(party.id, member, time, drawn);
-  return timedAnswer(ctx, party, outcome, (ok) => {
+  const outcome = await ctx.timedParties.setStartTime(party.id, member, staff, time, drawn);
+  const answer = timedAnswer(ctx, party, outcome, (ok) => {
     const start = startTimeOf(ok.party);
     const told = ok.changed && ok.others.length > 0 ? ' I am telling the others.' : '';
     if (start === null) {
@@ -307,30 +357,28 @@ export async function startAs(
     if (!ok.changed) return `This ${word} already starts at ${when(ctx, start, now)}.`;
     return `This ${word} starts at ${when(ctx, start, now)}.${told}`;
   });
+  return { answer, ...toldTime(outcome, 'start') };
 }
 
-/**
- * `/end` as the member in a timed party: when it ends, from what they typed (`typedTimedTime`,
- * whose refusal is thrown as a `UserError`), or no end (`none`, `cancel`, `unset`), in its words.
- * `drawn`: the end the change was drawn from (the live map).
- */
-export async function endAs(
+/** The end set as `endAs` sets it, the moderators not told yet (`setTimesAs` tells once). */
+async function setEnd(
   ctx: TimesChanging,
   party: TimedParty,
-  member: Member,
+  { member, staff }: TimesBy,
   text: string,
   now: number,
   drawn?: number | null,
-): Promise<TimedAnswer> {
+): Promise<TimeSet> {
   const word = partyWord(party);
   const typed = typedTimedTime(ctx, party, 'end', text, now);
   const outcome = await ctx.timedParties.setEndTime(
     party.id,
     member,
+    staff,
     typed === 'unset' ? null : typed.at,
     drawn,
   );
-  return timedAnswer(ctx, party, outcome, (ok) => {
+  const answer = timedAnswer(ctx, party, outcome, (ok) => {
     const end = ok.party.endTime;
     if (end === null) {
       return ok.changed
@@ -341,6 +389,52 @@ export async function endAs(
       ? `This ${word} ends at ${when(ctx, end, now)}.`
       : `This ${word} already ends at ${when(ctx, end, now)}.`;
   });
+  return { answer, ...toldTime(outcome, 'end') };
+}
+
+/**
+ * `/meet` and `/cancel-meet` as the member in a timed party: when it starts, for everybody, or
+ * no start (`time` null), in their words. Who may is decided inside the store (`timesRefusal`: a
+ * meetup's maker and staff; of a train who is signed up, and its maker); the caller has asked
+ * whether a meetup's maker is blocked (`meetupChangeRefusal`). The others are told a moment
+ * later, once the start has stood for a few seconds (`TimedPartyService`); the moderators are
+ * told of an approved meetup's new start, in the background (`MeetupSafety.tellChange`).
+ * `drawn`: the start the change was drawn from (the live map).
+ */
+export async function startAs(
+  ctx: TimedChanging,
+  serverId: string,
+  party: TimedParty,
+  by: TimesBy,
+  time: number | null,
+  now: number,
+  drawn?: number | null,
+): Promise<TimedAnswer> {
+  const { answer, told } = await setStart(ctx, party, by, time, now, drawn);
+  tellTimes(ctx, serverId, by.member, told ? [told] : []);
+  return answer;
+}
+
+/**
+ * `/end` as the member in a timed party: when it ends, from what they typed (`typedTimedTime`,
+ * whose refusal is thrown as a `UserError`), or no end (`none`, `cancel`, `unset`), in its words.
+ * Who may is decided inside the store (`timesRefusal`: a meetup's maker and staff; of a train
+ * anybody in its post); the caller has asked whether a meetup's maker is blocked
+ * (`meetupChangeRefusal`). The moderators are told of an approved meetup's new end, in the
+ * background. `drawn`: the end the change was drawn from (the live map).
+ */
+export async function endAs(
+  ctx: TimedChanging,
+  serverId: string,
+  party: TimedParty,
+  by: TimesBy,
+  text: string,
+  now: number,
+  drawn?: number | null,
+): Promise<TimedAnswer> {
+  const { answer, told } = await setEnd(ctx, party, by, text, now, drawn);
+  tellTimes(ctx, serverId, by.member, told ? [told] : []);
+  return answer;
 }
 
 /**
@@ -394,20 +488,21 @@ export function readTimes(
 /**
  * Sets a timed party's start and end together, the one way for a train's Manage… and a meetup's
  * editor: the end read from the start asked; times that would not lie in order refused before
- * anything changes; then `startAs` and `endAs`, the start first, or the end first where the new
- * start lies at or past the end as it is now, which would refuse it (both moved later). The answer
- * joins their words, the start's first whichever went first, and so does the post (`together`: a
- * new start's message says the end after it); a refusal says what went through in the order it
- * happened, then why (`went`). `drawn`: the values the change was drawn from (the live
- * map).
+ * anything changes; then the start as `startAs` sets it and the end as `endAs` does, the start
+ * first, or the end first where the new start lies at or past the end as it is now, which would
+ * refuse it (both moved later). The answer joins their words, the start's first whichever went
+ * first, and so does the post (`together`: a new start's message says the end after it); a
+ * refusal says what went through in the order it happened, then why (`went`). `told` gathers what
+ * the moderators are to hear of a meetup's times that went through.
  */
-export async function setTimesAs(
+async function setTimes(
   ctx: TimesChanging,
   party: TimedParty,
-  member: Member,
+  by: TimesBy,
   asked: TimesRead,
   now: number,
-  drawn: { start?: number | null; end?: number | null } = {},
+  drawn: { start?: number | null; end?: number | null },
+  told: ToldTime[],
 ): Promise<TimedAnswer> {
   const { start, end } = asked;
   const problem = timesProblem(ctx, party, asked, now);
@@ -419,13 +514,13 @@ export async function setTimesAs(
       went: [],
     };
   }
-  const steps: { time: TimeAsked; run: () => Promise<TimedAnswer> }[] = [
+  const steps: { time: TimeAsked; run: () => Promise<TimeSet> }[] = [
     ...(start === undefined
       ? []
       : [
           {
             time: 'start' as const,
-            run: () => startAs(ctx, party, member, start, now, drawn.start),
+            run: () => setStart(ctx, party, by, start, now, drawn.start),
           },
         ]),
     ...(end === undefined
@@ -435,7 +530,7 @@ export async function setTimesAs(
             time: 'end' as const,
             run: () => {
               const read = start === undefined ? party : withTimed(party, { startTime: start });
-              return endAs(ctx, read, member, end, now, drawn.end);
+              return setEnd(ctx, read, by, end, now, drawn.end);
             },
           },
         ]),
@@ -448,7 +543,9 @@ export async function setTimesAs(
   // 2026-11-07): the end's line follows the start in the message that tells the others of it.
   return ctx.timedParties.together(party.id, async (): Promise<TimedAnswer> => {
     for (const { time, run } of steps) {
-      const answer = await run();
+      const set = await run();
+      const { answer } = set;
+      if (set.told) told.push(set.told);
       said.push(answer.text);
       const text = said.join(' ');
       if (answer.kind === 'refused') return { ...answer, text, went };
@@ -457,6 +554,47 @@ export async function setTimesAs(
     }
     return { kind: 'ok', text: (endFirst ? said.toReversed() : said).join(' ') };
   });
+}
+
+/**
+ * Both times of a timed party in one call (`setTimes`), as the map's editor of a meetup and
+ * Manage… of its post ask them: who may is decided inside the store for each (`timesRefusal`);
+ * the caller has asked whether a meetup's maker is blocked (`meetupTimesCheck`). The moderators
+ * are told of an approved meetup's new times in one notice, of what went through (also when the
+ * other time was refused, or its reader threw), without waiting for the start's announcement.
+ * `drawn`: the values the change was drawn from (the live map).
+ */
+export async function setTimesAs(
+  ctx: TimedChanging,
+  serverId: string,
+  party: TimedParty,
+  by: TimesBy,
+  asked: TimesRead,
+  now: number,
+  drawn: { start?: number | null; end?: number | null } = {},
+): Promise<TimedAnswer> {
+  const told: ToldTime[] = [];
+  try {
+    return await setTimes(ctx, party, by, asked, now, drawn, told);
+  } finally {
+    // One notice for both times, whatever became of the second.
+    tellTimes(ctx, serverId, by.member, told);
+  }
+}
+
+/**
+ * Both times of a train in one call, for its Manage… on Discord and on the map (`setTimes`, the
+ * steps of `setTimesAs`): a train needs no approval, so there are no moderators to tell and no
+ * server is asked for.
+ */
+export function setTrainTimesAs(
+  ctx: TimesChanging,
+  party: TrainParty,
+  by: TimesBy,
+  asked: TimesRead,
+  now: number,
+): Promise<TimedAnswer> {
+  return setTimes(ctx, party, by, asked, now, {}, []);
 }
 
 /**
@@ -469,9 +607,10 @@ export async function changeStart(
   party: TimedParty,
   time: number | null,
 ): Promise<void> {
+  const by = { member: actingMember(interaction), staff: isStaff(interaction, ctx) };
   await replyTimed(
     interaction,
-    await startAs(ctx, party, actingMember(interaction), time, Date.now()),
+    await startAs(ctx, guildIdOf(interaction), party, by, time, Date.now()),
   );
 }
 
@@ -485,8 +624,9 @@ export async function changeEnd(
   party: TimedParty,
   text: string,
 ): Promise<void> {
+  const by = { member: actingMember(interaction), staff: isStaff(interaction, ctx) };
   await replyTimed(
     interaction,
-    await endAs(ctx, party, actingMember(interaction), text, Date.now()),
+    await endAs(ctx, guildIdOf(interaction), party, by, text, Date.now()),
   );
 }

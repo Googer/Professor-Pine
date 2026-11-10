@@ -183,31 +183,49 @@ function outcomeOf(
   }
 }
 
-/** A change of an approved meetup's text, as the moderators are told of it. */
-export type MeetupTextChange =
+/** A change of an approved meetup's text or times, as the moderators are told of it. */
+export type MeetupChangeTold =
   | { kind: 'name'; name: string }
   /** `info`: what it says now; null when it was removed. */
-  | { kind: 'info'; info: string | null };
+  | { kind: 'info'; info: string | null }
+  /** `at`: when it starts or ends now (plan 8Z-2); null when that time was removed. */
+  | { kind: 'start' | 'end'; at: number | null };
+
+/** One change as the moderators' notice says it: a line, and for new information its text. */
+function changeLines(who: string, change: MeetupChangeTold): string[] {
+  switch (change.kind) {
+    case 'name':
+      return [`${who} renamed it: **${plain(change.name)}**.`];
+    case 'info':
+      return change.info === null
+        ? [`${who} removed its information.`]
+        : [`${who} changed its information:`, plainLines(change.info)];
+    case 'start':
+    case 'end':
+      return [
+        change.at === null
+          ? `${who} removed its ${change.kind} time.`
+          : `${who} set its ${change.kind}: ${timestamp(change.at, 'F')} (${timestamp(change.at, 'R')}).`,
+      ];
+  }
+}
 
 /**
- * What the moderators are told when an approved meetup's name or information changes (plan 8Z,
- * also staff's own changes): who changed it, the text as it is now (`plain`, never cut: not old
- * and new side by side, a meetup's post and the moderators' request show those), Go to post and
- * the request. A member's name reaches them by `memberText`; nobody is pinged.
+ * What the moderators are told when an approved meetup's name, information, start or end changes
+ * (plan 8Z; the times since plan 8Z-2; also staff's own changes): who changed it, each change as
+ * it is now (the text by `plain`, never cut: not old and new side by side, a meetup's post and
+ * the moderators' request show those; changes made together, both times of Manage… and of the
+ * map's editor, in one notice), Go to post and the request. A member's name reaches them by
+ * `memberText`; nobody is pinged.
  */
 export function meetupChangeNotice(
   meetupName: string,
   by: { id: string; name?: string | undefined },
-  change: MeetupTextChange,
+  changes: readonly MeetupChangeTold[],
   links: { post: string | undefined; request: string },
 ): V2Message {
   const who = memberText(by);
-  const lines =
-    change.kind === 'name'
-      ? [`${who} renamed it: **${plain(change.name)}**.`]
-      : change.info === null
-        ? [`${who} removed its information.`]
-        : [`${who} changed its information:`, plainLines(change.info)];
+  const lines = changes.flatMap((change) => changeLines(who, change));
   return textMessage(
     PENDING_ACCENT,
     [`### An approved meetup changed: ${plain(meetupName)}`, ...lines],

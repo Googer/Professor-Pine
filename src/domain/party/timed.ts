@@ -1,5 +1,6 @@
 import {
   mayArrange,
+  mayEditMeetup,
   MAX_PARTY_NAME,
   membersWhere,
   NO_PROMPTS,
@@ -178,41 +179,72 @@ export function timesInOrder(start: number | null, end: number | null): boolean 
   return Math.floor(start / MINUTE) < Math.floor(end / MINUTE);
 }
 
+/** Who asks to set a time of a timed party: the member, and whether they are staff. */
+export interface TimesAsker {
+  /** Snowflake of the member. */
+  id: string;
+  /** An admin, a moderator or the bot's owner (`isStaff`, `isMapStaff`). */
+  staff: boolean;
+}
+
 /**
- * Sets when the party starts, for everybody, or removes the start with null. Only for an
- * attendee (as with the legacy bot), and for the maker of a train (`mayArrange`). A start that
- * does not lie before the end is refused. The time is floored to the minute; the caller has
- * checked it (`resolvePartyTime`). `others` are the other attendees, to be told; none when the
- * start did not change.
+ * Why a member may not set a time of a timed party, the one rule of every surface (the commands,
+ * Manage…, the map; Matt, 2026-11-10): a meetup's start and end are its maker's and staff's
+ * (`mayEditMeetup`: `not-yours`, signed up or not). A train keeps its rule: its start is for
+ * whoever is signed up and for its maker (`mayArrange`: `not-attending`), its end for anybody.
+ * Undefined when they may.
+ */
+export function timesRefusal(
+  party: TimedParty,
+  asker: TimesAsker,
+  time: 'start' | 'end',
+): Refusal | undefined {
+  if (party.type === 'meetup') {
+    return mayEditMeetup(party, asker.id, asker.staff) ? undefined : refused('not-yours');
+  }
+  return time === 'end' || mayArrange(party, asker.id) ? undefined : refused('not-attending');
+}
+
+/**
+ * Sets when the party starts, for everybody, or removes the start with null. Only for who may
+ * (`timesRefusal`: a meetup's maker and staff; of a train an attendee, as with the legacy bot,
+ * and its maker). A start that does not lie before the end is refused. The time is floored to
+ * the minute; the caller has checked it (`resolvePartyTime`). `others` are the other attendees,
+ * to be told; none when the start did not change.
  */
 export function setStartTime<P extends TimedParty>(
   party: P,
-  memberId: string,
+  asker: TimesAsker,
   time: number | null,
   now: number,
 ): Change<P, { others: string[] }> {
-  if (!mayArrange(party, memberId)) return refused('not-attending');
+  const refusal = timesRefusal(party, asker, 'start');
+  if (refusal) return refusal;
   const startTime = time === null ? null : Math.floor(time / MINUTE) * MINUTE;
   if (!timesInOrder(startTime, party.endTime)) return refused('start-after-end');
   if (startTime === startTimeOf(party)) return { ok: true, party, others: [] };
   const others = membersWhere(
     party,
-    (attendee, other) => other !== memberId && attendee.status !== PartyStatus.Complete,
+    (attendee, other) => other !== asker.id && attendee.status !== PartyStatus.Complete,
   );
   return { ok: true, party: settled(withTimed(party, { startTime }), now), others };
 }
 
 /**
  * Sets when the party ends, or removes the end with null (the legacy bot stored a time of -1
- * for that by mistake). Anybody may, as with the legacy bot. An end that does not lie after the
- * start is refused. The time is floored to the minute; the caller has checked it. The very same
- * party comes back when the end is what it was.
+ * for that by mistake). Only for who may (`timesRefusal`: a meetup's maker and staff; of a train
+ * anybody, as with the legacy bot). An end that does not lie after the start is refused. The
+ * time is floored to the minute; the caller has checked it. The very same party comes back when
+ * the end is what it was.
  */
 export function setTimedEnd<P extends TimedParty>(
   party: P,
+  asker: TimesAsker,
   time: number | null,
   now: number,
 ): Change<P> {
+  const refusal = timesRefusal(party, asker, 'end');
+  if (refusal) return refusal;
   const endTime = time === null ? null : Math.floor(time / MINUTE) * MINUTE;
   if (!timesInOrder(startTimeOf(party), endTime)) return refused('end-before-start');
   if (endTime === party.endTime) return { ok: true, party };

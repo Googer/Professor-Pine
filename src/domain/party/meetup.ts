@@ -50,8 +50,9 @@ export function createMeetup(input: NewMeetup): Change<MeetupParty> {
   if (endTime === undefined || endTime === null) {
     return { ok: true, party: settled(meetup, input.now) };
   }
-  // The end as `/end` sets it: to the minute, after the start (`setTimedEnd` settles it).
-  return setTimedEnd(meetup, endTime, input.now);
+  // The end as `/end` sets it, by its maker: to the minute, after the start (`setTimedEnd`
+  // settles it).
+  return setTimedEnd(meetup, { id: input.createdById, staff: false }, endTime, input.now);
 }
 
 /**
@@ -70,19 +71,8 @@ export function tidyDescription(text: string): string | null | undefined {
   return tidy === '' ? null : tidy;
 }
 
-/**
- * Whether a member may change a meetup's text (`/name`, `/info`) and, on the map, its other
- * details (spec 3.7, "its maker and staff"; plan 8Z on Discord): the member who made it, or staff
- * (an admin, a moderator, the bot's owner). A meetup's text is safety-relevant since plan 8S-1. A
- * start also needs what `/meet` asks, a sign-up (`mayArrange`).
- */
-export function mayEditMeetup(
-  party: Pick<MeetupParty, 'createdById'>,
-  memberId: string,
-  staff: boolean,
-): boolean {
-  return staff || party.createdById === memberId;
-}
+// Who may change a meetup, its text and its times: beside `mayArrange`, which `timed.ts` asks too.
+export { mayEditMeetup } from './party.js';
 
 /**
  * Sets what the post says about the meetup (`/info`); a text of nothing but white space removes

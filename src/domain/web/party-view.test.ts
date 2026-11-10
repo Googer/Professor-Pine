@@ -517,7 +517,7 @@ describe('partyView', () => {
       },
       // As written: the page sets it as text.
       info: 'Bring **snacks** <@1>\nand cups.',
-      // Alice made it and is signed up: every change, the start too.
+      // Alice made it: every change, the start too.
       panel: { start: true },
     });
     const pin = posted({
@@ -534,9 +534,10 @@ describe('partyView', () => {
       gymId: null,
       at: null,
     });
-    // Not the maker: nothing to change, but for staff, who may not set a start unless signed up.
+    // Not the maker: nothing to change, but for staff, who set a start too without being signed
+    // up (plan 8Z-2: a meetup's times are its maker's and staff's).
     expect(atPin?.panel).toBeNull();
-    expect(partyView(input([pin], { staff: true })).meetups[0]?.panel).toEqual({ start: false });
+    expect(partyView(input([pin], { staff: true })).meetups[0]?.panel).toEqual({ start: true });
     expect(partyView(input([atGym], { readOnly: true })).meetups[0]?.panel).toBeNull();
     const unnamed = posted({
       ...testMeetup({

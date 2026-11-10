@@ -168,10 +168,14 @@ describe('createTrain', () => {
       ok: false,
       reason: 'not-attending',
     });
-    expect(inGyms(setStartTime(train, REPORTER, PARTY_NOW + HOUR, PARTY_NOW))).toMatchObject({
+    expect(
+      inGyms(setStartTime(train, { id: REPORTER, staff: false }, PARTY_NOW + HOUR, PARTY_NOW)),
+    ).toMatchObject({
       ok: true,
     });
-    expect(inGyms(setStartTime(train, ALICE, PARTY_NOW + HOUR, PARTY_NOW))).toEqual({
+    expect(
+      inGyms(setStartTime(train, { id: ALICE, staff: false }, PARTY_NOW + HOUR, PARTY_NOW)),
+    ).toEqual({
       ok: false,
       reason: 'not-attending',
     });
@@ -195,13 +199,12 @@ describe('createTrain', () => {
       reason: 'not-attending',
     });
     expect(inGyms(setConductor(train, REPORTER))).toEqual({ ok: false, reason: 'not-attending' });
-    // The maker of a meetup who left it gets nothing by having made it.
+    // The maker of a meetup who left it arranges nothing by having made it; its times are theirs
+    // all the same, by a rule of its own (`mayEditMeetup`, plan 8Z-2).
     const left = { ...testMeetup(), attendees: {} };
     expect(mayArrange(left, REPORTER)).toBe(false);
-    expect(inGyms(setStartTime(left, REPORTER, PARTY_NOW + HOUR, PARTY_NOW))).toEqual({
-      ok: false,
-      reason: 'not-attending',
-    });
+    const maker = { id: REPORTER, staff: false };
+    expect(setStartTime(left, maker, PARTY_NOW + HOUR, PARTY_NOW)).toMatchObject({ ok: true });
   });
 
   it('names its maker unless they asked not to be named', () => {
@@ -967,7 +970,7 @@ describe('attendance in a train', () => {
     expect(inGyms(setMeetingTime(train, ALICE, PARTY_NOW + HOUR))).toEqual(
       refusal('party-wide-start'),
     );
-    const started = setStartTime(train, ALICE, PARTY_NOW + HOUR, PARTY_NOW);
+    const started = setStartTime(train, { id: ALICE, staff: false }, PARTY_NOW + HOUR, PARTY_NOW);
     expect(started.ok && started.party.timed.startTime).toBe(PARTY_NOW + HOUR);
     expect(started.ok && started.party.lastPossibleTime).toBe(
       PARTY_NOW + HOUR + OPEN_PARTY_HOURS * HOUR,

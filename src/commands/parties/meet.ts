@@ -6,23 +6,24 @@ import {
   type SimpleCommand,
 } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
-import { notARaid, partyOf, requireParty } from '../../discord/guards.js';
+import { isStaff, notARaid, partyOf, requireParty } from '../../discord/guards.js';
 import {
   groupOf,
   isMax,
   isRaid,
   isTimed,
-  mayArrange,
   membersWhere,
   partyWord,
   type GroupId,
   type Party,
 } from '../../domain/party/party.js';
+import { timesRefusal } from '../../domain/party/timed.js';
 import { problemText } from '../../render/activity.js';
 import { groupWords } from '../../render/party-controls.js';
 import { timestamp } from '../../render/text.js';
 import { typedPartyTime } from '../raids/raid-input.js';
 import { typedMaxTime } from '../max/max-input.js';
+import { requireMeetupChanger } from '../meetups/meetup-changes.js';
 import { variedThrottleKey } from '../../discord/router.js';
 import type { Throttle } from '../../discord/throttle.js';
 import { actingMember, answerOutcome, commandParty } from './reply.js';
@@ -64,15 +65,18 @@ const meetThrottle: NonNullable<SimpleCommand['throttle']> = (interaction, ctx) 
 /**
  * For `/meet` and `/cancel-meet` in a timed party: what can be known before the start is
  * changed is refused here, so that a use that changed nothing does not count towards the three
- * a member has in three minutes: a member who is not signed up (and did not make the train), a
- * text that is no time, a time the party cannot have. The handler reads the time again, and the
- * service decides again.
+ * a member has in three minutes: who may not (`timesRefusal`: of a train a member who is not
+ * signed up and did not make it; a meetup's start is its maker's and staff's, which
+ * `requireMeetupChanger` has said before this guard, with the block), a text that is no time, a
+ * time the party cannot have. The handler reads the time again, and the service decides again.
  */
 const requireStartChange: Guard = (interaction, ctx) => {
   const party = partyOf(interaction, ctx);
   if (!party || !isTimed(party) || !interaction.isChatInputCommand()) return;
-  if (!mayArrange(party, interaction.user.id)) {
-    throw new UserError(problemText('not-attending', ctx.attendance.limits(), partyWord(party)));
+  const asker = { id: interaction.user.id, staff: isStaff(interaction, ctx) };
+  const refusal = timesRefusal(party, asker, 'start');
+  if (refusal) {
+    throw new UserError(problemText(refusal.reason, ctx.attendance.limits(), partyWord(party)));
   }
   const text = interaction.options.getString('time');
   if (text !== null) typedTimedTime(ctx, party, 'meet', text, Date.now());
@@ -114,10 +118,11 @@ export const meet: SimpleCommand = {
       'start.\n\nA time without a date is on the day it starts, or else the day it ends, ' +
       'while that day is still to come, and otherwise today; `tomorrow 6pm` is tomorrow. A ' +
       `date comes first, month-day (\`${DATE_EXAMPLE} 6pm\`).\n\n` +
-      'You must be signed up.',
+      'You must be signed up for a raid, max battle or train. Only its maker or a moderator ' +
+      'can set when a meetup starts.',
     examples: ['/meet time:6:15pm', '/meet time:hatch', `/meet time:${DATE_EXAMPLE} 6:15pm`],
   },
-  guards: [requireParty, requireStartChange],
+  guards: [requireParty, requireMeetupChanger, requireStartChange],
   throttle: meetThrottle,
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
@@ -178,9 +183,11 @@ export const cancelMeet: SimpleCommand = {
     alsoIn: ['train', 'meetup'],
     details:
       'In the post of a raid or a max battle: removes the meeting time of the group you are in ' +
-      'and tells the others. In the post of a train or meetup: removes its start time. You must be signed up.',
+      'and tells the others. In the post of a train or meetup: removes its start time.\n\n' +
+      'You must be signed up for a raid, max battle or train. Only its maker or a moderator ' +
+      "can remove a meetup's start time.",
   },
-  guards: [requireParty, requireStartChange],
+  guards: [requireParty, requireMeetupChanger, requireStartChange],
   throttle: meetThrottle,
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);

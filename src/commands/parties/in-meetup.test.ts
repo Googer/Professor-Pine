@@ -29,6 +29,7 @@ import { attendeeOf } from '../../domain/party/party.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { admin } from '../admin/index.js';
 import { info, INFO_INPUT, infoControls, infoForm } from '../meetups/info.js';
+import { NOT_YOUR_MEETUP } from '../meetups/meetup-changes.js';
 import { meetup } from '../meetups/meetup.js';
 import { end } from '../raids/change.js';
 import { done, here, interested, join, leave, local, notHere, remote } from './attendance.js';
@@ -78,9 +79,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** A meetup with its post, and every command and control that works in the post of a party. */
-async function setup() {
-  const made = await createdMeetup();
+/**
+ * A meetup with its post, and every command and control that works in the post of a party. It is
+ * `REPORTER`'s unless `request` says who made it; the commands are Alice's.
+ */
+async function setup(request: Parameters<typeof createdMeetup>[0] = {}) {
+  const made = await createdMeetup(request);
   const { ctx } = createTestContext({
     partyService: made.service,
     attendance: made.attendance,
@@ -250,9 +254,25 @@ describe('the buttons of a meetup post', () => {
   });
 });
 
+/**
+ * Alice's own meetup, whose times are hers to set (plan 8Z-2: its maker's and staff's), with
+ * `REPORTER` signed up as interested, to be told, in Alice's place on its list (she joins it in
+ * most tests, as anybody new would). Written into the store as it is, so that nothing has been
+ * said in its post yet: the first line of a test goes out at once.
+ */
+async function own() {
+  const made = await setup({ creatorId: ALICE, creator: { name: 'Alice' } });
+  await made.store.update(made.party.id, (party) => {
+    const maker = attendeeOf(party, ALICE);
+    if (!maker) throw new Error('the maker is not signed up');
+    return { ok: true, party: { ...party, attendees: { [REPORTER]: maker } } };
+  });
+  return made;
+}
+
 describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   it('/meet sets when the meetup starts, for everybody, and tells the others', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     expect(await made.answer('meet', { time: '4pm' })).toBe(
       `This meetup starts at ${stamp(START)} (${stamp(START, 'R')}). I am telling the others.`,
@@ -276,7 +296,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('tells the others once of a start that was corrected right away', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     await made.run('meet', { time: '4pm' });
     await made.run('meet', { time: '5pm' });
@@ -289,7 +309,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('/meet takes a date, minutes with "in", and reads a bare number as an hour', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     const friday = at('2026-10-16T18:30');
     expect(await made.answer('meet', { time: '10-16 6:30pm' })).toBe(
@@ -302,7 +322,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('/meet reads a time that has passed today as tomorrow, never as the past', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     // It is 14:00: nine o'clock this morning has passed, this evening has not.
     await made.run('meet', { time: '9' });
@@ -312,7 +332,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('reads times typed on a later day than the meetup was made, without "pm"', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     // The day after it was made, at 15:00.
     const tuesday = at('2026-10-14T15:00');
@@ -329,7 +349,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('reads a new start today once the day of the old start has passed', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     await made.run('meet', { time: '6pm' });
     const next = at('2026-10-14T15:00');
@@ -343,17 +363,18 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
     );
   });
 
-  it('/meet is for members who are signed up, as it was', async () => {
+  it('/meet, /cancel-meet and /end are for its maker and staff, not for who is signed up', async () => {
+    // The reporter's meetup: Alice signs up for it, and may not set its times.
     const made = await setup();
-    expect(await made.answer('meet', { time: '4pm' })).toBe(
-      'You are not signed up for this meetup.',
-    );
-    expect(await made.answer('cancel-meet')).toBe('You are not signed up for this meetup.');
-    expect(made.current().timed.startTime).toBeNull();
+    await made.run('join');
+    expect(await made.answer('meet', { time: '4pm' })).toBe(NOT_YOUR_MEETUP);
+    expect(await made.answer('cancel-meet')).toBe(NOT_YOUR_MEETUP);
+    expect(await made.answer('end', { time: '6pm' })).toBe(NOT_YOUR_MEETUP);
+    expect(made.current()).toMatchObject({ endTime: null, timed: { startTime: null } });
   });
 
   it('explains a time it cannot read', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     const hint =
       'Try `6:15pm`, `10-16 6:15pm` (a date, month-day, and a time) or `in 30` (minutes from now).';
@@ -367,7 +388,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('explains a time the meetup cannot have: with a date, by the range alone', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     const last = PARTY_NOW + 133_920 * MINUTE;
     expect(await made.answer('meet', { time: '10-12 6pm' })).toBe(
@@ -377,7 +398,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('says on which day it read a time without a date that fits on no day', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     // Ninety-three days on, to the minute the latest start: 15:00 is past it on any day.
     const late = PARTY_NOW + 133_920 * MINUTE;
@@ -392,7 +413,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('/cancel-meet and "/meet cancel" remove the start, and the others are told that too', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     expect(await made.answer('cancel-meet')).toBe('This meetup had no start time.');
     await made.run('meet', { time: '4pm' });
@@ -414,9 +435,9 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
     expect(made.said()).toHaveLength(said);
   });
 
-  it('/end sets when the meetup ends, for anybody in the post, and "none" removes it', async () => {
-    const made = await setup();
-    // Alice is not signed up.
+  it('/end sets when the meetup ends, for its maker signed up or not, and "none" removes it', async () => {
+    const made = await own();
+    // Alice made it, and is not signed up.
     expect(await made.answer('end', { time: '6pm' })).toBe(
       `This meetup ends at ${stamp(END)} (${stamp(END, 'R')}).`,
     );
@@ -440,7 +461,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('/end reads a time without a date on the day of the start, and names that day', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     await made.run('meet', { time: '10-16 6:30pm' });
     const end = at('2026-10-16T21:00');
@@ -456,7 +477,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('/end reads a time without a date on the day of the end when there is no start', async () => {
-    const made = await setup();
+    const made = await own();
     // Tuesday 14:00; the meetup ends on Saturday at 21:00.
     await made.run('end', { time: '10-17 9pm' });
     const end = at('2026-10-17T22:00');
@@ -467,7 +488,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('/meet reads a time without a date on the day of the end when there is no start', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     await made.run('end', { time: '10-17 9pm' });
     const start = at('2026-10-17T18:00');
@@ -481,7 +502,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('names the day of a time that is not today, also when it is only hours off', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     // 14:00: one in the night is tomorrow, eleven hours on.
     const end = at('2026-10-14T01:00');
@@ -512,7 +533,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('refuses an end that is not after the start, and a start that is not before the end', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     await made.run('meet', { time: '4pm' });
     const last = at('2027-01-15T14:00');
@@ -541,7 +562,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('gives an old meetup a day when its last time is removed', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     await made.run('meet', { time: '4pm' });
     await made.run('end', { time: '6pm' });
@@ -560,28 +581,30 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
 
   it('does not count a use of /meet or /cancel-meet that could not change anything', async () => {
     const made = await setup();
-    // Not signed up, twice: refused before it is counted.
-    expect(await made.answer('meet', { time: '4pm' })).toBe(
-      'You are not signed up for this meetup.',
+    // The reporter's meetup, not hers, twice: refused before it is counted.
+    expect(await made.answer('meet', { time: '4pm' })).toBe(NOT_YOUR_MEETUP);
+    expect(await made.answer('cancel-meet')).toBe(NOT_YOUR_MEETUP);
+    // As a moderator she may. A text that is no time, and a time the meetup cannot have.
+    const staff = { roleNames: ['Moderator'] };
+    expect(await made.answer('meet', { time: 'soonish' }, staff)).toMatch(
+      /^I could not read "soonish"/,
     );
-    expect(await made.answer('cancel-meet')).toBe('You are not signed up for this meetup.');
-    await made.run('join');
-    // A text that is no time, and a time the meetup cannot have.
-    expect(await made.answer('meet', { time: 'soonish' })).toMatch(/^I could not read "soonish"/);
-    expect(await made.answer('meet', { time: '10-12 6pm' })).toMatch(/cannot be the time/);
+    expect(await made.answer('meet', { time: '10-12 6pm' }, staff)).toMatch(/cannot be the time/);
     // Three good ones still work; the fourth is the first that is held back.
     for (const time of ['4pm', '4:10pm', '4:20pm']) {
-      expect(await made.answer('meet', { time })).toMatch(/^This meetup starts at/);
+      expect(await made.answer('meet', { time }, staff)).toMatch(/^This meetup starts at/);
     }
-    expect(await made.answer('meet', { time: '4:30pm' })).toBe(
+    expect(await made.answer('meet', { time: '4:30pm' }, staff)).toBe(
       'You can use /meet again in 3 minutes.',
     );
     // `/cancel-meet` has its own three.
-    expect(await made.answer('cancel-meet')).toMatch(/^This meetup has no start time any more/);
+    expect(await made.answer('cancel-meet', {}, staff)).toMatch(
+      /^This meetup has no start time any more/,
+    );
   });
 
   it('reads a start of 1 to 6 as the afternoon, also when it has passed today', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     // It is 14:00: one o'clock is tomorrow at 13:00, not in the night.
     await made.run('meet', { time: '1' });
@@ -591,7 +614,7 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
   });
 
   it('holds back a member who changes the start more than three times in three minutes', async () => {
-    const made = await setup();
+    const made = await own();
     await made.run('join');
     for (const time of ['4pm', '4:10pm', '4:20pm']) await made.run('meet', { time });
     expect(await made.answer('meet', { time: '4:30pm' })).toBe(

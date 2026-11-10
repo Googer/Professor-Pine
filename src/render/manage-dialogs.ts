@@ -194,11 +194,9 @@ export function drawnMark(value: string | number | null): string {
   return Number.parseInt(hex, 16).toString(36);
 }
 
-/** What a meetup's Manage… is drawn from: the meetup, whether it asks the start, the clock. */
+/** What a meetup's Manage… is drawn from: the meetup and the clock. */
 export interface MeetupManageView {
   party: MeetupParty;
-  /** The member may change the start (`mayArrange`, as `/meet`): the map's `panel.start`. */
-  asksStart: boolean;
   now: number;
   /** The posts' zone (`settings.timezone`), in which the times are said and read. */
   zone: string;
@@ -214,9 +212,9 @@ function nowLine(words: string, at: number | null, zone: string, now: number): s
 }
 /**
  * Manage… of a meetup (the map's `meetupEditor`), for its maker and staff: when it starts and
- * ends now; its name and its information, each with what it has to change; when it starts (only
- * for a member signed up, as `/meet`; else the map's words why not) and when it ends, empty, as
- * the map's are: what is left as it is stays. The custom id carries the marks of what the dialog
+ * ends now; its name and its information, each with what it has to change; when it starts (signed
+ * up or not, as `/meet` since plan 8Z-2) and when it ends, empty, as the map's are: what is left
+ * as it is stays. The custom id carries the marks of what the dialog
  * showed (`drawnMark`), so that a change of what somebody else changed since is refused, as the
  * map refuses it, and ends in a per-open token.
  */
@@ -230,8 +228,7 @@ export function meetupManageDialog(
   const place = meetupPlaceOf(party.meetup.place);
   const text = [
     ...(place === null ? [] : [place.words]),
-    nowLine(view.asksStart ? 'Starts now' : 'Starts', startTime, zone, now),
-    ...(view.asksStart ? [] : ['Sign up for it to change when it starts.']),
+    nowLine('Starts now', startTime, zone, now),
     nowLine('Ends now', party.endTime, zone, now),
   ];
   return dialog({
@@ -270,18 +267,14 @@ export function meetupManageDialog(
           ...(party.meetup.description === null ? {} : { value: party.meetup.description }),
         },
       },
-      ...(view.asksStart
-        ? [
-            {
-              field: {
-                id: MEETUP_START_INPUT,
-                label: 'Starts',
-                maxLength: TIME_LENGTH,
-                placeholder: '6:15pm, 10-17 6:15pm or in 30',
-              },
-            },
-          ]
-        : []),
+      {
+        field: {
+          id: MEETUP_START_INPUT,
+          label: 'Starts',
+          maxLength: TIME_LENGTH,
+          placeholder: '6:15pm, 10-17 6:15pm or in 30',
+        },
+      },
       {
         field: {
           id: MEETUP_END_INPUT,

@@ -272,8 +272,12 @@ describe('a raid from report to archive, in MySQL, over a restart', () => {
     const end = at('2026-10-13T18:00');
     await first.attendance.signUp(id, alice, PartyStatus.Coming, { number: 2 });
     await first.attendance.signUp(id, bob, PartyStatus.Present);
-    expect(await first.timed.setStartTime(id, alice, start)).toMatchObject({ kind: 'ok' });
-    expect(await first.timed.setEndTime(id, bob, end)).toMatchObject({ kind: 'ok' });
+    expect(
+      await first.timed.setStartTime(id, { id: REPORTER, name: 'Rhea' }, false, start),
+    ).toMatchObject({ kind: 'ok' });
+    expect(
+      await first.timed.setEndTime(id, { id: REPORTER, name: 'Rhea' }, false, end),
+    ).toMatchObject({ kind: 'ok' });
     // Done means leave in a meetup.
     expect(await first.attendance.done(id, bob)).toMatchObject({ kind: 'ok', left: true });
     await first.timed.flush();

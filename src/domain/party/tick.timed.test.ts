@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALICE,
+  AS_MAKER,
   at,
   BOB,
   MINUTE,
@@ -43,10 +44,11 @@ function changed<T extends { ok: boolean; party?: MeetupParty }>(change: T): Mee
 
 const START = at('2026-10-13T16:00');
 const END = at('2026-10-13T18:00');
-/** Made at 14:00 by the reporter; Alice set the start to 16:00 and the end to 18:00. */
+/** Made at 14:00 by the reporter; they set the start to 16:00 and the end to 18:00. */
 const planned = changed(
   setTimedEnd(
-    changed(setStartTime(withAttendees(testMeetup(), { [ALICE]: {} }), ALICE, START, PARTY_NOW)),
+    changed(setStartTime(withAttendees(testMeetup(), { [ALICE]: {} }), AS_MAKER, START, PARTY_NOW)),
+    AS_MAKER,
     END,
     PARTY_NOW,
   ),
@@ -128,7 +130,7 @@ describe('partyTick for a meetup: archiving', () => {
 
   it('gives a meetup without an end a day from its start, then warns the same way', () => {
     const open = changed(
-      setStartTime(withAttendees(testMeetup(), { [ALICE]: {} }), ALICE, START, PARTY_NOW),
+      setStartTime(withAttendees(testMeetup(), { [ALICE]: {} }), AS_MAKER, START, PARTY_NOW),
     );
     expect(tick(open, START + DAY + 5 * MINUTE).effects).toEqual([]);
     const now = START + DAY + 6 * MINUTE;
@@ -151,7 +153,7 @@ describe('partyTick for a meetup: archiving', () => {
     const warned = tick(untimed, late).party;
     expect(warned.deletionTime).not.toBeNull();
     // Somebody says when it ends after all: it is going on again.
-    const going = changed(setTimedEnd(warned, late + 2 * HOUR, late + MINUTE));
+    const going = changed(setTimedEnd(warned, AS_MAKER, late + 2 * HOUR, late + MINUTE));
     expect(going.deletionTime).toBeNull();
     expect(tick(going, late + 2 * MINUTE).effects).toEqual([]);
     const again = late + 2 * HOUR + 6 * MINUTE;
@@ -181,7 +183,9 @@ describe('partyTick for a meetup: archiving', () => {
 
 describe('partyTick for a meetup: the date', () => {
   it('shows the post anew when the day changed since the previous tick, or on the first tick', () => {
-    const tomorrow = changed(setTimedEnd(testMeetup(), at('2026-10-15T18:00'), PARTY_NOW));
+    const tomorrow = changed(
+      setTimedEnd(testMeetup(), AS_MAKER, at('2026-10-15T18:00'), PARTY_NOW),
+    );
     const midnight = at('2026-10-14T00:00');
     expect(tick(tomorrow, midnight, { previous: midnight - MINUTE })).toEqual({
       party: tomorrow,
