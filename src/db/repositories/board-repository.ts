@@ -111,6 +111,16 @@ const notByModerators = sql`(h.closedBy is null or h.closedBy <> 'moderators')`;
  */
 const LIVE_INDEX = sql.raw('force index (partyhistory_server_source_kind_createdat_index)');
 
+/**
+ * The index a read of the raids or meetups a member made goes along (plan 8Z-2, audit X5): `LIVE_INDEX`
+ * for a whole server; for one member (`/stats me`) the records they made, by
+ * `partyhistory_createdbyid_index`, which the live index would find only by walking every live
+ * record of the server of that kind. Named either way: the choice is the caller's, not the
+ * statistics'.
+ */
+const MADE_INDEX = sql.raw('force index (partyhistory_createdbyid_index)');
+const madeBy = (memberId: string | undefined) => (memberId === undefined ? LIVE_INDEX : MADE_INDEX);
+
 interface CreditRow {
   memberId: string;
   at: string;
@@ -130,7 +140,7 @@ export class BoardRepository implements BoardReader {
   async raidCredits(serverId: string, range: BoardRange): Promise<BoardCredit[]> {
     const rows = await sql<CreditRow>`
       select h.createdById as memberId, h.createdAt as at, h.anonymous
-      from PartyHistory h ${LIVE_INDEX}
+      from PartyHistory h ${madeBy(range.memberId)}
       where h.serverId = ${serverId} and h.kind in ('raid', 'max') and h.source = 'live'
         ${from(sql.ref('h.createdAt'), range.since)}
         and h.createdById is not null ${ofMember(sql.ref('h.createdById'), range.memberId)}
@@ -140,9 +150,11 @@ export class BoardRepository implements BoardReader {
   }
 
   async trainCredits(serverId: string, range: BoardRange): Promise<RideCredit[]> {
+    // No index named for one member (plan 8Z-2, audit X5): MySQL then starts from the member's attendee rows
+    // (`partyhistoryattendee_memberid_index`) and finds each record by its id.
     const rows = await sql<CreditRow & { partyId: string }>`
       select a.memberId, h.createdAt as at, h.anonymous, h.partyId
-      from PartyHistory h ${LIVE_INDEX}
+      from PartyHistory h ${range.memberId === undefined ? LIVE_INDEX : sql``}
       join PartyHistoryAttendee a on a.historyId = h.id
       where h.serverId = ${serverId} and h.kind = 'train' and h.source = 'live'
         ${from(sql.ref('h.createdAt'), range.since)}
@@ -170,7 +182,7 @@ export class BoardRepository implements BoardReader {
   async meetupCredits(serverId: string, range: BoardRange): Promise<BoardCredit[]> {
     const rows = await sql<CreditRow>`
       select h.createdById as memberId, h.createdAt as at, h.anonymous
-      from PartyHistory h ${LIVE_INDEX}
+      from PartyHistory h ${madeBy(range.memberId)}
       where h.serverId = ${serverId} and h.kind = 'meetup' and h.source = 'live'
         ${from(sql.ref('h.createdAt'), range.since)}
         and h.createdById is not null ${ofMember(sql.ref('h.createdById'), range.memberId)}
@@ -287,8 +299,10 @@ export class BoardRepository implements BoardReader {
   }
 
   async memberParties(serverId: string, memberId: string): Promise<MemberParty[]> {
-    // The records by two indexes, as the opt-out counts them: made by the member, or with an
-    // attendee row of theirs.
+    // The records by two indexes, as the opt-out counts them (`namedCount`): made by the member,
+    // or with an attendee row of theirs; their ids as a derived table that the records join by
+    // their primary key (plan 8Z-2, audit X1). As `h.id in (… union …)` MySQL ran the union once per
+    // record of the whole history: 2.1 s against 34 ms on Pittsburgh's.
     const rows = await sql<{
       partyId: string;
       splitFromId: string | null;
@@ -303,14 +317,16 @@ export class BoardRepository implements BoardReader {
     }>`
       select coalesce(h.partyId, h.legacyKey) as partyId, h.splitFromId, h.kind, h.createdAt as at, h.regionId, h.bossKey, h.anonymous,
              coalesce(h.createdById = ${memberId}, 0) as made, a.furthest, h.reached
-      from PartyHistory h
-      left join PartyHistoryAttendee a on a.historyId = h.id and a.memberId = ${memberId}
-      where h.id in (select id from PartyHistory
-                     where createdById = ${memberId} and serverId = ${serverId}
-                     union
-                     select x.historyId from PartyHistoryAttendee x
-                     join PartyHistory y on y.id = x.historyId
-                     where x.memberId = ${memberId} and y.serverId = ${serverId})`.execute(this.db);
+      from (select id from PartyHistory
+            where createdById = ${memberId} and serverId = ${serverId}
+            union
+            select x.historyId from PartyHistoryAttendee x
+            join PartyHistory y on y.id = x.historyId
+            where x.memberId = ${memberId} and y.serverId = ${serverId}) n
+      join PartyHistory h on h.id = n.id
+      left join PartyHistoryAttendee a on a.historyId = h.id and a.memberId = ${memberId}`.execute(
+      this.db,
+    );
     return rows.rows.map((row) => ({
       partyId: row.partyId,
       splitFromId: row.splitFromId,
