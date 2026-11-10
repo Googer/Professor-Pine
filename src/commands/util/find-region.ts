@@ -284,10 +284,12 @@ export const findRegion: SimpleCommand = {
     const regions = await serverRegions(interaction, ctx);
     const place = await placeOf(interaction, ctx, text, regions);
     const found = regionsTouching(place.shape, regions);
+    // A map that is downloaded takes one of the month's (plan 8Z-2); without one, no map.
     const map = await mapOrNothing(
       ctx.maps.place(
         place.shape,
         found.flatMap((region) => (region.bounds ? [region.bounds] : [])),
+        () => ctx.mapBudget.spend(),
       ),
       ctx.log,
       'a place',

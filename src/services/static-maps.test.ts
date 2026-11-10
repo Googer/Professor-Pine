@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WEST_CHANNEL, testRegions } from '../../test/support/gyms.js';
+import { bytesResponse } from '../../test/support/responses.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { ImageCache, type ImageResponse } from './image-cache.js';
 import { mapOrNothing, StaticMaps } from './static-maps.js';
@@ -30,10 +31,8 @@ function maps(apiKey: string | undefined) {
     fetch: (url) => {
       urls.push(url);
       const answer: ImageResponse = {
+        ...bytesResponse(new TextEncoder().encode('png'), { headers }),
         ok: true,
-        status: 200,
-        headers: { get: (name) => headers[name.toLowerCase()] ?? null },
-        arrayBuffer: () => Promise.resolve(new TextEncoder().encode('png').buffer),
       };
       return Promise.resolve(answer);
     },
@@ -96,6 +95,29 @@ describe('StaticMaps', () => {
     expect(await service.place(point, [outline])).toBe(first);
     expect(urls).toHaveLength(2);
     expect(await service.clear()).toBe(2);
+  });
+
+  // Plan 8Z-2: a place's map is billed by Google each time it is downloaded.
+  it('takes one of the month’s maps for a place’s map it downloads, none for one on disk, and makes none without', async () => {
+    const { maps: service } = maps('k');
+    const point = { kind: 'point', point: { lat: 40.05, lon: -80.05 } } as const;
+    const elsewhere = { ...point, point: { lat: 40.06, lon: -80.05 } };
+    let left = 1;
+    let asked = 0;
+    const spend = (): Promise<boolean> => {
+      asked += 1;
+      return Promise.resolve(left-- > 0);
+    };
+    const first = await service.place(point, [], spend);
+    expect(first).toBeDefined();
+    expect(asked).toBe(1);
+    // On disk: nothing more is taken.
+    expect(await service.place(point, [], spend)).toBe(first);
+    expect(asked).toBe(1);
+    // None is left: no map of another place, and Google is not asked.
+    expect(await service.place(elsewhere, [], spend)).toBeUndefined();
+    expect(asked).toBe(2);
+    expect(urls).toHaveLength(1);
   });
 
   it('downloads nothing for a place it cannot draw', async () => {

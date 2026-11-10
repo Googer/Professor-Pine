@@ -377,7 +377,9 @@ const SLOT_ROLES: Readonly<Record<string, Required<SlotRoleWords>>> = {
  * `Others`, without a description.
  */
 export function slotRoleWords(role: string): SlotRoleWords {
-  return SLOT_ROLES[role] ?? { one: titleCase(role), others: 'Others' };
+  // The role is a word of Pokebattler's answer: only the table's own names (plan 8Z-2).
+  const known = Object.hasOwn(SLOT_ROLES, role) ? SLOT_ROLES[role] : undefined;
+  return known ?? { one: titleCase(role), others: 'Others' };
 }
 
 /** A Pokémon of a team as the answer shows it. */

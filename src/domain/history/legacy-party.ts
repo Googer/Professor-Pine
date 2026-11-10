@@ -244,7 +244,9 @@ export function legacyIdentity(
  */
 export function legacyRecord(raw: unknown, context: LegacyContext): LegacyRead {
   if (!isRaw(raw)) return { ok: false, reason: 'not-a-party' };
-  const kind = typeof raw.type === 'string' ? KINDS[raw.type] : undefined;
+  // The kind is a word of the file: only the table's own names (plan 8Z-2; never `constructor`).
+  const kind =
+    typeof raw.type === 'string' && Object.hasOwn(KINDS, raw.type) ? KINDS[raw.type] : undefined;
   if (kind === undefined) return { ok: false, reason: 'unknown-kind' };
   const createdAt = timeOf(raw.creationTime);
   if (createdAt === null) return { ok: false, reason: 'no-creation-time' };

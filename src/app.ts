@@ -114,6 +114,7 @@ import { WayspotAddressRepository } from './db/repositories/wayspot-address-repo
 import { WayspotAddresses } from './services/wayspot-addresses.js';
 import { GoogleRanks } from './services/google-ranks.js';
 import { KeptActivity } from './services/kept-activity.js';
+import { MapBudget } from './services/map-budget.js';
 import { WayspotLookupRepository } from './db/repositories/wayspot-lookup-repository.js';
 import { WayspotPlaces } from './services/wayspot-places.js';
 import { ImageCache } from './services/image-cache.js';
@@ -1174,6 +1175,12 @@ export async function startApp(
     pokemon,
     nicknames: pokemon,
     maps,
+    // The maps `/find-region` downloads: a monthly cap of their own, of the by-hand number.
+    mapBudget: new MapBudget({
+      use: googleUse,
+      perMonth: config.settings.googleByHandPerMonth,
+      log,
+    }),
     loginLinks,
     scriptAccess,
     // Gym requests; without GITHUB_TOKEN and GITHUB_REPO `/request` is not offered.

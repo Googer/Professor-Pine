@@ -17,7 +17,7 @@ export type GoogleQuestion = 'places' | 'geocode';
  * `/gym refresh`, a gym added or moved), on top of the questions it asked: the monthly cap of
  * those (`settings.googleByHandPerMonth`) is counted apart, and the budget still sees them all.
  */
-export type GoogleCount = GoogleQuestion | 'hand';
+export type GoogleCount = GoogleQuestion | 'hand' | 'map';
 
 /** What one day used. */
 export interface DayUse {
@@ -25,6 +25,11 @@ export interface DayUse {
   geocodes: number;
   /** Lookups by hand, whose questions are counted in the two above as well. */
   byHand: number;
+  /**
+   * Maps of places downloaded for `/find-region` (plan 8Z-2; `MapBudget`): Google bills each, as
+   * a question of another kind, so they have a count and a monthly cap of their own.
+   */
+  maps: number;
 }
 
 export interface GoogleUse {
@@ -43,14 +48,16 @@ export class MemoryGoogleUse implements GoogleUse {
   readonly legacy = new Map<string, number>();
 
   use(day: string, counted: GoogleCount): Promise<void> {
-    const kept = this.days.get(day) ?? { places: 0, geocodes: 0, byHand: 0 };
+    const kept = this.days.get(day) ?? { places: 0, geocodes: 0, byHand: 0, maps: 0 };
     this.days.set(
       day,
       counted === 'places'
         ? { ...kept, places: kept.places + 1 }
         : counted === 'geocode'
           ? { ...kept, geocodes: kept.geocodes + 1 }
-          : { ...kept, byHand: kept.byHand + 1 },
+          : counted === 'map'
+            ? { ...kept, maps: kept.maps + 1 }
+            : { ...kept, byHand: kept.byHand + 1 },
     );
     return Promise.resolve();
   }
@@ -65,6 +72,7 @@ export class MemoryGoogleUse implements GoogleUse {
         places: (kept?.places ?? 0) + old,
         geocodes: kept?.geocodes ?? 0,
         byHand: kept?.byHand ?? 0,
+        maps: kept?.maps ?? 0,
       });
     }
     return Promise.resolve(used);
@@ -76,6 +84,14 @@ export class MemoryGoogleUse implements GoogleUse {
     for (const day of this.days.values()) sum += question === 'places' ? day.places : day.geocodes;
     return sum;
   }
+}
+
+/** How many maps of places the month of a moment used so far (`MapBudget`). */
+export async function mapsThisMonth(use: GoogleUse, now: number): Promise<number> {
+  const days = await use.usedOn(googleMonth(now).days);
+  let maps = 0;
+  for (const day of days.values()) maps += day.maps;
+  return maps;
 }
 
 /** What the month of a moment used so far, and of it the day (`lineAllowance` takes it). */

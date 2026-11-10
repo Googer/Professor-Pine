@@ -66,6 +66,7 @@ describe('/gym google', () => {
           `month starts again ${stamp(new Date('2026-11-01T00:00:00-07:00').getTime(), 'f')}, ` +
           'when Google’s free amounts reset.',
         '1 of 500 lookups by hand is used this month.',
+        '0 of 500 maps of `/find-region` are used this month.',
         'At this pace everything of this server is asked about today, the gyms first.',
         '-# The line and the budget are this instance’s, for its one Google key; the counts ' +
           'are this server’s part of it.',
@@ -86,6 +87,22 @@ describe('/gym google', () => {
       'At this pace everything of this server is asked about on ' +
         `${stamp(new Date('2026-11-01T12:00:00-08:00').getTime(), 'D')}, the gyms first.`,
     );
+  });
+
+  // Plan 8Z-2: the maps of `/find-region` have a count and a monthly cap of their own.
+  it('says how many of the month’s maps of /find-region are used', async () => {
+    const made = await lineWith();
+    await made.googleUse.use('2026-10-10', 'map');
+    await made.googleUse.use('2026-10-11', 'map');
+    // A map counts for neither the budget nor the lookups by hand.
+    const text = said(answerOf(await made.use('google')));
+    expect(text).toContain('This month 3 of 4,500 places searches are used;');
+    expect(text).toContain(
+      '1 of 500 lookups by hand is used this month.\n' +
+        '2 of 500 maps of `/find-region` are used this month.',
+    );
+    await made.googleUse.use('2026-09-30', 'map');
+    expect(said(answerOf(await made.use('google')))).toContain('2 of 500 maps');
   });
 
   it('names both days when the gyms are done before the rest', async () => {

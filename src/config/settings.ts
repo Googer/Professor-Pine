@@ -204,7 +204,9 @@ export const settingsObject = z.strictObject({
    * A hard cap on the lookups by hand in a Pacific month (plan 8Z): `/gym refresh`, a gym added or
    * moved, each one geocode and one places search. Past it `/gym refresh` asks nothing, and a gym
    * added or moved waits in the line. Counted per database, so per instance: where instances
-   * share a billing account, split it with the budget above (a dev instance set low).
+   * share a billing account, split it with the budget above (a dev instance set low). The maps
+   * of `/find-region` (plan 8Z-2; Google bills each one downloaded) have as many a month, in a
+   * count of their own (`MapBudget`): past it `/find-region` answers without a map.
    */
   googleByHandPerMonth: z.number().int().min(0).default(500),
   /**

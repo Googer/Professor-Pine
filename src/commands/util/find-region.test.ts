@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { MessageFlags } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import {
@@ -12,7 +15,13 @@ import { EAST_CHANNEL, testRegions, WEST_CHANNEL } from '../../../test/support/g
 import { ALICE } from '../../../test/support/parties.js';
 import { FakePlaces } from '../../../test/support/places.js';
 import { mapsFixture } from '../../../test/support/providers.js';
+import { bytesResponse } from '../../../test/support/responses.js';
 import { createTestContext } from '../../../test/support/test-context.js';
+import { createTestLogger } from '../../../test/support/test-logger.js';
+import { MemoryGoogleUse } from '../../services/google-use.js';
+import { ImageCache } from '../../services/image-cache.js';
+import { MapBudget } from '../../services/map-budget.js';
+import { StaticMaps } from '../../services/static-maps.js';
 import type { Region } from '../../db/repositories/region-repository.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { widenedBox, type Shape } from '@pine/wayspot-core/shape';
@@ -267,6 +276,55 @@ describe('/find-region: coordinates and links', () => {
       description: `**40.05, -80.05** lies in <#${WEST_CHANNEL}>.`,
     });
     expect(sent(used.editReply).files).toBeUndefined();
+  });
+
+  // Plan 8Z-2: Google bills each map of a place that is downloaded, and a member chooses the place.
+  it('takes one of the month’s maps for each map it downloads, and answers without a map when none is left', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'pine-find-region-'));
+    try {
+      const { log, entries } = createTestLogger();
+      const asked: string[] = [];
+      const cache = new ImageCache({
+        dir,
+        log,
+        fetch: (url) => {
+          asked.push(url);
+          return Promise.resolve({
+            ...bytesResponse(new TextEncoder().encode('png'), {
+              headers: { 'content-type': 'image/png' },
+            }),
+            ok: true,
+          });
+        },
+      });
+      const use = new MemoryGoogleUse();
+      const mapBudget = new MapBudget({ use, perMonth: 2, log });
+      const made = setup({ maps: new StaticMaps('k', cache), mapBudget });
+      const answer = async (location: string) => {
+        const used = await made.run(location);
+        return { text: shownAnswer(used).description, files: sent(used.editReply).files };
+      };
+      const first = await answer('40.05, -80.05');
+      expect(first.files).toHaveLength(1);
+      expect(await mapBudget.used()).toBe(1);
+      // The same place again: its map is on disk, and nothing is taken.
+      expect((await answer('40.05, -80.05')).files).toEqual(first.files);
+      expect(await mapBudget.used()).toBe(1);
+      expect((await answer('40.06, -80.05')).files).toHaveLength(1);
+      expect(await mapBudget.used()).toBe(2);
+      // The month's maps are used: the regions are said all the same, Google is not asked.
+      expect(await answer('40.07, -80.05')).toEqual({
+        text: `**40.07, -80.05** lies in <#${WEST_CHANNEL}>.`,
+        files: undefined,
+      });
+      expect(asked).toHaveLength(2);
+      expect(await mapBudget.used()).toBe(2);
+      expect(entries.filter((entry) => entry.level === 40)).toEqual([
+        expect.objectContaining({ maps: 2, perMonth: 2 }),
+      ]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('follows a short link of the Maps app', async () => {

@@ -43,6 +43,8 @@ import { FakeIssues } from './issues.js';
 import { FakePokebattler } from './pokebattler.js';
 import { FakePlaces } from './places.js';
 import { gymsFixture, mapsFixture, pokemonFixture, regionsFixture } from './providers.js';
+import { MemoryGoogleUse } from '../../src/services/google-use.js';
+import { MapBudget } from '../../src/services/map-budget.js';
 import type { MaxBossAdmin, MaxBossProvider } from '../../src/services/max-boss-service.js';
 import type { MaxChangeService } from '../../src/services/max-change-service.js';
 import { raidBossesFixture } from './raid-bosses.js';
@@ -246,6 +248,8 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       'pass { pokemon: search, nicknames: search } from nicknameSearchWith()',
     ),
     maps: mapsFixture(),
+    // A month of 500 maps of places, none used; a test passes its own over the counts it reads.
+    mapBudget: new MapBudget({ use: new MemoryGoogleUse(), perMonth: 500, log }),
     // Links that a test of /maps reads back with `redeem`.
     loginLinks: new LoginLinks(),
     // Every issue is recorded and opened; a test passes its own to read or fail them.

@@ -2,6 +2,7 @@ import { mkdtemp, readFile, readdir, rename, rm, utimes, writeFile } from 'node:
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bytesResponse } from '../../test/support/responses.js';
 import { fakeTimeoutSignals } from '../../test/support/timers.js';
 import { Tally } from '../../test/support/tally.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
@@ -14,22 +15,26 @@ import {
 
 const SECRET_URL = 'https://maps.example/staticmap?size=1&key=SECRET-KEY';
 
+/**
+ * An answer of a server as the cache reads it: its body in pieces (`bytesResponse`: how much of
+ * it was read, and whether the rest was let go of), a `content-length` only when given.
+ */
 function response(
   body: Uint8Array | string = 'png-bytes',
   init: { status?: number; headers?: Record<string, string> } = {},
-): ImageResponse {
+): ImageResponse & { cancelled: () => boolean; readBytes: () => number } {
   const bytes = typeof body === 'string' ? new TextEncoder().encode(body) : body;
-  const headers: Record<string, string> = { 'content-type': 'image/png', ...init.headers };
+  const { 'content-length': length, ...headers } = {
+    'content-type': 'image/png',
+    ...init.headers,
+  } as Record<string, string>;
   const status = init.status ?? 200;
-  return {
-    ok: status >= 200 && status < 300,
+  const answer = bytesResponse(bytes, {
     status,
-    headers: { get: (name) => headers[name.toLowerCase()] ?? null },
-    arrayBuffer: () =>
-      Promise.resolve(
-        bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
-      ),
-  };
+    headers,
+    ...(length === undefined ? {} : { contentLength: Number(length) }),
+  });
+  return Object.assign(answer, { ok: status >= 200 && status < 300 });
 }
 
 let dir: string;
@@ -159,6 +164,95 @@ describe('ImageCache.get', () => {
       expect(String(entries[0]?.reason)).toMatch(reason);
     },
   );
+
+  // Plan 8Z-2: a picture comes only from the address asked, and costs at most its limit.
+  it('follows no redirect, and says plainly when the server sends one', async () => {
+    const told: unknown[] = [];
+    const { cache, entries } = cacheWith((_url, init) => {
+      told.push((init as { redirect?: unknown }).redirect);
+      // As `fetch` refuses a redirect it was told not to follow.
+      return Promise.reject(
+        new TypeError('fetch failed', { cause: new Error('unexpected redirect') }),
+      );
+    });
+    expect(await cache.get(request())).toBeUndefined();
+    expect(told).toEqual(['error']);
+    expect(entries).toEqual([
+      expect.objectContaining({
+        level: 40,
+        msg: 'could not download a picture',
+        folder: 'gyms',
+        id: '12',
+        reason:
+          'the server answered with a redirect, which is not followed: a picture is taken ' +
+          'only from the address it was asked at',
+      }),
+    ]);
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it('gives a body up the moment it passes the limit, whatever was said of its length', async () => {
+    // Four megabytes in pieces of 64 KB, and no content-length.
+    const large = response(new Uint8Array(4_000_000));
+    const { cache, entries } = cacheWith(() => Promise.resolve(large), { maxBytes: 1000 });
+    expect(await cache.get(request())).toBeUndefined();
+    expect(large.readBytes()).toBeLessThanOrEqual(64 * 1024);
+    expect(large.cancelled()).toBe(true);
+    expect(String(entries[0]?.reason)).toMatch(/too large \(more than 1000 bytes\)/);
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it('saves a picture of exactly the limit', async () => {
+    const { cache, entries } = cacheWith(() => Promise.resolve(response('x'.repeat(1000))), {
+      maxBytes: 1000,
+    });
+    const file = await cache.get(request());
+    expect((await readFile(file ?? '', 'utf8')).length).toBe(1000);
+    expect(entries).toEqual([]);
+  });
+
+  it('lets go of the body of an answer it does not take', async () => {
+    for (const refused of [
+      response('<html>a long page</html>', { status: 403 }),
+      response('<html>', { headers: { 'content-type': 'text/html' } }),
+      response('error picture', { headers: { 'x-warning': 'over quota' } }),
+    ]) {
+      const { cache } = cacheWith(() => Promise.resolve(refused));
+      const refuse = (answer: ImageResponse) => answer.headers.get('x-warning') ?? undefined;
+      expect(await cache.get(request({ refuse }))).toBeUndefined();
+      expect(refused.readBytes()).toBe(0);
+      expect(refused.cancelled()).toBe(true);
+    }
+  });
+
+  it('asks what a download costs before it, never for a picture on disk, and downloads none that is refused', async () => {
+    const { cache, entries } = cacheWith(() => Promise.resolve(response()));
+    let asked = 0;
+    let allowed = true;
+    const spend = (): Promise<boolean> => {
+      asked += 1;
+      return Promise.resolve(allowed);
+    };
+    const file = await cache.get(request({ spend }));
+    expect(file).toBeDefined();
+    expect(asked).toBe(1);
+    // Served from disk: nothing is spent.
+    expect(await cache.get(request({ spend }))).toBe(file);
+    expect(asked).toBe(1);
+    // Refused: no download, no file, and nothing to warn of (the refusal is the spender's).
+    allowed = false;
+    expect(await cache.get(request({ id: '13', spend }))).toBeUndefined();
+    expect(asked).toBe(2);
+    expect(calls).toHaveLength(1);
+    expect(entries).toEqual([]);
+    // Two requests for one picture at once share its download, and what it costs.
+    allowed = true;
+    await Promise.all([
+      cache.get(request({ id: '14', spend })),
+      cache.get(request({ id: '14', spend })),
+    ]);
+    expect(asked).toBe(3);
+  });
 
   it('tries again after a failure', async () => {
     let attempt = 0;

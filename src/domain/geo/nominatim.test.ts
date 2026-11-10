@@ -167,6 +167,17 @@ describe('readNominatimPlaces', () => {
     ]);
   });
 
+  // The category is a word of OpenStreetMap's answer (plan 8Z-2 looked: it asks `Object.hasOwn`).
+  it('gives a category named as something every object has no standing', () => {
+    const places = readNominatimPlaces(
+      ['constructor', 'toString', '__proto__'].map((category) =>
+        place('Odd', undefined, { category, type: 'x' }),
+      ),
+    );
+    expect(places).toHaveLength(3);
+    for (const one of places ?? []) expect(one).not.toHaveProperty('standing');
+  });
+
   it('is an empty list for nothing found, and nothing for an answer that is no list', () => {
     expect(readNominatimPlaces([])).toEqual([]);
     expect(readNominatimPlaces({ error: 'Bad request' })).toBeUndefined();

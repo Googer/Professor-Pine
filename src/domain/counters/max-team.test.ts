@@ -323,4 +323,15 @@ describe('slotRoleWords', () => {
     // A role Pine does not know: no description, its alternatives just others.
     expect(slotRoleWords('SOMETHING_NEW')).toEqual({ one: 'Something New', others: 'Others' });
   });
+
+  // Plan 8Z-2: the role is a word of Pokebattler's answer.
+  it('reads a role named as something every object has as a role it does not know', () => {
+    expect(slotRoleWords('constructor')).toEqual({ one: 'Constructor', others: 'Others' });
+    for (const role of ['toString', '__proto__', 'hasOwnProperty']) {
+      const words = slotRoleWords(role);
+      expect(typeof words.one, role).toBe('string');
+      expect(words.others, role).toBe('Others');
+      expect(words.does, role).toBeUndefined();
+    }
+  });
 });

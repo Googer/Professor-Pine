@@ -54,6 +54,7 @@ import type { SelfRoleService } from './services/self-role-service.js';
 import type { SpawnService } from './services/spawn-service.js';
 import type { ScreenshotReader } from './services/ocr-service.js';
 import type { Screenshots } from './services/screenshot-service.js';
+import type { MapBudget } from './services/map-budget.js';
 import type { MapProvider } from './services/static-maps.js';
 import type { TimedPartyService } from './services/timed-party-service.js';
 import type { TrainService } from './services/train-service.js';
@@ -239,6 +240,8 @@ export interface AppContext {
   readonly nicknames: PokemonNicknames;
   /** Map pictures of gyms and regions, as files to attach. */
   readonly maps: MapProvider;
+  /** The month's maps of places, which `/find-region` takes one of for each it downloads. */
+  readonly mapBudget: MapBudget;
   /** The issues of the GitHub repository that `/request` sends gym requests to. */
   readonly issues: IssueGateway;
   /** Pokebattler's raid simulations, which `/counters` shows. */

@@ -2,6 +2,7 @@ import { mkdtemp, readdir, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { bytesResponse } from '../../test/support/responses.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { ImageCache, type FetchImage } from './image-cache.js';
 import {
@@ -24,10 +25,8 @@ async function cacheOf(bytes: Uint8Array, type: string) {
   const fetch: FetchImage = (url) => {
     asked.push(url);
     return Promise.resolve({
+      ...bytesResponse(bytes, { headers: { 'content-type': type } }),
       ok: true,
-      status: 200,
-      headers: { get: (name) => (name.toLowerCase() === 'content-type' ? type : null) },
-      arrayBuffer: () => Promise.resolve(bytes.slice().buffer),
     });
   };
   const dir = await mkdtemp(path.join(tmpdir(), 'pine-post-pictures-'));

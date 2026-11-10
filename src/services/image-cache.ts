@@ -3,16 +3,28 @@ import { mkdir, readdir, rename, rm, stat, utimes, writeFile } from 'node:fs/pro
 import path from 'node:path';
 import type { Logger } from '../log.js';
 import { failureReason } from './failure-reason.js';
+import { discardBody, readLimitedBytes, type LimitedResponse } from './limited-json.js';
 
-/** The part of a `fetch` response the cache needs. */
-export interface ImageResponse {
+/** The part of a `fetch` response the cache needs: its body is read with a limit. */
+export interface ImageResponse extends LimitedResponse {
   ok: boolean;
-  status: number;
-  headers: { get(name: string): string | null };
-  arrayBuffer(): Promise<ArrayBuffer>;
 }
 
-export type FetchImage = (url: string, init: { signal: AbortSignal }) => Promise<ImageResponse>;
+/**
+ * The download of a picture: never followed to another address (`redirect: 'error'`, plan 8Z-2:
+ * a picture comes only from the address it was asked at).
+ */
+export type FetchImage = (
+  url: string,
+  init: { signal: AbortSignal; redirect: 'error' },
+) => Promise<ImageResponse>;
+
+/** What `fetch` says, in its failure's cause, of a redirect it was told not to follow. */
+const REDIRECT_REFUSED = 'unexpected redirect';
+/** What the log says of it. */
+const REDIRECTED =
+  'the server answered with a redirect, which is not followed: a picture is taken only from ' +
+  'the address it was asked at';
 
 export interface ImageCacheOptions {
   /** Where the pictures are kept, e.g. `var/images`. */
@@ -43,6 +55,12 @@ export interface ImageRequest {
   url: string;
   /** A reason to refuse an otherwise good response, or undefined to accept it. */
   refuse?: (response: ImageResponse) => string | undefined;
+  /**
+   * Asked before a download, never for a picture that is on disk: takes what the download
+   * costs (a map of a place, which Google bills: `MapBudget`), or answers false, and nothing is
+   * downloaded. Requests that share a download share what it costs. It says itself why not.
+   */
+  spend?: (() => Promise<boolean>) | undefined;
   /**
    * A picture served from disk is written the time anew, so that `removeOlder` counts from when
    * it was last asked for (the pictures of places), not from when it was downloaded.
@@ -188,6 +206,8 @@ export class ImageCache {
     } catch {
       // Not on disk yet.
     }
+    // What the download costs is taken before it begins; without it there is none.
+    if (request.spend && !(await request.spend())) return undefined;
     const signal = AbortSignal.timeout(this.timeoutMs);
     let bytes: Buffer;
     try {
@@ -225,23 +245,43 @@ export class ImageCache {
     return moveIntoPlace(temporary, file, this.options.rename, this.options.renamePauseMs);
   }
 
+  /**
+   * The picture's bytes, or an error that says why not. The body is read piece by piece and
+   * given up the moment it passes the limit, whatever the answer said of its length
+   * (`readLimitedBytes`); the body of an answer that is not taken is let go of unread.
+   */
   private async download(request: ImageRequest, signal: AbortSignal): Promise<Buffer> {
-    const response = await this.options.fetch(request.url, { signal });
-    if (!response.ok) throw new Error(`the server answered ${response.status}`);
+    let response: ImageResponse;
+    try {
+      response = await this.options.fetch(request.url, { signal, redirect: 'error' });
+    } catch (err) {
+      throw failureReason(err) === REDIRECT_REFUSED ? new Error(REDIRECTED) : err;
+    }
+    const why = this.refusal(request, response);
+    if (why !== undefined) {
+      discardBody(response);
+      throw new Error(why);
+    }
+    const read = await readLimitedBytes(response, this.maxBytes);
+    if (!read.ok) {
+      throw new Error(
+        read.reason === 'too-large'
+          ? `the picture is too large (more than ${this.maxBytes} bytes)`
+          : 'the answer has no body',
+      );
+    }
+    if (read.bytes.byteLength === 0) throw new Error('the picture is empty');
+    return Buffer.from(read.bytes);
+  }
+
+  /** Why an answer is not taken, by its status and headers alone; undefined when it is. */
+  private refusal(request: ImageRequest, response: ImageResponse): string | undefined {
+    if (!response.ok) return `the server answered ${response.status}`;
     const type = response.headers.get('content-type') ?? '';
     if (!type.toLowerCase().startsWith('image/')) {
-      throw new Error(`the server sent ${type === '' ? 'no content type' : type}, not a picture`);
+      return `the server sent ${type === '' ? 'no content type' : type}, not a picture`;
     }
-    const refused = request.refuse?.(response);
-    if (refused !== undefined) throw new Error(refused);
-    const length = Number(response.headers.get('content-length') ?? '0');
-    if (length > this.maxBytes) throw new Error(`the picture is too large (${length} bytes)`);
-    const body = await response.arrayBuffer();
-    if (body.byteLength === 0) throw new Error('the picture is empty');
-    if (body.byteLength > this.maxBytes) {
-      throw new Error(`the picture is too large (${body.byteLength} bytes)`);
-    }
-    return Buffer.from(body);
+    return request.refuse?.(response);
   }
 
   /** Other variants of the same picture are out of date once a new one is saved. */

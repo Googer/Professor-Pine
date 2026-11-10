@@ -275,6 +275,10 @@ describe('legacyRecord', () => {
     };
     expect(skip('a string')).toBe('not-a-party');
     expect(skip(raid({ type: 'potluck' }))).toBe('unknown-kind');
+    // A kind named as something every object has is none either (plan 8Z-2: the file's word).
+    for (const type of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      expect(skip(raid({ type })), type).toBe('unknown-kind');
+    }
     expect(skip(raid({ creationTime: 'yesterday' }))).toBe('no-creation-time');
     expect(skip(raid({ channelId: undefined }))).toBe('no-channel');
     // An ended raid counts however little it has; one still going on needs a maker and a member.

@@ -68,8 +68,21 @@ function when(day: EstimatedDay, now: number): string {
   return `on ${timestamp(noon.epochMilliseconds, 'D')}`;
 }
 
-/** What `/gym google` says. */
-export function googleLineTexts(line: GoogleLineSnapshot, share: ServerShare): string[] {
+/** The month's maps of places (`MapBudget`): how many are used, of how many. */
+export interface MapsUsed {
+  used: number;
+  perMonth: number;
+}
+
+/**
+ * What `/gym google` says; `maps` where `/find-region` is offered and its count could be read
+ * (plan 8Z-2).
+ */
+export function googleLineTexts(
+  line: GoogleLineSnapshot,
+  share: ServerShare,
+  maps?: MapsUsed,
+): string[] {
   const heading = '### The line for Google';
   if (!line.fetches) {
     return [heading, 'No Google API key is configured, so nothing is asked of Google.'];
@@ -126,6 +139,12 @@ export function googleLineTexts(line: GoogleLineSnapshot, share: ServerShare): s
     waiting,
     month,
     byHand,
+    ...(maps === undefined
+      ? []
+      : [
+          `${amount(maps.used)} of ${amount(maps.perMonth)} maps of \`/find-region\` ` +
+            `${maps.used === 1 ? 'is' : 'are'} used this month.`,
+        ]),
     ...(pace === undefined ? [] : [pace]),
     '-# The line and the budget are this instance’s, for its one Google key; the counts are ' +
       'this server’s part of it.',
@@ -147,7 +166,13 @@ async function googleLineMessage(ctx: AppContext, guildId: number | undefined) {
       guildId !== undefined && gymRegionsInGuild(ctx.gyms, ctx.regions, gymId, guildId).length > 0,
     (wayspotId) => ctx.wayspots.regionsOf(wayspotId).some((channelId) => own.has(channelId)),
   );
-  return gymQuestion(googleLineTexts(line, share));
+  // The maps of `/find-region`, where it is offered and Google is asked at all.
+  const used =
+    line.fetches && ctx.config.settings.findRegion !== undefined
+      ? await ctx.mapBudget.used()
+      : undefined;
+  const maps = used === undefined ? undefined : { used, perMonth: ctx.mapBudget.perMonth };
+  return gymQuestion(googleLineTexts(line, share, maps));
 }
 
 /**

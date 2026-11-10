@@ -228,6 +228,18 @@ export function plainLines(text: string): string {
     .trim();
 }
 
+/**
+ * A text as a fenced code block (plan 8Z-2), for where what somebody wrote is rendered as
+ * Markdown and must stay text (the body of a GitHub issue): the fence is three backticks, or
+ * one more than the longest run of backticks in the text, so that no line of the text can close
+ * the block, whatever it holds. `info` is the fence's word (`text`); it holds no backtick.
+ */
+export function fencedBlock(text: string, info = ''): string {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = '`'.repeat(Math.max(3, longest + 1));
+  return `${fence}${info.replace(/`/g, '')}\n${text}\n${fence}`;
+}
+
 /** `text`, cut to `limit` characters with an ellipsis when it is longer. Never splits a pair. */
 export function truncate(text: string, limit: number): string {
   if (text.length <= limit) return text;

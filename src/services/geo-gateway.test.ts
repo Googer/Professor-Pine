@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { jsonResponse } from '../../test/support/responses.js';
 import { fakeTimeoutSignals } from '../../test/support/timers.js';
 import { Tally } from '../../test/support/tally.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { readLocation } from '../domain/geo/location-input.js';
-import { GoogleGeo, MAX_LINK_HOPS, type GeoFetch, type GeoResponse } from './geo-gateway.js';
+import {
+  GoogleGeo,
+  MAX_GEO_ANSWER_BYTES,
+  MAX_LINK_HOPS,
+  type GeoFetch,
+  type GeoResponse,
+} from './geo-gateway.js';
 
 const KEY = 'test-key-123+/=';
 const POINT = { lat: 40.4406, lon: -79.9959 };
@@ -13,11 +20,14 @@ interface Call {
   init: Parameters<GeoFetch>[1];
 }
 
+/** An answer made in the test: how much of its body was read, and whether it was let go of. */
+type Answer = GeoResponse & { cancelled: () => boolean; readBytes: () => number };
+
 /** A `fetch` that answers from a list and records what it was asked. Nothing leaves the test. */
-function fakeFetch(answers: (GeoResponse | Error | 'hang')[]) {
+function fakeFetch(answers: (Answer | Error | 'hang')[]) {
   const calls: Call[] = [];
   const asked = new Tally('the requests to Google');
-  let cancelled = 0;
+  const given: Answer[] = [];
   const fetch: GeoFetch = (url, init) => {
     calls.push({ url, init });
     asked.add();
@@ -32,36 +42,35 @@ function fakeFetch(answers: (GeoResponse | Error | 'hang')[]) {
         });
       });
     }
-    return Promise.resolve({
-      ...answer,
-      body: {
-        cancel: () => {
-          cancelled += 1;
-          return Promise.resolve();
-        },
-      },
-    });
+    given.push(answer);
+    return Promise.resolve(answer);
   };
-  return { fetch, calls, asked, cancelledBodies: () => cancelled };
-}
-
-function json(body: unknown, status = 200): GeoResponse {
   return {
-    status,
-    headers: { get: () => null },
-    json: () => Promise.resolve(body),
+    fetch,
+    calls,
+    asked,
+    /** How many answers were let go of, and how many bytes of their bodies were read in all. */
+    cancelledBodies: () => given.filter((one) => one.cancelled()).length,
+    readBytes: () => given.reduce((sum, one) => sum + one.readBytes(), 0),
   };
 }
 
-function redirect(location: string | null, status = 302): GeoResponse {
-  return {
-    status,
-    headers: { get: (name) => (name.toLowerCase() === 'location' ? location : null) },
-    json: () => Promise.reject(new Error('the body of a redirect must not be read')),
-  };
+function json(body: unknown, status = 200, raw?: string): Answer {
+  return jsonResponse(body, { status, ...(raw === undefined ? {} : { raw }) });
 }
 
-function geo(answers: (GeoResponse | Error | 'hang')[], options: { apiKey?: string } = {}) {
+function redirect(location: string | null, status = 302): Answer {
+  return jsonResponse(null, {
+    status,
+    raw: 'the body of a redirect must not be read',
+    headers: location === null ? {} : { location },
+  });
+}
+
+function geo(
+  answers: (Answer | Error | 'hang')[],
+  options: { apiKey?: string; maxBytes?: number } = {},
+) {
   const { log, entries } = createTestLogger();
   const faked = fakeFetch(answers);
   const clock = { now: 1_000_000 };
@@ -71,6 +80,7 @@ function geo(answers: (GeoResponse | Error | 'hang')[], options: { apiKey?: stri
     log,
     now: () => clock.now,
     linkTimeoutMs: 40,
+    ...(options.maxBytes === undefined ? {} : { maxBytes: options.maxBytes }),
   });
   return { gateway, entries, clock, ...faked };
 }
@@ -242,18 +252,84 @@ describe('GoogleGeo: places', () => {
   });
 });
 
+describe('GoogleGeo: what an answer may cost (plan 8Z-2)', () => {
+  const route = { long_name: 'Maple Avenue', short_name: 'Maple Ave', types: ['route'] };
+  const geocoded = JSON.stringify({ status: 'OK', results: [{ address_components: [route] }] });
+  const places = JSON.stringify({
+    places: [{ types: ['bakery'], displayName: { text: 'Corner Bakery' } }],
+  });
+  /** JSON with white space after it, `bytes` bytes in all: the same answer, longer. */
+  const padded = (text: string, bytes: number): string => text.padEnd(bytes, ' ');
+
+  it('reads an answer as long as an answer may be', async () => {
+    const { gateway } = geo([
+      json(null, 200, padded(geocoded, MAX_GEO_ANSWER_BYTES)),
+      json(null, 200, padded(places, MAX_GEO_ANSWER_BYTES)),
+    ]);
+    await expect(gateway.reverseGeocode(POINT)).resolves.toEqual({
+      ok: true,
+      value: { route: 'Maple Ave' },
+    });
+    await expect(gateway.placesNear(POINT, 150)).resolves.toEqual({
+      ok: true,
+      value: ['Corner Bakery'],
+    });
+  });
+
+  it('gives up an address that is longer, the moment it is, and says why', async () => {
+    // Five megabytes where a megabyte may be read, in pieces of 64 KB.
+    const { gateway, entries, readBytes, cancelledBodies } = geo([
+      json(null, 200, padded(geocoded, 5 * MAX_GEO_ANSWER_BYTES)),
+    ]);
+    await expect(gateway.reverseGeocode(POINT)).resolves.toEqual({ ok: false, reason: 'failed' });
+    expect(readBytes()).toBeLessThanOrEqual(MAX_GEO_ANSWER_BYTES + 64 * 1024);
+    expect(cancelledBodies()).toBe(1);
+    expect(warnings(entries)).toEqual([
+      expect.objectContaining({
+        msg: 'a request to Google failed',
+        api: 'geocoding',
+        reason: 'the answer is longer than 1048576 bytes',
+      }),
+    ]);
+  });
+
+  it('gives up the places of an answer that is longer, the same way', async () => {
+    const { gateway, entries, readBytes, cancelledBodies } = geo([
+      json(null, 200, padded(places, MAX_GEO_ANSWER_BYTES + 1)),
+    ]);
+    await expect(gateway.placesNear(POINT, 150)).resolves.toEqual({ ok: false, reason: 'failed' });
+    expect(readBytes()).toBeLessThanOrEqual(MAX_GEO_ANSWER_BYTES + 64 * 1024);
+    expect(cancelledBodies()).toBe(1);
+    expect(warnings(entries)).toEqual([
+      expect.objectContaining({
+        api: 'places',
+        reason: 'the answer is longer than 1048576 bytes',
+      }),
+    ]);
+  });
+
+  it('answers what is no JSON as a failure', async () => {
+    const { gateway, entries } = geo([json(null, 200, '<html>')]);
+    await expect(gateway.reverseGeocode(POINT)).resolves.toEqual({ ok: false, reason: 'failed' });
+    expect(warnings(entries)).toEqual([
+      expect.objectContaining({ api: 'geocoding', reason: 'the answer is no JSON' }),
+    ]);
+  });
+});
+
 describe('GoogleGeo: short links', () => {
   const SHORT = 'https://maps.app.goo.gl/AbC123';
   const LONG =
     'https://www.google.com/maps/place/Big+Fountain/@40.5,-79.9,17z/data=!3d40.4406!4d-79.9959';
 
   it('gives the address a short link redirects to, without reading any body', async () => {
-    const { gateway, calls, cancelledBodies } = geo([redirect(LONG)]);
+    const { gateway, calls, cancelledBodies, readBytes } = geo([redirect(LONG)]);
     await expect(gateway.followShortLink(SHORT, readable)).resolves.toBe(LONG);
     expect(calls.map((call) => call.url)).toEqual([SHORT]);
     expect(calls[0]?.init).toMatchObject({ method: 'GET', redirect: 'manual' });
     expect(calls[0]?.init.headers).toBeUndefined();
     expect(cancelledBodies()).toBe(1);
+    expect(readBytes()).toBe(0);
   });
 
   it('follows on through addresses that say nothing yet, relative ones too', async () => {

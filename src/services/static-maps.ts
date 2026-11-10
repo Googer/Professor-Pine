@@ -23,9 +23,15 @@ export interface MapProvider {
   region(region: { id: number; bounds: readonly LatLon[] | null }): Promise<string | undefined>;
   /**
    * Path of a picture of a place and the outlines of the regions it lies in (`/find-region`);
-   * undefined when it cannot be had.
+   * undefined when it cannot be had. A member chooses the place, and Google bills each map
+   * downloaded: `spend` takes one of the month's maps before a download (`MapBudget.spend`;
+   * none for a picture on disk), and where it answers false there is no map (plan 8Z-2).
    */
-  place(shape: Shape, outlines: readonly (readonly LatLon[])[]): Promise<string | undefined>;
+  place(
+    shape: Shape,
+    outlines: readonly (readonly LatLon[])[],
+    spend?: () => Promise<boolean>,
+  ): Promise<string | undefined>;
   /**
    * Deletes every picture that is kept (`/admin clear-image-cache`) and gives how many there
    * were. Those still in use are downloaded again when they are next asked for.
@@ -90,14 +96,18 @@ export class StaticMaps implements MapProvider {
    * finds the same file, and pictures of different places never replace each other (they go
    * with `/admin clear-image-cache`).
    */
-  place(shape: Shape, outlines: readonly (readonly LatLon[])[]): Promise<string | undefined> {
+  place(
+    shape: Shape,
+    outlines: readonly (readonly LatLon[])[],
+    spend?: () => Promise<boolean>,
+  ): Promise<string | undefined> {
     // Without a key no picture is made, and the outlines are not simplified for nothing.
     if (!this.enabled) return Promise.resolve(undefined);
     const map = placeMap(shape, outlines);
     if (!hasContent(map)) return Promise.resolve(undefined);
     const id = createHash('sha256').update(staticMapQuery(map)).digest('hex').slice(0, 16);
     // Served again, it is kept another day (`prunePlaces` counts from its last use).
-    return this.picture('places', id, map, true);
+    return this.picture('places', id, map, true, spend);
   }
 
   clear(): Promise<number> {
@@ -117,6 +127,7 @@ export class StaticMaps implements MapProvider {
     id: number | string,
     map: StaticMap,
     touch = false,
+    spend?: () => Promise<boolean>,
   ): Promise<string | undefined> {
     if (!this.enabled) return Promise.resolve(undefined);
     const query = staticMapQuery(map);
@@ -127,6 +138,7 @@ export class StaticMaps implements MapProvider {
       url: `${STATIC_MAP_ENDPOINT}?${query}&key=${encodeURIComponent(this.apiKey ?? '')}`,
       refuse: refuseWarning,
       ...(touch ? { touch } : {}),
+      ...(spend ? { spend } : {}),
     });
   }
 }

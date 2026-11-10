@@ -1,5 +1,6 @@
 import { tidyLine } from '../domain/gyms/gym-text.js';
 import { codePointsOf, MAX_ISSUE_TITLE, type NewIssue } from '../services/issue-gateway.js';
+import { fencedBlock } from './text.js';
 
 /** A zero-width space: what breaks a mention or a reference on GitHub without showing. */
 const BREAK = '\u200b';
@@ -43,8 +44,9 @@ export interface GymRequest {
 
 /**
  * The issue of a gym request (spec row 190): titled `Gym request: <name> (#<id>)`, with the
- * member's words in the body under who sent them from where, and the gym's number as its
- * label. The title is text on GitHub (no Markdown): the name is only tidied of control and
+ * member's words in the body under who sent them from where, in a fenced block (`fencedBlock`:
+ * GitHub renders the body as Markdown, and the words are a member's), and the gym's number as
+ * its label. The title is text on GitHub (no Markdown): the name is only tidied of control and
  * direction characters (`tidyLine`), and cut (by whole characters) so that the number always
  * stays within GitHub's limit.
  */
@@ -57,9 +59,12 @@ export function gymRequestIssue(request: GymRequest): NewIssue {
   const name = whole.length <= room ? whole.join('') : `${whole.slice(0, room - 1).join('')}…`;
   return {
     title: `${prefix}${name}${suffix}`,
+    // The member's words as a block of text: GitHub renders nothing in it (plan 8Z-2), and the
+    // breaks stay in it all the same, so that nothing hangs on the fence alone.
     body:
       `Request from ${asCode(request.memberName, 'someone')} in ` +
-      `${asCode(request.serverName, 'a server')}:\n\n${noGitHubMentions(request.text)}`,
+      `${asCode(request.serverName, 'a server')}:\n\n` +
+      fencedBlock(noGitHubMentions(request.text), 'text'),
     labels: [String(gym.id)],
   };
 }

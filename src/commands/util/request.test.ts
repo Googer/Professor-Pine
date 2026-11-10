@@ -77,7 +77,9 @@ describe('/request: an issue', () => {
     expect(made.issues.opened).toEqual([
       {
         title: 'Gym request: Old Stone Fountain (#2)',
-        body: 'Request from `Alice` in `Pinewood Raids`:\n\nThe gym is now the Town Hall Fountain',
+        body:
+          'Request from `Alice` in `Pinewood Raids`:\n\n' +
+          '```text\nThe gym is now the Town Hall Fountain\n```',
         labels: ['2'],
       },
     ]);
@@ -117,8 +119,8 @@ describe('/request: an issue', () => {
       { displayName: '@Alice `x`', guildName: 'Pinewood `Raids`' },
     );
     expect(made.issues.opened[0]?.body).toBe(
-      'Request from `@\u200bAlice x` in `Pinewood Raids`:\n\n' +
-        '@\u200beveryone look: **gone** since @\u200bpine-team moved it, see #\u200b12',
+      'Request from `@\u200bAlice x` in `Pinewood Raids`:\n\n```text\n' +
+        '@\u200beveryone look: **gone** since @\u200bpine-team moved it, see #\u200b12\n```',
     );
   });
 

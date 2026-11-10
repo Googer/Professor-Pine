@@ -20,7 +20,9 @@ import {
 import { FakeAttachments } from './attachments.js';
 import { OTHER_STAFF } from './gym-admin.js';
 import { NORTH_CHANNEL, OTHER_GUILD_ID, OTHER_GUILD_ROW, WEST_CHANNEL } from './gyms.js';
+import { MapBudget } from '../../src/services/map-budget.js';
 import { createTestContext } from './test-context.js';
+import { createTestLogger } from './test-logger.js';
 import { wayfarerImportWith } from './wayfarer-import.js';
 
 /** A moderator of the fakes' server, and a member who is none. */
@@ -180,6 +182,12 @@ export async function gymCommandsWith(parties: readonly Party[] = []) {
   const made = await wayfarerImportWith(parties);
   const attachments = new FakeAttachments();
   const { ctx, entries } = createTestContext({
+    // The month's maps of places, over the counts `/gym google` reads (`made.googleUse`).
+    mapBudget: new MapBudget({
+      use: made.googleUse,
+      perMonth: 500,
+      log: createTestLogger().log,
+    }),
     // The two servers of the fakes: the usual one (row 1) and the second (row 2).
     guilds: {
       idFor: (snowflake) =>
