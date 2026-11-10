@@ -238,6 +238,15 @@ describe('readScreenText', () => {
     expect(
       roomOf([first, line('Church', 286, 227, 491, 292)], { width: 1125, height: 1700 }),
     ).toBeNull();
+    // A word of the name read with too little confidence still takes its place on the line
+    // (`TextLine.unread`); the gym-info button read so does not.
+    const church = line('Church', 286, 227, 491, 292);
+    expect(
+      roomOf([first, { ...church, unread: [{ x0: 520, y0: 228, x1: 880, y1: 292 }] }]),
+    ).toBeCloseTo(0.6, 1);
+    expect(
+      roomOf([first, { ...church, unread: [{ x0: 987, y0: 216, x1: 1024, y1: 249 }] }]),
+    ).toBeCloseTo(12, 1);
   });
 
   it('reads a max battle screen: Dynamax or Gigantamax, the species, the Power Spot under it', () => {

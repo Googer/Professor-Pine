@@ -202,9 +202,7 @@ function withoutInfoButton(line: TextLine, width: number): TextLine {
   if (!parts || !last) return line;
   const rest = parts.slice(0, -1);
   const tallest = Math.max(...rest.map((part) => boxHeight(part.box)));
-  if (last.box.x0 < width * BUTTON_PLACE || boxHeight(last.box) >= tallest * BUTTON_HEIGHT) {
-    return line;
-  }
+  if (!isInfoButton(last.box, tallest, width)) return line;
   return {
     confidence: line.confidence,
     text: line.text.slice(0, Math.max(0, line.text.length - last.length - 1)),
@@ -215,7 +213,16 @@ function withoutInfoButton(line: TextLine, width: number): TextLine {
       y1: Math.max(...rest.map((part) => part.box.y1)),
     },
     ...(rest.length > 1 ? { parts: rest } : {}),
+    ...(line.unread ? { unread: line.unread } : {}),
   };
+}
+
+/**
+ * Whether a piece is GO's gym-info button (`BUTTON_PLACE`) beside text `height` tall, on a
+ * screen `width` wide.
+ */
+function isInfoButton(box: Box, height: number, width: number): boolean {
+  return box.x0 >= width * BUTTON_PLACE && boxHeight(box) < height * BUTTON_HEIGHT;
 }
 
 /** The lines that stand in the status bar of a screen of this height. */
@@ -585,8 +592,15 @@ export function readScreenText(
       height >= width * UPRIGHT &&
       lastText.length > 0
     ) {
+      // A word read with too little confidence still takes its place (`TextLine.unread`).
+      const end = Math.max(
+        last.box.x1,
+        ...(last.unread ?? [])
+          .filter((box) => !isInfoButton(box, boxHeight(last.box), width))
+          .map((box) => box.x1),
+      );
       const perCharacter = boxWidth(last.box) / lastText.length;
-      gymRoom = Math.max(0, (width * NAME_END - last.box.x1) / perCharacter);
+      gymRoom = Math.max(0, (width * NAME_END - end) / perCharacter);
     }
     if (last) {
       const gap = boxHeight(last.box) * 0.8;

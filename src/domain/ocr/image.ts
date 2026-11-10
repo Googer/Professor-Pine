@@ -31,14 +31,20 @@ export interface TextLine {
    * side are read into one line per row; the pieces tell them apart (plan 7P).
    */
   parts?: { box: Box; length: number }[];
+  /**
+   * Where pieces of the row stood that were read with too little confidence and left out of
+   * `text` (`groupLines`): a gym's name still takes their room (`ScreenText.gymRoom`).
+   */
+  unread?: Box[];
 }
 
-/** The line with its box, and its parts' boxes, moved by `move`. */
+/** The line with its box, and its parts' and unread pieces' boxes, moved by `move`. */
 export function movedLine(line: TextLine, move: (box: Box) => Box): TextLine {
   return {
     ...line,
     box: move(line.box),
     ...(line.parts ? { parts: line.parts.map((part) => ({ ...part, box: move(part.box) })) } : {}),
+    ...(line.unread ? { unread: line.unread.map(move) } : {}),
   };
 }
 

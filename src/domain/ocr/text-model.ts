@@ -172,10 +172,16 @@ export function dictionaryOf(keys: string): string[] {
   return [...keys.replaceAll('\r\n', '\n').split('\n'), ' '];
 }
 
+/** The `unread` of a line, when there are any. */
+function unreadOf(boxes: Box[] | undefined): { unread?: Box[] } {
+  return boxes ? { unread: boxes } : {};
+}
+
 /**
  * Pieces read on one row are one line: pieces whose middles differ by less than half the mean
  * height of all pieces join the first such line, left to right, words separated by a space; the
- * lines are ordered top down. Pieces read with too little confidence are dropped first.
+ * lines are ordered top down. Pieces read with too little confidence are dropped first; those on
+ * a row that is kept are kept as its line's `unread` boxes.
  */
 export function groupLines(pieces: readonly TextLine[]): TextLine[] {
   const kept = pieces.filter((piece) => piece.confidence >= MIN_CONFIDENCE);
@@ -187,6 +193,12 @@ export function groupLines(pieces: readonly TextLine[]): TextLine[] {
     const row = rows.find((r) => r[0] && Math.abs(middle(r[0]) - middle(piece)) < meanHeight / 2);
     if (row) row.push(piece);
     else rows.push([piece]);
+  }
+  const unread = new Map<TextLine[], Box[]>();
+  for (const piece of pieces) {
+    if (piece.confidence >= MIN_CONFIDENCE) continue;
+    const row = rows.find((r) => r[0] && Math.abs(middle(r[0]) - middle(piece)) < meanHeight / 2);
+    if (row) unread.set(row, [...(unread.get(row) ?? []), piece.box]);
   }
   return rows
     .map((row) => row.sort((a, b) => a.box.x0 - b.box.x0))
@@ -201,5 +213,6 @@ export function groupLines(pieces: readonly TextLine[]): TextLine[] {
         y1: Math.max(...row.map((p) => p.box.y1)),
       },
       ...(row.length > 1 ? { parts: row.map((p) => ({ box: p.box, length: p.text.length })) } : {}),
+      ...unreadOf(unread.get(row)),
     }));
 }

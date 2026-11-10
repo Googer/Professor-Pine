@@ -137,4 +137,18 @@ describe('groupLines', () => {
       line('ok', 0, 50, 10, 60),
     ]);
   });
+
+  // Review of the exact-name rule (2026-11-10): a name's last word read with little confidence
+  // still takes its room on the line.
+  it('keeps where the pieces it dropped stood on a row it kept', () => {
+    const [name] = groupLines([
+      line('Temple Sinai', 280, 160, 700, 216),
+      line('Garden', 730, 162, 900, 216, 0.45),
+      line('x', 0, 600, 10, 610, 0.4),
+    ]);
+    expect(name).toEqual({
+      ...line('Temple Sinai', 280, 160, 700, 216),
+      unread: [{ x0: 730, y0: 162, x1: 900, y1: 216 }],
+    });
+  });
 });
