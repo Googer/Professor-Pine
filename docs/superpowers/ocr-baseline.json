@@ -1,0 +1,280 @@
+{
+  "samples": {
+    "Android B Elgyem Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true,
+      "cp": true,
+      "boss": true
+    },
+    "Android B Shadow Landorus Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true,
+      "cp": true,
+      "boss": true
+    },
+    "Android B Shadow T5 Egg Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android B T1 Egg Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android B T3 Egg Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android B T5 Egg Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android B Yveltal Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true,
+      "cp": true,
+      "boss": true
+    },
+    "Android Dialga Day (rainy).jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true,
+      "cp": true,
+      "boss": true
+    },
+    "Android Dialga shortly after dawn.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true,
+      "cp": true,
+      "boss": true
+    },
+    "Android Elgyem Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true,
+      "cp": true,
+      "boss": true
+    },
+    "Android Mega Egg Day Mid Wide.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android Mega Egg Day Slightly Wide.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android Mega Egg Day Very Wide.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android Mega Egg Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android Shadow Landorus Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true,
+      "cp": true,
+      "boss": true
+    },
+    "Android Shadow T1 Egg shortly after dawn.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android Shadow T5 Egg Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android T1 Egg Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android T1 Egg shortly after dawn.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android T3 Egg Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android T5 Egg Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "Android Yveltal Day.jpg": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true,
+      "cp": true,
+      "boss": true
+    },
+    "iPhone Mega Day.png": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "iPhone Shadow Landrous Day.png": {
+      "clock": true,
+      "countdown": true,
+      "gym": false,
+      "stage": true,
+      "heads": true,
+      "shadow": true,
+      "cp": true,
+      "boss": true
+    },
+    "iPhone Shadow T5 Day.png": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "iPhone T1 Day.png": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "iPhone T3 Day.png": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    },
+    "iPhone T5 Day.png": {
+      "clock": true,
+      "countdown": true,
+      "gym": true,
+      "stage": true,
+      "heads": true,
+      "shadow": true
+    }
+  },
+  "totals": {
+    "clock": {
+      "right": 28,
+      "of": 28
+    },
+    "countdown": {
+      "right": 28,
+      "of": 28
+    },
+    "gym": {
+      "right": 27,
+      "of": 28
+    },
+    "stage": {
+      "right": 28,
+      "of": 28
+    },
+    "heads": {
+      "right": 28,
+      "of": 28
+    },
+    "shadow": {
+      "right": 28,
+      "of": 28
+    },
+    "cp": {
+      "right": 9,
+      "of": 9
+    },
+    "boss": {
+      "right": 9,
+      "of": 9
+    }
+  }
+}

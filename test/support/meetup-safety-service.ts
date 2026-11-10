@@ -1,0 +1,83 @@
+import type { MeetupRequestRecord } from '../../src/domain/meetups/records.js';
+import type { Party } from '../../src/domain/party/party.js';
+import { MeetupSafety, type RequestAsk } from '../../src/services/meetup-safety.js';
+import { WEST_CHANNEL } from './gyms.js';
+import { LIBRARY, MAKER, SAFETY_SERVER } from './meetup-safety-cases.js';
+import { MemoryMeetupSafety } from './meetup-safety.js';
+import { partyServiceWith, type ServiceOverrides } from './party-service.js';
+
+/** The name of the moderators' channel in the tests of meetup safety. */
+export const MODERATION = 'meetup-review';
+/** The moderators' channel on the fake gateway. */
+export const MOD_CHANNEL = '600000000000000777';
+
+export interface SafetyOptions {
+  /** The name the settings give the moderators' channel; null for none (the safety off). */
+  moderation?: string | null;
+  /** Whether the server has that channel. Default yes. */
+  channel?: boolean;
+  /** `settings.meetupSafety.flaggedWords`. */
+  flaggedWords?: string[];
+}
+
+/**
+ * Meetup safety over the services of `partyServiceWith` (the fake gateway, the party service,
+ * the store, the clock, the recorded DMs) and `MemoryMeetupSafety` (`storage`): the settings
+ * name the moderators' channel `MODERATION`, which the server has as `MOD_CHANNEL`, unless
+ * `options` say otherwise. `held(ask?)` asks the moderators about Alice's book swap at the
+ * Little Free Library (a PokéStop), a day ahead, and gives the request as it was stored.
+ */
+export async function meetupSafetyWith(
+  options: SafetyOptions = {},
+  parties: readonly Party[] = [],
+  overrides: ServiceOverrides = {},
+) {
+  const made = await partyServiceWith(parties, overrides);
+  const { moderation = MODERATION, channel = true, flaggedWords } = options;
+  const { moderation: _none, ...channels } = made.settings.channels;
+  const settings = {
+    ...made.settings,
+    channels: moderation === null ? channels : { ...channels, moderation },
+    ...(flaggedWords === undefined ? {} : { meetupSafety: { flaggedWords } }),
+  };
+  if (channel && moderation !== null) made.gateway.addChannel(MOD_CHANNEL, moderation);
+  const storage = new MemoryMeetupSafety();
+  const safety = new MeetupSafety({
+    storage,
+    gateway: made.gateway,
+    parties: made.service,
+    regions: made.regions,
+    dms: made.dms,
+    gyms: made.gyms,
+    store: made.store,
+    guilds: {
+      idFor: (snowflake) => Promise.resolve(snowflake === made.gateway.guildId ? 1 : undefined),
+    },
+    settings,
+    log: made.log,
+    now: () => made.clock.now,
+  });
+  const held = async (ask: Partial<RequestAsk> = {}): Promise<MeetupRequestRecord> => {
+    const outcome = await safety.submit(bookSwap(made.clock.now, ask));
+    if (outcome.kind !== 'sent') throw new Error(`the request was not sent: ${outcome.kind}`);
+    return outcome.request;
+  };
+  /** The moderators' post of a request, as it is now. */
+  const postOf = (request: MeetupRequestRecord) =>
+    made.gateway.messagesIn(MOD_CHANNEL).find((message) => message.id === request.messageId);
+  return { ...made, settings, storage, safety, held, postOf };
+}
+
+/** Alice's book swap at the Little Free Library, a day after `now`, as `/meetup` asks for it. */
+export function bookSwap(now: number, ask: Partial<RequestAsk> = {}): RequestAsk {
+  return {
+    serverId: SAFETY_SERVER,
+    regionChannelId: WEST_CHANNEL,
+    maker: { id: MAKER, name: 'Alice', team: 'mystic' },
+    place: LIBRARY,
+    name: 'Book swap',
+    startTime: now + 24 * 3_600_000,
+    description: 'Bring a book.',
+    ...ask,
+  };
+}

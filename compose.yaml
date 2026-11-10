@@ -1,0 +1,298 @@
+# The whole of Professor Pine: the bot and its MySQL. Run it through `./pine` (see
+# `./pine help` and docs/architecture/operations.md); the host needs only Docker and git.
+#
+# Settings and secrets: `.env` beside this file (copy `.env.example`), read by Compose for the
+# values below and handed to the bot, but for MySQL's root password and the tunnel's token; the
+# installation's settings, `pine-settings.json` beside it (git-ignored; made from
+# `data/settings.json`), mounted read-only.
+name: pine
+
+# Every service's log in five files of 20 MB at most: Docker's default on a plain host keeps it all.
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 20m, max-file: '5' }
+
+services:
+  mysql:
+    image: mysql:9.7
+    # utf8mb4 with the collation the bot's tables are created with. Table names stay case
+    # sensitive (lower_case_table_names=0, the Linux default, and only settable when the data
+    # directory is created): the bot's tables are named `Guild`, `GymMeta` and so on, and a dump
+    # from a Windows server, whose names are lower case, is renamed by `./pine restore`.
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --lower-case-table-names=0
+    environment:
+      # The database and the bot's user are made from the bot's own settings on the first start.
+      MYSQL_DATABASE: ${DB_SCHEMA:?DB_SCHEMA must be set in .env}
+      MYSQL_USER: ${DB_USER:?DB_USER must be set in .env}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set in .env}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # Over TCP: the server the image runs while it creates a new database listens on no port.
+      test: ['CMD-SHELL', 'MYSQL_PWD="$$MYSQL_ROOT_PASSWORD" mysqladmin ping -h 127.0.0.1 -uroot']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 2m
+    # With the bot and the backups alone, and no way out (plan 8Z-2).
+    networks: [db]
+    restart: unless-stopped
+    logging: *logging
+    # It starts as root and steps down to `mysql` (the image's entrypoint), so it keeps its
+    # capabilities; it gains no new privilege, and a runaway is bounded like the other services.
+    # The limits are generous on purpose (every connection is a thread, of 151 at most, beside
+    # the server's own): `docker stats` on a running stack shows what it uses.
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 2g
+    pids_limit: 512
+
+  pine:
+    build: .
+    image: professor-pine:${COMPOSE_PROJECT_NAME:-pine}
+    env_file: ${PINE_ENV_FILE:-.env}
+    environment:
+      # Inside the stack the database is the `mysql` service, whatever `.env` says.
+      DB_HOST: mysql
+      DB_PORT: '3306'
+      NODE_ENV: production
+      SETTINGS_PATH: data/settings.json
+      # The bot needs no root password: the one in `.env` is MySQL's only.
+      DB_ROOT_PASSWORD: ''
+      # Nor the tunnel's token, which is cloudflared's: with it, all the web pages' traffic can be read.
+      CLOUDFLARE_TUNNEL_TOKEN: ''
+      # The legacy bot's parties folder, for /admin cleanup-legacy: mounted below where
+      # LEGACY_PARTIES_DIR names one, blank (none) otherwise.
+      LEGACY_PARTIES_DIR: ${LEGACY_PARTIES_DIR:+/legacy-parties}
+      # The member index of the legacy history, which `./pine import-history` writes (plan
+      # 8H-10): read when a member adds their old-bot history in /settings. Mounted below where
+      # LEGACY_INDEX_DIR names one, blank (no fill-in offered) otherwise.
+      LEGACY_INDEX_DIR: ${LEGACY_INDEX_DIR:+/legacy-index}
+    volumes:
+      - ${PINE_SETTINGS:-./pine-settings.json}:/app/data/settings.json:ro
+      - pine-var:/app/var
+      - ${LEGACY_PARTIES_DIR:-./legacy-parties}:/legacy-parties:ro
+      # The index root, not a server's folder: the import swaps a server's folder inside it.
+      - ${LEGACY_INDEX_DIR:-./legacy-index}:/legacy-index:ro
+      # The Wayfarer export tool, on the owner's instance only (the private repository's
+      # `npm run deploy` writes it there): read when asked, served at /userscript to the admins
+      # the owner approved. `./pine` makes the folder when missing; empty, nothing is served.
+      - ${PINE_TOOL_DIR:-./wayspot-tool}:/app/wayspot-tool:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    # The default network for Discord, the feeds and the tunnel; MySQL's own for the database.
+    networks: [default, db]
+    # tini as process 1: it hands SIGTERM to the bot and reaps the screen reader's process.
+    init: true
+    restart: unless-stopped
+    logging: *logging
+    # The service that takes what strangers send: it needs no capability, and its limits (the screen
+    # reader's process counts, some 700 MB at its peak) keep a runaway from MySQL's and the other
+    # stacks' memory on the same host.
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+    mem_limit: 4g
+    pids_limit: 512
+    # Every shutdown step has its own limit (src/app.ts): two minutes all together, of which the
+    # queued direct messages take up to fifteen seconds; half a minute more before Docker kills.
+    stop_grace_period: 2m30s
+    # The bot's heartbeat (var/health/status.json), read by a small command of the image: fresh,
+    # connected to Discord (or not for long), the database answering. The start period covers a
+    # slow first start (the game data's download, the migrations of a large database).
+    healthcheck:
+      test: ['CMD', 'node', 'dist/ops/health-cli.js']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10m
+    # No port of the bot is published to the host.
+
+  # Restarts the bot when it has been stuck for a while (a stale heartbeat, which neither an
+  # exit nor the restart policy catches) and DMs the owner of that, of an unhealthy bot a restart
+  # would not mend, of a bot that keeps restarting, and of failed backups. It reaches Docker only
+  # through docker-proxy, below, which lets it list containers and inspect and restart this
+  # stack's bot, by name, and nothing else. It holds no socket and runs as the image's user.
+  watchdog:
+    image: professor-pine:${COMPOSE_PROJECT_NAME:-pine}
+    # The pine service builds this image; it is on no registry, and `./pine update`'s pull skips
+    # only what is told not to pull or has a build of its own.
+    pull_policy: never
+    command: ['node', '--enable-source-maps', 'dist/ops/watchdog-cli.js']
+    # Only what it needs of `.env`.
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+      OWNER_ID: ${OWNER_ID:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      WATCHDOG_PROJECT: ${COMPOSE_PROJECT_NAME:-pine}
+      WATCHDOG_INTERVAL_SECONDS: ${WATCHDOG_INTERVAL_SECONDS:-}
+      WATCHDOG_UNHEALTHY_MINUTES: ${WATCHDOG_UNHEALTHY_MINUTES:-}
+      WATCHDOG_ALERT_MINUTES: ${WATCHDOG_ALERT_MINUTES:-}
+      WATCHDOG_GATEWAY_RESTART_MINUTES: ${WATCHDOG_GATEWAY_RESTART_MINUTES:-}
+      WATCHDOG_RESTARTS: ${WATCHDOG_RESTARTS:-}
+      WATCHDOG_RESTART_WINDOW_MINUTES: ${WATCHDOG_RESTART_WINDOW_MINUTES:-}
+      WATCHDOG_BACKUP_HOURS: ${WATCHDOG_BACKUP_HOURS:-}
+    volumes:
+      # The backup's result to read.
+      - ops:/ops:ro
+      # What it told, kept across its own restarts.
+      - watchdog-state:/watchdog
+    # The default network for its direct messages to Discord; the proxy's alone for Docker.
+    networks: [default, docker-proxy]
+    depends_on:
+      - pine
+      - docker-proxy
+    init: true
+    restart: unless-stopped
+    logging: *logging
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+    mem_limit: 512m
+    pids_limit: 128
+
+  # The one service that holds the Docker socket: a proxy that answers the watchdog, on a network
+  # with no way out that the two alone share. A rule is a regular expression of the path, which it
+  # anchors at both ends. It allows the list of containers, and this stack's bot by name to inspect
+  # and restart. It refuses everything else: create, exec, stop, kill, archive, logs, another
+  # container's inspect or restart. Read-only `:ro` says nothing of what the API may do: these
+  # rules do. They were proved on an engine with scratch containers, a 150-second stop included
+  # (plan 8Z's staging checklist).
+  # It runs as root (user 0, no capabilities) where its own example gives the socket's group: that
+  # group's id differs per host, and the socket's owner is root everywhere.
+  # Pinned by version and digest (the digest of the image index, so that arm64 and amd64 hosts
+  # both get theirs): a tag alone is whatever was last pushed there, and this one holds the
+  # socket. Dependabot proposes a newer one by pull request (.github/dependabot.yml).
+  docker-proxy:
+    image: wollomatic/socket-proxy:1.13.2@sha256:ff95d6ff6c27853005ef85eb8f4ab5923dc3d2f1e055f98fb6aeeaceec3fe848
+    user: '0'
+    environment:
+      SP_LISTENIP: 0.0.0.0
+      # Only the watchdog is answered (plan 8Z-2): the proxy looks the name up at every request
+      # (Docker's own DNS gives the service's address on the network the two share) and refuses
+      # an address that is not its, also when the lookup fails. The network alone is no fence:
+      # on a Linux host any local process can reach a bridge network's addresses, and the bot's
+      # inspect holds its whole environment.
+      SP_ALLOWFROM: watchdog
+      SP_ALLOW_GET: '(/v[0-9.]+)?/containers/(json|${COMPOSE_PROJECT_NAME:-pine}-pine-[0-9]+/json)'
+      SP_ALLOW_POST: '(/v[0-9.]+)?/containers/${COMPOSE_PROJECT_NAME:-pine}-pine-[0-9]+/restart'
+      # For the binary below alone, on 127.0.0.1 inside the container.
+      SP_ALLOWHEALTHCHECK: 'true'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [docker-proxy]
+    healthcheck:
+      test: ['CMD', './healthcheck']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    logging: *logging
+    read_only: true
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+    mem_limit: 64m
+    pids_limit: 64
+
+  # A verified dump of the database every night (docker/backup.sh, `./pine backup` for one now),
+  # into BACKUP_DIR on the host. On the mysql:9.7 image for its own mysqldump and mysqld: a
+  # MariaDB client against MySQL 8 is a trap, and the check loads each dump into a scratch
+  # server of its own. Its result goes to the ops volume, where the watchdog reads it.
+  backup:
+    image: mysql:9.7
+    entrypoint: ['sh', '/pine/backup.sh']
+    command: ['schedule']
+    environment:
+      # The bot's account, which may read all of its schema: the dump and the counts need no
+      # more, and MySQL's root password stays with the mysql service (plan 8Z-2).
+      DB_USER: ${DB_USER:?DB_USER must be set in .env}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      DB_SCHEMA: ${DB_SCHEMA:?DB_SCHEMA must be set in .env}
+      BACKUP_TIME: ${BACKUP_TIME:-03:30}
+      BACKUP_TZ: ${BACKUP_TZ:-}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-90}
+      # Blank switches backups off (a development or rehearsal stack): only whether it is set is
+      # read in here; the folder is the mount below.
+      BACKUP_DIR: ${BACKUP_DIR:-}
+      # Who writes in BACKUP_DIR: an NFS share that squashes root needs its owner's ids.
+      BACKUP_UID: ${BACKUP_UID:-0}
+      BACKUP_GID: ${BACKUP_GID:-0}
+      # The stack the backup folder belongs to (its .pine-backups file names it).
+      BACKUP_STACK: ${COMPOSE_PROJECT_NAME:-pine}
+    volumes:
+      # The folder, not the file: a pulled change of the script is a new file, which a mount of
+      # the old one would never show. `./pine update` recreates this service.
+      - ./docker:/pine:ro
+      # For the default time zone of the backups: the bot's `timezone`.
+      - ${PINE_SETTINGS:-./pine-settings.json}:/pine-settings.json:ro
+      # rslave: a share the host mounts there after Docker started still shows inside.
+      - type: bind
+        source: ${BACKUP_DIR:-./backups}
+        target: /backups
+        bind:
+          propagation: rslave
+      - ops:/ops
+      # The scratch server of the check: room for the database about twice over, off the
+      # container's own layer.
+      - backup-scratch:/scratch
+    depends_on:
+      mysql:
+        condition: service_healthy
+    # MySQL's network alone: a backup needs nothing outside the stack.
+    networks: [db]
+    init: true
+    restart: unless-stopped
+    logging: *logging
+    # It runs as root for the scratch server's files and to write as BACKUP_UID (gosu), so it keeps
+    # its capabilities; it gains no new privilege. The limits are generous on purpose: a check runs
+    # a second MySQL server (its threads count as processes) beside the dump's own commands.
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 2g
+    pids_limit: 512
+    # A stop during a check shuts the scratch server down first.
+    stop_grace_period: 30s
+
+  # The Cloudflare Tunnel to the bot's web pages (docs/web-setup.md), only with the profile
+  # `tunnel` (COMPOSE_PROFILES=tunnel in the env file): a stack without the web pages needs none.
+  # The bot's web server listens on 0.0.0.0 inside this network (pine-settings.json:
+  # `web.host` "0.0.0.0", `web.port`, `web.trustProxy` true, `web.publicUrl` the tunnel's
+  # address); its port is not published, and the tunnel's public hostname points at
+  # http://pine:<web.port>. The token comes from the env file, never from a file here.
+  # Pinned by version and digest (of the image index), as the socket proxy is: every cookie and
+  # login of the web pages passes through it. Dependabot proposes a newer one by pull request.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+    profiles: ['tunnel']
+    command: ['tunnel', '--no-autoupdate', 'run']
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - pine
+    # The bot's web server and the way out to Cloudflare; never MySQL's network.
+    networks: [default]
+    restart: unless-stopped
+    logging: *logging
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+    mem_limit: 512m
+    pids_limit: 256
+
+volumes:
+  mysql-data:
+  pine-var:
+  # The backup's last result, which the watchdog reads.
+  ops:
+  # What the watchdog told, which it writes as the image's user.
+  watchdog-state:
+  backup-scratch:
+
+networks:
+  # Between the watchdog and the socket proxy, with no way out.
+  docker-proxy:
+    internal: true
+  # MySQL's, with the bot and the backups: no way out, and neither the tunnel nor the watchdog
+  # on it (plan 8Z-2). The bot, the watchdog and the tunnel keep the default network.
+  db:
+    internal: true

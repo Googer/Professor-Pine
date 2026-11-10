@@ -1,0 +1,101 @@
+{
+  "standardRaidIncubateDuration": 60,
+  "standardRaidHatchedDuration": 45,
+  "eliteRaidIncubateDuration": 1440,
+  "eliteRaidHatchedDuration": 30,
+  "maxRaidHatchedDuration": 180,
+  "maxMeetupLeadupDuration": 133920,
+  "maximumAdditionalAttendees": 20,
+  "startClearTime": 10,
+  "deletionGraceTime": 5,
+  "deletionWarningTime": 10,
+  "trainOrMeetupDeletionWarningTime": 60,
+  "raidCompleteTimeout": 5,
+  "maximumMeetupLeadtime": 93,
+  "screenshotMessageOffsetTime": 45,
+  "cleanupInterval": 60000,
+  "messageCleanupDelayError": 30000,
+  "showUnknownMoves": true,
+  "postNewGyms": true,
+  "wayspotTool": "https://profpine.com/userscript",
+  "emoji": {
+    "shiny": "pineshiny",
+    "remote": "pineremote"
+  },
+  "features": {
+    "exGymChannel": true,
+    "remoteRaidChannel": true,
+    "notifications": true,
+    "roles": true
+  },
+  "roles": {
+    "unown": "unown"
+  },
+  "channels": {
+    "bot-lab": "the-bot-lab",
+    "mod-bot-lab": "mod-bot-only",
+    "unown": "unown-sightings",
+    "elite-gym-raids": "elite-gym-raids",
+    "remote-raids": "remote-raids",
+    "pvp": "rank-checker",
+    "bot-updates": "bot-updates"
+  },
+  "categories": {
+    "pvp": "PVP CHAT AND TOURNAMENTS"
+  },
+  "helpGroups": [
+    "basic-raid",
+    "raid-crud",
+    "train",
+    "meetup",
+    "roles",
+    "notifications",
+    "friends",
+    "util"
+  ],
+  "wildSpawnExceptions": ["Uxie", "Mesprit", "Azelf"],
+  "regionForumSuffix": "-meetups",
+  "regionMapLink": "https://maps.example.test/regions",
+  "findRegion": {
+    "url": "https://nominatim.example.test",
+    "userAgent": "Professor Pine test installation"
+  },
+  "blacklistWords": [
+    "ex",
+    "raid",
+    "rald",
+    "gym",
+    "exraid",
+    "exrald",
+    "raldgym",
+    "raidgym",
+    "exraidgym",
+    "exraldgym",
+    "sponsored"
+  ],
+  "timezone": "America/New_York",
+  "distanceUnits": "metric",
+  "ocr": {
+    "passive": false,
+    "debug": false
+  },
+  "autoAssignRole": false,
+  "gameData": {
+    "gameMasterUrl": "https://raw.githubusercontent.com/PokeMiners/game_masters/master/latest/latest.json",
+    "textUrl": "https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Texts/Latest%20APK/English.txt",
+    "iconsUrl": "https://api.github.com/repos/PokeMiners/pogo_assets/git/trees/master:Images/Pokemon/Addressable%20Assets",
+    "refreshHours": 24
+  },
+  "raidBosses": {
+    "url": "https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/raids.min.json",
+    "refreshMinutes": 60,
+    "staleAfterHours": 48,
+    "announceChanges": false
+  },
+  "raidEvents": {
+    "url": "https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/events.min.json",
+    "refreshHours": 6,
+    "weeklyRaidHour": { "weekday": 3, "hour": 18, "minutes": 60 },
+    "hatchedDuration": { "raid-hour": 25, "raid-day": 30 }
+  }
+}

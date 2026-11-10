@@ -1,0 +1,7 @@
+# Shell scripts run in Linux containers and under sh on the host: LF on every checkout, also on
+# Windows with core.autocrlf, or sh reads a carriage return into every line.
+/pine text eol=lf
+*.sh text eol=lf
+# The Wayspot export contracts are pinned byte for byte (CR LF in the report, one line of JSON):
+# never converted on checkout or commit.
+/packages/wayspot-core/fixtures/** -text

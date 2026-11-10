@@ -1,0 +1,138 @@
+{
+  "generated_at": "2026-10-27T17:39:02Z",
+  "server_timezone": "UTC",
+  "regular_raids": [
+    {
+      "slug": "palkia-mega-charizard-x-mega-charizard-y",
+      "title": "Palkia, Mega Charizard X, and Mega Charizard Y in Raids",
+      "description": "Axew, Goomy, Jangmo-o, and Frigibax in 1-star raids; Alolan Raichu, Alolan Ninetales, and Alolan Muk in 3-star raids; Palkia in 5-star raids; Mega Charizard X and Mega Charizard Y in Mega raids",
+      "start_date": "2026-10-21 06:00:00 -0800",
+      "end_date": "2026-10-27 10:00:00 -0800",
+      "start_timestamp": 1792591200,
+      "end_timestamp": 1793124000,
+      "local_time": true,
+      "type": "regular",
+      "tags": [],
+      "thumbnail": "https://cdn.leekduck.com/assets/img/pokemon_icons/pm484.icon.png",
+      "file_name": "2026-10-21-palkia-mega-charizard-x-mega-charizard-y",
+      "data_path": "2026/2026-10-October/2026-10-21-palkia-mega-charizard-x-mega-charizard-y"
+    },
+    {
+      "slug": "halloween-2026-part-1-palkia",
+      "title": "Halloween 2026 Part I (Palkia)",
+      "description": "Pikachu wearing a hat and capelet and Sinistea wearing a bow in 1-star raids; Alolan Raichu, Alolan Ninetales, and Alolan Muk in 3-star raids; Palkia in 5-star raids; Mega Charizard X and Mega Charizard Y in Mega raids",
+      "start_date": "2026-10-27 10:00:00 -0800",
+      "end_date": "2026-10-27 20:00:00 -0800",
+      "start_timestamp": 1793124000,
+      "end_timestamp": 1793160000,
+      "local_time": true,
+      "type": "regular",
+      "tags": [
+        "Event"
+      ],
+      "thumbnail": "https://cdn.leekduck.com/assets/img/pokemon_icons/pm25.fHALLOWEEN_2026.icon.png",
+      "file_name": "2026-10-27-halloween-2026-part-1-palkia",
+      "data_path": "2026/2026-10-October/2026-10-27-halloween-2026-part-1-palkia"
+    },
+    {
+      "slug": "giratina-origin-mega-sableye",
+      "title": "Giratina (Origin Forme) and Mega Sableye in Raids",
+      "description": "Pikachu wearing a hat and capelet and Sinistea wearing a bow in 1-star raids; Cofagrigus, Trevenant, and Dhelmise in 3-star raids; Giratina (Origin) in 5-star raids; Mega Sableye in Mega raids",
+      "start_date": "2026-10-28 06:00:00 -0800",
+      "end_date": "2026-11-03 20:00:00 -0800",
+      "start_timestamp": 1793196000,
+      "end_timestamp": 1793764800,
+      "local_time": true,
+      "type": "regular",
+      "tags": [],
+      "thumbnail": "https://cdn.leekduck.com/assets/img/pokemon_icons/pm487.fORIGIN.icon.png",
+      "file_name": "2026-10-28-giratina-origin-mega-sableye",
+      "data_path": "2026/2026-10-October/2026-10-28-giratina-origin-mega-sableye"
+    },
+    {
+      "slug": "chandelure-super-mega-raid-day-2026",
+      "title": "Chandelure Super Mega Raid Day",
+      "description": "Mega Chandelure in Super Mega Raids",
+      "start_date": "2026-10-31 14:00:00 -0800",
+      "end_date": "2026-10-31 17:00:00 -0800",
+      "start_timestamp": 1793484000,
+      "end_timestamp": 1793494800,
+      "local_time": true,
+      "type": "regular",
+      "tags": [
+        "Raid Day"
+      ],
+      "thumbnail": "https://cdn.leekduck.com/assets/img/pokemon_icons/pm609.fMEGA.icon.png",
+      "file_name": "2026-10-31-chandelure-super-mega-raid-day-2026",
+      "data_path": "2026/2026-10-October/2026-10-31-chandelure-super-mega-raid-day-2026"
+    },
+    {
+      "slug": "pokemon-go-wild-area-2026-sendai-japan",
+      "title": "Pokémon GO Wild Area 2026: Sendai • Tohoku",
+      "description": "Modern Jacket Machamp in 3-star raids; Crowned Sword Zacian and Crowned Shield Zamazenta in 5-star raids in Miyagi Prefecture from 10:00 a.m. to 6:00 p.m. each day",
+      "start_date": "2026-11-06 10:00:00 +0900",
+      "end_date": "2026-11-08 18:00:00 +0900",
+      "start_timestamp": 1793926800,
+      "end_timestamp": 1794128400,
+      "local_time": false,
+      "type": "regular",
+      "tags": [
+        "Exclusive"
+      ],
+      "thumbnail": "https://cdn.leekduck.com/assets/img/pokemon_icons/pm68.fWILDAREA_2026_01.icon.png",
+      "file_name": "2026-11-06-pokemon-go-wild-area-2026-sendai-japan",
+      "data_path": "2026/2026-11-November/2026-11-06-pokemon-go-wild-area-2026-sendai-japan"
+    },
+    {
+      "slug": "pokemon-go-wild-area-2026-mexico-city",
+      "title": "Pokémon GO Wild Area 2026: Mexico City",
+      "description": "Modern Jacket Machamp in 3-star raids; Crowned Sword Zacian and Crowned Shield Zamazenta in 5-star raids in Mexico City from 10:00 a.m. to 6:00 p.m. each day",
+      "start_date": "2026-11-06 10:00:00 -0600",
+      "end_date": "2026-11-08 18:00:00 -0600",
+      "start_timestamp": 1793980800,
+      "end_timestamp": 1794182400,
+      "local_time": false,
+      "type": "regular",
+      "tags": [
+        "Exclusive"
+      ],
+      "thumbnail": "https://cdn.leekduck.com/assets/img/pokemon_icons/pm68.fWILDAREA_2026_01.icon.png",
+      "file_name": "2026-11-06-pokemon-go-wild-area-2026-mexico-city",
+      "data_path": "2026/2026-11-November/2026-11-06-pokemon-go-wild-area-2026-mexico-city"
+    },
+    {
+      "slug": "pokemon-go-wild-area-2026-global",
+      "title": "Pokémon GO Wild Area 2026: Global",
+      "description": "Modern Jacket Machamp in 3-star raids; Zekrom and White Kyurem on Saturday, Reshiram and Black Kyurem on Sunday in 5-star raids from 10:00 a.m. to 6:00 p.m. each day",
+      "start_date": "2026-11-14 10:00:00 -0800",
+      "end_date": "2026-11-15 18:00:00 -0800",
+      "start_timestamp": 1794679200,
+      "end_timestamp": 1794794400,
+      "local_time": true,
+      "type": "regular",
+      "tags": [
+        "Event"
+      ],
+      "thumbnail": "https://cdn.leekduck.com/assets/img/pokemon_icons/pm68.fWILDAREA_2026_01.icon.png",
+      "file_name": "2026-11-14-pokemon-go-wild-area-2026-global",
+      "data_path": "2026/2026-11-November/2026-11-14-pokemon-go-wild-area-2026-global"
+    }
+  ],
+  "shadow_raids": [
+    {
+      "slug": "shadow-landorus-incarnate-october-november-2026",
+      "title": "Shadow Landorus (Incarnate Forme) October–November 2026",
+      "description": "Shadow Gastly, Shadow Totodile, Shadow Shieldon, and Shadow Gible in 1-star Shadow Raids; Shadow Primeape, Shadow Kirlia, and Shadow Drapion in 3-star Shadow Raids; Shadow Landorus (Incarnate Forme) in 5-star Shadow Raids",
+      "start_date": "2026-10-07 06:00:00 -0800",
+      "end_date": "2026-11-03 22:00:00 -0800",
+      "start_timestamp": 1791381600,
+      "end_timestamp": 1793772000,
+      "local_time": true,
+      "type": "shadow",
+      "tags": [],
+      "thumbnail": "https://cdn.leekduck.com/assets/img/pokemon_icons/pm645.fINCARNATE.icon.png",
+      "file_name": "2026-10-07-shadow-landorus-incarnate-october-november-2026",
+      "data_path": "2026/2026-10-October/2026-10-07-shadow-landorus-incarnate-october-november-2026"
+    }
+  ]
+}

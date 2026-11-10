@@ -1,0 +1,131 @@
+{
+  "standardRaidIncubateDuration": 60,
+  "standardRaidHatchedDuration": 45,
+  "exclusiveRaidIncubateDuration": 20160,
+  "exclusiveRaidHatchedDuration": 45,
+  "eliteRaidIncubateDuration": 1440,
+  "eliteRaidHatchedDuration": 30,
+  "maxRaidHatchedDuration": 180,
+  "maxMeetupLeadupDuration": 133920,
+  "maximumAdditionalAttendees": 20,
+  "startClearTime": 10,
+  "deletionGraceTime": 5,
+  "deletionWarningTime": 10,
+  "trainOrMeetupDeletionWarningTime": 60,
+  "raidCompleteTimeout": 5,
+  "maximumMeetupLeadtime": 93,
+  "screenshotMessageOffsetTime": 45,
+  "cleanupInterval": 60000,
+  "commandPrefix": "!",
+  "messageCleanupDelaySuccess": 5000,
+  "messageCleanupDelayError": 30000,
+  "messageCleanupDelayStatus": 60000,
+  "showUnknownMoves": true,
+  "databaseRaids": true,
+  "postNewGyms": true,
+  "updater": {
+    "channelIndexUpdateIntervalSeconds": 60,
+    "gymPlacesIndexUpdateIntervalSeconds": 60
+  },
+  "emoji": {
+    "thumbsUp": "pinethumbsup",
+    "thumbsDown": "pinethumbsdown",
+    "shiny": "pineshiny",
+    "remote": "pineremote"
+  },
+  "reactionCommands": {
+    "interested": {
+      "custom": "pineinterested",
+      "plain": "🤔",
+      "localOnly": false
+    },
+    "join": {
+      "custom": "pinejoin",
+      "plain": "🏃",
+      "localOnly": false
+    },
+    "here": {
+      "custom": "pinehere",
+      "plain": "✅",
+      "localOnly": false
+    },
+    "done": {
+      "custom": "pinedone",
+      "plain": "🎉",
+      "localOnly": false
+    },
+    "incrementCount": {
+      "custom": "",
+      "plain": "⬆️",
+      "localOnly": false
+    },
+    "decrementCount": {
+      "custom": "",
+      "plain": "⬇️",
+      "localOnly": false
+    },
+    "remote": {
+      "custom": "pineremote",
+      "plain": "📡",
+      "localOnly": true
+    },
+    "notInterested": {
+      "custom": "pineleave",
+      "plain": "👋",
+      "localOnly": false
+    }
+  },
+  "groupReactions": {
+    "A": "🇦",
+    "B": "🇧",
+    "C": "🇨",
+    "D": "🇩",
+    "E": "🇪"
+  },
+  "features": {
+    "exGymChannel": true,
+    "remoteRaidChannel": false,
+    "reactionCommands": true,
+    "notifications": true,
+    "roles": true
+  },
+  "roles": {
+    "unown": "unown"
+  },
+  "channels": {
+    "bot-lab": "the-bot-lab",
+    "mod-bot-lab": "mod-bot-only",
+    "unown": "wild-unown-sightings",
+    "ex-gym-raids": "potential-ex-gym-raids",
+    "remote-raids": "remote-raids",
+    "pvp": "rank-checker",
+    "bot-updates": "bot-updates"
+  },
+  "categories": {
+    "pvp": "PVP CHAT AND TOURNAMENTS"
+  },
+  "helpGroups": [
+    "basic-raid",
+    "raid-crud",
+    "train",
+    "meetup",
+    "roles",
+    "notifications",
+    "friends",
+    "silph",
+    "util"
+  ],
+  "blacklistWords": [
+    "ex",
+    "raid",
+    "rald",
+    "gym",
+    "exraid",
+    "exrald",
+    "raldgym",
+    "raidgym",
+    "exraidgym",
+    "exraldgym",
+    "sponsored"
+  ]
+}

@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Professor Pine: Modernization</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #1f2328;
+        --muted: #59636e;
+        --line: #d1d9e0;
+        --panel: #f6f8fa;
+        --now: #cf222e;
+        --future: #d0d7de;
+        --done: #1a7f37;
+        --review: #7d5600;
+        --progress: #0550ae;
+        --todo: #57606a;
+        --unplanned: #6e7781;
+        --f-done: #2da44e;
+        --f-review: #d4a72c;
+        --f-fix: #8250df;
+        --f-plan: #1b7c83;
+        --f-progress: #218bff;
+        --f-todo: #d0d7de;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #0d1117;
+          --fg: #e6edf3;
+          --muted: #9198a1;
+          --line: #30363d;
+          --panel: #161b22;
+          --now: #ff7b72;
+          --future: #30363d;
+          --done: #3fb950;
+          --review: #d29922;
+          --progress: #58a6ff;
+          --todo: #9198a1;
+          --unplanned: #9198a1;
+          --f-done: #2ea043;
+          --f-review: #bb8009;
+          --f-fix: #a371f7;
+          --f-plan: #39c5cf;
+          --f-progress: #1f6feb;
+          --f-todo: #30363d;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          14px/1.45 system-ui,
+          'Segoe UI',
+          sans-serif;
+      }
+      /* The whole width of the window: the timeline is wide, and room at the sides shows less of it. */
+      main {
+        padding: 16px 24px;
+        box-sizing: border-box;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0 0 4px;
+      }
+      .meta,
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0 0 12px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        margin: 8px 0 12px;
+        font-size: 13px;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .badge {
+        font-size: 12px;
+        border: 1px solid currentColor;
+        border-radius: 10px;
+        padding: 0 6px;
+        white-space: nowrap;
+      }
+      .st-done {
+        color: var(--done);
+      }
+      .st-review {
+        color: var(--review);
+      }
+      .st-progress {
+        color: var(--progress);
+      }
+      .st-todo {
+        color: var(--todo);
+      }
+      .st-unplanned {
+        color: var(--unplanned);
+      }
+      .sw {
+        position: relative;
+        display: inline-block;
+        width: 26px;
+        height: 12px;
+        border-radius: 3px;
+        box-sizing: border-box;
+      }
+      /* Two panes side by side: the names stand still, only the timeline scrolls sideways. Both
+         scroll up and down together (the script keeps the names in step with the timeline). */
+      .chart {
+        display: flex;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .names {
+        flex: 0 0 var(--names-w, 420px);
+        width: var(--names-w, 420px);
+        max-height: 72vh;
+        overflow: hidden;
+        box-sizing: border-box;
+      }
+      /* The edge between the panes: dragged (or moved with the arrow keys) it widens the names. */
+      .split {
+        flex: 0 0 6px;
+        cursor: col-resize;
+        touch-action: none;
+        border-left: 1px solid var(--line);
+        box-sizing: border-box;
+      }
+      .split:hover,
+      .split.dragging,
+      .split:focus-visible {
+        background: var(--line);
+        outline: none;
+      }
+      .times {
+        flex: 1 1 0;
+        min-width: 0;
+        max-height: 72vh;
+        overflow: auto;
+      }
+      .inner {
+        position: relative;
+      }
+      .head {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        height: 46px;
+        box-sizing: border-box;
+        background: var(--bg);
+        border-bottom: 2px solid var(--line);
+      }
+      .corner {
+        padding: 8px;
+        font-weight: 600;
+      }
+      .axis {
+        position: relative;
+        height: 44px;
+      }
+      .tick {
+        position: absolute;
+        top: 2px;
+        bottom: 0;
+        border-left: 1px solid var(--line);
+        padding-left: 4px;
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .axis-note {
+        position: absolute;
+        top: 24px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      /* Every row is exactly as high in both panes, so the two stay level. */
+      .row {
+        height: 37px;
+        box-sizing: border-box;
+        border-bottom: 1px solid var(--line);
+      }
+      .row.phase .label {
+        background: var(--panel);
+        font-weight: 600;
+      }
+      .label {
+        width: 100%;
+        height: 36px;
+        min-width: 0;
+        overflow: hidden;
+        background: var(--bg);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        box-sizing: border-box;
+        border-right: 1px solid var(--line);
+      }
+      .name {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pct,
+      .deps {
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .track {
+        position: relative;
+        flex: 0 0 auto;
+        height: 36px;
+      }
+      .future {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        background: repeating-linear-gradient(135deg, var(--future) 0 4px, transparent 4px 9px);
+        opacity: 0.45;
+      }
+      .now {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        margin-left: -1px;
+        background: var(--now);
+        z-index: 1;
+      }
+      .bar {
+        position: absolute;
+        z-index: 2;
+        top: 10px;
+        height: 14px;
+        box-sizing: border-box;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .bar.sum {
+        top: 14px;
+        height: 8px;
+        border-radius: 2px;
+      }
+      .b-done {
+        background: var(--f-done);
+      }
+      .b-review {
+        background: repeating-linear-gradient(45deg, var(--f-review) 0 4px, transparent 4px 8px);
+        border: 1px solid var(--f-review);
+      }
+      .b-progress {
+        background: var(--f-progress);
+      }
+      .b-fix {
+        background: var(--f-fix);
+      }
+      .b-plan {
+        background: var(--f-plan);
+      }
+      .b-todo {
+        background: var(--f-todo);
+        border: 1px solid var(--todo);
+      }
+      .b-unplanned {
+        background: transparent;
+        border: 2px dashed var(--unplanned);
+      }
+      .bar:focus-visible {
+        outline: 2px solid var(--fg);
+        outline-offset: 2px;
+      }
+      .detail {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--panel);
+        min-height: 5em;
+      }
+      .detail div {
+        margin-top: 3px;
+      }
+      .toggle {
+        border: 0;
+        border-right: 1px solid var(--line);
+        font: inherit;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        margin: 0;
+      }
+      .toggle:hover .name {
+        text-decoration: underline;
+      }
+      .toggle:focus-visible,
+      .btn:focus-visible {
+        outline: 2px solid var(--progress);
+        outline-offset: 2px;
+      }
+      .toggle:focus-visible {
+        outline-offset: -3px;
+      }
+      .chev {
+        flex: 0 0 12px;
+        width: 12px;
+        height: 12px;
+        color: var(--muted);
+        transition: transform 0.15s ease;
+      }
+      .chev path {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .toggle[aria-expanded='true'] .chev {
+        transform: rotate(90deg);
+      }
+      .chev-gap {
+        flex: 0 0 12px;
+      }
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        margin: 0 0 8px;
+      }
+      .btn {
+        font: inherit;
+        font-size: 13px;
+        color: var(--fg);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 3px 10px;
+        cursor: pointer;
+      }
+      .btn:hover {
+        border-color: var(--muted);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .chev {
+          transition: none;
+        }
+      }
+      @media (max-width: 640px) {
+        main {
+          padding: 10px;
+        }
+        .names {
+          flex-basis: var(--names-w, 190px);
+          width: var(--names-w, 190px);
+        }
+        .name {
+          font-size: 13px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Professor Pine: Modernization</h1>
+      <p class="meta">
+        Last updated <span id="updated"></span> (times are commit times as recorded, UTC-4). Built
+        from spec section 9, the plans in docs/superpowers/plans and the SDD progress ledgers.
+      </p>
+      <div class="legend" aria-label="Legend">
+        <span
+          ><span class="badge st-done">&#10003; Done</span><i class="sw b-done"></i> solid
+          green</span
+        >
+        <span
+          ><span class="badge st-review">&#9680; In review</span><i class="sw b-review"></i> hatched
+          amber: the prototype in review inside the planning, and a plan in its final review</span
+        >
+        <span
+          ><span class="badge st-progress">&#9654; In progress</span
+          ><i class="sw b-progress"></i> solid blue</span
+        >
+        <span
+          ><span class="badge st-todo">&#9675; To do</span><i class="sw b-todo"></i> light
+          grey</span
+        >
+        <span
+          ><span class="badge st-unplanned">&#9417; Not planned yet</span
+          ><i class="sw b-unplanned"></i> dashed outline</span
+        >
+        <span><i class="sw" style="background: var(--f-plan)"></i> planning before the tasks</span>
+        <span
+          ><i class="sw" style="background: var(--f-fix)"></i> review and fixes after the
+          tasks</span
+        >
+        <span><i class="sw" style="background: var(--now); width: 2px"></i> now</span>
+      </div>
+      <p class="muted">
+        Real work sits left of the now line at its commit times. Right of it, work has no dates:
+        only order and relative size (one unit = half a day of real time). Hover or focus a bar for
+        details.
+      </p>
+
+      <div class="toolbar">
+        <button type="button" class="btn" id="expand-all">Expand all</button>
+        <button type="button" class="btn" id="collapse-all">Collapse all</button>
+        <button type="button" class="btn" id="jump-now">Jump to now</button>
+      </div>
+      <div class="chart" id="chart">
+        <div class="names" id="names">
+          <div class="head corner">Phase, plan and task</div>
+          <div id="name-rows"></div>
+        </div>
+        <div
+          class="split"
+          id="split"
+          role="separator"
+          aria-orientation="vertical"
+          aria-controls="names"
+          aria-label="Width of the names"
+          tabindex="0"
+          title="Drag to resize; double-click for the default width"
+        ></div>
+        <div class="times" id="times">
+          <div class="inner" id="inner">
+            <div class="head"><div class="axis" id="axis"></div></div>
+            <div id="rows"></div>
+          </div>
+        </div>
+      </div>
+      <div class="detail" id="detail" aria-live="polite">
+        Hover or focus a bar to see its details.
+      </div>
+    </main>
+
+    <script src="gantt-data.js"></script>
+    <script>
+      (() => {
+        // The data is in gantt-data.js, next to this page (see the notes there).
+        const { updated: UPDATED, items: ITEMS } = window.GANTT;
+
+        // ---- rendering (works from ITEMS only) ----
+        const T0 = Date.parse('2026-10-09T12:00'); // left edge of the real-time axis
+        const NOW = Date.parse(UPDATED);
+        const HOUR = 24; // px per real hour
+        const UNIT = 12 * HOUR; // one unit = half a day of real time
+        const MIN_W = 4; // narrowest drawn bar, px
+        const X = (t) => ((Date.parse(t) - T0) / 36e5) * HOUR;
+        const NOW_X = X(UPDATED);
+        const LABEL = {
+          done: 'Done',
+          review: 'In review',
+          progress: 'In progress',
+          todo: 'To do',
+          unplanned: 'Not planned yet',
+        };
+        const ICON = { done: '✓', review: '◐', progress: '▶', todo: '○', unplanned: '┇' };
+        const MON = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
+        const pad = (n) => String(n).padStart(2, '0');
+        const fmt = (t) => {
+          const d = new Date(typeof t === 'number' ? t : Date.parse(t));
+          return `${d.getDate()} ${MON[d.getMonth()]} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+        const esc = (s) =>
+          String(s).replace(
+            /[&<>"]/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c],
+          );
+        const byId = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
+        const kids = (it) => ITEMS.filter((k) => k.parent === it.id);
+        // How a row is named where others depend on it: a sub-plan by its number ("2D-2"), a task
+        // by its plan's number and its own ("2D-2.3"), a phase by its id.
+        const shortName = (id) => {
+          const it = byId[id];
+          if (!it) return id;
+          if (it.kind === 'plan') return it.name.split(' ')[0];
+          if (it.kind === 'task' && it.parent)
+            return shortName(it.parent) + id.slice(it.parent.length);
+          return id;
+        };
+        const depth = (it) => (it.parent ? 1 + depth(byId[it.parent]) : 0);
+        const phaseOf = (it) => (it.parent ? phaseOf(byId[it.parent]) : it);
+        const leaves = (it) => (it.kind === 'task' ? [it] : kids(it).flatMap(leaves));
+
+        function status(it) {
+          if (it.status) return it.status;
+          const ks = kids(it).map(status);
+          if (!ks.length) return 'unplanned';
+          if (ks.every((s) => s === 'done')) return 'done';
+          if (ks.every((s) => s === 'unplanned')) return 'unplanned';
+          return ks.some((s) => s !== 'todo' && s !== 'unplanned') ? 'progress' : 'todo';
+        }
+
+        function progressText(it) {
+          const t = leaves(it),
+            planned = t.length;
+          if (!planned) return 'no plan yet';
+          const done = t.filter((x) => status(x) === 'done').length;
+          const gap = kids(it).some((k) => status(k) === 'unplanned');
+          return (
+            `${Math.round((100 * done) / planned)}% (${done}/${planned})` +
+            (gap ? ' + unplanned work' : '')
+          );
+        }
+
+        // Future layout in units after "now". Real work counts as 0 (it is all before now).
+        const memo = {};
+        function lay(it) {
+          if (memo[it.id]) return memo[it.id];
+          let r;
+          if (it.start) r = [0, 0];
+          else if (kids(it).length) {
+            const k = kids(it).map(lay);
+            r = [Math.min(...k.map((x) => x[0])), Math.max(...k.map((x) => x[1]))];
+          } else {
+            const deps = [...(it.dependsOn || []), ...(it.after || [])];
+            const s = Math.max(0, ...deps.map((d) => lay(byId[d])[1]));
+            r = [s, s + (it.size || 0)];
+          }
+          return (memo[it.id] = r);
+        }
+
+        // Pixel extent of a row: real work from its commit times, future work from the layout.
+        function bounds(it) {
+          const k = kids(it);
+          // A row reaches from the start of its planning to the end of its review and fixes.
+          const fixed = it.review ? [X(it.review.end)] : [];
+          const planned = it.planning ? [X(it.planning.start)] : [];
+          if (k.length) {
+            const b = k.map(bounds);
+            return [
+              Math.min(...b.map((x) => x[0]), ...planned),
+              Math.max(...b.map((x) => x[1]), ...fixed),
+            ];
+          }
+          if (it.start)
+            return [
+              Math.min(X(it.start), ...planned),
+              Math.max(X(it.end), X(it.start) + MIN_W, ...fixed),
+            ];
+          // Being planned, with nothing else yet: the planning is what there is to show.
+          if (it.planning) {
+            const [, e] = lay(it);
+            return [X(it.planning.start), Math.max(NOW_X + e * UNIT, X(it.planning.end))];
+          }
+          const [s, e] = lay(it);
+          return [NOW_X + s * UNIT, Math.max(NOW_X + e * UNIT, NOW_X + s * UNIT + MIN_W)];
+        }
+
+        const reviewed = (it) =>
+          (it.planning ? ` Planning: ${fmt(it.planning.start)} to ${fmt(it.planning.end)}.` : '') +
+          (it.planning && it.planning.review
+            ? ` Of that, the prototype in review: ${fmt(it.planning.review.start)} to ${fmt(it.planning.review.end)}.`
+            : '') +
+          (it.review ? ` Review and fixes: ${fmt(it.review.start)} to ${fmt(it.review.end)}.` : '');
+        function when(it) {
+          if (it.start)
+            return `Dates (commit times): ${fmt(it.start)} to ${fmt(it.end)}.${reviewed(it)}`;
+          if (kids(it).length) {
+            const real = leaves(it)
+              .filter((x) => x.start)
+              .map((x) => Date.parse(x.start));
+            const future = leaves(it).some((x) => !x.start);
+            return (
+              (real.length ? `Real work from ${fmt(Math.min(...real))}. ` : '') +
+              (future ? 'Remaining work is not scheduled (order and relative size only).' : '') +
+              reviewed(it)
+            );
+          }
+          return `Not scheduled: relative size ${it.size} (order only, no dates).${reviewed(it)}`;
+        }
+
+        const W = Math.ceil(Math.max(...ITEMS.map((i) => bounds(i)[1]))) + 24;
+
+        // A phase or a sub-plan with rows under it is collapsible; one with nothing planned is a plain row.
+        const hasKids = (it) => it.kind !== 'task' && kids(it).length > 0;
+
+        // The row of an item in the pane of the names.
+        function nameHtml(it) {
+          const st = status(it),
+            d = depth(it);
+          const summary = it.kind !== 'task';
+          const deps =
+            it.dependsOn && it.dependsOn.length
+              ? `<span class="deps">depends on ${esc(it.dependsOn.map(shortName).join(', '))}</span>`
+              : '';
+          const pct = summary ? `<span class="pct">${esc(progressText(it))}</span>` : '';
+          const cls = it.kind === 'phase' ? 'row phase' : 'row';
+          const text =
+            `<span class="name" title="${esc(it.name)}">${esc(it.name)}</span>` +
+            `<span class="badge st-${st}">${ICON[st]} ${LABEL[st]}</span>${pct}${deps}`;
+          const pad = `padding-left:${8 + d * 18}px`;
+          const label = hasKids(it)
+            ? `<button type="button" class="label toggle" id="h-${it.id}" data-phase="${esc(it.id)}" aria-controls="n-${it.id} g-${it.id}" aria-expanded="false" style="${pad}">` +
+              `<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5 8 6l-4 3.5" /></svg>${text}</button>`
+            : `<div class="label" style="${pad}">${it.kind === 'phase' ? '<span class="chev-gap" aria-hidden="true"></span>' : ''}${text}</div>`;
+          return `<div class="${cls}">${label}</div>`;
+        }
+
+        // The row of an item in the pane of the timeline.
+        function trackHtml(it) {
+          const st = status(it),
+            [a, b] = bounds(it);
+          const summary = it.kind !== 'task';
+          // The review and its fixes lie over the end of the row's own bar.
+          const part = (cls, span) =>
+            span
+              ? `<div class="bar ${cls}${summary ? ' sum' : ''}" data-id="${esc(it.id)}" style="left:${X(span.start)}px;width:${Math.max(X(span.end) - X(span.start), MIN_W)}px"></div>`
+              : '';
+          // The planning lies over the start of the row's own bar.
+          // Inside it, hatched: the reviews of the prototype and their fixes.
+          const fix =
+            part('b-plan', it.planning) +
+            part('b-review', it.planning && it.planning.review) +
+            part('b-fix', it.review);
+          return (
+            `<div class="row"><div class="track" style="width:${W}px"><div class="future" style="left:${NOW_X}px"></div><div class="now" style="left:${NOW_X}px"></div>` +
+            `<div class="bar b-${st}${summary ? ' sum' : ''}" tabindex="0" data-id="${esc(it.id)}" style="left:${a}px;width:${b - a}px"></div>${fix}</div></div>`
+          );
+        }
+
+        function show(id) {
+          const it = byId[id],
+            st = status(it),
+            p = phaseOf(it);
+          document.getElementById('detail').innerHTML =
+            `<div><strong>${esc(it.name)}</strong> <span class="badge st-${st}">${ICON[st]} ${LABEL[st]}</span></div>` +
+            `<div>${esc(when(it))}</div>` +
+            (it.kind !== 'task' ? `<div>${esc(progressText(it))}</div>` : '') +
+            (it.kind !== 'task' && it.dependsOn && it.dependsOn.length
+              ? `<div>Depends on: ${esc(it.dependsOn.map(shortName).join(', '))}</div>`
+              : '') +
+            (it.scope ? `<div>${esc(it.scope)}</div>` : '') +
+            (p.doneWhen ? `<div>Phase ${esc(p.id)} done when: ${esc(p.doneWhen)}</div>` : '');
+        }
+
+        // Time axis: real ticks every 6 hours, then the future part with no dates.
+        let ticks = '';
+        for (let t = T0; t <= NOW; t += 6 * 36e5)
+          ticks += `<div class="tick" style="left:${((t - T0) / 36e5) * HOUR}px">${fmt(t)}</div>`;
+        ticks += `<div class="axis-note" style="left:${NOW_X + 4}px;top:2px;color:var(--now)">now, ${fmt(NOW)}</div>`;
+        ticks += `<div class="axis-note" style="left:${NOW_X + 4}px;color:var(--muted)">not scheduled: order and relative size only</div>`;
+        document.getElementById('axis').style.width = W + 'px';
+        document.getElementById('axis').innerHTML = ticks;
+        // Each phase header is followed by a group holding its sub-plans and tasks, and each
+        // sub-plan by a group holding its tasks: once as names (`n-`), once as tracks (`g-`).
+        const groupHtml = (row, prefix) => (it) =>
+          row(it) +
+          (hasKids(it)
+            ? `<div class="group" id="${prefix}-${it.id}" hidden>${kids(it).map(groupHtml(row, prefix)).join('')}</div>`
+            : '');
+        const top = ITEMS.filter((i) => i.kind === 'phase');
+        document.getElementById('name-rows').innerHTML = top.map(groupHtml(nameHtml, 'n')).join('');
+        document.getElementById('rows').innerHTML = top.map(groupHtml(trackHtml, 'g')).join('');
+
+        // The names follow the timeline up and down; the wheel over the names moves the timeline.
+        const names = document.getElementById('names');
+        const times = document.getElementById('times');
+        const level = () => {
+          // The timeline loses the height of its own scrollbar; the names end as far above the edge.
+          names.style.paddingBottom = `${times.offsetHeight - times.clientHeight}px`;
+          names.scrollTop = times.scrollTop;
+        };
+        times.addEventListener('scroll', level);
+        window.addEventListener('resize', level);
+        names.addEventListener(
+          'wheel',
+          (e) => {
+            times.scrollTop += e.deltaY;
+            times.scrollLeft += e.deltaX;
+          },
+          { passive: true },
+        );
+        // A name brought into view by the keyboard takes the timeline with it.
+        names.addEventListener('scroll', () => {
+          if (names.scrollTop !== times.scrollTop) times.scrollTop = names.scrollTop;
+        });
+        document.getElementById('updated').textContent = fmt(NOW);
+
+        // Accordion: one open phase at a time. On load, the phase in progress is open (else the first phase not done).
+        // Expand all / Collapse all override this until the next header click.
+        // Sub-plans open and close each by itself; on load those that are not done are open.
+        const phases = ITEMS.filter((i) => i.kind === 'phase' && hasKids(i));
+        const plans = ITEMS.filter((i) => i.kind !== 'phase' && hasKids(i));
+        const firstOpen =
+          phases.find((p) => status(p) === 'progress') || phases.find((p) => status(p) !== 'done');
+        const open = new Set([
+          ...(firstOpen ? [firstOpen.id] : []),
+          ...plans.filter((p) => status(p) !== 'done').map((p) => p.id),
+        ]);
+        function sync() {
+          for (const p of [...phases, ...plans]) {
+            const on = open.has(p.id);
+            document.getElementById('h-' + p.id).setAttribute('aria-expanded', String(on));
+            document.getElementById('g-' + p.id).hidden = !on;
+            document.getElementById('n-' + p.id).hidden = !on;
+          }
+          level();
+        }
+        sync();
+        document.getElementById('name-rows').addEventListener('click', (e) => {
+          const btn = e.target.closest('button.toggle');
+          if (!btn) return;
+          const id = btn.dataset.phase;
+          const wasOpen = open.has(id);
+          // A phase closes the other phases; a sub-plan only itself.
+          if (byId[id].kind === 'phase') phases.forEach((p) => open.delete(p.id));
+          else open.delete(id);
+          if (!wasOpen) open.add(id);
+          sync();
+        });
+        document.getElementById('expand-all').addEventListener('click', () => {
+          [...phases, ...plans].forEach((p) => open.add(p.id));
+          sync();
+        });
+        document.getElementById('collapse-all').addEventListener('click', () => {
+          open.clear();
+          sync();
+        });
+
+        // Jump to now: what is being worked on is opened, and the timeline goes to the now line
+        // with that row in view. The row is the first unfinished one, plan by plan, of the phase
+        // in progress.
+        function current() {
+          let it = firstOpen;
+          for (;;) {
+            const next = it && kids(it).find((k) => status(k) !== 'done');
+            if (!next) return it;
+            it = next;
+          }
+        }
+        function jumpToNow() {
+          const it = current();
+          for (let up = it; up; up = up.parent ? byId[up.parent] : undefined) {
+            if (hasKids(up)) open.add(up.id);
+          }
+          sync();
+          times.scrollLeft = Math.max(0, NOW_X - times.clientWidth / 2);
+          const bar = it && times.querySelector(`.bar[data-id="${CSS.escape(it.id)}"]`);
+          const row = bar && bar.closest('.row');
+          if (row) {
+            const head = times.querySelector('.head').offsetHeight;
+            times.scrollTop = Math.max(0, row.offsetTop - head - (times.clientHeight - head) / 2);
+            show(it.id);
+          }
+          level();
+        }
+        document.getElementById('jump-now').addEventListener('click', jumpToNow);
+        // On opening, the chart goes to now by itself while anything is left to do; once every
+        // phase is done it is history, and opens at its beginning.
+        if (ITEMS.some((i) => i.kind === 'phase' && status(i) !== 'done')) jumpToNow();
+
+        const chart = document.getElementById('chart');
+
+        // The width of the names: dragged on the edge between the panes, or 20 pixels per arrow
+        // key; a double-click goes back to the default. Remembered in this browser where it can be.
+        const split = document.getElementById('split');
+        const WIDTH_KEY = 'gantt-names-width';
+        const widthLimits = () => [120, Math.max(160, chart.clientWidth - 160)];
+        function setWidth(px, keep = true) {
+          if (px == null) {
+            chart.style.removeProperty('--names-w');
+          } else {
+            const [lo, hi] = widthLimits();
+            chart.style.setProperty('--names-w', `${Math.round(Math.min(hi, Math.max(lo, px)))}px`);
+          }
+          split.setAttribute('aria-valuenow', String(Math.round(names.offsetWidth)));
+          if (keep) {
+            try {
+              if (px == null) localStorage.removeItem(WIDTH_KEY);
+              else localStorage.setItem(WIDTH_KEY, String(Math.round(names.offsetWidth)));
+            } catch {
+              // No storage here (a private window, a preview): the width lasts until the page closes.
+            }
+          }
+          level();
+        }
+        let kept = null;
+        try {
+          kept = Number(localStorage.getItem(WIDTH_KEY)) || null;
+        } catch {
+          kept = null;
+        }
+        setWidth(kept, false);
+        split.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          split.setPointerCapture(e.pointerId);
+          split.classList.add('dragging');
+          const startX = e.clientX;
+          const startW = names.offsetWidth;
+          const move = (m) => setWidth(startW + m.clientX - startX, false);
+          const up = () => {
+            split.removeEventListener('pointermove', move);
+            split.removeEventListener('pointerup', up);
+            split.removeEventListener('pointercancel', up);
+            split.classList.remove('dragging');
+            setWidth(names.offsetWidth);
+          };
+          split.addEventListener('pointermove', move);
+          split.addEventListener('pointerup', up);
+          split.addEventListener('pointercancel', up);
+        });
+        split.addEventListener('dblclick', () => setWidth(null));
+        split.addEventListener('keydown', (e) => {
+          const step = { ArrowLeft: -20, ArrowRight: 20 }[e.key];
+          if (step === undefined) return;
+          e.preventDefault();
+          setWidth(names.offsetWidth + step);
+        });
+
+        chart.addEventListener('mouseover', (e) => {
+          const b = e.target.closest('.bar');
+          if (b) show(b.dataset.id);
+        });
+        chart.addEventListener('focusin', (e) => {
+          const b = e.target.closest('.bar');
+          if (b) show(b.dataset.id);
+        });
+      })();
+    </script>
+  </body>
+</html>

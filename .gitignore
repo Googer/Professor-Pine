@@ -3,26 +3,48 @@ node_modules/
 
 # ignore IDEA workspace file
 .idea/workspace.xml
+# and what IDEA keeps of this machine: cookies of its HTTP client, database connections
+.idea/httpRequests/
+.idea/dataSources/
+.idea/dataSources.local.xml
+
+# the ledgers, briefs and mockups of plans in progress
+.superpowers/
 
 # ignore private settings
 data/private-settings.json
-knexfile.js
 
 # ignore persisted raid data
 raids/**
 parties/**
-images/**
-
-# ignore generated custom dictionaries
-lang-data/v4/gyms.txt
-lang-data/v4/pokemon.txt
 
 # ignore log files
 *.log
 
-# ignore debug image processing images
-assets/processing
-
 yarn.lock
 
 .eslintcache
+
+# new TypeScript bot
+dist/
+coverage/
+var/
+# every env file (a second stack's `.env.dev`, an editor's `.env.bak`) but the example
+.env*
+!.env.example
+# the settings of a Docker installation (./pine), and the .env lines the converter makes
+/pine-settings.json
+/env-from-legacy.txt
+# an installation's own additions to compose.yaml (a port for Caddy or Tailscale Funnel)
+compose.override.yaml
+# Claude Code's settings of this machine
+.claude/settings.local.json
+
+# backups of the Docker stack (BACKUP_DIR)
+/backups/
+# what Docker mounts for LEGACY_PARTIES_DIR when it is blank (an empty folder)
+/legacy-parties/
+# the member index of the legacy history (LEGACY_INDEX_DIR; member ids: never in the repository)
+/legacy-index/
+# the Wayfarer export tool of the owner's instance (PINE_TOOL_DIR; ./pine makes the folder)
+/wayspot-tool/

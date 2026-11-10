@@ -1,0 +1,420 @@
+@import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
+
+/*
+ * The region editor on the map (plans 8M-2, 8M-10): an add-on of `map.css`, loaded beside it
+ * when the editor is first turned on, so it imports neither the map's sheet nor the theme again.
+ * Discord's look as the map has it: gray buttons, blurple for the step a dialog leads to, red for
+ * what deletes, cards with a side bar for its dialogs; every color a value of `theme.css`.
+ */
+
+/* The tool row in the place of the layers' row, led by "Back to the map" (plan 8M-10, C7). */
+#editor-bar,
+#editor-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+#editor-bar button,
+#editor-panel button,
+.fix-box button {
+  color: var(--secondary-text);
+  background: var(--secondary);
+  border: 0;
+  border-radius: var(--radius);
+  padding: 5px 10px;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+#editor-bar button:hover,
+#editor-panel button:hover,
+.fix-box button:hover {
+  background: var(--secondary-hover);
+}
+
+#editor-bar button.primary,
+#editor-panel button.primary,
+.fix-box button.primary {
+  color: var(--on-color);
+  background: var(--primary);
+}
+
+#editor-bar button.primary:hover,
+#editor-panel button.primary:hover,
+.fix-box button.primary:hover {
+  background: var(--primary-hover);
+}
+
+#editor-panel button.danger {
+  color: var(--on-color);
+  background: var(--danger);
+}
+
+#editor-panel button.danger:hover {
+  background: var(--danger-hover);
+}
+
+#editor-bar button:disabled,
+#editor-panel button:disabled,
+.fix-box button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#editor-bar button:focus-visible,
+#editor-panel button:focus-visible,
+.fix-box button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+/*
+ * The header one row from 1024 pixels while the editor is on (measured in the preview at 1024
+ * and 1280): the title is "Pine" below 1280, as on a phone, for the tool row's room.
+ */
+@media (max-width: 1279px) {
+  body.editing-regions #header .title-first {
+    display: none;
+  }
+
+  /* The switch's words in two short lines. */
+  #editor-tools .tool-switch {
+    max-width: 130px;
+    font-size: 13px;
+    line-height: 1.15;
+    white-space: normal;
+  }
+}
+
+/* "Move shared corners together" (plan 8M-10, C13): a switch of the tool row. */
+#editor-tools .tool-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+  color: var(--text-soft);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#editor-tools .tool-switch input {
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+/* Its own map in the live map's place (plan 8M-10), its panel in the side pane's. */
+#editor-map {
+  position: relative;
+  flex: 1;
+  min-height: 300px;
+}
+
+#editor-panel {
+  width: var(--editor-panel-width);
+  max-width: 45vw;
+  overflow-y: auto;
+  padding: 8px 12px 16px;
+  border-left: 1px solid var(--line);
+  background: var(--panel-bg);
+  font-size: 14px;
+}
+
+/* Section headings as Discord's: small, upper case, quiet. */
+#editor-panel h2 {
+  margin: 16px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+#editor-panel h3 {
+  margin: 10px 0 4px;
+  font-size: 14px;
+}
+
+#editor-panel p {
+  margin: 6px 0;
+}
+
+#editor-panel ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+#editor-panel li {
+  margin: 2px 0;
+}
+
+#editor-panel select,
+#editor-panel input {
+  display: block;
+  width: 100%;
+  margin: 6px 0;
+  padding: 6px 8px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+#editor-panel .actions,
+#editor-panel .choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#editor-panel .conflict button {
+  margin: 4px 6px 0 0;
+}
+
+/* Why Save is off: a quiet list above everything else. */
+#editor-panel .reasons {
+  margin: 4px 0 8px;
+  padding: 8px 10px 8px 26px;
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--warning);
+}
+
+#editor-panel .warning {
+  color: var(--warning);
+}
+
+/*
+ * What waits in the browser (plan 8M-11C, S31), the panel's first line under the tools: quiet,
+ * on the panel's own ground, set apart from what follows by a line.
+ */
+#editor-panel .unsaved {
+  margin: 4px 0 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+/* "No overlaps or gaps." (plan 8M-10, C11). */
+#editor-panel .clean {
+  color: var(--going);
+  font-weight: 600;
+}
+
+/* The regions and the overlaps and gaps as rows, the one picked marked. */
+#editor-panel .region-list,
+#editor-panel .piece-list {
+  padding: 0;
+  list-style: none;
+}
+
+#editor-panel .region-list li,
+#editor-panel .piece-list li {
+  margin: 1px 0;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+#editor-panel .region-list li:hover,
+#editor-panel .piece-list li:hover {
+  background: var(--line);
+}
+
+#editor-panel .region-list li.chosen {
+  background: var(--chip-on-bg);
+  font-weight: 600;
+}
+
+#editor-panel .piece-list li.fresh {
+  color: var(--fresh-piece);
+  font-weight: 600;
+}
+
+#editor-panel .piece-list button {
+  margin-left: 4px;
+  padding: 1px 8px;
+  font-size: 12px;
+}
+
+#editor-panel .piece-list .cannot-fix {
+  color: var(--cannot-fix);
+  font-size: 12px;
+}
+
+/* The selected region and the dialogs (Save…) as cards with a side bar, as Discord's. */
+#editor-panel .selected,
+#editor-panel .dialog {
+  margin: 8px 0;
+  padding: 4px 12px 12px;
+  border-left: var(--card-bar) solid var(--accent);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+#editor-panel .selected h2,
+#editor-panel .dialog h2 {
+  color: var(--text);
+  font-size: 15px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#editor-panel .dialog > button {
+  margin: 8px 6px 0 0;
+}
+
+/*
+ * A swatch of what a sentence refers to on the map (plan 8M-10, C10): the sentence names no
+ * color. An outline that cannot be saved, a place in no region (a dot), theirs (dashed).
+ */
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  box-sizing: border-box;
+}
+
+.swatch-broken {
+  background: var(--broken);
+}
+
+.swatch-outside {
+  border-radius: 50%;
+  background: var(--outside);
+}
+
+/*
+ * The places' clusters (plan 8M-11C, S30): the live map's `.cluster`, filled in the color of the
+ * layer's dots; the ring in the warning color while one of its places is in no region. Every
+ * layer is clustered by the same grid and a cluster sits at the mean of its places, so the
+ * clusters of one cell sit near each other: each layer's is moved toward its own corner
+ * (`translate`, beside Leaflet's own `transform`), gyms top left, PokéStops top right, Power
+ * Spots bottom right, Wayfarer gyms bottom left, staying near its places.
+ */
+.cluster.places-gyms {
+  background: var(--editor-gym);
+  translate: -14px -14px;
+}
+
+.cluster.places-stops {
+  background: var(--editor-stop);
+  translate: 14px -14px;
+}
+
+.cluster.places-powerspots {
+  background: var(--power-spot);
+  translate: 14px 14px;
+}
+
+.cluster.places-wayfarer-gyms {
+  background: var(--wayfarer-gym);
+  translate: -14px 14px;
+}
+
+.cluster.outside {
+  border-color: var(--outside);
+}
+
+.swatch-theirs {
+  width: 14px;
+  border: 2px dashed var(--theirs);
+  background: transparent;
+}
+
+/*
+ * Fix… and Fix all slivers… in a box pinned over the map's top right corner (plan 8M-10, C12):
+ * a card as the dialogs are; its choices scroll inside it, its buttons stay at its foot.
+ */
+.fix-box {
+  display: flex;
+  flex-direction: column;
+  width: var(--fix-box-width);
+  max-width: calc(100vw - 120px);
+  max-height: calc(100vh - 200px);
+  border-left: var(--card-bar) solid var(--accent);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: 0 8px 24px var(--shadow);
+  font-size: 14px;
+  cursor: auto;
+}
+
+.fix-dialog {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.fix-dialog h2 {
+  margin: 0;
+  padding: 10px 12px 4px;
+  font-size: 15px;
+}
+
+.fix-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px;
+}
+
+.fix-body p {
+  margin: 6px 0;
+}
+
+.fix-body ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.fix-box .warning {
+  color: var(--warning);
+}
+
+.fix-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* A fix's choices; the one shown on the map marked by the line it draws. */
+.fix-box .fix-option {
+  margin: 6px 0;
+  padding: 4px 8px;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius);
+}
+
+.fix-box .fix-option.chosen {
+  border-left-color: var(--fix-line);
+  background: var(--fix-chosen-bg);
+}
+
+/* Where three regions meet, dragged on the map before a fix is applied. */
+.fix-corner {
+  background: var(--fix-corner-bg);
+  border: 3px solid var(--fix-line);
+  border-radius: 50%;
+  box-sizing: border-box;
+  cursor: move;
+}
+
+/* Geoman's tool icons are dark drawings: turned light in dark, as the controls they sit on. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .leaflet-pm-toolbar .control-icon {
+    filter: invert(1);
+  }
+}

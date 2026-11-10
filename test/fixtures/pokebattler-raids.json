@@ -1,0 +1,3631 @@
+{
+ "tiers": [
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_5",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 15000,
+    "cpm": 0.7900000214576721,
+    "level": "50",
+    "eggURL": "//static.pokebattler.com/images/legendary_raid_egg.png",
+    "guessTier": "RAID_LEVEL_5",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 300000,
+    "estimatedPlayers": 4,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "DIALGA",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "article": {
+      "id": 109,
+      "articleSlug": "dialga-raid-guide-2",
+      "articleThumbnailURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Dialga_Article_Thumbnail.jpg",
+      "articleURL": "https://www.pokebattler.com/raids/guides/DIALGA",
+      "infographicURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Dialga_Raid_Guide6.jpg",
+      "infographicThumbnailURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Dialga_Article_Thumbnail.jpg",
+      "infographicShareURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Dialga_Article_Thumbnail.jpg",
+      "infographicShareWidth": 1200,
+      "infographicShareHeight": 630,
+      "newsCategorySlug": "www-raid",
+      "newsTagSlug": "dialga-raid-guide-2",
+      "videoId": ""
+     },
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "pokemonId": "DIALGA"
+    },
+    {
+     "pokemon": "GIRATINA_ORIGIN_FORM",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "upcoming": true,
+     "startDate": 1793192400000,
+     "pokemonId": "GIRATINA_ORIGIN_FORM"
+    },
+    {
+     "pokemon": "PALKIA",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "article": {
+      "id": 111,
+      "articleSlug": "palkia-raid-guide-3",
+      "articleThumbnailURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Palkia_Article_Thumbnail.jpg",
+      "articleURL": "https://www.pokebattler.com/raids/guides/PALKIA",
+      "infographicURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Palkia_Raid_Guide6.jpg",
+      "infographicThumbnailURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Palkia_Article_Thumbnail.jpg",
+      "infographicShareURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Palkia_Article_Thumbnail.jpg",
+      "infographicShareWidth": 1200,
+      "infographicShareHeight": 630,
+      "newsCategorySlug": "www-raid",
+      "newsTagSlug": "palkia-raid-guide-2",
+      "videoId": ""
+     },
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "pokemonId": "PALKIA"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_5_MAX_FUTURE",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 13000,
+    "cpm": 0.699999988079071,
+    "level": "40",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_5_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 400000,
+    "estimatedPlayers": 4,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "AZELF",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "AZELF"
+    },
+    {
+     "pokemon": "DIALGA",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_UNLIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "DIALGA"
+    },
+    {
+     "pokemon": "LATIAS",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "LATIAS"
+    },
+    {
+     "pokemon": "LATIOS",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "LATIOS"
+    },
+    {
+     "pokemon": "MESPRIT",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "MESPRIT"
+    },
+    {
+     "pokemon": "PALKIA",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_UNLIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "PALKIA"
+    },
+    {
+     "pokemon": "REGIDRAGO",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "REGIDRAGO"
+    },
+    {
+     "pokemon": "REGISTEEL",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "REGISTEEL"
+    },
+    {
+     "pokemon": "UXIE",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "UXIE"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_5_MAX",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 13000,
+    "cpm": 0.699999988079071,
+    "level": "40",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_5_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 400000,
+    "estimatedPlayers": 4,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "AZELF",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "upcoming": true,
+     "startDate": 1792875600000,
+     "pokemonId": "AZELF"
+    },
+    {
+     "pokemon": "MESPRIT",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "upcoming": true,
+     "startDate": 1792875600000,
+     "pokemonId": "MESPRIT"
+    },
+    {
+     "pokemon": "UXIE",
+     "cp": 0,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.699999988079071,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "upcoming": true,
+     "startDate": 1792875600000,
+     "pokemonId": "UXIE"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_5_MAX_LEGACY",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 13000,
+    "cpm": 0.699999988079071,
+    "level": "40",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_5_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 400000,
+    "estimatedPlayers": 4,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "ARTICUNO",
+     "cp": 43383,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 17500,
+      "cpm": 0.7,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "ARTICUNO"
+    },
+    {
+     "pokemon": "ENTEI",
+     "cp": 38874,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 27000,
+      "cpm": 0.75,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "ENTEI"
+    },
+    {
+     "pokemon": "HO_OH",
+     "cp": 54075,
+     "shiny": false,
+     "verified": false,
+     "minCp": 24526,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 25000,
+      "cpm": 0.7,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "HO_OH"
+    },
+    {
+     "pokemon": "LATIAS",
+     "cp": 44760,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 25000,
+      "cpm": 0.7,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "LATIAS"
+    },
+    {
+     "pokemon": "LATIOS",
+     "cp": 48615,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 23000,
+      "cpm": 0.75,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "LATIOS"
+    },
+    {
+     "pokemon": "LUGIA",
+     "cp": 42753,
+     "shiny": false,
+     "verified": false,
+     "minCp": 22498,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 18000,
+      "cpm": 0.75,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "LUGIA"
+    },
+    {
+     "pokemon": "MOLTRES",
+     "cp": 49263,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 20000,
+      "cpm": 0.7,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "MOLTRES"
+    },
+    {
+     "pokemon": "RAIKOU",
+     "cp": 42298,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 25000,
+      "cpm": 0.8,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "RAIKOU"
+    },
+    {
+     "pokemon": "REGICE",
+     "cp": 49384,
+     "shiny": true,
+     "verified": false,
+     "minCp": 20952,
+     "article": {
+      "id": 76,
+      "articleSlug": "regice-raid-guide",
+      "articleThumbnailURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Regice_Article_Thumbnail.jpg",
+      "articleURL": "https://www.pokebattler.com/raids/guides/REGICE",
+      "infographicURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Regice_Raid_Guide4.jpg",
+      "infographicThumbnailURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Regice_Article_Thumbnail.jpg",
+      "infographicShareURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Regice_Article_Thumbnail.jpg",
+      "infographicShareWidth": 1200,
+      "infographicShareHeight": 630,
+      "newsCategorySlug": "www-raid",
+      "newsTagSlug": "regice",
+      "videoId": ""
+     },
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 20000,
+      "cpm": 0.8,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "REGICE"
+    },
+    {
+     "pokemon": "REGIROCK",
+     "cp": 39814,
+     "shiny": true,
+     "verified": false,
+     "minCp": 20952,
+     "article": {
+      "id": 77,
+      "articleSlug": "regirock-raid-guide",
+      "articleThumbnailURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Regirock_Article_Thumbnail.jpg",
+      "articleURL": "https://www.pokebattler.com/raids/guides/REGIROCK",
+      "infographicURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Regirock_Raid_Guide4.jpg",
+      "infographicThumbnailURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Regirock_Article_Thumbnail.jpg",
+      "infographicShareURL": "https://storage.googleapis.com/static.pokebattler.com/CaptGoldfish/Regirock_Article_Thumbnail.jpg",
+      "infographicShareWidth": 1200,
+      "infographicShareHeight": 630,
+      "newsCategorySlug": "www-raid",
+      "newsTagSlug": "regirock",
+      "videoId": ""
+     },
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 20000,
+      "cpm": 0.8,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "REGIROCK"
+    },
+    {
+     "pokemon": "REGISTEEL",
+     "cp": 31202,
+     "shiny": true,
+     "verified": false,
+     "minCp": 16419,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 18000,
+      "cpm": 0.9,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "REGISTEEL"
+    },
+    {
+     "pokemon": "SUICUNE",
+     "cp": 35154,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 22000,
+      "cpm": 0.9,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "SUICUNE"
+    },
+    {
+     "pokemon": "ZAPDOS",
+     "cp": 43213,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 13000,
+      "cpm": 0.7,
+      "maxEnergyMultiplier": 4,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 7500,
+      "spreadMoveDelayMs": 6500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "ZAPDOS"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_3_MAX_FUTURE",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 10000,
+    "cpm": 0.5,
+    "level": "30",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_3_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 2,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_3_MAX",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 10000,
+    "cpm": 0.5,
+    "level": "30",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_3_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 2,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "BELDUM",
+     "cp": 13458,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8074,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "BELDUM"
+    },
+    {
+     "pokemon": "CHANSEY",
+     "cp": 8968,
+     "shiny": true,
+     "verified": false,
+     "minCp": 5381,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "CHANSEY"
+    },
+    {
+     "pokemon": "CRYOGONAL",
+     "cp": 31291,
+     "shiny": true,
+     "verified": false,
+     "minCp": 18775,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "CRYOGONAL"
+    },
+    {
+     "pokemon": "DEINO",
+     "cp": 13613,
+     "shiny": true,
+     "verified": false,
+     "minCp": 13613,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "DEINO"
+    },
+    {
+     "pokemon": "DRAMPA",
+     "cp": 32912,
+     "shiny": true,
+     "verified": false,
+     "minCp": 32912,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "DRAMPA"
+    },
+    {
+     "pokemon": "ELECTABUZZ",
+     "cp": 28015,
+     "shiny": true,
+     "verified": false,
+     "minCp": 16809,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "ELECTABUZZ"
+    },
+    {
+     "pokemon": "FALINKS",
+     "cp": 28291,
+     "shiny": true,
+     "verified": false,
+     "minCp": 16974,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "FALINKS"
+    },
+    {
+     "pokemon": "HITMONCHAN",
+     "cp": 30285,
+     "shiny": true,
+     "verified": false,
+     "minCp": 18171,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "HITMONCHAN"
+    },
+    {
+     "pokemon": "HITMONLEE",
+     "cp": 33460,
+     "shiny": true,
+     "verified": false,
+     "minCp": 20076,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "HITMONLEE"
+    },
+    {
+     "pokemon": "HITMONTOP",
+     "cp": 28011,
+     "shiny": true,
+     "verified": false,
+     "minCp": 16806,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "HITMONTOP"
+    },
+    {
+     "pokemon": "MAGMAR",
+     "cp": 28730,
+     "shiny": true,
+     "verified": false,
+     "minCp": 17238,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "MAGMAR"
+    },
+    {
+     "pokemon": "PASSIMIAN",
+     "cp": 31352,
+     "shiny": true,
+     "verified": false,
+     "minCp": 18811,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "PASSIMIAN"
+    },
+    {
+     "pokemon": "SABLEYE",
+     "cp": 19169,
+     "shiny": true,
+     "verified": false,
+     "minCp": 11501,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SABLEYE"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_3_MAX_LEGACY",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 10000,
+    "cpm": 0.5,
+    "level": "30",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_3_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 2,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "BELDUM",
+     "cp": 13458,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "BELDUM"
+    },
+    {
+     "pokemon": "CHANSEY",
+     "cp": 8968,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "CHANSEY"
+    },
+    {
+     "pokemon": "CRYOGONAL",
+     "cp": 31291,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "CRYOGONAL"
+    },
+    {
+     "pokemon": "FALINKS",
+     "cp": 28291,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "FALINKS"
+    },
+    {
+     "pokemon": "PASSIMIAN",
+     "cp": 31352,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "PASSIMIAN"
+    },
+    {
+     "pokemon": "SHUCKLE",
+     "cp": 6487,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 10000,
+      "cpm": 0.5,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SHUCKLE"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_1_MAX_FUTURE",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 1700,
+    "cpm": 0.15000000596046448,
+    "level": "20",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_1_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 1,
+    "soloable": true,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_1_MAX",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 1700,
+    "cpm": 0.15000000596046448,
+    "level": "20",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_1_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 1,
+    "soloable": true,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "ABRA",
+     "cp": 8527,
+     "shiny": true,
+     "verified": false,
+     "minCp": 12409,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "ABRA"
+    },
+    {
+     "pokemon": "BOUNSWEET",
+     "cp": 2645,
+     "shiny": true,
+     "verified": false,
+     "minCp": 3849,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "BOUNSWEET"
+    },
+    {
+     "pokemon": "BULBASAUR",
+     "cp": 6155,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8957,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "BULBASAUR"
+    },
+    {
+     "pokemon": "CATERPIE",
+     "cp": 2414,
+     "shiny": true,
+     "verified": false,
+     "minCp": 1579,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "CATERPIE"
+    },
+    {
+     "pokemon": "CHARMANDER",
+     "cp": 5613,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8168,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "CHARMANDER"
+    },
+    {
+     "pokemon": "COMBEE",
+     "cp": 3020,
+     "shiny": true,
+     "verified": false,
+     "minCp": 4395,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "COMBEE"
+    },
+    {
+     "pokemon": "COTTONEE",
+     "cp": 3980,
+     "shiny": true,
+     "verified": false,
+     "minCp": 5792,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "COTTONEE"
+    },
+    {
+     "pokemon": "DRILBUR",
+     "cp": 6968,
+     "shiny": true,
+     "verified": false,
+     "minCp": 10140,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "DRILBUR"
+    },
+    {
+     "pokemon": "ESPURR",
+     "cp": 6321,
+     "shiny": true,
+     "verified": false,
+     "minCp": 9199,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "ESPURR"
+    },
+    {
+     "pokemon": "GASTLY",
+     "cp": 7504,
+     "shiny": true,
+     "verified": false,
+     "minCp": 10920,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "GASTLY"
+    },
+    {
+     "pokemon": "GROOKEY",
+     "cp": 5815,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8463,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "GROOKEY"
+    },
+    {
+     "pokemon": "GROWLITHE",
+     "cp": 6470,
+     "shiny": true,
+     "verified": false,
+     "minCp": 9415,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "GROWLITHE"
+    },
+    {
+     "pokemon": "HATENNA",
+     "cp": 4841,
+     "shiny": true,
+     "verified": false,
+     "minCp": 7045,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "HATENNA"
+    },
+    {
+     "pokemon": "HOOTHOOT",
+     "cp": 3431,
+     "shiny": true,
+     "verified": false,
+     "minCp": 4993,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "HOOTHOOT"
+    },
+    {
+     "pokemon": "INKAY",
+     "cp": 4886,
+     "shiny": true,
+     "verified": false,
+     "minCp": 7110,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "INKAY"
+    },
+    {
+     "pokemon": "KABUTO",
+     "cp": 8367,
+     "shiny": true,
+     "verified": false,
+     "minCp": 12176,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "KABUTO"
+    },
+    {
+     "pokemon": "KRABBY",
+     "cp": 9527,
+     "shiny": true,
+     "verified": false,
+     "minCp": 13864,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "KRABBY"
+    },
+    {
+     "pokemon": "MAGIKARP",
+     "cp": 1814,
+     "shiny": true,
+     "verified": false,
+     "minCp": 2640,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "MAGIKARP"
+    },
+    {
+     "pokemon": "OMANYTE",
+     "cp": 9085,
+     "shiny": true,
+     "verified": false,
+     "minCp": 13220,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "OMANYTE"
+    },
+    {
+     "pokemon": "PIDOVE",
+     "cp": 4541,
+     "shiny": true,
+     "verified": false,
+     "minCp": 6608,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "PIDOVE"
+    },
+    {
+     "pokemon": "PIKACHU",
+     "cp": 5516,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8028,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "PIKACHU"
+    },
+    {
+     "pokemon": "RALTS",
+     "cp": 3334,
+     "shiny": true,
+     "verified": false,
+     "minCp": 4851,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "RALTS"
+    },
+    {
+     "pokemon": "RHYHORN",
+     "cp": 7615,
+     "shiny": true,
+     "verified": false,
+     "minCp": 7615,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "RHYHORN"
+    },
+    {
+     "pokemon": "ROGGENROLA",
+     "cp": 6269,
+     "shiny": true,
+     "verified": false,
+     "minCp": 9123,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "ROGGENROLA"
+    },
+    {
+     "pokemon": "ROOKIDEE",
+     "cp": 3845,
+     "shiny": true,
+     "verified": false,
+     "minCp": 5596,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "ROOKIDEE"
+    },
+    {
+     "pokemon": "SCORBUNNY",
+     "cp": 5876,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8551,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SCORBUNNY"
+    },
+    {
+     "pokemon": "SIZZLIPEDE",
+     "cp": 5619,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8177,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SIZZLIPEDE"
+    },
+    {
+     "pokemon": "SKWOVET",
+     "cp": 4558,
+     "shiny": true,
+     "verified": false,
+     "minCp": 6632,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SKWOVET"
+    },
+    {
+     "pokemon": "SNEASEL",
+     "cp": 10672,
+     "shiny": true,
+     "verified": false,
+     "minCp": 15530,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SNEASEL"
+    },
+    {
+     "pokemon": "SOBBLE",
+     "cp": 5876,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8551,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SOBBLE"
+    },
+    {
+     "pokemon": "SPHEAL",
+     "cp": 4647,
+     "shiny": true,
+     "verified": false,
+     "minCp": 6762,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SPHEAL"
+    },
+    {
+     "pokemon": "SQUIRTLE",
+     "cp": 5241,
+     "shiny": true,
+     "verified": false,
+     "minCp": 7626,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SQUIRTLE"
+    },
+    {
+     "pokemon": "TRAPINCH",
+     "cp": 7037,
+     "shiny": true,
+     "verified": false,
+     "minCp": 10241,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "TRAPINCH"
+    },
+    {
+     "pokemon": "TRUBBISH",
+     "cp": 5356,
+     "shiny": true,
+     "verified": false,
+     "minCp": 7795,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "TRUBBISH"
+    },
+    {
+     "pokemon": "WOOBAT",
+     "cp": 5030,
+     "shiny": true,
+     "verified": false,
+     "minCp": 7320,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "WOOBAT"
+    },
+    {
+     "pokemon": "WOOLOO",
+     "cp": 3970,
+     "shiny": true,
+     "verified": false,
+     "minCp": 5778,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "WOOLOO"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_1_MAX_LEGACY",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 1700,
+    "cpm": 0.15000000596046448,
+    "level": "20",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_1_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 1,
+    "soloable": true,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "BULBASAUR",
+     "cp": 6155,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "BULBASAUR"
+    },
+    {
+     "pokemon": "CATERPIE",
+     "cp": 2414,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "CATERPIE"
+    },
+    {
+     "pokemon": "CHARMANDER",
+     "cp": 5613,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "CHARMANDER"
+    },
+    {
+     "pokemon": "DARUMAKA",
+     "cp": 6961,
+     "shiny": true,
+     "verified": false,
+     "minCp": 10130,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "DARUMAKA"
+    },
+    {
+     "pokemon": "DRILBUR",
+     "cp": 6968,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "DRILBUR"
+    },
+    {
+     "pokemon": "GASTLY",
+     "cp": 7504,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "GASTLY"
+    },
+    {
+     "pokemon": "GROOKEY",
+     "cp": 5815,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "GROOKEY"
+    },
+    {
+     "pokemon": "HATENNA",
+     "cp": 4841,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "HATENNA"
+    },
+    {
+     "pokemon": "KABUTO",
+     "cp": 8367,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "KABUTO"
+    },
+    {
+     "pokemon": "KRABBY",
+     "cp": 9527,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "KRABBY"
+    },
+    {
+     "pokemon": "OMANYTE",
+     "cp": 9085,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "OMANYTE"
+    },
+    {
+     "pokemon": "PIDOVE",
+     "cp": 4541,
+     "shiny": true,
+     "verified": false,
+     "minCp": 6608,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "PIDOVE"
+    },
+    {
+     "pokemon": "ROOKIDEE",
+     "cp": 3845,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "ROOKIDEE"
+    },
+    {
+     "pokemon": "SABLEYE",
+     "cp": 7903,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SABLEYE"
+    },
+    {
+     "pokemon": "SCORBUNNY",
+     "cp": 5876,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SCORBUNNY"
+    },
+    {
+     "pokemon": "SKWOVET",
+     "cp": 4558,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SKWOVET"
+    },
+    {
+     "pokemon": "SOBBLE",
+     "cp": 5876,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SOBBLE"
+    },
+    {
+     "pokemon": "SQUIRTLE",
+     "cp": 5241,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SQUIRTLE"
+    },
+    {
+     "pokemon": "TRUBBISH",
+     "cp": 5356,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "TRUBBISH"
+    },
+    {
+     "pokemon": "WAILMER",
+     "cp": 5672,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "WAILMER"
+    },
+    {
+     "pokemon": "WOOLOO",
+     "cp": 3970,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 1700,
+      "cpm": 0.15000000596046448,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "WOOLOO"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_6_MAX_LEGACY",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 100000,
+    "cpm": 0.7649999856948853,
+    "level": "50",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_6_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 600000,
+    "estimatedPlayers": 20,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "BLASTOISE_GIGANTAMAX",
+     "cp": 75896,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 75000,
+      "cpm": 0.85,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "BLASTOISE_GIGANTAMAX"
+    },
+    {
+     "pokemon": "CHARIZARD_GIGANTAMAX",
+     "cp": 86338,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 70000,
+      "cpm": 0.85,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "CHARIZARD_GIGANTAMAX"
+    },
+    {
+     "pokemon": "CINDERACE_GIGANTAMAX",
+     "cp": 95471,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 80000,
+      "cpm": 0.8,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "CINDERACE_GIGANTAMAX"
+    },
+    {
+     "pokemon": "ETERNATUS",
+     "cp": 133306,
+     "shiny": false,
+     "verified": false,
+     "minCp": 25293,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "ETERNATUS"
+    },
+    {
+     "pokemon": "GENGAR_GIGANTAMAX",
+     "cp": 93514,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 70000,
+      "cpm": 0.85,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "GENGAR_GIGANTAMAX"
+    },
+    {
+     "pokemon": "INTELEON_GIGANTAMAX",
+     "cp": 109756,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.9,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "INTELEON_GIGANTAMAX"
+    },
+    {
+     "pokemon": "KINGLER_GIGANTAMAX",
+     "cp": 112893,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.85,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "KINGLER_GIGANTAMAX"
+    },
+    {
+     "pokemon": "LAPRAS_GIGANTAMAX",
+     "cp": 74237,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 90000,
+      "cpm": 0.85,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "LAPRAS_GIGANTAMAX"
+    },
+    {
+     "pokemon": "MACHAMP_GIGANTAMAX",
+     "cp": 103866,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.8,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "MACHAMP_GIGANTAMAX"
+    },
+    {
+     "pokemon": "RILLABOOM_GIGANTAMAX",
+     "cp": 119028,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 120000,
+      "cpm": 1,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "RILLABOOM_GIGANTAMAX"
+    },
+    {
+     "pokemon": "SNORLAX_GIGANTAMAX",
+     "cp": 102171,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 135000,
+      "cpm": 0.65,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "SNORLAX_GIGANTAMAX"
+    },
+    {
+     "pokemon": "TOXTRICITY_AMPED_GIGANTAMAX",
+     "cp": 94094,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.9,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "TOXTRICITY_AMPED_GIGANTAMAX"
+    },
+    {
+     "pokemon": "VENUSAUR_GIGANTAMAX",
+     "cp": 91267,
+     "shiny": true,
+     "verified": true,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 90000,
+      "cpm": 0.85,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "VENUSAUR_GIGANTAMAX"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_6_MAX",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 100000,
+    "cpm": 0.7649999856948853,
+    "level": "50",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_6_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 600000,
+    "estimatedPlayers": 20,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_6_MAX_FUTURE",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 100000,
+    "cpm": 0.7649999856948853,
+    "level": "50",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_6_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 600000,
+    "estimatedPlayers": 20,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "ALCREMIE_GIGANTAMAX",
+     "cp": 101785,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "ALCREMIE_GIGANTAMAX"
+    },
+    {
+     "pokemon": "APPLETUN_GIGANTAMAX",
+     "cp": 89978,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 135000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "APPLETUN_GIGANTAMAX"
+    },
+    {
+     "pokemon": "BUTTERFREE_GIGANTAMAX",
+     "cp": 70956,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.85,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "BUTTERFREE_GIGANTAMAX"
+    },
+    {
+     "pokemon": "CENTISKORCH_GIGANTAMAX",
+     "cp": 113568,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 135000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "CENTISKORCH_GIGANTAMAX"
+    },
+    {
+     "pokemon": "COALOSSAL_GIGANTAMAX",
+     "cp": 86334,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 135000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "COALOSSAL_GIGANTAMAX"
+    },
+    {
+     "pokemon": "COPPERAJAH_GIGANTAMAX",
+     "cp": 90495,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "COPPERAJAH_GIGANTAMAX"
+    },
+    {
+     "pokemon": "CORVIKNIGHT_GIGANTAMAX",
+     "cp": 80985,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "CORVIKNIGHT_GIGANTAMAX"
+    },
+    {
+     "pokemon": "DREDNAW_GIGANTAMAX",
+     "cp": 112080,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 135000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "DREDNAW_GIGANTAMAX"
+    },
+    {
+     "pokemon": "DURALUDON_GIGANTAMAX",
+     "cp": 113592,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "DURALUDON_GIGANTAMAX"
+    },
+    {
+     "pokemon": "EEVEE_GIGANTAMAX",
+     "cp": 42740,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "EEVEE_GIGANTAMAX"
+    },
+    {
+     "pokemon": "ETERNATUS_ETERNAMAX_FORM",
+     "cp": 148579,
+     "shiny": false,
+     "verified": false,
+     "minCp": 36394,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 60000,
+      "cpm": 0.75,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "ETERNATUS_ETERNAMAX_FORM"
+    },
+    {
+     "pokemon": "FLAPPLE_GIGANTAMAX",
+     "cp": 106096,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 135000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "FLAPPLE_GIGANTAMAX"
+    },
+    {
+     "pokemon": "GARBODOR_GIGANTAMAX",
+     "cp": 82924,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 1.4,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "GARBODOR_GIGANTAMAX"
+    },
+    {
+     "pokemon": "GRIMMSNARL_GIGANTAMAX",
+     "cp": 79455,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 70000,
+      "cpm": 1.2,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "GRIMMSNARL_GIGANTAMAX"
+    },
+    {
+     "pokemon": "HATTERENE_GIGANTAMAX",
+     "cp": 111849,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "HATTERENE_GIGANTAMAX"
+    },
+    {
+     "pokemon": "INTELEON_GIGANTAMAX",
+     "cp": 109756,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "INTELEON_GIGANTAMAX"
+    },
+    {
+     "pokemon": "MACHAMP_GIGANTAMAX",
+     "cp": 103866,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "MACHAMP_GIGANTAMAX"
+    },
+    {
+     "pokemon": "MELMETAL_GIGANTAMAX",
+     "cp": 109117,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "MELMETAL_GIGANTAMAX"
+    },
+    {
+     "pokemon": "MEOWTH_GIGANTAMAX",
+     "cp": 29185,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 80000,
+      "cpm": 3,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 4500,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "MEOWTH_GIGANTAMAX"
+    },
+    {
+     "pokemon": "ORBEETLE_GIGANTAMAX",
+     "cp": 86350,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "ORBEETLE_GIGANTAMAX"
+    },
+    {
+     "pokemon": "PIKACHU_GIGANTAMAX",
+     "cp": 37845,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 80000,
+      "cpm": 1.7,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 4500,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "MAX_BOSS_STATS"
+     },
+     "pokemonId": "PIKACHU_GIGANTAMAX"
+    },
+    {
+     "pokemon": "SANDACONDA_GIGANTAMAX",
+     "cp": 102243,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SANDACONDA_GIGANTAMAX"
+    },
+    {
+     "pokemon": "SNORLAX_GIGANTAMAX",
+     "cp": 87935,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SNORLAX_GIGANTAMAX"
+    },
+    {
+     "pokemon": "URSHIFU_RAPID_STRIKE_GIGANTAMAX",
+     "cp": 117869,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 100000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "URSHIFU_RAPID_STRIKE_GIGANTAMAX"
+    },
+    {
+     "pokemon": "URSHIFU_SINGLE_STRIKE_GIGANTAMAX",
+     "cp": 136952,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 135000,
+      "cpm": 0.7649999856948853,
+      "maxEnergyMultiplier": 15,
+      "maxEnergyDecimals": 2,
+      "targetMoveDelayMs": 5000,
+      "spreadMoveDelayMs": 2500,
+      "postMaxPhaseDelayMs": 500,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "URSHIFU_SINGLE_STRIKE_GIGANTAMAX"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_4_MAX",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 20000,
+    "cpm": 0.6000000238418579,
+    "level": "35",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_4_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 2,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "DURALUDON",
+     "cp": 50800,
+     "shiny": true,
+     "verified": false,
+     "minCp": 21552,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 20000,
+      "cpm": 0.6000000238418579,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "DURALUDON"
+    },
+    {
+     "pokemon": "TOXTRICITY",
+     "cp": 51537,
+     "shiny": false,
+     "verified": false,
+     "minCp": 17853,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 30000,
+      "cpm": 0.6000000238418579,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "TOXTRICITY"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_4_MAX_FUTURE",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 20000,
+    "cpm": 0.6000000238418579,
+    "level": "35",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_4_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 2,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_4_MAX_LEGACY",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 20000,
+    "cpm": 0.6000000238418579,
+    "level": "35",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_4_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 2,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "TOXTRICITY",
+     "cp": 51537,
+     "shiny": false,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 30000,
+      "cpm": 0.6000000238418579,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "TOXTRICITY"
+    },
+    {
+     "pokemon": "TOXTRICITY_AMPED_FORM",
+     "cp": 51537,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 30000,
+      "cpm": 0.6000000238418579,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "TOXTRICITY_AMPED_FORM"
+    },
+    {
+     "pokemon": "TOXTRICITY_LOW_KEY_FORM",
+     "cp": 51537,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 30000,
+      "cpm": 0.6000000238418579,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "TOXTRICITY_LOW_KEY_FORM"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_2_MAX",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 5600,
+    "cpm": 0.3799999952316284,
+    "level": "25",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_2_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 1,
+    "soloable": true,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "DARUMAKA",
+     "cp": 12634,
+     "shiny": true,
+     "verified": false,
+     "minCp": 10130,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 5600,
+      "cpm": 0.3799999952316284,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "DARUMAKA"
+    },
+    {
+     "pokemon": "EEVEE",
+     "cp": 10114,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8109,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 5600,
+      "cpm": 0.3799999952316284,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "EEVEE"
+    },
+    {
+     "pokemon": "FEEBAS",
+     "cp": 3292,
+     "shiny": true,
+     "verified": false,
+     "minCp": 3292,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 5600,
+      "cpm": 0.3799999952316284,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "FEEBAS"
+    },
+    {
+     "pokemon": "MACHOP",
+     "cp": 11202,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8982,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 5600,
+      "cpm": 0.3799999952316284,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "MACHOP"
+    },
+    {
+     "pokemon": "SHUCKLE",
+     "cp": 4854,
+     "shiny": true,
+     "verified": false,
+     "minCp": 3892,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 5600,
+      "cpm": 0.3799999952316284,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "SHUCKLE"
+    },
+    {
+     "pokemon": "WAILMER",
+     "cp": 10294,
+     "shiny": true,
+     "verified": false,
+     "minCp": 8254,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 5600,
+      "cpm": 0.3799999952316284,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "WAILMER"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_2_MAX_FUTURE",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 5600,
+    "cpm": 0.3799999952316284,
+    "level": "25",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_2_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 1,
+    "soloable": true,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_2_MAX_LEGACY",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 5600,
+    "cpm": 0.3799999952316284,
+    "level": "25",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_2_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 480000,
+    "estimatedPlayers": 1,
+    "soloable": true,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [
+    {
+     "pokemon": "MACHOP",
+     "cp": 11202,
+     "shiny": true,
+     "verified": false,
+     "minCp": 0,
+     "remoteRaidType": "REMOTE_RAID_LIMITED",
+     "bossStats": {
+      "hp": 5600,
+      "cpm": 0.3799999952316284,
+      "maxEnergyMultiplier": 1,
+      "maxEnergyDecimals": 0,
+      "targetMoveDelayMs": 0,
+      "spreadMoveDelayMs": 0,
+      "postMaxPhaseDelayMs": 0,
+      "source": "TIER_DEFAULT"
+     },
+     "pokemonId": "MACHOP"
+    }
+   ],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_6_5_MAX_FUTURE",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 100000,
+    "cpm": 1.0299999713897705,
+    "level": "60",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_6_5_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 600000,
+    "estimatedPlayers": 20,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_6_5_MAX",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 100000,
+    "cpm": 1.0299999713897705,
+    "level": "60",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_6_5_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 600000,
+    "estimatedPlayers": 20,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  },
+  {
+   "type": "RAID_TYPE_RAID",
+   "tier": "RAID_LEVEL_6_5_MAX_LEGACY",
+   "remoteRaidType": "REMOTE_RAID_LIMITED",
+   "info": {
+    "hp": 100000,
+    "cpm": 1.0299999713897705,
+    "level": "60",
+    "eggURL": "//static.pokebattler.com/images/dynamax_raid.png",
+    "guessTier": "RAID_LEVEL_6_5_MAX",
+    "attackMultiplier": 1,
+    "defenseMultiplier": 1,
+    "staminaMultiplier": 1,
+    "combatTimeMs": 600000,
+    "estimatedPlayers": 20,
+    "soloable": false,
+    "superMega": false,
+    "statsSource": "FORMULAS"
+   },
+   "raids": [],
+   "attackMultiplier": 1,
+   "defenseMultiplier": 1,
+   "staminaMultiplier": 1,
+   "raidType": "RAID_TYPE_RAID"
+  }
+ ],
+ "dynamaxPokemon": [
+  "VENUSAUR",
+  "CHARIZARD",
+  "BLASTOISE",
+  "BUTTERFREE",
+  "RAICHU",
+  "ARCANINE",
+  "ALAKAZAM",
+  "MACHAMP",
+  "HAUNTER",
+  "GENGAR",
+  "KINGLER",
+  "HITMONLEE",
+  "HITMONCHAN",
+  "RHYDON",
+  "CHANSEY",
+  "GYARADOS",
+  "VAPOREON",
+  "JOLTEON",
+  "FLAREON",
+  "OMASTAR",
+  "KABUTOPS",
+  "ARTICUNO",
+  "ZAPDOS",
+  "MOLTRES",
+  "NOCTOWL",
+  "ESPEON",
+  "UMBREON",
+  "SHUCKLE",
+  "HITMONTOP",
+  "BLISSEY",
+  "RAIKOU",
+  "ENTEI",
+  "SUICUNE",
+  "LUGIA",
+  "HO_OH",
+  "GARDEVOIR",
+  "SABLEYE",
+  "WAILORD",
+  "FLYGON",
+  "MILOTIC",
+  "WALREIN",
+  "METAGROSS",
+  "REGIROCK",
+  "REGICE",
+  "REGISTEEL",
+  "LATIAS",
+  "LATIOS",
+  "VESPIQUEN",
+  "WEAVILE",
+  "RHYPERIOR",
+  "ELECTIVIRE",
+  "MAGMORTAR",
+  "LEAFEON",
+  "GLACEON",
+  "GALLADE",
+  "UXIE",
+  "MESPRIT",
+  "AZELF",
+  "UNFEZANT",
+  "GIGALITH",
+  "SWOOBAT",
+  "EXCADRILL",
+  "WHIMSICOTT",
+  "DARMANITAN",
+  "GARBODOR",
+  "CRYOGONAL",
+  "HYDREIGON",
+  "MEOWSTIC",
+  "MALAMAR",
+  "SYLVEON",
+  "TSAREENA",
+  "PASSIMIAN",
+  "DRAMPA",
+  "RILLABOOM",
+  "CINDERACE",
+  "INTELEON",
+  "GREEDENT",
+  "CORVIKNIGHT",
+  "DUBWOOL",
+  "HATTERENE",
+  "FALINKS",
+  "DURALUDON",
+  "ETERNATUS",
+  "TOXTRICITY_LOW_KEY_FORM",
+  "TOXTRICITY_AMPED_FORM",
+  "ZACIAN_CROWNED_SWORD_FORM",
+  "ZAMAZENTA_CROWNED_SHIELD_FORM",
+  "MEOWSTIC_FEMALE_FORM",
+  "VENUSAUR_GIGANTAMAX",
+  "CHARIZARD_GIGANTAMAX",
+  "BLASTOISE_GIGANTAMAX",
+  "MACHAMP_GIGANTAMAX",
+  "GENGAR_GIGANTAMAX",
+  "KINGLER_GIGANTAMAX",
+  "LAPRAS_GIGANTAMAX",
+  "SNORLAX_GIGANTAMAX",
+  "TOXTRICITY_AMPED_GIGANTAMAX",
+  "RILLABOOM_GIGANTAMAX",
+  "CINDERACE_GIGANTAMAX",
+  "INTELEON_GIGANTAMAX",
+  "TOXTRICITY_GIGANTAMAX"
+ ]
+}

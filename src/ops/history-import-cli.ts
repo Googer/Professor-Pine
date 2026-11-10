@@ -1,0 +1,67 @@
+import { constants } from 'node:fs';
+import { access } from 'node:fs/promises';
+import path from 'node:path';
+import { ConfigError, loadConfig, type Config } from '../config/index.js';
+import { dbConfigFrom } from '../db/db-config.js';
+import { createDb } from '../db/kysely.js';
+import type { DB } from '../db/types.js';
+import { createLogger } from '../log.js';
+import { GameDataService } from '../services/game-data-service.js';
+import { importStep } from './history-import.js';
+
+// The import of the legacy bot's parties into the party history (plan 8H):
+//   npm run history:import -- <legacy parties folder> [--server <server id>]
+//   ./pine import-history <legacy parties folder> [--server <server id>]   (mounted read-only)
+// It reads the folder and writes the history tables, and the member index into LEGACY_INDEX_DIR
+// where that is set (plan 8H-10; in the stack mounted read-write for this command alone); it
+// never logs in to Discord. The game data (for the bosses) is the bot's saved copy, downloaded as
+// the bot does when there is none. The logic, and its exit codes, are `importStep`.
+
+/** Where the bot keeps its parsed game data (`src/app.ts`). */
+const GAME_DATA_CACHE = 'var/game-data-cache.json';
+const HOUR_MS = 3_600_000;
+
+let config: Config;
+try {
+  config = loadConfig(process.env);
+} catch (err) {
+  process.stderr.write(`${err instanceof ConfigError ? err.message : String(err)}\n`);
+  process.exit(1);
+}
+const log = createLogger({ level: config.env.LOG_LEVEL, pretty: false });
+// Run as the operator (`./pine import-history` with LEGACY_INDEX_DIR set), the import may not
+// write the bot's folder: it then only reads the saved copy, and a download is not kept. A
+// folder not there yet is made when the copy is saved.
+const mayWrite = await access(path.dirname(GAME_DATA_CACHE), constants.W_OK).then(
+  () => true,
+  (err: unknown) => (err as NodeJS.ErrnoException).code === 'ENOENT',
+);
+const db = createDb<DB>(dbConfigFrom(config.env));
+const gameData = new GameDataService({
+  gameMasterUrl: config.settings.gameData.gameMasterUrl,
+  textUrl: config.settings.gameData.textUrl,
+  iconsUrl: config.settings.gameData.iconsUrl,
+  megaPortraitsUrl: config.settings.gameData.megaPortraitsUrl,
+  cachePath: GAME_DATA_CACHE,
+  keepCopy: mayWrite,
+  maxAgeMs: config.settings.gameData.refreshHours * HOUR_MS,
+  fetch: (url, init) => fetch(url, init),
+  log,
+});
+try {
+  process.exitCode = await importStep(process.argv.slice(2), {
+    db,
+    loadCatalogue: async () => {
+      await gameData.load();
+      return gameData.catalogue;
+    },
+    say: (line) => process.stdout.write(`${line}\n`),
+    ...(config.env.LEGACY_INDEX_DIR === undefined ? {} : { indexDir: config.env.LEGACY_INDEX_DIR }),
+  });
+} catch (err) {
+  process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+  process.exitCode = 1;
+} finally {
+  gameData.stop();
+  await db.destroy();
+}

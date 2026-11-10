@@ -1,0 +1,3717 @@
+@import 'leaflet/dist/leaflet.css';
+@import './theme.css';
+
+/*
+ * The live map (and, through `editor.css`, the region editor) in Discord's look (plan 8M-7):
+ * every color a named value of `theme.css`, light or dark as the device is.
+ */
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font);
+  font-size: var(--font-size);
+  color: var(--text);
+  background: var(--page-bg);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+a {
+  color: var(--link);
+}
+
+#header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  background: var(--panel-bg);
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+#header .title {
+  font-weight: 700;
+}
+
+#filter {
+  flex: 1 1 180px;
+  max-width: 280px;
+  padding: 6px 10px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+#account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+#account a,
+#account button {
+  color: var(--secondary-text);
+  background: var(--secondary);
+  border: 0;
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#account a.login {
+  color: var(--on-color);
+  background: var(--primary);
+}
+
+#account a.login:hover {
+  background: var(--primary-hover);
+}
+
+/* The server's invite for somebody logged in who is not in it (8M-11B). */
+#account a.invite {
+  color: var(--on-color);
+  background: var(--primary);
+}
+
+#account a.invite:hover {
+  background: var(--primary-hover);
+}
+
+/* "Log in with Discord", "Log in" on a phone (8M-7 review fix 4). */
+#account a.login .short {
+  display: none;
+}
+
+#account button:hover {
+  background: var(--secondary-hover);
+}
+
+#account .line {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* The header's controls never wrap their words (fix round 1). */
+#header button,
+#header a,
+#header summary {
+  white-space: nowrap;
+}
+
+/* The member's name as one button, whose small menu holds Log out (fix round 1). */
+.account-menu {
+  position: relative;
+}
+
+.account-menu summary {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+
+/*
+ * A long name is cut to fit on the desktop too (plan 8M-9B, B7): beside five toggles at 1024
+ * pixels a name of 26 letters took the row's room and the header wrapped.
+ */
+@media (min-width: 768px) {
+  .account-menu summary {
+    display: block;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.account-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.account-menu summary::after {
+  content: ' ▾';
+}
+
+.account-menu .menu {
+  position: absolute;
+  z-index: 1100;
+  top: calc(100% + 6px);
+  right: 0;
+  padding: 8px;
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  box-shadow: 0 8px 24px var(--shadow);
+  /* "Edit regions" above Log out (plan 8M-10). */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+/*
+ * The menu's links ("History", "Your history") look as its buttons do (Matt, 2026-11-07): their
+ * words centered, darker under the pointer; the page you are on drawn as the chosen theme is.
+ */
+.account-menu .menu a {
+  text-align: center;
+}
+
+#account .menu a:hover {
+  background: var(--secondary-hover);
+}
+
+#account .menu a[aria-current='page'] {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
+/*
+ * "Edit regions" only where the editor is offered (plan 8M-11C, S29): a screen of 1024 pixels or
+ * more, where the header's row shows, with a mouse or a trackpad. The query is `EDITOR_MEDIA` of
+ * `editor-media.ts` word for word (`phone-header.test.ts` holds them to each other).
+ */
+.account-menu .edit-regions {
+  display: none;
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
+  .account-menu .edit-regions {
+    display: block;
+  }
+}
+
+/*
+ * Light, Dark or Device (plan 8M-13, S10): "Theme: Light · Dark · Device" in the account menu,
+ * the current one pressed; a visitor's ⋮ button in the account's place holds it, under "Map tour".
+ */
+.theme-choice {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+#account .theme-choice .theme-option {
+  padding: 4px 8px;
+}
+
+#account .theme-choice .theme-option.chosen {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
+.theme-menu summary::after {
+  content: none;
+}
+
+/* The browser's own parts (fields, scroll bars) follow a forced choice too. */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/*
+ * The region editor on (plan 8M-10): the live map's parts make way for the editor's own (its
+ * map, tool row and panel, styled by `editor.css`), which are `hidden` while it is off.
+ */
+body.editing-regions #parties,
+body.editing-regions #read-only,
+body.editing-regions #layers,
+body.editing-regions #list-button,
+body.editing-regions #search-button,
+body.editing-regions #report-button,
+body.editing-regions #filter,
+body.editing-regions .edit-regions {
+  display: none !important;
+}
+
+/*
+ * The live map keeps a size while the editor is on (branch review W1): hidden under the editor's
+ * map, never `display: none`, so that a resize or a redraw never leaves it 0 by 0 (a view moved,
+ * stored and asked for an empty box). `!important` over the `position: relative` Leaflet sets
+ * on its container.
+ */
+#content {
+  position: relative;
+}
+
+body.editing-regions #map {
+  position: absolute !important;
+  inset: 0;
+  visibility: hidden;
+}
+
+/* Narrower than 768 pixels the title is "Pine" (fix round 1). */
+@media (max-width: 767px) {
+  #header .title-first {
+    display: none;
+  }
+}
+
+/*
+ * Up to 1280 pixels "Find a gym" starts narrower (plan 8M-9A to 1024; plan 8M-9B, B7, to 1280).
+ * The title is whole from 768: with "Layers · n" in place of the toggles up to 1023 the row has
+ * room for it; from 1024 the row of toggles takes what room is left beside the title, Report,
+ * "Find a gym" and the account (its name cut at 140 pixels), the rest under More (2026-11-07,
+ * below).
+ */
+@media (min-width: 768px) and (max-width: 1279px) {
+  /* Its own width (some 180 pixels) is no floor: the row wraps only below 120. */
+  #filter {
+    flex-basis: 120px;
+    min-width: 0;
+  }
+}
+
+/*
+ * The layers (plan 8M-7): on the desktop a row of toggles in the header, as many as fit, the rest
+ * under "More" (2026-11-07); narrower than 1024 pixels (since plan 8M-9B, B7, below) a
+ * "Layers · n" button and a bottom sheet.
+ */
+#layers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+#layers .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--deep-bg);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: var(--chip-on-bg);
+  color: var(--text);
+}
+
+.chip .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.chip[data-layer='raids'] .dot {
+  background: var(--raid);
+}
+
+.chip[data-layer='trains'] .dot {
+  background: var(--train);
+}
+
+.chip[data-layer='meetups'] .dot {
+  background: var(--meetup);
+}
+
+/*
+ * The background layers' toggles in the row (2026-11-07, review T3): each dot the color the map
+ * draws the layer with.
+ */
+.chip[data-layer='spawns'] .dot {
+  background: var(--ball);
+}
+
+.chip[data-layer='gyms'] .dot {
+  background: var(--gym);
+}
+
+.chip[data-layer='stops'] .dot {
+  background: var(--stop);
+}
+
+.chip[data-layer='spots'] .dot {
+  background: var(--power-spot);
+}
+
+.chip[data-layer='activity'] .dot {
+  background: var(--activity);
+}
+
+.chip[data-layer='outlines'] .dot {
+  background: var(--region);
+}
+
+#layers .more {
+  position: relative;
+}
+
+#layers .more summary {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--deep-bg);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  list-style: none;
+}
+
+#layers .more summary::-webkit-details-marker {
+  display: none;
+}
+
+#layers .more .menu {
+  position: absolute;
+  z-index: 1100;
+  top: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+  padding: 10px 12px;
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+#layers .more label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.layers-button {
+  display: none;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sheet-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+}
+
+.sheet-wrap .scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+}
+
+.sheet-wrap .sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+  border-radius: 16px 16px 0 0;
+  background: var(--page-bg);
+  color: var(--text);
+  box-shadow: 0 -4px 18px var(--shadow);
+}
+
+.sheet-wrap h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.sheet-row .words {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-row small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* A switch, drawn from the checkbox itself. */
+.sheet-row input[role='switch'] {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  margin: 0;
+  border-radius: 12px;
+  background: var(--secondary);
+  cursor: pointer;
+}
+
+.sheet-row input[role='switch']::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--on-color);
+  transition: left 0.15s;
+}
+
+.sheet-row input[role='switch']:checked {
+  background: var(--success);
+}
+
+.sheet-row input[role='switch']:checked::after {
+  left: 19px;
+}
+
+.sheet-done {
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 12px;
+}
+
+/*
+ * Narrower than 1024 pixels (plan 8M-9B, B7), "Layers · n" and its sheet, as on a phone. The row
+ * fits what it can since 2026-11-07, so it might start lower: 768 is to be tried at staging.
+ */
+@media (max-width: 1023px) {
+  #layers .chips,
+  #layers .more {
+    display: none;
+  }
+
+  .layers-button {
+    display: inline-block;
+  }
+}
+
+/*
+ * From 1024 pixels the row shows the toggles that fit and puts the rest under More (Matt,
+ * 2026-11-07; `row-fit.ts`, measured by `showLayerControls`), so the header stays one row. The
+ * controls beside the row keep their width while the page measures; only "Find a gym" gives way,
+ * down to its own width (`flex-basis`), which the page keeps free for it. The region editor's
+ * tools keep their own row's rules.
+ */
+@media (min-width: 1024px) {
+  body:not(.editing-regions) #header {
+    flex-wrap: nowrap;
+  }
+
+  body:not(.editing-regions) #header > :not(#filter) {
+    flex-shrink: 0;
+  }
+
+  body:not(.editing-regions) #header .title {
+    white-space: nowrap;
+  }
+
+  /* Its basis is the least the measure keeps for it (review T2): never a wider floor. */
+  #filter {
+    min-width: 0;
+  }
+
+  #layers,
+  #layers .chips {
+    flex-wrap: nowrap;
+  }
+}
+
+/* A cluster of gyms (plan 8M-7): a circle with its count; a tap zooms in on it. */
+.cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--cluster-edge);
+  border-radius: 50%;
+  background: var(--cluster);
+  background-clip: padding-box;
+  color: var(--on-color);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* The quiet line at the bottom of the map: "Zoom in to see every PokéStop here." */
+.quiet-line {
+  margin: 0 0 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  background: var(--label-bg);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#read-only {
+  margin: 0;
+  padding: 6px 12px;
+  background: var(--notice-bg);
+  border-bottom: 1px solid var(--notice-border);
+}
+
+/*
+ * The notice band (plan 8M-11A): over the top of the map, never pushing its controls down; its
+ * lines kept (research answers read as lines), its × at the end. It goes away by itself after ten
+ * seconds (`NoticeBand`).
+ */
+#notice {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 1050;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: min(560px, calc(100% - 24px));
+  margin: 0;
+  padding: 6px 6px 6px 12px;
+  transform: translateX(-50%);
+  border: 1px solid var(--notice-border);
+  border-radius: var(--radius);
+  background: var(--notice-bg);
+  color: var(--text);
+  box-shadow: 0 2px 8px var(--shadow);
+  white-space: pre-line;
+}
+
+#notice[hidden] {
+  display: none;
+}
+
+#notice-close {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#content {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-height: 300px;
+}
+
+#map {
+  flex: 1;
+  min-height: 300px;
+}
+
+#parties {
+  width: var(--panel-width);
+  overflow-y: auto;
+  padding: 8px 12px;
+  border-left: 1px solid var(--line);
+  background: var(--panel-bg);
+}
+
+#parties h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+/*
+ * The list of what is on (plan 8M-7): the side pane on the desktop; on a phone "List" swaps the
+ * map for it (`body.list-open`).
+ */
+.list-button {
+  display: none;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 767px) {
+  .list-button {
+    display: inline-block;
+  }
+
+  /*
+   * One row (fix round 1): the title, Layers, List, the search button and the account; "Find a
+   * gym" opens over the map from the search button (`body.search-open`).
+   */
+  #header {
+    position: relative;
+    flex-wrap: nowrap;
+  }
+
+  #header {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  /* The member's name, the account menu's button, cut to fit the row. */
+  .account-menu summary {
+    display: block;
+    max-width: 22vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #layers .layers-button,
+  .list-button,
+  #header .search-button,
+  .account-menu summary,
+  #account a.login {
+    padding: 6px 10px;
+  }
+
+  /*
+   * Logged out, the header's login says "Log in" (8M-7 review fix 4): "Log in with Discord"
+   * beside Layers, List and Find is wider than a phone of 360 pixels. The pane's own button keeps
+   * the whole words.
+   */
+  #account a.login .full {
+    display: none;
+  }
+
+  #account a.login .short {
+    display: inline;
+  }
+
+  /* What the header says beside the account goes under it, never across the row. */
+  #account {
+    min-width: 0;
+    justify-content: flex-end;
+  }
+
+  #account .line {
+    flex-basis: 100%;
+    font-size: 12px;
+    text-align: right;
+  }
+
+  /*
+   * The server's invite (8M-11B, branch review BR-2): its own line under the not-a-member line,
+   * its words wrapping in the little room the header's row leaves, as small as the login. The
+   * line and the button stacked at the left, the button as wide as its words (plan 8M-13, I1):
+   * the line takes its row, so the button starts the next, pushed left.
+   */
+  #account:has(a.invite) .line {
+    text-align: left;
+  }
+
+  #account a.invite {
+    margin-right: auto;
+    white-space: normal;
+    text-align: left;
+    padding: 6px 10px;
+    box-sizing: border-box;
+  }
+
+  #header .search-button {
+    display: inline-block;
+  }
+
+  #filter {
+    display: none;
+  }
+
+  body.search-open #filter {
+    position: absolute;
+    z-index: 1100;
+    top: calc(100% + 6px);
+    left: 8px;
+    right: 8px;
+    display: block;
+    max-width: none;
+    box-sizing: border-box;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+
+  #parties {
+    display: none;
+    width: auto;
+    flex: 1;
+    border-left: 0;
+  }
+
+  body.list-open #parties:not([hidden]) {
+    display: block;
+  }
+
+  /* Find's box floats over the top of the list that shows its results (plan 8M-12). */
+  body.list-open.search-open #parties:not([hidden]) {
+    padding-top: 56px;
+  }
+
+  body.list-open #map {
+    display: none;
+  }
+
+  /*
+   * A form of the side pane that needs the map (route mode, a meetup's place picked, any form of
+   * its box): the map shown with the pane docked under it, whatever "List" says (fix round 1).
+   */
+  body.form-docked #content {
+    flex-direction: column;
+  }
+
+  body.form-docked #map,
+  body.list-open.form-docked #map {
+    display: block;
+  }
+
+  body.form-docked #parties:not([hidden]) {
+    display: block;
+    flex: none;
+    max-height: 40vh;
+    border-top: 1px solid var(--line);
+  }
+}
+
+/*
+ * The Report button (plan 8M-9A): in the header on a wide screen; on a phone a round button over
+ * the map at the bottom right, above "Show where I am" (`.report-control`), so that the header
+ * stays one row, and a line of its own at the top of the list while the list is shown.
+ */
+#report-button,
+.report-control .report,
+.report-line {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--on-color);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#report-button:hover,
+.report-control .report:hover,
+.report-line:hover {
+  background: var(--primary-hover);
+}
+
+/* Off while a form is open, in the header's own place. */
+#report-button:disabled {
+  background: var(--deep-bg);
+  color: var(--muted);
+  cursor: default;
+}
+
+.report-control {
+  display: none;
+}
+
+.report-control .report {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
+  box-shadow: 0 2px 6px var(--shadow);
+}
+
+.report-line {
+  display: none;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 767px) {
+  #report-button {
+    display: none;
+  }
+
+  .report-control {
+    display: block;
+  }
+
+  /* Not while it is hidden (review B2): Report is not offered then. */
+  body.list-open .report-line:not([hidden]) {
+    display: block;
+  }
+}
+
+/* The menu of step 1: a sheet on a phone, a small panel under the button on a wide screen. */
+.report-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+}
+
+.report-wrap .scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+}
+
+.report-menu {
+  position: absolute;
+  top: 52px;
+  width: 260px;
+  padding: 12px;
+  border-radius: var(--card-radius);
+  background: var(--page-bg);
+  color: var(--text);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.report-menu h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.report-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-kind {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.report-kind:hover,
+.report-kind:focus-visible {
+  background: var(--secondary-hover);
+}
+
+.report-cancel {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* The icons, outlined to read on any background (Matt's notes, 2026-10-25). */
+.report-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 1px var(--icon-outline)) drop-shadow(0 0 1px var(--icon-outline));
+}
+
+.report-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Pine's train has no outline in either theme (Matt, 2026-10-28). */
+.report-icon.shape-train {
+  color: var(--train);
+  filter: none;
+}
+
+/*
+ * In dark, no outline on the masks and the white pictures (plan 8M-11A, S14; Matt: the light halo
+ * blew them out).
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .report-icon.mask,
+  :root:not([data-theme='light']) .report-icon.light {
+    filter: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .report-menu {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 12px 16px 16px;
+    border-radius: 16px 16px 0 0;
+  }
+}
+
+/* Step 2: where, in the side pane's box (docked under the map on a phone). */
+.report-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.report-pick .report-pick-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.report-pick .form-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.report-pick .hint,
+.report-pick .near-none {
+  margin: 0;
+}
+
+.report-pick .near-label {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.near-places {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.near-place {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.near-place:hover,
+.near-place:focus-visible {
+  background: var(--secondary-hover);
+}
+
+.near-place .near-distance {
+  flex: none;
+  color: var(--muted);
+}
+
+/* While step 2 picks: the places that fit ringed, the rest of what is drawn dimmed. */
+.pick-gyms path.gym-dot,
+.pick-spots path.spot-dot,
+.pick-stops path.stop-dot {
+  stroke: var(--primary);
+  stroke-width: 4px;
+}
+
+/*
+ * Everything drawn is dimmed but the places that fit (R1-7: the other places' dots too), a train's
+ * numbers and arrowheads too, which take no tap then (branch review S4).
+ */
+.report-picking .leaflet-rings-pane,
+.report-picking .leaflet-overlay-pane path,
+.report-picking .leaflet-train-lines-pane path,
+.report-picking .leaflet-train-badges-pane,
+.report-picking .train-arrow,
+.pick-gyms .max-icon,
+.pick-spots .raid-icon:not(.max-icon),
+.pick-spots .cluster {
+  opacity: 0.35;
+}
+
+.pick-gyms .leaflet-overlay-pane path.gym-dot,
+.pick-spots .leaflet-overlay-pane path.spot-dot,
+.pick-stops .leaflet-overlay-pane path.stop-dot {
+  opacity: 1;
+}
+
+/*
+ * Plan 8M-9B (B9): the PokéStops picked for a report at a stop, a stop with reports by its marker
+ * ringed as the dots are; while another kind is picked the stops' markers are dimmed with the rest.
+ */
+.pick-stops .stop-icon .ring {
+  outline: 3px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.report-picking:not(.pick-stops) .stop-icon,
+.pick-stops .raid-icon,
+.pick-stops .cluster {
+  opacity: 0.35;
+}
+
+.report-pick .pick-note {
+  margin: 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* A place's larger target to tap while it is picked (R1-10): clear, never dimmed or drawn. */
+.report-picking .leaflet-overlay-pane path.place-target {
+  opacity: 0;
+}
+
+/* The pin a tap puts in step 2 (R1-1), and its line in the box. */
+.report-pin {
+  border: 3px solid var(--primary);
+  border-radius: 50%;
+  background: var(--panel-bg);
+  box-shadow: 0 1px 4px var(--shadow);
+}
+
+.report-pick .pin-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--card-bg);
+}
+
+.report-pick [data-pick-heading]:focus {
+  outline: none;
+}
+
+/*
+ * "Your regions" (plan 8M-20): in the side pane's box as Report's step 2, each region a row with
+ * its state, its Join and Leave buttons and what they take along, the answer of a press under them.
+ */
+.account-menu .regions-item[hidden] {
+  display: none;
+}
+
+.regions-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.regions-box .regions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.regions-box [data-regions-heading]:focus {
+  outline: none;
+}
+
+.regions-box .hint,
+.regions-box .region-answer {
+  margin: 0;
+}
+
+/*
+ * The legend of "Your regions" (Matt, 2026-11-07): a swatch drawn as each kind of outline looks
+ * (`outlineStyle`, `regions.ts`): the region color at 0.18 with a solid line; the gray at 0.3 with
+ * dashes; the gray at 0.45 with fainter dashes.
+ */
+.regions-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.regions-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.regions-legend .swatch {
+  position: relative;
+  flex: none;
+  width: 22px;
+  height: 14px;
+}
+
+/* The fill and the line drawn apart, each with the outline's opacity. */
+.regions-legend .swatch::before,
+.regions-legend .swatch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+}
+
+.regions-legend .swatch::after {
+  border: 2px solid var(--region);
+}
+
+.regions-legend .swatch-visible::before {
+  background: var(--region);
+  opacity: 0.18;
+}
+
+.regions-legend .swatch-map-only::before {
+  background: var(--region-veil);
+  opacity: 0.3;
+}
+
+.regions-legend .swatch-map-only::after {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.regions-legend .swatch-hidden::before {
+  background: var(--region-veil);
+  opacity: 0.45;
+}
+
+.regions-legend .swatch-hidden::after {
+  border-style: dashed;
+  opacity: 0.4;
+}
+
+.regions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.region-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--card-bg);
+}
+
+.region-row .region-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.region-row .region-row-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.region-row .region-state {
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.region-row .region-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.region-row .region-answer:empty {
+  display: none;
+}
+
+.regions-box .form-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.search-button {
+  display: none;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.what-is-on header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.what-is-on h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+}
+
+/* Find's "Back to the list" (8M-12, BR-3): a × at the end of the heading's row. */
+.what-is-on header .find-back {
+  min-width: 28px;
+  min-height: 28px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.what-is-on header select {
+  padding: 4px 8px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.what-is-on h3 {
+  margin: 10px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.what-is-on .empty {
+  color: var(--muted);
+}
+
+/* The foot line to Campfire's official meetups (plan 8V-1). */
+.what-is-on .official-meetups {
+  margin: 12px 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.list-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list-lines .line-main {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.list-lines .line-main:hover,
+.list-lines .line-main:focus-visible {
+  background: var(--chip-on-bg);
+}
+
+.list-lines .line.dim {
+  opacity: 0.5;
+}
+
+.list-lines .picture {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.list-lines span.picture {
+  box-sizing: border-box;
+  border: 3px solid var(--muted);
+}
+
+.list-lines span.picture.trains {
+  border-color: var(--train);
+}
+
+.list-lines span.picture.meetups {
+  border-color: var(--meetup);
+}
+
+.list-lines span.picture.raids {
+  border-color: var(--raid);
+}
+
+/* The reports at stops (plan 8M-9B): a ring of their layer's color without a picture. */
+.list-lines span.picture.research {
+  border-color: var(--research);
+}
+
+.list-lines span.picture.rocket {
+  border-color: var(--rocket);
+}
+
+/* A group's note: the day's research waiting under an event (B5). */
+.what-is-on .group-note {
+  margin: 2px 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.list-lines .words {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.list-lines .name {
+  font-weight: 600;
+}
+
+.list-lines .place,
+.list-lines .side {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.list-lines .side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.list-lines .side strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+/*
+ * Find (plan 8M-12): a report not confirmed says so under what matched, in the warning's color;
+ * the places found by name have the ring of their layer's color.
+ */
+.list-lines .mark {
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.list-lines span.picture.gyms {
+  border-color: var(--gym);
+}
+
+.list-lines span.picture.stops {
+  border-color: var(--stop);
+}
+
+.list-lines span.picture.spots {
+  border-color: var(--power-spot);
+}
+
+.line-detail {
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+  border-left: var(--card-bar) solid var(--accent);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+}
+
+/* A line hovered on the desktop: its marker stands out. */
+.raid-icon.highlighted .ring {
+  box-shadow: 0 0 0 4px var(--primary);
+}
+
+path.highlighted {
+  stroke-width: 7px;
+}
+
+/* Leaflet's own parts, in the theme's colors. */
+.leaflet-container {
+  background: var(--map-bg);
+  font: inherit;
+}
+
+.leaflet-container a {
+  color: var(--link);
+}
+
+/*
+ * OpenStreetMap's tiles in dark (plan 8M-7): they have no dark style, so the page darkens them
+ * (`addTiles` sets the class only while they are the base shown in dark; Stadia's have their own).
+ */
+.tiles-darkened .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6);
+}
+
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  background: var(--panel-bg);
+  color: var(--text);
+  border-bottom-color: var(--line);
+}
+
+.leaflet-bar a:hover {
+  background: var(--deep-bg);
+}
+
+.leaflet-touch .leaflet-bar,
+.leaflet-bar {
+  border-color: var(--line);
+  box-shadow: 0 2px 6px var(--shadow);
+}
+
+.leaflet-control-layers,
+.leaflet-control-layers-expanded {
+  background: var(--panel-bg);
+  color: var(--text);
+}
+
+.leaflet-control-attribution,
+.leaflet-container .leaflet-control-attribution {
+  background: var(--label-bg);
+  color: var(--muted);
+}
+
+/* "Show where I am" (plan 8M-7): a round button with a crosshair. */
+.locate-control .locate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--panel-bg);
+  color: var(--text);
+  box-shadow: 0 2px 6px var(--shadow);
+  cursor: pointer;
+}
+
+.locate-control .locate:hover {
+  background: var(--deep-bg);
+}
+
+/* A tall popup’s scroll bar on the popup’s own color, not the browser’s white track. */
+.leaflet-popup-content {
+  scrollbar-color: var(--muted) transparent;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--card-bg);
+  color: var(--text);
+  border-radius: var(--card-radius);
+  border-left: var(--card-bar) solid var(--accent);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.leaflet-popup-tip {
+  background: var(--card-bg);
+  box-shadow: 0 3px 14px var(--shadow);
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  color: var(--muted);
+}
+
+/*
+ * A finger's × (plan 8M-11A, S3): on a coarse pointer the popup's and the card's × are 44 pixels
+ * square. Plan 8M-15 (design 2): the popup's first line shares a row with the × instead of
+ * starting under it. One spacer floated right at the top of a popup's content reaches the ×'s
+ * square past Leaflet's margins (13 px above, 24 px right, and the wrapper's 1 px), so no first
+ * line runs under it, and a post's floated picture (`.post .beside`) stacks to its left; a popup
+ * whose root is a flex column reserves that room on its first row instead (review R1-3).
+ */
+@media (pointer: coarse) {
+  .leaflet-container a.leaflet-popup-close-button {
+    width: var(--tap-size);
+    height: var(--tap-size);
+    font-size: 28px;
+    line-height: var(--tap-size);
+  }
+
+  /* Branch review S1: Leaflet scrolls the content element itself (`maxHeight`), so a popup that
+     scrolls starts below the ×: nothing passes under it, and it takes no tap meant for a control.
+     Such a popup has neither the spacer nor the first row's reserve. */
+  .leaflet-popup-content.leaflet-popup-scrolled {
+    margin-top: var(--tap-size);
+  }
+
+  .leaflet-popup-content:not(
+      .leaflet-popup-scrolled,
+      :has(
+        > :is(.place-popup, .stop-popup, .raid-form),
+        > .party-popup > :is(.post-form, .meetup-editor):first-child
+      )
+    )::before {
+    content: '';
+    float: right;
+    width: calc(var(--tap-size) - 25px);
+    height: calc(var(--tap-size) - 14px);
+  }
+
+  /* Review R1-3: a popup whose root is a flex column (a Power Spot's or stop's popup, the max
+     and spawn forms) would be narrowed beside the spacer for its whole height; its first row
+     keeps the ×'s square clear instead. So does a post's form (review N3: Group…, Meet…,
+     Report…, Delete…, the completion question, a train's Move…, Manage…, Split…), which
+     `post-forms-ui.ts` puts in place of everything in the party's popup, and a meetup's editor. */
+  .leaflet-popup-content:not(.leaflet-popup-scrolled)
+    > :is(.place-popup, .stop-popup, .raid-form)
+    > :first-child,
+  .leaflet-popup-content:not(.leaflet-popup-scrolled)
+    > .party-popup
+    > :is(.post-form, .meetup-editor):first-child
+    > :first-child {
+    margin-right: calc(var(--tap-size) - 25px);
+    min-height: calc(var(--tap-size) - 14px);
+  }
+
+  /* The place list's choices start below the spacer, at their full width (a flex box beside it
+     would be narrowed for its whole height). */
+  .place-list .choices {
+    clear: right;
+  }
+
+  .party-card .card-close {
+    min-width: var(--tap-size);
+    min-height: var(--tap-size);
+  }
+}
+
+/* The side bar of a card, as a components-v2 container's: the color of what it shows. */
+.leaflet-popup-content-wrapper:has(.party-popup.raid),
+.leaflet-popup-content-wrapper:has(.party-popup.raids) {
+  border-left-color: var(--raid);
+}
+
+.leaflet-popup-content-wrapper:has(.party-popup.train) {
+  border-left-color: var(--train);
+}
+
+.leaflet-popup-content-wrapper:has(.party-popup.meetup) {
+  border-left-color: var(--meetup);
+}
+
+.leaflet-popup-content-wrapper:has(.gym-popup) {
+  border-left-color: var(--gym);
+}
+
+/*
+ * A form open in a place's popup or card: the place's other controls are hidden, not grayed, so
+ * that the form's own buttons stay above the fold (its box holds anything but its button). They are
+ * back when the form's Cancel puts the button back. A raid's post above the form stays, without its
+ * controls, as does the summary drawn while the post has not come (`.raids`: its counts, the
+ * member's line and its links stay); a stop's research form has the box of all its actions, its
+ * Rocket, spawn and meetup forms a box of their own among them (a box that holds its button is no
+ * form: its reports' Take back stays).
+ */
+.place-control:has(> :not(button)) ~ .place-control,
+.place-control:has(~ .place-control > :not(button)),
+:is(.post-popup, .raids):has(> .place-control > :not(button))
+  :is(
+    .post-controls,
+    .mine-part,
+    .presses,
+    .change-raid,
+    .map-line .link-button,
+    .map-line .sep:has(+ .link-button)
+  ),
+.raid-choices:has(> .place-control > :not(button)) .choices,
+.stop-popup:has(
+    .stop-actions > .place-control > :not(button),
+    .stop-actions > :not(button, .place-control)
+  )
+  :is(
+    [data-take-back],
+    [data-same-task],
+    .report-actions .sep:has(+ [data-take-back], + [data-same-task])
+  ) {
+  display: none;
+}
+
+.leaflet-tooltip {
+  background: var(--card-bg);
+  color: var(--text);
+  border-color: var(--line);
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.leaflet-tooltip-top::before {
+  border-top-color: var(--card-bg);
+}
+
+.leaflet-tooltip-bottom::before {
+  border-bottom-color: var(--card-bg);
+}
+
+.leaflet-tooltip-left::before {
+  border-left-color: var(--card-bg);
+}
+
+.leaflet-tooltip-right::before {
+  border-right-color: var(--card-bg);
+}
+
+/* Discord's buttons: gray secondary by default, blurple primary, green success, red danger. */
+.press,
+.report-raid,
+.report-spawn,
+.report-max,
+.new-train,
+.new-meetup,
+.meetup-here,
+.train-here {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.press:hover,
+.report-raid:hover,
+.report-spawn:hover,
+.report-max:hover,
+.new-train:hover,
+.new-meetup:hover,
+.meetup-here:hover,
+.train-here:hover {
+  background: var(--secondary-hover);
+}
+
+.press.primary {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
+.press.primary:hover {
+  background: var(--primary-hover);
+}
+
+.press.success {
+  background: var(--success);
+  color: var(--on-color);
+}
+
+.press.success:hover {
+  background: var(--success-hover);
+}
+
+.press.danger {
+  background: var(--danger);
+  color: var(--on-color);
+}
+
+.press.danger:hover {
+  background: var(--danger-hover);
+}
+
+.press:disabled,
+.report-raid:disabled,
+.report-spawn:disabled,
+.report-max:disabled,
+.new-train:disabled,
+.new-meetup:disabled,
+.meetup-here:disabled,
+.train-here:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.party-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.party-list > li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.party-popup .name {
+  display: block;
+  font-size: 16px;
+}
+
+.party-popup .tier {
+  font-weight: 600;
+}
+
+.party-popup.raids > .raid + .raid {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.party-popup .countdown {
+  margin-left: 6px;
+  color: var(--muted);
+}
+
+.party-popup .counts,
+.party-popup .stop {
+  color: var(--text-soft);
+}
+
+.party-popup .mine {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.party-popup .presses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.party-popup .post-link {
+  display: inline-block;
+  margin-top: 8px;
+}
+
+.party-popup select,
+.raid-form input,
+.raid-form select,
+.raid-form textarea,
+.post-form .form-row input {
+  padding: 4px 8px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+/*
+ * A raid's marker (plan 8M-7): the picture in a ring of its tier's color, centered on the gym, a
+ * time badge under it and the green count of those going; dimmed in its last five minutes.
+ */
+.raid-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+}
+
+/* Its sizes by the zoom (Matt, 2026-10-25): full from 15, middle at 14, small below. */
+.raid-marker {
+  position: relative;
+  flex: none;
+  width: var(--raid-full);
+  height: var(--raid-full);
+}
+
+.raid-marker.size-middle {
+  width: var(--raid-middle);
+  height: var(--raid-middle);
+}
+
+.raid-marker.size-small {
+  width: var(--raid-small);
+  height: var(--raid-small);
+}
+
+.raid-marker .ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: 3px solid var(--line);
+  border-radius: 50%;
+  background: var(--marker-bg);
+  box-shadow: 0 2px 6px var(--shadow);
+  overflow: hidden;
+}
+
+.raid-marker .ring img {
+  width: 82%;
+  height: 82%;
+  pointer-events: none;
+}
+
+.raid-marker .badge {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--marker-bg);
+  color: var(--text);
+  box-shadow: 0 1px 3px var(--shadow);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.raid-marker .going {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 0 5px;
+  border: 2px solid var(--marker-bg);
+  border-radius: 10px;
+  background: var(--going);
+  color: var(--on-color);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.raid-marker.dim {
+  opacity: 0.45;
+}
+
+.raid-marker.tier-1 .ring {
+  border-color: var(--tier-1);
+}
+
+.raid-marker.tier-3 .ring {
+  border-color: var(--tier-3);
+}
+
+.raid-marker.tier-5 .ring {
+  border-color: var(--tier-5);
+}
+
+.raid-marker.tier-mega .ring {
+  border-color: var(--tier-mega);
+}
+
+.raid-marker.tier-elite .ring {
+  border-color: var(--tier-elite);
+}
+
+.raid-marker.tier-shadow .ring {
+  border-color: var(--tier-shadow);
+}
+
+/* A max battle's marker (plan 8M-9A): the raids' circle, ringed by Dynamax or Gigantamax. */
+.raid-marker.tier-dynamax .ring {
+  border-color: var(--tier-dynamax);
+}
+
+.raid-marker.tier-gigantamax .ring {
+  border-color: var(--tier-gigantamax);
+}
+
+/*
+ * A stop's reports (plan 8M-9B): a circle centered on the stop, smaller than a raid's (the raids'
+ * middle size from zoom 15, their small one below), its picture in a ring of `--research` or
+ * `--rocket`, half and half where the stop has both; a grunt's minutes under it, dimmed in its last
+ * five minutes as a raid.
+ */
+.stop-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+}
+
+.stop-marker {
+  position: relative;
+  flex: none;
+  width: var(--raid-middle);
+  height: var(--raid-middle);
+}
+
+.stop-marker.size-small {
+  width: var(--raid-small);
+  height: var(--raid-small);
+}
+
+.stop-marker .ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: 3px solid var(--line);
+  border-radius: 50%;
+  background: var(--marker-bg);
+  box-shadow: 0 2px 6px var(--shadow);
+  overflow: hidden;
+}
+
+.stop-marker .ring img,
+.stop-marker .ring .report-icon {
+  width: 78%;
+  height: 78%;
+  /* A picture not made square yet (a feed's cropped icon) keeps its shape. */
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.stop-marker.research .ring {
+  border-color: var(--research);
+}
+
+.stop-marker.rocket .ring {
+  border-color: var(--rocket);
+}
+
+/* A wild spawn (Matt, 2026-11-07): the stops' marker in the Poké Ball's color. */
+.stop-marker.spawn .ring {
+  border-color: var(--ball);
+}
+
+/* A spawn's popup: the place it is near under where it is in the reporter's words. */
+.spawn-popup .near {
+  color: var(--muted);
+}
+
+/* The place's picture beside its name and address, as a post's beside its Where. */
+.spawn-popup .near .place-picture {
+  float: right;
+  width: 64px;
+  height: 64px;
+  margin: 0 0 4px 8px;
+  border-radius: var(--radius);
+  object-fit: contain;
+}
+
+.spawn-popup .near::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+/* Both layers at one stop: the ring half research, half Rocket. */
+.stop-marker.both .ring {
+  border-color: var(--research) var(--rocket) var(--rocket) var(--research);
+  transform: rotate(-45deg);
+}
+
+.stop-marker.both .ring > * {
+  transform: rotate(45deg);
+}
+
+.stop-marker .badge {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--marker-bg);
+  color: var(--text);
+  box-shadow: 0 1px 3px var(--shadow);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stop-marker.dim {
+  opacity: 0.45;
+}
+
+.stop-icon.highlighted .ring {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The game's pictures drawn as a mask in the color of what they stand for (B17). */
+.report-icon.mask {
+  background: currentColor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+
+/*
+ * The quest symbol's picture by its pinned address, as `REPORT_ICONS.research` names it
+ * (`report-icons.test.ts` holds the two to one address): set here, so that every place of the icon
+ * (the menu, the markers, the popups and phone cards) draws it, with no script.
+ */
+.report-icon.mask-research {
+  color: var(--research);
+  mask-image: url('https://raw.githubusercontent.com/PokeMiners/pogo_assets/c2a686eb08ace6e890d8fe3d2134c76988db87b5/Images/Quests/QuestSymbol.png');
+  -webkit-mask-image: url('https://raw.githubusercontent.com/PokeMiners/pogo_assets/c2a686eb08ace6e890d8fe3d2134c76988db87b5/Images/Quests/QuestSymbol.png');
+}
+
+/*
+ * Plan 8M-11A (S14), as `REPORT_ICONS` names them: the game's Dynamax map icon, kept in Pine and
+ * served at `/icons/` (the build leaves the address as it is), and Gigantamax's beside it
+ * (`GIGANTAMAX_ICON`); Campfire's one-color Poké Ball; the game's calendar, Campfire's meetup icon.
+ */
+.report-icon.mask-max {
+  color: var(--tier-dynamax);
+  mask-image: url('/icons/dynamax.png');
+  -webkit-mask-image: url('/icons/dynamax.png');
+}
+
+.report-icon.mask-gigantamax {
+  color: var(--tier-gigantamax);
+  mask-image: url('/icons/gigantamax.png');
+  -webkit-mask-image: url('/icons/gigantamax.png');
+}
+
+.report-icon.mask-spawn {
+  color: var(--ball);
+  mask-image: url('https://raw.githubusercontent.com/PokeMiners/pogo_assets/c2a686eb08ace6e890d8fe3d2134c76988db87b5/Images/Campfire/Menu%20Icons/pokeball.53b7f974309c231f1fe98c2a66de6e91.svg');
+  -webkit-mask-image: url('https://raw.githubusercontent.com/PokeMiners/pogo_assets/c2a686eb08ace6e890d8fe3d2134c76988db87b5/Images/Campfire/Menu%20Icons/pokeball.53b7f974309c231f1fe98c2a66de6e91.svg');
+}
+
+.report-icon.mask-meetup {
+  color: var(--meetup);
+  mask-image: url('https://raw.githubusercontent.com/PokeMiners/pogo_assets/c2a686eb08ace6e890d8fe3d2134c76988db87b5/Images/Menu%20Icons/calendar_icon.png');
+  -webkit-mask-image: url('https://raw.githubusercontent.com/PokeMiners/pogo_assets/c2a686eb08ace6e890d8fe3d2134c76988db87b5/Images/Menu%20Icons/calendar_icon.png');
+}
+
+.chip[data-layer='research'] .dot {
+  background: var(--research);
+}
+
+.chip[data-layer='rocket'] .dot {
+  background: var(--rocket);
+}
+
+/* The list of the things at one place (plan 8M-7): a choice per thing. */
+.place-list .choices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.place-choice {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--deep-bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.place-choice:hover {
+  background: var(--secondary-hover);
+}
+
+.place-choice .picture {
+  width: 32px;
+  height: 32px;
+}
+
+.place-choice .when {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* "Also nearby" over the things only near the tapped place (plan 8M-15). */
+.place-list .also-nearby {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.region-label {
+  padding: 1px 5px;
+  background: var(--label-bg);
+  border: 0;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--region-label);
+}
+
+.labels-hidden .region-label {
+  display: none;
+}
+
+.gym-popup .name {
+  display: block;
+  font-size: 16px;
+}
+
+.gym-popup .nickname,
+.gym-popup .regions,
+.gym-popup .address,
+.party-popup .address {
+  color: var(--muted);
+}
+
+.gym-popup .notice {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.gym-popup .description {
+  margin-top: 4px;
+}
+
+.gym-popup .directions {
+  display: inline-block;
+  margin-top: 6px;
+}
+
+.party-popup .directions {
+  display: inline-block;
+  margin: 2px 0 6px;
+}
+
+/* Reporting and changing raids (plan 8M-4), reporting spawns (plan 8M-4S). */
+.report-raid,
+.report-spawn,
+.report-max,
+.raid-form .press,
+.party-popup .change-raid {
+  margin-top: 6px;
+}
+
+.raid-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.raid-form .form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.raid-form .form-row > span {
+  flex: 0 0 100%;
+  color: var(--text-soft);
+}
+
+.raid-form input,
+.raid-form select {
+  flex: 1 1 120px;
+  max-width: 100%;
+}
+
+.raid-form .form-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.raid-form .form-answer {
+  color: var(--form-answer);
+}
+
+/* Trains from the map (plan 8M-5): "New train", a train's actions, route mode, the panel. */
+.train-tools {
+  margin-bottom: 8px;
+}
+
+.new-train,
+.train-actions .press {
+  margin-top: 6px;
+}
+
+.train-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.party-popup .conductor,
+.raid-form .hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.route-editor .form-buttons {
+  flex-wrap: wrap;
+}
+
+.route-stops {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.route-stop {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.route-stop .stop-name {
+  flex: 1;
+}
+
+.route-stop.here .stop-name {
+  font-weight: 600;
+}
+
+/*
+ * A stop's handle to drag it by in the stop list (plan 8M-8C, R6): a finger's drag moves the stop,
+ * not the page (`touch-action: none`), and the row it would land at is marked. At least 32 pixels
+ * each way, for a finger (review C9).
+ */
+.route-stop .drag-handle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+/* The position menu as wide as its words: the stop's name takes the row (the preview of 8M-8C). */
+.route-stop .move-to {
+  flex: 0 0 auto;
+}
+
+.route-stop.drop-target {
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 2px var(--train);
+}
+
+.route-stop .press {
+  margin-top: 0;
+  padding: 1px 6px;
+}
+
+.stop-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--stop-number-bg);
+  box-shadow: 0 0 0 2px var(--train);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--stop-number-text);
+}
+
+/*
+ * A selected train's stop ahead (Matt, 2026-10-30): how many stops away it is on the train's
+ * color, on the corner of what the stop holds (`badgeAnchor`).
+ */
+.train-badge {
+  background: none;
+  border: 0;
+}
+
+/* It takes no tap (Matt, 2026-10-30): a tap goes through to what is under it. */
+.leaflet-marker-icon.train-badge {
+  pointer-events: none;
+}
+
+.train-badge .number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--badge-size);
+  height: var(--badge-size);
+  box-sizing: border-box;
+  border: 2px solid var(--marker-bg);
+  border-radius: 50%;
+  background: var(--train);
+  box-shadow: 0 1px 3px var(--shadow);
+  color: var(--stop-number-here-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stop-number.here {
+  background: var(--train);
+  color: var(--stop-number-here-text);
+}
+
+/* Meetups from the map (plan 8M-5M): "New meetup", "Hold meetup here", the form, the editor. */
+.new-meetup,
+.meetup-here,
+.meetup-actions .press {
+  margin-top: 6px;
+  margin-left: 4px;
+}
+
+.meetup-here {
+  margin-left: 0;
+}
+
+/* A train started at a place: "Start train here" in its popup, the place named in the form. */
+.train-here {
+  margin-top: 6px;
+}
+
+.first-stop {
+  margin: 0;
+}
+
+.raid-form textarea {
+  flex: 1 1 100%;
+  max-width: 100%;
+  resize: vertical;
+}
+
+.meetup-place .picked,
+.meetup-place .picking {
+  flex: 1 1 140px;
+}
+
+.party-popup .info {
+  margin: 2px 0;
+  white-space: pre-line;
+}
+
+/*
+ * A party's post drawn as Discord draws it (plan 8M-8A): the container's edge in the post's
+ * color (`PostAccent`), headings, small print, inline code, emoji the size of the text, the
+ * picture beside the heading and Where, the buttons in Discord's styles (icons alone as on
+ * Discord), then the member's part and the map's line.
+ */
+.leaflet-popup-content-wrapper:has(.post.accent-egg),
+.line-detail:has(.post.accent-egg) {
+  border-left-color: var(--accent-egg);
+}
+
+.leaflet-popup-content-wrapper:has(.post.accent-hatched),
+.line-detail:has(.post.accent-hatched) {
+  border-left-color: var(--accent-hatched);
+}
+
+.leaflet-popup-content-wrapper:has(.post.accent-ended),
+.line-detail:has(.post.accent-ended) {
+  border-left-color: var(--accent-ended);
+}
+
+.leaflet-popup-content-wrapper:has(.post.accent-max),
+.line-detail:has(.post.accent-max) {
+  border-left-color: var(--accent-max);
+}
+
+.leaflet-popup-content-wrapper:has(.post.accent-timed),
+.line-detail:has(.post.accent-timed) {
+  border-left-color: var(--accent-timed);
+}
+
+.leaflet-popup-content-wrapper:has(.post.accent-other),
+.line-detail:has(.post.accent-other) {
+  border-left-color: var(--accent-other);
+}
+
+.post {
+  line-height: 1.375;
+}
+
+.post .post-text {
+  overflow-wrap: anywhere;
+}
+
+.post .post-text::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+.post .beside {
+  float: right;
+  width: 80px;
+  height: 80px;
+  margin: 0 0 4px 8px;
+  border-radius: var(--radius);
+  object-fit: contain;
+}
+
+/* A section's button beside its text (review W-4), where Discord draws it. */
+.post .beside-control {
+  float: right;
+  margin: 0 0 4px 8px;
+}
+
+.post .post-heading {
+  margin: 0 0 2px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.post .small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.post .line:empty {
+  height: 0.6em;
+}
+
+.post .post-line {
+  margin: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.post code {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--code-bg);
+  font-size: 0.85em;
+}
+
+.post a,
+.post-popup .map-line a,
+.post .screenshot-note {
+  color: var(--link);
+}
+
+.post img.emoji {
+  width: 1.375em;
+  height: 1.375em;
+  vertical-align: -0.3em;
+  object-fit: contain;
+}
+
+.post .post-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.post .post-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.post .press {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 32px;
+}
+
+.post .press.icon {
+  justify-content: center;
+  min-width: 48px;
+  padding: 4px 10px;
+}
+
+.post .press img.emoji {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+}
+
+.post .icon-text {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/*
+ * The answer line under a post's buttons (plan 8M-11A, S9): what the member's last press answered,
+ * a refusal in red, its lines kept (S17); nothing while empty. The completion question (S21) is
+ * drawn above the buttons in its style.
+ */
+.post .press-answer,
+.post .completion {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--answer-bg);
+  color: var(--answer-text);
+  white-space: pre-line;
+}
+
+.post .press-answer:empty {
+  display: none;
+}
+
+.post .press-answer.refused {
+  background: var(--answer-refused-bg);
+  color: var(--answer-refused-text);
+}
+
+/* The note box's link to the post is a button (plan 8M-11A): no underline. */
+.note-box a.press {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+/* A refusal shakes the popup or the card once, unless the device asks for less motion. */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(calc(-1 * var(--shake-distance)));
+  }
+
+  40%,
+  80% {
+    transform: translateX(var(--shake-distance));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .leaflet-popup.shake .leaflet-popup-content-wrapper,
+  .party-card.shake {
+    animation: shake var(--shake-time) ease-in-out 1;
+  }
+}
+
+/*
+ * The phone card bounces up and back once for a refusal (plan 8M-13, A2: it is drawn anew under a
+ * press, so it moves itself, `PhoneCard.nudge`), unless the device asks for less motion.
+ */
+@keyframes nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  40% {
+    transform: translateY(calc(-1 * var(--nudge-distance)));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .party-card.nudge {
+    animation: nudge var(--shake-time) ease-out 1;
+  }
+}
+
+/* An answer under a form keeps its line breaks, as the notice band and the answer line do. */
+.form-answer {
+  white-space: pre-line;
+}
+
+/*
+ * A train's flow (plan 8M-13, T1): the dashes of a thin line over its legs ahead, and those of a
+ * loop's closing leg, move slowly along its way. The keyframes move them by exactly one period of
+ * the pattern, so the loop does not jump; from 0 to minus a period runs them from the line's
+ * first point toward its last. Where the device asks for less motion the flow line is hidden and
+ * the closing leg keeps Leaflet's still dashes: the arrowheads carry the direction.
+ */
+@keyframes train-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+
+  to {
+    stroke-dashoffset: calc(-1 * (var(--flow-dash) + var(--flow-gap)));
+  }
+}
+
+.train-flow-line {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .train-flow {
+    stroke-dasharray: var(--flow-dash) var(--flow-gap);
+    animation: train-flow var(--flow-time) linear infinite;
+  }
+
+  .train-flow-line {
+    visibility: visible;
+    stroke: var(--train-flow);
+    stroke-opacity: 1;
+  }
+
+  /* The legs done keep their flow, as faint as their line (`trainDone`, `theme.ts`). */
+  .train-flow-line.train-flow-done {
+    stroke-opacity: var(--train-done);
+  }
+}
+
+.post-popup .mine-part {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.post-popup .mine-part .mine {
+  margin: 0;
+}
+
+/*
+ * The post's controls as forms of the map (plan 8M-8B): in the place of the post, in the look of
+ * Discord's dialogs (its background, a title, the choices as cards, Submit and Cancel at the end).
+ */
+.post-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+  padding: 12px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--card-radius);
+  background: var(--dialog-bg);
+  color: var(--text);
+}
+
+.post-form .form-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.post-form .form-text {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.post-form .form-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.post-form .form-choice legend,
+.post-form .form-label {
+  margin-bottom: 4px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.post-form .choice {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  cursor: pointer;
+}
+
+.post-form .choice input {
+  margin-top: 3px;
+}
+
+.post-form .choice-words {
+  display: flex;
+  flex-direction: column;
+}
+
+.post-form .choice-line {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* A choice's icon (a train's kind): the size of its words, on their line. */
+.choice-label .report-icon {
+  display: inline-block;
+  width: 1.25em;
+  height: 1.25em;
+  margin-right: 0.25em;
+  vertical-align: -0.25em;
+}
+
+.post-form .form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A train's Starts and Ends in Manage…: as a meetup's, the label over the field. */
+.post-form .form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.post-form .form-row > span {
+  color: var(--text-soft);
+}
+
+.post-form .form-row input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.post-form select,
+.post-form textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+.post-form .to-discord {
+  color: var(--link);
+  font-size: 13px;
+}
+
+.post-form .form-buttons {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.post-form .form-answer {
+  margin: 0;
+  color: var(--form-answer);
+}
+
+/* The completion question to the member it asked (plan 8M-8B), with its two answers. */
+.post .completion {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.post .completion .question {
+  font-weight: 600;
+}
+
+.post .completion .small {
+  font-size: 12px;
+}
+
+.post .completion .post-row {
+  display: flex;
+  gap: 6px;
+}
+
+.post-popup .map-line {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.post-popup .map-line .directions,
+.post-popup .map-line .post-link {
+  display: inline;
+  margin: 0;
+}
+
+/* The map's own controls in its line (plan 8M-8B: Delete…, Report…), drawn as its links are. */
+.post-popup .map-line .link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.post-popup .map-line .link-button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.post-popup .press.back {
+  margin-top: 8px;
+}
+
+.post-popup section.route ol {
+  margin: 4px 0;
+  padding-left: 32px;
+}
+
+/*
+ * What lies ahead under Route's stop list (plan 8M-8C, R3), the post's small print, and under the
+ * route editor's (branch review B3).
+ */
+.post-popup section.route .route-ahead,
+.route-editor .route-ahead {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/*
+ * The phone card of a party (plan 8M-8A, `phone-card.ts`): docked at the bottom, its edge on top
+ * in the post's color; its summary shows the post's heading block, its first row of buttons and
+ * the map's line (by the blocks' roles), the whole post once tapped or swiped up.
+ */
+.party-card {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  border-top: var(--card-bar) solid var(--accent);
+  border-radius: 12px 12px 0 0;
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: 0 -4px 16px var(--shadow);
+}
+
+.party-card[hidden] {
+  display: none;
+}
+
+.party-card:has(.post.accent-egg) {
+  border-top-color: var(--accent-egg);
+}
+
+.party-card:has(.post.accent-hatched) {
+  border-top-color: var(--accent-hatched);
+}
+
+.party-card:has(.post.accent-ended) {
+  border-top-color: var(--accent-ended);
+}
+
+.party-card:has(.post.accent-max) {
+  border-top-color: var(--accent-max);
+}
+
+.party-card:has(.post.accent-timed) {
+  border-top-color: var(--accent-timed);
+}
+
+.party-card:has(.post.accent-other) {
+  border-top-color: var(--accent-other);
+}
+
+.party-card .card-top {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px 0;
+  touch-action: none;
+}
+
+.party-card .card-handle {
+  flex: 1;
+  padding: 10px 0 6px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.party-card .card-handle::before {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.party-card .card-close {
+  padding: 4px 10px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.party-card .card-body {
+  overflow-y: auto;
+  padding: 0 16px 16px;
+}
+
+.party-card.summary .post > .post-text:not(.role-head),
+.party-card.summary .post > .post-line,
+.party-card.summary .post .post-controls .post-row:not(:first-child),
+.party-card.summary .post-popup > :not(.post, .map-line, .mine-part, .back),
+.party-card.summary .mine-part > :not(.mine, .group-pick) {
+  display: none;
+}
+
+/* The card asks the completion question (plan 8M-11A, S21): a dot on its handle, not missed. */
+.party-card.summary:has(.post .completion) .card-handle::after {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--question-dot);
+  vertical-align: middle;
+}
+
+/* A Power Spot's popup and the max battle form (plan 8M-9A): the ending-soon question as a
+   choice of the dialog's look. */
+.place-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.max-form .form-choice,
+.stop-form .form-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.max-form .form-choice legend,
+.stop-form .form-choice legend {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.max-form .choice,
+.stop-form .choice {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  cursor: pointer;
+}
+
+.max-form .choice input,
+.stop-form .choice input {
+  flex: none;
+  min-width: 0;
+  margin-top: 3px;
+}
+
+.max-form [hidden],
+.stop-form [hidden] {
+  display: none;
+}
+
+/*
+ * A stop's popup and card (plan 8M-9B): the stop, how far and Directions, then a part per report
+ * (its picture and kind, its task or name, rewards or catches, until when and who), then the
+ * stop's own actions. Its side bar in the color of research, else of Rocket where a grunt or a
+ * hideout is there, else a PokéStop's (branch review W10: a plain stop is no Rocket's).
+ */
+.leaflet-popup-content-wrapper:has(.stop-popup) {
+  border-left-color: var(--stop);
+}
+
+.leaflet-popup-content-wrapper:has(.stop-report.grunt, .stop-report.hideout) {
+  border-left-color: var(--rocket);
+}
+
+.leaflet-popup-content-wrapper:has(.stop-report.research) {
+  border-left-color: var(--research);
+}
+
+.party-card:has(.stop-popup) {
+  border-top-color: var(--stop);
+}
+
+.party-card:has(.stop-report.grunt, .stop-report.hideout) {
+  border-top-color: var(--rocket);
+}
+
+.party-card:has(.stop-report.research) {
+  border-top-color: var(--research);
+}
+
+/* A wild spawn's popup and card (Matt, 2026-11-07): the side bar in the Poké Ball's color. */
+.leaflet-popup-content-wrapper:has(.stop-report.spawn) {
+  border-left-color: var(--ball);
+}
+
+.party-card:has(.stop-report.spawn) {
+  border-top-color: var(--ball);
+}
+
+.stop-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.stop-popup > .name {
+  font-size: 16px;
+}
+
+.stop-popup .address {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.stop-popup .map-line,
+.stop-popup .report-actions,
+.stop-popup .small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.stop-popup .map-line a,
+.stop-popup .report-actions a {
+  color: var(--link);
+}
+
+.stop-report {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.stop-report .report-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.stop-report .report-picture,
+.stop-report .report-head .report-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.stop-report .report-name {
+  font-weight: 600;
+}
+
+.stop-report .small-pictures,
+.stop-form .small-pictures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stop-report .small-picture,
+.stop-form .small-picture {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+/* "Ended": drawn so, or said by the page once the end passed in an open popup (`tick`, W10). */
+.stop-report .ended,
+.stop-report.ended .small > span:first-child {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.stop-report .link-button,
+.stop-actions .link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  cursor: pointer;
+}
+
+.stop-report .link-button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.stop-report .take-back-question .form-buttons,
+.stop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* A stop's buttons one under another, whatever the width its name gives the popup. */
+.stop-actions {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.stop-report .take-back-question .form-text {
+  margin: 0;
+  color: var(--text);
+}
+
+/*
+ * The filters of the reports at stops (plan 8M-9B, goal 5), always in sight while one is on: a
+ * line over the map at the top right with each layer's filter and its ×, the list's heading with
+ * its words and ×, and the toggle marked (dashed) with the words in its title.
+ */
+.filter-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  max-width: 70vw;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: 0 1px 4px var(--shadow);
+  font-size: 13px;
+}
+
+.filter-chip.research {
+  border-color: var(--research);
+}
+
+.filter-chip.rocket {
+  border-color: var(--rocket);
+}
+
+.clear-filter {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  line-height: 22px;
+  cursor: pointer;
+}
+
+/*
+ * Its target to tap, at least 24 pixels (branch review W9, WCAG 2.5.8), the × it shows kept small:
+ * 28 pixels round the filters' and the stop chips', 24 round the list's headings'.
+ */
+.clear-filter::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+}
+
+.clear-filter:hover {
+  background: var(--secondary-hover);
+}
+
+/*
+ * The activity layer's panel (plan 8H-4): over the map at the top right while the layer is on,
+ * as the filters' line; its mode, History's slider and Play, the raids and max battles left out.
+ */
+.activity-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(320px, 70vw);
+  padding: 6px 10px;
+  border: 2px solid var(--activity);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: 0 1px 4px var(--shadow);
+  font-size: 13px;
+}
+
+.activity-panel[hidden],
+.activity-history[hidden],
+.activity-note[hidden] {
+  display: none;
+}
+
+.activity-mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.activity-title {
+  font-weight: 600;
+}
+
+.activity-panel select {
+  padding: 4px 8px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.activity-history {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.activity-slider {
+  flex: 1 1 120px;
+  min-width: 0;
+  accent-color: var(--activity);
+}
+
+.activity-step {
+  min-width: 7.5em;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/*
+ * History's trains (plan 8H-7B): the month's list folded under its summary, each train a button
+ * (pressed while chosen), the card of the train chosen under it, folding too. The panel scrolls
+ * within a bounded height (review B3), so that a long list or the card of a train the address
+ * opened never covers the map.
+ */
+.activity-panel {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.activity-trains {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.activity-trains[hidden] {
+  display: none;
+}
+
+.activity-trains summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.activity-trains-items {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-train {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.activity-train:hover {
+  background: var(--secondary-hover);
+}
+
+/* Marked without changing its size (review R4): the edge's color, a second line inside it. */
+.activity-train[aria-pressed='true'] {
+  border-color: var(--activity);
+  box-shadow: inset 0 0 0 1px var(--activity);
+  background: var(--secondary-hover);
+}
+
+.activity-train:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.activity-trains-list[aria-busy='true'] summary {
+  color: var(--muted);
+}
+
+.activity-train-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.activity-train-when,
+.activity-train-about,
+.activity-trains-more,
+.activity-trains-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.activity-trains-more,
+.activity-trains-note {
+  margin: 0;
+}
+
+.train-card {
+  margin: 2px 0 6px 6px;
+  padding-left: 6px;
+  border-left: 2px solid var(--activity);
+}
+
+.train-card-line {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.train-card-line.small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/*
+ * Scoped under the popup's content (review 8H4H-1): leaflet.css's `.leaflet-popup-content p`, a
+ * class and a tag, would beat a class alone.
+ */
+.leaflet-popup-content .activity-popup {
+  margin: 0;
+}
+
+/*
+ * A gym's or Power Spot's line of its activity in its popup while the layer is on (plan 8H-4H),
+ * under the place, over its controls.
+ */
+.leaflet-popup-content .activity-line {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.activity-line[hidden] {
+  display: none;
+}
+
+/*
+ * On a phone the panel keeps to the width left beside the map's controls, and to less of the
+ * map's height (plan 8H-7B, review B3).
+ */
+@media (max-width: 1023px) {
+  .activity-panel {
+    max-width: calc(100vw - 72px);
+    max-height: 45vh;
+    font-size: 12px;
+  }
+}
+
+.what-is-on h3 .filter-words {
+  color: var(--text);
+}
+
+.what-is-on h3 .clear-filter {
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  font-size: 12px;
+  line-height: 18px;
+  text-transform: none;
+}
+
+.what-is-on h3 .filter-open {
+  float: right;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+}
+
+.filter-panel legend {
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.filter-panel .filter-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.filter-panel .press {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.chip.filtered {
+  border-style: dashed;
+}
+
+.sheet-row .filter-note {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/*
+ * The field research form (plan 8M-9B, goal 7): in the side pane, docked under the map on a phone.
+ * Its stops as chips with ×; the task list searched, by category, the task picked marked; the
+ * contradiction question's boxes.
+ */
+.research-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.research-form .form-row input {
+  flex: 1 1 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+}
+
+.stop-chips .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stop-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border-radius: 14px;
+  background: var(--chip-on-bg);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.stop-chips .press {
+  align-self: flex-start;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.task-list h4 {
+  margin: 6px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.task-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-choice[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: var(--chip-on-bg);
+}
+
+.task-choice:hover {
+  background: var(--secondary-hover);
+}
+
+.research-form .link-button {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  cursor: pointer;
+}
+
+.research-form .form-text,
+.rocket-form .form-text {
+  margin: 0;
+}
+
+/*
+ * The map's walk-through (plan 8M-17, `tour-ui.ts`): all but what a step points at dimmed, a ring
+ * round it, and a card beside it, placed from the script. Over the map's controls, the menus and
+ * the phone card (1100), under the sheets (2000), so that the layers' sheet opens over the tour.
+ */
+.tour-dim,
+.tour-ring,
+.tour-card {
+  position: fixed;
+  z-index: 1500;
+}
+
+.tour-dim {
+  background: var(--scrim);
+}
+
+.tour-ring {
+  box-sizing: border-box;
+  border: 2px solid var(--primary);
+  border-radius: var(--radius);
+}
+
+.tour-ring.through {
+  pointer-events: none;
+}
+
+.tour-card {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  padding: 12px 16px;
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.tour-card h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  text-decoration: underline;
+}
+
+.tour-body {
+  overflow-y: auto;
+}
+
+.tour-body p {
+  margin: 0 0 6px;
+}
+
+/* A marker drawn as the map draws it, its badge under it: room in the flow of the card. */
+.tour-body .raid-marker {
+  margin: 8px 0 26px 30px;
+}
+
+.tour-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tour-count {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* "Map tour" on the map, "Editor tour" in the region editor. */
+body.editing-regions .tour-item,
+body:not(.editing-regions) .editor-tour-item {
+  display: none;
+}
+
+/* A phone on its side: the card goes beside what it points at, which takes the narrower card. */
+@media (max-height: 500px) {
+  .tour-card {
+    width: 280px;
+  }
+}

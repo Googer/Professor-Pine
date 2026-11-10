@@ -1,0 +1,1186 @@
+import { gymStop, hasStop } from '../domain/party/stops.js';
+import type { Gym, GymStorage } from '../db/repositories/gym-repository.js';
+import { metresBetween } from '@pine/wayspot-core/distance';
+import { geodataJson, placesRadius, placesText } from '../domain/geo/google.js';
+import { WAYSPOT_MOVED_METRES } from '../domain/geo/spot-address.js';
+import { nearestGymChanges, type NearestEvent } from '../domain/gyms/nearest.js';
+import { isMeetup, isRaid, isTrain, type Party } from '../domain/party/party.js';
+import type { Logger } from '../log.js';
+import type { GeoFailure, GeoGateway } from './geo-gateway.js';
+import {
+  googleMonth,
+  lineAllowance,
+  NO_REGION_RANK,
+  type GoogleBudget,
+  type GoogleUsed,
+} from '../domain/geo/google-line.js';
+import { MemoryGoogleUse, usedThisMonth, type GoogleCount, type GoogleUse } from './google-use.js';
+import type { GoogleRanks } from './google-ranks.js';
+import { MemoryGymLookups, type GymLookups, type WaitingGym } from './gym-lookups.js';
+import type { WayspotProvider } from './wayspot-directory.js';
+import {
+  MemoryWayspotLookups,
+  type QueuedWayspot,
+  type WaitingWayspot,
+  type WayspotLookups,
+} from './wayspot-lookups.js';
+import { WayspotPlaces } from './wayspot-places.js';
+
+/**
+ * What came of fetching one thing about a gym: it was written (`updated`), it is what the gym
+ * had already (`unchanged`), or why Google gave nothing (the gym then keeps what it had).
+ */
+export type FetchOutcome = 'updated' | 'unchanged' | ByHandRefused | GeoFailure;
+
+/** Why a lookup by hand asked nothing: past its cap, or a count that could not be read. */
+type ByHandRefused = 'capped' | 'count-unread';
+
+/**
+ * Whether a question about a gym reached Google: a refused key or none asks nothing, and neither
+ * does a lookup by hand that was refused (`ByHandRefused`).
+ */
+function reachedGoogle(outcome: FetchOutcome | undefined): boolean {
+  return (
+    outcome !== undefined &&
+    outcome !== 'denied' &&
+    outcome !== 'no-key' &&
+    outcome !== 'capped' &&
+    outcome !== 'count-unread'
+  );
+}
+
+/** The monthly cap of lookups by hand unless the settings say otherwise (plan 8Z). */
+export const DEFAULT_BY_HAND_PER_MONTH = 500;
+
+/** More gyms than this that get another nearest gym through one change are noted in the log. */
+const MANY_NEAREST = 10;
+
+/**
+ * The monthly budget unless the settings say otherwise (plan 8W-6; `googleLookupsPerMonth`,
+ * `googleLookupsReserve`, `googleGeocodesPerMonth`): Google's free amounts are 5,000 Places
+ * searches (Nearby Search Pro) and 10,000 Geocodings a month, less a margin; the line leaves 500
+ * places questions for gyms added and moved by hand and `/gym refresh`.
+ */
+export const DEFAULT_GOOGLE_BUDGET: GoogleBudget = {
+  places: 4_500,
+  reserve: 500,
+  geocodes: 9_000,
+  geocodesReserve: 500,
+};
+
+/** What the line needs of the ranks of places (`GoogleRanks`); without it every place ranks 0. */
+export type LineRanks = Pick<GoogleRanks, 'refresh' | 'ofGym' | 'ofWayspot'>;
+
+/** The rank of a gym asked again for what did not come: after every other gym, until reranked. */
+const RETRY_RANK = NO_REGION_RANK - 1;
+
+/** The longest the line waits after turns whose questions did not answer. */
+const MAX_RETRY_WAIT_MS = 3_600_000;
+
+/**
+ * The longest timer the line sets: a longer wait (until the month resets) is a turn every six
+ * hours that finds nothing to ask and sets the next. Node holds a timer of at most 2^31 - 1 ms
+ * (about 24.8 days) and fires a longer one at once, which would ask the database again and again.
+ */
+export const MAX_TIMER_MS = 6 * 3_600_000;
+
+/** How far around a Wayspot its nearest gym, PokéStop or Power Spot is looked for. */
+const NEAREST_PLACE_METRES = 1_000;
+
+const SAME_RANK: LineRanks = {
+  refresh: () => Promise.resolve(),
+  ofGym: () => 0,
+  ofWayspot: () => 0,
+};
+
+/** What `refresh` got for a gym, which is given as it is afterwards. */
+export interface GymRefresh {
+  gym: Gym;
+  geodata: FetchOutcome;
+  places: FetchOutcome;
+}
+
+/** The line as it is (`GymUpkeep.snapshot`, for `/gym google`). */
+export interface GoogleLineSnapshot {
+  /** Whether Google is asked at all (an API key is configured). */
+  fetches: boolean;
+  /** Every gym that waits, in the line's order. */
+  gyms: WaitingGym[];
+  /** Every PokéStop and Power Spot that waits, in the line's order (after every gym). */
+  wayspots: WaitingWayspot[];
+  used: GoogleUsed;
+  budget: GoogleBudget;
+  /** The monthly cap of lookups by hand (`GymUpkeepOptions.byHandPerMonth`). */
+  byHandPerMonth: number;
+  /** One question every so often. */
+  everyMs: number;
+  now: number;
+}
+
+/** The part of `GymDirectory` the upkeep works on. */
+export interface GymsInMemory {
+  all(): Gym[];
+  get(id: number): Gym | undefined;
+  refreshGym(id: number): Promise<Gym | undefined>;
+  /** Re-reads the gyms of a block in one turn (`GymDirectory.refreshGyms`). */
+  refreshGyms(ids: readonly number[]): Promise<Gym[]>;
+}
+
+export interface GymUpkeepOptions {
+  gyms: Pick<GymStorage, 'update'>;
+  directory: GymsInMemory;
+  geo: GeoGateway;
+  /** The active parties, to find those that show a gym. */
+  parties: { active(): Party[] };
+  /** Told of every party that shows a gym that changed, to render its post anew. */
+  posts: { changed(partyId: string): void };
+  log: Logger;
+  /**
+   * How long the gyms that wait for their places are apart: one of them is asked about every
+   * so often. Default five seconds.
+   */
+  placesEveryMs?: number;
+  /**
+   * Starts the timer for the next gym that waits and gives the function that cancels it.
+   * Default: `setTimeout`, unref'd. A test passes its own, or calls `flush`.
+   */
+  setTimer?: (run: () => void, ms: number) => () => void;
+  /** The line (`GymLookupRepository` in the bot); default one in memory. */
+  lookups?: GymLookups;
+  /** The questions asked of Google per day (`GoogleUseRepository` in the bot); default in memory. */
+  use?: GoogleUse;
+  /** The monthly budget (`DEFAULT_GOOGLE_BUDGET`). */
+  budget?: GoogleBudget;
+  /**
+   * How many lookups by hand (`/gym refresh`, a gym added or moved) may reach Google in a Pacific
+   * month, counted in this database (`DEFAULT_BY_HAND_PER_MONTH`; `settings.googleByHandPerMonth`).
+   */
+  byHandPerMonth?: number;
+  /** The ranks of the places of the line (`GoogleRanks` in the bot); default all alike. */
+  ranks?: LineRanks;
+  /**
+   * The kept Wayspots and stops of Pine's own (`WayspotDirectory`): their PokéStops and Power
+   * Spots in a region of a server wait in the line after the gyms (plan 8W-6). Without them only
+   * gyms wait.
+   */
+  wayspots?: Pick<WayspotProvider, 'all' | 'byId' | 'near' | 'contentGeneration' | 'whenChanged'>;
+  /**
+   * The regions (`RegionDirectory`): after each load that changed their outlines the Wayspots' part
+   * of the line follows them, so that a region added or saved queues the PokéStops and Power Spots it
+   * newly covers at once (and lets go of those it no longer does), whatever else waits.
+   */
+  outlineChanges?: { whenOutlinesChanged(listener: () => void): void };
+  /** The Wayspots' line (`WayspotLookupRepository` in the bot); default one in memory. */
+  wayspotLookups?: WayspotLookups;
+  /** The places Google gave around them (`WayspotPlaces`); default one over `wayspotLookups`. */
+  places?: WayspotPlaces;
+  /** Default `Date.now`. */
+  now?: () => number;
+}
+
+/**
+ * What follows from a change of a gym, behind the change itself: the directory and the posts
+ * that show the gym (`gymChanged`), which gym is nearest to which (`placed`, `removed`), and
+ * what Google knows of the place: its address (`geodata`) and the places around it (`places`),
+ * by which the gym is found.
+ *
+ * Nothing waits for Google. A gym that was added or moved by hand is asked about at once, on
+ * the side; the gyms whose nearest gym changed with it, and what a Wayfarer import adds and
+ * moves, wait in a line (the circle places are looked for in is half the way to the nearest
+ * gym), one every few seconds, the gyms of the best-ranked region first (`LineRanks`), within a
+ * monthly budget (plan 8W-6, `lineAllowance`: the line stops when only the reserve is left;
+ * every question that reaches Google counts, by hand too, and those by hand may use the reserve
+ * and go past the budget, up to a hard monthly cap of their own, `byHandPerMonth`, plan 8Z: past
+ * it a gym added or moved waits in the line like the others, and `/gym refresh` asks nothing).
+ * The line is kept in the database
+ * (`GymLookups`): a restart loses nothing, and `resume` takes it up at start. Only tests and the
+ * shutdown wait for it (`flush`, `stop`). While Google refuses the key for places, the line
+ * keeps its gyms and looks again when the refusal is over.
+ *
+ * An answer is written only when nothing about its question has changed since it was asked: every
+ * question about a gym has a number (`generation`), which goes up with each new question of its
+ * kind for that gym and whenever the gym is put somewhere or gets another nearest gym. An answer
+ * whose number is no longer the gym's is dropped, so an older answer never overwrites a newer
+ * one, whichever comes first.
+ *
+ * The bookkeeping of nearest gyms assumes one change at a time: gym administration holds its
+ * lock around `placed` and `removed`.
+ */
+export class GymUpkeep {
+  private readonly placesEveryMs: number;
+  private readonly setTimer: (run: () => void, ms: number) => () => void;
+  /** The gyms that wait for Google (`GymLookups`). */
+  private readonly lookups: GymLookups;
+  private readonly use: GoogleUse;
+  private readonly budget: GoogleBudget;
+  private readonly byHandPerMonth: number;
+  /** The lookups by hand on their way, not counted yet: the cap holds for those at once. */
+  private byHandOnTheirWay = 0;
+  private readonly ranks: LineRanks;
+  /** The PokéStops and Power Spots that wait for Google. */
+  private readonly wayspotLookups: WayspotLookups;
+  private readonly places: WayspotPlaces;
+  /** Whether the line was taken up (`resume`): only then a change of the Wayspots queues them. */
+  private resumed = false;
+  private readonly now: () => number;
+  private readonly running = new Set<Promise<unknown>>();
+  /**
+   * The turn of the line: one gym at a time (`next`), since a gym stays in the line while it
+   * is asked about (a restart then asks again) and must not be asked twice.
+   */
+  private turn: Promise<unknown> = Promise.resolve();
+  /**
+   * The gym the line is asking about now, until its turn is written down, and whether it was
+   * put in the line again meanwhile (moved, or its nearest gym changed; `address`: for its
+   * address too): then its row stays for another turn, since the answer on its way was asked
+   * about the old place and is dropped.
+   */
+  private asking: { gymId: number; requeued: boolean; address: boolean } | undefined;
+  /** The number of the newest question of each kind about each gym (`address:12`, `places:12`). */
+  private readonly generation = new Map<string, number>();
+  private cancelTimer: (() => void) | undefined;
+  /** When the timer of the line fires (epoch ms, by `now`), while one is set. */
+  private timerDue = 0;
+  /** How long Google's refusal of the key for places still lasted when it was last met. */
+  private deniedForMs = 0;
+  /** Whether the last turn met that refusal: its wait is Google's, and new work keeps it. */
+  private refusing = false;
+  /** Whether a turn of the timer runs now; then `hurry` only notes new work (`newWork`). */
+  private turning = false;
+  private newWork = false;
+  /** The run of `queueWayspots` under way, and whether another was asked for meanwhile. */
+  private wayspotsRun: Promise<void> | undefined;
+  private wayspotsAgain = false;
+  /**
+   * Until when Google refuses the key for Geocoding (epoch ms; 0: not refused): meanwhile the
+   * line asks only about the gyms that wait for their places alone.
+   */
+  private geocodeRefusedUntil = 0;
+  /** The Pacific day the line was last ranked on (`rerank`). */
+  private rankedDay = '';
+  /** The turns in a row whose questions did not answer: the line waits longer after each. */
+  private misses = 0;
+  /**
+   * The gyms and the PokéStops and Power Spots whose question did not answer today: the line
+   * passes over them until the next Pacific day (`rerank`), so that one item that keeps failing
+   * holds up neither the others nor the budget; one put in the line anew (moved) is asked again.
+   */
+  private readonly asideGyms = new Set<number>();
+  private readonly asideSpots = new Set<string>();
+  private stopped = false;
+
+  constructor(private readonly options: GymUpkeepOptions) {
+    this.placesEveryMs = options.placesEveryMs ?? 5_000;
+    this.lookups = options.lookups ?? new MemoryGymLookups();
+    this.use = options.use ?? new MemoryGoogleUse();
+    this.budget = options.budget ?? DEFAULT_GOOGLE_BUDGET;
+    this.byHandPerMonth = options.byHandPerMonth ?? DEFAULT_BY_HAND_PER_MONTH;
+    this.ranks = options.ranks ?? SAME_RANK;
+    this.wayspotLookups = options.wayspotLookups ?? new MemoryWayspotLookups();
+    this.places =
+      options.places ?? new WayspotPlaces({ storage: this.wayspotLookups, log: options.log });
+    this.now = options.now ?? Date.now;
+    // What the Wayspots are changed (an import, a stop of Pine's own): the line follows.
+    options.wayspots?.whenChanged(() => {
+      if (this.resumed) this.aside(() => this.queueWayspots());
+    });
+    // And what the regions are: a change of them is not a change of the Wayspots.
+    options.outlineChanges?.whenOutlinesChanged(() => {
+      if (this.resumed) this.aside(() => this.queueWayspots());
+    });
+    this.setTimer =
+      options.setTimer ??
+      ((run, ms) => {
+        const timer = setTimeout(run, ms);
+        timer.unref();
+        return () => {
+          clearTimeout(timer);
+        };
+      });
+  }
+
+  /** Whether Google is asked at all: without an API key a gym has neither address nor places. */
+  get fetches(): boolean {
+    return this.options.geo.enabled;
+  }
+
+  /** How many gyms wait in the line. */
+  waiting(): Promise<number> {
+    return this.lookups.count();
+  }
+
+  /**
+   * The line as it is (`/gym google`): whether Google is asked at all, every gym and Wayspot
+   * that waits in the line's order, this month's questions, the budget and the line's pace.
+   */
+  async snapshot(): Promise<GoogleLineSnapshot> {
+    const now = this.now();
+    return {
+      fetches: this.fetches,
+      gyms: await this.lookups.list(),
+      wayspots: await this.wayspotLookups.list(),
+      used: await usedThisMonth(this.use, now),
+      budget: this.budget,
+      byHandPerMonth: this.byHandPerMonth,
+      everyMs: this.placesEveryMs,
+      now,
+    };
+  }
+
+  /** How many PokéStops and Power Spots wait in the line. */
+  waitingWayspots(): Promise<number> {
+    return this.wayspotLookups.count();
+  }
+
+  /**
+   * Brings the Wayspots' part of the line up to date with the Wayspots (after `resume`, at every
+   * change of what they are, at every load of the regions that changed an outline, and with the
+   * daily ranking, which runs only while something waits): a PokéStop or Power Spot in a region
+   * of a server whose places were never asked, or asked at a point more than
+   * `WAYSPOT_MOVED_METRES` away or for another kind, is queued (by its kind and rank); one no
+   * longer in a region of any server leaves the line; one that is no PokéStop or Power Spot any
+   * more (it became a gym, was found gone, is a Wayfarer gym) leaves it and its places are
+   * dropped. Never rejects.
+   *
+   * One run at a time, so that an older run's writes never land after a newer run's (a region
+   * removed while the run that queued its stops still writes): what asks while a run is under way
+   * gets one more run after it, shared by every such request, and waits for that.
+   */
+  private queueWayspots(): Promise<void> {
+    if (this.wayspotsRun) {
+      this.wayspotsAgain = true;
+      return this.wayspotsRun;
+    }
+    const run = (async () => {
+      // Not before `wayspotsRun` is set: a run that ends at once must not outlive its own end.
+      await Promise.resolve();
+      try {
+        do {
+          this.wayspotsAgain = false;
+          await this.queueWayspotsNow();
+        } while (this.wayspotsAgain);
+      } finally {
+        this.wayspotsRun = undefined;
+      }
+    })();
+    this.wayspotsRun = run;
+    return run;
+  }
+
+  private async queueWayspotsNow(): Promise<void> {
+    const { wayspots, log } = this.options;
+    // Before the first load of the Wayspots nothing is known of them: nothing is dropped.
+    if (!wayspots || wayspots.contentGeneration === 0 || !this.fetches || this.stopped) return;
+    try {
+      const waiting = new Map(
+        (await this.wayspotLookups.list()).map((row): [string, WaitingWayspot] => [
+          row.wayspotId,
+          row,
+        ]),
+      );
+      const add: QueuedWayspot[] = [];
+      const kept = new Set<string>();
+      for (const wayspot of wayspots.all()) {
+        if (wayspot.kind !== 'stop' && wayspot.kind !== 'powerspot') continue;
+        const rank = this.ranks.ofWayspot(wayspot.id);
+        if (rank === undefined) continue;
+        kept.add(wayspot.id);
+        const asked = this.places.get(wayspot.id);
+        if (
+          asked &&
+          asked.kind === wayspot.kind &&
+          metresBetween(asked, wayspot) <= WAYSPOT_MOVED_METRES
+        ) {
+          continue;
+        }
+        const queued = waiting.get(wayspot.id);
+        if (queued?.kind === wayspot.kind && queued.rank === rank) continue;
+        add.push({ wayspotId: wayspot.id, kind: wayspot.kind, rank });
+      }
+      const leave = [...waiting.keys()].filter((id) => !kept.has(id));
+      const drop = this.places.ids().filter((id) => {
+        const kind = wayspots.byId(id)?.kind;
+        return kind !== 'stop' && kind !== 'powerspot';
+      });
+      await this.wayspotLookups.add(add, this.now());
+      await this.wayspotLookups.remove(leave);
+      await this.places.drop(drop);
+      if (add.length > 0) this.hurry();
+    } catch (err) {
+      log.warn(
+        { err },
+        'could not bring the PokéStops and Power Spots that wait for Google up to date',
+      );
+    }
+  }
+
+  /**
+   * Takes up the line kept from before a restart (at start), and puts in it the gyms that have
+   * no places and were never asked about where they are (`GymLookups.asked`; Matt, 2026-10-16:
+   * "the upkeep finds them"): gyms added while there was no key, or whose place in the line
+   * could not be written; those without an address for it too. A gym Google found nothing for
+   * was asked, and is not asked again at every start; a gym of before with places counts as
+   * asked. The ranks are read first, and the line ranked anew by them (`rerank`).
+   */
+  async resume(): Promise<void> {
+    if (this.fetches && !this.stopped) {
+      await this.rerank();
+      let asked: Set<number> | undefined;
+      try {
+        asked = await this.lookups.asked();
+      } catch (err) {
+        this.options.log.warn({ err }, 'could not read which gyms Google was asked about');
+      }
+      if (asked) {
+        const never = this.options.directory
+          .all()
+          .filter((gym) => gym.places === null && !asked.has(gym.id));
+        await this.queueGyms(
+          never.filter((gym) => gym.geodata === null).map((gym) => gym.id),
+          true,
+        );
+        await this.queueGyms(
+          never.filter((gym) => gym.geodata !== null).map((gym) => gym.id),
+          false,
+        );
+      }
+    }
+    this.resumed = true;
+    if (this.fetches && !this.stopped) await this.queueWayspots();
+    this.schedule();
+  }
+
+  /**
+   * After anything about a gym changed (its texts, its flags, its place; also when it was added
+   * or deleted): the directory reads it again, and every active party that shows it (a raid
+   * there, a train with it on its route, a meetup at it: `shownPlace`) has its post rendered
+   * anew. Gives the gym as it is
+   * now; undefined when it is gone.
+   */
+  async gymChanged(id: number): Promise<Gym | undefined> {
+    const gym = await this.options.directory.refreshGym(id);
+    this.showAnew(id);
+    return gym;
+  }
+
+  private showAnew(gymId: number): void {
+    const { parties, posts, log } = this.options;
+    try {
+      for (const party of parties.active()) {
+        const shows = isRaid(party)
+          ? party.gymId === gymId
+          : isTrain(party)
+            ? hasStop(party.train.route, gymStop(gymId))
+            : isMeetup(party) &&
+              party.meetup.place?.kind === 'gym' &&
+              party.meetup.place.id === String(gymId);
+        if (shows) posts.changed(party.id);
+      }
+    } catch (err) {
+      log.warn({ err, gym: gymId }, 'could not render the posts that show a gym anew');
+    }
+  }
+
+  /**
+   * After a gym was added or moved (the directory has it where it is now): the nearest gyms of
+   * the gyms concerned are written, which is waited for; then the gym is asked about on the
+   * side, and the gyms whose places are now looked for in another circle wait in the line.
+   * Never rejects: what fails is logged, and the gym stays as it is.
+   *
+   * `places: false` (a Wayfarer import's move of a few metres, `GymAdminService.batch`): only
+   * the nearest gyms are written. Google is asked about nothing, neither this gym nor the gyms
+   * around it: a few metres change neither an address nor a circle of places, and every
+   * question costs money (an import corrects thousands of gyms).
+   *
+   * `places: 'later'` (what a Wayfarer import adds or moves further): as without, but the gym
+   * waits in the line for its address and its places, and the gyms around it for theirs, so
+   * that an import of thousands of gyms asks Google one gym every few seconds, not all at once.
+   * `address: false`: the gym waits for its places only (it took the Wayspot's address).
+   */
+  async placed(
+    id: number,
+    { places = true, address = true }: { places?: boolean | 'later'; address?: boolean } = {},
+  ): Promise<void> {
+    if (!places) {
+      await this.settle({ placed: id });
+      return;
+    }
+    // Whatever is on its way about this gym was asked about another place.
+    this.outdate('address', id);
+    this.outdate('places', id);
+    // Its new place was never asked: a start puts it in the line if its place there is lost.
+    await this.lookups.forgetAsked(id).catch((err: unknown) => {
+      this.options.log.warn({ err, gym: id }, 'could not forget that Google was asked about a gym');
+    });
+    const changed = await this.settle({ placed: id });
+    // The gyms that have this one as their nearest: their circle follows it, also when a move
+    // left it their nearest.
+    const pointing = this.options.directory
+      .all()
+      .filter((gym) => gym.nearestGym === id)
+      .map((gym) => gym.id);
+    const others = [...changed, ...pointing].filter((other) => other !== id);
+    // Their circle follows the distance to this gym: what was asked in the old circle is void.
+    for (const other of pointing) this.outdate('places', other);
+    // Past the cap of lookups by hand it never fails: it waits in the line like an import's.
+    if (places === 'later' || (await this.takeByHand()) !== undefined) {
+      await this.queueGyms([id], address);
+      await this.queuePlaces(others);
+      return;
+    }
+    this.aside(async () => {
+      const refreshed = await this.askByHand(id);
+      // Refused for now: it waits in the line like the others, for when the API may be asked.
+      if (refreshed?.places === 'denied') await this.queuePlaces([id]);
+      else if (refreshed) await this.answered(id);
+    });
+    await this.queuePlaces(others);
+  }
+
+  /**
+   * After a block of gyms was added at once (plan 8W-6: `GymBatch.addBlock`, a Wayfarer import),
+   * with their nearest gyms and those of the gyms around them written in the block's transaction
+   * (`nearestBlockChanges`) and the directory read again: the new gyms wait in the line (for
+   * their address too where they have none), and the gyms whose nearest gym changed wait for
+   * their places, in one write of the line each. Google is asked about nothing at once. Never
+   * rejects.
+   */
+  async placedBlock(ids: readonly number[], nearestChanged: readonly number[]): Promise<void> {
+    const { directory } = this.options;
+    for (const id of ids) {
+      this.outdate('address', id);
+      this.outdate('places', id);
+    }
+    const added = new Set(ids);
+    const others = nearestChanged.filter((id) => !added.has(id));
+    // Their circle follows the distance to their new nearest gym.
+    for (const id of others) this.outdate('places', id);
+    await this.queueGyms(
+      ids.filter((id) => directory.get(id)?.geodata === null),
+      true,
+    );
+    await this.queueGyms(
+      ids.filter((id) => {
+        const gym = directory.get(id);
+        return gym !== undefined && gym.geodata !== null;
+      }),
+      false,
+    );
+    await this.queuePlaces(others);
+  }
+
+  /**
+   * After a gym was deleted (the directory no longer has it): the gyms that pointed at it get
+   * another nearest gym, and wait in the line for their places. Never rejects.
+   */
+  async removed(id: number): Promise<void> {
+    // The database takes the gym out of the line with its row; the twin in memory is told.
+    await this.lookups.remove(id).catch((err: unknown) => {
+      this.options.log.warn({ err, gym: id }, 'could not take a deleted gym out of the line');
+    });
+    this.generation.delete(`address:${id}`);
+    this.generation.delete(`places:${id}`);
+    await this.queuePlaces(await this.settle({ removed: id }));
+  }
+
+  /** Writes the nearest gyms an event changed; gives the gyms that were written. */
+  private async settle(event: NearestEvent): Promise<number[]> {
+    const { gyms, directory, log } = this.options;
+    const done: number[] = [];
+    try {
+      for (const change of nearestGymChanges(directory.all(), event)) {
+        await gyms.update(change.id, { nearestGym: change.nearestGym });
+        await directory.refreshGym(change.id);
+        // Another nearest gym is another circle to look for places in.
+        this.outdate('places', change.id);
+        done.push(change.id);
+      }
+    } catch (err) {
+      log.warn({ err, ...event }, 'could not bring the nearest gyms up to date');
+    }
+    // One gym changes the nearest gym of a few around it. Many at once is a database whose
+    // gyms had none yet (the first change settles them all): worth knowing, and no fault.
+    if (done.length > MANY_NEAREST) {
+      log.info({ count: done.length, ...event }, 'many gyms got another nearest gym');
+    }
+    return done;
+  }
+
+  /**
+   * Asks Google about one gym now, its address and then its places, and writes what differs
+   * (`/gym refresh`); past the cap of lookups by hand asks nothing and changes nothing (`capped`,
+   * a gym in the line stays there). Undefined when there is no such gym. Rejects when a write
+   * fails.
+   */
+  refresh(id: number): Promise<GymRefresh | undefined> {
+    const work = this.refreshByHand(id)
+      .then(async (refreshed) => {
+        if (
+          refreshed &&
+          refreshed.places !== 'denied' &&
+          refreshed.places !== 'capped' &&
+          refreshed.places !== 'count-unread'
+        ) {
+          await this.answered(id);
+        }
+        return refreshed;
+      })
+      .finally(() => this.running.delete(work));
+    this.running.add(work);
+    return work;
+  }
+
+  private async refreshByHand(id: number): Promise<GymRefresh | undefined> {
+    const gym = this.options.directory.get(id);
+    if (!gym) return undefined;
+    const refused = await this.takeByHand();
+    if (refused !== undefined) return { gym, geodata: refused, places: refused };
+    return this.askByHand(id);
+  }
+
+  /**
+   * Takes one of this month's lookups by hand (`askByHand` gives it back), or says why not: past
+   * the cap, a hard one, or a count that cannot be read, for which nothing is asked either. Those
+   * on their way count as used. Without a Google key nothing is asked, and nothing needs counting.
+   */
+  private async takeByHand(): Promise<ByHandRefused | undefined> {
+    this.byHandOnTheirWay += 1;
+    if (!this.fetches) return undefined;
+    const refused = await usedThisMonth(this.use, this.now())
+      .then((used): ByHandRefused | undefined =>
+        used.monthByHand + this.byHandOnTheirWay <= this.byHandPerMonth ? undefined : 'capped',
+      )
+      .catch((err: unknown) => {
+        this.options.log.warn({ err }, 'could not read the lookups by hand');
+        return 'count-unread' as const;
+      });
+    if (refused !== undefined) this.byHandOnTheirWay -= 1;
+    return refused;
+  }
+
+  /**
+   * A lookup by hand `takeByHand` took: counted once either of its questions reached Google,
+   * whatever came after (the gym gone meanwhile, an answer that could not be written).
+   */
+  private async askByHand(id: number): Promise<GymRefresh | undefined> {
+    let reached = false;
+    try {
+      return await this.refreshNow(id, () => {
+        reached = true;
+      });
+    } finally {
+      if (reached) await this.count('hand');
+      this.byHandOnTheirWay -= 1;
+    }
+  }
+
+  private async refreshNow(id: number, onReached?: () => void): Promise<GymRefresh | undefined> {
+    const geodata = await this.fetchGeodata(id, onReached);
+    if (geodata === undefined) return undefined;
+    const places = await this.fetchPlaces(id, onReached);
+    const gym = this.options.directory.get(id);
+    return places === undefined || !gym ? undefined : { gym, geodata, places };
+  }
+
+  /**
+   * Takes a gym that was just asked about by hand out of the line, unless the line is asking
+   * about it this moment (its own turn decides then): it is not asked about twice.
+   */
+  private async answered(id: number): Promise<void> {
+    if (this.asking?.gymId === id) return;
+    await this.lookups.remove(id).catch((err: unknown) => {
+      this.options.log.warn({ err, gym: id }, 'could not take a gym out of the line for Google');
+    });
+  }
+
+  /** Makes every answer that is on its way about a gym one that is no longer wanted. */
+  private outdate(kind: 'address' | 'places', id: number): void {
+    const key = `${kind}:${id}`;
+    this.generation.set(key, (this.generation.get(key) ?? 0) + 1);
+  }
+
+  /**
+   * Notes a new question about a gym and gives the test for its answer: whether it is still the
+   * newest question of its kind about that gym, and nothing has outdated it.
+   */
+  private question(kind: 'address' | 'places', id: number): () => boolean {
+    this.outdate(kind, id);
+    const key = `${kind}:${id}`;
+    const asked = this.generation.get(key);
+    return () => this.generation.get(key) === asked;
+  }
+
+  /** The address of a gym's place; undefined when the gym is gone. */
+  private async fetchGeodata(
+    id: number,
+    onReached?: () => void,
+  ): Promise<FetchOutcome | undefined> {
+    const { gyms, directory, geo } = this.options;
+    const asked = directory.get(id);
+    if (!asked) return undefined;
+    const wanted = this.question('address', id);
+    const answer = await geo.reverseGeocode({ lat: asked.lat, lon: asked.lon });
+    if (answer.ok || reachedGoogle(answer.reason)) {
+      onReached?.();
+      await this.count('geocode');
+    }
+    const gym = directory.get(id);
+    if (!gym) return undefined;
+    if (!answer.ok) {
+      if (answer.reason === 'denied') {
+        this.geocodeRefusedUntil = this.now() + (answer.retryInMs ?? this.placesEveryMs);
+      }
+      return answer.reason;
+    }
+    // Moved, or asked about again, while Google was asked: a newer answer is the one to write.
+    if (!wanted()) return 'unchanged';
+    const geodata = geodataJson(answer.value);
+    if (geodata === gym.geodata) return 'unchanged';
+    await gyms.update(id, { geodata });
+    await directory.refreshGym(id);
+    return 'updated';
+  }
+
+  /** The places around a gym, within half the way to its nearest gym; undefined when it is gone. */
+  private async fetchPlaces(id: number, onReached?: () => void): Promise<FetchOutcome | undefined> {
+    const { gyms, directory, geo } = this.options;
+    const asked = directory.get(id);
+    if (!asked) return undefined;
+    const nearest = asked.nearestGym === null ? undefined : directory.get(asked.nearestGym);
+    const radius = placesRadius(nearest && metresBetween(asked, nearest));
+    const wanted = this.question('places', id);
+    const answer = await geo.placesNear({ lat: asked.lat, lon: asked.lon }, radius);
+    if (answer.ok || reachedGoogle(answer.reason)) {
+      onReached?.();
+      await this.count('places');
+    }
+    const gym = directory.get(id);
+    if (!gym) return undefined;
+    if (!answer.ok) {
+      if (answer.reason === 'denied') this.deniedForMs = answer.retryInMs ?? this.placesEveryMs;
+      return answer.reason;
+    }
+    if (!wanted()) return 'unchanged';
+    const places = placesText(answer.value);
+    let outcome: FetchOutcome = 'unchanged';
+    if (places !== gym.places) {
+      await gyms.update(id, { places });
+      await directory.refreshGym(id);
+      outcome = 'updated';
+    }
+    // Asked at this place, whatever Google found: a start does not put it in the line again.
+    await this.lookups.markAsked(id, this.now()).catch((err: unknown) => {
+      this.options.log.warn({ err, gym: id }, 'could not note that Google was asked about a gym');
+    });
+    return outcome;
+  }
+
+  private queuePlaces(ids: readonly number[]): Promise<void> {
+    return this.queueGyms(ids, false);
+  }
+
+  /**
+   * Puts gyms in the line; `address`: for their address too (one that waits for it keeps it).
+   * Never rejects: a line that cannot be written is logged, and the gym keeps what it has
+   * (`/gym refresh` asks again).
+   */
+  private async queueGyms(ids: readonly number[], address: boolean): Promise<void> {
+    if (this.stopped || !this.fetches || ids.length === 0) return;
+    // Put in the line anew (moved, another nearest gym): asked again, set aside or not.
+    for (const id of ids) this.asideGyms.delete(id);
+    const { asking } = this;
+    if (asking && ids.includes(asking.gymId)) {
+      asking.requeued = true;
+      asking.address ||= address;
+    }
+    try {
+      await this.lookups.add(
+        ids.map((gymId) => this.queued(gymId, address)),
+        this.now(),
+      );
+    } catch (err) {
+      this.options.log.warn({ err, gyms: ids.length }, 'could not put gyms in the line for Google');
+      return;
+    }
+    this.hurry();
+  }
+
+  /**
+   * After new work came into the line: the line goes on at its usual pace, whatever long wait
+   * its timer was set for (the day's share of PokéStops and Power Spots used, only what failed
+   * today left, the month used up): the turn works out anew what may be asked. A wait that is
+   * Google's own (its refusal of the key, or the longer waits after questions that did not
+   * answer) is kept.
+   */
+  private hurry(): void {
+    // During a turn there is no timer to judge: the turn's end decides, knowing its own wait.
+    if (this.turning) {
+      this.newWork = true;
+      return;
+    }
+    if (
+      this.cancelTimer &&
+      !this.refusing &&
+      this.misses === 0 &&
+      this.timerDue - this.now() > this.placesEveryMs
+    ) {
+      this.cancelTimer();
+      this.cancelTimer = undefined;
+    }
+    this.schedule();
+  }
+
+  /** A gym as the line takes it, with the rank of its best region. */
+  private queued(
+    gymId: number,
+    address: boolean,
+  ): { gymId: number; address: boolean; rank: number } {
+    return { gymId, address, rank: this.ranks.ofGym(gymId) };
+  }
+
+  /** Counts a question or a lookup by hand that reached Google, on its Pacific day. Never rejects. */
+  private async count(question: GoogleCount): Promise<void> {
+    try {
+      await this.use.use(googleMonth(this.now()).today, question);
+    } catch (err) {
+      this.options.log.warn({ err, question }, 'could not count a question asked of Google');
+    }
+  }
+
+  /**
+   * Reads the ranks of the regions anew and ranks the line by them: at start, and at the first
+   * turn of each Pacific day (the rank is not worked out per question). Never rejects: what
+   * cannot be read leaves the ranks as they were.
+   */
+  private async rerank(): Promise<void> {
+    const { log } = this.options;
+    this.rankedDay = googleMonth(this.now()).today;
+    // A new day: what failed before is asked again, in its place by its rank.
+    this.asideGyms.clear();
+    this.asideSpots.clear();
+    try {
+      await this.ranks.refresh();
+    } catch (err) {
+      log.warn({ err }, 'could not read the raids of the regions: the line keeps its order');
+      return;
+    }
+    try {
+      const changed = new Map<number, number>();
+      for (const gym of await this.lookups.list()) {
+        const rank = this.ranks.ofGym(gym.gymId);
+        if (rank !== gym.rank) changed.set(gym.gymId, rank);
+      }
+      await this.lookups.setRanks(changed);
+    } catch (err) {
+      log.warn({ err }, 'could not rank the line of gyms that wait for Google anew');
+    }
+    // The Wayspots' part: ranked anew, and one that came into a region (or left every one)
+    // since is queued (or leaves): a change of the regions is not a change of the Wayspots.
+    if (this.resumed) await this.queueWayspots();
+  }
+
+  /**
+   * Sets the timer for the next gym of the line: after the usual pause, or after `waitMs`, but
+   * never longer than `MAX_TIMER_MS` (the turn then finds nothing to ask and sets the next). The
+   * line itself says whether anything waits: a timer that finds it empty sets no other.
+   */
+  private schedule(waitMs = this.placesEveryMs): void {
+    if (this.cancelTimer || this.stopped || !this.fetches) return;
+    const ms = Math.min(MAX_TIMER_MS, Math.max(waitMs, this.placesEveryMs));
+    this.timerDue = this.now() + ms;
+    this.cancelTimer = this.setTimer(() => {
+      this.cancelTimer = undefined;
+      this.aside(async () => {
+        this.turning = true;
+        this.newWork = false;
+        let next: number | 'empty' | undefined;
+        try {
+          next = await this.next();
+        } finally {
+          this.turning = false;
+        }
+        const hurried = this.newWork;
+        this.newWork = false;
+        if (next === 'empty') {
+          // Work that came during the turn, after it found the line empty.
+          if (hurried) this.schedule();
+          return;
+        }
+        // The turn's wait stands, unless work came meanwhile and the wait is not Google's own
+        // (as `hurry`); a timer set by anything else during the turn gives way to it.
+        const wait = hurried && !this.refusing && this.misses === 0 ? this.placesEveryMs : next;
+        this.cancelTimer?.();
+        this.cancelTimer = undefined;
+        this.schedule(wait);
+      });
+    }, ms);
+  }
+
+  /**
+   * Asks about the first gym of the line, as the budget allows (`lineAllowance`). Never rejects.
+   * Answers `empty` when nothing waits, how long to wait when nothing may be asked now (until the
+   * month resets once only the reserve is left; while Geocoding is refused or the month's
+   * geocodes are used, the gyms that want their places alone are still asked about, and the line
+   * waits only when none is left: as long as the refusal lasts, or until the month resets), as
+   * long as Google refuses the key for places (the gym stays the first of the line), `empty` too
+   * once the last gym was asked about, and undefined when more wait. Each question that reached
+   * Google is counted by itself (`count`); a gym whose places failed, or whose address did not
+   * come, goes to the end of the line (still waiting for its address), and one put in the line
+   * again before its turn was written down stays in it.
+   */
+  private next(): Promise<number | 'empty' | undefined> {
+    const run = this.turn.then(() => this.nextNow());
+    this.turn = run.catch(() => undefined);
+    return run;
+  }
+
+  private async nextNow(): Promise<number | 'empty' | undefined> {
+    const { log } = this.options;
+    this.refusing = false;
+    let first;
+    let spot: WaitingWayspot | undefined;
+    try {
+      const now = this.now();
+      if (googleMonth(now).today !== this.rankedDay) await this.rerank();
+      const allowance = lineAllowance(now, await usedThisMonth(this.use, now), this.budget);
+      // While Geocoding is refused, or its budget used, the gyms that wait for their address
+      // wait; the others go on, then the PokéStops and Power Spots.
+      const refusedFor = this.geocodeRefusedUntil - now;
+      const placesOnly = refusedFor > 0 || !allowance.geocode;
+      first = allowance.gyms
+        ? await this.lookups.next({ placesOnly, except: this.asideGyms })
+        : undefined;
+      if (!first) {
+        spot = allowance.wayspots
+          ? await this.wayspotLookups.next({ except: this.asideSpots })
+          : undefined;
+        if (!spot) {
+          const gyms = await this.lookups.count();
+          const spots = await this.wayspotLookups.count();
+          if (gyms + spots === 0) return 'empty';
+          if (!allowance.gyms) return allowance.waitMs;
+          const month = googleMonth(now);
+          return Math.min(
+            // Only gyms that wait for their address are left.
+            gyms > 0 && refusedFor > 0 && allowance.geocode ? refusedFor : month.nextReset - now,
+            // The day's share of stops and Power Spots is used.
+            spots > 0 ? month.tomorrow - now : Number.POSITIVE_INFINITY,
+            // What failed today is asked again tomorrow.
+            this.asideGyms.size + this.asideSpots.size > 0
+              ? month.tomorrow - now
+              : Number.POSITIVE_INFINITY,
+          );
+        }
+      }
+    } catch (err) {
+      log.warn({ err }, 'could not read the line of gyms that wait for Google');
+      return this.placesEveryMs;
+    }
+    if (!first) return spot ? this.askWayspot(spot) : 'empty';
+    const { gymId, address } = first;
+    const asking = { gymId, requeued: false, address: false };
+    this.asking = asking;
+    try {
+      // Each question by itself: the address (for a gym that waits for it), then the places.
+      // Undefined: not asked (the gym is gone, or went while Google was asked).
+      let geodata: FetchOutcome | undefined;
+      let places: FetchOutcome | undefined;
+      let thrown = false;
+      try {
+        if (address) geodata = await this.fetchGeodata(gymId);
+        // Geocoding refused: its places are not asked (and billed) without its address; the
+        // gym waits, first of the line, as long as the refusal lasts.
+        if (geodata !== 'denied' && (!address || geodata !== undefined)) {
+          places = await this.fetchPlaces(gymId);
+        }
+      } catch (err) {
+        log.warn({ err, gym: gymId }, 'could not bring the places of a gym up to date');
+        thrown = true;
+      }
+      const gone = !thrown && geodata !== 'denied' && places === undefined;
+      // Its address still to come: the geocode was not answered (failed, refused, not asked).
+      const wantsAddress = address && geodata !== 'updated' && geodata !== 'unchanged';
+      // Geocoding refused: the gym stays where it is in the line, waiting for its address, and
+      // the line goes on with the gyms that wait for their places alone (`geocodeRefusedUntil`).
+      if (geodata === 'denied') return undefined;
+      if (!gone && places === 'denied' && !this.stopped) {
+        // Only what was not answered waits; the gym stays the first of the line. An address
+        // asked for again during the turn (it moved) still waits.
+        if (address && !wantsAddress && !asking.address) {
+          await this.lookups.setAddress(gymId, false);
+        }
+        this.refusing = true;
+        return this.deniedForMs;
+      }
+      if (!gone && (thrown || places === 'failed' || wantsAddress)) {
+        // Asked again for what did not come, the next day (`asideGyms`, which the line passes
+        // over meanwhile; its row waits after every other gym until the line is ranked anew,
+        // `RETRY_RANK`); and the line waits longer after each such turn in a row, so that a
+        // Google that keeps failing does not take the month's budget a few seconds at a time
+        // (the budget allows the gyms the whole month at once). One put in the line again
+        // meanwhile (moved) is neither set aside nor put behind: its row stays as it was put
+        // in the line, and waits for the address that did not come too.
+        if (asking.requeued) {
+          await this.lookups.add([this.queued(gymId, wantsAddress)], this.now());
+        } else {
+          this.asideGyms.add(gymId);
+          await this.lookups.remove(gymId);
+          await this.lookups.add(
+            [{ gymId, address: wantsAddress || asking.address, rank: RETRY_RANK }],
+            this.now(),
+          );
+        }
+        this.misses++;
+        return Math.min(MAX_RETRY_WAIT_MS, this.placesEveryMs * 2 ** this.misses);
+      } else if (!asking.requeued) {
+        await this.lookups.remove(gymId);
+        // Put in the line again while it was being taken out: the newer request stays.
+        if (asking.requeued) {
+          await this.lookups.add([this.queued(gymId, asking.address)], this.now());
+        }
+      }
+      this.misses = 0;
+      // The last one: no timer is left for an empty line.
+      if ((await this.lookups.count()) + (await this.wayspotLookups.count()) === 0) return 'empty';
+    } catch (err) {
+      log.warn({ err, gym: gymId }, 'could not take a gym out of the line for Google');
+    } finally {
+      // Only now: a gym put in the line again until here keeps its row (`queueGyms`).
+      this.asking = undefined;
+    }
+    return undefined;
+  }
+
+  /**
+   * The turn of a PokéStop or Power Spot: its places, within half the way to the nearest gym,
+   * PokéStop or Power Spot (`placesRadius`), never its address. Kept with the point and kind
+   * asked (`WayspotPlaces`); one no longer a PokéStop or Power Spot leaves the line unasked; one
+   * whose question failed waits after the others of its kind, and the line waits longer (as for
+   * gyms); while Google refuses the key for places it stays first. Answers as `next`.
+   */
+  private async askWayspot(item: WaitingWayspot): Promise<number | 'empty' | undefined> {
+    const { geo, log } = this.options;
+    const id = item.wayspotId;
+    /** Its places are kept: what fails after is no failed question, and is not asked again. */
+    let saved = false;
+    try {
+      const wayspot = this.options.wayspots?.byId(id);
+      if (!wayspot || (wayspot.kind !== 'stop' && wayspot.kind !== 'powerspot')) {
+        await this.wayspotLookups.remove([id]);
+        return undefined;
+      }
+      const point = { lat: wayspot.lat, lon: wayspot.lon };
+      const answer = await geo.placesNear(point, placesRadius(this.nearestPlace(wayspot)));
+      if (answer.ok || reachedGoogle(answer.reason)) await this.count('places');
+      if (!answer.ok) {
+        if (answer.reason === 'denied') {
+          this.deniedForMs = answer.retryInMs ?? this.placesEveryMs;
+          this.refusing = true;
+          return this.deniedForMs;
+        }
+        if (answer.reason === 'no-key') return 'empty';
+        return this.wayspotFailed(item);
+      }
+      await this.places.save({
+        wayspotId: id,
+        kind: wayspot.kind,
+        ...point,
+        places: placesText(answer.value),
+        askedAt: this.now(),
+      });
+      saved = true;
+      // Moved or of another kind while Google was asked: it waits again, as it is now.
+      const now = this.options.wayspots?.byId(id);
+      const changed =
+        now !== undefined &&
+        (now.kind !== wayspot.kind || metresBetween(now, wayspot) > WAYSPOT_MOVED_METRES);
+      if (!changed) await this.wayspotLookups.remove([id]);
+      this.misses = 0;
+      if ((await this.lookups.count()) + (await this.wayspotLookups.count()) === 0) return 'empty';
+    } catch (err) {
+      log.warn({ err, wayspot: id }, 'could not bring the places of a Wayspot up to date');
+      // Answered and kept: no failed question, neither set aside nor put back in the line; the
+      // line goes on after its pause.
+      if (saved) return this.placesEveryMs;
+      // Its answer could not be written (or the line not read): as a failed question.
+      return this.wayspotFailed(item);
+    }
+    return undefined;
+  }
+
+  /**
+   * A PokéStop or Power Spot whose turn did not answer: set aside until the next day
+   * (`asideSpots`, also when it is queued again meanwhile), its row after the others of its kind
+   * until it is queued anew (`RETRY_RANK`), and the line waits longer, as after a gym's. Never
+   * rejects.
+   */
+  private async wayspotFailed(item: WaitingWayspot): Promise<number> {
+    this.asideSpots.add(item.wayspotId);
+    this.misses++;
+    try {
+      await this.wayspotLookups.add([{ ...item, rank: RETRY_RANK }], this.now());
+    } catch (err) {
+      this.options.log.warn(
+        { err, wayspot: item.wayspotId },
+        'could not put a Wayspot at the end of the line for Google',
+      );
+    }
+    return Math.min(MAX_RETRY_WAIT_MS, this.placesEveryMs * 2 ** this.misses);
+  }
+
+  /** How far the nearest gym, PokéStop or Power Spot is from a Wayspot; undefined beyond 1 km. */
+  private nearestPlace(wayspot: { id: string; lat: number; lon: number }): number | undefined {
+    let nearest: number | undefined;
+    for (const gym of this.options.directory.all()) {
+      if (Math.abs(gym.lat - wayspot.lat) > 0.01) continue;
+      const metres = metresBetween(gym, wayspot);
+      if (metres <= NEAREST_PLACE_METRES && (nearest === undefined || metres < nearest)) {
+        nearest = metres;
+      }
+    }
+    const other = this.options.wayspots
+      ?.near(wayspot, NEAREST_PLACE_METRES, ['stop', 'powerspot', 'gym'])
+      .find((near) => near.wayspot.id !== wayspot.id);
+    if (other && (nearest === undefined || other.metres < nearest)) nearest = other.metres;
+    return nearest;
+  }
+
+  /** Runs work nobody waits for; what it throws is logged. Nothing is started after `stop`. */
+  private aside(run: () => Promise<unknown>): void {
+    if (this.stopped) return;
+    const work: Promise<unknown> = run()
+      .catch((err: unknown) => {
+        this.options.log.warn({ err }, 'the upkeep of a gym failed');
+      })
+      .finally(() => this.running.delete(work));
+    this.running.add(work);
+  }
+
+  /**
+   * Does everything that waits, now, without the pauses of the line, and waits for it; the gyms
+   * that wait for an API that is denied, or for the next day, keep waiting. For tests.
+   */
+  async flush(): Promise<void> {
+    for (;;) {
+      this.cancelTimer?.();
+      this.cancelTimer = undefined;
+      // A denied API or the day's limit ends it: the gyms stay in the line.
+      let next: number | 'empty' | undefined;
+      do next = await this.next();
+      while (next === undefined);
+      if (this.running.size === 0) return;
+      await Promise.allSettled([...this.running]);
+    }
+  }
+
+  /**
+   * For shutdown: starts nothing more and waits for what is on its way (a write must finish
+   * before the database closes). The line stays in the database for the next start.
+   */
+  async stop(): Promise<void> {
+    this.stopped = true;
+    this.cancelTimer?.();
+    this.cancelTimer = undefined;
+    while (this.running.size > 0) await Promise.allSettled([...this.running]);
+  }
+}

@@ -1,0 +1,19 @@
+# Only what the image is built from goes to Docker: everything else (`.env`, `var/`, `.git`,
+# `node_modules`, `dist/`, the docs, the tests, `wayspot-tool/`) stays out.
+*
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.build.json
+!src/
+!packages/wayspot-core/package.json
+!packages/wayspot-core/LICENSE
+!packages/wayspot-core/tsconfig.build.json
+!packages/wayspot-core/src/
+# The web pages' build (`npm run web:build`, part of `npm run build`).
+!scripts/web/
+!data/settings.json
+!pictures/
+src/**/*.test.ts
+packages/**/*.test.ts
+scripts/**/*.test.ts

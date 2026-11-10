@@ -1,0 +1,507 @@
+{
+  "clock": [
+    {
+      "input": "330pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "330 pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "3:30pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "3:30 pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "3:30 PM",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "3:30p",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "3:30",
+      "valid": true,
+      "hour": 3,
+      "minute": 30,
+      "hasMeridiem": false
+    },
+    {
+      "input": "330",
+      "valid": true,
+      "hour": 3,
+      "minute": 30,
+      "hasMeridiem": false
+    },
+    {
+      "input": "1530",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": false
+    },
+    {
+      "input": "15:30",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": false
+    },
+    {
+      "input": "3pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 0,
+      "hasMeridiem": true
+    },
+    {
+      "input": "3 pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 0,
+      "hasMeridiem": true
+    },
+    {
+      "input": "3",
+      "valid": true,
+      "hour": 3,
+      "minute": 0,
+      "hasMeridiem": false
+    },
+    {
+      "input": "9",
+      "valid": true,
+      "hour": 9,
+      "minute": 0,
+      "hasMeridiem": false
+    },
+    {
+      "input": "12am",
+      "valid": true,
+      "hour": 0,
+      "minute": 0,
+      "hasMeridiem": true
+    },
+    {
+      "input": "12pm",
+      "valid": true,
+      "hour": 12,
+      "minute": 0,
+      "hasMeridiem": true
+    },
+    {
+      "input": "12:05",
+      "valid": true,
+      "hour": 12,
+      "minute": 5,
+      "hasMeridiem": false
+    },
+    {
+      "input": "12:05am",
+      "valid": true,
+      "hour": 0,
+      "minute": 5,
+      "hasMeridiem": true
+    },
+    {
+      "input": "0:15",
+      "valid": true,
+      "hour": 0,
+      "minute": 15,
+      "hasMeridiem": false
+    },
+    {
+      "input": "09:05",
+      "valid": true,
+      "hour": 9,
+      "minute": 5,
+      "hasMeridiem": false
+    },
+    {
+      "input": "9:5",
+      "valid": true,
+      "hour": 9,
+      "minute": 5,
+      "hasMeridiem": false
+    },
+    {
+      "input": "7:15 a",
+      "valid": true,
+      "hour": 7,
+      "minute": 15,
+      "hasMeridiem": true
+    },
+    {
+      "input": "10-14 3:30pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "10-14 330pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "10-14 15:30",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": false,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "10-14 1530",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": false,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "10-14 3 pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 0,
+      "hasMeridiem": true,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "10-14 6pm",
+      "valid": true,
+      "hour": 18,
+      "minute": 0,
+      "hasMeridiem": true,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "10-14 15",
+      "valid": true,
+      "hour": 15,
+      "minute": 0,
+      "hasMeridiem": false,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "1-5 9:00",
+      "valid": true,
+      "hour": 9,
+      "minute": 0,
+      "hasMeridiem": false,
+      "month": 1,
+      "day": 5
+    },
+    {
+      "input": "12/25 6pm",
+      "valid": true,
+      "hour": 18,
+      "minute": 0,
+      "hasMeridiem": true,
+      "month": 12,
+      "day": 25
+    },
+    {
+      "input": "45",
+      "valid": false
+    },
+    {
+      "input": "90",
+      "valid": false
+    },
+    {
+      "input": "abc",
+      "valid": false
+    },
+    {
+      "input": "",
+      "valid": false
+    },
+    {
+      "input": "25:00",
+      "valid": false
+    },
+    {
+      "input": "3:75",
+      "valid": false
+    },
+    {
+      "input": "3.30pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "6.30 pm",
+      "valid": true,
+      "hour": 18,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "10-14 at 6pm",
+      "valid": true,
+      "hour": 18,
+      "minute": 0,
+      "hasMeridiem": true,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "10-14, 6pm",
+      "valid": true,
+      "hour": 18,
+      "minute": 0,
+      "hasMeridiem": true,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "10-14, at 6pm",
+      "valid": true,
+      "hour": 18,
+      "minute": 0,
+      "hasMeridiem": true,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "10.14 6pm",
+      "valid": true,
+      "hour": 18,
+      "minute": 0,
+      "hasMeridiem": true,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "10-14 3.30pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "6 30",
+      "valid": true,
+      "hour": 6,
+      "minute": 30,
+      "hasMeridiem": false
+    },
+    {
+      "input": "3 30 pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "10/14/2026 6pm",
+      "valid": true,
+      "hour": 18,
+      "minute": 0,
+      "hasMeridiem": true,
+      "month": 10,
+      "day": 14
+    },
+    {
+      "input": "6:00pm!",
+      "valid": true,
+      "hour": 18,
+      "minute": 0,
+      "hasMeridiem": true
+    },
+    {
+      "input": "3:30pm please",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "6:30ish",
+      "valid": true,
+      "hour": 6,
+      "minute": 30,
+      "hasMeridiem": false
+    },
+    {
+      "input": "3:30:00 pm",
+      "valid": true,
+      "hour": 15,
+      "minute": 30,
+      "hasMeridiem": true
+    },
+    {
+      "input": "6 a m",
+      "valid": true,
+      "hour": 6,
+      "minute": 0,
+      "hasMeridiem": true
+    },
+    {
+      "input": "tomorrow 6pm",
+      "valid": true,
+      "hour": 18,
+      "minute": 0,
+      "hasMeridiem": true
+    },
+    {
+      "input": "6pm 10-14",
+      "valid": true,
+      "hour": 6,
+      "minute": 10,
+      "hasMeridiem": false
+    },
+    {
+      "input": "10-14 6pm EST",
+      "valid": true,
+      "hour": 22,
+      "minute": 14,
+      "hasMeridiem": true
+    },
+    {
+      "input": "5m",
+      "valid": true,
+      "hour": 5,
+      "minute": 0,
+      "hasMeridiem": false
+    }
+  ],
+  "duration": [
+    {
+      "input": "45",
+      "valid": true,
+      "minutes": 45
+    },
+    {
+      "input": "0",
+      "valid": true,
+      "minutes": 0
+    },
+    {
+      "input": "90",
+      "valid": true,
+      "minutes": 90
+    },
+    {
+      "input": "-5",
+      "valid": true,
+      "minutes": -5
+    },
+    {
+      "input": "30 minutes",
+      "valid": true,
+      "minutes": 30
+    },
+    {
+      "input": "abc",
+      "valid": false
+    },
+    {
+      "input": "",
+      "valid": false
+    },
+    {
+      "input": "1:30",
+      "valid": true,
+      "minutes": 90
+    },
+    {
+      "input": "0:45",
+      "valid": true,
+      "minutes": 45
+    },
+    {
+      "input": "1:30:00",
+      "valid": true,
+      "minutes": 90
+    },
+    {
+      "input": "0:00",
+      "valid": true,
+      "minutes": 0
+    },
+    {
+      "input": "3:30pm",
+      "valid": false
+    },
+    {
+      "input": "2:5",
+      "valid": true,
+      "minutes": 125
+    },
+    {
+      "input": "2 hours",
+      "valid": true,
+      "minutes": 2
+    },
+    {
+      "input": "1.5 hours",
+      "valid": true,
+      "minutes": 1
+    },
+    {
+      "input": "2h",
+      "valid": true,
+      "minutes": 2
+    },
+    {
+      "input": "20m",
+      "valid": true,
+      "minutes": 20
+    },
+    {
+      "input": "1e3",
+      "valid": true,
+      "minutes": 1
+    },
+    {
+      "input": "10-20 6",
+      "valid": true,
+      "minutes": 10
+    },
+    {
+      "input": "5 raids",
+      "valid": true,
+      "minutes": 5
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# The jobs only read the repository: their token can write nothing, whatever a step does.
+permissions:
+  contents: read
+
+# Each action runs at a commit, its version beside it (a tag can be moved to other code);
+# Dependabot proposes newer ones by pull request (.github/dependabot.yml).
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - name: Generated database types are current
+        run: npm run db:codegen -- --verify
+      - run: npm run build
+
+  # The Docker stack: the image builds, the operator scripts pass shellcheck, and a new install
+  # on the stack's own MySQL runs every migration. The migrations run before any login, so the
+  # dummy token below is never used: nothing contacts Discord.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # ShellCheck's newest release at the digest of its image index (Docker Hub's tags API,
+      # 2026-11-10). Dependabot does not bump an image on a `docker run` line: a newer release is
+      # pinned here by hand, its tag and index digest from Docker Hub.
+      - name: Shell scripts
+        run: docker run --rm -v "$PWD:/mnt:ro" koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d -s sh /mnt/pine /mnt/docker/backup.sh
+      - name: Settings of the stack (dummy values)
+        run: |
+          cat > .env <<'ENV'
+          DISCORD_TOKEN=not-a-token
+          DISCORD_APP_ID=123456789012345678
+          OWNER_ID=223456789012345678
+          DB_USER=pine
+          DB_PASSWORD=ci-pine
+          DB_SCHEMA=pine
+          DB_ROOT_PASSWORD=ci-root
+          POKEMON_IMAGE_BASE=https://images.example/pokemon/
+          ENV
+          cp data/settings.json pine-settings.json
+      - name: Image and migrations on a new install
+        run: ./pine migrate
+      - name: Every migration was recorded
+        run: |
+          applied=$(docker compose exec -T mysql sh -c \
+            'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -B -e "select count(*) from pine.kysely_migration"')
+          expected=$(ls src/db/migrations/2*.ts | grep -vc '\.test\.ts$')
+          echo "migrations applied: $applied of $expected"
+          test "$applied" -eq "$expected"
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes

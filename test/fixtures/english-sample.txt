@@ -1,0 +1,1334 @@
+RESOURCE ID: form_aegislash_blade
+TEXT: Blade Forme
+
+RESOURCE ID: form_aegislash_shield
+TEXT: Shield Forme
+
+RESOURCE ID: form_altered
+TEXT: Altered Forme
+
+RESOURCE ID: form_amped
+TEXT: Amped Form
+
+RESOURCE ID: form_antique
+TEXT: Antique Form
+
+RESOURCE ID: form_apex
+TEXT: Apex Build
+
+RESOURCE ID: form_arceus_bug
+TEXT: Bug-Type
+
+RESOURCE ID: form_arceus_dark
+TEXT: Dark-Type
+
+RESOURCE ID: form_arceus_dragon
+TEXT: Dragon-Type
+
+RESOURCE ID: form_arceus_electric
+TEXT: Electric-Type
+
+RESOURCE ID: form_arceus_fairy
+TEXT: Fairy-Type
+
+RESOURCE ID: form_arceus_fighting
+TEXT: Fighting-Type
+
+RESOURCE ID: form_arceus_fire
+TEXT: Fire-Type
+
+RESOURCE ID: form_arceus_flying
+TEXT: Flying-Type
+
+RESOURCE ID: form_arceus_ghost
+TEXT: Ghost-Type
+
+RESOURCE ID: form_arceus_grass
+TEXT: Grass-Type
+
+RESOURCE ID: form_arceus_ground
+TEXT: Ground-Type
+
+RESOURCE ID: form_arceus_ice
+TEXT: Ice-Type
+
+RESOURCE ID: form_arceus_normal
+TEXT: Normal-Type
+
+RESOURCE ID: form_arceus_poison
+TEXT: Poison-Type
+
+RESOURCE ID: form_arceus_psychic
+TEXT: Psychic-Type
+
+RESOURCE ID: form_arceus_rock
+TEXT: Rock-Type
+
+RESOURCE ID: form_arceus_steel
+TEXT: Steel-Type
+
+RESOURCE ID: form_arceus_water
+TEXT: Water-Type
+
+RESOURCE ID: form_aria
+TEXT: Aria Forme
+
+RESOURCE ID: form_attack
+TEXT: Attack
+
+RESOURCE ID: form_autumn
+TEXT: Autumn Form
+
+RESOURCE ID: form_baile
+TEXT: Baile Style
+
+RESOURCE ID: form_black
+TEXT: Black Kyurem
+
+RESOURCE ID: form_blue
+TEXT: Blue Plumage
+
+RESOURCE ID: form_blue_striped
+TEXT: Blue-Striped
+
+RESOURCE ID: form_burmy_plant
+TEXT: Plant Cloak
+
+RESOURCE ID: form_burmy_sandy
+TEXT: Sandy Cloak
+
+RESOURCE ID: form_burmy_trash
+TEXT: Trash Cloak
+
+RESOURCE ID: form_burn_drive
+TEXT: Burn Drive
+
+RESOURCE ID: form_busted
+TEXT: Busted Form
+
+RESOURCE ID: form_castform_normal
+TEXT: Normal Form
+
+RESOURCE ID: form_castform_normal_full
+TEXT: Normal Form
+
+RESOURCE ID: form_castform_rainy
+TEXT: Rainy Form
+
+RESOURCE ID: form_castform_snowy
+TEXT: Snowy Form
+
+RESOURCE ID: form_castform_sunny
+TEXT: Sunny Form
+
+RESOURCE ID: form_change_button
+TEXT: Change Form
+
+RESOURCE ID: form_change_collapsed_quest_description
+TEXT: To change this Pokémon’s form, set it as your buddy and adventure together
+
+RESOURCE ID: form_change_confirmation
+TEXT: Are you sure you want to change {0} from its {1} to its {2}?
+
+RESOURCE ID: form_change_failed_toast
+TEXT: Failed to change form. Please try again.
+
+RESOURCE ID: form_change_move_required
+TEXT: Required to change form
+
+RESOURCE ID: form_change_move_reroll_title
+TEXT: To change to its {2} form, {0} must learn {1}
+
+RESOURCE ID: form_change_raid_toast
+TEXT: {0} reverted to its {1} form.
+
+RESOURCE ID: form_change_selection_title
+TEXT: Select a Form
+
+RESOURCE ID: form_change_warn_needed_move
+TEXT: {0} is required to change form
+
+RESOURCE ID: form_cherrim_overcast
+TEXT: Overcast Form
+
+RESOURCE ID: form_cherrim_sunny
+TEXT: Sunshine Form
+
+RESOURCE ID: form_chill_drive
+TEXT: Chill Drive
+
+RESOURCE ID: form_core_blue
+TEXT: Blue Core
+
+RESOURCE ID: form_core_green
+TEXT: Green Core
+
+RESOURCE ID: form_core_indigo
+TEXT: Indigo Core
+
+RESOURCE ID: form_core_orange
+TEXT: Orange Core
+
+RESOURCE ID: form_core_red
+TEXT: Red Core
+
+RESOURCE ID: form_core_violet
+TEXT: Violet Core
+
+RESOURCE ID: form_core_yellow
+TEXT: Yellow Core
+
+RESOURCE ID: form_cream_caramel
+TEXT: Caramel Swirl
+
+RESOURCE ID: form_cream_lemon
+TEXT: Lemon Cream
+
+RESOURCE ID: form_cream_matcha
+TEXT: Matcha Cream
+
+RESOURCE ID: form_cream_mint
+TEXT: Mint Cream
+
+RESOURCE ID: form_cream_rainbow
+TEXT: Rainbow Swirl
+
+RESOURCE ID: form_cream_ruby
+TEXT: Ruby Cream
+
+RESOURCE ID: form_cream_salted
+TEXT: Salted Cream
+
+RESOURCE ID: form_cream_vanilla
+TEXT: Vanilla Cream
+
+RESOURCE ID: form_curly
+TEXT: Curly Form
+
+RESOURCE ID: form_darmanitan_standard
+TEXT: Standard Mode
+
+RESOURCE ID: form_darmanitan_zen
+TEXT: Zen Mode
+
+RESOURCE ID: form_defense
+TEXT: Defense
+
+RESOURCE ID: form_deoxys_attack
+TEXT: Attack Forme
+
+RESOURCE ID: form_deoxys_defense
+TEXT: Defense Forme
+
+RESOURCE ID: form_deoxys_normal
+TEXT: Normal Forme
+
+RESOURCE ID: form_deoxys_speed
+TEXT: Speed Forme
+
+RESOURCE ID: form_dialga_normal
+TEXT: Dialga
+
+RESOURCE ID: form_dialga_origin
+TEXT: Origin Forme
+
+RESOURCE ID: form_disguised
+TEXT: Disguised Form
+
+RESOURCE ID: form_douse_drive
+TEXT: Douse Drive
+
+RESOURCE ID: form_droopy
+TEXT: Droopy Form
+
+RESOURCE ID: form_dusk
+TEXT: Dusk Form
+
+RESOURCE ID: form_east_sea
+TEXT: East Sea
+
+RESOURCE ID: form_eternatus_eternamax
+TEXT: Eternamax
+
+RESOURCE ID: form_eternatus_normal
+TEXT: Eternatus
+
+RESOURCE ID: form_fan
+TEXT: Fan Rotom
+
+RESOURCE ID: form_female
+TEXT: Female
+
+RESOURCE ID: form_flabebe_blue
+TEXT: Blue Flower
+
+RESOURCE ID: form_flabebe_orange
+TEXT: Orange Flower
+
+RESOURCE ID: form_flabebe_red
+TEXT: Red Flower
+
+RESOURCE ID: form_flabebe_white
+TEXT: White Flower
+
+RESOURCE ID: form_flabebe_yellow
+TEXT: Yellow Flower
+
+RESOURCE ID: form_floette_blue
+TEXT: Blue Flower
+
+RESOURCE ID: form_floette_orange
+TEXT: Orange Flower
+
+RESOURCE ID: form_floette_red
+TEXT: Red Flower
+
+RESOURCE ID: form_floette_white
+TEXT: White Flower
+
+RESOURCE ID: form_floette_yellow
+TEXT: Yellow Flower
+
+RESOURCE ID: form_florges_blue
+TEXT: Blue Flower
+
+RESOURCE ID: form_florges_orange
+TEXT: Orange Flower
+
+RESOURCE ID: form_florges_red
+TEXT: Red Flower
+
+RESOURCE ID: form_florges_white
+TEXT: White Flower
+
+RESOURCE ID: form_florges_yellow
+TEXT: Yellow Flower
+
+RESOURCE ID: form_frost
+TEXT: Frost Rotom
+
+RESOURCE ID: form_furfrou_dandy
+TEXT: Dandy Trim
+
+RESOURCE ID: form_furfrou_debutante
+TEXT: Debutante Trim
+
+RESOURCE ID: form_furfrou_diamond
+TEXT: Diamond Trim
+
+RESOURCE ID: form_furfrou_heart
+TEXT: Heart Trim
+
+RESOURCE ID: form_furfrou_kabuki
+TEXT: Kabuki Trim
+
+RESOURCE ID: form_furfrou_la_reine
+TEXT: La Reine Trim
+
+RESOURCE ID: form_furfrou_matron
+TEXT: Matron Trim
+
+RESOURCE ID: form_furfrou_natural
+TEXT: Natural Form
+
+RESOURCE ID: form_furfrou_pharaoh
+TEXT: Pharaoh Trim
+
+RESOURCE ID: form_furfrou_star
+TEXT: Star Trim
+
+RESOURCE ID: form_genesect_burn
+TEXT: Burn Drive
+
+RESOURCE ID: form_genesect_chill
+TEXT: Chill Drive
+
+RESOURCE ID: form_genesect_douse
+TEXT: Douse Drive
+
+RESOURCE ID: form_genesect_normal
+TEXT: Normal
+
+RESOURCE ID: form_genesect_shock
+TEXT: Shock Drive
+
+RESOURCE ID: form_giratina_altered
+TEXT: Altered Forme
+
+RESOURCE ID: form_giratina_origin
+TEXT: Origin Forme
+
+RESOURCE ID: form_gorging
+TEXT: Gorging Form
+
+RESOURCE ID: form_gourgeist_average
+TEXT: Average Size
+
+RESOURCE ID: form_gourgeist_large
+TEXT: Large Size
+
+RESOURCE ID: form_gourgeist_small
+TEXT: Small Size
+
+RESOURCE ID: form_gourgeist_super
+TEXT: Super Size
+
+RESOURCE ID: form_green
+TEXT: Green Plumage
+
+RESOURCE ID: form_greninja_ash
+TEXT: Ash-Greninja
+
+RESOURCE ID: form_gulping
+TEXT: Gulping Form
+
+RESOURCE ID: form_heat
+TEXT: Heat Rotom
+
+RESOURCE ID: form_hoopa_confined
+TEXT: Hoopa Confined
+
+RESOURCE ID: form_hoopa_unbound
+TEXT: Hoopa Unbound
+
+RESOURCE ID: form_ice
+TEXT: Ice Face
+
+RESOURCE ID: form_incarnate
+TEXT: Incarnate Forme
+
+RESOURCE ID: form_kyurem_black
+TEXT: Black Kyurem
+
+RESOURCE ID: form_kyurem_normal
+TEXT: Kyurem
+
+RESOURCE ID: form_kyurem_white
+TEXT: White Kyurem
+
+RESOURCE ID: form_land
+TEXT: Land Forme
+
+RESOURCE ID: form_landorus_incarnate
+TEXT: Incarnate Forme
+
+RESOURCE ID: form_landorus_therian
+TEXT: Therian Forme
+
+RESOURCE ID: form_low_key
+TEXT: Low Key Form
+
+RESOURCE ID: form_lycanroc_dusk
+TEXT: Dusk Form
+
+RESOURCE ID: form_lycanroc_midday
+TEXT: Midday Form
+
+RESOURCE ID: form_lycanroc_midnight
+TEXT: Midnight Form
+
+RESOURCE ID: form_male
+TEXT: Male
+
+RESOURCE ID: form_maushold_family_of_four
+TEXT: Family of Four
+
+RESOURCE ID: form_maushold_family_of_three
+TEXT: Family of Three
+
+RESOURCE ID: form_meloetta_aria
+TEXT: Aria Forme
+
+RESOURCE ID: form_meloetta_pirouette
+TEXT: Pirouette Forme
+
+RESOURCE ID: form_meteor
+TEXT: Meteor Form
+
+RESOURCE ID: form_midday
+TEXT: Midday Form
+
+RESOURCE ID: form_midnight
+TEXT: Midnight Form
+
+RESOURCE ID: form_mimikyu_busted
+TEXT: Busted Form
+
+RESOURCE ID: form_mimikyu_disguised
+TEXT: Disguised Form
+
+RESOURCE ID: form_morpeko_full_belly
+TEXT: Full Belly Mode
+
+RESOURCE ID: form_morpeko_hangry
+TEXT: Hangry Mode
+
+RESOURCE ID: form_mow
+TEXT: Mow Rotom
+
+RESOURCE ID: form_necrozma_dawn_wings
+TEXT: Dawn Wings
+
+RESOURCE ID: form_necrozma_dusk_mane
+TEXT: Dusk Mane
+
+RESOURCE ID: form_necrozma_normal
+TEXT: Necrozma
+
+RESOURCE ID: form_necrozma_ultra
+TEXT: Ultra Necrozma
+
+RESOURCE ID: form_no_drive
+TEXT: Normal
+
+RESOURCE ID: form_no_drive_full
+TEXT: driveless form
+
+RESOURCE ID: form_noice
+TEXT: Noice Face
+
+RESOURCE ID: form_normal
+TEXT:  
+
+RESOURCE ID: form_oinkologne_female
+TEXT: Female
+
+RESOURCE ID: form_oinkologne_male
+TEXT: Male
+
+RESOURCE ID: form_ordinary
+TEXT: Ordinary Form
+
+RESOURCE ID: form_ordinary_full
+TEXT: Ordinary Form
+
+RESOURCE ID: form_oricorio_baile
+TEXT: Baile Style
+
+RESOURCE ID: form_oricorio_pau
+TEXT: Pa’u Style
+
+RESOURCE ID: form_oricorio_pompom
+TEXT: Pom-Pom Style
+
+RESOURCE ID: form_oricorio_sensu
+TEXT: Sensu Style
+
+RESOURCE ID: form_origin
+TEXT: Origin Forme
+
+RESOURCE ID: form_overcast
+TEXT: Overcast Form
+
+RESOURCE ID: form_palafin_hero
+TEXT: Hero Form
+
+RESOURCE ID: form_paldea_aqua
+TEXT: Aqua Breed
+
+RESOURCE ID: form_paldea_blaze
+TEXT: Blaze Breed
+
+RESOURCE ID: form_paldea_combat
+TEXT: Combat Breed
+
+RESOURCE ID: form_palkia_normal
+TEXT: Palkia
+
+RESOURCE ID: form_palkia_origin
+TEXT: Origin Forme
+
+RESOURCE ID: form_pau
+TEXT: Pa’u Style
+
+RESOURCE ID: form_phony
+TEXT: Phony Form
+
+RESOURCE ID: form_pirouette
+TEXT: Pirouette Forme
+
+RESOURCE ID: form_plant_cloak
+TEXT: Plant Cloak
+
+RESOURCE ID: form_pompom
+TEXT: Pom-Pom Style
+
+RESOURCE ID: form_primal
+TEXT: Primal Reversion
+
+RESOURCE ID: form_pumpkaboo_average
+TEXT: Average Size
+
+RESOURCE ID: form_pumpkaboo_large
+TEXT: Large Size
+
+RESOURCE ID: form_pumpkaboo_small
+TEXT: Small Size
+
+RESOURCE ID: form_pumpkaboo_super
+TEXT: Super Size
+
+RESOURCE ID: form_rain
+TEXT: Rainy
+
+RESOURCE ID: form_rapid_strike
+TEXT: Rapid Strike Style
+
+RESOURCE ID: form_red_striped
+TEXT: Red-Striped
+
+RESOURCE ID: form_regular
+TEXT: Regular Form
+
+RESOURCE ID: form_resolute
+TEXT: Resolute Form
+
+RESOURCE ID: form_rotom_fan
+TEXT: Fan Rotom
+
+RESOURCE ID: form_rotom_frost
+TEXT: Frost Rotom
+
+RESOURCE ID: form_rotom_heat
+TEXT: Heat Rotom
+
+RESOURCE ID: form_rotom_mow
+TEXT: Mow Rotom
+
+RESOURCE ID: form_rotom_normal
+TEXT: Rotom
+
+RESOURCE ID: form_rotom_wash
+TEXT: Wash Rotom
+
+RESOURCE ID: form_sandy_cloak
+TEXT: Sandy Cloak
+
+RESOURCE ID: form_school
+TEXT: School Form
+
+RESOURCE ID: form_sensu
+TEXT: Sensu Style
+
+RESOURCE ID: form_shaymin_land
+TEXT: Land Forme
+
+RESOURCE ID: form_shaymin_sky
+TEXT: Sky Forme
+
+RESOURCE ID: form_shiny_arceus
+TEXT: Shiny Arceus
+
+RESOURCE ID: form_shock_drive
+TEXT: Shock Drive
+
+RESOURCE ID: form_silvally_bug
+TEXT: Type: Bug
+
+RESOURCE ID: form_silvally_dark
+TEXT: Type: Dark
+
+RESOURCE ID: form_silvally_dragon
+TEXT: Type: Dragon
+
+RESOURCE ID: form_silvally_electric
+TEXT: Type: Electric
+
+RESOURCE ID: form_silvally_fairy
+TEXT: Type: Fairy
+
+RESOURCE ID: form_silvally_fighting
+TEXT: Type: Fighting
+
+RESOURCE ID: form_silvally_fire
+TEXT: Type: Fire
+
+RESOURCE ID: form_silvally_flying
+TEXT: Type: Flying
+
+RESOURCE ID: form_silvally_ghost
+TEXT: Type: Ghost
+
+RESOURCE ID: form_silvally_grass
+TEXT: Type: Grass
+
+RESOURCE ID: form_silvally_ground
+TEXT: Type: Ground
+
+RESOURCE ID: form_silvally_ice
+TEXT: Type: Ice
+
+RESOURCE ID: form_silvally_normal
+TEXT: Type: Normal
+
+RESOURCE ID: form_silvally_poison
+TEXT: Type: Poison
+
+RESOURCE ID: form_silvally_psychic
+TEXT: Type: Psychic
+
+RESOURCE ID: form_silvally_rock
+TEXT: Type: Rock
+
+RESOURCE ID: form_silvally_steel
+TEXT: Type: Steel
+
+RESOURCE ID: form_silvally_water
+TEXT: Type: Water
+
+RESOURCE ID: form_single_strike
+TEXT: Single Strike Style
+
+RESOURCE ID: form_sky
+TEXT: Sky Forme
+
+RESOURCE ID: form_snow
+TEXT: Snowy
+
+RESOURCE ID: form_solo
+TEXT: Solo Form
+
+RESOURCE ID: form_speed
+TEXT: Speed
+
+RESOURCE ID: form_spring
+TEXT: Spring Form
+
+RESOURCE ID: form_squakabilly_white
+TEXT: White Plumage
+
+RESOURCE ID: form_standard_mode
+TEXT: Standard Mode
+
+RESOURCE ID: form_stretchy
+TEXT: Stretchy Form
+
+RESOURCE ID: form_summer
+TEXT: Summer Form
+
+RESOURCE ID: form_sun
+TEXT: Sunny
+
+RESOURCE ID: form_sunshine
+TEXT: Sunshine Form
+
+RESOURCE ID: form_swirl_ruby
+TEXT: Ruby Swirl
+
+RESOURCE ID: form_therian
+TEXT: Therian Forme
+
+RESOURCE ID: form_three
+TEXT: Three-Segment Form
+
+RESOURCE ID: form_thundurus_incarnate
+TEXT: Incarnate Forme
+
+RESOURCE ID: form_thundurus_therian
+TEXT: Therian Forme
+
+RESOURCE ID: form_tornadus_incarnate
+TEXT: Incarnate Forme
+
+RESOURCE ID: form_tornadus_therian
+TEXT: Therian Forme
+
+RESOURCE ID: form_trash_cloak
+TEXT: Trash Cloak
+
+RESOURCE ID: form_two
+TEXT: Two-Segment Form
+
+RESOURCE ID: form_ultimate
+TEXT: Ultimate Mode
+
+RESOURCE ID: form_vivillon_archipelago
+TEXT: Archipelago Pattern
+
+RESOURCE ID: form_vivillon_continental
+TEXT: Continental Pattern
+
+RESOURCE ID: form_vivillon_elegant
+TEXT: Elegant Pattern
+
+RESOURCE ID: form_vivillon_fancy
+TEXT: Fancy Pattern
+
+RESOURCE ID: form_vivillon_garden
+TEXT: Garden Pattern
+
+RESOURCE ID: form_vivillon_high_plains
+TEXT: High Plains Pattern
+
+RESOURCE ID: form_vivillon_icy_snow
+TEXT: Icy Snow Pattern
+
+RESOURCE ID: form_vivillon_jungle
+TEXT: Jungle Pattern
+
+RESOURCE ID: form_vivillon_marine
+TEXT: Marine Pattern
+
+RESOURCE ID: form_vivillon_meadow
+TEXT: Meadow Pattern
+
+RESOURCE ID: form_vivillon_modern
+TEXT: Modern Pattern
+
+RESOURCE ID: form_vivillon_monsoon
+TEXT: Monsoon Pattern
+
+RESOURCE ID: form_vivillon_ocean
+TEXT: Ocean Pattern
+
+RESOURCE ID: form_vivillon_pokeball
+TEXT: Poké Ball Pattern
+
+RESOURCE ID: form_vivillon_polar
+TEXT: Polar Pattern
+
+RESOURCE ID: form_vivillon_river
+TEXT: River Pattern
+
+RESOURCE ID: form_vivillon_sandstorm
+TEXT: Sandstorm Pattern
+
+RESOURCE ID: form_vivillon_savanna
+TEXT: Savanna Pattern
+
+RESOURCE ID: form_vivillon_sun
+TEXT: Sun Pattern
+
+RESOURCE ID: form_vivillon_tundra
+TEXT: Tundra Pattern
+
+RESOURCE ID: form_wash
+TEXT: Wash Rotom
+
+RESOURCE ID: form_west_sea
+TEXT: West Sea
+
+RESOURCE ID: form_white
+TEXT: White Kyurem
+
+RESOURCE ID: form_white_striped
+TEXT: White-Striped
+
+RESOURCE ID: form_winter
+TEXT: Winter Form
+
+RESOURCE ID: form_wishiwashi_school
+TEXT: School Form
+
+RESOURCE ID: form_wishiwashi_solo
+TEXT: Solo Form
+
+RESOURCE ID: form_yellow
+TEXT: Yellow Plumage
+
+RESOURCE ID: form_zacian_crowned_sword
+TEXT: Crowned Sword
+
+RESOURCE ID: form_zacian_hero
+TEXT: Hero of Many Battles
+
+RESOURCE ID: form_zamazenta_crowned_shield
+TEXT: Crowned Shield
+
+RESOURCE ID: form_zamazenta_hero
+TEXT: Hero of Many Battles
+
+RESOURCE ID: form_zero
+TEXT: Zero Form
+
+RESOURCE ID: form_zygarde_complete
+TEXT: Complete Forme
+
+RESOURCE ID: form_zygarde_complete_fifty_percent
+TEXT: 50% Forme
+
+RESOURCE ID: form_zygarde_complete_ten_percent
+TEXT: 10% Forme
+
+RESOURCE ID: form_zygarde_fifty_percent
+TEXT: 50% Forme
+
+RESOURCE ID: form_zygarde_ten_percent
+TEXT: 10% Forme
+
+RESOURCE ID: move_name_0014
+TEXT: Hyper Beam
+
+RESOURCE ID: move_name_0016
+TEXT: Dark Pulse
+
+RESOURCE ID: move_name_0018
+TEXT: Sludge
+
+RESOURCE ID: move_name_0024
+TEXT: Flamethrower
+
+RESOURCE ID: move_name_0026
+TEXT: Dig
+
+RESOURCE ID: move_name_0031
+TEXT: Earthquake
+
+RESOURCE ID: move_name_0032
+TEXT: Stone Edge
+
+RESOURCE ID: move_name_0033
+TEXT: Ice Punch
+
+RESOURCE ID: move_name_0035
+TEXT: Discharge
+
+RESOURCE ID: move_name_0036
+TEXT: Flash Cannon
+
+RESOURCE ID: move_name_0039
+TEXT: Ice Beam
+
+RESOURCE ID: move_name_0040
+TEXT: Blizzard
+
+RESOURCE ID: move_name_0045
+TEXT: Aerial Ace
+
+RESOURCE ID: move_name_0047
+TEXT: Petal Blizzard
+
+RESOURCE ID: move_name_0050
+TEXT: Poison Fang
+
+RESOURCE ID: move_name_0057
+TEXT: Aqua Jet
+
+RESOURCE ID: move_name_0062
+TEXT: Ancient Power
+
+RESOURCE ID: move_name_0064
+TEXT: Rock Slide
+
+RESOURCE ID: move_name_0065
+TEXT: Power Gem
+
+RESOURCE ID: move_name_0066
+TEXT: Shadow Sneak
+
+RESOURCE ID: move_name_0067
+TEXT: Shadow Punch
+
+RESOURCE ID: move_name_0069
+TEXT: Ominous Wind
+
+RESOURCE ID: move_name_0070
+TEXT: Shadow Ball
+
+RESOURCE ID: move_name_0074
+TEXT: Iron Head
+
+RESOURCE ID: move_name_0077
+TEXT: Thunder Punch
+
+RESOURCE ID: move_name_0078
+TEXT: Thunder
+
+RESOURCE ID: move_name_0079
+TEXT: Thunderbolt
+
+RESOURCE ID: move_name_0082
+TEXT: Dragon Pulse
+
+RESOURCE ID: move_name_0083
+TEXT: Dragon Claw
+
+RESOURCE ID: move_name_0085
+TEXT: Draining Kiss
+
+RESOURCE ID: move_name_0087
+TEXT: Moonblast
+
+RESOURCE ID: move_name_0088
+TEXT: Play Rough
+
+RESOURCE ID: move_name_0090
+TEXT: Sludge Bomb
+
+RESOURCE ID: move_name_0091
+TEXT: Sludge Wave
+
+RESOURCE ID: move_name_0096
+TEXT: Mud Bomb
+
+RESOURCE ID: move_name_0101
+TEXT: Flame Charge
+
+RESOURCE ID: move_name_0103
+TEXT: Fire Blast
+
+RESOURCE ID: move_name_0107
+TEXT: Hydro Pump
+
+RESOURCE ID: move_name_0108
+TEXT: Psychic
+
+RESOURCE ID: move_name_0109
+TEXT: Psystrike
+
+RESOURCE ID: move_name_0116
+TEXT: Solar Beam
+
+RESOURCE ID: move_name_0121
+TEXT: Air Cutter
+
+RESOURCE ID: move_name_0122
+TEXT: Hurricane
+
+RESOURCE ID: move_name_0125
+TEXT: Swift
+
+RESOURCE ID: move_name_0126
+TEXT: Horn Attack
+
+RESOURCE ID: move_name_0129
+TEXT: Hyper Fang
+
+RESOURCE ID: move_name_0131
+TEXT: Body Slam
+
+RESOURCE ID: move_name_0133
+TEXT: Struggle
+
+RESOURCE ID: move_name_0202
+TEXT: Bite
+
+RESOURCE ID: move_name_0203
+TEXT: Sucker Punch
+
+RESOURCE ID: move_name_0204
+TEXT: Dragon Breath
+
+RESOURCE ID: move_name_0205
+TEXT: Thunder Shock
+
+RESOURCE ID: move_name_0206
+TEXT: Spark
+
+RESOURCE ID: move_name_0209
+TEXT: Ember
+
+RESOURCE ID: move_name_0210
+TEXT: Wing Attack
+
+RESOURCE ID: move_name_0211
+TEXT: Peck
+
+RESOURCE ID: move_name_0212
+TEXT: Lick
+
+RESOURCE ID: move_name_0213
+TEXT: Shadow Claw
+
+RESOURCE ID: move_name_0214
+TEXT: Vine Whip
+
+RESOURCE ID: move_name_0215
+TEXT: Razor Leaf
+
+RESOURCE ID: move_name_0216
+TEXT: Mud Shot
+
+RESOURCE ID: move_name_0219
+TEXT: Quick Attack
+
+RESOURCE ID: move_name_0221
+TEXT: Tackle
+
+RESOURCE ID: move_name_0224
+TEXT: Poison Jab
+
+RESOURCE ID: move_name_0226
+TEXT: Psycho Cut
+
+RESOURCE ID: move_name_0227
+TEXT: Rock Throw
+
+RESOURCE ID: move_name_0228
+TEXT: Metal Claw
+
+RESOURCE ID: move_name_0231
+TEXT: Splash
+
+RESOURCE ID: move_name_0233
+TEXT: Mud-Slap
+
+RESOURCE ID: move_name_0234
+TEXT: Zen Headbutt
+
+RESOURCE ID: move_name_0235
+TEXT: Confusion
+
+RESOURCE ID: move_name_0236
+TEXT: Poison Sting
+
+RESOURCE ID: move_name_0239
+TEXT: Steel Wing
+
+RESOURCE ID: move_name_0240
+TEXT: Fire Fang
+
+RESOURCE ID: move_name_0243
+TEXT: Counter
+
+RESOURCE ID: move_name_0245
+TEXT: Close Combat
+
+RESOURCE ID: move_name_0246
+TEXT: Dynamic Punch
+
+RESOURCE ID: move_name_0247
+TEXT: Focus Blast
+
+RESOURCE ID: move_name_0249
+TEXT: Charge Beam
+
+RESOURCE ID: move_name_0250
+TEXT: Volt Switch
+
+RESOURCE ID: move_name_0251
+TEXT: Wild Charge
+
+RESOURCE ID: move_name_0252
+TEXT: Zap Cannon
+
+RESOURCE ID: move_name_0253
+TEXT: Dragon Tail
+
+RESOURCE ID: move_name_0254
+TEXT: Avalanche
+
+RESOURCE ID: move_name_0255
+TEXT: Air Slash
+
+RESOURCE ID: move_name_0264
+TEXT: Hex
+
+RESOURCE ID: move_name_0266
+TEXT: Iron Tail
+
+RESOURCE ID: move_name_0269
+TEXT: Fire Spin
+
+RESOURCE ID: move_name_0270
+TEXT: Overheat
+
+RESOURCE ID: move_name_0275
+TEXT: Future Sight
+
+RESOURCE ID: move_name_0277
+TEXT: Outrage
+
+RESOURCE ID: move_name_0279
+TEXT: Crunch
+
+RESOURCE ID: move_name_0281
+TEXT: Hidden Power
+
+RESOURCE ID: move_name_0283
+TEXT: Waterfall
+
+RESOURCE ID: move_name_0284
+TEXT: Surf
+
+RESOURCE ID: move_name_0285
+TEXT: Draco Meteor
+
+RESOURCE ID: move_name_0288
+TEXT: Psycho Boost
+
+RESOURCE ID: move_name_0289
+TEXT: Origin Pulse
+
+RESOURCE ID: move_name_0291
+TEXT: Present
+
+RESOURCE ID: move_name_0296
+TEXT: Frenzy Plant
+
+RESOURCE ID: move_name_0298
+TEXT: Blast Burn
+
+RESOURCE ID: move_name_0301
+TEXT: Meteor Mash
+
+RESOURCE ID: move_name_0310
+TEXT: Superpower
+
+RESOURCE ID: move_name_0314
+TEXT: Drain Punch
+
+RESOURCE ID: move_name_0320
+TEXT: Charm
+
+RESOURCE ID: move_name_0327
+TEXT: Ice Fang
+
+RESOURCE ID: move_name_0331
+TEXT: Flying Press
+
+RESOURCE ID: move_name_0332
+TEXT: Aura Sphere
+
+RESOURCE ID: move_name_0341
+TEXT: Fly
+
+RESOURCE ID: move_name_0346
+TEXT: Incinerate
+
+RESOURCE ID: move_name_0356
+TEXT: Double Kick
+
+RESOURCE ID: move_name_0366
+TEXT: Mist Ball
+
+RESOURCE ID: move_name_0371
+TEXT: Shadow Force
+
+RESOURCE ID: move_name_0374
+TEXT: Fusion Bolt
+
+RESOURCE ID: move_name_0375
+TEXT: Fusion Flare
+
+RESOURCE ID: move_name_0378
+TEXT: Glaciate
+
+RESOURCE ID: move_name_0379
+TEXT: Breaking Swipe
+
+RESOURCE ID: move_name_0384
+TEXT: Dragon Ascent
+
+RESOURCE ID: move_name_0392
+TEXT: Trailblaze
+
+RESOURCE ID: move_name_0399
+TEXT: Volt Tackle
+
+RESOURCE ID: move_name_0403
+TEXT: Sand Attack
+
+RESOURCE ID: move_name_0482
+TEXT: Dynamax Cannon
+
+RESOURCE ID: pokemon_name_0003
+TEXT: Venusaur
+
+RESOURCE ID: pokemon_name_0003_0001
+TEXT: Mega Venusaur
+
+RESOURCE ID: pokemon_name_0003_0169_2
+TEXT: Gigantamax Venusaur
+
+RESOURCE ID: pokemon_name_0006
+TEXT: Charizard
+
+RESOURCE ID: pokemon_name_0006_0002
+TEXT: Mega Charizard X
+
+RESOURCE ID: pokemon_name_0006_0003
+TEXT: Mega Charizard Y
+
+RESOURCE ID: pokemon_name_0006_0178_2
+TEXT: Gigantamax Charizard
+
+RESOURCE ID: pokemon_name_0019
+TEXT: Rattata
+
+RESOURCE ID: pokemon_name_0025
+TEXT: Pikachu
+
+RESOURCE ID: pokemon_name_0025_0598_2
+TEXT: Gigantamax Pikachu
+
+RESOURCE ID: pokemon_name_0029
+TEXT: Nidoran♀
+
+RESOURCE ID: pokemon_name_0032
+TEXT: Nidoran♂
+
+RESOURCE ID: pokemon_name_0051
+TEXT: Dugtrio
+
+RESOURCE ID: pokemon_name_0094
+TEXT: Gengar
+
+RESOURCE ID: pokemon_name_0094_0001
+TEXT: Mega Gengar
+
+RESOURCE ID: pokemon_name_0094_1044_2
+TEXT: Gigantamax Gengar
+
+RESOURCE ID: pokemon_name_0128
+TEXT: Tauros
+
+RESOURCE ID: pokemon_name_0150
+TEXT: Mewtwo
+
+RESOURCE ID: pokemon_name_0150_0002
+TEXT: Mega Mewtwo X
+
+RESOURCE ID: pokemon_name_0150_0003
+TEXT: Mega Mewtwo Y
+
+RESOURCE ID: pokemon_name_0201
+TEXT: Unown
+
+RESOURCE ID: pokemon_name_0235
+TEXT: Smeargle
+
+RESOURCE ID: pokemon_name_0380
+TEXT: Latias
+
+RESOURCE ID: pokemon_name_0380_0001
+TEXT: Mega Latias
+
+RESOURCE ID: pokemon_name_0382
+TEXT: Kyogre
+
+RESOURCE ID: pokemon_name_0382_0004
+TEXT: Primal Kyogre
+
+RESOURCE ID: pokemon_name_0384
+TEXT: Rayquaza
+
+RESOURCE ID: pokemon_name_0384_0001
+TEXT: Mega Rayquaza
+
+RESOURCE ID: pokemon_name_0386
+TEXT: Deoxys
+
+RESOURCE ID: pokemon_name_0487
+TEXT: Giratina
+
+RESOURCE ID: pokemon_name_0555
+TEXT: Darmanitan
+
+RESOURCE ID: pokemon_name_0646
+TEXT: Kyurem
+
+RESOURCE ID: pokemon_name_0719
+TEXT: Diancie
+
+RESOURCE ID: pokemon_name_0719_0001
+TEXT: Mega Diancie
+
+RESOURCE ID: pokemon_name_0807
+TEXT: Zeraora
+
+RESOURCE ID: pokemon_name_0808
+TEXT: Meltan
+
+RESOURCE ID: pokemon_name_0890
+TEXT: Eternatus

@@ -1,0 +1,309 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { COLOR_SCHEME_META, escapeHtml } from './answers.js';
+import { TRAIN_STOPS_COUNT } from '../domain/history/tally-periods.js';
+import type { DistanceUnits } from '../render/distance-words.js';
+import type { TileSetting } from './headers.js';
+
+/** Where `npm run web:build` leaves the bundle, from the bot's working folder. */
+export const WEB_DIST = 'dist/web';
+
+/** The names of a page's script and style in the bundle, hashed. */
+export interface PageAssets {
+  script: string;
+  style: string;
+}
+
+/**
+ * The names of the bundle's files the pages load (`dist/web/assets.json`): the map's, and the
+ * region editor's with the script of its worker (plan 8M-2), and the page of the Wayspot export
+ * tool (`/userscript`, plan 8W-P), and the history page (plan 8H-5). The map's `theme` is its
+ * head script (plan 8M-13, S10: the theme chosen set before the page is drawn), which the history
+ * page loads too.
+ */
+export interface AssetManifest {
+  map: PageAssets & { theme: string };
+  editor: PageAssets & { worker: string };
+  userscript: PageAssets;
+  history: PageAssets;
+}
+
+/** The built bundle: its folder, served at `/assets/`, and the names the page loads. */
+export interface WebAssets {
+  dir: string;
+  /** Undefined when the bundle was not built: the page then says so. */
+  manifest: AssetManifest | undefined;
+}
+
+/** A name esbuild gave a hash (`[name]-[hash]`): its content never changes under it. */
+export const HASHED_NAME = /-[A-Z0-9]{8}\.[a-z0-9]+$/;
+
+const isText = (value: unknown): value is string => typeof value === 'string';
+
+/** A page's names from the manifest as read, or undefined when they are not all there. */
+function pageAssets(value: unknown): PageAssets | undefined {
+  const page = value as Partial<PageAssets> | undefined;
+  return page && isText(page.script) && isText(page.style)
+    ? { script: page.script, style: page.style }
+    : undefined;
+}
+
+/**
+ * The bundle as the build left it: `dist/web/assets` and the names in `dist/web/assets.json`.
+ * Without the manifest (not built, or built by an older build) the folder is still given, and
+ * the manifest is undefined.
+ */
+export async function readAssets(root = WEB_DIST): Promise<WebAssets> {
+  const dir = path.resolve(root, 'assets');
+  try {
+    const read = JSON.parse(await readFile(path.join(root, 'assets.json'), 'utf8')) as {
+      map?: { theme?: unknown };
+      editor?: { worker?: unknown };
+      userscript?: unknown;
+      history?: unknown;
+    };
+    const map = pageAssets(read.map);
+    const editor = pageAssets(read.editor);
+    const worker = read.editor?.worker;
+    const theme = read.map?.theme;
+    const userscript = pageAssets(read.userscript);
+    const history = pageAssets(read.history);
+    if (!map || !editor || !userscript || !history || !isText(worker) || !isText(theme)) {
+      return { dir, manifest: undefined };
+    }
+    return {
+      dir,
+      manifest: { map: { ...map, theme }, editor: { ...editor, worker }, userscript, history },
+    };
+  } catch {
+    return { dir, manifest: undefined };
+  }
+}
+
+/** What the map page is told: in `data-` attributes of `<body>`, escaped. */
+export interface MapPageData {
+  guildId: string;
+  /** The tiles the page offers (`shownTiles`): Google's only with a browser key. */
+  tiles: TileSetting;
+  /** The browser key, only with Google's tiles. */
+  googleKey?: string;
+  /** How a member logs in: with Discord, or only through the links of `/maps`. */
+  login: 'discord' | 'links';
+  /** The units the pages say distances in (`settings.distanceUnits`, task 7; the editor's too, review fix 8). */
+  distanceUnits?: DistanceUnits;
+}
+
+/** The `data-` attributes of a page's `<body>`, escaped. */
+function bodyAttributes(data: MapPageData, more: readonly string[] = []): string {
+  return [
+    `data-guild="${escapeHtml(data.guildId)}"`,
+    `data-tiles="${data.tiles}"`,
+    ...(data.tiles === 'google' && data.googleKey !== undefined
+      ? [`data-google-key="${escapeHtml(data.googleKey)}"`]
+      : []),
+    `data-login="${data.login}"`,
+    ...(data.distanceUnits === undefined ? [] : [`data-distance-units="${data.distanceUnits}"`]),
+    ...more,
+  ].join(' ');
+}
+
+/**
+ * The head of a page: its title, its style and its script, nothing inline; first the head script
+ * of a page with a theme to choose (`theme`, plan 8M-13, S10), neither deferred nor async, so
+ * that the choice is set before anything is drawn.
+ */
+function head(title: string, assets: PageAssets & { theme?: string }): string[] {
+  return [
+    '<!doctype html>',
+    '<html lang="en">',
+    '<head>',
+    '<meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    COLOR_SCHEME_META,
+    ...(assets.theme === undefined
+      ? []
+      : [`<script src="/assets/${escapeHtml(assets.theme)}"></script>`]),
+    `<title>${escapeHtml(title)}</title>`,
+    `<link rel="stylesheet" href="/assets/${escapeHtml(assets.style)}">`,
+    `<script src="/assets/${escapeHtml(assets.script)}" defer></script>`,
+    '</head>',
+  ];
+}
+
+/**
+ * The map page (spec 3.1): a static template that loads the bundle's script and style, with
+ * nothing inline (the CSP allows no inline style, and no inline script but a login link page's
+ * own, by its hash); what the page needs to know is in
+ * `data-` attributes of `<body>`, escaped. The script builds everything else; the side panel
+ * (`#parties`: the list of what is on, plan 8M-7, with the phone's "List" button) for everybody, and
+ * the line that the parties are read-only (`#read-only`), apart from the moment's news
+ * (`#notice`, over the top of the map with its × since plan 8M-11A) so that neither takes the
+ * other's place.
+ *
+ * The region editor is on the map (plan 8M-10): its script, style and worker are named in
+ * `data-editor-script`, `data-editor-style` and `data-worker` (files of Pine's: the CSP's
+ * `'self'` lets them in), loaded only when it is first turned on, and its places are hidden hosts
+ * (`.editor-only`): its tools beside the layers' row, led by "Back to the map", its own map and
+ * its panel in the places of the map and the side pane.
+ */
+export function mapPage(data: MapPageData, assets: AssetManifest): string {
+  const editor = [
+    `data-editor-script="/assets/${escapeHtml(assets.editor.script)}"`,
+    `data-editor-style="/assets/${escapeHtml(assets.editor.style)}"`,
+    `data-worker="/assets/${escapeHtml(assets.editor.worker)}"`,
+  ];
+  return [
+    ...head('Professor Pine: map', assets.map),
+    `<body ${bodyAttributes(data, editor)}>`,
+    // Narrower than 768 pixels the title is "Pine" (`map.css`, fix round 1).
+    '<header id="header"><span class="title"><span class="title-first">Professor </span>Pine</span>',
+    '<nav id="layers" aria-label="Layers"></nav>' +
+      '<div id="editor-bar" class="editor-only" hidden>' +
+      '<button id="editor-back" type="button">Back to the map</button>' +
+      '<span id="editor-tools"></span></div>',
+    '<button id="list-button" class="list-button" type="button">List</button>',
+    '<button id="search-button" class="search-button" type="button" aria-controls="filter" aria-expanded="false">Find</button>',
+    // The Report button (plan 8M-9A), shown by the script to a member who may report; on a phone
+    // it floats over the map instead (map.css), so that this row stays one row.
+    '<button id="report-button" class="report-button" type="button" aria-haspopup="dialog" hidden>Report</button>',
+    '<input id="filter" type="search" placeholder="Find a gym" aria-label="Find a gym">',
+    '<span id="account"></span></header>',
+    '<p id="read-only" role="status" hidden></p>',
+    // The notice band (plan 8M-11A) over the top of the map (`map.css`), with its ×.
+    '<div id="content"><div id="notice" role="status" hidden><span id="notice-text"></span>' +
+      '<button id="notice-close" type="button" aria-label="Hide this line">×</button></div>' +
+      '<main id="map" aria-label="Map"></main>' +
+      '<aside id="parties" aria-label="What\'s going on" hidden></aside>' +
+      '<div id="editor-map" class="editor-only" role="region" aria-label="Map of the regions" hidden></div>' +
+      '<aside id="editor-panel" class="editor-only" aria-label="Regions" hidden></aside></div>',
+    '<noscript><p>The map needs JavaScript.</p></noscript>',
+    '</body>',
+    '</html>',
+  ].join('\n');
+}
+
+/** What the history page is told: in `data-` attributes of `<body>`, escaped. */
+export interface HistoryPageData {
+  guildId: string;
+  /** How a member logs in: with Discord, or only through the links of `/maps`. */
+  login: 'discord' | 'links';
+}
+
+/**
+ * The history page `/s/<guild>/history` (plan 8H-5; design Part G's "history page", which Parts
+ * D, E and G add sections to): a static template as the map's, public as the map is (its data
+ * is for members only), its own script and style and the map's head script of the theme,
+ * nothing inline. The header leads back to the map; the region tally's places (its title, the
+ * periods, the line of what it says, the table, the line of quiet regions) are filled by the script from
+ * `/api/stats/regions`; the heatmap's History is on the map, linked.
+ */
+export function historyPage(data: HistoryPageData, assets: AssetManifest): string {
+  const map = `/s/${escapeHtml(data.guildId)}/map`;
+  return [
+    ...head('Professor Pine: history', { ...assets.history, theme: assets.map.theme }),
+    `<body data-guild="${escapeHtml(data.guildId)}" data-login="${data.login}">`,
+    '<header id="header"><span class="title"><span class="title-first">Professor </span>Pine</span>',
+    `<a id="map-link" class="map-link" href="${map}">Map</a>`,
+    '<span id="account"></span></header>',
+    '<p id="notice" role="status" hidden></p>',
+    '<main id="history">',
+    "<h1>This server's history</h1>",
+    // Raids by day, the big days and a boss's trend (plan 8H-8, design Part G): filled by the
+    // script from `/api/history/days`, `…/big-days`, `…/bosses`; each chart for the eye, its
+    // numbers in a table under it (G14).
+    '<section id="days" aria-labelledby="days-title">',
+    '<h2 id="days-title">Raids by day</h2>',
+    `<p class="counts-note">${TRAIN_STOPS_COUNT}</p>`,
+    '<p class="year-line"><label for="days-year">Year</label> <select id="days-year"></select></p>',
+    '<p id="days-status" role="status"></p>',
+    '<p id="days-legend" class="legend" hidden><span class="key raids">Raids</span> ' +
+      '<span class="key maxes">Max battles</span></p>',
+    '<div class="chart days-chart"><svg id="days-chart" aria-hidden="true" focusable="false"></svg></div>',
+    '<table id="days-table" class="visually-hidden" aria-labelledby="days-title"></table>',
+    '<h3 id="days-big-title">Big days</h3>',
+    '<p id="days-big-note" class="note"></p>',
+    '<ol id="days-big" class="big-days"></ol>',
+    '</section>',
+    '<section id="every" aria-labelledby="every-title">',
+    '<h2 id="every-title">Big days of every year</h2>',
+    '<p>The days of each year that stood out most from the weeks around them, up to three a year.</p>',
+    '<p id="every-status" role="status"></p>',
+    '<div id="every-list" class="every"></div>',
+    '</section>',
+    '<section id="boss" aria-labelledby="boss-title">',
+    '<h2 id="boss-title">A boss over the years</h2>',
+    '<p class="year-line"><label for="boss-input">Boss</label> ' +
+      '<input id="boss-input" list="boss-names" autocomplete="off" spellcheck="false">' +
+      '<datalist id="boss-names"></datalist></p>',
+    '<p id="boss-status" role="status"></p>',
+    '<div class="chart"><svg id="boss-chart" aria-hidden="true" focusable="false"></svg></div>',
+    '<table id="boss-table" class="visually-hidden" aria-labelledby="boss-title"></table>',
+    '</section>',
+    '<section id="tally" aria-labelledby="tally-title">',
+    '<h2 id="tally-title">Raids and max battles by region</h2>',
+    `<p class="counts-note">${TRAIN_STOPS_COUNT}</p>`,
+    '<div id="tally-periods" class="periods" role="group" aria-label="Period"></div>',
+    '<p id="tally-status" role="status"></p>',
+    '<table id="tally-table" hidden>' +
+      '<thead><tr><th scope="col">#</th><th scope="col">Region</th>' +
+      '<th scope="col" class="count">Raids</th><th scope="col" class="count">Max battles</th>' +
+      '</tr></thead><tbody id="tally-rows"></tbody><tfoot id="tally-foot"></tfoot></table>',
+    '<p id="tally-quiet" hidden></p>',
+    '</section>',
+    // The boards (plan 8H-6, design Part D): every board of a period, filled by the script from
+    // `/api/stats/boards`; the member's own numbers on "Your history".
+    '<section id="boards" aria-labelledby="boards-title">',
+    '<h2 id="boards-title">Boards</h2>',
+    '<p>The boards show who did the most, counting only what others confirmed, among members who turned the boards on in /settings on Discord.</p>',
+    `<p>They also show the most wanted Pokémon, the bosses whose raids were sent to the most members, and the tasks reported most. Your own numbers are on <a href="/s/${escapeHtml(data.guildId)}/me">Your history</a>.</p>`,
+    '<div id="boards-periods" class="periods" role="group" aria-label="Period"></div>',
+    '<p id="boards-status" role="status"></p>',
+    '<div id="boards-list" class="boards"></div>',
+    '</section>',
+    '<section id="activity" aria-labelledby="activity-title">',
+    '<h2 id="activity-title">Activity on the map</h2>',
+    "<p>Where raids and max battles took place, month by month: the map's Activity layer in " +
+      `History. <a href="${map}">Open the map</a>, turn on Activity and choose History.</p>`,
+    '</section>',
+    '</main>',
+    '<noscript><p>The history page needs JavaScript.</p></noscript>',
+    '</body>',
+    '</html>',
+  ].join('\n');
+}
+
+/**
+ * The "Your history" page `/s/<guild>/me` (plan 8H-6, design Part E): the member's own numbers, as
+ * `/stats me` counts them, with a year to choose and a chart of their months, drawn by the
+ * history page's own script and style (`data-page="me"`) from `/api/stats/me`. Public as the
+ * history page is; its data is the member's alone.
+ */
+export function mePage(data: HistoryPageData, assets: AssetManifest): string {
+  const guild = escapeHtml(data.guildId);
+  return [
+    ...head('Professor Pine: your history', { ...assets.history, theme: assets.map.theme }),
+    `<body data-guild="${guild}" data-login="${data.login}" data-page="me">`,
+    '<header id="header"><span class="title"><span class="title-first">Professor </span>Pine</span>',
+    `<a id="map-link" class="map-link" href="/s/${guild}/map">Map</a>`,
+    '<span id="account"></span></header>',
+    '<p id="notice" role="status" hidden></p>',
+    '<main id="history">',
+    '<h1 id="me-title">Your history</h1>',
+    '<p id="me-year-line"><label for="me-year">Year</label> <select id="me-year"></select></p>',
+    '<p id="me-status" role="status"></p>',
+    '<dl id="me-list" class="me-list" hidden></dl>',
+    '<section id="me-months" aria-labelledby="me-chart-title" hidden>',
+    '<h2 id="me-chart-title">By month</h2>',
+    '<p class="legend"><span class="key came">What you came to</span> ' +
+      '<span class="key reports">Reports at stops that counted</span></p>',
+    // The chart for the eye; its numbers for a screen reader in the table under it (B1).
+    '<div class="chart"><svg id="me-chart" aria-hidden="true" focusable="false"></svg></div>',
+    '<table id="me-table" class="visually-hidden" aria-labelledby="me-chart-title"></table>',
+    '</section>',
+    `<p><a href="/s/${guild}/history">History</a> of this server.</p>`,
+    '</main>',
+    '<noscript><p>This page needs JavaScript.</p></noscript>',
+    '</body>',
+    '</html>',
+  ].join('\n');
+}

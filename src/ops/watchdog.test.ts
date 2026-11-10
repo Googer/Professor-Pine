@@ -1,0 +1,745 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { composeLabels, FakeDockerApi } from '../../test/support/fake-docker.js';
+import { FakeAlertRest } from '../../test/support/fake-rest.js';
+import { createTestLogger } from '../../test/support/test-logger.js';
+import type { BackupsOff, BackupStatus } from './backup-status.js';
+import { MemoryStamps, OwnerAlerts } from './owner-alerts.js';
+import { FileWatchdogState, MemoryWatchdogState, Watchdog, watchdogConfig } from './watchdog.js';
+
+const START = Date.UTC(2026, 9, 16, 12, 0);
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const OWNER = '223456789012345678';
+
+function watchdogWith(
+  options: {
+    backup?: BackupStatus | BackupsOff;
+    backupService?: boolean;
+    state?: MemoryWatchdogState;
+  } = {},
+) {
+  const docker = new FakeDockerApi();
+  const rest = new FakeAlertRest();
+  const { log, entries } = createTestLogger();
+  const clock = { now: START };
+  const backup: { status: BackupStatus | BackupsOff | undefined } = { status: options.backup };
+  const alerts = new OwnerAlerts({
+    rest,
+    ownerId: OWNER,
+    log,
+    stamps: new MemoryStamps(),
+    minIntervalMs: 0,
+    now: () => clock.now,
+  });
+  const watchdog = new Watchdog({
+    docker,
+    alerts,
+    log,
+    project: 'pine',
+    unhealthyMs: 5 * MINUTE,
+    alertMs: 15 * MINUTE,
+    gatewayRestartMs: 60 * MINUTE,
+    restartLimit: 3,
+    restartWindowMs: 30 * MINUTE,
+    backup: { read: () => backup.status, maxAgeMs: 26 * HOUR },
+    state: options.state ?? new MemoryWatchdogState(),
+    now: () => clock.now,
+  });
+  const pine = docker.add({ id: 'pine-1', labels: composeLabels('pine', 'pine') });
+  if (options.backupService ?? true) {
+    docker.add({ id: 'backup-1', labels: composeLabels('pine', 'backup'), health: 'none' });
+  }
+  return { docker, rest, entries, clock, watchdog, pine, backup };
+}
+
+describe('Watchdog: an unhealthy bot', () => {
+  it('leaves a healthy bot alone', async () => {
+    const { docker, rest, watchdog, clock } = watchdogWith();
+
+    await watchdog.tick();
+    clock.now += HOUR;
+    await watchdog.tick();
+
+    expect(docker.restarted).toEqual([]);
+    expect(rest.messages()).toEqual([]);
+  });
+
+  it('restarts the bot once it has been unhealthy for the time allowed, and tells the owner', async () => {
+    const { docker, rest, watchdog, clock, pine } = watchdogWith();
+    pine.health = 'unhealthy';
+    pine.healthOutput =
+      'stale: the last heartbeat is 2 minutes old: the bot is stuck or not running\n';
+
+    await watchdog.tick();
+    clock.now += 4 * MINUTE;
+    await watchdog.tick();
+    expect(docker.restarted).toEqual([]);
+
+    clock.now += MINUTE;
+    await watchdog.tick();
+    expect(docker.restarted).toEqual(['pine-1']);
+    expect(rest.messages()).toEqual([
+      'Professor Pine was unhealthy for 5 minutes (stale: the last heartbeat is 2 minutes old: ' +
+        'the bot is stuck or not running); the watchdog restarted it.',
+    ]);
+  });
+
+  it('only tells the owner, once and later, of what a restart would not mend', async () => {
+    for (const line of [
+      'database: the database did not answer 20 seconds ago: connect ECONNREFUSED',
+      'slow-start: still starting after 31 minutes',
+    ]) {
+      const { docker, rest, watchdog, clock, pine } = watchdogWith();
+      pine.health = 'unhealthy';
+      pine.healthOutput = `${line}\n`;
+
+      for (let minutes = 0; minutes <= 40; minutes += 5) {
+        await watchdog.tick();
+        if (minutes === 10) expect(rest.messages()).toEqual([]);
+        clock.now += 5 * MINUTE;
+      }
+
+      expect(docker.restarted).toEqual([]);
+      expect(rest.messages()).toEqual([
+        `Professor Pine has been unhealthy for 15 minutes (${line}); a restart would not mend ` +
+          'that, so the watchdog leaves it running.',
+      ]);
+    }
+  });
+
+  it('tells the owner when Discord stays away, and restarts the bot after an hour of it', async () => {
+    const { docker, rest, watchdog, clock, pine } = watchdogWith();
+    pine.health = 'unhealthy';
+    const line = 'gateway: not connected to Discord for 6 minutes';
+    pine.healthOutput = `${line}\n`;
+
+    for (let minutes = 0; minutes < 60; minutes += 5) {
+      await watchdog.tick();
+      clock.now += 5 * MINUTE;
+    }
+    expect(docker.restarted).toEqual([]);
+    expect(rest.messages()).toEqual([
+      `Professor Pine has been unhealthy for 15 minutes (${line}); the watchdog restarts it ` +
+        'if that lasts 60 minutes.',
+    ]);
+
+    await watchdog.tick();
+    expect(docker.restarted).toEqual(['pine-1']);
+    expect(rest.messages().at(-1)).toBe(
+      `Professor Pine was unhealthy for 60 minutes (${line}); the watchdog restarted it.`,
+    );
+  });
+
+  it('counts the time to a restart from when the bot became stuck, not from an earlier spell of another kind', async () => {
+    const { docker, rest, watchdog, clock, pine } = watchdogWith();
+    pine.health = 'unhealthy';
+    pine.healthOutput = 'gateway: not connected to Discord for 6 minutes\n';
+    await watchdog.tick();
+    clock.now += 10 * MINUTE;
+    await watchdog.tick();
+
+    pine.healthOutput =
+      'stale: the last heartbeat is 2 minutes old: the bot is stuck or not running\n';
+    await watchdog.tick();
+    expect(docker.restarted).toEqual([]);
+    clock.now += 4 * MINUTE;
+    await watchdog.tick();
+    expect(docker.restarted).toEqual([]);
+
+    clock.now += MINUTE;
+    await watchdog.tick();
+    expect(docker.restarted).toEqual(['pine-1']);
+    expect(rest.messages().at(-1)).toMatch(/^Professor Pine was unhealthy for 5 minutes \(stale:/);
+  });
+
+  it('never restarts a bot that is starting, however long it takes', async () => {
+    const { docker, rest, watchdog, clock, pine } = watchdogWith();
+    pine.health = 'healthy';
+    pine.healthOutput = 'starting: starting for 25 minutes, the database answered 3 seconds ago\n';
+
+    for (let i = 0; i < 6; i++) {
+      await watchdog.tick();
+      clock.now += 5 * MINUTE;
+    }
+
+    expect(docker.restarted).toEqual([]);
+    expect(rest.messages()).toEqual([]);
+  });
+
+  it('counts the time anew after the bot was healthy in between', async () => {
+    const { docker, watchdog, clock, pine } = watchdogWith();
+    pine.health = 'unhealthy';
+    await watchdog.tick();
+    clock.now += 3 * MINUTE;
+    pine.health = 'healthy';
+    await watchdog.tick();
+    clock.now += MINUTE;
+    pine.health = 'unhealthy';
+    await watchdog.tick();
+    clock.now += 4 * MINUTE;
+    await watchdog.tick();
+
+    expect(docker.restarted).toEqual([]);
+  });
+
+  it('tells the owner when the restart fails', async () => {
+    const { docker, rest, watchdog, clock, pine, entries } = watchdogWith();
+    pine.health = 'unhealthy';
+    docker.failRestart = new Error('Cannot restart container pine-1: permission denied');
+
+    await watchdog.tick();
+    clock.now += 5 * MINUTE;
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([
+      'Professor Pine was unhealthy for 5 minutes (no health output); the watchdog could not ' +
+        'restart it: Cannot restart container pine-1: permission denied',
+    ]);
+    expect(entries.some((entry) => entry.msg === 'could not restart the bot')).toBe(true);
+  });
+
+  it('leaves a stopped bot to Docker and touches no other container', async () => {
+    const { docker, watchdog, clock, pine } = watchdogWith();
+    pine.running = false;
+    pine.health = 'unhealthy';
+    docker.add({ id: 'mysql-1', labels: composeLabels('pine', 'mysql'), health: 'unhealthy' });
+    docker.add({ id: 'other-pine', labels: composeLabels('staging', 'pine'), health: 'unhealthy' });
+    docker.add({
+      id: 'pine-run',
+      labels: { ...composeLabels('pine', 'pine'), 'com.docker.compose.oneoff': 'True' },
+      health: 'unhealthy',
+    });
+
+    await watchdog.tick();
+    clock.now += HOUR;
+    await watchdog.tick();
+
+    expect(docker.restarted).toEqual([]);
+  });
+
+  it('does nothing while the stack is down, and survives an Engine that does not answer', async () => {
+    const { docker, rest, watchdog, entries } = watchdogWith();
+    docker.containers.length = 0;
+    await watchdog.tick();
+
+    docker.failWith = new Error('connect ENOENT /var/run/docker.sock');
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([]);
+    expect(entries.some((entry) => entry.msg === 'could not ask Docker about the bot')).toBe(true);
+  });
+});
+
+describe('Watchdog: a bot that keeps restarting', () => {
+  it('tells the owner when the bot restarted as often as allowed within the window', async () => {
+    const { rest, watchdog, clock, pine } = watchdogWith();
+    await watchdog.tick();
+    for (const count of [1, 2, 3]) {
+      clock.now += 5 * MINUTE;
+      pine.restartCount = count;
+      pine.exitCode = 1;
+      await watchdog.tick();
+    }
+    clock.now += 5 * MINUTE;
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([
+      'Professor Pine restarted 3 times in the last 30 minutes (exit code 1 the last time). ' +
+        "'./pine logs pine' shows why.",
+    ]);
+  });
+
+  it('does not count restarts that lie further apart than the window', async () => {
+    const { rest, watchdog, clock, pine } = watchdogWith();
+    await watchdog.tick();
+    for (const count of [1, 2, 3]) {
+      clock.now += 20 * MINUTE;
+      pine.restartCount = count;
+      await watchdog.tick();
+    }
+
+    expect(rest.messages()).toEqual([]);
+  });
+
+  it('counts afresh for a new container', async () => {
+    const { docker, rest, watchdog, clock, pine } = watchdogWith();
+    pine.restartCount = 7;
+    await watchdog.tick();
+    docker.containers.length = 0;
+    docker.add({ id: 'pine-2', labels: composeLabels('pine', 'pine'), restartCount: 0 });
+    clock.now += MINUTE;
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([]);
+  });
+});
+
+describe('Watchdog: backups', () => {
+  it('tells the owner of a failed backup once', async () => {
+    const { rest, watchdog, clock, backup } = watchdogWith();
+    await watchdog.tick();
+    backup.status = {
+      finishedAt: START + MINUTE,
+      ok: false,
+      reason: 'the dump did not load into the scratch server',
+      lastOkAt: START - 23 * HOUR,
+    };
+    clock.now += 2 * MINUTE;
+    await watchdog.tick();
+    clock.now += MINUTE;
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([
+      `The backup of <t:${(START + MINUTE) / 1000}:f> failed: the dump did not load into the ` +
+        "scratch server. './pine logs backup' shows more.",
+    ]);
+  });
+
+  // What a good backup warns of (stored programs the dump leaves out, old dumps it could not
+  // delete) is only in its status, which nobody reads unasked.
+  it('tells the owner what a good backup warns of, once while the warning stays the same', async () => {
+    const { rest, watchdog, clock, backup } = watchdogWith();
+    const warning = 'the database has 1 trigger, which no dump holds (Professor Pine makes none)';
+    const good = (finishedAt: number, warned = true): BackupStatus => ({
+      finishedAt,
+      ok: true,
+      lastOkAt: finishedAt,
+      ...(warned ? { warning } : {}),
+    });
+    backup.status = good(START);
+    await watchdog.tick();
+    clock.now += MINUTE;
+    await watchdog.tick();
+    // The next night's backup warns of the same.
+    clock.now = START + 24 * HOUR + MINUTE;
+    backup.status = good(START + 24 * HOUR);
+    await watchdog.tick();
+
+    const told = (at: number) =>
+      `The backup of <t:${at / 1000}:f> was made, but ${warning}. './pine logs backup' shows more.`;
+    expect(rest.messages()).toEqual([told(START)]);
+
+    // A night without the warning, then one with it again: that is news.
+    clock.now = START + 48 * HOUR + MINUTE;
+    backup.status = good(START + 48 * HOUR, false);
+    await watchdog.tick();
+    clock.now = START + 72 * HOUR + MINUTE;
+    backup.status = good(START + 72 * HOUR);
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([told(START), told(START + 72 * HOUR)]);
+  });
+
+  // The list of old dumps that could not be deleted grows every night: a DM each night for that
+  // would teach the owner to ignore them. Told at once when its kind is new, else once a week.
+  it('tells a warning whose list grows every night once a week', async () => {
+    const { rest, watchdog, clock, backup } = watchdogWith();
+    const DAY = 24 * HOUR;
+    const dumps = (nights: number) =>
+      Array.from({ length: nights }, (_, night) => `pine-backup-202607${10 + night}.sql.gz`).join(
+        ' ',
+      );
+    const warnings: string[] = [];
+    const night = async (index: number, warning: string) => {
+      const finishedAt = START + index * DAY;
+      clock.now = finishedAt + MINUTE;
+      backup.status = { finishedAt, ok: true, lastOkAt: finishedAt, warning };
+      warnings[index] = warning;
+      await watchdog.tick();
+    };
+    const told = (index: number) =>
+      `The backup of <t:${(START + index * DAY) / 1000}:f> was made, but ${warnings[index]}. ` +
+      "'./pine logs backup' shows more.";
+
+    await night(0, `old dumps could not be deleted: ${dumps(1)}`);
+    await night(1, `old dumps could not be deleted: ${dumps(2)}`);
+    await night(2, `old dumps could not be deleted: ${dumps(3)}`);
+    expect(rest.messages()).toEqual([told(0)]);
+
+    for (let index = 3; index < 7; index += 1) {
+      await night(index, `old dumps could not be deleted: ${dumps(index + 1)}`);
+    }
+    expect(rest.messages()).toEqual([told(0)]);
+    // A week after it was told.
+    await night(7, `old dumps could not be deleted: ${dumps(8)}`);
+    expect(rest.messages()).toEqual([told(0), told(7)]);
+  });
+
+  it('tells at once of a second kind of warning that arrives beside one told', async () => {
+    const { rest, watchdog, clock, backup } = watchdogWith();
+    const DAY = 24 * HOUR;
+    const old = 'old dumps could not be deleted: pine-backup-20260710.sql.gz';
+    const both =
+      'old dumps could not be deleted: pine-backup-20260710.sql.gz pine-backup-20260711.sql.gz; ' +
+      'the database has 2 views, which its dumps hold with a definer that ' +
+      "'./pine restore' refuses (Professor Pine makes none)";
+    backup.status = { finishedAt: START, ok: true, lastOkAt: START, warning: old };
+    clock.now = START + MINUTE;
+    await watchdog.tick();
+    backup.status = { finishedAt: START + DAY, ok: true, lastOkAt: START + DAY, warning: both };
+    clock.now = START + DAY + MINUTE;
+    await watchdog.tick();
+    // The third night says the same again: nothing new.
+    backup.status = {
+      finishedAt: START + 2 * DAY,
+      ok: true,
+      lastOkAt: START + 2 * DAY,
+      warning: both.replace('2 views', '3 views'),
+    };
+    clock.now = START + 2 * DAY + MINUTE;
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([
+      `The backup of <t:${START / 1000}:f> was made, but ${old}. './pine logs backup' shows more.`,
+      `The backup of <t:${(START + DAY) / 1000}:f> was made, but ${both}. ` +
+        "'./pine logs backup' shows more.",
+    ]);
+  });
+
+  it('tells of a warning again when the first message did not go out, and not after its own restart', async () => {
+    const state = new MemoryWatchdogState();
+    const warned: BackupStatus = {
+      finishedAt: START - HOUR,
+      ok: true,
+      lastOkAt: START - HOUR,
+      warning: 'old dumps could not be deleted: pine-backup-20260701.sql.gz',
+    };
+    const first = watchdogWith({ backup: warned, state });
+    first.rest.failWith = new Error('getaddrinfo ENOTFOUND discord.com');
+    await first.watchdog.tick();
+    first.rest.failWith = undefined;
+    first.clock.now += MINUTE;
+    await first.watchdog.tick();
+    expect(first.rest.messages()).toEqual([
+      `The backup of <t:${(START - HOUR) / 1000}:f> was made, but old dumps could not be ` +
+        "deleted: pine-backup-20260701.sql.gz. './pine logs backup' shows more.",
+    ]);
+
+    const second = watchdogWith({ backup: warned, state });
+    await second.watchdog.tick();
+    expect(second.rest.messages()).toEqual([]);
+  });
+
+  it('remembers what it told across its own restarts', async () => {
+    const state = new MemoryWatchdogState();
+    const failed: BackupStatus = {
+      finishedAt: START - HOUR,
+      ok: false,
+      reason: 'disk full',
+      lastOkAt: START - 25 * HOUR,
+    };
+    const first = watchdogWith({ backup: failed, state });
+    await first.watchdog.tick();
+    expect(first.rest.messages()).toHaveLength(1);
+
+    const second = watchdogWith({ backup: failed, state });
+    await second.watchdog.tick();
+    second.clock.now += 2 * HOUR;
+    await second.watchdog.tick();
+
+    // The failure was told; that no backup succeeded for 26 hours is new.
+    expect(second.rest.messages()).toEqual([
+      `No backup has succeeded since <t:${(START - 25 * HOUR) / 1000}:f>. ` +
+        "'./pine logs backup' shows why.",
+    ]);
+  });
+
+  it('watches no backups where the stack has no backup service, and says so once', async () => {
+    const { rest, watchdog, clock, entries } = watchdogWith({ backupService: false });
+    await watchdog.tick();
+    clock.now += 27 * HOUR;
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([]);
+    expect(
+      entries.filter((entry) => entry.msg === 'no backup service: backups are not watched'),
+    ).toHaveLength(1);
+  });
+
+  it('watches no backups where they are switched off, and tells the owner so once', async () => {
+    const state = new MemoryWatchdogState();
+    const first = watchdogWith({ backup: { off: true }, state });
+    await first.watchdog.tick();
+    first.clock.now += 27 * HOUR;
+    await first.watchdog.tick();
+    // Its own restart does not tell it again.
+    const second = watchdogWith({ backup: { off: true }, state });
+    await second.watchdog.tick();
+
+    const told = 'Backups are off on this stack (BACKUP_DIR is blank): nothing is backed up.';
+    expect(first.rest.messages()).toEqual([told]);
+    expect(second.rest.messages()).toEqual([]);
+    expect(
+      first.entries.filter((entry) => entry.msg === 'backups are off: they are not watched'),
+    ).toHaveLength(1);
+  });
+
+  it('tells the owner that backups are off again when the first message did not go out', async () => {
+    const { rest, watchdog, clock } = watchdogWith({ backup: { off: true } });
+    rest.failWith = new Error('getaddrinfo ENOTFOUND discord.com');
+    await watchdog.tick();
+    rest.failWith = undefined;
+    clock.now += MINUTE;
+    await watchdog.tick();
+    clock.now += MINUTE;
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([
+      'Backups are off on this stack (BACKUP_DIR is blank): nothing is backed up.',
+    ]);
+  });
+
+  it('does not tell again of a failure older than a day it finds at its own start', async () => {
+    const { rest, watchdog } = watchdogWith({
+      backup: {
+        finishedAt: START - 2 * 24 * HOUR,
+        ok: false,
+        reason: 'disk full',
+        lastOkAt: START - HOUR,
+      },
+    });
+
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([]);
+  });
+
+  it('tells the owner when no backup has succeeded for too long, twice a day at most', async () => {
+    const { rest, watchdog, clock } = watchdogWith({
+      backup: { finishedAt: START - 2 * HOUR, ok: true, lastOkAt: START - 2 * HOUR },
+    });
+    await watchdog.tick();
+    clock.now += 24 * HOUR;
+    await watchdog.tick();
+    clock.now += HOUR;
+    await watchdog.tick();
+    clock.now += 12 * HOUR;
+    await watchdog.tick();
+
+    const since = `<t:${(START - 2 * HOUR) / 1000}:f>`;
+    const told = `No backup has succeeded since ${since}. './pine logs backup' shows why.`;
+    expect(rest.messages()).toEqual([told, told]);
+  });
+
+  it('tells the owner when no backup has run since it started', async () => {
+    const { rest, watchdog, clock } = watchdogWith();
+    await watchdog.tick();
+    clock.now += 27 * HOUR;
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([
+      `No backup has run since the watchdog started at <t:${START / 1000}:f>. ` +
+        "'./pine logs backup' shows why.",
+    ]);
+  });
+});
+
+describe('Watchdog: Docker out of its reach', () => {
+  const REFUSED = new Error('the Docker Engine answered 403 to GET /containers/json');
+  const AWAY = new Error('connect ECONNREFUSED docker-proxy:2375');
+  const told = (text: string) => text.includes('cannot reach Docker');
+
+  it.each([
+    ['refuses', REFUSED],
+    ['does not answer', AWAY],
+  ])('tells the owner once, after the alert time, when the proxy %s', async (_how, failure) => {
+    const { docker, rest, watchdog, clock } = watchdogWith({ backupService: false });
+    docker.failWith = failure;
+    await watchdog.tick();
+    clock.now += 15 * MINUTE - 1;
+    await watchdog.tick();
+    expect(rest.messages()).toEqual([]);
+    clock.now += 1;
+    await watchdog.tick();
+    expect(rest.messages()).toEqual([
+      `The watchdog cannot reach Docker, for 15 minutes now (${failure.message}), so it cannot ` +
+        "restart a stuck bot. './pine logs docker-proxy' shows why.",
+    ]);
+    clock.now += 2 * HOUR;
+    await watchdog.tick();
+    expect(rest.messages()).toHaveLength(1);
+  });
+
+  it('counts a spell only while the asks fail in a row: a good ask clears it', async () => {
+    const { docker, rest, watchdog, clock } = watchdogWith({ backupService: false });
+    docker.failWith = AWAY;
+    await watchdog.tick();
+    clock.now += 14 * MINUTE;
+    await watchdog.tick();
+    docker.failWith = undefined;
+    await watchdog.tick();
+    docker.failWith = AWAY;
+    clock.now += 14 * MINUTE;
+    await watchdog.tick();
+    clock.now += 14 * MINUTE;
+    await watchdog.tick();
+    expect(rest.messages()).toEqual([]);
+  });
+
+  it('tells again of a new spell after a good ask', async () => {
+    const { docker, rest, watchdog, clock } = watchdogWith({ backupService: false });
+    docker.failWith = AWAY;
+    await watchdog.tick();
+    clock.now += 15 * MINUTE;
+    await watchdog.tick();
+    expect(rest.messages().filter(told)).toHaveLength(1);
+    docker.failWith = undefined;
+    await watchdog.tick();
+    docker.failWith = AWAY;
+    clock.now += HOUR;
+    await watchdog.tick();
+    clock.now += 15 * MINUTE;
+    await watchdog.tick();
+    expect(rest.messages().filter(told)).toHaveLength(2);
+  });
+
+  it('tries again when the message did not go out', async () => {
+    const { docker, rest, watchdog, clock } = watchdogWith({ backupService: false });
+    docker.failWith = AWAY;
+    await watchdog.tick();
+    clock.now += 15 * MINUTE;
+    rest.failWith = new Error('Discord is away');
+    await watchdog.tick();
+    expect(rest.messages()).toEqual([]);
+    rest.failWith = undefined;
+    clock.now += MINUTE;
+    await watchdog.tick();
+    expect(rest.messages().filter(told)).toHaveLength(1);
+  });
+
+  it('keeps the spell and what it told across its own restarts', async () => {
+    const state = new MemoryWatchdogState();
+    const first = watchdogWith({ backupService: false, state });
+    first.docker.failWith = AWAY;
+    await first.watchdog.tick();
+    first.clock.now += 10 * MINUTE;
+    await first.watchdog.tick();
+
+    const second = watchdogWith({ backupService: false, state });
+    second.docker.failWith = AWAY;
+    second.clock.now = first.clock.now + 5 * MINUTE;
+    await second.watchdog.tick();
+    expect(second.rest.messages().filter(told)).toHaveLength(1);
+
+    const third = watchdogWith({ backupService: false, state });
+    third.docker.failWith = AWAY;
+    third.clock.now = second.clock.now + 5 * MINUTE;
+    await third.watchdog.tick();
+    expect(third.rest.messages()).toEqual([]);
+  });
+
+  it('still tells the owner when what it told cannot be kept', async () => {
+    const state = new MemoryWatchdogState();
+    state.write = () => undefined;
+    const { docker, rest, watchdog, clock } = watchdogWith({ backupService: false, state });
+    docker.failWith = AWAY;
+    await watchdog.tick();
+    clock.now += 15 * MINUTE;
+    await watchdog.tick();
+    expect(rest.messages().filter(told)).toHaveLength(1);
+    clock.now += HOUR;
+    await watchdog.tick();
+    expect(rest.messages().filter(told)).toHaveLength(1);
+  });
+});
+
+describe('FileWatchdogState', () => {
+  it('keeps a spell of Docker out of reach, and reads it back', () => {
+    const { log } = createTestLogger();
+    const file = path.join(mkdtempSync(path.join(tmpdir(), 'pine-state-')), 'state.json');
+    new FileWatchdogState(file, log).write({ dockerAway: { since: 5, told: true } });
+    expect(new FileWatchdogState(file, log).read()).toEqual({
+      dockerAway: { since: 5, told: true },
+    });
+  });
+
+  it('keeps the warning of a backup it told, and reads it back', () => {
+    const { log } = createTestLogger();
+    const file = path.join(mkdtempSync(path.join(tmpdir(), 'pine-state-')), 'state.json');
+    const toldWarning = { kinds: ['old dumps could not be deleted'], at: START };
+    new FileWatchdogState(file, log).write({ toldWarning });
+    expect(new FileWatchdogState(file, log).read()).toEqual({ toldWarning });
+  });
+
+  // A watchdog before plan 8Z-2's fix kept the warning's text: forgotten, at most one DM again.
+  it('forgets a warning kept as its text', () => {
+    const { log } = createTestLogger();
+    const file = path.join(mkdtempSync(path.join(tmpdir(), 'pine-state-')), 'state.json');
+    writeFileSync(file, JSON.stringify({ toldOff: true, toldWarning: 'old dumps could not be' }));
+    expect(new FileWatchdogState(file, log).read()).toEqual({ toldOff: true });
+  });
+
+  it('says so in the log when it cannot write', () => {
+    const { log, entries } = createTestLogger();
+    const folder = mkdtempSync(path.join(tmpdir(), 'pine-state-'));
+    writeFileSync(path.join(folder, 'a-file'), '');
+    new FileWatchdogState(path.join(folder, 'a-file', 'state.json'), log).write({ toldOff: true });
+    expect(entries.map((entry) => entry.msg)).toContain('could not keep what the watchdog told');
+  });
+});
+
+describe('the watchdog asks the Engine by name (plan 8Z: its proxy lets through no other)', () => {
+  it("inspects and restarts the bot by the name from the list, never by the Engine's id", async () => {
+    const { docker, pine, clock, watchdog } = watchdogWith();
+    pine.name = 'pine-pine-1';
+    pine.id = 'f00dcafe';
+    await watchdog.tick();
+    pine.running = true;
+    pine.health = 'unhealthy';
+    pine.healthOutput = 'stale: the last heartbeat is 9 minutes old';
+    await watchdog.tick();
+    clock.now += 6 * MINUTE;
+    await watchdog.tick();
+    expect(docker.inspected).toContain('pine-pine-1');
+    expect(docker.inspected).not.toContain('f00dcafe');
+    expect(docker.restarted).toEqual(['pine-pine-1']);
+  });
+});
+
+describe('watchdogConfig', () => {
+  it('has a default for everything', () => {
+    expect(watchdogConfig({})).toEqual({
+      engine: { host: 'docker-proxy', port: 2375 },
+      project: undefined,
+      intervalMs: 30_000,
+      unhealthyMs: 5 * MINUTE,
+      alertMs: 15 * MINUTE,
+      // Matt (2026-10-16): a bot off Discord while raids go on is a problem; restart it soon.
+      gatewayRestartMs: 5 * MINUTE,
+      restartLimit: 3,
+      restartWindowMs: 30 * MINUTE,
+      backupStatusFile: '/ops/backup-status.json',
+      backupMaxAgeMs: 26 * HOUR,
+    });
+  });
+
+  it('reads the environment, blank as unset, and refuses what makes no sense', () => {
+    expect(
+      watchdogConfig({
+        WATCHDOG_UNHEALTHY_MINUTES: '10',
+        WATCHDOG_RESTARTS: '',
+        WATCHDOG_PROJECT: 'staging',
+        WATCHDOG_BACKUP_HOURS: '50',
+      }),
+    ).toMatchObject({
+      unhealthyMs: 10 * MINUTE,
+      restartLimit: 3,
+      project: 'staging',
+      backupMaxAgeMs: 50 * HOUR,
+    });
+    expect(() => watchdogConfig({ WATCHDOG_UNHEALTHY_MINUTES: 'soon' })).toThrow(
+      /WATCHDOG_UNHEALTHY_MINUTES/,
+    );
+  });
+
+  it('reads where the proxy is, and refuses what is no host and port', () => {
+    expect(watchdogConfig({ DOCKER_PROXY: 'proxy.internal:1234' }).engine).toEqual({
+      host: 'proxy.internal',
+      port: 1234,
+    });
+    expect(() => watchdogConfig({ DOCKER_PROXY: '/var/run/docker.sock' })).toThrow(/DOCKER_PROXY/);
+  });
+});

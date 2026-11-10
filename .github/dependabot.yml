@@ -1,0 +1,29 @@
+# Dependabot keeps what is pinned by hand current, by pull request against main-dev (the one
+# kind of pull request the project takes; Matt, 2026-11-10): the two images of compose.yaml that
+# are pinned by version and digest, and the actions of the workflows, pinned by commit.
+#
+# GitHub reads this file from the repository's default branch only, which is main-dev;
+# `target-branch` names main-dev all the same, so that the pull requests stay there should the
+# default branch ever change (master is the release branch, never a target).
+#
+# Not here, on purpose: MySQL and Node follow their LTS by hand (CLAUDE.md, "Dependencies stay
+# current"), so `mysql` is ignored and the Dockerfile, whose only image is `node`, has no entry;
+# the npm packages are updated by hand as well (`npm outdated`).
+version: 2
+updates:
+  # compose.yaml: wollomatic/socket-proxy and cloudflare/cloudflared, each as
+  # `<version>@sha256:<digest>`; a bump changes both.
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: main-dev
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: mysql
+
+  # .github/workflows: each action at a commit, its version in the comment beside it.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: main-dev
+    schedule:
+      interval: weekly

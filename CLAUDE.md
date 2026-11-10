@@ -1,0 +1,209 @@
+# Professor Pine
+
+Discord bot for organizing Pokémon Go raids, in TypeScript on discord.js v14: one forum post per raid, buttons instead of reactions, slash commands, no privileged intents required. The old JavaScript bot lives only on the branch `legacy`; for its behavior, read it there (`git show legacy:app/party-manager.js`).
+
+## Hard rules
+
+- **Push what lands on `main-dev`** (Matt, 2026-11-01), never force. `master` is the release branch: it gets `main-dev` by a `--no-ff` merge and a tag (`v2.0.0`, 2026-11-10) at a release, pushed only when Matt asks, and production follows it. `legacy` is the old bot with its intents patch: leave it alone. No PRs unless Matt asks, but for Dependabot's own against `main-dev` (new versions of the pinned images and actions, `.github/dependabot.yml`; Matt, 2026-11-10). Older docs call `main-dev` `typescript-migration`.
+- **Nothing of the Wayfarer export tool reaches this repository.** Its code, its docs and how it works live only in the private `Googer/Professor-Pine-Wayfarer-Export` (local `../Professor-Pine-Wayfarer-Export`). Pine keeps the export format and geometry (`packages/wayspot-core`) and the page that hands the built file out. The history before 2026-11-01 holds the tool: it is only in the git-ignored `var/archive/local-branches-2026-11-01.bundle`; never push it, and start from the current `main-dev`.
+- **Never contact Discord unasked.** Do not start the bot (`npm start`, `npm run dev`, or in the Docker stack `./pine up`, `./pine restart`, `./pine update`, `./pine restore` without `--no-start`) or run `npm run deploy-commands` / `./pine deploy-commands` or `npm run emoji:upload` / `./pine emoji-upload` (its dry run reads the application's emoji; `--apply` uploads) or `npm run cutover:check` / `./pine cutover-check` (reads Discord's REST API with the token) unless Matt asks; there is a live production bot.
+- **Never open `.env`** (it holds the bot token): check a value only with a command that reports set or empty, and change one only with a script that prints no values.
+- **Database changes are additive only.** `knex_migrations` is read, never written; Kysely tracks its own migrations in `kysely_migration`.
+
+## Where things are
+
+| What | Where |
+|---|---|
+| Design spec (authority; phases 0–9) | `docs/superpowers/specs/2026-10-09-typescript-discordjs-migration-design.md` |
+| Per-phase implementation plans and staging checklists | `docs/superpowers/plans/` |
+| What earlier phases left open, by the phase that should pick it up; read before planning a phase, add to it when one ends | `docs/superpowers/plans/phase-0-follow-ups.md` |
+| What each phase built, as CLAUDE.md said it until 2026-11-01 | `docs/superpowers/status-history.md` |
+| Gantt chart of every phase and task, with status | `docs/superpowers/gantt.html` |
+| Execution ledger for a plan in progress (git-ignored) | `.superpowers/sdd/<plan-name>/progress.md` |
+| Ledgers, briefs and stage scripts of removed worktrees (git-ignored, in the main checkout) | `var/archive/` |
+| The commits older docs name by hash, and every branch removed on 2026-11-01 (git-ignored; `git fetch <bundle> <branch>`) | `var/archive/local-branches-2026-11-01.bundle` |
+| Conventions of each subsystem (see "Area index") | `docs/architecture/` |
+| Setting up the web pages (settings, OAuth redirect, tunnel, Google key) | `docs/web-setup.md` |
+| Guides for admins: moving a legacy instance, starting a new one, a macOS host | `docs/guides/` |
+| The cutover: design, runbook | `docs/superpowers/specs/2026-10-16-cutover-docker-history-design.md`, `docs/superpowers/plans/2026-10-16-phase-8c-cutover-runbook.md` |
+| Project subagents: `pine-prototyper` (designs code), `pine-transcriber` (applies briefs), `pine-reviewer` (reviews) | `.claude/agents/` |
+| The bot | `src/`, `test/support/`, `test/fixtures/`, `scripts/` |
+| The Wayspot export format, S2 cells and the geometry, an npm workspace (`@pine/wayspot-core/<module>`, one subpath per module) | `packages/wayspot-core/` |
+| The web map's page (browser code, its own tsconfig, bundled to `dist/web/assets/`) | `src/web/client/` |
+| Raw game master and text file for rebuilding fixtures (git-ignored) | `var/game-data-source/` |
+
+## Status
+
+Every phase up to the security pass 8Z and the fixes of the second audit (plan 8Z-2, 2026-11-10: follow-ups, "From plan 8Z-2"; its staging is not run but for the stack on the dev instance) is built and merged. **Pittsburgh cut over on the night of 2026-11-09**: the production bot runs on the Air's `~/professor-pine` stack (`ssh <account>@<host>`, `cd ~/professor-pine && ./pine …`); legacy Pine at the office is stopped, its service on manual start. Every `./pine` command there that contacts Discord is the live production bot: Matt's go-ahead first.
+
+- **Version 2.0.0 was released on 2026-11-10** (`master`, tag `v2.0.0`); `main-dev` goes on as `2.1.0-dev`. Production's clone moves from `main-dev` to `master` with its next update, on Matt's go-ahead (follow-ups, "The release of v2.0.0", step 4).
+- **Not announced yet** (Matt decides when); then `/admin tutorial` in `#raid-bot-tutorial`. What is left of the night: follow-ups, "The cutover".
+- **8Z's staging** ran on 2026-11-01/02 on the Air's dev stack: nearly every step passes, one Minor finding and a few steps are left (follow-ups, "From the staging run of 8Z").
+
+Steps of earlier stagings still unrun (third account, Matt's phone) and rulings for Matt are in the follow-ups file, under "From the staging run of …" and "From Phase …". Manage… on Discord for raids and meetups was built on 2026-11-07 (the map's forms as dialogs; staging not run yet).
+
+## How the work is done
+
+Each phase gets its own plan, written from the spec and executed task by task (superpowers subagent-driven development), in a worktree of its own. A plan is prototyped first on a throwaway worktree (one commit per task); Opus reviewers go through the prototype before the plan is written; the plan's code is generated from the reviewed prototype; implementers transcribe it, and after each task the controller checks that the branch equals the prototype commit (`git diff <proto sha> HEAD -- src test` is empty). When resuming, read the ledger and `git log` first: tasks with a `complete` line are done.
+
+**Checks.** Inside a plan or a prototype's fix round, a commit needs only the typecheck, the test files it adds or changes and those its change could break. The full `npm run check`, the build and the database suite run once on the tip, after the last fix wave. Never run two full suites at once: `npm run check`, `test`, `test:unit` and `test:db` take a machine-wide lock (`scripts/suite-lock/`), so a second suite waits. Run suites only through those scripts, never `npx vitest run` without files. Unit and database files share a module graph per worker (`isolate: false`): a test leaves no global state behind, and a file that mocks a module is `*.isolated.test.ts` (`testing.md`, "How the suites run").
+
+**Compact between phases.** At every phase or sub-plan boundary, bring the ledger, the follow-ups file, the status above, the Gantt chart and memory up to date, then stop and tell Matt it is the moment to run `/compact` (or start a fresh session), with a short "where we are / what is next". Do not start the next plan in the same turn.
+
+**Keep the Gantt chart current, task by task.** The page is `docs/superpowers/gantt.html`; its data is `docs/superpowers/gantt-data.js` (JSON after `window.GANTT = `), changed with `npm run gantt` (`scripts/gantt/update.ts`), never by editing the page. Commit the data file with the work it describes or right after it. A row without dates is drawn right of the now line, so a done task must be dated. New rows are added to the JSON by hand or by a scratch script; ids are `<plan>.<n>`, and a sub-plan's name starts with its number (`2E-2 …`).
+
+- `npm run gantt -- done <task id> <commit>` right after each task's commit; `-- status <id> progress` when a task starts;
+- `-- planning <plan id> <commit before> [<plan's commit>]` while and after a plan is prototyped and written;
+- `-- proto-review <plan id> <first prototype tip> <last prototype tip>` for the prototype's review;
+- `-- status <plan id> review` during the whole-branch review; `-- review <plan id> <last task's commit> <last fix commit>` when a plan closes (it also marks the plan done).
+
+## The dev instance
+
+Every contact with Discord needs Matt's go-ahead. Staging uses the test application "Professor Pine (Dev instance)" (registered globally only: deploy with `--global`) and its test server (`TEST_GUILD_ID` in `.env`). Staging tools are in the git-ignored `var/stage/`.
+
+**It runs on the Air** (`docs/guides/macos-host.md`), so that testers do not depend on the laptop: the stack `pine-dev` in a clone of its own, `~/professor-pine-dev` (`var/dev/.env`, `var/dev/pine-settings.json`, `~/pine-dev.sh <./pine command>`), on `main-dev`, with its database, Discord login and the tunnel `dev.profpine.com`, `http://pine:8080`.
+
+To stage from the laptop, first `sh ~/pine-dev.sh down` on the Air (two bots on one token take each other's sessions), copy its database back to the local container `pine-dev-mysql`, and set the tunnel's route back to `http://127.0.0.1:8080`; the laptop's database is otherwise out of date. Matt starts the bot in cmd with `set SETTINGS_PATH=var/stage/settings.json&& node --env-file=.env --conditions=pine-source --import tsx src/index.ts > var\stage\logs\bot-N.log 2>&1`, not `npx tsx` (through npx the redirected "Terminate batch job (Y/N)?" lands in the log unseen, and the bot can end mid-shutdown). One Ctrl+C stops it. The global deploy also needs the stage settings: `set SETTINGS_PATH=var/stage/settings.json&& npm run deploy-commands -- --global` (without them the web commands are dropped).
+
+## Commands
+
+```bash
+npm run check          # lint + format:check + typecheck + unit tests; must be green before every commit
+npm run test:db        # *.db.test.ts against MySQL in Docker (Testcontainers); about 1.5 minutes
+npm run build          # compile to dist/, then build the web map's page (web:build)
+npm run web:build      # bundle the web map's page (src/web/client/) into dist/web/assets/ and dist/web/assets.json
+npm run db:codegen     # regenerate src/db/types.ts (add `-- --verify` to check it is current)
+npm run fixtures:game-data   # rebuild the game-data test fixtures (add -- --download for a newer game master)
+npm run raid-bosses:check    # download the raid boss feed and print the list Pine makes of it (writes nothing)
+npm run pvpivs:check         # compare /rank's link names with pvpivs.com's own list (writes nothing)
+npm run role-auth:export     # print the legacy role authorization per server, mapped to the new commands (reads only; --json)
+npm run emoji:upload         # upload the icons the bot's application lacks as its emoji (a dry run; --apply uploads)
+npm run settings:convert -- <legacy data folder> [--out <dir>] [--force]   # the settings converter on the checkout
+npm run cutover:check  # whether the installation is ready for the cutover (reads Discord's REST API): only when Matt asks
+npm run migrate        # run Kysely migrations against the configured database
+npm run history:import -- <legacy parties folder> [--server <id>]   # import the legacy parties/ folder into the party history (records without member ids; with LEGACY_INDEX_DIR set it also rebuilds the member index there, which /settings' "Add my old-bot history" reads; safe to run again)
+npm run activity:rebuild [-- --server <id>]   # rebuild the web map's activity heatmap and the raids per day (big days, the history page) from the party history (derived; safe to run again, also while the bot runs)
+npm run gyms:seed -- <csv> --server <id> [--apply]    # mark sponsored gyms "not in Wayfarer", adding those not there; a dry run without --apply; safe to run again
+npm run stops:seed -- <csv> --server <id> [--apply]   # add stops of Pine's own from a file; a dry run without --apply; safe to run again
+npm run ocr:check -- <folder> [--labels <file>] [--baseline <file>] [--write-baseline <file>] [--bosses <file>] [--write-bosses <file>] [--device cpu|cuda|directml] [--threads n] [--priority low|normal]   # read screenshots with the real models
+npm run ocr:review -- <folder> [--show-text]   # triage of a review folder (their texts and ids only with --show-text)
+```
+
+The Docker stack (`compose.yaml`; a host needs only Docker and git) is run with `./pine`, never with Node on the host. `./pine help` lists its commands and `operations.md` explains them. Those that contact Discord are named in the hard rules; `down`, `logs`, `status`, `migrate`, `backup`, `restore <dump> --no-start`, `shell`, `import-history`, `rebuild-activity`, `seed-gyms`, `seed-stops`, `role-auth-export` do not. `convert-settings` reads a legacy installation's private settings: Matt runs it.
+
+Format the files you touch with `npx prettier --write <files>`; `format:check` is part of `check`.
+
+## Conventions
+
+These are the rules that hold in every area. Each subsystem's own conventions are in its file under `docs/architecture/` (see "Area index"); read that file before changing the subsystem.
+
+### Language and tests
+
+- Node 26, TypeScript 6.0.x (not 7: typescript-eslint requires `<6.1.0`), ESM only. Relative imports use the `.js` extension.
+- Dependencies stay current (Matt, 2026-10-16): a package added or updated is its latest stable release; Node and MySQL follow their current LTS (MySQL 9.7 in the stack and the tests since 2026-11-07; Node 26), images included. A version held back is held only for a stated reason, written where the pin is. `npm outdated` showing anything else is a follow-up to do, not to leave.
+- `strict` and `noUncheckedIndexedAccess` are on. No `any` without a line comment justifying it.
+- Tests are colocated: `*.test.ts` (unit, no Docker) and `*.db.test.ts` (needs Docker). Test against real MySQL and real pino loggers (`test/support/`) rather than mocks. Tests never use the network. Every helper and fake: `testing.md`.
+- Tests load `test/fixtures/settings.json` (`TEST_SETTINGS_PATH`), not `data/settings.json`.
+- Commit messages end with a `Co-Authored-By: Claude …` trailer.
+
+### Configuration and Discord
+
+- Secrets come from environment variables (`.env`, see `.env.example`), never from `data/` files. Blank values mean "unset".
+- Required intents are `Guilds`, `GuildMessages`, `DirectMessages`. `MessageContent` only when `settings.ocr.passive`; `GuildMembers` only when `settings.autoAssignRole`. Never `GuildPresences` or `GuildMessageReactions`.
+- Ephemeral replies use `flags: MessageFlags.Ephemeral`. Things the user did wrong are thrown as `UserError`; the router turns them into ephemeral replies.
+- Every message that is more than plain text is a components-v2 message (Matt, 2026-10-15), ephemeral answers included: one container from `src/render/v2.ts`, sent and edited through `discordPayload`, never an embed (`APIEmbed`, `EmbedBuilder`). Detail: `discord-framework.md`.
+- Mentions are off by default (`allowedMentions: { parse: [] }` on the client); a send that should ping must opt in with its own `allowedMentions`.
+- Component custom IDs are `<kind>:<id>:<action>[:<arg>...]`, at most 100 characters, built and parsed only through `src/discord/custom-id.ts`.
+- Every slash command is a `CommandModule` listed in `src/commands/index.ts` (the router and the deploy script read that list); another name is `alsoAs(command, name)`, a short form a command of its own with `formOf`; subcommands are built with `commandGroup` (`src/discord/command-group.ts`). Detail: `discord-framework.md`.
+- The router's order is guards, checks, throttle, deferral, `execute`; an unexpected error, or a `UserError` with `givesBack`, gives the counted use back (`said`: the handler answered already). A handler that needs more than three seconds declares `defer: 'ephemeral' | 'public'` and never calls `deferReply` itself; short work declares `defer: 'late'` and answers only through `answer(interaction, payload)` (`src/discord/late-reply.ts`). A use that a guard refused does not count against the throttle.
+- Controls are `ComponentHandler`s listed in `src/components/index.ts`, one per custom-id kind; a command's guards do not cover its controls, so a handler has its own `guards` and `throttle`. A press on an answer's controls answers through `pressAnswer`; a control that answers in place of a message uses `showInPlace` / `sayInPlace`, one that answers in a private message of its own `answerApart`.
+- Where an interaction came from is read only through `channelContext(interaction)` (`src/discord/channel-context.ts`), a DM by `!interaction.inGuild()`, never the channel cache; `regionChannelOf(interaction, ctx)` gives the region channel.
+- Commands are offered in servers only, and for server installs only, unless the definition sets its own `contexts`. A command that depends on a setting has `enabled(config)`; `enabledCommands()` filters the list for the router, `/help` and the deploy script alike.
+- Staff commands (those with `default_member_permissions`) are hidden from other members in `/help`, its autocomplete and its error texts.
+- A `DiscordAPIError` logged as `{ err }` has its `url` and `requestBody` redacted (the address of an interaction reply contains its token). Log errors under the key `err`.
+- The client keeps no message of a DM channel and at most `MEMBER_CACHE_SIZE` members per server (`cacheFactory` in `src/discord/client.ts`): never read a message or a member from the cache and expect it to be there; fetch (`fetchGuildMember(guild, id, true)` for a fresh one).
+- Direct messages go out only through `DmSender` (`send(job)` queues and returns, never throws). Never loop over recipients and send: the legacy bot lost its gateway connection that way. Detail: `notifications-and-dms.md`.
+
+### Data
+
+- Snowflakes are strings everywhere, including values read from `BIGINT` columns (the pool sets `bigNumberStrings`).
+- `src/db/types.ts` and `src/db/baseline/legacy-schema.ts` are generated. Do not hand-edit them.
+- The migrator accepts only a fully migrated legacy database (takeover) or an empty schema (new install) and refuses anything else without writing to it.
+- Repositories (`src/db/repositories/`) are the only code that knows column names. They return plain objects: booleans, `{ lat, lon }`, decoded text.
+- A repository method that writes in several steps uses `inTransaction()` (`src/db/transaction.ts`), never `db.transaction()` directly, so repositories compose inside a caller's transaction. One that changes one member's rows of a server runs inside `withMemberLocked` (`members-and-roles.md`).
+- Geometry in SQL is latitude first: `POINT(lat, lon)` and `POLYGON((lat lon, …))`, as the legacy bot stored it. Build it with `src/db/spatial.ts`.
+- Compare a snowflake with the `BIGINT` column `Region.channelId` through `snowflakeParam()` (`src/db/snowflake.ts`, an explicit cast), and never compare that column with a `VARCHAR` snowflake column in SQL: MySQL compares mixed number and string columns as doubles.
+- Gym text (`name`, `nickname`, `description`, `notice`) is stored HTML-entity-encoded for the legacy bot; `GymRepository` encodes and decodes it.
+- Times are epoch milliseconds in data and Temporal `ZonedDateTime` in `settings.timezone` while computing, made and read through `src/domain/time/zoned.ts` (`zoned`, `localTime`, `feedTime`, the words; never `Temporal.Now`: the clock is `Date.now()` or an injected `now`). What runs in browsers uses no Temporal: the web page (`src/web/client`, whose tsconfig lacks it) and `packages/wayspot-core` (ESLint refuses it). Member-typed times go through `resolvePartyTime` (`src/domain/time/`).
+- What is kept in memory with a bound is a `BoundedMap` (`src/bounded-map.ts`, oldest out); a snowflake is recognized by `isSnowflake` (`src/db/snowflake.ts`). A command's help may depend on the settings and on `HelpFacts` (`CommandHelp.details` as a function).
+
+### Domain and parties
+
+- `src/domain/` is pure: no `discord.js`, `kysely`, `node:fs`, network, `src/services/` or `src/db/` imports. Domain modules state what they need of a gym or region as small interfaces.
+- One path for every fact (Matt, 2026-10-25): a command, a control, the screenshot readers, the DMs and the web map decide a domain fact (which bosses are valid and at which tier, a party's stage, times and ends, event boundaries, counts, who may see or change it) with the same domain function, never a second implementation. A route calls the service path its command uses (as `reportMaxAs` serves `/max` and `POST /api/maxes`); the web page shows what the server computed or imports the pure `src/domain/` module. A fact without a shared function gets one in `src/domain/`, and every caller moves to it.
+- `packages/wayspot-core` is pure as well, and stands alone: its modules import no `node:*` module (its tests may), no `discord.js`, `kysely` or `mysql2`, and nothing of Pine outside the package (ESLint refuses it). The modules the Wayfarer export tool imports are an interface of the tool (`wayfarer.md`).
+- A party (a raid, a max battle, a meetup or a train) is an immutable plain object (`src/domain/party/party.ts`); everything that can happen to it is a pure function that returns a changed party, or `{ ok: false, reason }`, and the very same object when nothing changed. Never mutate a party.
+- A party changes only through `PartyStore.update(id, change)` (`src/services/party-store.ts`): one change at a time per party, written to the database first; `change` is synchronous and decides inside the callback. `Party` is a union: narrow it (`isRaid`, `requireRaid`, `isMax`, `isBattle`, `isTrain` …), never cast to a kind. Detail: `parties-and-posts.md`, `trains.md`.
+
+### Text
+
+- American spelling in everything Pine says to members and staff, and in new or changed docs (Matt, 2026-10-18): "meters", "center", "color", "canceled", "-ize"; names keep theirs ("Centre Ave"). Code identifiers and the columns of a file format keep theirs (`GYM_COLOUR`, the report's CSV column `metres`).
+- Every distance Pine says to members or staff, on Discord and on the web, goes through `distanceWords(…, settings.distanceUnits)` (`src/render/distance-words.ts`), never hand-worded units; `src/text-distances.test.ts` refuses them.
+- A member is never named by a bare mention in text that does not ping them (a client that has not loaded the member shows "@unknown-user"): a sentence uses `memberText(member)`, the small print of a post `memberByName(member)`, a list `memberName(member)`, and a line about what a train's maker or an anonymous reporter did `doer(party, member)`. Detail: `parties-and-posts.md`.
+- Text a member or a feed wrote is shown through `plain()` (`src/render/text.ts`); text that reaches other members' DMs or a spawn report, and every member's name, through `plainNoLinks`, which also breaks bare addresses.
+
+## Area index
+
+Each file under `docs/architecture/` holds the conventions of one subsystem. Read the file before changing its area.
+
+- `discord-framework.md`: commands, `commandGroup`, the router and deferral, controls and their throttles, how a press answers, `channelContext`, components-v2 messages, attachment downloads.
+- `parties-and-posts.md`: the party model and `PartyStore`, raids and meetups, the post renderer, `PartyGateway` and `PartyService`, attendance, lines, the completion question, the scheduler, copies, access and moves.
+- `trains.md`: routes, stops, the conductor, end modes, movement, Move… and Manage…, saved routes, copies in other regions.
+- `stop-reports.md`: reports at PokéStops: stops of Pine's own, field research, Team GO Rocket, "Today’s Stops" in the region’s board and its pictures, the text-channel lines, research and Rocket DMs.
+- `notifications-and-dms.md`: wants, gym targets, new trains, the notifier, `DmSender`, the DMs and their Stop buttons, spawn reports and Unown.
+- `gyms-and-regions.md`: gym search and ownership, gym administration and views, Google, maps, regions, KML, `/bounds`, `/find-region`.
+- `screenshots.md`: the OCR reader and its worker, the report and the decision, the store and review folder, the screenshot flows on Discord.
+- `wayfarer.md`: the export file, S2 cells and the area of an export (`packages/wayspot-core`), matching, `/gym import` and `/gym review`.
+- `history.md`: the party history (its tables, how ended parties are recorded, the opt-in, the legacy import, the legacy fill-in (member index, `LegacyFillIn`, its worker)) and the statistics questions as tested SQL.
+- `meetup-safety.md`: the check of a meetup's place, `/meetup`'s form and refusals, `MeetupSafety.make` (the one way to make a meetup), the requests and the moderators' post, decisions, expiry and sweeps, rulings, blocks and appeals.
+- `moderation.md`: reports to the moderators (`/report`, "Report to moderators" in the Apps menu), their post and decisions, staff's `/delete`, `/places`, `/audit`.
+- `members-and-roles.md`: member settings and rows, member lookups and viewers, self-assigned roles.
+- `utilities.md`: game data, the catalogue, Pokémon search, raid tiers and bosses, nicknames, pictures, emoji, `/rank`, `/counters`, `/find-gym`, `/request`, `/maps`, `/help`, the events forum and the Campfire links.
+- `web.md`: the web server in the bot, its settings and secrets, sessions, CSRF, logging in, rate limits, the map's data and page, the region editor and `/region edit`, the CSP, how to add a route.
+- `operations.md`: the Docker image and stack, `./pine`, the heartbeat and health check, the owner's alerts and the crash marker, the watchdog and its proxy, backups, restore.
+- `testing.md`: the test database, fake interactions, the fake gateway, party, train, Wayfarer and web helpers. Read before writing tests.
+
+## Gotchas
+
+**Tools and shell on this machine**
+
+- Git converts LF to CRLF (`core.autocrlf=true`); the warnings on commit are harmless. `.idea/` changes are Matt's; never stage them.
+- Shell heredocs fail on apostrophes and mangle backslashes: write files with the Write/Edit tools or a script file, not `cat <<EOF`.
+- Git Bash turns an argument that starts with a slash (`/raid`) into a Windows path: give such task names to the Gantt script from a file, or run it with `MSYS_NO_PATHCONV=1`. A commit title must not start with a slash either.
+- A background shell command starts with `cd <absolute path> && pwd`: a relative `cd` runs in whatever directory the shell is in.
+- `npm run check | tail` hides a failure: look at the exit status (`npm run check > log; echo $?`).
+- The Write tool turns a `\uXXXX` escape of an invisible character (U+202E and the like) into the raw character; check such test strings afterwards and keep them as escapes.
+- The built-in browser's preview shows a local page as a snapshot that cannot load a second local file (the Gantt chart's data): serve the folder with `python -m http.server` on 127.0.0.1 in a tab of its own, and stop the server afterwards.
+- Docker Desktop can lose its IPv6 port forwarding: every database test fails with "Connection lost: The server closed the connection" while `127.0.0.1` works. Run `TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1 npm run test:db`, or restart Docker Desktop.
+
+**Worktrees and subagents**
+
+- A worktree has a junction to the main `node_modules`: remove the junction first, from PowerShell with an absolute path (`cmd /c rmdir C:\...\var\proto-x\node_modules`; Git Bash's `cmd //c rmdir` failed with "cannot find the path" on 2026-11-05) and check that it is gone (`Test-Path`), then the worktree, never with `--force` (through the junction and the workspace link it also deletes the main checkout's `packages/wayspot-core`: `git checkout -- packages/wayspot-core`, then `npm ci`); `git worktree remove --force` follows the junction and empties the main checkout's `node_modules`. `npm ci` brings it back (it skips the install scripts of esbuild, onnxruntime-node, protobufjs and ssh2 under npm's allow-scripts policy; everything works without them).
+- The controller must not commit in the checkout while an implementer works there: a commit takes everything staged. Wait for the implementer, or commit with `git commit -- <paths>`.
+- An implementer handed finished code tends to skip the failing-test step: tolerable for transcription, but fix rounds without ready-made code must show RED first.
+- A subagent may be refused when it writes a report as a `.md` file: ask for the report in the reply, and save what must be kept yourself.
+- Folding review fixes into prototype commits (`commit --fixup`, autosquash): never split a file that several tasks touch by hunks (intermediate commits stop compiling). Build its version for each commit by three-way merge, `git merge-file --ours <file at that commit> <file at the old tip> <file at the fixed tip>`, check what it kept of later tasks, recreate the commits, then run the check on every commit.
+- Scratch `.ts` files anywhere under the checkout, also in the git-ignored `.superpowers/`, are covered by `eslint .`: give them another extension when they are not being run.
+
+**Libraries and tests**
+
+- With the installed Kysely, `Migrator`, `Migration` and `MigrationProvider` come from `kysely/migration`, not the package root.
+- Plan snippets sometimes fail lint as written. Usual fixes: hoist `vi.fn()` into a local const (`unbound-method`); do not call a `void | Promise<void>` guard from sync code (`no-floating-promises`); cast mock call arguments through `unknown`. Prettier can move a line out from under an `eslint-disable-next-line` comment; re-run lint after formatting.
+- A test whose handler reads `Date.now()` must fake `Date` to the fixtures' day (`location.test.ts`), or it fails for good once today passes the fixtures' clock.
+- No test waits on real time or a counted number of turns: it awaits the event itself (`Tally`, `watchEachTest().settle()`, fake timers by the timer count); lint refuses `vi.waitFor`, `expect.poll` and sleeps in tests (`testing.md`). Only a plan that adds a test that must use real time runs its new and changed test files ten times in a row before it closes.
+- The unit project's `testTimeout` is 15 seconds and the database project's five minutes. A unit test that needs seconds by itself is still a fault to look into.
+- `npm run db:codegen -- --verify` compares with the working copy of `src/db/types.ts`, which git checks out with CRLF here, so it reports every line although the committed content is current. Verify against `git show HEAD:src/db/types.ts`, or trust the migrator's db test.
+- A staging script that wires its own client must use `createClient()`, wait for `ClientReady` before any gateway call and load in the order of `src/app.ts`; earlier ones are in the git-ignored `var/stage/`.
+- A change of the screenshot reader (`src/domain/ocr/`, `src/ocr/`) is checked on real screenshots before it is committed, not only by the unit tests: `ocr:check` of the research samples against the committed baseline and of every labelled folder under `var/ocr/matt-*` against its own (`.v2.json`), as the skill `improve-screenshot-reading` says; a sample from right to wrong is a failing test.
+- The Linux-only test of the reading process's thread priority runs in a container: `git archive HEAD | MSYS_NO_PATHCONV=1 docker run --rm -i node:26-slim sh -c 'mkdir /work && cd /work && tar -x && npm ci --ignore-scripts && npx vitest run --project unit src/services/ocr-service.test.ts'`.
+- `@pine/wayspot-core` is read from its sources only under the condition `pine-source`: the typecheck, Vitest, esbuild and every `tsx` script in `package.json` set it, and so do threads and processes started from a `.ts` file. Without it Node takes the package's `dist/`: a `tsx` or `node --import tsx` run without the flag fails with `ERR_MODULE_NOT_FOUND` while that folder is absent, and after a build it runs silently on the compiled package as it was at that build.

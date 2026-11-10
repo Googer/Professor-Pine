@@ -1,0 +1,17 @@
+dist/
+coverage/
+var/
+/pine-settings.json
+node_modules/
+package-lock.json
+/data/
+src/db/types.ts
+src/db/baseline/legacy-schema.ts
+test/fixtures/
+# The export contracts, byte for byte (.gitattributes)
+/packages/wayspot-core/fixtures/
+*.md
+docs/superpowers/gantt-data.js
+/.idea/
+/.claude/worktrees/
+/.superpowers/

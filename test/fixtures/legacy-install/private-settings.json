@@ -1,0 +1,18 @@
+{
+  "discordBotToken": "MADE-UP.TOKEN.for-tests-only",
+  "discordNotifyToken": "MADE-UP.NOTIFY.for-tests-only",
+  "owner": "412345678901234567",
+  "pokemonUrlBase": "https://images.example.test/pokemon/",
+  "githubRepo": "example-owner/example-repo",
+  "githubUser": "example-user",
+  "githubPassword": "made-up-github-token",
+  "googleApiKey": "made-up-google-key",
+  "regionMapLink": "https://maps.example.test/legacy-regions",
+  "db": {
+    "host": "localhost",
+    "port": "3306",
+    "user": "pine",
+    "password": "made-up pa$$word",
+    "schema": "pine"
+  }
+}

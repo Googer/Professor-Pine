@@ -1,0 +1,558 @@
+@import './theme.css';
+
+/*
+ * The history page (plan 8H-5): the map's header and look, light or dark as the device or the
+ * choice made on the map is, and its sections (for now the region tally) one under another, the
+ * width of a phone too.
+ */
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--font-size);
+  color: var(--text);
+  background: var(--page-bg);
+}
+
+a {
+  color: var(--link);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+#header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  background: var(--panel-bg);
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+#header .title {
+  font-weight: 700;
+}
+
+#header a,
+#header button,
+#header summary {
+  white-space: nowrap;
+}
+
+#header .map-link,
+#account a,
+#account button {
+  color: var(--secondary-text);
+  background: var(--secondary);
+  border: 0;
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#header .map-link:hover,
+#account button:hover {
+  background: var(--secondary-hover);
+}
+
+#account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+#account a.login,
+#account a.invite {
+  color: var(--on-color);
+  background: var(--primary);
+}
+
+#account a.login:hover,
+#account a.invite:hover {
+  background: var(--primary-hover);
+}
+
+#account a.login .short {
+  display: none;
+}
+
+#account .line {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* The member's name as one button, whose small menu holds the theme and Log out (as the map's). */
+.account-menu {
+  position: relative;
+}
+
+.account-menu summary {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+
+.account-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.account-menu summary::after {
+  content: ' ▾';
+}
+
+.theme-menu summary::after {
+  content: none;
+}
+
+.account-menu .menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  right: 0;
+  padding: 8px;
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  box-shadow: 0 8px 24px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+/* The menu's links look as its buttons do; the page you are on as the chosen theme (as the map's). */
+.account-menu .menu a {
+  text-align: center;
+}
+
+#account .menu a:hover {
+  background: var(--secondary-hover);
+}
+
+#account .menu a[aria-current='page'] {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
+/*
+ * "Edit regions" only where the editor is offered, as on the map (`map.css`): the query is
+ * `EDITOR_MEDIA` of `editor-media.ts` word for word (`phone-header.test.ts`).
+ */
+.account-menu .edit-regions {
+  display: none;
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
+  .account-menu .edit-regions {
+    display: block;
+  }
+}
+
+.theme-choice {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+#account .theme-choice .theme-option {
+  padding: 4px 8px;
+}
+
+#account .theme-choice .theme-option.chosen {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+#notice {
+  margin: 0;
+  padding: 6px 12px;
+  background: var(--notice-bg);
+  border-bottom: 1px solid var(--notice-border);
+}
+
+#history {
+  max-width: 720px;
+  padding: 8px 16px 24px;
+}
+
+h1 {
+  font-size: 1.4em;
+}
+
+h2 {
+  font-size: 1.2em;
+  margin-top: 1.4em;
+}
+
+/* The periods of the tally: the one shown pressed. */
+.periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.periods button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.periods button:hover {
+  background: var(--secondary-hover);
+}
+
+.periods button[aria-pressed='true'] {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
+#tally-status {
+  color: var(--muted);
+}
+
+#tally-status:empty {
+  display: none;
+}
+
+#tally-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 8px;
+}
+
+#tally-table th,
+#tally-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+/* A long region name breaks anywhere rather than widening a phone (P10). */
+#tally-table td:nth-child(2) {
+  overflow-wrap: anywhere;
+}
+
+/* A rank or a count never breaks ("10" over two lines, staging of 8H-5). */
+#tally-table .count,
+#tally-table td:first-child {
+  white-space: nowrap;
+}
+
+#tally-table .count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#tally-table tfoot td {
+  font-weight: 600;
+}
+
+/* The regions without a raid or max battle, one line under the table that wraps on a phone. */
+#tally-quiet {
+  margin: 8px 0 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* The boards (plan 8H-6): a card per board, one under another, its lines numbered by rank. */
+#boards-status {
+  color: var(--muted);
+}
+
+#boards-status:empty {
+  display: none;
+}
+
+.boards {
+  display: grid;
+  /* Never wider than the page on a phone (B6). */
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.board {
+  padding: 8px 12px;
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+}
+
+.board-title {
+  font-size: 1em;
+  margin: 4px 0 6px;
+}
+
+.board-lines {
+  margin: 0;
+  padding-left: 1.6em;
+  overflow-wrap: anywhere;
+}
+
+p.board-lines {
+  padding-left: 0;
+  color: var(--muted);
+}
+
+.board-note,
+.board-viewer {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* "Your history" (plan 8H-6): the member's numbers as a list of terms, and the months as bars. */
+#me-status {
+  color: var(--muted);
+}
+
+#me-status:empty {
+  display: none;
+}
+
+.me-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  margin: 8px 0;
+}
+
+.me-list dt {
+  overflow-wrap: anywhere;
+}
+
+.me-list dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  /* "12 (3 anonymous, on no board)" wraps rather than squeezing its label (B6). */
+  overflow-wrap: anywhere;
+}
+
+/* The chart's numbers for a screen reader, not shown (B1). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.chart {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+#me-chart .came,
+.key.came::before {
+  fill: var(--primary);
+  background: var(--primary);
+}
+
+#me-chart .reports,
+.key.reports::before {
+  fill: var(--success);
+  background: var(--success);
+}
+
+#me-chart .month {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.key::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 2px;
+}
+
+/*
+ * Raids by day, the big days and a boss's trend (plan 8H-8): the year's chart as wide as its box
+ * (the bars thin to fit), a boss's months scrolling inside theirs where they must, never the page.
+ */
+.year-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.year-line select,
+.year-line input {
+  font: inherit;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+  max-width: 100%;
+}
+
+#days-status,
+#every-status,
+#boss-status {
+  color: var(--muted);
+}
+
+#days-status:empty,
+#every-status:empty,
+#boss-status:empty {
+  display: none;
+}
+
+.days-chart svg {
+  display: block;
+}
+
+#days-chart .raids,
+#boss-chart .raids,
+.key.raids::before {
+  fill: var(--primary);
+  background: var(--primary);
+}
+
+#days-chart .raids.big {
+  fill: var(--danger);
+}
+
+#days-chart .maxes,
+.key.maxes::before {
+  fill: var(--success);
+  background: var(--success);
+}
+
+#days-chart .axis {
+  stroke: var(--line);
+}
+
+#days-chart .month,
+#boss-chart .month {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+#days-chart .big-label {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.big-days,
+.every ol {
+  margin: 4px 0 0;
+  padding-left: 1.6em;
+  overflow-wrap: anywhere;
+}
+
+.big-days .none {
+  list-style: none;
+  margin-left: -1.6em;
+  color: var(--muted);
+}
+
+/* What counts as a raid, under "Raids by day" and the tally (plan 8H-9). */
+.counts-note {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* What a big day is, under "Big days of <year>" (B5). */
+#days-big-note {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.every-year h3 {
+  font-size: 1em;
+  margin: 10px 0 2px;
+}
+
+/* A phone (as the map's header): "Pine" alone, "Log in", the table's own width. */
+@media (max-width: 767px) {
+  #header {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  #header .title-first {
+    display: none;
+  }
+
+  #account a.login .full {
+    display: none;
+  }
+
+  #account a.login .short {
+    display: inline;
+  }
+
+  #account .line {
+    flex-basis: 100%;
+    font-size: 12px;
+    text-align: right;
+  }
+
+  #history {
+    padding: 8px 10px 20px;
+  }
+
+  /* A label over its number on a phone (B6). */
+  .me-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .me-list dd {
+    text-align: left;
+    margin-bottom: 6px;
+  }
+
+  #tally-table th,
+  #tally-table td {
+    padding: 4px 3px;
+  }
+}

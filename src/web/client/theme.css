@@ -1,0 +1,328 @@
+/*
+ * The look of every page Pine serves as named values (plans 8M-6, 8M-7): every color, and the
+ * sizes a restyle would touch, in two sets of the same names: light in `:root`, dark in the
+ * media query below, so that each page follows the device's light or dark, unless the member
+ * chose Light or Dark on the map (plan 8M-13, S10: `data-theme` on `<html>`; the dark set
+ * applies where the page is not forced light, and the build adds it for a page forced dark,
+ * `scripts/web/forced-dark.ts`: write a dark rule once, its selector starting with
+ * `:root:not([data-theme='light'])`). The look is
+ * Discord's: its grays, blurple primary buttons, gray secondary ones, green and red as the posts
+ * use them, cards with the colored side bar of a components-v2 container. `map.css`, `editor.css`,
+ * `userscript.css` and `pages.css` use them; the colors Leaflet draws (outlines, dots, lines,
+ * rings) are read from here by `theme.ts`, again when the scheme changes. Change a value here
+ * and run `npm run web:build` (web.md, "Restyling the page").
+ */
+:root {
+  /* Type and shape. */
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-size: 15px;
+  --radius: 4px;
+  --card-radius: 8px;
+  --card-bar: 4px;
+  /* A raid marker's circle by the zoom: full from 15, middle at 14, small below (theme.ts reads them). */
+  --raid-full: 44px;
+  --raid-middle: 30px;
+  --raid-small: 20px;
+  /* A train's line (8M-11B, S27): the legs ahead, and the legs it has done, fainter (0 to 1). */
+  --train-ahead: 0.8;
+  --train-done: 0.35;
+  /* Its flow over the legs ahead (8M-13, T1): dash and gap, one cycle, the moving dashes' color. */
+  --flow-dash: 8px;
+  --flow-gap: 8px;
+  --flow-time: 2.5s;
+  --train-flow: rgba(255, 255, 255, 0.9);
+  /* The map's side pane (the list, forms), the region editor's panel and its Fix box (8M-10). */
+  --panel-width: 340px;
+  --editor-panel-width: 360px;
+  --fix-box-width: 340px;
+  /* A refusal shakes its popup or card once (plan 8M-11A): how long, and how far each way. */
+  --shake-time: 300ms;
+  --shake-distance: 6px;
+  /* The phone card bounces up for a refusal instead (plan 8M-13, A2), over --shake-time. */
+  --nudge-distance: 6px;
+  /* The least a finger's button is, on a coarse pointer (plan 8M-11A, S3). */
+  --tap-size: 44px;
+  /* A selected train's number on a stop: its circle. */
+  --badge-size: 20px;
+
+  /* Discord's surfaces, light. */
+  --page-bg: #ffffff;
+  --panel-bg: #f2f3f5;
+  --deep-bg: #e3e5e8;
+  --card-bg: #f2f3f5;
+  --map-bg: #e3e5e8;
+  --line: #e1e2e4;
+  --text: #313338;
+  --text-soft: #4e5058;
+  --muted: #5c5e66;
+  --link: #006ce7;
+  --shadow: rgba(0, 0, 0, 0.2);
+  --scrim: rgba(0, 0, 0, 0.4);
+
+  /* Discord's buttons and fields. */
+  --primary: #5865f2;
+  --primary-hover: #4752c4;
+  --secondary: #d7d9dc;
+  --secondary-hover: #c4c9ce;
+  --secondary-text: #313338;
+  --success: #248046;
+  --success-hover: #1a6334;
+  --danger: #da373c;
+  --danger-hover: #a12828;
+  --on-color: #ffffff;
+  --field-bg: #ffffff;
+  --field-border: #c4c9ce;
+  --focus: #00a8fc;
+  --chip-on-bg: #e0e3ff;
+
+  /* The line under the header for the moment's news, and an answer under a form. */
+  --notice-bg: #fef3d6;
+  --notice-border: #f0b232;
+  --form-answer: #a12828;
+  /*
+   * The answer line under a post's buttons, and the completion question in its style (plan
+   * 8M-11A): a done answer, a refusal, and the dot on the phone card's handle while it asks.
+   */
+  --answer-bg: #e0e3ff;
+  --answer-text: #313338;
+  --answer-refused-bg: #fbe0e1;
+  --answer-refused-text: #a12828;
+  --question-dot: #da373c;
+
+  /* What the map shows over its tiles. */
+  --label-bg: rgba(255, 255, 255, 0.85);
+  --region-label: #203060;
+  --marker-bg: #ffffff;
+  --stop-number-bg: #ffffff;
+  --stop-number-text: #6b2a00;
+  --stop-number-here-text: #ffffff;
+  /* A cluster of gyms: its circle and the paler ring round it. */
+  --cluster: rgba(79, 84, 92, 0.9);
+  --cluster-edge: rgba(79, 84, 92, 0.35);
+  /* The side bar of a card, by what it is. */
+  --accent: #5865f2;
+  /*
+   * The edge of a party's post on the map (plan 8M-8A), by `PostAccent`: the colors the posts have
+   * on Discord, the same in light and dark as there.
+   */
+  --accent-egg: #f1c40f;
+  --accent-hatched: #2ecc71;
+  --accent-ended: #e74c3c;
+  --accent-max: #d81b60;
+  --accent-timed: #3498db;
+  --accent-other: #5865f2;
+  /* Inline code in a post (`/hatch`). */
+  --code-bg: #e3e5e8;
+
+  /* What the map draws (`theme.ts`); the raid's ring and route mode's numbers share them. */
+  --gym: #2d7a3a;
+  --region: #3060c0;
+  --region-veil: #6b6f76;
+  --raid: #c0392b;
+  --train: #d35400;
+  --meetup: #8e44ad;
+  --stop: #2980b9;
+  /* The reports at stops (plan 8M-9B): a marker's ring and the layers' dots, the research icon. */
+  --research: #d68910;
+  --rocket: #a93226;
+  /* The activity heatmap (plan 8H-4): its panel's edge and slider. */
+  --activity: #e8590c;
+  /*
+   * The activity heatmap's glow (plan 8H-4H), faintest to busiest: blue, green, yellow, orange,
+   * red, deep enough to read on the light tiles.
+   */
+  --heat-1: #1c7ed6;
+  --heat-2: #2f9e44;
+  --heat-3: #f2b705;
+  --heat-4: #f76707;
+  --heat-5: #e03131;
+  /* The ring of a raid's marker, by tier group (plan 8M-7), and its count of those going. */
+  --tier-1: #e0609c;
+  --tier-3: #d79b00;
+  --tier-5: #7d3c98;
+  --tier-mega: #16a085;
+  --tier-elite: #b9770e;
+  --tier-shadow: #4a235a;
+  /* A max battle's ring (plan 8M-9A): Dynamax and Gigantamax. */
+  --tier-dynamax: #c2185b;
+  /* The Report menu's Poké Ball (plan 8M-11A, S14): Poké Ball red, white in dark (Matt). */
+  --ball: #d32f2f;
+  --tier-gigantamax: #b71c1c;
+  /* The outline of the Report menu's icons (plan 8M-9A), to read on any background. */
+  --icon-outline: #00000099;
+  --going: #248046;
+  --you: #1a73e8;
+  --you-edge: #ffffff;
+
+  /* The region editor's panel. */
+  --warning: #8a5a00;
+  --fresh-piece: #b00020;
+  --dialog-bg: #f2f3f5;
+  --cannot-fix: #6b6b6b;
+  --fix-chosen-bg: #e3e5e8;
+  --fix-line: #111111;
+  --fix-corner-bg: #ffffff;
+
+  /* What the region editor draws (`theme.ts`): regions in turn, and the rest. */
+  --region-1: #3060c0;
+  --region-2: #2d7a3a;
+  --region-3: #a05a00;
+  --region-4: #7a3ab0;
+  --region-5: #00838f;
+  --region-6: #9e2a5e;
+  --region-7: #5d6d00;
+  --region-8: #c0392b;
+  --others: #8a8a8a;
+  --broken: #d00000;
+  --editor-gym: #2d7a3a;
+  --editor-stop: #1e88e5;
+  --power-spot: #8e24aa;
+  --wayfarer-gym: #6d4c41;
+  --outside: #ff8f00;
+  --overlap: #e53935;
+  --gap: #6a1b9a;
+  --theirs: #1565c0;
+  --preview: #111111;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    /* Type and shape. */
+    --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-size: 15px;
+    --radius: 4px;
+    --card-radius: 8px;
+    --card-bar: 4px;
+    --raid-full: 44px;
+    --raid-middle: 30px;
+    --raid-small: 20px;
+    --train-ahead: 0.8;
+    --train-done: 0.35;
+    --flow-dash: 8px;
+    --flow-gap: 8px;
+    --flow-time: 2.5s;
+    --train-flow: rgba(30, 31, 34, 0.9);
+    --panel-width: 340px;
+    --editor-panel-width: 360px;
+    --fix-box-width: 340px;
+    --shake-time: 300ms;
+    --shake-distance: 6px;
+    --nudge-distance: 6px;
+    --tap-size: 44px;
+    --badge-size: 20px;
+
+    /* Discord's surfaces, dark. */
+    --page-bg: #313338;
+    --panel-bg: #2b2d31;
+    --deep-bg: #1e1f22;
+    --card-bg: #2b2d31;
+    --map-bg: #1e1f22;
+    --line: #3f4147;
+    --text: #dbdee1;
+    --text-soft: #b5bac1;
+    --muted: #949ba4;
+    --link: #00a8fc;
+    --shadow: rgba(0, 0, 0, 0.5);
+    --scrim: rgba(0, 0, 0, 0.6);
+
+    /* Discord's buttons and fields. */
+    --primary: #5865f2;
+    --primary-hover: #4752c4;
+    --secondary: #4e5058;
+    --secondary-hover: #6d6f78;
+    --secondary-text: #ffffff;
+    --success: #248046;
+    --success-hover: #1a6334;
+    --danger: #da373c;
+    --danger-hover: #a12828;
+    --on-color: #ffffff;
+    --field-bg: #1e1f22;
+    --field-border: #1e1f22;
+    --focus: #00a8fc;
+    --chip-on-bg: #3c4270;
+
+    --notice-bg: #3d3523;
+    --notice-border: #f0b232;
+    --form-answer: #fa777c;
+    --answer-bg: #3c4270;
+    --answer-text: #dbdee1;
+    --answer-refused-bg: #4d2a2c;
+    --answer-refused-text: #fa777c;
+    --question-dot: #f23f43;
+
+    --label-bg: rgba(43, 45, 49, 0.85);
+    --region-label: #c9cdfb;
+    --marker-bg: #2b2d31;
+    --stop-number-bg: #2b2d31;
+    --stop-number-text: #ffb37a;
+    --stop-number-here-text: #ffffff;
+    --cluster: rgba(128, 132, 142, 0.9);
+    --cluster-edge: rgba(128, 132, 142, 0.35);
+    --accent: #5865f2;
+    --accent-egg: #f1c40f;
+    --accent-hatched: #2ecc71;
+    --accent-ended: #e74c3c;
+    --accent-max: #d81b60;
+    --accent-timed: #3498db;
+    --accent-other: #5865f2;
+    --code-bg: #1e1f22;
+
+    --gym: #3ba55c;
+    --region: #8891f2;
+    --region-veil: #1e1f22;
+    --raid: #ed4245;
+    --train: #e67e22;
+    --meetup: #b065d0;
+    --stop: #5b9cf6;
+    --research: #f5b041;
+    --rocket: #f1948a;
+    --activity: #ff922b;
+    --heat-1: #4dabf7;
+    --heat-2: #69db7c;
+    --heat-3: #ffd43b;
+    --heat-4: #ff922b;
+    --heat-5: #ff6b6b;
+    --tier-1: #f07ab3;
+    --tier-3: #f1c40f;
+    --tier-5: #b06ad0;
+    --tier-mega: #2ecc9a;
+    --tier-elite: #e59e2c;
+    --tier-shadow: #9b59b6;
+    --tier-dynamax: #f06292;
+    --ball: #ffffff;
+    --tier-gigantamax: #ef5350;
+    --icon-outline: #ffffffb3;
+    --going: #2d9d55;
+    --you: #4c8bf5;
+    --you-edge: #ffffff;
+
+    --warning: #f0b232;
+    --fresh-piece: #fa777c;
+    --dialog-bg: #2b2d31;
+    --cannot-fix: #949ba4;
+    --fix-chosen-bg: #3f4147;
+    --fix-line: #f2f3f5;
+    --fix-corner-bg: #2b2d31;
+
+    /* The editor's drawing keeps its colors in dark; only what was near black turns light. */
+    --region-1: #3060c0;
+    --region-2: #2d7a3a;
+    --region-3: #a05a00;
+    --region-4: #7a3ab0;
+    --region-5: #00838f;
+    --region-6: #9e2a5e;
+    --region-7: #5d6d00;
+    --region-8: #c0392b;
+    --others: #8a8a8a;
+    --broken: #d00000;
+    --editor-gym: #2d7a3a;
+    --editor-stop: #1e88e5;
+    --power-spot: #8e24aa;
+    --wayfarer-gym: #6d4c41;
+    --outside: #ff8f00;
+    --overlap: #e53935;
+    --gap: #6a1b9a;
+    --theirs: #1565c0;
+    --preview: #f2f3f5;
+  }
+}
