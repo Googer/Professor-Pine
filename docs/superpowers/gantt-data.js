@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-09T12:05",
+  "updated": "2026-11-09T22:19",
   "items": [
     {
       "id": "0",
@@ -11532,16 +11532,68 @@ window.GANTT = {
       "kind": "plan",
       "parent": "16",
       "name": "The rehearsal with production's copy (runbook R1–R6)",
-      "status": "unplanned",
-      "size": 1
+      "status": "done"
+    },
+    {
+      "id": "16-rehearsal.1",
+      "kind": "task",
+      "parent": "16-rehearsal",
+      "name": "R1–R4: the copy, restore, permissions (test server, then the Air)",
+      "status": "done",
+      "start": "2026-10-16T18:00",
+      "end": "2026-11-02T21:30"
+    },
+    {
+      "id": "16-rehearsal.2",
+      "kind": "task",
+      "parent": "16-rehearsal",
+      "name": "R4–R6 on Pittsburgh: the live window, legacy back on",
+      "status": "done",
+      "start": "2026-11-09T19:00",
+      "end": "2026-11-09T20:15"
     },
     {
       "id": "16-night",
       "kind": "plan",
       "parent": "16",
       "name": "The cutover night and the first push",
-      "status": "unplanned",
-      "size": 1
+      "status": "done"
+    },
+    {
+      "id": "16-night.1",
+      "kind": "task",
+      "parent": "16-night",
+      "name": "Legacy stopped, dump, restore, migrate, backup, history",
+      "status": "done",
+      "start": "2026-11-09T21:00",
+      "end": "2026-11-09T21:05"
+    },
+    {
+      "id": "16-night.2",
+      "kind": "task",
+      "parent": "16-night",
+      "name": "Bot up, commands, forums, regions, profpine.com",
+      "status": "done",
+      "start": "2026-11-09T21:05",
+      "end": "2026-11-09T21:15"
+    },
+    {
+      "id": "16-night.3",
+      "kind": "task",
+      "parent": "16-night",
+      "name": "Gyms: sponsored seed, Wayfarer import, review",
+      "status": "done",
+      "start": "2026-11-09T21:15",
+      "end": "2026-11-09T22:10"
+    },
+    {
+      "id": "16-night.4",
+      "kind": "task",
+      "parent": "16-night",
+      "name": "Test posts; Integrations restriction lifted",
+      "status": "done",
+      "start": "2026-11-09T22:10",
+      "end": "2026-11-09T22:18"
     }
   ]
 };
