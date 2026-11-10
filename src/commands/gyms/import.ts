@@ -21,6 +21,7 @@ import {
   MAX_EXPORT_WAYSPOTS,
   MAX_EXPORT_PARTS,
   MAX_WAYSPOT_TEXT,
+  fitOneExport,
   forImport,
   mergeExportParts,
   readWayspotExport,
@@ -251,6 +252,11 @@ function partsText(problem: PartsProblem, count: number): string {
         'A whole export cannot be imported together with other files. Attach one export, or ' +
         'every part of one.'
       );
+    case 'too-many':
+      return (
+        'Together, those files hold more than one export can. If they are the parts of a real ' +
+        'export, scan fewer regions in one run; otherwise save the export again.'
+      );
     case 'mixed-runs':
       return (
         'Those files are parts of different exports. Attach every part of one Save export ' +
@@ -269,8 +275,9 @@ function partsText(problem: PartsProblem, count: number): string {
 
 /**
  * The export attached to the command (`file`, and `file2` to `file5` for its parts): the size of
- * every file checked before any is downloaded, then each downloaded, unpacked and read, and the
- * parts merged into one export (`mergeExportParts`). Refused with a sentence that says what is
+ * every file checked before any is downloaded, then each downloaded, unpacked and read (none more
+ * once those read hold more than one export may, `fitOneExport`), and the parts merged into one
+ * export (`mergeExportParts`). Refused with a sentence that says what is
  * wrong, naming the file when there are several.
  */
 async function attachedExport(
@@ -318,6 +325,8 @@ async function attachedExport(
     if (!reading.ok)
       throw refused(attachment.name, problemText(reading.problem, ctx.config.settings.wayspotTool));
     files.push(reading.file);
+    // The parts read so far already hold more than one export may: no more downloads.
+    if (!fitOneExport(files)) throw new UserError(partsText({ kind: 'too-many' }, files.length));
   }
   const merged = mergeExportParts(files);
   if (!merged.ok) {

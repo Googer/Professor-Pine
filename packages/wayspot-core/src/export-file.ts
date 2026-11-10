@@ -522,10 +522,11 @@ export function exportParts(file: WayspotExport, count: number, runId: string): 
  * Why files cannot be merged into one export. `not-parts`: several files, and one of them is a
  * whole export; `mixed-runs`: parts of different savings (another `runId` or `count`);
  * `same-part`: the part `index` twice; `missing-parts`: the parts `missing` of `count` are not
- * there.
+ * there; `too-many`: together more Wayspots or cells than one export may hold (`fitOneExport`).
  */
 export type PartsProblem =
   | { kind: 'not-parts' }
+  | { kind: 'too-many' }
   | { kind: 'mixed-runs' }
   | { kind: 'same-part'; index: number }
   | { kind: 'missing-parts'; missing: number[]; count: number };
@@ -533,10 +534,29 @@ export type PartsProblem =
 export type PartsReading = { ok: true; file: WayspotExport } | { ok: false; problem: PartsProblem };
 
 /**
+ * Whether files hold together no more Wayspots than `MAX_EXPORT_WAYSPOTS` and no more cells (both
+ * lists) than `MAX_EXPORT_CELLS`, as one export may: the parts of a saving are cut from one export
+ * (`exportParts`), so they never hold more. Counted as the lists are, before any merging (plan
+ * 8Z-2: five parts of a full export each would be five times what the matching may be given).
+ * `mergeExportParts` refuses by it, and `/gym import` asks it after each file it reads, before it
+ * downloads the next.
+ */
+export function fitOneExport(files: readonly WayspotExport[]): boolean {
+  let wayspots = 0;
+  let cells = 0;
+  for (const file of files) {
+    wayspots += file.wayspots.length;
+    cells += file.cells.length + file.bareCells.length;
+  }
+  return wayspots <= MAX_EXPORT_WAYSPOTS && cells <= MAX_EXPORT_CELLS;
+}
+
+/**
  * The export that files make together: a whole export alone as it is, or every part of one
  * saving, in any order, merged (the texts of the first part, the cells of all, of several
  * Wayspots with one id the one of the later part; a cell empty in one part but whole, or with a
- * Wayspot, in another is not empty). Anything else is refused.
+ * Wayspot, in another is not empty), as long as together they hold no more than one export may
+ * (`fitOneExport`). Anything else is refused.
  */
 export function mergeExportParts(files: readonly WayspotExport[]): PartsReading {
   const [first] = files;
@@ -549,6 +569,7 @@ export function mergeExportParts(files: readonly WayspotExport[]): PartsReading 
     if (file.part === undefined) return { ok: false, problem: { kind: 'not-parts' } };
     parts.push({ file, part: file.part });
   }
+  if (!fitOneExport(files)) return { ok: false, problem: { kind: 'too-many' } };
   const { runId, count } = parts[0]!.part;
   if (parts.some(({ part }) => part.runId !== runId || part.count !== count)) {
     return { ok: false, problem: { kind: 'mixed-runs' } };

@@ -418,6 +418,50 @@ describe('an export in parts', () => {
     });
     expect(mergeExportParts([file, file])).toEqual({ ok: false, problem: { kind: 'not-parts' } });
   });
+
+  describe('the Wayspots and cells of all parts together', () => {
+    // The parts of one saving hold together what one export may (the tool cuts one export of at
+    // most the maxima): five parts of a full export each would be five times that (plan 8Z-2).
+    const many = Array.from({ length: MAX_EXPORT_WAYSPOTS / MAX_EXPORT_PARTS }, (_, n) =>
+      wayspot(n),
+    );
+    const tokens = Array.from({ length: MAX_EXPORT_CELLS / MAX_EXPORT_PARTS }, () => '8834ede1');
+    const part = (index: number, overrides: Partial<WayspotExport> = {}): WayspotExport =>
+      exported({
+        cells: [],
+        bareCells: [],
+        wayspots: many,
+        part: { index, count: MAX_EXPORT_PARTS, runId: RUN },
+        ...overrides,
+      });
+    const parts = (last: Partial<WayspotExport>): WayspotExport[] =>
+      Array.from({ length: MAX_EXPORT_PARTS }, (_, n) =>
+        part(n + 1, n === MAX_EXPORT_PARTS - 1 ? last : {}),
+      );
+
+    it('merges parts that hold exactly as many Wayspots and cells as one export may', () => {
+      expect(mergeExportParts(parts({})).ok).toBe(true);
+      const cells = Array.from({ length: MAX_EXPORT_PARTS }, (_, n) =>
+        part(n + 1, { wayspots: [], cells: tokens.slice(1), bareCells: ['8834edfd'] }),
+      );
+      expect(mergeExportParts(cells).ok).toBe(true);
+    });
+
+    it('refuses parts that hold one Wayspot or one cell more together', () => {
+      const tooMany = { ok: false, problem: { kind: 'too-many' } };
+      expect(mergeExportParts(parts({ wayspots: [...many, wayspot(0)] }))).toEqual(tooMany);
+      const cells = (last: Partial<WayspotExport>) =>
+        Array.from({ length: MAX_EXPORT_PARTS }, (_, n) =>
+          part(n + 1, {
+            wayspots: [],
+            cells: tokens,
+            ...(n === MAX_EXPORT_PARTS - 1 ? last : {}),
+          }),
+        );
+      expect(mergeExportParts(cells({ bareCells: ['8834edfd'] }))).toEqual(tooMany);
+      expect(mergeExportParts(cells({ cells: [...tokens, '8834ede3'] }))).toEqual(tooMany);
+    });
+  });
 });
 
 describe('what a Wayspot of an export is in the game', () => {

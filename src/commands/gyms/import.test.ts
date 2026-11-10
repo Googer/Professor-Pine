@@ -636,6 +636,31 @@ describe('/gym import: an export in parts', () => {
     expect(made.attachments.asked).toEqual([]);
   });
 
+  it('refuses parts that hold more together than one export, before it downloads the next', async () => {
+    const made = await gymCommandsWith();
+    // Five parts of 63,000 Wayspots each: the fourth passes the 250,000 an export may have. Not
+    // packed (under 10 MB each), and written once (a Wayspot is read faster than a cell's token
+    // is checked): about a second, for the quarter of a million Wayspots read to get there.
+    const text = writeWayspotExport({
+      ...cityFile(made),
+      cells: [],
+      wayspots: Array.from({ length: 63_000 }, (_, n) =>
+        wayspot(n, '', { lat: 40, lon: -80 }, { kind: 'stop' }),
+      ),
+      part: { index: 1, count: 5, runId: 'run-1' },
+    });
+    const files = [1, 2, 3, 4, 5].map((index) => ({
+      name: `pine-wayspots-2026-10-15-part${index}of5.json`,
+      content: text.replace('"part":{"index":1,', `"part":{"index":${index},`),
+    }));
+    const { answer } = await importingFiles(made, files);
+    expect(said(answer)).toBe(
+      'Together, those files hold more than one export can. If they are the parts of a real ' +
+        'export, scan fewer regions in one run; otherwise save the export again.',
+    );
+    expect(made.attachments.asked).toHaveLength(4);
+  });
+
   it('names the file that cannot be read', async () => {
     const made = await gymCommandsWith();
     const parts = partFiles(cityFile(made), 2);
