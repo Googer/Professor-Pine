@@ -15,6 +15,7 @@ import type { SubcommandPart } from '../../discord/command-group.js';
 import type { CustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
 import { discordPayload } from '../../discord/party-gateway.js';
+import type { Throttle } from '../../discord/throttle.js';
 import {
   MAX_EXPORT_CELLS,
   MAX_EXPORT_WAYSPOTS,
@@ -61,6 +62,13 @@ export const MAX_EXPORT_BYTES = 10 * 1024 * 1024;
 export const MAX_UNPACKED_BYTES = 64 * 1024 * 1024;
 /** How long the download of the file may take: ten megabytes from Discord's CDN. */
 const DOWNLOAD_MS = 30_000;
+
+/**
+ * How often one member may use `/gym import`: each use unpacks and reads up to five files of
+ * tens of megabytes on the bot's one thread, and what a refused file cost is spent all the same
+ * (plan 8Z-2). A preview and its import, and another after a new scan, fit well within it.
+ */
+export const IMPORT_THROTTLE: Throttle = { uses: 3, perSeconds: 600 };
 
 /** The name of the report the preview attaches: a line per gym (`importReportCsv`). */
 export const REPORT_FILE = 'wayfarer-import.csv';
@@ -849,9 +857,11 @@ export const importGyms: SubcommandPart = {
       'outline should grow.\n\nGyms of this server in no region and beyond the area a finished ' +
       'scan of every region covered are listed as `beyond`: once the import is done, a button ' +
       'offers to delete them, after a question that names them. When gyms changed, the channel ' +
-      'for bot updates gets one summary of what changed.',
+      'for bot updates gets one summary of what changed.\n\nEach member may use this three ' +
+      'times in ten minutes.',
     examples: ['/gym import file:pine-wayspots-2026-10-15.json.gz'],
   },
+  throttle: IMPORT_THROTTLE,
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const place = await staffPlace(interaction, ctx);

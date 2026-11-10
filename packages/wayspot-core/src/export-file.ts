@@ -109,7 +109,8 @@ export type WayspotFault = 'shape' | 'id' | 'kind' | 'place' | 'text';
  * tool, without its areas' outlines (no new format version for it: Pine is the only user,
  * ruled 2026-10-15: such an export is saved again); `version`: a newer version
  * than this code reads; `too-many`: more Wayspots than `MAX_EXPORT_WAYSPOTS` or more cells (both
- * lists) than `MAX_EXPORT_CELLS`; `bad-wayspot`: the Wayspot at `index` of the file's list is
+ * lists) than `MAX_EXPORT_CELLS`, or a text with more objects, lists or entries than an export of
+ * that many has (told without parsing it); `bad-wayspot`: the Wayspot at `index` of the file's list is
  * wrong (`fault`); `bad-cell`: an entry of `cells` or `bareCells` is no level-14 token.
  */
 export type ExportProblem =
@@ -238,12 +239,94 @@ function readCells(values: readonly unknown[]): string[] | number {
 }
 
 /**
+ * How many fields the file itself has (with `part`), and a part, a corner of an outline and a
+ * Wayspot: the keys `writeWayspotExport` writes. `export-file.limits.test.ts` reads the largest
+ * export the writer makes, so a field added there without its count here fails.
+ */
+const FILE_FIELDS = 12;
+const PART_FIELDS = 3;
+const CORNER_FIELDS = 2;
+const WAYSPOT_FIELDS = 9;
+
+/** The corners the outlines of a file hold at most: each ring's closing one beside its corners. */
+const MAX_CORNER_ENTRIES = MAX_KML_CORNERS + MAX_EXPORT_REGIONS;
+
+/** The commas of a list of this many entries, or of an object of this many fields. */
+const commasAmong = (entries: number): number => entries - 1;
+
+/**
+ * How many objects, lists and commas the text of the largest export has outside its texts, each
+ * worked out from the format's own maxima and from nothing else: a text with more of one cannot
+ * be an export, however it is read.
+ */
+const MAX_STRUCTURE = {
+  // The file, its part, the corners of its outlines, its Wayspots.
+  objects: 1 + 1 + MAX_CORNER_ENTRIES + MAX_EXPORT_WAYSPOTS,
+  // `regions`, `outlines`, `cells`, `bareCells`, `wayspots`, and each outline.
+  lists: 5 + MAX_EXPORT_REGIONS,
+  commas:
+    commasAmong(FILE_FIELDS) +
+    commasAmong(PART_FIELDS) +
+    // Between the names of the regions, and between their outlines.
+    2 * commasAmong(MAX_EXPORT_REGIONS) +
+    // Between the corners of every outline (its closing corner is the one more), and in each.
+    MAX_KML_CORNERS +
+    MAX_CORNER_ENTRIES * commasAmong(CORNER_FIELDS) +
+    // Between the cells: the two lists share `MAX_EXPORT_CELLS`, most commas with all in one.
+    commasAmong(MAX_EXPORT_CELLS) +
+    // Between the Wayspots, and in each.
+    commasAmong(MAX_EXPORT_WAYSPOTS) +
+    MAX_EXPORT_WAYSPOTS * commasAmong(WAYSPOT_FIELDS),
+} as const;
+
+const QUOTE = 0x22;
+const BACKSLASH = 0x5c;
+const COMMA = 0x2c;
+const OPEN_BRACE = 0x7b;
+const OPEN_BRACKET = 0x5b;
+
+/**
+ * Whether a text has no more objects, lists and commas than the largest export
+ * (`MAX_STRUCTURE`): one pass over its characters, which passes over the texts in it (a
+ * backslash takes the character after it along, so an escaped quote ends no text) and stops at
+ * the first count that is over. It keeps nothing, and is asked before `JSON.parse`, which makes
+ * an object of every `{}` of a text, however small the text was packed (plan 8Z-2: 64 MB of
+ * `{}` took seconds and over a gigabyte). On JSON it counts exactly what the parser would
+ * build; what is no JSON, the parser refuses at its first wrong character, and up to there the
+ * count holds as well.
+ */
+function fitsAnExport(text: string): boolean {
+  let objects = 0;
+  let lists = 0;
+  let commas = 0;
+  let inText = false;
+  for (let at = 0; at < text.length; at++) {
+    const code = text.charCodeAt(at);
+    if (inText) {
+      if (code === BACKSLASH) at++;
+      else if (code === QUOTE) inText = false;
+    } else if (code === QUOTE) {
+      inText = true;
+    } else if (code === COMMA) {
+      if (++commas > MAX_STRUCTURE.commas) return false;
+    } else if (code === OPEN_BRACE) {
+      if (++objects > MAX_STRUCTURE.objects) return false;
+    } else if (code === OPEN_BRACKET) {
+      if (++lists > MAX_STRUCTURE.lists) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * The export a text holds, checked: its format and version, its sizes, every Wayspot (an id of
  * Wayfarer's form, a known kind, a place in range, texts of at most `MAX_WAYSPOT_TEXT`) and
  * every cell. Of several Wayspots with one id the last one counts (it stays where the first
- * stood in the list). Nothing of a file that fails is used.
+ * stood in the list). Nothing of a file that fails is used. A text with more objects, lists or
+ * entries than the largest export has is `too-many` before any of it is parsed (`fitsAnExport`).
  */
 export function readWayspotExport(text: string): ExportReading {
+  if (!fitsAnExport(text)) return { ok: false, problem: { kind: 'too-many' } };
   let json: unknown;
   try {
     json = JSON.parse(text);

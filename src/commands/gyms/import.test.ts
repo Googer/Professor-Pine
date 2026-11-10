@@ -10,7 +10,7 @@ import {
   type FakeOptions,
   type SentPayload,
 } from '../../../test/support/fake-interactions.js';
-import { STAFF, UPDATES_CHANNEL } from '../../../test/support/gym-admin.js';
+import { OTHER_STAFF, STAFF, UPDATES_CHANNEL } from '../../../test/support/gym-admin.js';
 import {
   answerOf,
   gymCommandsWith,
@@ -597,8 +597,9 @@ describe('/gym import: an export in parts', () => {
     const file = cityFile(made);
     const parts = partFiles(file, 3);
     const other = partFiles(file, 3, 'run-2');
+    // Each try on a bot of its own: a member has three uses in ten minutes.
     const refusal = async (files: Attached[]): Promise<string> => {
-      const { answer } = await importingFiles(made, files);
+      const { answer } = await importingFiles(await gymCommandsWith(), files);
       expect(answer.components ?? []).toEqual([]);
       return said(answer) ?? '';
     };
@@ -727,6 +728,50 @@ describe('/gym import: files it refuses', () => {
     const { answer } = await importing(made, packed(cityFile(made)));
     expect(said(answer)).toBe(
       'I could not download that file from Discord. Try again in a moment.',
+    );
+  });
+
+  it('refuses a small file that unpacks to more objects than any export has', async () => {
+    // A few kilobytes packed: a million empty objects (plan 8Z-2).
+    const bomb = gzipSync(`[${'{},'.repeat(1_000_000)}{}]`);
+    expect(bomb.byteLength).toBeLessThan(20_000);
+    expect((await refused(bomb)).text).toBe(
+      'That export holds more than 250,000 Wayspots or 250,000 cells. Scan fewer regions in ' +
+        'one run.',
+    );
+  });
+});
+
+describe('/gym import: how often', () => {
+  it('lets a member use it three times in ten minutes, whatever came of each', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const made = await gymCommandsWith();
+      const file = packed(cityFile(made));
+      expect(said((await importing(made, 'hello')).answer)).toMatch(/^That file is no export/);
+      for (let i = 0; i < 2; i++) {
+        expect(labelsOf((await importing(made, file)).answer)).toEqual(['Import', 'Cancel']);
+      }
+      const asked = made.attachments.asked.length;
+      const fourth = await importing(made, file);
+      expect(said(fourth.answer)).toBe('You can use /gym import again in 10 minutes.');
+      expect(made.attachments.asked).toHaveLength(asked);
+      // Another member of staff has uses of their own.
+      const other = await importing(made, file, { userId: OTHER_STAFF });
+      expect(labelsOf(other.answer)).toEqual(['Import', 'Cancel']);
+      vi.setSystemTime(Date.now() + 10 * 60_000);
+      expect(labelsOf((await importing(made, file)).answer)).toEqual(['Import', 'Cancel']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('says so in its help', async () => {
+    const { gym } = await import('./index.js');
+    const details = gym.subcommands.get('import')?.help?.details;
+    const settings = loadSettings(TEST_SETTINGS_PATH);
+    expect(typeof details === 'function' ? details(settings) : '').toContain(
+      'Each member may use this three times in ten minutes.',
     );
   });
 });
@@ -1015,10 +1060,11 @@ describe('/gym import: the buttons', () => {
 
   it('keeps at most three exports waiting, forgetting the oldest', async () => {
     const made = await gymCommandsWith();
-    const first = await importing(made, packed(cityFile(made)));
+    // The first is another staff member's: one member has three uses in ten minutes.
+    const first = await importing(made, packed(cityFile(made)), { userId: OTHER_STAFF });
     for (let i = 0; i < MAX_PENDING_IMPORTS; i++) await importing(made, packed(cityFile(made)));
     expect(pendingImports.size).toBeLessThanOrEqual(MAX_PENDING_IMPORTS);
-    const pressed = await pressV2(made, buttonId(first.answer, 'Import'));
+    const pressed = await pressV2(made, buttonId(first.answer, 'Import'), { userId: OTHER_STAFF });
     expect(replacedBy(sent(pressed.update, 0)).lines).toEqual([
       'That has expired. Use the command again.',
     ]);
