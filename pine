@@ -256,6 +256,32 @@ build_image() {
 start_database() {
   say "Starting the database."
   run up -d --wait mysql
+  warn_bot_apart
+}
+
+# The names of a container's networks, each followed by a space.
+container_networks() {
+  # shellcheck disable=SC2016 # docker's template, not the shell's
+  docker inspect --format '{{range $name, $network := .NetworkSettings.Networks}}{{$name}} {{end}}' "$1" 2>/dev/null
+}
+
+# After a pull without './pine up' (a build that failed, a pull by hand), `mysql` was just made
+# anew on its network `db` (plan 8Z-2) while the bot's container from before is still on the
+# default network alone: the bot has lost its database until './pine up'. Said, never a refusal;
+# nothing when Docker cannot be asked or the bot is not running.
+warn_bot_apart() {
+  bot=$(compose ps --quiet --status running pine 2>/dev/null) || return 0
+  database=$(compose ps --quiet mysql 2>/dev/null) || return 0
+  if [ -z "$bot" ] || [ -z "$database" ]; then return 0; fi
+  bot_networks=$(container_networks "$bot") || return 0
+  database_networks=$(container_networks "$database") || return 0
+  if [ -z "$bot_networks" ] || [ -z "$database_networks" ]; then return 0; fi
+  for network in $database_networks; do
+    case " $bot_networks " in
+      *" $network "*) return 0 ;;
+    esac
+  done
+  say "The bot runs apart from the database's network (the code was pulled, but the stack was not started anew): it cannot reach the database until './pine up' starts it anew."
 }
 
 usage() {

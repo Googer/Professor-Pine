@@ -296,3 +296,48 @@ describe('the dump check of ./pine restore', () => {
     expect(run.stdout).not.toContain('passed');
   });
 });
+
+// After a pull without './pine up' (a build that failed, a pull by hand), `backup`, `migrate` and
+// `restore` make `mysql` anew on the network `db`, while the bot's container from before is
+// still on the default network alone: the bot has lost its database until './pine up'.
+describe('the database started by ./pine', () => {
+  /** start_database against a Docker faked as a shell function: the bot's and MySQL's networks. */
+  function startWith(botNetworks: string | undefined) {
+    return runPineScript(
+      [
+        'docker() {',
+        '  case "$*" in',
+        `    *"ps --quiet --status running pine") ${botNetworks === undefined ? ':' : 'echo bot-1'} ;;`,
+        '    *"ps --quiet mysql") echo mysql-1 ;;',
+        '    inspect*bot-1) printf "%s\\n" "$BOT_NETWORKS" ;;',
+        '    inspect*mysql-1) echo "pine_db " ;;',
+        '  esac',
+        '}',
+        'start_database 2>&1',
+        'echo "status: $?"',
+      ].join('\n'),
+      { BOT_NETWORKS: botNetworks ?? '' },
+    );
+  }
+
+  const DUE = /The bot runs apart from the database's network .*'\.\/pine up' starts it anew/;
+
+  it('says that ./pine up is due when the running bot is not on the database’s network', (context) => {
+    const run = startWith('pine_default ');
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toMatch(DUE);
+    // Said, never a refusal: the command goes on.
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  it('says nothing of a bot that shares its network, or of a bot that is not running', (context) => {
+    for (const networks of ['pine_db pine_default ', undefined]) {
+      const run = startWith(networks);
+      if (!run) return context.skip('no sh here');
+
+      expect(run.stdout).not.toMatch(DUE);
+      expect(run.stdout).toContain('status: 0');
+    }
+  });
+});
