@@ -12,6 +12,7 @@ import {
   LIVE_PING_MS,
   MAX_LIVE_PER_ADDRESS,
   MAX_LIVE_PER_MEMBER,
+  MEMBER_ASKED_EVERY_PINGS,
 } from './live-signals.js';
 import { LIVE_PER_MINUTE } from './live-routes.js';
 import { MAX_SESSIONS_PER_ACCOUNT } from './session-model.js';
@@ -270,11 +271,12 @@ describe('GET /s/<guild>/api/live', () => {
     await stream.came.reached(1);
     expect(directory.asked).toEqual([`${FAKE_GUILD_ID}:${ALICE}`]);
     directory.remove(ALICE);
-    web.liveTimers.pass(LIVE_PING_MS);
+    // Asked at every fourth keep-alive (F-B6).
+    web.liveTimers.pass(MEMBER_ASKED_EVERY_PINGS * LIVE_PING_MS);
     await stream.ended.reached(1);
-    // The keep-alive came first, then the directory's answer ended the stream: asked once more,
-    // through the question the opening asked.
-    expect(stream.events).toEqual([PING, PING]);
+    // The keep-alives came first, then the directory's answer ended the stream: asked once
+    // more, through the question the opening asked.
+    expect(stream.events).toEqual(Array<string>(MEMBER_ASKED_EVERY_PINGS + 1).fill(PING));
     expect(directory.asked).toHaveLength(2);
   });
 

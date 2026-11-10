@@ -12,6 +12,12 @@ const LISTS: readonly LiveList[] = ['parties', 'stop-reports', 'spawns'];
 
 /** A heartbeat, well inside Cloudflare's 100 seconds. */
 export const LIVE_PING_MS = 25_000;
+/**
+ * At which keep-alives a stream's member is asked after (F-B6): every fourth, about every 100
+ * seconds, so that the questions of every open stream do not fill the member directory's paced
+ * queue. A member who left keeps their stream that long at most.
+ */
+export const MEMBER_ASKED_EVERY_PINGS = 4;
 /** How long a stream lasts: its reconnect is what asks the session and membership again. */
 export const LIVE_LIFETIME_MS = 30 * 60_000;
 /** The most added to that at random. */
@@ -108,6 +114,8 @@ interface Stream {
   cancelLifetime: () => void;
   /** Whether `stillMember` was asked and has not answered yet: one question at a time. */
   asking: boolean;
+  /** The keep-alives since the opening's ping: every `MEMBER_ASKED_EVERY_PINGS`th asks. */
+  pings: number;
 }
 
 interface ListPace {
@@ -171,6 +179,7 @@ export class LiveSignals {
       cancelPing: () => undefined,
       cancelLifetime: () => undefined,
       asking: false,
+      pings: 0,
     };
     server.streams.add(stream);
     this.total += 1;
@@ -322,16 +331,17 @@ export class LiveSignals {
     if (!stream.server.streams.has(stream)) return;
     stream.cancelPing = this.deps.setTimer(() => {
       this.ping(stream);
-      this.askMember(stream);
+      stream.pings += 1;
+      if (stream.pings % MEMBER_ASKED_EVERY_PINGS === 0) this.askMember(stream);
     }, LIVE_PING_MS);
   }
 
   /**
-   * At a keep-alive (plan 8Z-2): asks whether the stream's member is one still, and ends the
-   * stream of who is none, so that it does not outlive a member's leaving by its lifetime. One
-   * question at a time per stream; while the directory cannot say, the stream stays and the
-   * next keep-alive asks again. The answer is taken straight off the promise given, in the turn
-   * it settles.
+   * At every `MEMBER_ASKED_EVERY_PINGS`th keep-alive (plan 8Z-2, F-B6): asks whether the
+   * stream's member is one still, and ends the stream of who is none, so that it does not
+   * outlive a member's leaving by its lifetime. One question at a time per stream; while the
+   * directory cannot say, the stream stays and the next such keep-alive asks again. The answer
+   * is taken straight off the promise given, in the turn it settles.
    */
   private askMember(stream: Stream): void {
     if (stream.asking || !stream.server.streams.has(stream)) return;

@@ -8,9 +8,12 @@ import {
   MAX_LIVE_PER_ADDRESS,
   MAX_LIVE_PER_MEMBER,
   MAX_LIVE_STREAMS,
+  MEMBER_ASKED_EVERY_PINGS,
   type LiveSink,
 } from './live-signals.js';
 
+/** How often a stream's member is asked after: every fourth keep-alive (F-B6). */
+const ASKED_EVERY_MS = MEMBER_ASKED_EVERY_PINGS * LIVE_PING_MS;
 const SERVER = '100000000000000001';
 const OTHER_SERVER = '100000000000000002';
 const ROW = 1;
@@ -527,7 +530,7 @@ describe('LiveSignals: a session’s streams (plan 8Z-2)', () => {
 });
 
 describe('LiveSignals: who is a member still (plan 8Z-2)', () => {
-  it('asks at each keep-alive, never at the opening, and ends the stream of who is none', async () => {
+  it('asks at every fourth keep-alive, never at the opening, and ends the stream of who is none', async () => {
     const { clock, open } = hubWith();
     const member = { still: true, asked: 0 };
     let last: Promise<boolean> = Promise.resolve(true);
@@ -540,27 +543,33 @@ describe('LiveSignals: who is a member still (plan 8Z-2)', () => {
     const staying = open({ stillMember: STILL_A_MEMBER });
     const leaving = open({ stillMember });
     expect(member.asked).toBe(0);
+    // Three keep-alives ask nothing (F-B6: the question would fill the paced queue).
+    for (let ping = 1; ping < MEMBER_ASKED_EVERY_PINGS; ping += 1) clock.pass(LIVE_PING_MS);
+    expect(member.asked).toBe(0);
     clock.pass(LIVE_PING_MS);
+    expect(member.asked).toBe(1);
     // The hub heard the answer before whoever asks for it after: then it may ask again.
     await last;
-    clock.pass(LIVE_PING_MS);
+    clock.pass(ASKED_EVERY_MS);
     await last;
     expect(member.asked).toBe(2);
-    // They left the server (or lost the map's role): the next keep-alive finds it.
+    // They left the server (or lost the map's role): the next asking keep-alive finds it.
     member.still = false;
+    clock.pass(ASKED_EVERY_MS - LIVE_PING_MS);
+    expect([member.asked, leaving.ended]).toEqual([2, false]);
     clock.pass(LIVE_PING_MS);
     await leaving.ending;
     expect([leaving.ended, leaving.destroyed]).toEqual([true, false]);
     expect(staying.ended).toBe(false);
     // Forgotten: no more pings, no more asks.
     const written = leaving.written.length;
-    clock.pass(LIVE_PING_MS);
+    clock.pass(ASKED_EVERY_MS);
     expect(leaving.written).toHaveLength(written);
     expect(member.asked).toBe(3);
     expect(staying.written.at(-1)).toBe(PING);
   });
 
-  it('keeps a stream while the directory cannot say, and asks again at the next keep-alive', async () => {
+  it('keeps a stream while the directory cannot say, and asks again at the next asking keep-alive', async () => {
     const { clock, open } = hubWith();
     const answers: Array<() => Promise<boolean>> = [
       () => Promise.reject(new Error('Discord is away')),
@@ -578,12 +587,12 @@ describe('LiveSignals: who is a member still (plan 8Z-2)', () => {
         return last;
       },
     });
-    clock.pass(LIVE_PING_MS);
+    clock.pass(ASKED_EVERY_MS);
     // The hub heard the failure before whoever asks for it after.
     await last.catch(() => undefined);
-    clock.pass(LIVE_PING_MS);
+    clock.pass(ASKED_EVERY_MS);
     expect([asked, sink.ended]).toEqual([2, false]);
-    clock.pass(LIVE_PING_MS);
+    clock.pass(ASKED_EVERY_MS);
     await sink.ending;
     expect(asked).toBe(3);
   });
@@ -600,9 +609,9 @@ describe('LiveSignals: who is a member still (plan 8Z-2)', () => {
         });
       },
     });
-    clock.pass(LIVE_PING_MS);
-    clock.pass(LIVE_PING_MS);
-    clock.pass(LIVE_PING_MS);
+    clock.pass(ASKED_EVERY_MS);
+    clock.pass(ASKED_EVERY_MS);
+    clock.pass(ASKED_EVERY_MS);
     expect(asked).toBe(1);
     answer(false);
     await sink.ending;
@@ -621,7 +630,7 @@ describe('LiveSignals: who is a member still (plan 8Z-2)', () => {
     });
     // Asked after it at the same keep-alive, so answered after it.
     const next = open({ stillMember: () => Promise.resolve(false) });
-    clock.pass(LIVE_PING_MS);
+    clock.pass(ASKED_EVERY_MS);
     late.takes = false;
     hub.reportsChanged(SERVER);
     expect(late.destroyed).toBe(true);
