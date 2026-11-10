@@ -179,7 +179,8 @@ prune_old() {
     return 0
   fi
   [ -n "$left" ] || return 0
-  prune_failed=$(printf '%s\n' "$left" | sed 's|.*/||' | tr '\n' ' ')
+  # In the order of their names, not find's: the warning stays the same text for the same dumps.
+  prune_failed=$(printf '%s\n' "$left" | sed 's|.*/||' | LC_ALL=C sort | tr '\n' ' ')
   prune_failed=${prune_failed% }
 }
 

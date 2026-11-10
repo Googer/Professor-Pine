@@ -19,6 +19,24 @@ const HOUR = 60 * MINUTE;
 const OLD_FAILURE_MS = 24 * HOUR;
 /** How often the owner is told again that backups are missing. */
 const MISSING_AGAIN_MS = 12 * HOUR;
+/** How often the owner is told again of a backup's warning whose kinds stay the same. */
+const WARNING_AGAIN_MS = 7 * 24 * HOUR;
+
+/**
+ * The kinds of a backup's warning (`docker/backup.sh` joins its pieces with "; "): each piece
+ * without its list (what follows its first ":", the dumps that could not be deleted) and its
+ * numbers (a count, and the plural it takes). So a list that grows, or a count that changes, is
+ * the same kind; another piece, or another kind of stored program in one, is a new kind.
+ */
+export function backupWarningKinds(warning: string): string[] {
+  const kinds = warning.split('; ').map((piece) =>
+    (piece.split(':', 1)[0] ?? '')
+      .replace(/\d+ (\w+?)s\b/g, '# $1')
+      .replace(/\d+/g, '#')
+      .trim(),
+  );
+  return [...new Set(kinds)].sort();
+}
 
 /** A whole number from the environment, blank meaning the default. */
 const count = (fallback: number, max: number) =>
@@ -104,10 +122,16 @@ export interface WatchdogMemory {
   toldMissing?: number;
   /** Whether the owner was told that this stack's backups are off. */
   toldOff?: boolean;
-  /** The warning of a good backup last told; gone once a backup has none. */
-  toldWarning?: string;
+  /** The kinds of a good backup's warning last told, and when; gone once a backup has none. */
+  toldWarning?: ToldWarning;
   /** Since when every ask of Docker about the bot failed, and whether the owner was told. */
   dockerAway?: DockerAway;
+}
+
+/** A backup's warning told to the owner: its kinds (`backupWarningKinds`) and when. */
+export interface ToldWarning {
+  kinds: string[];
+  at: number;
 }
 
 /** A spell of Docker out of the watchdog's reach. */
@@ -150,11 +174,18 @@ export class FileWatchdogState implements WatchdogState {
     try {
       const raw = JSON.parse(readFileSync(this.file, 'utf8')) as Record<string, unknown>;
       const away = raw.dockerAway as Partial<DockerAway> | undefined;
+      // A warning kept as its text, by a watchdog before plan 8Z-2's fix, is forgotten: at most
+      // one DM again.
+      const warned = raw.toldWarning as Partial<ToldWarning> | undefined;
       return {
         ...(typeof raw.toldFailure === 'number' ? { toldFailure: raw.toldFailure } : {}),
         ...(typeof raw.toldMissing === 'number' ? { toldMissing: raw.toldMissing } : {}),
         ...(raw.toldOff === true ? { toldOff: true } : {}),
-        ...(typeof raw.toldWarning === 'string' ? { toldWarning: raw.toldWarning } : {}),
+        ...(typeof warned?.at === 'number' &&
+        Array.isArray(warned.kinds) &&
+        warned.kinds.every((kind) => typeof kind === 'string')
+          ? { toldWarning: { kinds: warned.kinds, at: warned.at } }
+          : {}),
         ...(typeof away?.since === 'number'
           ? { dockerAway: { since: away.since, told: away.told === true } }
           : {}),
@@ -453,9 +484,10 @@ export class Watchdog {
 
   /**
    * What a good backup warns of (stored programs in the database, which no dump holds; old dumps
-   * that could not be deleted) is only in its status: the owner is told when it is not the
-   * warning last told, so once while every night's backup warns of the same, and again after a
-   * backup without it. Remembered only once it went out: an alert that failed is tried again.
+   * that could not be deleted) is only in its status: the owner is told at once of a kind of
+   * warning not told yet (`backupWarningKinds`: a list that grows every night is the same kind),
+   * and of the same kinds again once a week while they last; a backup without a warning forgets
+   * them. Remembered only once it went out: an alert that failed is tried again.
    */
   private async tellWarning(status: BackupStatus | undefined): Promise<void> {
     const { alerts, state } = this.options;
@@ -465,12 +497,22 @@ export class Watchdog {
       if (toldWarning !== undefined) state.write(rest);
       return;
     }
-    if (status.warning === toldWarning) return;
+    const kinds = backupWarningKinds(status.warning);
+    const now = this.now();
+    const news =
+      toldWarning === undefined || kinds.some((kind) => !toldWarning.kinds.includes(kind));
+    if (!news && now - toldWarning.at < WARNING_AGAIN_MS) {
+      // A kind that is gone is forgotten: if it comes back, it is news again.
+      if (toldWarning.kinds.length !== kinds.length) {
+        state.write({ ...state.read(), toldWarning: { kinds, at: toldWarning.at } });
+      }
+      return;
+    }
     const outcome = await alerts.send(
       'backup-warning',
       `The backup of ${alertTime(status.finishedAt)} was made, but ${status.warning}. ` +
         "'./pine logs backup' shows more.",
     );
-    if (outcome === 'sent') state.write({ ...state.read(), toldWarning: status.warning });
+    if (outcome === 'sent') state.write({ ...state.read(), toldWarning: { kinds, at: now } });
   }
 }

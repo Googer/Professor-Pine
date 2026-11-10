@@ -376,6 +376,31 @@ describe('the backup folder of docker/backup.sh', () => {
     ]);
   });
 
+  // find lists in the folder's order, which no file system keeps stable: the warning's text
+  // would change from night to night for the same dumps.
+  it('names the old dumps it could not delete in the order of their names', (context) => {
+    const { out, env } = folders();
+    const old = [
+      'pine-backup-20260701.sql.gz',
+      'pine-backup-20260702.sql.gz',
+      'pine-backup-20260703.sql.gz',
+    ];
+    for (const name of old) writeFileSync(path.join(out, name), '');
+    const run = runBackupScript(
+      [
+        'OWNER_UID=0 OWNER_GID=0 KEEP=90',
+        'touch -d "100 days ago" "$OUT"/pine-backup-2026070*.sql.gz',
+        // Deletes nothing, and lists in an order of its own.
+        'as_owner() { case " $* " in *" -exec "*) return 1 ;; esac; "$@" | sort -r; }',
+        'prune_old; echo "failed: [$prune_failed]"',
+      ].join('\n'),
+      env,
+    );
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain(`failed: [${old.join(' ')}]`);
+  });
+
   it('removes what a run that was killed left half-written', (context) => {
     const { out, env } = folders();
     for (const name of [

@@ -333,6 +333,72 @@ describe('Watchdog: backups', () => {
     expect(rest.messages()).toEqual([told(START), told(START + 72 * HOUR)]);
   });
 
+  // The list of old dumps that could not be deleted grows every night: a DM each night for that
+  // would teach the owner to ignore them. Told at once when its kind is new, else once a week.
+  it('tells a warning whose list grows every night once a week', async () => {
+    const { rest, watchdog, clock, backup } = watchdogWith();
+    const DAY = 24 * HOUR;
+    const dumps = (nights: number) =>
+      Array.from({ length: nights }, (_, night) => `pine-backup-202607${10 + night}.sql.gz`).join(
+        ' ',
+      );
+    const warnings: string[] = [];
+    const night = async (index: number, warning: string) => {
+      const finishedAt = START + index * DAY;
+      clock.now = finishedAt + MINUTE;
+      backup.status = { finishedAt, ok: true, lastOkAt: finishedAt, warning };
+      warnings[index] = warning;
+      await watchdog.tick();
+    };
+    const told = (index: number) =>
+      `The backup of <t:${(START + index * DAY) / 1000}:f> was made, but ${warnings[index]}. ` +
+      "'./pine logs backup' shows more.";
+
+    await night(0, `old dumps could not be deleted: ${dumps(1)}`);
+    await night(1, `old dumps could not be deleted: ${dumps(2)}`);
+    await night(2, `old dumps could not be deleted: ${dumps(3)}`);
+    expect(rest.messages()).toEqual([told(0)]);
+
+    for (let index = 3; index < 7; index += 1) {
+      await night(index, `old dumps could not be deleted: ${dumps(index + 1)}`);
+    }
+    expect(rest.messages()).toEqual([told(0)]);
+    // A week after it was told.
+    await night(7, `old dumps could not be deleted: ${dumps(8)}`);
+    expect(rest.messages()).toEqual([told(0), told(7)]);
+  });
+
+  it('tells at once of a second kind of warning that arrives beside one told', async () => {
+    const { rest, watchdog, clock, backup } = watchdogWith();
+    const DAY = 24 * HOUR;
+    const old = 'old dumps could not be deleted: pine-backup-20260710.sql.gz';
+    const both =
+      'old dumps could not be deleted: pine-backup-20260710.sql.gz pine-backup-20260711.sql.gz; ' +
+      'the database has 2 views, which its dumps hold with a definer that ' +
+      "'./pine restore' refuses (Professor Pine makes none)";
+    backup.status = { finishedAt: START, ok: true, lastOkAt: START, warning: old };
+    clock.now = START + MINUTE;
+    await watchdog.tick();
+    backup.status = { finishedAt: START + DAY, ok: true, lastOkAt: START + DAY, warning: both };
+    clock.now = START + DAY + MINUTE;
+    await watchdog.tick();
+    // The third night says the same again: nothing new.
+    backup.status = {
+      finishedAt: START + 2 * DAY,
+      ok: true,
+      lastOkAt: START + 2 * DAY,
+      warning: both.replace('2 views', '3 views'),
+    };
+    clock.now = START + 2 * DAY + MINUTE;
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([
+      `The backup of <t:${START / 1000}:f> was made, but ${old}. './pine logs backup' shows more.`,
+      `The backup of <t:${(START + DAY) / 1000}:f> was made, but ${both}. ` +
+        "'./pine logs backup' shows more.",
+    ]);
+  });
+
   it('tells of a warning again when the first message did not go out, and not after its own restart', async () => {
     const state = new MemoryWatchdogState();
     const warned: BackupStatus = {
@@ -593,9 +659,17 @@ describe('FileWatchdogState', () => {
   it('keeps the warning of a backup it told, and reads it back', () => {
     const { log } = createTestLogger();
     const file = path.join(mkdtempSync(path.join(tmpdir(), 'pine-state-')), 'state.json');
-    const toldWarning = 'the database has 1 trigger, which no dump holds';
+    const toldWarning = { kinds: ['old dumps could not be deleted'], at: START };
     new FileWatchdogState(file, log).write({ toldWarning });
     expect(new FileWatchdogState(file, log).read()).toEqual({ toldWarning });
+  });
+
+  // A watchdog before plan 8Z-2's fix kept the warning's text: forgotten, at most one DM again.
+  it('forgets a warning kept as its text', () => {
+    const { log } = createTestLogger();
+    const file = path.join(mkdtempSync(path.join(tmpdir(), 'pine-state-')), 'state.json');
+    writeFileSync(file, JSON.stringify({ toldOff: true, toldWarning: 'old dumps could not be' }));
+    expect(new FileWatchdogState(file, log).read()).toEqual({ toldOff: true });
   });
 
   it('says so in the log when it cannot write', () => {
