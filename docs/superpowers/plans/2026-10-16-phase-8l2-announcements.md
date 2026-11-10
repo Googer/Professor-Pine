@@ -61,7 +61,7 @@ Something broken, odd or missing? Tell us in #feedback-n-at.
 
 ## 2. The official Professor Pine Discord post (for admins of other instances)
 
-Matt posts it once the new code and the `legacy` branch are on GitHub (the first push), in the style of that server's earlier release posts: titled by version, a list of changes, the upgrade requirements as notes after it. `package.json` says `2.0.0-dev` today: set it to `2.0.0` with the push, or change the title to the version that ships. `@Pine Admins` is that server's role: retype it in the message box so that it pings. Three messages, one right after the other, as the larger releases there were: the list of changes alone is over Discord's 2,000 characters, so it goes in two.
+Matt posts it now that version 2.0.0 is released (`master` and the tag `v2.0.0`, 2026-11-10; the `legacy` branch has been on GitHub since the first push), in the style of that server's earlier release posts: titled by version, a list of changes, the upgrade requirements as notes after it. `package.json` says `2.0.0`, as the title does. `@Pine Admins` is that server's role: retype it in the message box so that it pings. Three messages, one right after the other, as the larger releases there were: the list of changes alone is over Discord's 2,000 characters, so it goes in two.
 
 ```md
 **v2.0.0 Released**
@@ -96,8 +96,8 @@ The third message, right after it:
 ```md
 IMPORTANT NOTE: once the servers of a bot reach 10,000 users, Discord reviews whether it may keep its privileged intents (Server Members, Presence, Message Content). An application that did not apply loses them on the date given in Discord's e-mail to its owner, and from then on the legacy bot's login is refused. Pine 2 needs **no** privileged intents.
 
-Pine 2 needs Docker and git on the host instead of Node and MySQL. The move, step by step (settings converter, database restore, readiness check, forums, cleanup of the old raid channels; those of trains, meetups and saved parties stay): <https://github.com/Googer/Professor-Pine/blob/main-dev/docs/guides/migrating-a-legacy-instance.md>
-New instances: <https://github.com/Googer/Professor-Pine/blob/main-dev/docs/guides/new-instance.md>
+Pine 2 needs Docker and git on the host instead of Node and MySQL. The move, step by step (settings converter, database restore, readiness check, forums, cleanup of the old raid channels; those of trains, meetups and saved parties stay): <https://github.com/Googer/Professor-Pine/blob/master/docs/guides/migrating-a-legacy-instance.md>
+New instances: <https://github.com/Googer/Professor-Pine/blob/master/docs/guides/new-instance.md>
 
 @Pine Admins Please check your e-mail from Discord for your date, and move before it. Not ready in time? The `legacy` branch runs the old bot without Server Members and Presence: notifications then reach only members the bot has seen since it started, there is no auto role, and commands need a mention of the bot itself (not its role) instead of `!` (`@Professor Pine join`). The guide says how to switch. The legacy bot gets no further updates.
 
