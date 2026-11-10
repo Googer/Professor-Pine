@@ -39,14 +39,14 @@ const time = (value: string | null): number | null => (value === null ? null : N
  */
 export interface ActivityReader {
   /** A server's buckets in a mode's window (`activityWindow`): its hours, or its months. */
-  buckets(serverId: string, window: ActivityWindow): Promise<readonly ActivityBucket[]>;
+  buckets(serverId: string, window: ActivityWindow): Promise<readonly Readonly<ActivityBucket>[]>;
   /** The first and the last month a server has buckets of, for History's slider; null for none. */
   months(serverId: string): Promise<{ first: string; last: string } | null>;
   /**
    * A server's raids and max battles per region over a span of local months (the region tally,
    * plan 8H-5), along the `(serverId, month)` index; a region without any has no entry.
    */
-  regionSums(serverId: string, months: MonthRange): Promise<readonly RegionCount[]>;
+  regionSums(serverId: string, months: MonthRange): Promise<readonly Readonly<RegionCount>[]>;
 }
 
 /** A server's raids and max battles of one local day, over the regions read. */

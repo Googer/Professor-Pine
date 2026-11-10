@@ -21,7 +21,7 @@ export interface KeptActivityOptions {
 }
 
 /** No row, for every window that reads nothing. */
-const NONE: readonly ActivityBucket[] = Object.freeze([]);
+const NONE: readonly Readonly<ActivityBucket>[] = Object.freeze([]);
 
 /** A window as a key: its months, or its hours in one order whatever order they were asked in. */
 function windowKey(window: ActivityWindow): string {
@@ -58,7 +58,10 @@ export class KeptActivity implements ActivityReader {
     this.now = options.now ?? (() => Date.now());
   }
 
-  async buckets(serverId: string, window: ActivityWindow): Promise<readonly ActivityBucket[]> {
+  async buckets(
+    serverId: string,
+    window: ActivityWindow,
+  ): Promise<readonly Readonly<ActivityBucket>[]> {
     if ('months' in window) {
       const has = await this.months(serverId);
       if (has === null || window.months.last < has.first || window.months.first > has.last) {
@@ -76,7 +79,7 @@ export class KeptActivity implements ActivityReader {
     return this.read(`${serverId} span`, () => this.reader.months(serverId));
   }
 
-  regionSums(serverId: string, months: MonthRange): Promise<readonly RegionCount[]> {
+  regionSums(serverId: string, months: MonthRange): Promise<readonly Readonly<RegionCount>[]> {
     return this.read(`${serverId} sums ${months.first} ${months.last}`, async () =>
       Object.freeze(await this.reader.regionSums(serverId, months)),
     );
