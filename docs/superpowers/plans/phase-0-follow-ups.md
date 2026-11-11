@@ -2093,6 +2093,8 @@ Right before the official release post (section 2 of `2026-10-16-phase-8l2-annou
 
 **Done 2026-11-10 (Matt: "Yes, release"):** steps 1 to 3, 5 and 6: the version 2.0.0, the merge into `master` with the tag `v2.0.0`, both pushed; `main-dev` on as `2.1.0-dev`; section 2 of the announcements and CLAUDE.md brought up to date. **Step 4 is open:** production's clone still follows `main-dev` at the commit of the cutover's last update; the switch to `master` and its `./pine update` wait for Matt's go-ahead (the update recreates MySQL, the bot and the backup once and applies migration 050; `./pine deploy-commands` after it). The official post (section 2) is Matt's to send.
 
+**v2.0.1, the same evening (Matt: "we could call this v2.0.1"; 2.0.0 was never announced, and 2.1 is kept for a public application):** plans 7M and 8G, the Terms of Service and the Privacy Policy, merged into `master` and tagged `v2.0.1` by the same steps; `main-dev` back on `2.1.0-dev`. Production is updated to it once (step 4, still Matt's go-ahead): the update applies migrations 050 and 051, recreates MySQL, the bot and the backup once, and needs `./pine deploy-commands` after it (a new message command, a new part of `/admin`).
+
 ## The cutover (Pittsburgh, 2026-11-09 night, the Air, main-dev 407908be; Claude drove, Matt as Googer)
 
 Runbook Part 2, the same evening as R4–R6. **Pittsburgh runs on the new bot** on the Air's `~/professor-pine` stack; legacy Pine at the office is stopped, its FireDaemon service "Pine" on manual start (the way back). **Not announced** (Matt): N7's announcement waits for his word.
