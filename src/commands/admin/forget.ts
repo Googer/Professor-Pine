@@ -1,4 +1,10 @@
-import { ButtonBuilder, ButtonStyle, SlashCommandSubcommandBuilder } from 'discord.js';
+import {
+  ButtonBuilder,
+  ButtonStyle,
+  MessageFlags,
+  SlashCommandSubcommandBuilder,
+  type ModalSubmitInteraction,
+} from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import { MemberRemovalError } from '../../db/repositories/member-data-repository.js';
 import type { ComponentHandler } from '../../discord/command.js';
@@ -7,7 +13,8 @@ import { encodeCustomId } from '../../discord/custom-id.js';
 import { deferSubmit, dialog } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
 import { requireOwner } from '../../discord/guards.js';
-import { answerApart } from '../../discord/late-reply.js';
+import { answerApart, showInPlace, v2Answer } from '../../discord/late-reply.js';
+import type { V2Message } from '../../discord/party-gateway.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import {
   forgetFailedMessage,
@@ -139,8 +146,9 @@ function byHandOf(ctx: Pick<AppContext, 'config'>): ByHand {
 /**
  * The controls of `/admin forget` (kind `forget`): the owner's alone, as the command. "Remove…"
  * (`ask`) reads nothing but the pending look and opens the question; the question's Submit
- * (`remove`) takes the look (it is answered once), acknowledges privately and removes. A
- * removal the database refuses is answered with the step that failed: nothing changed.
+ * (`remove`) takes the look (it is answered once), acknowledges on the look and removes, its
+ * answer in the look's place (`inPlaceOfLook`). A removal the database refuses is answered with
+ * the step that failed: nothing changed.
  */
 export const forgetControls: ComponentHandler = {
   kind: FORGET_KIND,
@@ -166,25 +174,58 @@ export const forgetControls: ComponentHandler = {
     if (found === 'not-yours') throw new UserError(NOT_YOURS);
     if (found === 'expired') throw new UserError(EXPIRED);
     const { member } = found.value;
-    await deferSubmit(interaction);
+    // Acknowledged on the look (the removal may take longer than Discord waits): its answer
+    // takes the look's place, Remove… with it (v2.0.2).
+    if (interaction.isFromMessage()) await interaction.deferUpdate();
+    else await deferSubmit(interaction);
     let outcome;
     try {
       outcome = await ctx.memberRemoval.remove(member.id, interaction.user.id);
     } catch (err) {
       // Rolled back and logged by the service; anything else is the router's to say.
       if (!(err instanceof MemberRemovalError)) throw err;
-      await answerApart(interaction, forgetFailedMessage(member, err.step));
+      await inPlaceOfLook(interaction, ctx, member, forgetFailedMessage(member, err.step));
       return;
     }
     // Committed: the data is gone, and a send Discord refuses is never answered as a failure
     // (the answer is kept within `FORGET_TEXT_BUDGET`; this is for whatever else refuses it).
-    await answerApart(interaction, forgetOutcomeMessage(member, outcome, byHandOf(ctx))).catch(
-      (err: unknown) => {
-        ctx.log.warn(
-          { err, member: member.id },
-          'removed a member’s data; the answer could not be sent',
-        );
-      },
-    );
+    await inPlaceOfLook(
+      interaction,
+      ctx,
+      member,
+      forgetOutcomeMessage(member, outcome, byHandOf(ctx)),
+    ).catch((err: unknown) => {
+      ctx.log.warn(
+        { err, member: member.id },
+        'removed a member’s data; the answer could not be sent',
+      );
+    });
   },
 };
+
+/**
+ * Shows the Submit's answer in the place of the look (`showInPlace`), so that the look no longer
+ * offers Remove… once it is answered. A look that can no longer be edited (the owner dismissed
+ * it, Discord forgot it) is logged and the answer follows privately below instead; a Submit from
+ * no message answers apart.
+ */
+async function inPlaceOfLook(
+  interaction: ModalSubmitInteraction,
+  ctx: Pick<AppContext, 'log'>,
+  member: NamedMember,
+  message: V2Message,
+): Promise<void> {
+  if (!interaction.isFromMessage()) {
+    await answerApart(interaction, message);
+    return;
+  }
+  try {
+    await showInPlace(interaction, message);
+  } catch (err) {
+    ctx.log.warn({ err, member: member.id }, 'could not show the outcome in place of the look');
+    await interaction.followUp({
+      ...v2Answer(message),
+      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+    });
+  }
+}
