@@ -23,9 +23,10 @@ const MAX_USERS = 20_000;
  *   server id that is gone fails the foreign key, on which `withMemberLocked` forgets the
  *   server and makes the change once more. Until one of the two happens, a read by the old id
  *   finds nothing, which is what is there: the member's rows went with the server's;
- * - nothing in either bot deletes a `User` row. Should one be gone all the same, a write
- *   notices (`withMemberLocked` locks the row by its snowflake), forgets it and makes the
- *   change as for a new member; a read finds nothing until then.
+ * - a `User` row is deleted only by `UserRepository.forget` (plan 8G, the owner's `/admin
+ *   forget`), which forgets it here once it has committed. Should one be gone otherwise, a
+ *   write notices (`withMemberLocked` locks the row by its snowflake), forgets it and makes
+ *   the change as for a new member; a read finds nothing until then.
  *
  * One of these is shared by the repositories of a process (`src/app.ts`). A repository that is
  * given none remembers nothing, as before: `RowIds.none`.

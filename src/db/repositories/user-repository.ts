@@ -5,6 +5,7 @@ import {
   toPartyStatus,
   toRaidPrivacy,
 } from '../../domain/party/status.js';
+import { inTransaction } from '../transaction.js';
 import type { DB } from '../types.js';
 import { RowIds } from './row-ids.js';
 
@@ -96,8 +97,59 @@ export interface UserSettingsStore extends UserSettingsReader {
   withNickname(nickname: string): Promise<NicknameHolder[]>;
 }
 
+/**
+ * What a member's row holds and what hangs on it, over every server (plan 8G, `/admin forget`):
+ * which of the three things they told Pine about themselves are set, and how many rows of each
+ * table name the row.
+ */
+export interface UserHoldings {
+  friendCode: boolean;
+  inGameName: boolean;
+  pokebattlerId: boolean;
+  /** Rows of `PokemonNotification`: Pokémon, raid tiers and the like. */
+  wants: number;
+  /** Rows of `TargetWant`: research rewards, Team GO Rocket, the boxes. */
+  targetWants: number;
+  /** Rows of `GymNotification`. */
+  gymTargets: number;
+  savedRoutes: number;
+}
+
 /** As many members as one query of `getMany` names. */
 const READ_CHUNK = 500;
+
+/** How many rows of the tables that hang on `User` name this row. */
+async function hangingOn(
+  db: Kysely<DB>,
+  userId: number,
+): Promise<Pick<UserHoldings, 'wants' | 'targetWants' | 'gymTargets' | 'savedRoutes'>> {
+  const rows = async (
+    table: 'PokemonNotification' | 'TargetWant' | 'GymNotification' | 'SavedRoutes',
+  ) => {
+    const counted = await db
+      .selectFrom(table)
+      .select((eb) => eb.fn.countAll<number | string>().as('rows'))
+      .where('userId', '=', userId)
+      .executeTakeFirst();
+    return Number(counted?.rows ?? 0);
+  };
+  return {
+    wants: await rows('PokemonNotification'),
+    targetWants: await rows('TargetWant'),
+    gymTargets: await rows('GymNotification'),
+    savedRoutes: await rows('SavedRoutes'),
+  };
+}
+
+function holdingsOfRow(
+  row: Pick<Selectable<DB['User']>, 'friendcode' | 'nickname' | 'pokebattlerId'>,
+): Pick<UserHoldings, 'friendCode' | 'inGameName' | 'pokebattlerId'> {
+  return {
+    friendCode: row.friendcode !== null,
+    inGameName: row.nickname !== null,
+    pokebattlerId: row.pokebattlerId !== null,
+  };
+}
 
 function toSettings(snowflake: string, row: Selectable<DB['User']>): UserSettings {
   return {
@@ -220,5 +272,63 @@ export class UserRepository implements UserSettingsStore {
         ? []
         : [{ snowflake: row.userSnowflake, nickname: row.nickname }],
     );
+  }
+
+  /**
+   * What the member's row holds and what hangs on it in every server (plan 8G: the look of
+   * `/admin forget`); undefined for a member without a row. Never creates a row, and asks the
+   * table itself: a row id this process remembers may be of a row that is gone.
+   */
+  async holdingsOf(snowflake: string): Promise<UserHoldings | undefined> {
+    const row = await this.db
+      .selectFrom('User')
+      .select(['id', 'friendcode', 'nickname', 'pokebattlerId'])
+      .where('userSnowflake', '=', snowflake)
+      .executeTakeFirst();
+    if (!row) return undefined;
+    return { ...holdingsOfRow(row), ...(await hangingOn(this.db, row.id)) };
+  }
+
+  /**
+   * Deletes the member's row with everything that hangs on it in every server (plan 8G, `/admin
+   * forget`): their wants of both tables, their gym notices and their saved routes, then the row
+   * itself with their settings, friend code, in-game name and Pokebattler id. What went, counted
+   * as `holdingsOf` counts it; undefined for a member without a row, of whom nothing changes.
+   *
+   * One transaction (the caller's when `db` is one), with the row locked first, by its snowflake,
+   * as `withMemberLocked` locks it: a change of the member's wants or gyms at the same moment
+   * waits and then finds no row (it makes a new one, or has nothing to change). The rows that
+   * hang on it are deleted by statements of their own, by the row's id, rather than left to the
+   * foreign keys' cascade: a database whose keys differ leaves nothing behind either way.
+   *
+   * The row id this process remembers is forgotten once the transaction has committed; inside a
+   * caller's transaction that is the caller's to do (`RowIds.forgetUser`), after its commit.
+   */
+  async forget(snowflake: string): Promise<UserHoldings | undefined> {
+    const gone = await inTransaction(this.db, async (trx) => {
+      const row = await trx
+        .selectFrom('User')
+        .select(['id', 'friendcode', 'nickname', 'pokebattlerId'])
+        .where('userSnowflake', '=', snowflake)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!row) return undefined;
+      const deleted = async (
+        table: 'PokemonNotification' | 'TargetWant' | 'GymNotification' | 'SavedRoutes',
+      ) => {
+        const result = await trx.deleteFrom(table).where('userId', '=', row.id).executeTakeFirst();
+        return Number(result.numDeletedRows);
+      };
+      const hanging = {
+        wants: await deleted('PokemonNotification'),
+        targetWants: await deleted('TargetWant'),
+        gymTargets: await deleted('GymNotification'),
+        savedRoutes: await deleted('SavedRoutes'),
+      };
+      await trx.deleteFrom('User').where('id', '=', row.id).execute();
+      return { ...holdingsOfRow(row), ...hanging };
+    });
+    if (!this.db.isTransaction) this.ids.forgetUser(snowflake);
+    return gone;
   }
 }

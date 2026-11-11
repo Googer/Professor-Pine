@@ -35,7 +35,11 @@ export interface MeetupRequestRecord {
   serverId: string;
   /** The region channel `/meetup` was used in: the meetup's post goes into that region's forum. */
   regionChannelId: string;
-  makerId: string;
+  /**
+   * Who asked; null once the owner removed their data on request (plan 8G: only on a request
+   * that is decided and over, never on one still pending or approved without its meetup).
+   */
+  makerId: string | null;
   /** The maker's display name and team when they asked (for the post's sign-up list). */
   makerName: string | null;
   makerTeam: Team | null;
@@ -120,11 +124,38 @@ export function approvalFailureOf(value: unknown): ApprovalFailure | null {
 /** Where a meetup was asked for other than by `/meetup`: the live map. */
 export type RequestSource = 'map';
 
-/** A request as it is first stored: pending, with its post, without a decision. */
+/**
+ * A request whose maker is known: every request but one decided and over whose maker the owner
+ * removed on request (plan 8G). Only such a request can be approved, block its maker or tell them.
+ */
+export type MakerKnown = MeetupRequestRecord & { makerId: string };
+
+export function makerKnown(request: MeetupRequestRecord): request is MakerKnown {
+  return request.makerId !== null;
+}
+
+/**
+ * An appeal or an ask whose member is known: every one but those decided and over whose member
+ * the owner removed on request (plan 8G).
+ */
+export function memberKnown<T extends { memberId: string | null }>(
+  record: T,
+): record is T & { memberId: string } {
+  return record.memberId !== null;
+}
+
+/** A request as it is first stored: pending, with its post, without a decision, by a member. */
 export type NewMeetupRequest = Omit<
   MeetupRequestRecord,
-  'status' | 'decision' | 'decidedBy' | 'decidedByName' | 'decidedAt' | 'partyId' | 'failure'
->;
+  | 'status'
+  | 'decision'
+  | 'decidedBy'
+  | 'decidedByName'
+  | 'decidedAt'
+  | 'partyId'
+  | 'failure'
+  | 'makerId'
+> & { makerId: string };
 
 /**
  * What came of an approval: the meetup made (`partyId`), none (`failed`, with why), or none
@@ -167,7 +198,8 @@ export interface MeetupAppeal {
   /** A UUID, in the custom ids of its post. */
   id: string;
   serverId: string;
-  memberId: string;
+  /** Who appealed; null once the owner removed their data on request (plan 8G: decided only). */
+  memberId: string | null;
   memberName: string | null;
   text: string;
   createdAt: number;
@@ -181,8 +213,8 @@ export interface MeetupAppeal {
 
 export type NewMeetupAppeal = Pick<
   MeetupAppeal,
-  'id' | 'serverId' | 'memberId' | 'memberName' | 'text' | 'createdAt'
->;
+  'id' | 'serverId' | 'memberName' | 'text' | 'createdAt'
+> & { memberId: string };
 
 /**
  * The moderators' post a ruling came from (plan 8S-2): a request's (Approve, Refuse from now
@@ -235,7 +267,8 @@ export interface PlaceAskRecord {
   key: RulingKey;
   /** The place as the member named it. */
   place: KnownPlace;
-  memberId: string;
+  /** Who asked; null once the owner removed their data on request (plan 8G: decided only). */
+  memberId: string | null;
   memberName: string | null;
   text: string;
   createdAt: number;
@@ -249,8 +282,8 @@ export interface PlaceAskRecord {
 
 export type NewPlaceAsk = Pick<
   PlaceAskRecord,
-  'id' | 'serverId' | 'key' | 'place' | 'memberId' | 'memberName' | 'text' | 'createdAt'
->;
+  'id' | 'serverId' | 'key' | 'place' | 'memberName' | 'text' | 'createdAt'
+> & { memberId: string };
 
 /** What meetup safety keeps: `MeetupSafetyRepository`, and `MemoryMeetupSafety` in tests. */
 export interface MeetupSafetyStore {
@@ -298,7 +331,7 @@ export interface MeetupSafetyStore {
    * caller's, and throws when asked to (`inTransaction`).
    */
   blockMaker(
-    request: Pick<MeetupRequestRecord, 'id' | 'serverId' | 'makerId' | 'makerName'>,
+    request: Pick<MeetupRequestRecord, 'id' | 'serverId' | 'makerName'> & { makerId: string },
     by: Decider,
   ): Promise<{ decided: boolean; newBlock: boolean }>;
   /** Lifts a member's block, keeping who lifted it (the last lift); false when none stood. */
@@ -318,7 +351,7 @@ export interface MeetupSafetyStore {
     by: Decider,
   ): Promise<{ lifted: boolean; appeal: MeetupAppeal | undefined }>;
   liftOnAppeal(
-    appeal: Pick<MeetupAppeal, 'id' | 'serverId' | 'memberId'>,
+    appeal: Pick<MeetupAppeal, 'id' | 'serverId'> & { memberId: string },
     by: Decider,
   ): Promise<boolean>;
 

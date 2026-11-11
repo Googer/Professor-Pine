@@ -634,6 +634,21 @@ export class ModerationReports {
     return { kind: 'sent', report: now ?? { ...report, channelId, messageId } };
   }
 
+  /**
+   * Drops the reasons of `memberId` held for the next report of their subject (`orphans`): the
+   * owner's `/admin forget` (plan 8G) calls it once the removal has committed, so that their id
+   * and name are not written back with somebody's next report.
+   */
+  forgetReporter(memberId: string): void {
+    for (const key of this.orphans.keys()) {
+      const reasons = this.orphans.get(key) ?? [];
+      const kept = reasons.filter((one) => one.reporterId !== memberId);
+      if (kept.length === reasons.length) continue;
+      if (kept.length === 0) this.orphans.delete(key);
+      else this.orphans.set(key, kept);
+    }
+  }
+
   /** Keeps reasons of a report that is gone for the next report of the same subject. */
   private orphan(subject: ModerationReport['subject'], reasons: readonly ReportReason[]): void {
     if (reasons.length === 0) return;

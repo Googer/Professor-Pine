@@ -3,18 +3,21 @@ import { randomUUID } from 'node:crypto';
 import type { Settings } from '../config/settings.js';
 import type { PartyGateway } from '../discord/party-gateway.js';
 import type { KnownPlace, Place } from '../domain/geo/place.js';
-import type {
-  ApprovalFailure,
-  Decider,
-  MeetupAppeal,
-  MeetupBlock,
-  MeetupRequestRecord,
-  MeetupSafetyStore,
-  RequestDecision,
-  RequestSource,
-  RulingSource,
-  PlaceAskRecord,
-  PlaceRulingRecord,
+import {
+  makerKnown,
+  memberKnown,
+  type ApprovalFailure,
+  type Decider,
+  type MakerKnown,
+  type MeetupAppeal,
+  type MeetupBlock,
+  type MeetupRequestRecord,
+  type MeetupSafetyStore,
+  type RequestDecision,
+  type RequestSource,
+  type RulingSource,
+  type PlaceAskRecord,
+  type PlaceRulingRecord,
 } from '../domain/meetups/records.js';
 import { isMeetup, type MeetupParty } from '../domain/party/party.js';
 import {
@@ -467,7 +470,7 @@ export class MeetupSafety {
       );
       return { kind: 'not-sent' };
     }
-    const request: MeetupRequestRecord = {
+    const request: MakerKnown = {
       id: randomUUID(),
       serverId: ask.serverId,
       regionChannelId: ask.regionChannelId,
@@ -513,7 +516,7 @@ export class MeetupSafety {
       }
       return { kind: 'not-sent' };
     }
-    const sent: MeetupRequestRecord = { ...request, messageId };
+    const sent: MakerKnown = { ...request, messageId };
     // A block of its maker that came after the check (over another request) and whose sweep of
     // their pending requests ran before this one was kept: it is withdrawn now. One that cannot
     // be read leaves the request to the moderators (an approval looks again).
@@ -560,6 +563,16 @@ export class MeetupSafety {
     const { storage, log } = this.options;
     const request = await storage.request(requestId);
     if (!request || request.serverId !== serverId) return { kind: 'gone' };
+    // Its maker's data was removed on request (plan 8G), which only a request decided and over
+    // loses: there is nobody to block, and nothing else to decide.
+    if (!makerKnown(request)) {
+      if (decision !== 'block') return { kind: 'decided-before', request };
+      // The post, which the removal does not edit, still shows Block member and the old name:
+      // drawn anew from the stored request, a former member without the button (final review).
+      // An approved one keeps its post as it is: its meetup's link is not known here.
+      if (request.status !== 'approved') await this.show(request);
+      return { kind: 'maker-forgotten' };
+    }
     if (request.status !== 'pending') {
       return decision === 'block' && blockableLater(request)
         ? this.blockLater(request, moderator, serverName)
@@ -575,7 +588,7 @@ export class MeetupSafety {
     const by: Decider = { id: moderator.id, name: moderator.name ?? null, at: now };
     const approving = decision === 'approve' || decision === 'approve-once';
     const status = approving ? 'approved' : 'refused';
-    const decided: MeetupRequestRecord = {
+    const decided: MakerKnown = {
       ...request,
       status,
       decision,
@@ -622,7 +635,7 @@ export class MeetupSafety {
    * somebody keeps the maker out of the forum (`decide` asked it), so no meetup is made.
    */
   private async approve(
-    decided: MeetupRequestRecord,
+    decided: MakerKnown,
     by: Decider,
     keptOut: boolean,
   ): Promise<DecideOutcome> {
@@ -670,7 +683,7 @@ export class MeetupSafety {
         'could not keep what came of an approved meetup request',
       );
     }
-    const settled: MeetupRequestRecord =
+    const settled: MakerKnown =
       made.partyId === undefined
         ? { ...decided, status: 'failed', failure }
         : { ...decided, partyId: made.partyId };
@@ -688,11 +701,11 @@ export class MeetupSafety {
    * An approval that came when its maker was blocked: withdrawn, its post says so; the maker
    * hears of their block alone.
    */
-  private async withdraw(decided: MeetupRequestRecord): Promise<DecideOutcome> {
+  private async withdraw(decided: MakerKnown): Promise<DecideOutcome> {
     await this.options.storage.settleApproval(decided.id, 'withdrawn').catch((err: unknown) => {
       this.options.log.error({ err, request: decided.id }, 'could not withdraw an approval');
     });
-    const withdrawn: MeetupRequestRecord = { ...decided, status: 'withdrawn' };
+    const withdrawn: MakerKnown = { ...decided, status: 'withdrawn' };
     await this.show(withdrawn);
     return { kind: 'done', request: withdrawn };
   }
@@ -765,7 +778,7 @@ export class MeetupSafety {
    * went.
    */
   private async block(
-    request: MeetupRequestRecord,
+    request: MakerKnown,
     by: Decider,
     newBlock: boolean,
     serverName: string | undefined,
@@ -787,7 +800,7 @@ export class MeetupSafety {
    * one DM), unless a block stands already (`newBlock` false); the post loses its button.
    */
   private async blockLater(
-    request: MeetupRequestRecord,
+    request: MakerKnown,
     moderator: { id: string; name?: string | undefined },
     serverName: string | undefined,
   ): Promise<DecideOutcome> {
@@ -933,7 +946,7 @@ export class MeetupSafety {
       );
       return { kind: 'not-sent' };
     }
-    const appeal: MeetupAppeal = {
+    const appeal: MeetupAppeal & { memberId: string } = {
       id: randomUUID(),
       serverId: ask.serverId,
       memberId: ask.member.id,
@@ -1025,10 +1038,12 @@ export class MeetupSafety {
     const { storage, gateway, dms, log } = this.options;
     if (!(await storage.decideAppeal(appeal.id, 'expired', null))) return false;
     const expired: MeetupAppeal = { ...appeal, status: 'expired' };
-    const { channelId, messageId } = expired;
+    const { channelId, messageId, memberId } = expired;
     if (channelId !== null && messageId !== null) {
       const shown = (async () => {
-        const block = await storage.block(appeal.serverId, appeal.memberId);
+        // A member the owner removed on request (plan 8G) has no block to show.
+        const block =
+          memberId === null ? undefined : await storage.block(appeal.serverId, memberId);
         await gateway.editMessage(channelId, messageId, appealMessage(expired, block));
       })().catch((err: unknown) => {
         log.warn({ err, appeal: appeal.id }, 'could not show that an appeal expired');
@@ -1037,10 +1052,10 @@ export class MeetupSafety {
       // seconds) does not.
       if (tell) await shown;
     }
-    if (tell) {
+    if (tell && memberId !== null) {
       const now = this.now();
       dms.send({
-        userId: appeal.memberId,
+        userId: memberId,
         message: appealOutcomeDm(expired, gateway.guildName(appeal.serverId)),
         priority: DM_PRIORITY.normal,
         eventAt: now,
@@ -1065,7 +1080,10 @@ export class MeetupSafety {
     const { storage, gateway, dms, log } = this.options;
     const appeal = await storage.appeal(appealId);
     if (!appeal || appeal.serverId !== serverId) return { kind: 'gone' };
-    if (appeal.status !== 'open') return { kind: 'decided-before', appeal };
+    // An appeal loses its member only once it is decided (the owner's removal on request).
+    if (appeal.status !== 'open' || !memberKnown(appeal)) {
+      return { kind: 'decided-before', appeal };
+    }
     const now = this.now();
     const by: Decider = { id: moderator.id, name: moderator.name ?? null, at: now };
     const status = decision === 'lift' ? 'lifted' : 'kept';
@@ -1087,7 +1105,7 @@ export class MeetupSafety {
         const later = await storage.appeal(appeal.id);
         return later ? { kind: 'decided-before', appeal: later } : { kind: 'gone' };
       }
-      const closed: MeetupAppeal = {
+      const closed: MeetupAppeal & { memberId: string } = {
         ...appeal,
         status: 'lifted',
         decidedBy: by.id,
@@ -1112,7 +1130,7 @@ export class MeetupSafety {
       const later = await storage.appeal(appeal.id);
       return later ? { kind: 'decided-before', appeal: later } : { kind: 'gone' };
     }
-    const decided: MeetupAppeal = {
+    const decided: MeetupAppeal & { memberId: string } = {
       ...appeal,
       status,
       decidedBy: by.id,
@@ -1193,7 +1211,7 @@ export class MeetupSafety {
       );
       return { kind: 'not-sent' };
     }
-    const record: PlaceAskRecord = {
+    const record: PlaceAskRecord & { memberId: string } = {
       id: randomUUID(),
       serverId: ask.serverId,
       key: state.ruling.key,
@@ -1249,7 +1267,8 @@ export class MeetupSafety {
     const { storage, gateway, dms, log } = this.options;
     const ask = await storage.ask(askId);
     if (!ask || ask.serverId !== serverId) return { kind: 'gone' };
-    if (ask.status !== 'open') return { kind: 'decided-before', ask };
+    // An ask loses its member only once it is decided (the owner's removal on request).
+    if (ask.status !== 'open' || !memberKnown(ask)) return { kind: 'decided-before', ask };
     const now = this.now();
     const by: Decider = { id: moderator.id, name: moderator.name ?? null, at: now };
     // The ruling asked about, read before the decision changes it: the post keeps showing it
@@ -1325,8 +1344,9 @@ export class MeetupSafety {
     if (!(await storage.expireAsk(ask.id))) return false;
     const expired: PlaceAskRecord = { ...ask, status: 'expired' };
     const shown = this.showAsk(expired);
-    if (tell) {
-      await shown;
+    if (tell) await shown;
+    // A member the owner removed on request (plan 8G) is nobody to tell.
+    if (tell && ask.memberId !== null) {
       const now = this.now();
       dms.send({
         userId: ask.memberId,
@@ -1509,10 +1529,16 @@ export class MeetupSafety {
   private async settleStranded(request: MeetupRequestRecord): Promise<void> {
     const { storage, guilds } = this.options;
     const row = await guilds.idFor(request.serverId);
-    const party = this.meetupsOf(row, request.makerId).find(
-      (one) => one.timed.name === request.name && one.timed.startTime === request.startTime,
-    );
-    if (party === undefined) {
+    // The removal on request (plan 8G) never clears the maker of an approval without its
+    // meetup; one without a maker would have no meetup to find, and fails.
+    const { makerId } = request;
+    const party =
+      makerId === null
+        ? undefined
+        : this.meetupsOf(row, makerId).find(
+            (one) => one.timed.name === request.name && one.timed.startTime === request.startTime,
+          );
+    if (party === undefined || makerId === null) {
       const failure: ApprovalFailure = { kind: 'error' };
       if (await storage.settleApproval(request.id, { failed: failure })) {
         await this.tell({ ...request, status: 'failed', failure });
@@ -1521,7 +1547,7 @@ export class MeetupSafety {
     }
     const made = {
       serverId: request.serverId,
-      makerId: request.makerId,
+      makerId,
       partyId: party.id,
       staff: false,
     };
@@ -1563,7 +1589,7 @@ export class MeetupSafety {
   }
 
   /** Makes the meetup of an approved request, as its maker asked for it. */
-  private async makeApproved(request: MeetupRequestRecord): Promise<ApprovedMeetup> {
+  private async makeApproved(request: MakerKnown): Promise<ApprovedMeetup> {
     const { parties, log } = this.options;
     // Whether somebody kept the maker out of the forum since they asked (plan 8Z-2) is asked by
     // `decide` before the approval is kept (8Z-2 final fix F5).
@@ -1611,6 +1637,8 @@ export class MeetupSafety {
     const { dms } = this.options;
     const now = this.now();
     await this.show(request, postId);
+    // A maker the owner removed on request (plan 8G) is nobody to tell.
+    if (request.makerId === null) return;
     dms.send({
       userId: request.makerId,
       message: requestOutcomeDm(
@@ -1628,12 +1656,13 @@ export class MeetupSafety {
     const { gateway, storage, log } = this.options;
     if (request.channelId === null || request.messageId === null) return;
     // Block member stays on a refused or expired request while its maker is not blocked.
-    const makerBlock = blockableLater(request)
-      ? await storage.block(request.serverId, request.makerId).then(
-          (block) => block ?? null,
-          () => undefined,
-        )
-      : undefined;
+    const makerBlock =
+      blockableLater(request) && request.makerId !== null
+        ? await storage.block(request.serverId, request.makerId).then(
+            (block) => block ?? null,
+            () => undefined,
+          )
+        : undefined;
     const shown = requestMessage(request, {
       ...(postId === undefined ? {} : { postId }),
       officialName: this.officialName(request.place),
@@ -1718,9 +1747,9 @@ export type AppealOutcome =
 export type AppealDecision =
   | { kind: 'gone' }
   /** No block stood any more: the appeal is closed as lifted, nobody told. */
-  | { kind: 'no-block'; appeal: MeetupAppeal }
+  | { kind: 'no-block'; appeal: MeetupAppeal & { memberId: string } }
   | { kind: 'decided-before'; appeal: MeetupAppeal }
-  | { kind: 'done'; appeal: MeetupAppeal };
+  | { kind: 'done'; appeal: MeetupAppeal & { memberId: string } };
 
 /** What `makeApproved` made of an approval: its meetup and post, or why none. */
 interface ApprovedMeetup {
@@ -1746,12 +1775,17 @@ export type DecideOutcome =
    */
   | { kind: 'unchecked'; decision: 'approve' | 'approve-once' }
   /**
+   * Block member on a request whose maker's data the owner removed on request (plan 8G): there
+   * is nobody to block, and nothing is changed.
+   */
+  | { kind: 'maker-forgotten' }
+  /**
    * Block member on a request decided before: its maker blocked now (`newBlock`), or blocked
    * already; how many meetups were closed and requests withdrawn.
    */
   | {
       kind: 'blocked-later';
-      request: MeetupRequestRecord;
+      request: MakerKnown;
       newBlock: boolean;
       closed: number;
       withdrawn: number;
@@ -1762,7 +1796,7 @@ export type DecideOutcome =
    */
   | {
       kind: 'done';
-      request: MeetupRequestRecord;
+      request: MakerKnown;
       postId?: string;
       failure?: string;
       closed?: number;

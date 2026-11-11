@@ -17,7 +17,15 @@ import type {
 import { wayspotPicture } from '../domain/wayspots/picture.js';
 import { postsRefusedFailure } from './activity.js';
 import { nearLine } from './spawn.js';
-import { memberText, plain, plainLines, plainNoLinks, timestamp, truncate } from './text.js';
+import {
+  memberText,
+  memberTextOrFormer,
+  plain,
+  plainLines,
+  plainNoLinks,
+  timestamp,
+  truncate,
+} from './text.js';
 import {
   actionRow,
   container,
@@ -298,7 +306,10 @@ export function blockLiftedDm(serverName: string | undefined): V2Message {
  * the member may appeal again).
  */
 export function appealMessage(appeal: MeetupAppeal, block: MeetupBlock | undefined): V2Message {
-  const member = memberText({ id: appeal.memberId, name: appeal.memberName ?? undefined });
+  const member = memberTextOrFormer(
+    { id: appeal.memberId, name: appeal.memberName },
+    { start: true },
+  );
   const blockedBy =
     block === undefined
       ? undefined
@@ -460,7 +471,7 @@ export function requestMessage(
 ): V2Message {
   const waiting = request.status === 'pending';
   const outcome = outcomeOf(request, more.postId);
-  const maker = memberText({ id: request.makerId, name: request.makerName ?? undefined });
+  const maker = memberTextOrFormer({ id: request.makerId, name: request.makerName });
   const head = [
     waiting ? '### Meetup waiting for approval' : '### Meetup request',
     `**${plain(request.name)}**`,
@@ -524,10 +535,13 @@ export function requestMessage(
 
 /**
  * Whether a decided request may still block its maker (8S-1 review W7): one refused (not by a
- * block) or expired.
+ * block) or expired, whose maker is still known (the owner did not remove their data, plan 8G).
  */
-export function blockableLater(request: Pick<MeetupRequestRecord, 'status' | 'decision'>): boolean {
+export function blockableLater(
+  request: Pick<MeetupRequestRecord, 'status' | 'decision' | 'makerId'>,
+): boolean {
   return (
-    (request.status === 'refused' && request.decision !== 'block') || request.status === 'expired'
+    request.makerId !== null &&
+    ((request.status === 'refused' && request.decision !== 'block') || request.status === 'expired')
   );
 }

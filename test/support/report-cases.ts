@@ -272,15 +272,17 @@ export function reportCases(made: () => Promise<ReportStore>): void {
     ).rejects.toThrow();
   });
 
-  it('gives the reasons in the order they came, the reporter breaking a tie', async () => {
+  // By time, and of one moment the first given first: a reporter removed on request (plan 8G)
+  // has no id to order by.
+  it('gives the reasons in the order they came, the first given first on a tie', async () => {
     const store = await made();
     await store.addReport(newReport(1), reason(OTHER_REPORTER, { at: SAFETY_NOW + 5 }));
     await store.addReport(newReport(2), reason(REPORTER, { at: SAFETY_NOW + 5 }));
     await store.addReport(newReport(3), reason('200000000000000010', { at: SAFETY_NOW + 1 }));
     expect((await store.report(requestId(201)))?.reasons.map((one) => one.reporterId)).toEqual([
       '200000000000000010',
-      REPORTER,
       OTHER_REPORTER,
+      REPORTER,
     ]);
   });
 

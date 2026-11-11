@@ -72,7 +72,7 @@ function appealWords(outcome: AppealOutcome): string {
 }
 
 /** The member of an appeal, in a sentence. */
-function memberOf(appeal: MeetupAppeal): string {
+function memberOf(appeal: MeetupAppeal & { memberId: string }): string {
   return memberText({ id: appeal.memberId, name: appeal.memberName ?? undefined });
 }
 

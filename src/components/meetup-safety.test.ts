@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { fakeButton, sent, type FakeInteraction } from '../../test/support/fake-interactions.js';
 import { MODERATOR, requestId, SAFETY_PIN } from '../../test/support/meetup-safety-cases.js';
 import { MOD_CHANNEL, meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
-import { textOf } from '../../test/support/messages.js';
+import { buttonsOf, textOf } from '../../test/support/messages.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import { InteractionRouter, STALE_COMPONENT } from '../discord/router.js';
@@ -100,6 +100,32 @@ describe('the buttons of a moderators’ post', () => {
       ),
     );
     expect(made.meetups()).toEqual([]);
+  });
+
+  it('blocks nobody on an old request whose maker’s data was removed on request, and says so', async () => {
+    const made = await setup();
+    const request = await made.held();
+    await made.press(request.id, 'refuse');
+    // The owner's `/admin forget` cleared who made it (plan 8G).
+    const refused = made.storage.requests.get(request.id);
+    if (refused === undefined) throw new Error('the request is gone');
+    // The post still shows Block member and the old name: posts are not edited by the removal.
+    expect(buttonsOf(made.postOf(refused)?.message).map((one) => one.label)).toEqual([
+      'Block member',
+    ]);
+    made.storage.requests.set(request.id, { ...refused, makerId: null, makerName: null });
+    const dmsBefore = made.dms.to(ALICE).length;
+
+    expect(told(await made.press(request.id, 'block'))).toBe(
+      'Its maker’s data was removed on request: there is nobody to block.',
+    );
+    expect(await made.storage.blocks(request.serverId)).toEqual([]);
+    expect(made.dms.to(ALICE)).toHaveLength(dmsBefore);
+    // The press draws the post anew from the stored request: a former member, nothing to press.
+    const post = made.postOf(refused)?.message;
+    expect(textOf(post)).toContain('Asked by a former member');
+    expect(textOf(post)).not.toContain('Alice');
+    expect(buttonsOf(post)).toEqual([]);
   });
 
   it('refuses anybody but staff, privately and without counting', async () => {

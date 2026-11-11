@@ -2,6 +2,10 @@ import { ComponentType, ContainerComponent } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import { FakePartyGateway } from '../../test/support/fake-gateway.js';
 import { commands } from '../commands/index.js';
+import {
+  READ_SCREENSHOT_NAME,
+  readScreenshotMessage,
+} from '../commands/screenshots/read-message.js';
 import { declaredSubcommands } from '../discord/command.js';
 import {
   isTutorialMessage,
@@ -69,6 +73,16 @@ describe('the course', () => {
     expect(noStops).not.toContain('research rewards');
     expect(allText(FACTS)).toContain('research rewards');
     expect(allText({ ...FACTS, meetupsChecked: false })).not.toContain('moderators');
+  });
+
+  it('says how a screenshot posted without the mention is read: the message’s Apps menu (plan 7M)', () => {
+    // By the name the menu shows, which is the command's.
+    expect(readScreenshotMessage.data.name).toBe(READ_SCREENSHOT_NAME);
+    const way = `**Apps** › **${READ_SCREENSHOT_NAME}**`;
+    expect(allText(FACTS)).toContain(
+      `Forgot the mention? Press and hold the message (right-click on a computer), then pick ${way}.`,
+    );
+    expect(allText({ ...FACTS, screenshots: false })).not.toContain(READ_SCREENSHOT_NAME);
   });
 
   it('asks members in one line to turn their history on, with the old bot’s where it can be added (design Q5)', () => {

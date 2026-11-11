@@ -77,8 +77,21 @@ export interface ScreenshotWhere {
   channelId: string | null;
   /** When the message or interaction that brought it was made. */
   uploadedAt: number;
+  /**
+   * When it is read, where that is later than `uploadedAt` (plan 7M: a message read from its
+   * Apps menu a while after it was posted): the screenshot's moment is told from the upload as
+   * ever, and what is over is over by this time (the report's `time-past`, the decision's
+   * `now`). Absent: the upload's time, as for a mention, read as it is posted.
+   */
+  readAt?: number;
   use: ScreenshotUse;
   senderId: string;
+  /**
+   * The member who posted the picture, where another sent it to be read (plan 7M: "Read
+   * screenshot" on somebody's message; review F1): a sighting against the boss lists is theirs,
+   * so that one picture read for several members counts once. Absent: the sender posted it.
+   */
+  postedBy?: string;
   /**
    * What the member typed beside it (`/raid`), in the place of what is read; a function of the
    * report for what can only be read once the report is known (a typed time is a hatch or an end
@@ -256,6 +269,11 @@ export interface ScreenshotServiceOptions {
    * `ListTierWatch`): every read, the passive ones refused included, at its upload time.
    */
   tierWatch?: Pick<ListTierWatch, 'observe'>;
+  /**
+   * The clock (`Date.now` by default): a screenshot read for `ScreenshotWhere.readAt` is decided
+   * at the later of that and this, once its reading is done (review F5 of plan 7M).
+   */
+  now?: () => number;
 }
 
 /** What `ScreenshotService` reads of the bot (`ScreenshotServiceOptions.context`). */
@@ -280,7 +298,11 @@ export type ScreenshotContext = Pick<
  * member's ordinary picture. Nothing about what a screenshot shows is logged.
  */
 export class ScreenshotService implements Screenshots {
-  constructor(private readonly options: ScreenshotServiceOptions) {}
+  private readonly now: () => number;
+
+  constructor(private readonly options: ScreenshotServiceOptions) {
+    this.now = options.now ?? Date.now;
+  }
 
   async fetch(source: ScreenshotSource): Promise<FetchOutcome> {
     if (source.size > MAX_SCREENSHOT_BYTES) return { kind: 'too-large' };
@@ -300,9 +322,10 @@ export class ScreenshotService implements Screenshots {
 
   async readPanes(
     source: ScreenshotSource | FetchedScreenshot,
-    where: ScreenshotWhere,
+    asked: ScreenshotWhere,
   ): Promise<PanesOutcome> {
     const { reader, store, context } = this.options;
+    let where = asked;
     if (source.size > MAX_SCREENSHOT_BYTES) return { kind: 'too-large' };
     // Nothing is downloaded that the reader would turn away.
     if (reader.full()) return { kind: 'busy' };
@@ -319,11 +342,21 @@ export class ScreenshotService implements Screenshots {
       ...(where.startBy === undefined ? {} : { startBy: where.startBy }),
     });
     if (outcome.kind !== 'read') return outcome;
+    // Read for a time after its upload (plan 7M): decided when its reading is done, which its
+    // wait in the reader's queue may have made later than when the read was asked (review F5).
+    if (where.readAt !== undefined)
+      where = { ...where, readAt: Math.max(where.readAt, this.now()) };
     if (!outcome.panes && outcome.twoScreens) {
       // Two screens that could not be told apart (plan 7P): refused, never read as one. Kept
       // for review as any refusal is, but read passively (a member's ordinary picture).
       if (where.use !== 'passive') {
-        const reportFrom = reportContext(context, where, where.uploadedAt, source.name);
+        const reportFrom = reportContext(
+          context,
+          where,
+          where.uploadedAt,
+          source.name,
+          where.readAt,
+        );
         const read = screenshotReport(outcome.reading, reportFrom);
         // What was typed beside it, kept as a single screen's is.
         const typed = typeof where.typed === 'function' ? where.typed(read) : where.typed;
@@ -332,7 +365,7 @@ export class ScreenshotService implements Screenshots {
         await store.keep(download.bytes, {
           guildId: where.guildId,
           use: where.use,
-          senderId: where.senderId,
+          ...senders(where),
           uploadedAt: where.uploadedAt,
           fileTakenAt: reportFrom.fileTakenAt ?? null,
           timeFrom: read.timeFrom,
@@ -405,6 +438,7 @@ export class ScreenshotService implements Screenshots {
       { channelId: where.channelId, guildRow: where.guildRow },
       where.uploadedAt,
       file.fileName,
+      where.readAt,
     );
     const read = screenshotReport(reading, reportFrom);
     const keep = (record: NewScreenshot, image?: boolean) =>
@@ -440,7 +474,8 @@ export class ScreenshotService implements Screenshots {
     const report = typed ? withTyped(read, typed) : read;
     const { settings } = context.config;
     const deciding = {
-      now: where.uploadedAt,
+      now: where.readAt ?? where.uploadedAt,
+      uploadedAt: where.uploadedAt,
       hatchedMinutes: (tier: RaidTier, hatchTime: number) =>
         raidDurationsAt(
           raidDurationKind(tier),
@@ -462,7 +497,7 @@ export class ScreenshotService implements Screenshots {
             {
               guildId: where.guildId,
               use: where.use,
-              senderId: where.senderId,
+              ...senders(where),
               uploadedAt: where.uploadedAt,
               fileTakenAt: reportFrom.fileTakenAt ?? null,
               timeFrom: read.timeFrom,
@@ -521,7 +556,7 @@ export class ScreenshotService implements Screenshots {
     const use = where.maxTyped?.(read) ?? {};
     const { typed } = use;
     const report = typed ? withMaxTyped(read, typed) : read;
-    const deciding = { now: where.uploadedAt };
+    const deciding = { now: where.readAt ?? where.uploadedAt, uploadedAt: where.uploadedAt };
     const decision = decideMax(report, deciding);
     // A typed boss the screen could not take failed the use: kept as such, so it goes to review.
     const stored: StoredDecision =
@@ -544,7 +579,7 @@ export class ScreenshotService implements Screenshots {
         : await keep({
             guildId: where.guildId,
             use: where.use,
-            senderId: where.senderId,
+            ...senders(where),
             uploadedAt: where.uploadedAt,
             fileTakenAt: maxFrom.fileTakenAt ?? null,
             timeFrom: read.timeFrom,
@@ -570,7 +605,8 @@ export class ScreenshotService implements Screenshots {
   }
 
   /**
-   * Tells the watch what a screenshot says against a boss list (plan 8X-J): who posted it, the
+   * Tells the watch what a screenshot says against a boss list (plan 8X-J): who posted it (the
+   * picture's poster, `postedBy`, where another member had it read: plan 7M, review F1), the
    * gym or Power Spot it showed (`place`, so that one file posted twice counts once), where and
    * when it was uploaded.
    */
@@ -585,7 +621,7 @@ export class ScreenshotService implements Screenshots {
       {
         serverId: where.guildId,
         channelId: where.channelId,
-        memberId: where.senderId,
+        memberId: where.postedBy ?? where.senderId,
         place,
         at: where.uploadedAt,
       },
@@ -631,6 +667,21 @@ export function keptReading(reading: ScreenReading, raidScreen = true): ScreenRe
     text: { ...reading.text, gym: null, bossName: null },
     lines: reading.lines.map(blank),
     status: reading.status.map(blank),
+  };
+}
+
+/**
+ * Who a kept record names: its sender, and the picture's poster where that is another member
+ * (`ScreenshotWhere.postedBy`, plan 7M, review F7).
+ */
+function senders(
+  where: Pick<ScreenshotWhere, 'senderId' | 'postedBy'>,
+): Pick<NewScreenshot, 'senderId' | 'posterId'> {
+  return {
+    senderId: where.senderId,
+    ...(where.postedBy !== undefined && where.postedBy !== where.senderId
+      ? { posterId: where.postedBy }
+      : {}),
   };
 }
 

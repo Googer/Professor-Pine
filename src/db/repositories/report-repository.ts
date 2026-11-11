@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import { sql, type Kysely, type Selectable } from 'kysely';
 import type { Decider } from '../../domain/meetups/records.js';
 import {
   REPORT_STATUSES,
@@ -74,7 +74,9 @@ export class ReportRepository implements ReportStore {
                 await insertReason(trx, open.id, reason);
                 return { kind: 'added', id: open.id };
               } catch (err) {
-                if (isDuplicateEntry(err, 'PRIMARY')) return { kind: 'already', id: open.id };
+                if (isDuplicateEntry(err, 'moderationreportreason_report_reporter_unique')) {
+                  return { kind: 'already', id: open.id };
+                }
                 throw err;
               }
             }
@@ -303,8 +305,9 @@ export class ReportRepository implements ReportStore {
         'in',
         rows.map((row) => row.id),
       )
+      // In the order they came: a reporter removed on request (null) has no place by id.
       .orderBy('createdAt')
-      .orderBy('reporterId')
+      .orderBy('id')
       .execute();
     return rows.flatMap((row) => {
       const subject = reportSubject.safeParse(
@@ -343,6 +346,65 @@ export class ReportRepository implements ReportStore {
       ];
     });
   }
+
+  /**
+   * What the reports of every server hold of a member (plan 8G: the look of `/admin forget`):
+   * the reasons they gave (each with their id) and the reports about them (a party they made, a
+   * message they wrote: the subject's `makerId` or `authorId`). The tables are read whole:
+   * neither is indexed by the member, both are small, and only the owner asks.
+   */
+  async heldOf(memberId: string): Promise<ReportsHeld> {
+    const reasons = await this.db
+      .selectFrom('ModerationReportReason')
+      .select((eb) => eb.fn.countAll<number | string>().as('reasons'))
+      .where('reporterId', '=', memberId)
+      .executeTakeFirst();
+    const about = await sql<{ about: number | string }>`
+      select count(*) as about from ModerationReport
+      where json_unquote(json_extract(subject, '$.makerId')) = ${memberId}
+         or json_unquote(json_extract(subject, '$.authorId')) = ${memberId}`.execute(this.db);
+    return {
+      reasons: Number(reasons?.reasons ?? 0),
+      about: Number(about.rows[0]?.about ?? 0),
+    };
+  }
+
+  /**
+   * Takes a member's id and name off the reasons they gave, in every server (plan 8G, `/admin
+   * forget`; migration 051 lets the id be null); from how many. The reasons and their reports
+   * stay for the moderators, the reasons' words without who wrote them; a report still open
+   * shows "a former member" once its post is drawn again. Reports about the member are not
+   * touched. Their reasons are read first, without a lock, and changed by their row ids: a change
+   * by the reporter alone would lock every reason of the table. In the caller's transaction when
+   * `db` is one.
+   */
+  async forgetReporter(memberId: string): Promise<number> {
+    const rows = await this.db
+      .selectFrom('ModerationReportReason')
+      .select('id')
+      .where('reporterId', '=', memberId)
+      .execute();
+    if (rows.length === 0) return 0;
+    const cleared = await this.db
+      .updateTable('ModerationReportReason')
+      .set({ reporterId: null, reporterName: null })
+      .where(
+        'id',
+        'in',
+        rows.map((row) => row.id),
+      )
+      .where('reporterId', '=', memberId)
+      .executeTakeFirst();
+    return Number(cleared.numUpdatedRows);
+  }
+}
+
+/** What the reports hold of a member, counted (`ReportRepository.heldOf`). */
+export interface ReportsHeld {
+  /** The reasons they gave, one per report they made or joined, each with their id. */
+  reasons: number;
+  /** The reports about a party they made or a message they wrote. */
+  about: number;
 }
 
 function reasonRow(reportId: string, reason: ReportReason) {

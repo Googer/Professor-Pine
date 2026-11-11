@@ -83,6 +83,10 @@ import {
  * and as soon as it is answered). Passive reading answers nothing but the raids that exist and
  * a clear gym of another region, which it asks Yes or No about (pinging the author, whose
  * message may be gone): ordinary pictures draw no answer.
+ *
+ * A message posted without a mention can be read later because a member asks for it ("Read
+ * screenshot" in the message's Apps menu, plan 7M; `ScreenshotTrigger.readFor`): the very flow
+ * of a mention, the member who asked in the author's place.
  */
 
 /** The emoji the bot reacts with while it reads. */
@@ -139,6 +143,58 @@ export interface PostedMessage {
   delete(): Promise<void>;
 }
 
+/**
+ * A message a member asks to have read ("Read screenshot" in its Apps menu, plan 7M;
+ * `ScreenshotTrigger.readFor`): a posted message less what only a mention has. Its author
+ * matters for one thing, whether the message may go (`bare`: only the asker's own does); its
+ * `reply` answers the member who asked, however the caller sends it.
+ */
+export type AskedMessage = Omit<PostedMessage, 'authorBot' | 'member' | 'mentionsBot'>;
+
+/** The member who asks for a message to be read (plan 7M). */
+export interface ShotAsker {
+  id: string;
+  /** Their name and team (`memberInfo`), which their reports note. */
+  member: MemberInfo;
+  /**
+   * The latest a screenshot's turn in the reader may come (`ScreenshotWhere.startBy`): who
+   * asked is answered through an interaction, which can be answered for a quarter of an hour.
+   */
+  startBy: number;
+}
+
+/**
+ * What a batch read for a member who asked keeps of it (plan 7M): `startBy` (`ShotAsker`), and
+ * who posted the message, `postedBy` (review F1: a sighting against the boss lists is the
+ * poster's, `ScreenshotWhere.postedBy`).
+ */
+interface AskedFor {
+  startBy: number;
+  postedBy: string;
+}
+
+/**
+ * Why nothing of a message was read. `handle` leaves such a message alone, unsaid; the member
+ * who asked for one (`readFor`) is told. `not-for-me`: a bot's or a webhook's, one outside a
+ * server, or one without a mention where pictures are not read passively (none of them an asked
+ * message's case); `post`: in a thread or a forum's post, the region's board included for a
+ * message asked for (its pictures are taken as they are posted); `being-read`: it is read just
+ * now, for a mention or for somebody who asked.
+ */
+export type NotRead =
+  | 'closing'
+  | 'off'
+  | 'not-for-me'
+  | 'rehearsal'
+  | 'post'
+  | 'no-region'
+  | 'no-picture'
+  | 'no-server'
+  | 'being-read';
+
+/** What became of a message: taken out of the region's board, read in its channel, or neither. */
+type Handled = 'board' | 'read' | NotRead;
+
 /** The images of one message, and how many of them made or joined a raid by now. */
 interface Batch {
   message: PostedMessage;
@@ -148,6 +204,13 @@ interface Batch {
   done: boolean;
   /** Called when one more image made or joined a raid: the message goes when all have. */
   finish: () => Promise<void>;
+  /**
+   * Read because a member asked (plan 7M, `readFor`): a raid or battle made is said in the
+   * reply too (it is all the member is answered with; the channel's link line is everybody's),
+   * the message may be old, so each screenshot is decided at the time it is read
+   * (`ScreenshotWhere.readAt`), and its turn in the reader must come by `startBy`.
+   */
+  asker?: AskedFor;
   /**
    * Read from the region's board (plan 8R-9F): nothing is asked; where a mention would ask, the
    * words point to the command that asks privately (R1), and what is made is said too.
@@ -438,6 +501,11 @@ export class ScreenshotTrigger {
    * their pictures: one trigger per bot, so the whole process's.
    */
   private boardBytesHeld = 0;
+  /**
+   * The messages read just now, by id (plan 7M): one that a member asks for meanwhile is not
+   * read a second time beside it (`being-read`).
+   */
+  private readonly reading = new Set<string>();
 
   constructor(private readonly options: ScreenshotTriggerOptions) {
     this.now = options.now ?? Date.now;
@@ -449,11 +517,51 @@ export class ScreenshotTrigger {
    * leaves a board's message to the keeper.
    */
   async handle(message: PostedMessage): Promise<boolean> {
+    this.reading.add(message.id);
     try {
-      return await this.handleNow(message);
+      return (await this.handleNow(message)) === 'board';
     } catch (err) {
       this.options.ctx.log.error({ err }, 'could not read the screenshots of a message');
       return false;
+    } finally {
+      this.reading.delete(message.id);
+    }
+  }
+
+  /**
+   * Reads a message because a member asked for it ("Read screenshot" in the message's Apps
+   * menu, plan 7M), exactly as a mention of the bot in it is read: `handleNow`, in the places a
+   * mention is read, with the member who asked standing where the message's author stands. The
+   * uses are theirs, in the window of their mentions; they are asked the questions, and only
+   * they can answer them; the reports are theirs, and the kept records name them as the sender.
+   * The message's author is not asked, pinged or signed up, and their message never goes: only
+   * the asker's own message that says nothing does, once every screenshot of it made or joined a
+   * raid or battle (never with a refusal, as a mention alone goes then: review F2).
+   *
+   * Answers why nothing was read, or undefined once the message was: what came of it is said in
+   * the message's replies (`AskedMessage.reply`), a raid or battle it made included. Unlike
+   * `handle` it throws what fails: its caller answers a member.
+   */
+  async readFor(message: AskedMessage, asker: ShotAsker): Promise<NotRead | undefined> {
+    if (this.reading.has(message.id)) return 'being-read';
+    this.reading.add(message.id);
+    try {
+      const handled = await this.handleNow(
+        {
+          ...message,
+          authorId: asker.id,
+          member: asker.member,
+          // A member asked, whoever wrote it, and that stands for the mention.
+          authorBot: false,
+          mentionsBot: true,
+          bare: message.bare && message.authorId === asker.id,
+        },
+        { startBy: asker.startBy, postedBy: message.authorId },
+      );
+      // (A board's message is never taken for an asker: `handleNow`.)
+      return handled === 'read' ? undefined : handled === 'board' ? 'post' : handled;
+    } finally {
+      this.reading.delete(message.id);
     }
   }
 
@@ -469,32 +577,43 @@ export class ScreenshotTrigger {
     await Promise.all(replies.map((reply) => reply.delete().catch(() => undefined)));
   }
 
-  private async handleNow(message: PostedMessage): Promise<boolean> {
+  /**
+   * A posted message, or one a member asked for (`asker`, plan 7M: the message as `readFor`
+   * makes it, the member in its author's place): read where it is for the bot to read, else
+   * why not (`NotRead`).
+   */
+  private async handleNow(message: PostedMessage, asker?: AskedFor): Promise<Handled> {
     const { ctx } = this.options;
-    if (this.closed || !ctx.config.settings.ocr.enabled) return false;
-    if (message.authorBot || message.guildId === null) return false;
+    if (this.closed) return 'closing';
+    if (!ctx.config.settings.ocr.enabled) return 'off';
+    if (message.authorBot || message.guildId === null) return 'not-for-me';
     // Off in rehearsal mode: it reacts to and answers in a region channel, where every member
     // would see it. The testers report from a screenshot with /raid, answered privately.
-    if (ctx.rehearsal) return false;
+    if (ctx.rehearsal) return 'rehearsal';
     const passive = !message.mentionsBot;
-    if (passive && !(ctx.config.settings.ocr.passive && ctx.features.ocrPassive)) return false;
-    // A post is read only where it is the region's board (plan 8R-9F).
+    if (passive && !(ctx.config.settings.ocr.passive && ctx.features.ocrPassive)) {
+      return 'not-for-me';
+    }
+    // A post is read only where it is the region's board (plan 8R-9F), and the board only as
+    // its messages are posted: none is read there for a member who asks later (plan 7M).
     if (message.inThread) {
-      const board = this.options.board?.regionOfBoard(message.channelId);
-      return board ? this.readBoard(message, board, passive) : false;
+      const board = asker ? undefined : this.options.board?.regionOfBoard(message.channelId);
+      if (!board) return 'post';
+      return (await this.readBoard(message, board, passive)) ? 'board' : 'no-picture';
     }
     const region = ctx.regions.byChannel(message.channelId);
-    if (!region) return false;
+    if (!region) return 'no-region';
     const images = screenshotsOf(message.attachments);
-    if (images.length === 0) return false;
+    if (images.length === 0) return 'no-picture';
     const guildRow = await ctx.guilds.idFor(message.guildId);
-    if (guildRow === undefined) return false;
+    if (guildRow === undefined) return 'no-server';
     const batch: Batch = {
       message,
       images: images.length,
       made: 0,
       done: false,
       finish: () => this.finished(batch),
+      ...(asker ? { asker } : {}),
     };
     const refusals = new Map<string, number>();
     const existing: string[] = [];
@@ -510,7 +629,7 @@ export class ScreenshotTrigger {
     let asked = 0;
     try {
       for (const image of images) {
-        if (this.closed) return false;
+        if (this.closed) return 'closing';
         // The reader cannot read just now: the rest of the message waits for nothing.
         if (stopped) break;
         const countedAt = this.now();
@@ -582,28 +701,32 @@ export class ScreenshotTrigger {
       for (const [words, count] of refusals) {
         lines.push(batch.images === 1 ? words : `${count} of ${batch.images}: ${words}`);
       }
+      // A member who asked had somebody's screenshots read, which they did not send (review F6).
+      const many = batch.asker
+        ? 'You have had many screenshots read just now'
+        : 'You have sent many screenshots just now';
       if (held > 0) {
         const which =
           held === images.length ? 'them' : held === 1 ? 'one of them' : `${held} of them`;
-        lines.push(
-          `You have sent many screenshots just now, so I did not read ${which}. Try again in ${waitText(wait)}.`,
-        );
+        lines.push(`${many}, so I did not read ${which}. Try again in ${waitText(wait)}.`);
       }
       if (heldPanes > 0) {
         const which = heldPanes === 1 ? 'one of them' : `${heldPanes} of them`;
         lines.push(
-          `You have sent many screenshots just now, so I did not read the other screen of ${which}. Try again in ${waitText(wait)}.`,
+          `${many}, so I did not read the other screen of ${which}. Try again in ${waitText(wait)}.`,
         );
       }
       // A message of nothing but the mention whose screenshots were all answered, some refused,
       // has nothing left to do: it goes with its reply, read by then (Matt, 2026-11-03). One
       // whose screenshots all made raids goes at once (`finished`); one asked about waits for
-      // the answers.
-      const settled = message.bare && asked === 0 && batch.made < batch.images;
+      // the answers. A message read for a member who asked never goes so (review F2): posted
+      // without a mention, it was posted for the channel, may be old and have replies; it goes
+      // only once every screenshot made or joined a raid (`finished`).
+      const settled = !batch.asker && message.bare && asked === 0 && batch.made < batch.images;
       if (settled) batch.done = true;
       if (lines.length > 0) {
         await this.say(
-          message,
+          batch,
           { content: truncate(lines.join('\n'), 2_000) },
           undefined,
           settled ? () => void this.letGo(message) : undefined,
@@ -615,10 +738,10 @@ export class ScreenshotTrigger {
       // up as their auto-status says, and their message may go. The reply names and pings them,
       // as it may be all that is left of what they posted.
       const content = `<@${message.authorId}> ${[...existing, ...toldAloud].join('\n')}`;
-      await this.say(message, { content: truncate(content, 2_000), ping: message.authorId });
+      await this.say(batch, { content: truncate(content, 2_000), ping: message.authorId });
     }
     await this.finished(batch);
-    return false;
+    return 'read';
   }
 
   /**
@@ -846,6 +969,16 @@ export class ScreenshotTrigger {
       uploadedAt: message.createdAt,
       use: passive ? 'passive' : 'mention',
       senderId: message.authorId,
+      // Asked for, the message may have been posted a while ago: its screenshot is dated by
+      // the message and decided now, and read only while who asked can still be answered. Its
+      // sightings against the boss lists are its poster's (review F1).
+      ...(batch.asker
+        ? {
+            readAt: Math.max(this.now(), message.createdAt),
+            startBy: batch.asker.startBy,
+            postedBy: batch.asker.postedBy,
+          }
+        : {}),
       anotherPane: () => {
         const back = anotherUse();
         if (back) giveBacks.push(back);
@@ -916,9 +1049,10 @@ export class ScreenshotTrigger {
         screenshotId: id,
       });
       if (reported.kind === 'exists') return { kind: 'made', exists: outcomeWords(reported, gym) };
-      // A new raid is said by its link line in the channel; from the board, by DM too.
+      // A new raid is said by its link line in the channel; from the board, by DM too, and to
+      // a member who asked in their answer.
       if (reported.kind === 'created') {
-        return batch.board
+        return batch.board || batch.asker
           ? { kind: 'made', exists: outcomeWords(reported, gym) }
           : { kind: 'made' };
       }
@@ -970,7 +1104,7 @@ export class ScreenshotTrigger {
     const read = report.gym.read ? ` I read "${plain(truncate(report.gym.read, 80))}".` : '';
     pending.question = truncate(`${what}. Which gym is it?${read}`, QUESTION_ROOM);
     pending.keep = await this.say(
-      message,
+      batch,
       {
         content: pending.question,
         components: menuQuestion(
@@ -1047,7 +1181,7 @@ export class ScreenshotTrigger {
     pending.question = `<@${message.authorId}> ${elsewhereQuestion(plain(gym.nickname || gym.name), there.channelId)}`;
     pending.again = ASK_AGAIN_YES;
     pending.keep = await this.say(
-      message,
+      batch,
       {
         content: pending.question,
         components: [yesNoRow(token)],
@@ -1153,9 +1287,11 @@ export class ScreenshotTrigger {
     const words = maxShotWords(ctx, answer, request);
     if (!maxShotMade(answer)) return refused(words);
     // A new battle is said by its link line in the region channel; anything else in the reply.
-    // From the board everything is said, by DM.
+    // From the board everything is said, by DM, and to a member who asked in their answer.
     const created = answer.kind === 'reported' && answer.result.outcome.kind === 'created';
-    return created && !batch.board ? { kind: 'made' } : { kind: 'made', exists: words };
+    return created && !batch.board && !batch.asker
+      ? { kind: 'made' }
+      : { kind: 'made', exists: words };
   }
 
   /**
@@ -1210,7 +1346,7 @@ export class ScreenshotTrigger {
       QUESTION_ROOM,
     );
     pending.keep = await this.say(
-      message,
+      batch,
       {
         content: pending.question,
         components: menuQuestion(
@@ -1265,7 +1401,7 @@ export class ScreenshotTrigger {
     const token = pendingShots.put(message.authorId, pending);
     pending.question = `<@${message.authorId}> ${elsewhereQuestion(plain(maxSpotName(request.spot)), there.channelId)}`;
     pending.keep = await this.say(
-      message,
+      batch,
       { content: pending.question, components: [yesNoRow(token)], ping: message.authorId },
       this.options.questionMs ?? QUESTION_MS,
       () => pendingShots.take(token, message.authorId),
@@ -1297,16 +1433,21 @@ export class ScreenshotTrigger {
   }
 
   /**
-   * Replies to the message; the reply goes after `ms` (by default `replyMs`), then `after`. The
-   * answer starts the time anew, as long as a reply's (a question that became its answer).
+   * Replies to the batch's message; the reply goes after `ms` (by default `replyMs`), then
+   * `after`. The answer starts the time anew, as long as a reply's (a question that became its
+   * answer). For a member who asked (`Batch.asker`, review F8) what came of it stays, privately,
+   * until they dismiss it: a reply without `ms` (the message's outcome) has no time, and a
+   * question, which still goes at its time unanswered, stays once answered.
    */
   private async say(
-    message: PostedMessage,
+    batch: Pick<Batch, 'message' | 'asker'>,
     payload: ReplyPayload,
     ms?: number,
     after?: () => void,
   ): Promise<ReplyKeep | undefined> {
     const { ctx } = this.options;
+    const { message } = batch;
+    const stays = batch.asker !== undefined;
     if (this.closed) return undefined;
     const sent = await message.reply(payload).catch((err: unknown) => {
       ctx.log.warn({ err }, 'could not answer a message with screenshots');
@@ -1324,17 +1465,25 @@ export class ScreenshotTrigger {
       this.waiting.set(timer, sent);
       return timer;
     };
-    let timer = start(ms ?? replyMs);
-    /** Its time from now on, unless it is gone already (its time was up, or the bot closes). */
-    const restart = (wait: number): boolean => {
-      if (!this.waiting.delete(timer)) return false;
-      clearTimeout(timer);
-      timer = start(wait);
+    /** Its time; none while it stays (`stays`). */
+    let timer = stays && ms === undefined ? undefined : start(ms ?? replyMs);
+    /**
+     * Its time from now on (`wait`; none: it stays), unless it is gone already (its time was up,
+     * or the bot closes).
+     */
+    const restart = (wait: number | undefined): boolean => {
+      if (timer === undefined) {
+        if (this.closed) return false;
+      } else {
+        if (!this.waiting.delete(timer)) return false;
+        clearTimeout(timer);
+      }
+      timer = wait === undefined ? undefined : start(wait);
       return true;
     };
     return {
       answered: () => {
-        restart(replyMs);
+        restart(stays ? undefined : replyMs);
       },
       askAgain: () => restart(ms ?? replyMs),
     };
@@ -1521,7 +1670,19 @@ function outcomeWords(outcome: ShotOutcome, gym: Gym): string {
 }
 
 const EXPIRED = 'That question has expired. Post the screenshot again.';
+/** `EXPIRED` for a question asked of a member who used "Read screenshot" (plan 7M, review F6). */
+const EXPIRED_ASKED = 'That question has expired. Use Read screenshot on the message again.';
 const NOT_YOURS = 'That is somebody else’s screenshot.';
+
+/**
+ * What a press on a question that expired is told. The question of a member who asked for a
+ * message to be read is private (`askedMessage` answers so), a mention's a reply in the channel:
+ * told apart by the message pressed on, which outlives the question kept for it (a restart, or
+ * the question's time) where a flag on `PendingShot` would not.
+ */
+function expiredWords(interaction: ButtonInteraction | StringSelectMenuInteraction): string {
+  return interaction.message.flags.has(MessageFlags.Ephemeral) ? EXPIRED_ASKED : EXPIRED;
+}
 
 /** A press on a question answered already: only acknowledged. */
 async function answeredAlready(
@@ -1548,7 +1709,7 @@ export async function cancelShot(interaction: ButtonInteraction, token: string):
   if (await answeredAlready(interaction, token)) return;
   const request = peeked(interaction, token);
   if (!request) {
-    await interaction.update({ content: EXPIRED, components: [] });
+    await interaction.update({ content: expiredWords(interaction), components: [] });
     return;
   }
   await interaction.deferUpdate();
@@ -1569,10 +1730,10 @@ export async function chooseShotGym(
   if (await answeredAlready(interaction, token)) return;
   const request = peeked(interaction, token);
   if (!request) {
-    await interaction.update({ content: EXPIRED, components: [] });
+    await interaction.update({ content: expiredWords(interaction), components: [] });
     return;
   }
-  if (request.kind !== 'gym') throw new UserError(EXPIRED);
+  if (request.kind !== 'gym') throw new UserError(expiredWords(interaction));
   const gymId = Number(interaction.values[0]);
   await answerShot(interaction, token, ctx, request, gymId, true);
 }
@@ -1589,10 +1750,10 @@ export async function chooseShotSpot(
   if (await answeredAlready(interaction, token)) return;
   const request = peeked(interaction, token);
   if (!request) {
-    await interaction.update({ content: EXPIRED, components: [] });
+    await interaction.update({ content: expiredWords(interaction), components: [] });
     return;
   }
-  if (request.kind !== 'spot') throw new UserError(EXPIRED);
+  if (request.kind !== 'spot') throw new UserError(expiredWords(interaction));
   await answerSpot(interaction, token, ctx, request, interaction.values[0], true);
 }
 
@@ -1609,7 +1770,7 @@ export async function confirmShot(
   if (await answeredAlready(interaction, token)) return;
   const request = peeked(interaction, token);
   if (!request) {
-    await interaction.update({ content: EXPIRED, components: [] });
+    await interaction.update({ content: expiredWords(interaction), components: [] });
     return;
   }
   if (request.kind === 'spot') {
@@ -1633,7 +1794,9 @@ async function taken(
   if (pendingShots.take(token, interaction.user.id) === 'expired') {
     // Another press took the question meanwhile: the question says what came of that one.
     if (answeredShots.has(token)) return false;
-    await interaction.editReply({ content: EXPIRED, components: [] }).catch(() => undefined);
+    await interaction
+      .editReply({ content: expiredWords(interaction), components: [] })
+      .catch(() => undefined);
     return false;
   }
   answeredShots.set(token, true);

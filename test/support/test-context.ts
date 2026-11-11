@@ -75,6 +75,7 @@ import { MemoryReports } from './reports.js';
 import { MemoryPartyAudit } from './party-audit.js';
 import { MemoryScriptAccess } from './script-access.js';
 import { ScriptAccessService } from '../../src/services/script-access-service.js';
+import type { MemberRemoval } from '../../src/services/member-removal.js';
 import { MemberNames } from '../../src/services/member-names.js';
 
 export { TEST_SETTINGS_PATH };
@@ -264,6 +265,11 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       'screenshots',
       'pass { screenshots } from screenshotsWith() (test/support/screenshot-service.ts)',
     ),
+    // No message's screenshots are read for a member who asks; a test passes its trigger.
+    messageShots: unavailable<AppContext['messageShots']>(
+      'messageShots',
+      'pass { messageShots: trigger }, a ScreenshotTrigger over the same services',
+    ),
     // No emoji: the game's icons are named in words; a test passes its own finder.
     emoji: { find: () => undefined },
     features: { ocrPassive: false, autoAssignRole: false },
@@ -274,6 +280,10 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     pineStops: undefined as unknown as PineStopService,
     // Over memory, with the context's own DMs (below), unless a test passes its own.
     scriptAccess: undefined as unknown as ScriptAccessService,
+    memberRemoval: unavailable<MemberRemoval>(
+      'memberRemoval',
+      'pass { memberRemoval: memberRemovalWith().removal } (test/support/member-data.ts)',
+    ),
     ...overrides,
   };
   if (overrides.meetupSafety === undefined) {

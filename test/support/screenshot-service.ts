@@ -41,7 +41,8 @@ export async function readOne(
  * screenshot ids active raids show (for the store's sweep); `files(folder)` lists `held` or
  * `review`. The bosses, gyms, regions, Power Spots and the rest are the test context's, or those
  * of `context` (`maxReportingWith().ctx` for max battles' screens); `tierWatch` is told what
- * each screenshot says against the boss lists (plan 8X-J).
+ * each screenshot says against the boss lists (plan 8X-J). `now` is the store's clock and the
+ * service's (a screenshot read for a later time is decided by it too: `ScreenshotWhere.readAt`).
  */
 export function screenshotsWith(
   context: ScreenshotContext = createTestContext().ctx,
@@ -69,6 +70,7 @@ export function screenshotsWith(
     store,
     context,
     ...(tierWatch ? { tierWatch } : {}),
+    ...(now ? { now } : {}),
   });
   const screenshot = (
     name: string,

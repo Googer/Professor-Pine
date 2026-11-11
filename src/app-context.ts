@@ -1,6 +1,7 @@
 import type { TargetWantStorage } from './db/repositories/target-want-repository.js';
 import type { WantBoxStorage } from './db/repositories/want-box-repository.js';
 import type { Kysely } from 'kysely';
+import type { ScreenshotTrigger } from './commands/screenshots/mention.js';
 import type { Config } from './config/index.js';
 import type { GymTargetStorage } from './db/repositories/gym-notification-repository.js';
 import type { HistoryOptIns } from './db/repositories/history-repository.js';
@@ -67,6 +68,7 @@ import type { EventForumService } from './services/event-forum.js';
 import type { LegacyCleanup } from './services/legacy-cleanup.js';
 import type { LoginLinks } from './web/login-links.js';
 import type { MeetupSafety } from './services/meetup-safety.js';
+import type { MemberRemoval } from './services/member-removal.js';
 import type { ModerationReports } from './services/moderation-reports.js';
 import type { ScriptAccessService } from './services/script-access-service.js';
 import type { EventSpawnProvider } from './services/event-page-service.js';
@@ -252,12 +254,23 @@ export interface AppContext {
   readonly screenshotReader: ScreenshotReader;
   /** Screenshots on Discord: read, decided on and kept, and what members say of them. */
   readonly screenshots: Screenshots;
+  /**
+   * The screenshots of a message read because a member asked ("Read screenshot" in the
+   * message's Apps menu, plan 7M): the bot's one `ScreenshotTrigger`, which reads the mentions,
+   * so that both go one way and count in one window.
+   */
+  readonly messageShots: Pick<ScreenshotTrigger, 'readFor'>;
   /** Emoji by name: the application's, then a server's (`/counters` shows types). */
   readonly emoji: EmojiFinder;
   /** The login links of the web pages that `/maps` gives (plan 8M-1), shared with the server. */
   readonly loginLinks: LoginLinks;
   /** Who may have the Wayfarer export tool (plan 8W-P): the owner's DM buttons and `/userscript`. */
   readonly scriptAccess: ScriptAccessService;
+  /**
+   * A member's data across every server, counted and removed on request (plan 8G: the owner's
+   * `/admin forget`).
+   */
+  readonly memberRemoval: MemberRemoval;
   /** Privileged-intent features actually granted at login (may be fewer than configured). */
   features: IntentFlags;
   /**

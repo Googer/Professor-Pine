@@ -147,4 +147,21 @@ describe('ModerationReports: the sweep', () => {
     expect(reasonsShown(made.post())).toBe('2');
     expect(textOf(made.post())).toContain('Old.');
   });
+
+  it('drops the held reasons of a member who was forgotten, and keeps the others’ (plan 8G)', async () => {
+    const made = await setup();
+    const subject = made.reports.subjectOf(made.party);
+    // A report of the meetup never posted: the sweep forgets it and holds its two reasons.
+    const stranded = newReport(3, subject, { createdAt: PARTY_NOW - 10 * 60_000 });
+    await made.reportStore.addReport(stranded, reason(CAROL));
+    await made.reportStore.addReport(stranded, reason(DAVE));
+    await made.reports.sweep();
+    expect(made.reportStore.reports.size).toBe(0);
+    // Carol is forgotten (`/admin forget`) before the next report of the meetup.
+    made.reports.forgetReporter(CAROL);
+    expect((await made.report(BOB, 'Bob')).kind).toBe('sent');
+    const [report] = made.reportStore.reports.values();
+    expect(report?.reasons.map((one) => one.reporterId).sort()).toEqual([BOB, DAVE].sort());
+    expect(JSON.stringify([...made.reportStore.reports.values()])).not.toContain(CAROL);
+  });
 });

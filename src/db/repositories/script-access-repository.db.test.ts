@@ -5,6 +5,7 @@ import {
   accessRequest,
   ACCESS_NOW,
   ADMIN,
+  OTHER_ADMIN,
   scriptAccessCases,
 } from '../../../test/support/script-access-cases.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
@@ -117,5 +118,20 @@ describe('ScriptAccessRepository', () => {
     ).error({ err: failed }, 'query failed');
     expect(lines.join('')).toContain('query failed');
     expect(lines.join('')).not.toContain(key);
+  });
+
+  it('forgets a member’s row, and nobody else’s (plan 8G)', async () => {
+    const store = await fresh();
+    await store.ask(accessRequest());
+    const other = await store.ask(accessRequest({ userId: OTHER_ADMIN, name: 'Misty' }));
+
+    expect(await store.forget(ADMIN)).toBe(true);
+
+    expect(await store.byUser(ADMIN)).toBeUndefined();
+    expect(await store.byUser(OTHER_ADMIN)).toEqual(other.access);
+    expect(await store.all()).toHaveLength(1);
+    // Nothing left of them, and somebody who never asked has no row.
+    expect(await store.forget(ADMIN)).toBe(false);
+    expect(await store.all()).toHaveLength(1);
   });
 });

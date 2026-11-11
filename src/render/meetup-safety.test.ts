@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   LIBRARY,
   newAppeal,
+  newAsk,
+  newAskRecord,
   newRequest,
   requestId,
   SAFETY_NOW,
@@ -28,6 +30,7 @@ import {
   requestMessage,
   requestOutcomeDm,
 } from './meetup-safety.js';
+import { askMessage } from './place-asks.js';
 import { plainLines } from './text.js';
 
 function pending(overrides: Partial<MeetupRequestRecord> = {}): MeetupRequestRecord {
@@ -185,6 +188,24 @@ describe('requestMessage', () => {
     );
   });
 
+  it('names a maker whose data was removed on request a former member, with no Block member', () => {
+    const forgotten = pending({
+      makerId: null,
+      makerName: null,
+      makerTeam: null,
+      status: 'refused',
+      decision: 'refuse',
+      decidedBy: '200000000000000009',
+      decidedByName: 'Mod',
+      decidedAt: SAFETY_NOW,
+    });
+    // Nobody is blocked, and nobody can be: there is no maker to block.
+    const message = requestMessage(forgotten, { makerBlock: null });
+    expect(textOf(message)).toContain('Asked by a former member in <#100000000000000001>');
+    expect(textOf(message)).not.toContain('<@200000000000000002>');
+    expect(buttonsOf(message)).toEqual([]);
+  });
+
   it('fits the longest name, title and information with every character escaped', () => {
     const message = requestMessage(
       pending({
@@ -212,7 +233,7 @@ describe('appealMessage', () => {
   };
   const block = {
     serverId: appeal.serverId,
-    memberId: appeal.memberId,
+    memberId: newAppeal(1).memberId,
     memberName: 'Alice',
     blockedBy: '200000000000000009',
     blockedByName: 'Mod',
@@ -243,5 +264,47 @@ describe('appealMessage', () => {
     expect(textOf(kept)).toContain(
       `**Kept** by **Mod** (<@200000000000000009>) <t:${String(SAFETY_NOW / 1000)}:R>: they can appeal again <t:${String((SAFETY_NOW + 7 * 86_400_000) / 1000)}:R>.`,
     );
+  });
+
+  it('names a member whose data was removed on request a former member', () => {
+    const text = textOf(
+      appealMessage(
+        {
+          ...appeal,
+          memberId: null,
+          memberName: null,
+          status: 'kept',
+          decidedBy: '200000000000000009',
+          decidedByName: 'Mod',
+          decidedAt: SAFETY_NOW,
+        },
+        undefined,
+      ),
+    );
+    expect(text).toContain('A former member asks for their block to be lifted.');
+    expect(text).not.toContain(newAppeal(1).memberId);
+  });
+});
+
+describe('askMessage', () => {
+  it('names the member who asked, or a former member once their data was removed on request', () => {
+    expect(textOf(askMessage(newAskRecord(1), undefined))).toContain(
+      `**Alice** (<@${newAsk(1).memberId}>) asks for meetups to be allowed at this place again.`,
+    );
+    const forgotten = textOf(
+      askMessage(
+        {
+          ...newAskRecord(1),
+          memberId: null,
+          memberName: null,
+          status: 'expired',
+        },
+        undefined,
+      ),
+    );
+    expect(forgotten).toContain(
+      'A former member asks for meetups to be allowed at this place again.',
+    );
+    expect(forgotten).not.toContain(newAsk(1).memberId);
   });
 });

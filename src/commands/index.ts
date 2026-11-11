@@ -37,6 +37,7 @@ import { location } from './raids/location.js';
 import { duration, end, hatch } from './raids/change.js';
 import { max } from './max/max.js';
 import { raid } from './raids/raid.js';
+import { readScreenshotMessage } from './screenshots/read-message.js';
 import { readScreenshot } from './screenshots/read-screenshot.js';
 import { bounds } from './regions/bounds.js';
 import { region } from './regions/index.js';
@@ -60,7 +61,10 @@ import { leagueRanks, rank } from './util/rank.js';
  * Every message command (Discord's Apps menu on a message; plan 8S-2), five at most. The router,
  * the deploy script and `/help` read this list beside `commands`.
  */
-export const messageCommands: readonly MessageCommand[] = [reportMessageCommand];
+export const messageCommands: readonly MessageCommand[] = [
+  reportMessageCommand,
+  readScreenshotMessage,
+];
 
 /** Every slash command. The router and the deploy script both read this list. */
 export const commands: readonly CommandModule[] = [

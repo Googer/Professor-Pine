@@ -67,6 +67,22 @@ export interface OptedOut {
   leftBoards: boolean;
 }
 
+/**
+ * What the history holds of a member, counted (plan 8G, `/admin forget`): the servers where
+ * their history is on (`optIns`), where they are on the boards, where they asked for their
+ * old-bot history (`fillIns`), in how many records it names them (`named`: parties and reports
+ * at stops together, as `namedIn` counts them), and how many of the parties they made keep what
+ * they wrote of them (`words`: a train's or meetup's name or description), which the removal
+ * takes with their id and an opt-out leaves.
+ */
+export interface HistoryHeld {
+  optIns: number;
+  boards: number;
+  fillIns: number;
+  named: number;
+  words: number;
+}
+
 /** What switching the boards on did (`HistoryOptIns.joinBoards`). */
 export interface JoinedBoards {
   joined: boolean;
@@ -945,14 +961,82 @@ export class HistoryRepository
     return gone.numDeletedRows > 0n;
   }
 
-  optOut(memberId: string, guildId: string): Promise<OptedOut> {
+  async optOut(memberId: string, guildId: string): Promise<OptedOut> {
     // Two members opting out at once, each in a party the other made, deadlock: the join locks
     // the parties of the attendee rows shared, then each clears the parties its member made. The
     // loser runs again; every step finds what is left to do.
-    return retryOnDeadlock(this.db, () => this.forget(memberId, guildId));
+    const gone = await retryOnDeadlock(this.db, () => this.forget(memberId, guildId));
+    return { changed: gone.optIns > 0, forgotten: gone.named, leftBoards: gone.boards > 0 };
   }
 
-  private forget(memberId: string, guildId: string): Promise<OptedOut> {
+  /**
+   * What the history holds of a member over every server (plan 8G: the look of `/admin forget`),
+   * counted as `forgetEverywhere` takes it away: server by server (`serversNaming`), the records
+   * with the opt-out's own count.
+   */
+  async heldEverywhere(memberId: string): Promise<HistoryHeld> {
+    const rows = async (table: 'HistoryOptIn' | 'LeaderboardOptIn' | 'LegacyFillIn') => {
+      const counted = await this.db
+        .selectFrom(table)
+        .select((eb) => eb.fn.countAll<number | string>().as('rows'))
+        .where('memberId', '=', memberId)
+        .executeTakeFirst();
+      return Number(counted?.rows ?? 0);
+    };
+    let named = 0;
+    for (const server of await serversNaming(this.db, memberId)) {
+      named += await namedCount(this.db, memberId, server);
+    }
+    return {
+      optIns: await rows('HistoryOptIn'),
+      boards: await rows('LeaderboardOptIn'),
+      fillIns: await rows('LegacyFillIn'),
+      named,
+      words: await wordsCount(this.db, memberId),
+    };
+  }
+
+  /**
+   * Takes a member out of the history of every server (plan 8G, `/admin forget`), exactly as
+   * `optOut` does in one: the opt-out's own transaction (`forget`) for each server that holds
+   * anything of them (`serversNaming`: an opt-in, a place on the boards, a request for their
+   * old-bot history, a party or a report at a stop that names them; also a server the bot has
+   * left), in the order of the servers' ids, all in one transaction. Their id goes; the rows
+   * stay and count. Beyond an opt-out, what they wrote of the parties they made goes too, in the
+   * statement that takes their id off them: a train's or meetup's `name` and `description` ("Alice's
+   * Tuesday walk", a description with a phone number), which an opt-out leaves as the server's
+   * record; the web's history then calls such a train "A train". What it took away, counted as
+   * `heldEverywhere` counts it.
+   *
+   * The servers are read first, without a lock. Nothing names the member in a further server
+   * meanwhile: a record keeps an id only with an opt-in of that server, and those are among the
+   * servers read (an opt-in made at that very moment stays, the member's own doing). A deadlock
+   * with an opt-out runs all of it again, unless `db` is a caller's transaction: then the caller
+   * does.
+   */
+  forgetEverywhere(memberId: string): Promise<HistoryHeld> {
+    return retryOnDeadlock(this.db, () =>
+      inTransaction(this.db, async (trx) => {
+        const inTrx = new HistoryRepository(trx);
+        const total: HistoryHeld = { optIns: 0, boards: 0, fillIns: 0, named: 0, words: 0 };
+        for (const server of await serversNaming(trx, memberId)) {
+          const gone = await inTrx.forget(memberId, server, true);
+          total.optIns += gone.optIns;
+          total.boards += gone.boards;
+          total.fillIns += gone.fillIns;
+          total.named += gone.named;
+          total.words += gone.words;
+        }
+        return total;
+      }),
+    );
+  }
+
+  /**
+   * The opt-out of one server, in one transaction: what it took away, counted. `withWords`: the
+   * removal on request (`forgetEverywhere`) takes what they wrote of the parties they made too.
+   */
+  private forget(memberId: string, guildId: string, withWords = false): Promise<HistoryHeld> {
     return inTransaction(this.db, async (trx) => {
       const gone = await trx
         .deleteFrom('HistoryOptIn')
@@ -968,20 +1052,23 @@ export class HistoryRepository
       // Their request of a legacy fill-in goes too (plan 8H-10, H5), after the opt-in row (the
       // fill-in's batches lock the two in this order): one under way stops at its next batch,
       // and turning the history on again lets them ask again.
-      await trx
+      const fillIns = await trx
         .deleteFrom('LegacyFillIn')
         .where('serverId', '=', guildId)
         .where('memberId', '=', memberId)
-        .execute();
+        .executeTakeFirst();
       // Counted before the ids go, as `namedIn` counts them (one path).
-      const forgotten = await namedCount(trx, memberId, guildId);
+      const named = await namedCount(trx, memberId, guildId);
+      const words = withWords ? await wordsCount(trx, memberId, guildId) : 0;
       await sql`
         update PartyHistoryAttendee a inner join PartyHistory h on h.id = a.historyId
         set a.memberId = null
         where a.memberId = ${memberId} and h.serverId = ${guildId}`.execute(trx);
       await trx
         .updateTable('PartyHistory')
-        .set({ createdById: null })
+        .set(
+          withWords ? { createdById: null, name: null, description: null } : { createdById: null },
+        )
         .where('createdById', '=', memberId)
         .where('serverId', '=', guildId)
         .execute();
@@ -999,9 +1086,11 @@ export class HistoryRepository
         .where('reporterId', '=', memberId)
         .execute();
       return {
-        changed: gone.numDeletedRows > 0n,
-        forgotten,
-        leftBoards: boards.numDeletedRows > 0n,
+        optIns: Number(gone.numDeletedRows),
+        boards: Number(boards.numDeletedRows),
+        fillIns: Number(fillIns.numDeletedRows),
+        named,
+        words,
       };
     });
   }
@@ -1009,6 +1098,42 @@ export class HistoryRepository
   namedIn(memberId: string, guildId: string): Promise<number> {
     return namedCount(this.db, memberId, guildId);
   }
+}
+
+/**
+ * The servers whose history holds anything of a member (plan 8G), by their snowflakes in
+ * ascending order: where their history is on, where they are on the boards or asked for their
+ * old-bot history, and where a party (maker, conductor, attendee) or a record of a report at a
+ * stop names them. Plain reads: the parties by the indexes that begin with the member; the
+ * three switches and the reports read whole, their keys beginning with the server (only the
+ * owner's `/admin forget` asks, seldom).
+ */
+async function serversNaming(db: Kysely<DB>, memberId: string): Promise<string[]> {
+  const found = await sql<{ serverId: string }>`
+    select serverId from HistoryOptIn where memberId = ${memberId}
+    union select serverId from LeaderboardOptIn where memberId = ${memberId}
+    union select serverId from LegacyFillIn where memberId = ${memberId}
+    union select serverId from PartyHistory where createdById = ${memberId}
+    union select serverId from PartyHistory where conductorId = ${memberId}
+    union select h.serverId from PartyHistoryAttendee a
+      join PartyHistory h on h.id = a.historyId where a.memberId = ${memberId}
+    union select serverId from StopReportHistory where reporterId = ${memberId}`.execute(db);
+  return found.rows.map((row) => row.serverId).sort();
+}
+
+/**
+ * How many parties a member made keep what they wrote of them (a name or a description), in one
+ * server or in all (plan 8G), by the index that begins with the maker.
+ */
+async function wordsCount(db: Kysely<DB>, memberId: string, guildId?: string): Promise<number> {
+  let query = db
+    .selectFrom('PartyHistory')
+    .select((eb) => eb.fn.countAll<number | string>().as('records'))
+    .where('createdById', '=', memberId)
+    .where((eb) => eb.or([eb('name', 'is not', null), eb('description', 'is not', null)]));
+  if (guildId !== undefined) query = query.where('serverId', '=', guildId);
+  const counted = await query.executeTakeFirst();
+  return Number(counted?.records ?? 0);
 }
 
 /**

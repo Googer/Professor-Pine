@@ -12,13 +12,15 @@ import { gymInGuild } from './region-directory.js';
  * outside a region channel), the settings' time zone and durations. `channelId` is the region
  * channel (or null outside one), `guildRow` the server's row (`ctx.guilds.idFor`), `uploadedAt`
  * the time of the message or interaction that brought the screenshot, `fileName` the name of
- * the screenshot's file (an Android phone names it by the moment it was taken).
+ * the screenshot's file (an Android phone names it by the moment it was taken), `readAt` when it
+ * is read where that is later than the upload (plan 7M, `ReportContext.now`).
  */
 export function reportContext(
   ctx: Pick<AppContext, 'raidBosses' | 'gameData' | 'gyms' | 'regions' | 'config'>,
   where: { channelId: string | null; guildRow: number },
   uploadedAt: number,
   fileName?: string,
+  readAt?: number,
 ): ReportContext {
   const { settings } = ctx.config;
   const fileTakenAt =
@@ -32,6 +34,7 @@ export function reportContext(
         .filter((hit) => gymInGuild(ctx.gyms, ctx.regions, hit.gym.id, where.guildRow))
         .slice(0, GYM_HITS),
     uploadedAt,
+    ...(readAt === undefined ? {} : { now: readAt }),
     zone: settings.timezone,
     standardIncubate: settings.standardRaidIncubateDuration,
     standardHatched: settings.standardRaidHatchedDuration,

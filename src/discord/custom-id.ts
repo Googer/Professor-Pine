@@ -64,6 +64,11 @@
  * (`src/commands/admin/cleanup-legacy.ts`), with the token of the pending list as the id:
  * `cleanup:<token>:delete` and `cleanup:<token>:cancel`.
  *
+ * The controls of the owner's `/admin forget` have the kind `forget`
+ * (`src/commands/admin/forget.ts`, plan 8G), with the token of the pending look as the id:
+ * `forget:<token>:ask` ("Remove…" under the look, which opens the question) and
+ * `forget:<token>:remove` (the question's dialog, whose Submit removes).
+ *
  * The controls about a screenshot have the kind `shot` (`src/commands/screenshots/shot-kind.ts`).
  * With the id of a kept screenshot (twelve URL-safe characters): `shot:<id>:right`,
  * `shot:<id>:wrong` (which opens the form `shot:<id>:form`) and `shot:<id>:show`. With the token

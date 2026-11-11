@@ -49,6 +49,12 @@ export interface ReportContext {
   searchGym: (text: string) => readonly GymHitLike[];
   /** When the screenshot reached Discord: the message's own time. */
   uploadedAt: number;
+  /**
+   * When the report is made, where that is later than the upload (plan 7M: a message read from
+   * its Apps menu a while after it was posted): a hatch or an end before it is `time-past`. The
+   * moment of the screenshot is told from the upload all the same. Absent: the upload's time.
+   */
+  now?: number;
   /** `settings.timezone`: the zone of the phone's clock. */
   zone: string;
   /** Minutes an egg of a standard raid incubates and the raid lasts (settings). */
@@ -76,7 +82,8 @@ export interface ReportContext {
  *   the file says it was taken longer ago than the clock could;
  * - `time-sources-differ`: the name of the file and the clock read say other times (the clock
  *   won when it was read surely, the file otherwise);
- * - `time-past`: the hatch or end lies before the upload;
+ * - `time-past`: the hatch or end lies before the upload (before `ReportContext.now`, for a
+ *   screenshot read later than it was uploaded);
  * - `countdown-long`: longer than an egg incubates or a raid lasts;
  * - `stage-unknown`: neither egg nor hatched could be told;
  * - `tier-unknown`; `heads-unverified`: 6 or 7 heads, a count no sample has shown yet;
@@ -786,7 +793,7 @@ export function screenshotReport(reading: ReadScreen, context: ReportContext): S
   } else if (stage !== null) {
     const at = takenAt + text.countdown * 1000;
     time = stage === 'egg' ? { hatch: at } : { end: at };
-    if (at < context.uploadedAt) doubts.add('time-past');
+    if (at < (context.now ?? context.uploadedAt)) doubts.add('time-past');
     const longest =
       stage === 'hatched'
         ? context.maxHatched * 60

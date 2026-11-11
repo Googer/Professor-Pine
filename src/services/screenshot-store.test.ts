@@ -511,4 +511,110 @@ describe('ScreenshotStore', () => {
     expect(await store.feedback('AAAAAAAAAAAA', SENDER, { verdict: 'right' })).toBe('gone');
     await store.sweep();
   });
+
+  describe('forgetting a member (plan 8G, `/admin forget`)', () => {
+    const refused: NewScreenshot['decision'] = { kind: 'refuse', reason: 'not-a-raid-screen' };
+
+    it('removes the screenshots a member sent from both folders, and their feedback on others’', async () => {
+      // One of the member's is shown by a raid that is going on: it goes all the same.
+      const shown = new Set<string>();
+      const { store, files, json } = storeWith(shown);
+      const plain = await kept(store, screenshot());
+      shown.add(plain);
+      await store.inUse(plain);
+      const reviewed = await kept(store, screenshot(refused));
+      const theirs = await kept(store, screenshot({ kind: 'report' }, { senderId: OTHER }));
+      const theirsToo = await kept(store, screenshot(refused, { senderId: OTHER }));
+      // Each said something about a screenshot of the other's.
+      await store.feedback(theirs, SENDER, {
+        verdict: 'wrong',
+        elements: ['gym'],
+        correction: 'It is the church.',
+      });
+      await store.feedback(theirs, OTHER, { verdict: 'right' });
+      await store.feedback(plain, OTHER, { verdict: 'right' });
+      expect(files('review')).toHaveLength(8);
+
+      expect(await store.heldOf(SENDER)).toEqual({ sent: 2, feedback: 1 });
+      expect(await store.heldOf(OTHER)).toEqual({ sent: 2, feedback: 1 });
+
+      expect(await store.forget(SENDER)).toEqual({ removed: 2, feedback: 1, failed: 0 });
+
+      // Only the other member's are left, in both folders, with their pictures.
+      const left = [theirs, theirsToo].flatMap((id) => [`${id}.json`, `${id}.png`]).sort();
+      expect(files('held')).toEqual(left);
+      expect(files('review')).toEqual(left);
+      expect(await store.get(plain)).toBeUndefined();
+      expect(await store.get(reviewed)).toBeUndefined();
+      // What the member said about the other's screenshot is gone, id and words; the rest stays.
+      for (const folder of ['held', 'review']) {
+        const record = json(folder, theirs);
+        expect(record.senderId).toBe(OTHER);
+        expect(record.feedback).toMatchObject([
+          { verdict: 'right', by: 'reporter', memberId: OTHER },
+        ]);
+        expect(JSON.stringify(record)).not.toContain(SENDER);
+        expect(JSON.stringify(record)).not.toContain('church');
+      }
+      expect(JSON.stringify(json('held', theirsToo))).not.toContain(SENDER);
+      expect(await store.heldOf(SENDER)).toEqual({ sent: 0, feedback: 0 });
+      // The other member's feedback on a screenshot that went with its sender is gone with it.
+      expect(await store.heldOf(OTHER)).toEqual({ sent: 2, feedback: 0 });
+      // Run again, there is nothing.
+      expect(await store.forget(SENDER)).toEqual({ removed: 0, feedback: 0, failed: 0 });
+    });
+
+    it('counts and removes a picture the member posted that another member had read', async () => {
+      const THIRD = '700000000000000003';
+      const { store, files } = storeWith();
+      // The member posted it, another pressed "Read screenshot" (plan 7M): it is the poster's.
+      const posted = await kept(store, screenshot(refused, { senderId: OTHER, posterId: SENDER }));
+      // Neither sent nor posted by the member: untouched.
+      const neither = await kept(store, screenshot(refused, { senderId: OTHER, posterId: THIRD }));
+
+      expect(await store.heldOf(SENDER)).toEqual({ sent: 1, feedback: 0 });
+      expect(await store.forget(SENDER)).toEqual({ removed: 1, feedback: 0, failed: 0 });
+
+      const left = [`${neither}.json`, `${neither}.png`].sort();
+      expect(files('held')).toEqual(left);
+      expect(files('review')).toEqual(left);
+      expect(await store.get(posted)).toBeUndefined();
+      expect(await store.heldOf(OTHER)).toEqual({ sent: 1, feedback: 0 });
+      expect(await store.heldOf(SENDER)).toEqual({ sent: 0, feedback: 0 });
+    });
+
+    it('frees the bytes of what it removes', async () => {
+      const big = new Uint8Array(MB);
+      big.set(PNG);
+      // Room for two such pictures: after the member's went, two more fit without one going.
+      const { store, files } = storeWith(new Set(), { keepMegabytes: 2.5 });
+      const refusedShot = screenshot(refused);
+      await kept(store, refusedShot, big);
+      await kept(store, refusedShot, big);
+      await store.forget(SENDER);
+      expect(files('held')).toEqual([]);
+      const others = screenshot(refused, { senderId: OTHER });
+      const first = await kept(store, others, big);
+      const second = await kept(store, others, big);
+      expect(files('held')).toEqual(
+        [first, second].flatMap((id) => [`${id}.json`, `${id}.png`]).sort(),
+      );
+    });
+
+    it('answers rather than throws where nothing is kept, or a record cannot be removed', async () => {
+      const { store, dir, entries } = storeWith();
+      expect(await store.heldOf(SENDER)).toEqual({ sent: 0, feedback: 0 });
+      expect(await store.forget(SENDER)).toEqual({ removed: 0, feedback: 0, failed: 0 });
+      const id = await kept(store, screenshot());
+      // A folder in the place of the picture: it cannot be removed as a file.
+      const { mkdirSync, rmSync } = await import('node:fs');
+      rmSync(path.join(dir, 'held', `${id}.png`));
+      mkdirSync(path.join(dir, 'held', `${id}.png`));
+      writeFileSync(path.join(dir, 'held', `${id}.png`, 'inside'), 'x');
+      expect(await store.forget(SENDER)).toEqual({ removed: 0, feedback: 0, failed: 1 });
+      expect(
+        entries.some((entry) => entry.msg === 'could not remove a member’s kept screenshot'),
+      ).toBe(true);
+    });
+  });
 });

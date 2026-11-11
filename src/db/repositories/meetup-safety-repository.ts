@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import { sql, type Kysely, type Selectable } from 'kysely';
 import { approvalFailureOf, REQUEST_DECISIONS } from '../../domain/meetups/records.js';
 import type {
   ApprovalOutcome,
@@ -408,7 +408,7 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
   }
 
   blockMaker(
-    request: Pick<MeetupRequestRecord, 'id' | 'serverId' | 'makerId' | 'makerName'>,
+    request: Pick<MeetupRequestRecord, 'id' | 'serverId' | 'makerName'> & { makerId: string },
     by: Decider,
   ): Promise<{ decided: boolean; newBlock: boolean }> {
     // Read committed: the block's row may not be there yet, and gap locks on it would deadlock
@@ -442,7 +442,7 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
   }
 
   liftOnAppeal(
-    appeal: Pick<MeetupAppeal, 'id' | 'serverId' | 'memberId'>,
+    appeal: Pick<MeetupAppeal, 'id' | 'serverId'> & { memberId: string },
     by: Decider,
   ): Promise<boolean> {
     return inTransaction(this.db, async (trx) => {
@@ -819,6 +819,167 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
       failure: row.status === 'failed' ? failureOf(row.failure) : null,
     };
   }
+
+  /**
+   * What meetup safety holds of a member in every server (plan 8G: the look of `/admin forget`):
+   * their blocks, lifted or not, and their own requests, appeals and asks about places that
+   * carry their id: those still with the moderators, approvals whose meetup is still to be made
+   * (`REQUEST_UNMADE`), approvals whose meetup is still going on (`requestLive`: its party's id
+   * is one of `going`, the ids of the parties going on), and those decided and over
+   * (`REQUEST_OVER` but those, `APPEAL_OVER`, `ASK_OVER`). The tables are read whole: their
+   * indexes begin with the server, they are small, and only the owner asks.
+   */
+  async heldOf(memberId: string, going: readonly string[] = []): Promise<MeetupRecordsHeld> {
+    const live = requestLive(going);
+    const counted = await sql<
+      Record<'blocks' | 'records' | 'closed' | 'unmade' | 'live', number | string>
+    >`
+      select
+        (select count(*) from MeetupBlock where memberId = ${memberId}) as blocks,
+        count(*) as records,
+        coalesce(sum(r.isOver), 0) as closed,
+        coalesce(sum(r.isUnmade), 0) as unmade,
+        coalesce(sum(r.isLive), 0) as live
+      from (
+        select ${REQUEST_OVER} and not ${live} as isOver, ${REQUEST_UNMADE} as isUnmade,
+            ${live} as isLive
+          from MeetupRequest where makerId = ${memberId}
+        union all
+        select ${APPEAL_OVER}, false, false from MeetupAppeal where memberId = ${memberId}
+        union all
+        select ${ASK_OVER}, false, false from MeetupPlaceAsk where memberId = ${memberId}) r`.execute(
+      this.db,
+    );
+    const row = counted.rows[0];
+    const over = Number(row?.closed ?? 0);
+    const unmade = Number(row?.unmade ?? 0);
+    const goingOn = Number(row?.live ?? 0);
+    return {
+      blocks: Number(row?.blocks ?? 0),
+      open: Number(row?.records ?? 0) - over - unmade - goingOn,
+      unmade,
+      live: goingOn,
+      over,
+    };
+  }
+
+  /**
+   * Takes a member's id and name (and a request's team) off their own requests, appeals and asks
+   * about places that are decided and over, in every server (plan 8G, `/admin forget`; migration
+   * 051 lets the ids be null); from how many. Their words stay, for the moderators, without who
+   * wrote them. What is still open keeps both: a request the moderators have not decided, an
+   * approval whose meetup is not made yet (it is made by that member, with that name and team),
+   * an open appeal or ask; and so does an approval whose meetup is still going on (its party's id
+   * one of `going`, the ids of the parties going on): the moderators are told of that meetup's
+   * changes by the request's maker (`MeetupSafety.tellChange`), and it is over once the meetup
+   * has ended. Their blocks and the rulings stay as they are: the moderators' record. The rows
+   * are read first, without a lock, and changed by their ids, each only while it is still theirs
+   * and over: a change by the member alone would lock every row of the tables. One transaction,
+   * the caller's when `db` is one.
+   */
+  forgetMember(memberId: string, going: readonly string[] = []): Promise<number> {
+    const over = sql<boolean>`(${REQUEST_OVER} and not ${requestLive(going)})`;
+    return inTransaction(this.db, async (trx) => {
+      const requests = await trx
+        .selectFrom('MeetupRequest')
+        .select('id')
+        .where('makerId', '=', memberId)
+        .where(over)
+        .execute();
+      const appeals = await trx
+        .selectFrom('MeetupAppeal')
+        .select('id')
+        .where('memberId', '=', memberId)
+        .where(APPEAL_OVER)
+        .execute();
+      const asks = await trx
+        .selectFrom('MeetupPlaceAsk')
+        .select('id')
+        .where('memberId', '=', memberId)
+        .where(ASK_OVER)
+        .execute();
+      let cleared = 0;
+      if (requests.length > 0) {
+        const changed = await trx
+          .updateTable('MeetupRequest')
+          .set({ makerId: null, makerName: null, makerTeam: null })
+          .where('id', 'in', ids(requests))
+          .where('makerId', '=', memberId)
+          .where(over)
+          .executeTakeFirst();
+        cleared += Number(changed.numUpdatedRows);
+      }
+      if (appeals.length > 0) {
+        const changed = await trx
+          .updateTable('MeetupAppeal')
+          .set({ memberId: null, memberName: null })
+          .where('id', 'in', ids(appeals))
+          .where('memberId', '=', memberId)
+          .where(APPEAL_OVER)
+          .executeTakeFirst();
+        cleared += Number(changed.numUpdatedRows);
+      }
+      if (asks.length > 0) {
+        const changed = await trx
+          .updateTable('MeetupPlaceAsk')
+          .set({ memberId: null, memberName: null })
+          .where('id', 'in', ids(asks))
+          .where('memberId', '=', memberId)
+          .where(ASK_OVER)
+          .executeTakeFirst();
+        cleared += Number(changed.numUpdatedRows);
+      }
+      return cleared;
+    });
+  }
+}
+
+const ids = (rows: readonly { id: string }[]): string[] => rows.map((row) => row.id);
+
+/**
+ * A request that is decided and over (plan 8G): refused, expired, failed or withdrawn, or
+ * approved with its meetup made (`partyId`). Not one that waits for a moderator, nor an approval
+ * whose meetup is still to be made (the sweep of stranded approvals makes it, with the maker's
+ * name and team), nor a status this code does not know.
+ */
+const REQUEST_OVER = sql<boolean>`(status in ('refused', 'expired', 'failed', 'withdrawn')
+  or (status = 'approved' and partyId is not null))`;
+/**
+ * An approval whose meetup is still to be made: no moderator can decide it again, the bot makes
+ * it (or the sweep of stranded approvals settles it) within minutes.
+ */
+const REQUEST_UNMADE = sql<boolean>`(status = 'approved' and partyId is null)`;
+/**
+ * An approval whose meetup is still going on: its party's id is one of `going`, the ids of the
+ * parties going on (the caller knows them, `PartyStore`). None without any: false.
+ */
+const requestLive = (going: readonly string[]) =>
+  going.length === 0
+    ? sql<boolean>`false`
+    : sql<boolean>`(status = 'approved' and partyId in (${sql.join([...going])}))`;
+/** An appeal a moderator decided, or that expired. */
+const APPEAL_OVER = sql<boolean>`(status in ('lifted', 'kept', 'expired'))`;
+/** An ask about a place that a moderator decided, that expired, or whose ruling was undone. */
+const ASK_OVER = sql<boolean>`(status in ('allowed', 'kept', 'expired', 'undone'))`;
+
+/** What meetup safety holds of a member, counted (`MeetupSafetyRepository.heldOf`). */
+export interface MeetupRecordsHeld {
+  /** Their blocks, lifted or not. */
+  blocks: number;
+  /**
+   * Their requests, appeals and asks still with the moderators (and a request of a status this
+   * code does not know).
+   */
+  open: number;
+  /** Their requests approved whose meetup is still to be made: the bot's, not the moderators'. */
+  unmade: number;
+  /**
+   * Their requests approved whose meetup is still going on: the moderators are told of its
+   * changes by the request's maker, so the removal leaves them until it has ended.
+   */
+  live: number;
+  /** Their requests, appeals and asks that are decided and over (which the removal clears). */
+  over: number;
 }
 
 /**

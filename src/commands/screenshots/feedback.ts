@@ -201,16 +201,18 @@ export const ASKED_WITHOUT_PICTURE = 'Does this match what you see in the game?'
 
 /**
  * Whether a member is shown a kept screenshot itself (Matt's ruling 6 of 2026-11-10; the audit's
- * L-D4): the member who sent it, and the server's staff (`isStaff`: admins, moderators, the
- * owner; not bot developers). The picture is a member's whole screen, with whatever else was on
- * it; everybody else gets the reading alone, and can still say it is wrong.
+ * L-D4): the member who sent it, the member who posted it where another had it read ("Read
+ * screenshot", plan 7M, review F7: `posterId`), and the server's staff (`isStaff`: admins,
+ * moderators, the owner; not bot developers). The picture is a member's whole screen, with
+ * whatever else was on it; everybody else gets the reading alone, and can still say it is wrong.
  */
 function mayLookAt(
   interaction: ButtonInteraction,
   ctx: AppContext,
-  record: { senderId: string },
+  record: { senderId: string; posterId?: string },
 ): boolean {
-  return record.senderId === interaction.user.id || isStaff(interaction, ctx);
+  const { id } = interaction.user;
+  return record.senderId === id || record.posterId === id || isStaff(interaction, ctx);
 }
 
 /**

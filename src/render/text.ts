@@ -180,6 +180,20 @@ export function memberText(member: NamedMember): string {
 }
 
 /**
+ * A member in a sentence as `memberText` names them, or "a former member" where the record lost
+ * who they were: the owner removed their data on request (plan 8G, `/admin forget`), and the
+ * moderators' records that stay keep neither their id nor their name. `start`: the words begin
+ * a sentence or a line ("A former member").
+ */
+export function memberTextOrFormer(
+  member: { id: string | null; name: string | null },
+  options: { start?: boolean } = {},
+): string {
+  if (member.id === null) return options.start === true ? 'A former member' : 'a former member';
+  return memberText({ id: member.id, name: member.name ?? undefined });
+}
+
+/**
  * A member named in the small print of a post, which pings nobody: the display name in bold,
  * and the mention only for a member the bot has no name for. A mention that pings nobody brings
  * no member data and reads "@unknown-user" to whoever has not loaded that member (Matt,

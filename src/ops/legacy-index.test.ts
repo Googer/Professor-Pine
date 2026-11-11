@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   hasMemberIndex,
   indexModesFrom,
+  memberIndexServers,
   readMemberIndex,
   writeServerIndex,
 } from './legacy-index.js';
@@ -124,5 +125,31 @@ describe('the member index on disk', () => {
       server: SERVER,
       entries: [`${KEY} r`],
     });
+  });
+
+  it('says which servers’ indexes hold a file of a member (plan 8G)', async () => {
+    const dir = root();
+    const OTHER_SERVER = '412345678901234568';
+    const THIRD_SERVER = '412345678901234569';
+    writeServerIndex(dir, OTHER_SERVER, new Map([[MEMBER_A, [`${KEY} r`]]]), MODES);
+    writeServerIndex(
+      dir,
+      SERVER,
+      new Map([
+        [MEMBER_A, [`${KEY} r`]],
+        [MEMBER_B, [`${KEY} r`]],
+      ]),
+      MODES,
+    );
+    writeServerIndex(dir, THIRD_SERVER, new Map([[MEMBER_B, [`${KEY} r`]]]), MODES);
+    // What is no server's folder is not looked into.
+    mkdirSync(path.join(dir, 'notes'));
+    writeFileSync(path.join(dir, 'notes', `${MEMBER_A}.json`), '{}');
+    expect(await memberIndexServers(dir, MEMBER_A)).toEqual([SERVER, OTHER_SERVER]);
+    expect(await memberIndexServers(dir, MEMBER_B)).toEqual([SERVER, THIRD_SERVER]);
+    expect(await memberIndexServers(dir, '320000000000000003')).toEqual([]);
+    // No id, no path; no folder, no files.
+    expect(await memberIndexServers(dir, '../x')).toEqual([]);
+    expect(await memberIndexServers(path.join(dir, 'missing'), MEMBER_A)).toEqual([]);
   });
 });

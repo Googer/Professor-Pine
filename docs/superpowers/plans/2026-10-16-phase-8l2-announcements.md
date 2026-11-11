@@ -19,7 +19,7 @@ Professor Pine dozed off over a stack of raid reports, and woke up to a lab rebu
 
 __**Every raid has its own post**__
 🗂️ Raids are posts in your region's board, right next to its channel (for example #squirrelbreeze-board). The board's pinned post lists them all. No more channel per raid!
-📸 Post a screenshot in your regional channel and mention @Professor Pine, or attach it to `/raid`: he reads the gym, the boss and the timer for you.
+📸 Post a screenshot in your regional channel and mention @Professor Pine, or attach it to `/raid`: he reads the gym, the boss and the timer for you. Forgot the mention? Hold the message (right-click on a computer) and pick Apps › Read screenshot.
 ✍️ Or type `/raid` and pick the boss, the gym and the time from the lists.
 
 __**Buttons instead of reactions**__
@@ -61,17 +61,17 @@ Something broken, odd or missing? Tell us in #feedback-n-at.
 
 ## 2. The official Professor Pine Discord post (for admins of other instances)
 
-Matt posts it now that version 2.0.0 is released (`master` and the tag `v2.0.0`, 2026-11-10; the `legacy` branch has been on GitHub since the first push), in the style of that server's earlier release posts: titled by version, a list of changes, the upgrade requirements as notes after it. `package.json` says `2.0.0`, as the title does. `@Pine Admins` is that server's role: retype it in the message box so that it pings. Three messages, one right after the other, as the larger releases there were: the list of changes alone is over Discord's 2,000 characters, so it goes in two.
+Matt posts it now that version 2.0.1 is released (`master` and the tag `v2.0.1`, 2026-11-10, a few hours after `v2.0.0`, which was never announced; the `legacy` branch has been on GitHub since the first push), in the style of that server's earlier release posts: titled by version, a list of changes, the upgrade requirements as notes after it. `package.json` says `2.0.1`, as the title does. `@Pine Admins` is that server's role: retype it in the message box so that it pings. Three messages, one right after the other, as the larger releases there were: the list of changes alone is over Discord's 2,000 characters, so it goes in two.
 
 ```md
-**v2.0.0 Released**
+**v2.0.1 Released**
 
 Pine has been rewritten from the ground up:
 
 - TypeScript on current discord.js; every command is a slash command, with options Discord explains as you type (`/help` lists them all)
 - One forum post per raid, max battle, train and meetup, in a forum beside each region's channel, instead of a channel per raid
 - Buttons on the post instead of reactions, with the legacy reaction icons, in three rows at the bottom, the same for one group and several: Interested, Join, Here, Done, Leave; Meet… (the game's Select Time icon), −1, +1, Remote; Group… (and Set time… while a raid has no times). A newcomer to a post of several groups is asked which group in a dialog; Group… moves a member or opens a group with a label; Meet… sets the group's meeting time from a list with the in-game RSVP times. Legacy `!group`, `!new` and `!meet` are Group…, Meet… and `/group`, `/meet`; a group nobody is in goes by itself
-- Raid screenshots read with `/raid` or a mention of the bot
+- Raid screenshots read with `/raid`, a mention of the bot, or Apps › Read screenshot on a message
 - Max battles (`/max`) at power spots, with lobbies of 4 (Dynamax) and 100 (Gigantamax) that Join fills, the bosses from Pokebattler with the event's boss first, and DMs by the Dynamax and Gigantamax boxes of `/want`
 - Trains of max battles (Max Battle Train, Gigantamax Train) with stops at power spots, a Gigantamax Train's groups filled up to its lobby, and a train planned ahead with its start (`/train start:`)
 ```
@@ -86,6 +86,7 @@ The list goes on in the second message, right after it:
 - Gyms imported from Wayfarer (`/gym import`), regions from KML (`/region import`)
 - A history of every ended raid, max battle, train and meetup for statistics; members are named in it only if they opt in (`/settings history`)
 - Optional web map of your regions and gyms
+- Terms of Service and a Privacy Policy that say what the code keeps (`docs/legal/`), and `/admin forget` for the owner to remove a member's data on request
 - Runs as a Docker stack with nightly verified backups, a watchdog, and `./pine update`
 - Your existing database, regions, gyms and member settings are taken over as they are
 - Rewritten by Matt with Claude, an AI that wrote a great deal of code and never once asked for a coffee break

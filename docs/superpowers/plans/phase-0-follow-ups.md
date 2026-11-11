@@ -2093,6 +2093,8 @@ Right before the official release post (section 2 of `2026-10-16-phase-8l2-annou
 
 **Done 2026-11-10 (Matt: "Yes, release"):** steps 1 to 3, 5 and 6: the version 2.0.0, the merge into `master` with the tag `v2.0.0`, both pushed; `main-dev` on as `2.1.0-dev`; section 2 of the announcements and CLAUDE.md brought up to date. **Step 4 is open:** production's clone still follows `main-dev` at the commit of the cutover's last update; the switch to `master` and its `./pine update` wait for Matt's go-ahead (the update recreates MySQL, the bot and the backup once and applies migration 050; `./pine deploy-commands` after it). The official post (section 2) is Matt's to send.
 
+**v2.0.1, the same evening (Matt: "we could call this v2.0.1"; 2.0.0 was never announced, and 2.1 is kept for a public application):** plans 7M and 8G, the Terms of Service and the Privacy Policy, merged into `master` and tagged `v2.0.1` by the same steps; `main-dev` back on `2.1.0-dev`. Production is updated to it once (step 4, still Matt's go-ahead): the update applies migrations 050 and 051, recreates MySQL, the bot and the backup once, and needs `./pine deploy-commands` after it (a new message command, a new part of `/admin`).
+
 ## The cutover (Pittsburgh, 2026-11-09 night, the Air, main-dev 407908be; Claude drove, Matt as Googer)
 
 Runbook Part 2, the same evening as R4–R6. **Pittsburgh runs on the new bot** on the Air's `~/professor-pine` stack; legacy Pine at the office is stopped, its FireDaemon service "Pine" on manual start (the way back). **Not announced** (Matt): N7's announcement waits for his word.
@@ -3536,3 +3538,33 @@ A second audit before the release (six readers, then every Medium checked in the
 **For the release (add to "The release of v2.0.0"):**
 - The guides and the README now name `master`: push `main-dev` and make the release in one sitting, or a new admin clones the old bot.
 - Release notes: `./pine update` recreates MySQL, the bot and the backup once (a new internal network; a short outage). `DB_SCHEMA` must be letters, digits, `_` and inner `-`. A database with triggers, routines, events or views is still backed up, with a warning the owner is told of; `./pine restore` refuses a dump that holds stored programs unless `--allow-programs`. Going back to the version before needs the row of migration 050 removed first (`operations.md`, "Going back a version"); that version also counts the month's `/find-region` maps as place questions. `./pine deploy-commands` after the update.
+
+## From plan 7M ("Read screenshot" in the Apps menu of a message; built, reviewed and merged 2026-11-10)
+
+Matt, 2026-11-10: a member who posts a screenshot without the mention gets nothing (Pine asks for no Message Content intent, and an application for it would be refused: passive reading is a convenience). A message command reads the posted picture "the same as a mention in effect". Discord hands a message command the message with its attachments: no intent.
+
+**Rulings and decisions.** The member who pressed stands where a mention's sender stands (their window, their questions, their report). The answers are private to them: a public reply under somebody else's message could be used to make Pine talk there and would mislead; the channel gets what a report itself posts and the two reactions. Only the presser's own message that says nothing is deleted, and only when every picture made or joined a raid or battle. A forward's picture is read, dated by the forwarded message. A screenshot whose time cannot be read, in a message more than ten minutes old, is refused in the decision and sent to `/raid` or `/max`. The watch against the boss list counts who posted the picture, not who had it read. The poster keeps the view of the kept picture beside the presser and staff. The last private line stays until dismissed.
+
+**Staging not run** (the dev application needs `deploy-commands`): own message without a mention (the raid, the link line, the message gone); the same with text (the check mark, the message stays); another member's message (the presser's raid, the author neither signed up nor pinged); "Screenshot feedback" on that post for the presser, the poster, staff and a third member; an unclear gym (the private question, Cancel, expiry); several pictures; a picture that is no raid screen; a message 20 to 40 minutes old (an egg hatched since, a raid over, one without a readable time); a max battle; a forward; the refusals (Pine's own message, a forum post, a channel of no region, no picture); mentions and presses mixed up to the window's end; a second press while the first is read; a phone (long press, Apps); `/help` and the tutorial's line.
+
+**Left:** a record's `use` is `mention` for a menu read too (`ocr:review` does not tell them apart). A question left unanswered across a restart stays visible to the member until dismissed, and answers "expired".
+
+## From plan 8G (`/admin forget member:`, removing a member's data on request; built, reviewed and merged 2026-11-10)
+
+For the Privacy Policy (`docs/legal/`, written the same day from an inventory of the code), which promises removal on request. The owner's command: a look at what Pine holds of somebody across every server, a confirmation, then the removal in one transaction (the kept screenshots and the web logins' live streams after it).
+
+**Rulings (Matt, 2026-11-10).** Owner only. The four ids that could not be cleared without a schema change are cleared too: **migration 051 is the one migration that is not additive** (three meetup id columns nullable; the report reasons get a row id as key so the reporter's id can be null), on tables the legacy bot never had. A forgotten member's finished requests, appeals, asks and report reasons read "a former member"; what they wrote there stays as the moderators' record. The names and descriptions of the trains and meetups they made go from the history.
+
+**What stays, by design:** meetup blocks and rulings; reports about them; anything the moderators have not decided yet; an approved request whose meetup is still going on (the moderators are still told of its changes: run the command again once it has ended); the 30-day log; what is live; what they did as staff; counts without a name. By hand, named in the answer: the old bot's history file and `parties/` folder on the host, backups (90 days), GitHub issues of `/request`, posts on Discord; the logs roll over.
+
+**Known gaps:** a group's label on a party (`PartyHistoryGroup.label`) is text a member may have typed and is not blanked. History records made while the member's history was off hold no id, so their names cannot be found. A meetup made from an approval in the instant between the command's look at the active parties and its transaction loses its maker on the request. In-memory state (a day's screenshot sightings, queued DMs) ages out.
+
+**Staging not run:** the command as a moderator and as a bot developer (refused); the look for a member with data in two servers; the removal; a second run; a moderators' post of a forgotten maker ("a former member", no Block member); the member coming back (defaults, the one-time Unown gift given again). Needs `deploy-commands`.
+
+**Going back a version:** before 051 as before 050 (`operations.md`): the row of `kysely_migration` removed first; older code reads the four columns as never null, which holds until somebody was forgotten.
+
+## For 2.1: a public application and Discord's verification (Matt, 2026-11-10)
+
+Verification is only needed to grow past 100 servers, and it gives the checkmark. The production application now belongs to a Team of Matt's, his identity is verified with Discord, and the Terms of Service and Privacy Policy links are set in the portal. **The one criterion left is an install link, and Discord accepts none for a private application ("Verified apps must be public").** Public Bot was switched off on purpose after the first audit, so that nobody adds Pittsburgh's bot to a server of their own. Before it goes back on: decide what Pine does when a server its owner did not set up adds it (an allow list of servers, or leaving at once), and what of the data two servers share today a stranger's server must not reach. Then Public Bot, the install link, Verify App.
+
+The Message Content intent was not applied for (the review was due 2026-11-11): Pine needs no privileged intent.

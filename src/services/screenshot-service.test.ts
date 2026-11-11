@@ -235,6 +235,71 @@ describe('ScreenshotService', () => {
     );
     expect(ahead).toEqual([2]);
   });
+
+  describe('a screenshot read a while after its upload (plan 7M: a message’s Apps menu)', () => {
+    const LATER = UPLOADED + 30 * 60_000;
+    /** No clock on it: its moment is guessed from the upload. Ten minutes to go. */
+    const egg = () => eggReading('Old Stone Fountain', 5, null, 600);
+
+    it('dates it by its upload and decides at the time it is read: an egg hatched since', async () => {
+      // Read at once (the service's clock is the upload's): `readAt` decides.
+      const { screenshots, screenshot } = screenshotsWith(undefined, () => UPLOADED);
+      const atOnce = await readOne(screenshots, screenshot('a.png', egg()), where());
+      if (atOnce.kind !== 'read' || atOnce.screen !== 'raid') throw new Error('not read');
+      expect(atOnce.decision).toMatchObject({ kind: 'report', raid: { hatched: false } });
+      const hatch = atOnce.report.takenAt + 600_000;
+      expect(atOnce.report.time).toEqual({ hatch });
+      const later = await readOne(
+        screenshots,
+        screenshot('b.png', egg()),
+        where({ readAt: LATER }),
+      );
+      if (later.kind !== 'read' || later.screen !== 'raid') throw new Error('not read');
+      // The same moment and hatch, by the upload: twenty minutes before it was read.
+      expect(later.report.time).toEqual({ hatch });
+      expect(later.report.doubts).toContain('time-past');
+      // Reported hatched, to the end its hatch gives (a T5 lasts 45 minutes in the test settings).
+      expect(later.decision).toMatchObject({
+        kind: 'report',
+        raid: { hatched: true, time: { end: hatch + 45 * 60_000 } },
+      });
+      // The record keeps when it was uploaded: the message's time.
+      if (!later.id) throw new Error('not kept');
+      expect(await screenshots.get(later.id)).toMatchObject({ record: { uploadedAt: UPLOADED } });
+    });
+
+    // Review F5: `readAt` is when the read was asked; the screenshot may have waited in the
+    // reader's queue since, and is decided when its reading is done.
+    it('decides at the service’s own time when that is later than when the read was asked', async () => {
+      const clock = { now: UPLOADED };
+      const { screenshots, screenshot } = screenshotsWith(undefined, () => clock.now);
+      // Asked thirty minutes after the upload, read two hours after it.
+      clock.now = UPLOADED + 2 * 3600_000;
+      const waited = await readOne(
+        screenshots,
+        screenshot('a.png', egg()),
+        where({ readAt: LATER }),
+      );
+      if (waited.kind !== 'read' || waited.screen !== 'raid') throw new Error('not read');
+      expect(waited.decision).toEqual({ kind: 'refuse', reason: 'raid-over' });
+      // Without `readAt` (every other caller) the upload's time decides, whatever the clock.
+      const posted = await readOne(screenshots, screenshot('b.png', egg()), where());
+      expect(posted).toMatchObject({ decision: { kind: 'report', raid: { hatched: false } } });
+    });
+
+    it('refuses a raid that is over by the time it is read, with a gym chosen then too', async () => {
+      const { screenshots, screenshot } = screenshotsWith(undefined, () => UPLOADED);
+      const over = await readOne(
+        screenshots,
+        screenshot('a.png', egg()),
+        where({ readAt: UPLOADED + 2 * 3600_000 }),
+      );
+      if (over.kind !== 'read' || over.screen !== 'raid') throw new Error('not read');
+      expect(over.decision).toEqual({ kind: 'refuse', reason: 'raid-over' });
+      // The decision made again with a gym is made at that time as well.
+      expect(over.withGym(6)).toEqual({ kind: 'refuse', reason: 'raid-over' });
+    });
+  });
 });
 
 describe('ScreenshotService: a max battle’s screen (plan 8X-S)', () => {
@@ -456,6 +521,23 @@ describe('ScreenshotService: a max battle’s screen (plan 8X-S)', () => {
       decision: { kind: 'refuse', reason: 'no-spot' },
     });
     expect(files('held')).toEqual([]);
+  });
+
+  it('decides a max screen at the time it is read, when that is after its upload (plan 7M)', async () => {
+    const made = await maxReportingWith();
+    const { screenshots, screenshot } = screenshotsWith(made.ctx);
+    // The clock at 13:58 and half an hour to go: the battle ends at 14:28.
+    const atOnce = await readOne(screenshots, screenshot('a.png', maxReading()), maxWhere());
+    expect(atOnce).toMatchObject({ decision: { kind: 'report' } });
+    const later = await readOne(
+      screenshots,
+      screenshot('b.png', maxReading()),
+      maxWhere({ readAt: at('2026-10-22T14:30') }),
+    );
+    if (later.kind !== 'read' || later.screen !== 'max') throw new Error('not read');
+    expect(later.decision).toEqual({ kind: 'refuse', reason: 'battle-over' });
+    // A Power Spot chosen then is decided at that time too.
+    expect(later.withSpot(TEST_SPOT.id)).toEqual({ kind: 'refuse', reason: 'battle-over' });
   });
 });
 

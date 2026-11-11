@@ -27,10 +27,11 @@ export class MemoryReports implements ReportStore {
       : Promise.resolve();
   }
 
-  /** A copy, its reasons in the repository's order: by time, then by reporter. */
+  /** A copy, its reasons in the repository's order: by time, then as they came. */
   private copy(report: ModerationReport): ModerationReport {
     const copied = structuredClone(report);
-    copied.reasons.sort((a, b) => a.at - b.at || a.reporterId.localeCompare(b.reporterId));
+    // A stable sort: reasons of one moment stay in the order they were given (the row ids).
+    copied.reasons.sort((a, b) => a.at - b.at);
     return copied;
   }
 
@@ -43,7 +44,11 @@ export class MemoryReports implements ReportStore {
       (one) => one.status === 'open' && reportTargetKey(one.subject) === key,
     );
     if (open) {
-      if (open.reasons.some((one) => one.reporterId === reason.reporterId)) {
+      // As the unique key: several reasons of reporters removed on request (null) stand.
+      if (
+        reason.reporterId !== null &&
+        open.reasons.some((one) => one.reporterId === reason.reporterId)
+      ) {
         return { kind: 'already', report: this.copy(open) };
       }
       open.reasons.push({ ...reason });

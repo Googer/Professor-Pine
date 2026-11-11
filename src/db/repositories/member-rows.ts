@@ -92,7 +92,9 @@ export async function findMemberInGuild(
  * second change in a server nothing is asked twice. The member's row is locked by its
  * snowflake all the same, so what is remembered of it decides only whether an insert is
  * tried; when a remembered row turns out to be gone it is forgotten and the change runs once
- * more as for a member who was never seen. The server's row is used by its remembered id; when
+ * more as for a member who was never seen. So does a change with `create` whose row was read
+ * from the table and is gone once locked: the owner's `/admin forget` (plan 8G) deleted it
+ * and committed while the lock waited. The server's row is used by its remembered id; when
  * that row is gone (the legacy bot deletes it on leaving a server, and the next one has
  * another id), `work` fails the foreign key of whatever it hangs on the server (MySQL's error
  * 1452): the server is then forgotten and the change runs once more, with the row as it is
@@ -145,18 +147,16 @@ export async function withMemberLocked<T>(
       .forUpdate()
       .executeTakeFirst();
     if (!user) {
-      if (remembered) {
-        // Not deleted under this change, as far as anybody knows: only remembered wrongly.
+      // Only remembered wrongly; or read just before the owner's `/admin forget` deleted it
+      // (plan 8G), whose commit this lock waited for: either way the member is new now, and a
+      // change that makes their row runs once more as for a new member.
+      if (remembered || (known && create)) {
         forgotten = true;
         return undefined;
       }
-      // Deleted since it was seen: nothing to change, or nothing to hang a new row on.
+      // Deleted since it was seen: nothing to change.
       if (!create) return { value: await work(trx, undefined) };
-      throw new Error(
-        known
-          ? `User row for ${memberId} was deleted while their rows were being changed`
-          : `User row for ${memberId} vanished after insert`,
-      );
+      throw new Error(`User row for ${memberId} vanished after insert`);
     }
     made = user.id;
     // From here on plain reads see everything that was written before the lock was got: the

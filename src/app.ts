@@ -125,6 +125,9 @@ import { WantCountService } from './services/want-counts.js';
 import { WantCountRepository } from './db/repositories/want-count-repository.js';
 import { LegacyFillInRepository } from './db/repositories/legacy-fill-in-repository.js';
 import { LegacyFillInService } from './services/legacy-fill-in.js';
+import { MemberDataRepository } from './db/repositories/member-data-repository.js';
+import { MemberRemoval } from './services/member-removal.js';
+import { memberIndexServers } from './ops/legacy-index.js';
 import { OcrAssets } from './services/ocr-assets.js';
 import { OcrService } from './services/ocr-service.js';
 import { ScreenshotService } from './services/screenshot-service.js';
@@ -1084,8 +1087,27 @@ export async function startApp(
   const commands = enabledCommands(allCommands, config);
   const messageCommands = enabledMessageCommands(allMessageCommands, config);
   const throttles = new Throttles();
+  // The screenshot trigger, for "Read screenshot" in a message's Apps menu (plan 7M): set once
+  // it is made below, since it takes the context itself.
+  const shotTrigger: { is?: ScreenshotTrigger } = {};
+  // Removing a member's data on request (plan 8G, the owner's `/admin forget`): the database in
+  // one transaction, then the kept screenshots and the live streams of the web logins it
+  // deleted, which the hub of the live map ends once it is made (below).
+  const liveSessions: { end?: (sessionId: string) => void } = {};
+  const memberRemoval = new MemberRemoval({
+    data: new MemberDataRepository(db, rowIds),
+    screenshots: screenshotStore,
+    parties,
+    ...(legacyIndexDir === undefined
+      ? {}
+      : { legacyFiles: (memberId: string) => memberIndexServers(legacyIndexDir, memberId) }),
+    endSession: (sessionId) => liveSessions.end?.(sessionId),
+    heldReports: reports,
+    log,
+  });
   const ctx: AppContext = {
     throttles,
+    memberRemoval,
     config,
     log,
     db,
@@ -1224,6 +1246,12 @@ export async function startApp(
         reports,
       }),
     }),
+    // A message read because a member asked: by the one trigger that reads the mentions. (No
+    // interaction is handled before it is made; until then, as while it closes.)
+    messageShots: {
+      readFor: (message, asker) =>
+        shotTrigger.is?.readFor(message, asker) ?? Promise.resolve('closing'),
+    },
     emoji: emojiFinder(appEmoji, appEmojiSource),
     features: requested,
     ...(rehearsal ? { rehearsal } : {}),
@@ -1253,6 +1281,7 @@ export async function startApp(
   // Screenshots posted in a region channel with a mention of the bot (or, passive, without),
   // and in a region's board (plan 8R-9F), which the keeper deletes once they are downloaded.
   const screenshotTrigger = new ScreenshotTrigger({ ctx, board: boardKeeper });
+  shotTrigger.is = screenshotTrigger;
   // Resolved by the client that ends up connected (the login may try several).
   let markConnected: () => void = () => undefined;
   const connected = new Promise<void>((resolve) => {
@@ -1523,6 +1552,10 @@ export async function startApp(
   // Who has the map open, told of what changed (`/api/live`); without a stream it does nothing.
   const live = new LiveSignals(LIVE_ON_THE_CLOCK);
   liveSources(live, { parties, posts: partyService, reports: stopReports, spawns });
+  // A removal of a member's data ends the streams of the web logins it deleted (plan 8G).
+  liveSessions.end = (sessionId) => {
+    live.endSession(sessionId);
+  };
   const web =
     webSettings &&
     webSessions &&

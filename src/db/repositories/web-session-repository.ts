@@ -92,4 +92,36 @@ export class WebSessionRepository implements WebSessionStore {
       .execute();
     return Number(result?.numDeletedRows ?? 0);
   }
+
+  /** How many sessions the account has, expired ones too (plan 8G, `/admin forget`). */
+  async countOf(userId: string): Promise<number> {
+    const counted = await this.db
+      .selectFrom('WebSession')
+      .select((eb) => eb.fn.countAll<number | string>().as('rows'))
+      .where('userId', '=', userId)
+      .executeTakeFirst();
+    return Number(counted?.rows ?? 0);
+  }
+
+  /**
+   * Deletes every session of the account (plan 8G, `/admin forget`) and answers their ids, so
+   * that the live streams opened under them can be ended as a logout ends them. One
+   * transaction (the caller's when `db` is one): the rows are read locked, along
+   * `websession_userid_index`, so that a login of the account at the same moment waits and
+   * no session is deleted that is not among the ids.
+   */
+  removeOf(userId: string): Promise<string[]> {
+    return inTransaction(this.db, async (trx) => {
+      const rows = await trx
+        .selectFrom('WebSession')
+        .select('id')
+        .where('userId', '=', userId)
+        .forUpdate()
+        .execute();
+      const ids = rows.map((row) => row.id);
+      if (ids.length === 0) return ids;
+      await trx.deleteFrom('WebSession').where('id', 'in', ids).execute();
+      return ids;
+    });
+  }
 }

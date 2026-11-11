@@ -454,3 +454,77 @@ describe('a max battle’s screenshot read passively', () => {
     expect(kept).not.toMatchObject({ record: { pickedSpotId: expect.anything() as unknown } });
   });
 });
+
+describe('a max battle’s screenshot read because a member asked (plan 7M)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: MAX_THURSDAY });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** The other member asks for the author's message of this screenshot. */
+  const ask = async (made: Awaited<ReturnType<typeof setup>>, reading: ScreenReading) => {
+    const sent = posted([made.screenshot('max.png', reading)], { mentionsBot: false });
+    const why = await made.trigger.readFor(sent.message, {
+      id: OTHER,
+      member: { name: 'Sol' },
+      startBy: MAX_THURSDAY + 13 * MINUTE,
+    });
+    await made.service.flush();
+    return { ...sent, why };
+  };
+
+  it('reports the battle as who asked and says so; the author’s message stays, marked', async () => {
+    const made = await setup();
+    const { did, replies, why } = await ask(made, maxReading());
+    expect(why).toBeUndefined();
+    const battle = asMax(made.store.active()[0]);
+    expect(battle).toMatchObject({
+      createdById: OTHER,
+      endTime: END,
+      max: { boss: { key: 'machop' }, tier: 'D2', spot: { id: TEST_SPOT.id } },
+    });
+    expect(Object.keys(battle.attendees)).toEqual([OTHER]);
+    expect(replies).toEqual([
+      {
+        content:
+          `Reported: Dynamax Machop (2★) at Gazebo of the Park, until ${t(END)}. Its post is ` +
+          `<#${battle.forumPostId ?? ''}>.`,
+      },
+    ]);
+    expect(did).toEqual([`react ${READING}`, `unreact ${READING}`, 'reply', `react ${DONE}`]);
+    const kept = await made.screenshots.get(battle.max.screenshot?.id ?? '');
+    expect(kept).toMatchObject({ record: { senderId: OTHER, use: 'mention' } });
+  });
+
+  it('asks who asked which Power Spot: the author’s pick is refused, theirs reports it', async () => {
+    const made = await setup({ rows: [POND] });
+    const { replies } = await ask(made, maxReading('GAZEBO OF THE P'));
+    const menu = menuOf(replies[0]);
+    const author = fakeSelect({ customId: menu.custom_id, values: [POND.id], userId: AUTHOR });
+    await made.router.handle(author as never);
+    expect(sent(author.reply).content).toBe('That is somebody else’s screenshot.');
+    const pick = fakeSelect({ customId: menu.custom_id, values: [POND.id], userId: OTHER });
+    await made.router.handle(pick as never);
+    await made.service.flush();
+    expect(asMax(made.store.active()[0])).toMatchObject({
+      createdById: OTHER,
+      max: { spot: { id: POND.id } },
+    });
+  });
+
+  it('refuses a battle that is over by the time it is asked for', async () => {
+    const made = await setup();
+    // Posted at 14:00 with the battle ending at 14:28; asked for at 14:30.
+    const message = posted([made.screenshot('max.png', maxReading())], { mentionsBot: false });
+    vi.setSystemTime(at('2026-10-22T14:30'));
+    await made.trigger.readFor(message.message, {
+      id: OTHER,
+      member: { name: 'Sol' },
+      startBy: at('2026-10-22T14:43'),
+    });
+    expect(made.store.active()).toEqual([]);
+    expect(message.replies.map((reply) => reply.content)).toEqual(['That battle has ended.']);
+  });
+});

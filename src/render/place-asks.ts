@@ -11,7 +11,14 @@ import {
   placeLine,
 } from './meetup-safety.js';
 import { postLink } from './notify-dm.js';
-import { endSentence, memberText, plainLines, plainNoLinks, timestamp } from './text.js';
+import {
+  endSentence,
+  memberText,
+  memberTextOrFormer,
+  plainLines,
+  plainNoLinks,
+  timestamp,
+} from './text.js';
 import { actionRow, container, textDisplay, textMessage } from './v2.js';
 
 /**
@@ -59,7 +66,7 @@ export function askMessage(
   ruling: PlaceRulingRecord | undefined,
   officialName?: string | null,
 ): V2Message {
-  const member = memberText({ id: ask.memberId, name: ask.memberName ?? undefined });
+  const member = memberTextOrFormer({ id: ask.memberId, name: ask.memberName }, { start: true });
   const components: APIComponentInContainer[] = [
     textDisplay(
       `### Ask to allow a refused place\n${member} asks for meetups to be allowed at this place again.`,
