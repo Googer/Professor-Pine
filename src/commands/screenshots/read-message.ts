@@ -9,7 +9,7 @@ import type { MessageCommand } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
 import { requireGuild } from '../../discord/guards.js';
 import { memberInfo } from '../../discord/member-info.js';
-import { saysNothing, shotSources } from '../../discord/screenshot-message.js';
+import { askedShots, saysNothing } from '../../discord/screenshot-message.js';
 import { MENTION_THROTTLE, type AskedMessage, type NotRead } from './mention.js';
 import { START_BY_MS } from './read-screenshot.js';
 
@@ -67,15 +67,17 @@ function askedMessage(interaction: MessageContextMenuCommandInteraction): {
   /** The replies tried, and those Discord took. */
   let tried = 0;
   let sent = 0;
+  // A forward's pictures are the message's it forwards, as of that message (review F3).
+  const { attachments, createdAt } = askedShots(target);
   const message: AskedMessage = {
     id: target.id,
     channelId: target.channelId,
     guildId: interaction.guildId,
     inThread: channelContext(interaction).isThread,
     authorId: target.author.id,
-    createdAt: target.createdTimestamp,
+    createdAt,
     bare: saysNothing(target.content, botId),
-    attachments: shotSources(target.attachments.values()),
+    attachments,
     channelName: (channelId) => interaction.guild?.channels.cache.get(channelId)?.name,
     react: async (emoji) => {
       await target.react(emoji);

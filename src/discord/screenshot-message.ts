@@ -1,7 +1,7 @@
 import type { Attachment, Message } from 'discord.js';
 import type { PostedMessage } from '../commands/screenshots/mention.js';
 import { teamOfRoles } from '../domain/party/party.js';
-import type { ScreenshotSource } from '../services/screenshot-service.js';
+import { screenshotsOf, type ScreenshotSource } from '../services/screenshot-service.js';
 
 /**
  * Whether a message says nothing but mentions of the bot, if any: such a message may go once its
@@ -22,6 +22,26 @@ export function shotSources(
     contentType: attachment.contentType,
     size: attachment.size,
   }));
+}
+
+/**
+ * The pictures of a message a member asks to have read ("Read screenshot", plan 7M), and when
+ * they were posted: its own, as of the message; or, for a forward without pictures of its own,
+ * those of the message it forwards (its first snapshot, as "Report to moderators" reads a
+ * forward), as of that message (review F3): the forward's own time is when it was forwarded, and
+ * a day-old egg would be read as live.
+ */
+export function askedShots(
+  message: Pick<Message, 'attachments' | 'createdTimestamp' | 'messageSnapshots'>,
+): { attachments: ScreenshotSource[]; createdAt: number } {
+  const own = shotSources(message.attachments.values());
+  const forwarded = screenshotsOf(own).length === 0 ? message.messageSnapshots.first() : undefined;
+  return forwarded
+    ? {
+        attachments: shotSources(forwarded.attachments.values()),
+        createdAt: forwarded.createdTimestamp,
+      }
+    : { attachments: own, createdAt: message.createdTimestamp };
 }
 
 /**

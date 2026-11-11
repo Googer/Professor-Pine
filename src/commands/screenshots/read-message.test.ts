@@ -41,6 +41,7 @@ import { READ_SCREENSHOT_NAME, readScreenshotMessage } from './read-message.js';
 
 const CLOCK = { hour: 13, minute: 59 };
 const MINUTE = 60_000;
+const DAY = 24 * 60 * MINUTE;
 const NO_PINGS = { parse: [] };
 
 async function setup(options: { gyms?: Gym[] } = {}) {
@@ -269,6 +270,39 @@ describe('Read screenshot (the Apps menu of a message, plan 7M)', () => {
     expect(sent(interaction.editReply).content).toMatch(
       /^Reported the raid at Old Stone Fountain: <#\d+>\.\n1 of 2: By its countdown this raid has already ended\.$/,
     );
+  });
+
+  describe('a forward, whose picture is in its snapshot (review F3)', () => {
+    it('reads the forwarded screenshot, as of the forwarded message', async () => {
+      const { use, image, store } = await setup();
+      const { interaction } = await use([], {
+        target: { forwards: { files: [image('a.png', egg())] } },
+      });
+      expect(store.active()[0]).toMatchObject({ gymId: 2, createdById: OTHER });
+      expect(sent(interaction.editReply).content).toMatch(
+        /^Reported the raid at Old Stone Fountain: <#\d+>\.$/,
+      );
+    });
+
+    it('dates it by the message forwarded, not by the forward: a day-old egg is over', async () => {
+      const { use, image, store } = await setup();
+      const { interaction } = await use([], {
+        target: {
+          forwards: { files: [image('a.png', egg())], createdTimestamp: PARTY_NOW - DAY },
+        },
+      });
+      expect(store.active()).toEqual([]);
+      expect(sent(interaction.editReply).content).toBe(
+        'By its countdown this raid has already ended.',
+      );
+    });
+
+    it('says there is no picture in a forward of a message without one', async () => {
+      const { use, reader } = await setup();
+      const { interaction } = await use([], { target: { forwards: { content: 'Raid at noon?' } } });
+      expect(sent(interaction.followUp).content).toBe('That message has no picture I can read.');
+      expect(reader.reads).toBe(0);
+    });
   });
 
   it('reads a picture a webhook or another bot posted, for the member who used it', async () => {

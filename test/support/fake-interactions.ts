@@ -256,7 +256,22 @@ export interface FakeTargetMessage {
    * The message it forwards, when it is a forward (`messageSnapshots`, one): a forward has no
    * text or attachments of its own.
    */
-  forwards?: { content?: string; attachments?: readonly string[] };
+  forwards?: {
+    content?: string;
+    attachments?: readonly string[];
+    /** Its attachments in full, in the place of `attachments`, as the target's own `files`. */
+    files?: FakeTargetMessage['files'];
+    /**
+     * When the forwarded message was written (the snapshot's `createdTimestamp`, by its id):
+     * the target's own time, when the forward was made, unless a test says so.
+     */
+    createdTimestamp?: number;
+  };
+}
+
+/** Attachments in full, as discord.js gives them. */
+function filesOf(files: NonNullable<FakeTargetMessage['files']>) {
+  return new Collection(files.map((file, i) => [String(i), { id: String(i), ...file }]));
 }
 
 /** Attachments by name, as discord.js gives them. */
@@ -283,9 +298,7 @@ function targetOf(target: FakeTargetMessage, channelId: string, guildId: string 
     },
     webhookId: target.webhook === true ? '860000000000000001' : null,
     member: target.authorName === undefined ? null : { displayName: target.authorName },
-    attachments: target.files
-      ? new Collection(target.files.map((file, i) => [String(i), { id: String(i), ...file }]))
-      : attachmentsOf(target.attachments),
+    attachments: target.files ? filesOf(target.files) : attachmentsOf(target.attachments),
     reactions: { cache: reactions },
     react: (emoji: string) => {
       did.push(`react ${emoji}`);
@@ -311,7 +324,11 @@ function targetOf(target: FakeTargetMessage, channelId: string, guildId: string 
               '800000000000000099',
               {
                 content: target.forwards.content ?? '',
-                attachments: attachmentsOf(target.forwards.attachments),
+                attachments: target.forwards.files
+                  ? filesOf(target.forwards.files)
+                  : attachmentsOf(target.forwards.attachments),
+                createdTimestamp:
+                  target.forwards.createdTimestamp ?? target.createdTimestamp ?? Date.now(),
               },
             ],
           ],
