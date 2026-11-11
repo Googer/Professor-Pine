@@ -7,7 +7,6 @@ import {
   fakeChatInput,
   fakeMessageCommand,
   fakeSelect,
-  followUpId,
   sent,
   type FakeInteraction,
   type FakeOptions,
@@ -213,7 +212,9 @@ describe('Read screenshot (the Apps menu of a message, plan 7M)', () => {
     expect(did).toEqual([`react ${READING}`, `unreact ${READING}`, `react ${DONE}`]);
   });
 
-  it('answers in the place of the “thinking…” line first, then in private follow-ups, which go at their time', async () => {
+  // Review F8: what came of it stays with the member until they dismiss it; a question goes at
+  // its time, as a mention's does.
+  it('answers in the place of the “thinking…” line first, then in private follow-ups; only a question goes', async () => {
     const twin = testGym(13, 'Old Stone Fountain', 40.061, -80.061);
     const { use, image } = await setup({ gyms: [twin] });
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
@@ -226,12 +227,29 @@ describe('Read screenshot (the Apps menu of a message, plan 7M)', () => {
       allowedMentions: NO_PINGS,
       flags: MessageFlags.Ephemeral,
     });
-    expect(interaction.deleteReply).not.toHaveBeenCalled();
-    // The reply goes after the setup's 20 ms, the unanswered question after its minute.
+    // The unanswered question goes after its minute; the outcome line stays.
     vi.advanceTimersByTime(20);
-    expect(interaction.deleteReply.mock.calls).toEqual([[followUpId(0)]]);
+    expect(interaction.deleteReply).not.toHaveBeenCalled();
     vi.advanceTimersByTime(60_000);
-    expect(interaction.deleteReply.mock.calls).toEqual([[followUpId(0)], []]);
+    expect(interaction.deleteReply.mock.calls).toEqual([[]]);
+    vi.advanceTimersByTime(60 * MINUTE);
+    expect(interaction.deleteReply.mock.calls).toEqual([[]]);
+  });
+
+  it('leaves a raid’s line, and a question’s answer, until the member dismisses them (review F8)', async () => {
+    const twin = testGym(13, 'Old Stone Fountain', 40.061, -80.061);
+    const { use, image, router } = await setup({ gyms: [twin] });
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
+    const asked = await use([image('a.png', egg())]);
+    const menu = menuOf(sent(asked.interaction.editReply));
+    const pick = fakeSelect({ customId: menu.custom_id, values: ['13'], userId: OTHER });
+    await router.handle(pick as never);
+    expect(sent(pick.editReply).content).toMatch(/^Reported the raid at Old Stone Fountain/);
+    const made = await use([image('b.png', eggReading('Maple Leaf Mosaic', 3, CLOCK, 15 * 60))]);
+    expect(sent(made.interaction.editReply).content).toMatch(/^Reported the raid at Maple/);
+    vi.advanceTimersByTime(60 * MINUTE);
+    expect(asked.interaction.deleteReply).not.toHaveBeenCalled();
+    expect(made.interaction.deleteReply).not.toHaveBeenCalled();
   });
 
   it('counts in the window of the member’s mentions: the 21st screenshot of either is refused', async () => {

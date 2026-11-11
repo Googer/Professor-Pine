@@ -55,8 +55,9 @@ const UNANSWERED =
  * reads, the ✅, taking the asker's own away); what it would say in the channel under the
  * message it says to the member alone: the first reply in the place of the "thinking…" line (an
  * edit of the deferred answer: a first follow-up would take that place anyway), every later one
- * a private follow-up, each going at the time a mention's reply goes, by the interaction's
- * token. `answered` says whether any reached the member.
+ * a private follow-up. A question goes at a mention's question's time, by the interaction's
+ * token; what came of it stays until the member dismisses it (review F8, the trigger's `say`).
+ * `answered` says whether any reached the member.
  */
 function askedMessage(interaction: MessageContextMenuCommandInteraction): {
   message: AskedMessage;

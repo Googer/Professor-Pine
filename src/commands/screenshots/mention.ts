@@ -726,7 +726,7 @@ export class ScreenshotTrigger {
       if (settled) batch.done = true;
       if (lines.length > 0) {
         await this.say(
-          message,
+          batch,
           { content: truncate(lines.join('\n'), 2_000) },
           undefined,
           settled ? () => void this.letGo(message) : undefined,
@@ -738,7 +738,7 @@ export class ScreenshotTrigger {
       // up as their auto-status says, and their message may go. The reply names and pings them,
       // as it may be all that is left of what they posted.
       const content = `<@${message.authorId}> ${[...existing, ...toldAloud].join('\n')}`;
-      await this.say(message, { content: truncate(content, 2_000), ping: message.authorId });
+      await this.say(batch, { content: truncate(content, 2_000), ping: message.authorId });
     }
     await this.finished(batch);
     return 'read';
@@ -1104,7 +1104,7 @@ export class ScreenshotTrigger {
     const read = report.gym.read ? ` I read "${plain(truncate(report.gym.read, 80))}".` : '';
     pending.question = truncate(`${what}. Which gym is it?${read}`, QUESTION_ROOM);
     pending.keep = await this.say(
-      message,
+      batch,
       {
         content: pending.question,
         components: menuQuestion(
@@ -1181,7 +1181,7 @@ export class ScreenshotTrigger {
     pending.question = `<@${message.authorId}> ${elsewhereQuestion(plain(gym.nickname || gym.name), there.channelId)}`;
     pending.again = ASK_AGAIN_YES;
     pending.keep = await this.say(
-      message,
+      batch,
       {
         content: pending.question,
         components: [yesNoRow(token)],
@@ -1346,7 +1346,7 @@ export class ScreenshotTrigger {
       QUESTION_ROOM,
     );
     pending.keep = await this.say(
-      message,
+      batch,
       {
         content: pending.question,
         components: menuQuestion(
@@ -1401,7 +1401,7 @@ export class ScreenshotTrigger {
     const token = pendingShots.put(message.authorId, pending);
     pending.question = `<@${message.authorId}> ${elsewhereQuestion(plain(maxSpotName(request.spot)), there.channelId)}`;
     pending.keep = await this.say(
-      message,
+      batch,
       { content: pending.question, components: [yesNoRow(token)], ping: message.authorId },
       this.options.questionMs ?? QUESTION_MS,
       () => pendingShots.take(token, message.authorId),
@@ -1433,16 +1433,21 @@ export class ScreenshotTrigger {
   }
 
   /**
-   * Replies to the message; the reply goes after `ms` (by default `replyMs`), then `after`. The
-   * answer starts the time anew, as long as a reply's (a question that became its answer).
+   * Replies to the batch's message; the reply goes after `ms` (by default `replyMs`), then
+   * `after`. The answer starts the time anew, as long as a reply's (a question that became its
+   * answer). For a member who asked (`Batch.asker`, review F8) what came of it stays, privately,
+   * until they dismiss it: a reply without `ms` (the message's outcome) has no time, and a
+   * question, which still goes at its time unanswered, stays once answered.
    */
   private async say(
-    message: PostedMessage,
+    batch: Pick<Batch, 'message' | 'asker'>,
     payload: ReplyPayload,
     ms?: number,
     after?: () => void,
   ): Promise<ReplyKeep | undefined> {
     const { ctx } = this.options;
+    const { message } = batch;
+    const stays = batch.asker !== undefined;
     if (this.closed) return undefined;
     const sent = await message.reply(payload).catch((err: unknown) => {
       ctx.log.warn({ err }, 'could not answer a message with screenshots');
@@ -1460,17 +1465,25 @@ export class ScreenshotTrigger {
       this.waiting.set(timer, sent);
       return timer;
     };
-    let timer = start(ms ?? replyMs);
-    /** Its time from now on, unless it is gone already (its time was up, or the bot closes). */
-    const restart = (wait: number): boolean => {
-      if (!this.waiting.delete(timer)) return false;
-      clearTimeout(timer);
-      timer = start(wait);
+    /** Its time; none while it stays (`stays`). */
+    let timer = stays && ms === undefined ? undefined : start(ms ?? replyMs);
+    /**
+     * Its time from now on (`wait`; none: it stays), unless it is gone already (its time was up,
+     * or the bot closes).
+     */
+    const restart = (wait: number | undefined): boolean => {
+      if (timer === undefined) {
+        if (this.closed) return false;
+      } else {
+        if (!this.waiting.delete(timer)) return false;
+        clearTimeout(timer);
+      }
+      timer = wait === undefined ? undefined : start(wait);
       return true;
     };
     return {
       answered: () => {
-        restart(replyMs);
+        restart(stays ? undefined : replyMs);
       },
       askAgain: () => restart(ms ?? replyMs),
     };
