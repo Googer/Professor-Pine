@@ -217,10 +217,11 @@ describe('/admin forget', () => {
   });
 
   it('asks once more in a dialog, and removes only on its Submit', async () => {
-    const { ask, press, submit, data, screenshots, entries, ended } = setup();
+    const { ask, press, submit, data, screenshots, entries, ended, reporters } = setup();
     data.hold(ASH, EVERYTHING);
     screenshots.keep(ASH, 4, 1);
     const [remove] = customIdsOf(lookOf(await ask()));
+    expect(reporters).toEqual([]);
 
     const pressed = await press(remove ?? '');
     const dialog = shownDialog(pressed);
@@ -237,6 +238,8 @@ describe('/admin forget', () => {
     expect(submitted.deferReply).toHaveBeenCalledWith({ flags: MessageFlags.Ephemeral });
     expect(data.removals).toEqual([ASH]);
     expect(ended).toHaveLength(2);
+    // Their reasons held in memory for a report's next post go too.
+    expect(reporters).toEqual([ASH]);
     const outcome = asV2(sent(submitted.editReply));
     expect(textOf(outcome).split('\n')).toEqual([
       `### Removed the data of **Ash of Pallet** (<@${ASH}>)`,
@@ -428,7 +431,7 @@ describe('/admin forget', () => {
   });
 
   it('says which step failed and that nothing was removed', async () => {
-    const { ask, press, submit, data, entries } = setup();
+    const { ask, press, submit, data, entries, reporters } = setup();
     data.hold(ASH, EVERYTHING);
     data.failing = REMOVAL_STEPS.history;
     const [remove] = customIdsOf(lookOf(await ask()));
@@ -439,6 +442,8 @@ describe('/admin forget', () => {
         'everything is as it was. The log says why. Use the command again once that is solved.',
     ]);
     expect(data.removals).toEqual([]);
+    // Nothing outside the database is touched either.
+    expect(reporters).toEqual([]);
     expect(
       entries.filter((entry) => entry.msg === 'could not remove a member’s data; nothing changed'),
     ).toMatchObject([{ member: ASH, by: OWNER, step: 'their history' }]);

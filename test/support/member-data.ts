@@ -113,8 +113,9 @@ export class MemoryMemberScreenshots implements MemberScreenshots {
  * A real `MemberRemoval` over `MemoryMemberData` and `MemoryMemberScreenshots`: pass `removal`
  * as `memberRemoval` to `createTestContext`. `parties` are the parties going on, `legacyFiles`
  * the servers whose member index holds a file of a member (none without `index`, as on an
- * installation without one), `ended` the web logins whose streams were ended, `entries` what
- * the service logged.
+ * installation without one), `ended` the web logins whose streams were ended, `reporters` the
+ * members whose reasons held for a report's next post were dropped, `entries` what the service
+ * logged.
  */
 export function memberRemovalWith(
   options: { parties?: readonly Party[]; index?: Record<string, string[]> } = {},
@@ -122,6 +123,7 @@ export function memberRemovalWith(
   const data = new MemoryMemberData();
   const screenshots = new MemoryMemberScreenshots();
   const ended: string[] = [];
+  const reporters: string[] = [];
   const { log, entries } = createTestLogger();
   const { index } = options;
   const removal = new MemberRemoval({
@@ -132,7 +134,8 @@ export function memberRemovalWith(
       ? {}
       : { legacyFiles: (memberId: string) => Promise.resolve(index[memberId] ?? []) }),
     endSession: (id) => ended.push(id),
+    heldReports: { forgetReporter: (id) => reporters.push(id) },
     log,
   });
-  return { removal, data, screenshots, ended, entries };
+  return { removal, data, screenshots, ended, reporters, entries };
 }

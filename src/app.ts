@@ -1102,6 +1102,7 @@ export async function startApp(
       ? {}
       : { legacyFiles: (memberId: string) => memberIndexServers(legacyIndexDir, memberId) }),
     endSession: (sessionId) => liveSessions.end?.(sessionId),
+    heldReports: reports,
     log,
   });
   const ctx: AppContext = {

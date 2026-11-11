@@ -31,6 +31,12 @@ export interface MemberRemovalOptions {
    * does; none where the web pages are off.
    */
   endSession?: (sessionId: string) => void;
+  /**
+   * The reasons of reports held in memory for the next report of their subject after a post
+   * failed (`ModerationReports.forgetReporter`), which would otherwise write the member's id and
+   * name back with somebody's next report.
+   */
+  heldReports?: { forgetReporter(memberId: string): void };
   log: Logger;
 }
 
@@ -111,8 +117,9 @@ function meetupsGoingOn(active: readonly Party[], memberId: string): string[] {
  * database first, in one transaction (`MemberData.remove`: either all of it or nothing, and a
  * failure is thrown on as it came, naming its step); then, once that has committed, what is
  * outside it: the live streams of the web logins it deleted are ended as a logout ends them,
- * and the kept screenshots the member sent are removed from both folders, with their feedback
- * on others'. Neither of the two fails the removal: a stream that cannot be ended ends within
+ * the reasons of reports held in memory after a failed post drop theirs (`heldReports`), and
+ * the kept screenshots the member sent or posted are removed from both folders, with their
+ * feedback on others'. None of these fails the removal: a stream that cannot be ended ends within
  * its lifetime (its login is gone), and a screenshot that could not be removed is counted and
  * goes with the store's own sweep, or with a second run. Nor does the look at what is left that
  * follows (`after`): one that fails is logged, and the outcome goes without it.
@@ -147,7 +154,7 @@ export class MemberRemoval {
 
   /** `by`: the owner who asked. Rejects, with nothing changed, when the database refuses. */
   async remove(memberId: string, by: string): Promise<MemberRemovalOutcome> {
-    const { data, screenshots, parties, endSession, log } = this.options;
+    const { data, screenshots, parties, endSession, heldReports, log } = this.options;
     let removed: MemberRemoved;
     try {
       removed = await data.remove(memberId, meetupsGoingOn(parties.active(), memberId));
@@ -170,6 +177,11 @@ export class MemberRemoval {
       } catch (err) {
         log.warn({ err }, 'could not end a removed login’s streams');
       }
+    }
+    try {
+      heldReports?.forgetReporter(memberId);
+    } catch (err) {
+      log.warn({ err }, 'could not drop a removed member’s held report reasons');
     }
     const shots = await screenshots.forget(memberId);
     // The removal has committed: a look that fails now must not turn it into a failure.
