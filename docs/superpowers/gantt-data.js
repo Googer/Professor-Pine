@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-10T17:46",
+  "updated": "2026-11-10T21:42",
   "items": [
     {
       "id": "0",
@@ -3193,6 +3193,61 @@ window.GANTT = {
       "status": "done",
       "start": "2026-10-27T12:24",
       "end": "2026-10-27T12:25"
+    },
+    {
+      "id": "7M",
+      "kind": "plan",
+      "parent": "7",
+      "name": "7M “Read screenshot” in the Apps menu of a message",
+      "status": "done",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "A message command that reads a posted raid or max battle screenshot through the mention’s own path, for whoever pressed; private answers; old messages decided at the time they are read",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-10T18:04",
+        "end": "2026-11-10T18:24"
+      },
+      "review": {
+        "start": "2026-11-10T19:01",
+        "end": "2026-11-10T19:47"
+      }
+    },
+    {
+      "id": "7M.1",
+      "kind": "task",
+      "parent": "7M",
+      "name": "A screenshot read after its upload is decided at the time it is read",
+      "status": "done",
+      "start": "2026-11-10T18:24",
+      "end": "2026-11-10T18:39"
+    },
+    {
+      "id": "7M.2",
+      "kind": "task",
+      "parent": "7M",
+      "name": "The screenshot trigger reads a message a member asks for",
+      "status": "done",
+      "start": "2026-11-10T18:39",
+      "end": "2026-11-10T18:46"
+    },
+    {
+      "id": "7M.3",
+      "kind": "task",
+      "parent": "7M",
+      "name": "“Read screenshot” in the Apps menu of a message",
+      "status": "done",
+      "start": "2026-11-10T18:46",
+      "end": "2026-11-10T18:57"
+    },
+    {
+      "id": "7M.4",
+      "kind": "task",
+      "parent": "7M",
+      "name": "Help and docs",
+      "status": "done",
+      "start": "2026-11-10T18:57",
+      "end": "2026-11-10T19:01"
     },
     {
       "id": "8",
@@ -7016,6 +7071,61 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-06T09:40",
       "end": "2026-11-06T09:41"
+    },
+    {
+      "id": "8G",
+      "kind": "plan",
+      "parent": "13",
+      "name": "8G Removing a member’s data on request",
+      "status": "done",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "The owner’s /admin forget: a look across every server, a confirmation, the removal in one transaction; migration 051 so that ids on moderators’ records can be cleared; the Privacy Policy’s removal on request",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-10T18:15",
+        "end": "2026-11-10T18:35"
+      },
+      "review": {
+        "start": "2026-11-10T19:33",
+        "end": "2026-11-10T21:40"
+      }
+    },
+    {
+      "id": "8G.1",
+      "kind": "task",
+      "parent": "8G",
+      "name": "The repositories count and forget one member across every server",
+      "status": "done",
+      "start": "2026-11-10T18:35",
+      "end": "2026-11-10T19:00"
+    },
+    {
+      "id": "8G.2",
+      "kind": "task",
+      "parent": "8G",
+      "name": "One service removes a member’s data, the database in one transaction",
+      "status": "done",
+      "start": "2026-11-10T19:00",
+      "end": "2026-11-10T19:10"
+    },
+    {
+      "id": "8G.3",
+      "kind": "task",
+      "parent": "8G",
+      "name": "The owner’s /admin forget member: a look, a question, then the removal",
+      "status": "done",
+      "start": "2026-11-10T19:10",
+      "end": "2026-11-10T19:21"
+    },
+    {
+      "id": "8G.4",
+      "kind": "task",
+      "parent": "8G",
+      "name": "Docs",
+      "status": "done",
+      "start": "2026-11-10T19:21",
+      "end": "2026-11-10T19:33"
     },
     {
       "id": "14",
