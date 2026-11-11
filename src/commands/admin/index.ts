@@ -7,6 +7,7 @@ import { overrideParts } from './boss-overrides.js';
 import { cleanupLegacy } from './cleanup-legacy.js';
 import { clearImageCache } from './clear-image-cache.js';
 import { EVENT_WINDOW_DESCRIPTION, EVENT_WINDOW_GROUP, eventWindowParts } from './event-window.js';
+import { forget } from './forget.js';
 import { memberSettings } from './member-settings.js';
 import { NICKNAME_DESCRIPTION, NICKNAME_GROUP, nicknameParts } from './nicknames.js';
 import { saveParty } from './save-party.js';
@@ -28,6 +29,7 @@ const parts: readonly SubcommandPart[] = [
   syncBosses,
   ...nicknameParts,
   memberSettings,
+  forget,
   cleanupLegacy,
   tutorial,
   ...eventWindowParts,

@@ -1,0 +1,355 @@
+import type { APIButtonComponent } from 'discord.js';
+import type { RemovalStep } from '../db/repositories/member-data-repository.js';
+import type { UserHoldings } from '../db/repositories/user-repository.js';
+import type { V2Message } from '../discord/party-gateway.js';
+import {
+  removable,
+  type MemberLook,
+  type MemberRemovalOutcome,
+} from '../services/member-removal.js';
+import { AUDIT_KEEP_MS } from '../services/party-audit.js';
+import { APPROVED_ACCENT, EXPIRED_ACCENT, REFUSED_ACCENT } from './meetup-safety.js';
+import { count, memberText, type NamedMember } from './text.js';
+import { actionRow, LIST_COLOUR, textMessage } from './v2.js';
+
+/*
+ * What the owner is told of a member's data (plan 8G, `/admin forget`): the look before a
+ * removal, and what a removal did. Both say, in the same lines, what goes, what stays and why,
+ * and what is left for the owner to do by hand. Private answers: the member is named with
+ * `memberText`, and nothing here pings.
+ */
+
+/** How long the staff's log keeps an entry (`AUDIT_KEEP_MS`), in days, for the answer's words. */
+const AUDIT_DAYS = Math.round(AUDIT_KEEP_MS / (24 * 3_600_000));
+
+/**
+ * As many of a member's old-bot history files as are named by their paths; in further servers'
+ * folders the file has the same name, which the line then says (the answer stays a message
+ * Discord takes however many servers the index has).
+ */
+const FILES_NAMED = 6;
+
+/** What a removal takes, or took: the look's counts and the removal's own, in one shape. */
+interface Taken {
+  user: UserHoldings | undefined;
+  newTrains: number;
+  unownGifts: number;
+  optIns: number;
+  boards: number;
+  fillIns: number;
+  named: number;
+  sessions: number;
+  toolAccess: boolean;
+  reportNames: number;
+  meetupNames: number;
+  screenshots: number;
+  feedback: number;
+}
+
+function takenBy(look: MemberLook): Taken {
+  const { held, screenshots } = look;
+  return {
+    user: held.user,
+    newTrains: held.newTrains,
+    unownGifts: held.unownGifts,
+    ...held.history,
+    sessions: held.sessions,
+    toolAccess: held.toolAccess,
+    reportNames: held.reports.named,
+    meetupNames: held.meetups.named,
+    screenshots: screenshots.sent,
+    feedback: screenshots.feedback,
+  };
+}
+
+function tookAway(outcome: MemberRemovalOutcome): Taken {
+  const { removed, screenshots } = outcome;
+  return {
+    user: removed.user,
+    newTrains: removed.newTrains,
+    unownGifts: removed.unownGifts,
+    ...removed.history,
+    sessions: removed.sessions.length,
+    toolAccess: removed.toolAccess,
+    reportNames: removed.reportNames,
+    meetupNames: removed.meetupNames,
+    screenshots: screenshots.removed,
+    feedback: screenshots.feedback,
+  };
+}
+
+/** `a`, `a and b`, `a, b and c`. */
+function listed(items: readonly string[]): string {
+  if (items.length <= 1) return items.join('');
+  return `${items.slice(0, -1).join(', ')} and ${items.at(-1) ?? ''}`;
+}
+
+const inServers = (n: number): string => `in ${count(n, 'server')}`;
+
+/** What goes, a line each: only what there is. */
+function takenLines(taken: Taken): string[] {
+  const lines: string[] = [];
+  const { user } = taken;
+  if (user !== undefined) {
+    const told = [
+      ...(user.friendCode ? ['friend code'] : []),
+      ...(user.inGameName ? ['in-game name'] : []),
+      ...(user.pokebattlerId ? ['Pokebattler id'] : []),
+    ];
+    lines.push(`Their settings${told.length === 0 ? '' : `, with their ${listed(told)}`}`);
+    const hanging = [
+      ...(user.wants + user.targetWants > 0 ? [count(user.wants + user.targetWants, 'want')] : []),
+      ...(user.gymTargets > 0 ? [count(user.gymTargets, 'gym notice')] : []),
+      ...(user.savedRoutes > 0 ? [count(user.savedRoutes, 'saved route')] : []),
+    ];
+    if (hanging.length > 0) lines.push(listed(hanging));
+  }
+  if (taken.newTrains > 0) lines.push(`Their new-train notices ${inServers(taken.newTrains)}`);
+  if (taken.unownGifts > 0) {
+    lines.push(`The record of their one-time Unown want ${inServers(taken.unownGifts)}`);
+  }
+  if (taken.optIns > 0 && taken.boards > 0) {
+    lines.push(
+      `Their history switch ${inServers(taken.optIns)} and their place on the boards in ` +
+        String(taken.boards),
+    );
+  } else if (taken.optIns > 0) {
+    lines.push(`Their history switch ${inServers(taken.optIns)}`);
+  } else if (taken.boards > 0) {
+    // A board row that outlived its history switch: it ranks nobody, and goes all the same.
+    lines.push(`Their place on the boards ${inServers(taken.boards)}`);
+  }
+  if (taken.named > 0) {
+    lines.push(
+      `Their Discord id on ${count(taken.named, 'history entry', 'history entries')} ` +
+        `(the entries stay and count, without it)`,
+    );
+  }
+  if (taken.fillIns > 0) {
+    lines.push(`${count(taken.fillIns, 'request')} to add their old-bot history`);
+  }
+  if (taken.sessions > 0) lines.push(count(taken.sessions, 'web login'));
+  if (taken.toolAccess) lines.push('Their access to the Wayfarer export tool');
+  if (taken.reportNames > 0) {
+    lines.push(`Their name on ${count(taken.reportNames, 'report')} they made to the moderators`);
+  }
+  if (taken.meetupNames > 0) {
+    lines.push(
+      `Their name on ${count(taken.meetupNames, 'meetup request, appeal or place ask', 'meetup requests, appeals and place asks')} ` +
+        `that ${taken.meetupNames === 1 ? 'is' : 'are'} decided and over`,
+    );
+  }
+  if (taken.screenshots > 0 || taken.feedback > 0) {
+    lines.push(
+      [
+        ...(taken.screenshots > 0
+          ? [`${count(taken.screenshots, 'kept screenshot')} they sent`]
+          : []),
+        ...(taken.feedback > 0
+          ? [
+              `${taken.screenshots > 0 ? 'their' : 'Their'} feedback on ` +
+                `${String(taken.feedback)} ${taken.feedback === 1 ? 'other' : 'others'}`,
+            ]
+          : []),
+      ].join(', and '),
+    );
+  }
+  return lines;
+}
+
+/** What stays, and why, a line each: only what there is, and the counts without a name. */
+function leftLines(look: MemberLook): string[] {
+  const { held } = look;
+  const lines: string[] = [];
+  if (held.meetups.blocks > 0) {
+    lines.push(
+      `${count(held.meetups.blocks, 'meetup block')}, lifted or not: the moderators need ` +
+        `${held.meetups.blocks === 1 ? 'it' : 'them'} for the safety of others.`,
+    );
+  }
+  if (held.reports.about > 0) {
+    lines.push(
+      `${count(held.reports.about, 'report')} to the moderators about them: the moderators’ record.`,
+    );
+  }
+  const records = held.meetups.open + held.meetups.over;
+  if (held.reports.reasons > 0 || records > 0) {
+    lines.push(
+      `Their Discord id on ${listed([
+        ...(held.reports.reasons > 0 ? [`${count(held.reports.reasons, 'report')} they made`] : []),
+        ...(records > 0
+          ? [
+              `${held.reports.reasons > 0 ? 'on ' : ''}${count(records, 'meetup request, appeal or place ask', 'meetup requests, appeals and place asks')}`,
+            ]
+          : []),
+      ])}: the moderators’ record, whose rows cannot be kept without it.`,
+    );
+  }
+  if (held.meetups.open > 0) {
+    lines.push(
+      `${String(held.meetups.open)} of those requests, appeals and asks ` +
+        `${held.meetups.open === 1 ? 'is still open and keeps' : 'are still open and keep'} ` +
+        `their name too: have the moderators decide ` +
+        `${held.meetups.open === 1 ? 'it' : 'them'}, then run this again.`,
+    );
+  }
+  if (held.audit > 0) {
+    lines.push(
+      `${count(held.audit, 'entry', 'entries')} of the staff’s log of who did what: ` +
+        `${held.audit === 1 ? 'it ages' : 'they age'} out after ${String(AUDIT_DAYS)} days.`,
+    );
+  }
+  const live = [
+    ...(look.liveParties > 0
+      ? [`${count(look.liveParties, 'party', 'parties')} they made or signed up for`]
+      : []),
+    ...(held.stopReports > 0 ? [`${count(held.stopReports, 'report')} at a stop`] : []),
+    ...(held.accessGrants > 0
+      ? [`${count(held.accessGrants, 'forum')} they were let into for a party`]
+      : []),
+  ];
+  if (live.length > 0) lines.push(`What is live ends by itself: ${live.join(', ')}.`);
+  if (held.staffActs > 0) {
+    lines.push(
+      `${count(held.staffActs, 'record')} of what they did as staff (decisions, rulings, boss ` +
+        `overrides, gyms and stops): the servers’ record.`,
+    );
+  }
+  return lines;
+}
+
+/** What the installation is set up with that leaves the owner something to do by hand. */
+export interface ByHand {
+  /**
+   * The GitHub repository `/request` sends gym requests to (`GITHUB_REPO`), where the
+   * installation has one: its issues are public and carry the name of who asked.
+   */
+  requestsRepo?: string | undefined;
+}
+
+/**
+ * What only the owner can do, a line each: the old-bot history files, backups, the gym requests
+ * on GitHub, posts.
+ */
+function byHandLines(look: MemberLook, byHand: ByHand): string[] {
+  const files = look.legacyFiles
+    .slice(0, FILES_NAMED)
+    .map((server) => `\`${server}/${look.memberId}.json\``);
+  const more = look.legacyFiles.length - files.length;
+  return [
+    ...(files.length === 0
+      ? []
+      : [
+          `Their old-bot history on the host, which I can only read: delete ${listed(files)} ` +
+            'in the member index folder (`LEGACY_INDEX_DIR`)' +
+            (more === 0
+              ? '.'
+              : `, and the file of that name in ${String(more)} more server ` +
+                `${more === 1 ? 'folder' : 'folders'} there.`),
+        ]),
+    'Backups made before the removal hold this data until they age out ' +
+      '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
+    ...(byHand.requestsRepo === undefined
+      ? []
+      : [
+          'Gym requests they sent with `/request` are public issues of ' +
+            `\`${byHand.requestsRepo}\` on GitHub, under the name they had: edit or delete ` +
+            'them there.',
+        ]),
+    'Posts on Discord that name them are not edited.',
+  ];
+}
+
+const bullets = (lines: readonly string[]): string => lines.map((line) => `- ${line}`).join('\n');
+
+/** What stays and what is the owner's to do, under their headings; `stays` heads the first. */
+function restOf(look: MemberLook, stays: string, byHand: ByHand): string[] {
+  const left = leftLines(look);
+  // Counts carry no name; said only where there was something of the member to speak of.
+  const leftAll =
+    left.length === 0 && !removable(look)
+      ? []
+      : [...left, 'Counts without a name: the history’s entries and the activity.'];
+  return [
+    ...(leftAll.length === 0 ? [] : [`**${stays}**\n${bullets(leftAll)}`]),
+    `**Left for you to do by hand:**\n${bullets(byHandLines(look, byHand))}`,
+  ];
+}
+
+/** How long the look can be confirmed, in the words under it. */
+export interface LookControls {
+  /** The button "Remove…", which opens the question. */
+  remove: APIButtonComponent;
+  minutes: number;
+}
+
+/**
+ * The look: what Pine holds of the member across every server, what a removal takes and what
+ * it leaves, with "Remove…" where there is anything to take (`controls`), and without it that
+ * there is nothing to remove.
+ */
+export function forgetLookMessage(
+  member: NamedMember,
+  look: MemberLook,
+  controls: LookControls | undefined,
+  byHand: ByHand = {},
+): V2Message {
+  const title = `### What Pine holds of ${memberText(member)}`;
+  if (!removable(look) || controls === undefined) {
+    return textMessage(EXPIRED_ACCENT, [
+      title,
+      'Nothing that a removal would take: there is nothing to remove.',
+      ...restOf(look, 'What stays:', byHand),
+    ]);
+  }
+  return textMessage(
+    LIST_COLOUR,
+    [
+      title,
+      'Across every server.',
+      `**Remove… takes away, for good:**\n${bullets(takenLines(takenBy(look)))}`,
+      ...restOf(look, 'It leaves:', byHand),
+      `-# Only you can press Remove…, within ${String(controls.minutes)} minutes. Nothing is ` +
+        'sent to them.',
+    ],
+    [actionRow([controls.remove])],
+  );
+}
+
+/** The question asked once more before anything goes: the text of its dialog. */
+export function forgetQuestion(name: string): string {
+  return (
+    `Remove what Pine holds of **${name}** across every server?\n` +
+    'This cannot be undone. Submit removes it.'
+  );
+}
+
+/** What a removal did: what went, what is left and why, and what is the owner's to do. */
+export function forgetOutcomeMessage(
+  member: NamedMember,
+  outcome: MemberRemovalOutcome,
+  byHand: ByHand = {},
+): V2Message {
+  const taken = takenLines(tookAway(outcome));
+  const { failed } = outcome.screenshots;
+  return textMessage(APPROVED_ACCENT, [
+    `### Removed the data of ${memberText(member)}`,
+    taken.length === 0
+      ? 'There was nothing to remove.'
+      : `**Removed, from every server:**\n${bullets(taken)}`,
+    failed === 0
+      ? undefined
+      : `**${count(failed, 'kept screenshot')} could not be removed** (the log says why): ` +
+        `run this again for ${failed === 1 ? 'it' : 'them'}.`,
+    ...restOf(outcome.after, 'Left:', byHand),
+  ]);
+}
+
+/** The database refused the removal at `step`: nothing changed. */
+export function forgetFailedMessage(member: NamedMember, step: RemovalStep): V2Message {
+  return textMessage(REFUSED_ACCENT, [
+    `### Nothing was removed of ${memberText(member)}`,
+    `The database refused the removal at **${step}**, so I undid all of it: everything is as ` +
+      'it was. The log says why. Use the command again once that is solved.',
+  ]);
+}

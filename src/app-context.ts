@@ -68,6 +68,7 @@ import type { EventForumService } from './services/event-forum.js';
 import type { LegacyCleanup } from './services/legacy-cleanup.js';
 import type { LoginLinks } from './web/login-links.js';
 import type { MeetupSafety } from './services/meetup-safety.js';
+import type { MemberRemoval } from './services/member-removal.js';
 import type { ModerationReports } from './services/moderation-reports.js';
 import type { ScriptAccessService } from './services/script-access-service.js';
 import type { EventSpawnProvider } from './services/event-page-service.js';
@@ -265,6 +266,11 @@ export interface AppContext {
   readonly loginLinks: LoginLinks;
   /** Who may have the Wayfarer export tool (plan 8W-P): the owner's DM buttons and `/userscript`. */
   readonly scriptAccess: ScriptAccessService;
+  /**
+   * A member's data across every server, counted and removed on request (plan 8G: the owner's
+   * `/admin forget`).
+   */
+  readonly memberRemoval: MemberRemoval;
   /** Privileged-intent features actually granted at login (may be fewer than configured). */
   features: IntentFlags;
   /**

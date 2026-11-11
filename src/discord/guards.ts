@@ -168,6 +168,17 @@ export const requireBotManagement: Guard = (interaction, ctx) => {
   }
 };
 
+/** What `requireOwner` tells anybody but the bot's owner. */
+export const ONLY_THE_OWNER = 'Only the owner of this Pine can do that.';
+
+/**
+ * Only the installation's owner (`OWNER_ID`), who needs no role: for what spans every server
+ * and cannot be undone (plan 8G, `/admin forget`). Staff and bot developers are refused.
+ */
+export const requireOwner: Guard = (interaction, ctx) => {
+  if (interaction.user.id !== ctx.config.env.OWNER_ID) throw new UserError(ONLY_THE_OWNER);
+};
+
 export const requireBotChannel: Guard = (interaction, ctx) => {
   assertGuild(interaction);
   if (!isBotChannelName(channelContext(interaction).name, ctx.config.settings)) {

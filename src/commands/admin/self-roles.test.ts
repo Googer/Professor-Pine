@@ -72,12 +72,13 @@ function setup() {
 describe('/admin self-roles', () => {
   it('is a group of subcommands of /admin, and is not there when the feature is off', () => {
     const { ctx } = createTestContext();
-    // The parts of plan 5C (boss list, nicknames, member settings) and of 8C (the cleanup of
-    // legacy channels) and the event window are not looked at here.
+    // The parts of plan 5C (boss list, nicknames, member settings), of 8C (the cleanup of
+    // legacy channels) and of 8G (the owner's forget), and the event window are not looked at
+    // here.
     const paths = (config: typeof ctx.config) =>
       declaredSubcommands(enabledCommands([admin], config)[0]?.data.toJSON().options).filter(
         (path) =>
-          !/^(boss|nickname) |^member-settings$|^cleanup-legacy$|^tutorial$|^event-window /.test(
+          !/^(boss|nickname) |^member-settings$|^forget$|^cleanup-legacy$|^tutorial$|^event-window /.test(
             path,
           ),
       );

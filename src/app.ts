@@ -125,6 +125,9 @@ import { WantCountService } from './services/want-counts.js';
 import { WantCountRepository } from './db/repositories/want-count-repository.js';
 import { LegacyFillInRepository } from './db/repositories/legacy-fill-in-repository.js';
 import { LegacyFillInService } from './services/legacy-fill-in.js';
+import { MemberDataRepository } from './db/repositories/member-data-repository.js';
+import { MemberRemoval } from './services/member-removal.js';
+import { memberIndexServers } from './ops/legacy-index.js';
 import { OcrAssets } from './services/ocr-assets.js';
 import { OcrService } from './services/ocr-service.js';
 import { ScreenshotService } from './services/screenshot-service.js';
@@ -1087,8 +1090,23 @@ export async function startApp(
   // The screenshot trigger, for "Read screenshot" in a message's Apps menu (plan 7M): set once
   // it is made below, since it takes the context itself.
   const shotTrigger: { is?: ScreenshotTrigger } = {};
+  // Removing a member's data on request (plan 8G, the owner's `/admin forget`): the database in
+  // one transaction, then the kept screenshots and the live streams of the web logins it
+  // deleted, which the hub of the live map ends once it is made (below).
+  const liveSessions: { end?: (sessionId: string) => void } = {};
+  const memberRemoval = new MemberRemoval({
+    data: new MemberDataRepository(db, rowIds),
+    screenshots: screenshotStore,
+    parties,
+    ...(legacyIndexDir === undefined
+      ? {}
+      : { legacyFiles: (memberId: string) => memberIndexServers(legacyIndexDir, memberId) }),
+    endSession: (sessionId) => liveSessions.end?.(sessionId),
+    log,
+  });
   const ctx: AppContext = {
     throttles,
+    memberRemoval,
     config,
     log,
     db,
@@ -1533,6 +1551,10 @@ export async function startApp(
   // Who has the map open, told of what changed (`/api/live`); without a stream it does nothing.
   const live = new LiveSignals(LIVE_ON_THE_CLOCK);
   liveSources(live, { parties, posts: partyService, reports: stopReports, spawns });
+  // A removal of a member's data ends the streams of the web logins it deleted (plan 8G).
+  liveSessions.end = (sessionId) => {
+    live.endSession(sessionId);
+  };
   const web =
     webSettings &&
     webSessions &&
