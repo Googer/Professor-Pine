@@ -56,7 +56,7 @@ __**Pine's numbers**__
 📊 `/stats` shows raids by region, the boards of who did the most, and your own numbers. In `/settings` you can join the boards, and **Add my old-bot history** brings in the raids, trains and meetups you did with the old Pine.
 
 __**Finally**__
-Raids that were open during the move are gone, so please report those again. The old train and meetup channels stay for discussion. `/help` explains every command, `/report` tells the moderators privately about a post or a message, and `/request` asks for a fix to a gym that is wrong.
+The old train and meetup channels stay for discussion. `/help` explains every command, `/report` tells the moderators privately about a post or a message, and `/request` asks for a fix to a gym that is wrong.
 
 Thanks to Claude, the AI who rebuilt most of Pine with Googer and never once asked for a nap.
 
