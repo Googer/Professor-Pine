@@ -6,7 +6,7 @@ import { partyServiceWith } from '../../../test/support/party-service.js';
 import { AUTHOR, OTHER, posted } from '../../../test/support/posted-message.js';
 import { gymsFixture } from '../../../test/support/providers.js';
 import { screenshotsWith } from '../../../test/support/screenshot-service.js';
-import { eggReading, readingOf } from '../../../test/support/screenshots.js';
+import { eggReading, readingOf, splitOutcome } from '../../../test/support/screenshots.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { Region } from '../../db/repositories/region-repository.js';
@@ -193,13 +193,17 @@ describe('a message’s screenshots read because a member asked (plan 7M)', () =
     const refused = posted([image('c.png', cat())], { mentionsBot: false });
     await trigger.readFor(asked(refused.message), asker());
     expect(reader.reads).toBe(20);
+    // Worded for who had them read (review F6).
     expect(refused.replies.map((reply) => reply.content)).toEqual([
-      'You have sent many screenshots just now, so I did not read them. Try again in 15 minutes.',
+      'You have had many screenshots read just now, so I did not read them. Try again in 15 minutes.',
     ]);
-    // So is a mention of theirs; the author's own window is untouched.
+    // So is a mention of theirs, in the mention's words; the author's own window is untouched.
     const mention = posted([image('d.png', cat())], { authorId: OTHER });
     await trigger.handle(mention.message);
     expect(reader.reads).toBe(20);
+    expect(mention.replies.map((reply) => reply.content)).toEqual([
+      'You have sent many screenshots just now, so I did not read them. Try again in 15 minutes.',
+    ]);
     await trigger.readFor(asked(posted([image('e.png', cat())]).message), self());
     expect(reader.reads).toBe(21);
     await trigger.close();
@@ -229,6 +233,24 @@ describe('a message’s screenshots read because a member asked (plan 7M)', () =
     await trigger.close();
   });
 
+  it('says a split’s other screen was not read for the member’s window, as had read (review F6)', async () => {
+    const { trigger, image } = await setup();
+    const one = image('cat.png', cat());
+    for (let i = 0; i < 19; i++) await trigger.readFor(asked(posted([one]).message), asker());
+    const mosaic = eggReading('Maple Leaf Mosaic', 3, CLOCK, 15 * 60);
+    const split = posted([image('split.png', splitOutcome([egg(), mosaic]))], {
+      mentionsBot: false,
+    });
+    await trigger.readFor(asked(split.message), asker());
+    // Under the line of the raid its first screen made.
+    expect(split.replies.at(-1)?.content.split('\n')).toEqual([
+      expect.stringMatching(/^Reported the raid at Old Stone Fountain/),
+      'You have had many screenshots read just now, so I did not read the other screen of one ' +
+        'of them. Try again in 15 minutes.',
+    ]);
+    await trigger.close();
+  });
+
   it('keeps the member’s own message whose screenshot it could not read for their window (review F2)', async () => {
     const { trigger, image } = await setup();
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
@@ -240,7 +262,7 @@ describe('a message’s screenshots read because a member asked (plan 7M)', () =
     const own = posted([image('b.png', egg())], { mentionsBot: false });
     await trigger.readFor(asked(own.message), self());
     expect(own.replies.map((reply) => reply.content)).toEqual([
-      'You have sent many screenshots just now, so I did not read them. Try again in 15 minutes.',
+      'You have had many screenshots read just now, so I did not read them. Try again in 15 minutes.',
     ]);
     // The reply says to try again later: the message is still there to try it on.
     vi.advanceTimersByTime(60 * MINUTE);

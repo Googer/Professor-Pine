@@ -701,17 +701,19 @@ export class ScreenshotTrigger {
       for (const [words, count] of refusals) {
         lines.push(batch.images === 1 ? words : `${count} of ${batch.images}: ${words}`);
       }
+      // A member who asked had somebody's screenshots read, which they did not send (review F6).
+      const many = batch.asker
+        ? 'You have had many screenshots read just now'
+        : 'You have sent many screenshots just now';
       if (held > 0) {
         const which =
           held === images.length ? 'them' : held === 1 ? 'one of them' : `${held} of them`;
-        lines.push(
-          `You have sent many screenshots just now, so I did not read ${which}. Try again in ${waitText(wait)}.`,
-        );
+        lines.push(`${many}, so I did not read ${which}. Try again in ${waitText(wait)}.`);
       }
       if (heldPanes > 0) {
         const which = heldPanes === 1 ? 'one of them' : `${heldPanes} of them`;
         lines.push(
-          `You have sent many screenshots just now, so I did not read the other screen of ${which}. Try again in ${waitText(wait)}.`,
+          `${many}, so I did not read the other screen of ${which}. Try again in ${waitText(wait)}.`,
         );
       }
       // A message of nothing but the mention whose screenshots were all answered, some refused,
@@ -1655,7 +1657,19 @@ function outcomeWords(outcome: ShotOutcome, gym: Gym): string {
 }
 
 const EXPIRED = 'That question has expired. Post the screenshot again.';
+/** `EXPIRED` for a question asked of a member who used "Read screenshot" (plan 7M, review F6). */
+const EXPIRED_ASKED = 'That question has expired. Use Read screenshot on the message again.';
 const NOT_YOURS = 'That is somebody else’s screenshot.';
+
+/**
+ * What a press on a question that expired is told. The question of a member who asked for a
+ * message to be read is private (`askedMessage` answers so), a mention's a reply in the channel:
+ * told apart by the message pressed on, which outlives the question kept for it (a restart, or
+ * the question's time) where a flag on `PendingShot` would not.
+ */
+function expiredWords(interaction: ButtonInteraction | StringSelectMenuInteraction): string {
+  return interaction.message.flags.has(MessageFlags.Ephemeral) ? EXPIRED_ASKED : EXPIRED;
+}
 
 /** A press on a question answered already: only acknowledged. */
 async function answeredAlready(
@@ -1682,7 +1696,7 @@ export async function cancelShot(interaction: ButtonInteraction, token: string):
   if (await answeredAlready(interaction, token)) return;
   const request = peeked(interaction, token);
   if (!request) {
-    await interaction.update({ content: EXPIRED, components: [] });
+    await interaction.update({ content: expiredWords(interaction), components: [] });
     return;
   }
   await interaction.deferUpdate();
@@ -1703,10 +1717,10 @@ export async function chooseShotGym(
   if (await answeredAlready(interaction, token)) return;
   const request = peeked(interaction, token);
   if (!request) {
-    await interaction.update({ content: EXPIRED, components: [] });
+    await interaction.update({ content: expiredWords(interaction), components: [] });
     return;
   }
-  if (request.kind !== 'gym') throw new UserError(EXPIRED);
+  if (request.kind !== 'gym') throw new UserError(expiredWords(interaction));
   const gymId = Number(interaction.values[0]);
   await answerShot(interaction, token, ctx, request, gymId, true);
 }
@@ -1723,10 +1737,10 @@ export async function chooseShotSpot(
   if (await answeredAlready(interaction, token)) return;
   const request = peeked(interaction, token);
   if (!request) {
-    await interaction.update({ content: EXPIRED, components: [] });
+    await interaction.update({ content: expiredWords(interaction), components: [] });
     return;
   }
-  if (request.kind !== 'spot') throw new UserError(EXPIRED);
+  if (request.kind !== 'spot') throw new UserError(expiredWords(interaction));
   await answerSpot(interaction, token, ctx, request, interaction.values[0], true);
 }
 
@@ -1743,7 +1757,7 @@ export async function confirmShot(
   if (await answeredAlready(interaction, token)) return;
   const request = peeked(interaction, token);
   if (!request) {
-    await interaction.update({ content: EXPIRED, components: [] });
+    await interaction.update({ content: expiredWords(interaction), components: [] });
     return;
   }
   if (request.kind === 'spot') {
@@ -1767,7 +1781,9 @@ async function taken(
   if (pendingShots.take(token, interaction.user.id) === 'expired') {
     // Another press took the question meanwhile: the question says what came of that one.
     if (answeredShots.has(token)) return false;
-    await interaction.editReply({ content: EXPIRED, components: [] }).catch(() => undefined);
+    await interaction
+      .editReply({ content: expiredWords(interaction), components: [] })
+      .catch(() => undefined);
     return false;
   }
   answeredShots.set(token, true);

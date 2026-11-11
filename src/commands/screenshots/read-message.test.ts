@@ -243,10 +243,35 @@ describe('Read screenshot (the Apps menu of a message, plan 7M)', () => {
     const { interaction, did } = await use([image('c.png', cat())]);
     expect(reader.reads).toBe(20);
     expect(sent(interaction.editReply).content).toBe(
-      'You have sent many screenshots just now, so I did not read them. Try again in 15 minutes.',
+      'You have had many screenshots read just now, so I did not read them. Try again in 15 minutes.',
     );
     expect(did).toEqual([]);
     await trigger.close();
+  });
+
+  it('says to use it again on a question of its own that expired (review F6)', async () => {
+    const { router } = await setup();
+    // Its questions are private; a mention's are replies in the channel.
+    const own = fakeSelect({
+      customId: 'shot:AAAAAAAAAAAA:gym',
+      values: ['2'],
+      userId: OTHER,
+      ephemeralMessage: true,
+    });
+    await router.handle(own as never);
+    expect(sent(own.update)).toEqual({
+      content: 'That question has expired. Use Read screenshot on the message again.',
+      components: [],
+    });
+    const mentions = fakeSelect({
+      customId: 'shot:AAAAAAAAAAAA:gym',
+      values: ['2'],
+      userId: OTHER,
+    });
+    await router.handle(mentions as never);
+    expect(sent(mentions.update).content).toBe(
+      'That question has expired. Post the screenshot again.',
+    );
   });
 
   it('dates the screenshots of an older message by the message, and reports what is still on', async () => {
