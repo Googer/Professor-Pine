@@ -223,6 +223,14 @@ function leftLines(look: MemberLook, written: Written): string[] {
         `${held.meetups.open === 1 ? 'it' : 'them'}, then run this again.`,
     );
   }
+  // Decided already: the bot makes the meetup within minutes, under their id and name.
+  if (held.meetups.unmade > 0) {
+    lines.push(
+      `${count(held.meetups.unmade, 'meetup request')} of theirs approved and about to be made ` +
+        `${held.meetups.unmade === 1 ? 'keeps' : 'keep'} their Discord id and name: run this ` +
+        'again once the meetup is made.',
+    );
+  }
   if (held.audit > 0) {
     lines.push(
       `${count(held.audit, 'entry', 'entries')} of the staff’s log of who did what that ` +

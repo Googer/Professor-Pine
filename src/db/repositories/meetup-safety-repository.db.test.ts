@@ -399,11 +399,13 @@ describe('MeetupSafetyRepository', () => {
       return store;
     };
 
-    it('counts a member’s blocks and their requests, appeals and asks: open, and over', async () => {
+    it('counts a member’s blocks and their requests, appeals and asks: open, approved and not made yet, and over', async () => {
       const store = await seeded();
-      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 4, over: 6 });
-      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, over: 3 });
-      expect(await store.heldOf(MODERATOR)).toEqual({ blocks: 0, open: 0, over: 0 });
+      // Open with the moderators: the request waiting, the appeal and the ask. Approved and not
+      // made yet: request 4, which no moderator can decide again.
+      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 3, unmade: 1, over: 6 });
+      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, unmade: 0, over: 3 });
+      expect(await store.heldOf(MODERATOR)).toEqual({ blocks: 0, open: 0, unmade: 0, over: 0 });
     });
 
     it('takes their id and name off what is decided and over, and leaves what is open, their block and everybody else', async () => {
@@ -441,8 +443,8 @@ describe('MeetupSafetyRepository', () => {
       expect((await store.pendingOf(SAFETY_SERVER, MAKER)).map((one) => one.id)).toEqual([
         requestId(1),
       ]);
-      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 4, over: 0 });
-      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, over: 3 });
+      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 3, unmade: 1, over: 0 });
+      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, unmade: 0, over: 3 });
       // A row without its member still reads.
       expect(await store.request(requestId(2))).toMatchObject({
         makerId: null,

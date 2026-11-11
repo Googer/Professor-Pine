@@ -44,7 +44,7 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
           savedRoutes: 0,
         },
         history: { optIns: 0, boards: 1, fillIns: 2, named: 1, words: 1 },
-        meetups: { blocks: 2, open: 2, over: 1 },
+        meetups: { blocks: 2, open: 2, unmade: 1, over: 1 },
         reports: { reasons: 0, about: 2 },
         audit: 1,
       }),
@@ -69,6 +69,9 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
         'id: the moderators’ record.',
       '- 2 meetup requests, appeals and place asks of theirs are still open and keep their ' +
         'Discord id and name: have the moderators decide them, then run this again.',
+      // No moderator can decide an approval again: the bot makes the meetup.
+      '- 1 meetup request of theirs approved and about to be made keeps their Discord id and ' +
+        'name: run this again once the meetup is made.',
       '- 1 entry of the staff’s log of who did what that names them: it ages out after 30 days.',
       '- Counts without a name: the history’s entries and the activity.',
       '- Wild spawns they reported name them for about half an hour (the region’s message, the ' +
@@ -154,7 +157,7 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
       sessions: 10,
       toolAccess: true,
       reports: { reasons: 99_999, about: 99_999 },
-      meetups: { blocks: 999, open: 99_999, over: 99_999 },
+      meetups: { blocks: 999, open: 99_999, unmade: 99_999, over: 99_999 },
       audit: 99_999,
       stopReports: 99_999,
       stopConfirms: 99_999,

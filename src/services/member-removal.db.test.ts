@@ -381,7 +381,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     sessions: 2,
     toolAccess: true,
     reports: { reasons: 1, about: 1 },
-    meetups: { blocks: 1, open: 1, over: 3 },
+    meetups: { blocks: 1, open: 1, unmade: 0, over: 3 },
     // Her own entry, and Bob's that made her conductor.
     audit: 2,
     stopReports: 1,
@@ -515,7 +515,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
         sessions: 0,
         toolAccess: false,
         reports: { reasons: 0, about: 1 },
-        meetups: { blocks: 1, open: 1, over: 0 },
+        meetups: { blocks: 1, open: 1, unmade: 0, over: 0 },
         audit: 2,
         stopReports: 1,
         stopConfirms: 1,
@@ -606,6 +606,29 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     expect(
       entries.filter((entry) => entry.msg === 'could not remove a member’s data; nothing changed'),
     ).toMatchObject([{ level: 50, member: ALICE, by: OWNER, step: 'their web logins' }]);
+  });
+
+  it('names a failure after the last step as the saving of the removal, and changes nothing', async () => {
+    const made = await world();
+    const before = await dump();
+    const steps: string[] = [];
+    const removal = new MemberRemoval({
+      data: new MemberDataRepository(db, new RowIds(), {
+        step: (step) => {
+          steps.push(step);
+          // As the commit itself failing: every statement went through.
+          if (step === 'saving the removal') throw new Error('the commit was refused');
+        },
+      }),
+      screenshots: made.store,
+      parties: { active: () => [] },
+      log: createTestLogger().log,
+    });
+    const failure = await removal.remove(ALICE, OWNER).catch((err: unknown) => err);
+    expect(failure).toBeInstanceOf(MemberRemovalError);
+    expect(failure).toMatchObject({ step: 'saving the removal' });
+    expect(steps.at(-2)).toBe('their id and name on meetup requests, appeals and asks');
+    expect(await dump()).toEqual(before);
   });
 
   it('removes the data even when a stream cannot be ended, and says so in the log', async () => {

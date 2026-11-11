@@ -823,27 +823,34 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
   /**
    * What meetup safety holds of a member in every server (plan 8G: the look of `/admin forget`):
    * their blocks, lifted or not, and their own requests, appeals and asks about places that
-   * carry their id, those still open and those decided and over (`REQUEST_OVER`, `APPEAL_OVER`,
-   * `ASK_OVER`). The tables are read whole: their indexes begin with the server, they are small,
-   * and only the owner asks.
+   * carry their id: those still with the moderators, approvals whose meetup is still to be made
+   * (`REQUEST_UNMADE`), and those decided and over (`REQUEST_OVER`, `APPEAL_OVER`, `ASK_OVER`).
+   * The tables are read whole: their indexes begin with the server, they are small, and only
+   * the owner asks.
    */
   async heldOf(memberId: string): Promise<MeetupRecordsHeld> {
-    const counted = await sql<Record<'blocks' | 'records' | 'closed', number | string>>`
+    const counted = await sql<Record<'blocks' | 'records' | 'closed' | 'unmade', number | string>>`
       select
         (select count(*) from MeetupBlock where memberId = ${memberId}) as blocks,
         count(*) as records,
-        coalesce(sum(r.isOver), 0) as closed
+        coalesce(sum(r.isOver), 0) as closed,
+        coalesce(sum(r.isUnmade), 0) as unmade
       from (
-        select ${REQUEST_OVER} as isOver from MeetupRequest where makerId = ${memberId}
+        select ${REQUEST_OVER} as isOver, ${REQUEST_UNMADE} as isUnmade
+          from MeetupRequest where makerId = ${memberId}
         union all
-        select ${APPEAL_OVER} from MeetupAppeal where memberId = ${memberId}
+        select ${APPEAL_OVER}, false from MeetupAppeal where memberId = ${memberId}
         union all
-        select ${ASK_OVER} from MeetupPlaceAsk where memberId = ${memberId}) r`.execute(this.db);
+        select ${ASK_OVER}, false from MeetupPlaceAsk where memberId = ${memberId}) r`.execute(
+      this.db,
+    );
     const row = counted.rows[0];
     const over = Number(row?.closed ?? 0);
+    const unmade = Number(row?.unmade ?? 0);
     return {
       blocks: Number(row?.blocks ?? 0),
-      open: Number(row?.records ?? 0) - over,
+      open: Number(row?.records ?? 0) - over - unmade,
+      unmade,
       over,
     };
   }
@@ -925,6 +932,11 @@ const ids = (rows: readonly { id: string }[]): string[] => rows.map((row) => row
  */
 const REQUEST_OVER = sql<boolean>`(status in ('refused', 'expired', 'failed', 'withdrawn')
   or (status = 'approved' and partyId is not null))`;
+/**
+ * An approval whose meetup is still to be made: no moderator can decide it again, the bot makes
+ * it (or the sweep of stranded approvals settles it) within minutes.
+ */
+const REQUEST_UNMADE = sql<boolean>`(status = 'approved' and partyId is null)`;
 /** An appeal a moderator decided, or that expired. */
 const APPEAL_OVER = sql<boolean>`(status in ('lifted', 'kept', 'expired'))`;
 /** An ask about a place that a moderator decided, that expired, or whose ruling was undone. */
@@ -934,8 +946,13 @@ const ASK_OVER = sql<boolean>`(status in ('allowed', 'kept', 'expired', 'undone'
 export interface MeetupRecordsHeld {
   /** Their blocks, lifted or not. */
   blocks: number;
-  /** Their requests, appeals and asks still open: with the moderators, or approved and not made. */
+  /**
+   * Their requests, appeals and asks still with the moderators (and a request of a status this
+   * code does not know).
+   */
   open: number;
+  /** Their requests approved whose meetup is still to be made: the bot's, not the moderators'. */
+  unmade: number;
   /** Their requests, appeals and asks that are decided and over (which the removal clears). */
   over: number;
 }

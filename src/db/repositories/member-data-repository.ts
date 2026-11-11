@@ -93,9 +93,20 @@ export const REMOVAL_STEPS = {
   toolAccess: 'their access to the export tool',
   reports: 'their id and name on reports to the moderators',
   meetups: 'their id and name on meetup requests, appeals and asks',
+  /** After the last statement: the commit, or a deadlock that outlasted its tries there. */
+  commit: 'saving the removal',
 } as const;
 
 export type RemovalStep = (typeof REMOVAL_STEPS)[keyof typeof REMOVAL_STEPS];
+
+/**
+ * What a test may hook into the removal (`MemberDataRepository`'s third argument): `step` is
+ * called inside the transaction as each step begins, the commit's last; one that throws fails
+ * the removal there, as the database would (a deadlock retried, anything else rolled back).
+ */
+export interface RemovalHooks {
+  step?: (step: RemovalStep) => void | Promise<void>;
+}
 
 /** The removal failed at `step`, and its transaction was rolled back: nothing has changed. */
 export class MemberRemovalError extends Error {
@@ -132,6 +143,7 @@ export class MemberDataRepository implements MemberData {
   constructor(
     private readonly db: Kysely<DB>,
     private readonly ids: RowIds = RowIds.none,
+    private readonly hooks: RemovalHooks = {},
   ) {}
 
   /** One snapshot of all of it: the counts belong together. */
@@ -155,26 +167,32 @@ export class MemberDataRepository implements MemberData {
 
   async remove(memberId: string): Promise<MemberRemoved> {
     let step: RemovalStep = REMOVAL_STEPS.user;
+    const at = async (next: RemovalStep): Promise<void> => {
+      step = next;
+      await this.hooks.step?.(next);
+    };
     let removed: MemberRemoved;
     try {
       removed = await retryOnDeadlock(this.db, () =>
         inTransaction(this.db, async (trx) => {
-          step = REMOVAL_STEPS.user;
+          await at(REMOVAL_STEPS.user);
           const user = await new UserRepository(trx).forget(memberId);
-          step = REMOVAL_STEPS.newTrains;
+          await at(REMOVAL_STEPS.newTrains);
           const newTrains = await new NewTrainRepository(trx).forget(memberId);
-          step = REMOVAL_STEPS.unownGifts;
+          await at(REMOVAL_STEPS.unownGifts);
           const unownGifts = await new UnownGiftRepository(trx).forget(memberId);
-          step = REMOVAL_STEPS.history;
+          await at(REMOVAL_STEPS.history);
           const history = await new HistoryRepository(trx).forgetEverywhere(memberId);
-          step = REMOVAL_STEPS.sessions;
+          await at(REMOVAL_STEPS.sessions);
           const sessions = await new WebSessionRepository(trx).removeOf(memberId);
-          step = REMOVAL_STEPS.toolAccess;
+          await at(REMOVAL_STEPS.toolAccess);
           const toolAccess = await new ScriptAccessRepository(trx).forget(memberId);
-          step = REMOVAL_STEPS.reports;
+          await at(REMOVAL_STEPS.reports);
           const reportReasons = await new ReportRepository(trx).forgetReporter(memberId);
-          step = REMOVAL_STEPS.meetups;
+          await at(REMOVAL_STEPS.meetups);
           const meetupRecords = await new MeetupSafetyRepository(trx).forgetMember(memberId);
+          // Whatever fails from here on (the commit) is the saving's, not the last statement's.
+          await at(REMOVAL_STEPS.commit);
           return {
             user,
             newTrains,
