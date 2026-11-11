@@ -24,7 +24,7 @@ Professor Pine ("Pine") is a Discord app that helps a community organize Pokémo
 
 **What you report.** Field research, Team GO Rocket and wild spawn reports carry your name while they are shown, and are deleted when they end (at midnight, or after about half an hour for a grunt or a spawn). Long-term counts of such reports carry your id only with history switched on, and never the exact place.
 
-**Screenshots.** When Pine reads a screenshot, it keeps the whole picture for a day, or until a day after its raid ends. If the reading was refused or doubtful, or somebody gave feedback on it, a copy is kept for up to 30 days so that the reader can be improved. The picture is the whole image you posted, including anything else that was on your screen. It can be seen by you, by the server's staff, and by Pine's owner.
+**Screenshots.** When Pine reads a screenshot, it keeps the whole picture for a day, or until a day after its raid ends. If the reading was refused or doubtful, or somebody gave feedback on it, a copy is kept for up to 30 days so that the reader can be improved. The picture is the whole image you posted, including anything else that was on your screen. It can be seen by you, by the member who had Pine read it if that was somebody else, by the server's staff, and by Pine's owner.
 
 **Reports to moderators and meetup reviews.** If you report a message or a party to the moderators, Pine keeps your report and, for a message, a copy of that message (its author, its text and the names of its attachments). If you ask for a meetup that needs approval, appeal a block, or are blocked from making meetups, Pine keeps that record with the names of those involved. These records are for the server's moderators and have no time limit.
 
@@ -94,7 +94,11 @@ When Pine is removed from a server, that server's wants, targets, saved routes a
 - **Keep your name off your reports:** "Name on reports and trains" in `/settings`.
 - **Log out of the web site:** the menu on the map.
 
-**Leaving a server does not delete anything**, because Pine cannot see who leaves. Some things cannot be removed by a command at all: your basic row with your Discord id, reports you made to moderators, and meetup records. If you want any of your data removed, ask: the owner will remove it from the live data by hand, except what a server's moderators still need for the safety of others (for example a block). Backups made before that age out within 90 days.
+**Leaving a server does not delete anything**, because Pine cannot see who leaves. And some things you cannot remove yourself: your basic row with your Discord id, the reports you made to moderators, and your meetup records.
+
+**Having your data removed.** Ask (the end of this page says how), and Pine's owner removes your data in every server at once. That takes away your settings, friend code and in-game name, everything you asked to be told about, your saved routes, your web logins, the screenshots Pine kept from you, and your id everywhere in the history and on the boards, together with the names and descriptions of the trains and meetups you made. On the reports you made to moderators, and on your finished meetup requests, appeals and questions, who you are is removed; what you wrote stays as the moderators' record, without your name or id.
+
+What stays: a block from making meetups and the moderators' records about you, which are kept for the safety of others; anything of yours the moderators have not decided yet, until they have; the staff's 30-day log; and what is going on right now, which ends by itself. Pine does not edit messages on Discord that name you. Backups made before the removal age out within 90 days.
 
 ## Children
 
