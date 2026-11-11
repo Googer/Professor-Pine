@@ -191,7 +191,8 @@ describe('/admin forget', () => {
         'Discord id and name: have the moderators decide it, then run this again.',
       '- 5 entries of the staff’s log of who did what that name them: they age out after 30 ' +
         'days.',
-      '- What is live ends by itself: 2 parties they made or signed up for, 1 report at a ' +
+      '- What is live ends by itself: 2 parties they made or signed up for (their settings go ' +
+        'at once: until those end, Pine treats them in those as a new member), 1 report at a ' +
         'stop, 2 confirmations of others’ reports at stops, 1 forum they were let into for a ' +
         'party.',
       '- 4 records of what they did as staff (decisions, rulings, boss overrides, gyms and ' +

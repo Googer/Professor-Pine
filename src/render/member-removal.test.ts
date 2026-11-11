@@ -106,8 +106,10 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
         { legacyParties: true },
       ),
     ).split('\n');
+    // Their settings go at once: those parties treat them as a new member (pings, DMs).
     expect(lines).toContain(
-      '- What is live ends by itself: 1 party they made or signed up for, 1 report at a stop, ' +
+      '- What is live ends by itself: 1 party they made or signed up for (their settings go at ' +
+        'once: until it ends, Pine treats them in it as a new member), 1 report at a stop, ' +
         '2 confirmations of others’ reports at stops, 1 forum they were let into for a party.',
     );
     expect(lines).toContain(

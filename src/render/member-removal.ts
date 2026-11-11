@@ -261,8 +261,13 @@ function leftLines(look: MemberLook, written: Written): string[] {
     );
   }
   const live = [
+    // Their row goes at once: the parties read the defaults (pings, DMs) of a member without one.
     ...(look.liveParties > 0
-      ? [`${count(look.liveParties, 'party', 'parties')} they made or signed up for`]
+      ? [
+          `${count(look.liveParties, 'party', 'parties')} they made or signed up for (their ` +
+            `settings go at once: ${look.liveParties === 1 ? 'until it ends' : 'until those end'}, ` +
+            `Pine treats them in ${look.liveParties === 1 ? 'it' : 'those'} as a new member)`,
+        ]
       : []),
     ...(held.stopReports > 0 ? [`${count(held.stopReports, 'report')} at a stop`] : []),
     ...(held.stopConfirms > 0
