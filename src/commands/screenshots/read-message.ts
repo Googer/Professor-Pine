@@ -144,8 +144,8 @@ export const readScreenshotMessage: MessageCommand = {
       'answers.\n\n' +
       'Each picture counts as one of your screenshots, with those you post with a mention: ' +
       `${String(MENTION_THROTTLE.uses)} in ${String(MENTION_THROTTLE.perSeconds / 60)} minutes. ` +
-      'Your own message goes once its screenshots are dealt with, if it says nothing else; ' +
-      'somebody else’s message always stays.',
+      'Your own message goes once every screenshot of it made a report, if it says nothing ' +
+      'else; somebody else’s message always stays.',
   },
   enabled: (config) => config.settings.ocr.enabled,
   guards: [requireGuild],

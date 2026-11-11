@@ -205,7 +205,9 @@ describe('a message’s screenshots read because a member asked (plan 7M)', () =
     await trigger.close();
   });
 
-  it('says what it refuses in the reply, lets the member’s own message go with it, and keeps another’s', async () => {
+  // Review F2: a message posted without a mention was posted for the channel, may be hours old
+  // and have replies; it goes only once its screenshots all made or joined raids.
+  it('says what it refuses in the reply, and keeps the message, the member’s own too', async () => {
     const { trigger, image } = await setup();
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
     const own = posted([image('a.png', cat())], { mentionsBot: false });
@@ -215,20 +217,35 @@ describe('a message’s screenshots read because a member asked (plan 7M)', () =
     ]);
     const theirs = posted([image('b.png', cat())], { mentionsBot: false });
     await trigger.readFor(asked(theirs.message), asker());
-    vi.advanceTimersByTime(20);
-    expect(own.did).toContain('deleted');
+    vi.advanceTimersByTime(60 * MINUTE);
+    expect(own.did).not.toContain('deleted');
     // Another member's picture is theirs to keep, whoever has it read.
-    expect(theirs.did).toEqual([
-      `react ${READING}`,
-      `unreact ${READING}`,
-      'reply',
-      'reply deleted',
-    ]);
+    expect(theirs.did).not.toContain('deleted');
     // So is a message of the member's own that says something.
     const worded = posted([image('c.png', cat())], { mentionsBot: false, bare: false });
     await trigger.readFor(asked(worded.message), self());
-    vi.advanceTimersByTime(20);
+    vi.advanceTimersByTime(60 * MINUTE);
     expect(worded.did).not.toContain('deleted');
+    await trigger.close();
+  });
+
+  it('keeps the member’s own message whose screenshot it could not read for their window (review F2)', async () => {
+    const { trigger, image } = await setup();
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
+    // Twenty of the member's screenshots with mentions, ten a message.
+    for (const prefix of ['a', 'b']) {
+      const cats = Array.from({ length: 10 }, (_, i) => image(`${prefix}${String(i)}.png`, cat()));
+      await trigger.handle(posted(cats, { bare: false }).message);
+    }
+    const own = posted([image('b.png', egg())], { mentionsBot: false });
+    await trigger.readFor(asked(own.message), self());
+    expect(own.replies.map((reply) => reply.content)).toEqual([
+      'You have sent many screenshots just now, so I did not read them. Try again in 15 minutes.',
+    ]);
+    // The reply says to try again later: the message is still there to try it on.
+    vi.advanceTimersByTime(60 * MINUTE);
+    expect(own.did).not.toContain('deleted');
+    await trigger.close();
   });
 
   it('counts a picture read for several members once against the boss list, by who posted it (review F1)', async () => {

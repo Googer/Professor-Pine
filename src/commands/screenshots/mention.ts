@@ -535,7 +535,8 @@ export class ScreenshotTrigger {
    * uses are theirs, in the window of their mentions; they are asked the questions, and only
    * they can answer them; the reports are theirs, and the kept records name them as the sender.
    * The message's author is not asked, pinged or signed up, and their message never goes: only
-   * the asker's own message that says nothing does, as a mention alone goes.
+   * the asker's own message that says nothing does, once every screenshot of it made or joined a
+   * raid or battle (never with a refusal, as a mention alone goes then: review F2).
    *
    * Answers why nothing was read, or undefined once the message was: what came of it is said in
    * the message's replies (`AskedMessage.reply`), a raid or battle it made included. Unlike
@@ -716,8 +717,10 @@ export class ScreenshotTrigger {
       // A message of nothing but the mention whose screenshots were all answered, some refused,
       // has nothing left to do: it goes with its reply, read by then (Matt, 2026-11-03). One
       // whose screenshots all made raids goes at once (`finished`); one asked about waits for
-      // the answers.
-      const settled = message.bare && asked === 0 && batch.made < batch.images;
+      // the answers. A message read for a member who asked never goes so (review F2): posted
+      // without a mention, it was posted for the channel, may be old and have replies; it goes
+      // only once every screenshot made or joined a raid (`finished`).
+      const settled = !batch.asker && message.bare && asked === 0 && batch.made < batch.images;
       if (settled) batch.done = true;
       if (lines.length > 0) {
         await this.say(
