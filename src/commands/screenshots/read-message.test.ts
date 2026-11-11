@@ -283,6 +283,51 @@ describe('Read screenshot (the Apps menu of a message, plan 7M)', () => {
     expect(await shown('700000000000000003')).toEqual([]);
   });
 
+  // The review's missing test: a question may be asked up to thirteen minutes after the use
+  // (`START_BY_MS`) and answered after the command's token lapsed at fifteen.
+  it('answers a question after the command’s token has lapsed, and lets a lapsed delete fail quietly', async () => {
+    const twin = testGym(13, 'Old Stone Fountain', 40.061, -80.061);
+    const { use, image, router, store, entries } = await setup({ gyms: [twin] });
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
+    const lapsed = (fake: FakeInteraction) => {
+      fake.editReply.mockRejectedValue(new Error('Invalid Webhook Token'));
+      fake.deleteReply.mockRejectedValue(new Error('Invalid Webhook Token'));
+    };
+    // Answered: the answer goes by the press's own token, in the question's place.
+    const first = await use([image('a.png', egg())]);
+    lapsed(first.interaction);
+    const menu = menuOf(sent(first.interaction.editReply));
+    const pick = fakeSelect({
+      customId: menu.custom_id,
+      values: ['13'],
+      userId: OTHER,
+      ephemeralMessage: true,
+    });
+    await router.handle(pick as never);
+    expect(sent(pick.editReply).content).toMatch(/^Reported the raid at Old Stone Fountain/);
+    expect(store.active()).toHaveLength(1);
+    // Unanswered: its delete at its time fails, unsaid; the question stays in the member's
+    // view, and a press on it is told it expired.
+    const second = await use([image('b.png', egg())], {
+      target: { id: '800000000000000002' },
+    });
+    lapsed(second.interaction);
+    const late = menuOf(sent(second.interaction.editReply));
+    vi.advanceTimersByTime(60_000);
+    expect(second.interaction.deleteReply).toHaveBeenCalledTimes(1);
+    const press = fakeSelect({
+      customId: late.custom_id,
+      values: ['13'],
+      userId: OTHER,
+      ephemeralMessage: true,
+    });
+    await router.handle(press as never);
+    expect(sent(press.update).content).toBe(
+      'That question has expired. Use Read screenshot on the message again.',
+    );
+    expect(entries.filter((entry) => Number(entry.level) >= 40)).toEqual([]);
+  });
+
   it('says to use it again on a question of its own that expired (review F6)', async () => {
     const { router } = await setup();
     // Its questions are private; a mention's are replies in the channel.
