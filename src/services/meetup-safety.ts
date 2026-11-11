@@ -566,9 +566,12 @@ export class MeetupSafety {
     // Its maker's data was removed on request (plan 8G), which only a request decided and over
     // loses: there is nobody to block, and nothing else to decide.
     if (!makerKnown(request)) {
-      return decision === 'block'
-        ? { kind: 'maker-forgotten' }
-        : { kind: 'decided-before', request };
+      if (decision !== 'block') return { kind: 'decided-before', request };
+      // The post, which the removal does not edit, still shows Block member and the old name:
+      // drawn anew from the stored request, a former member without the button (final review).
+      // An approved one keeps its post as it is: its meetup's link is not known here.
+      if (request.status !== 'approved') await this.show(request);
+      return { kind: 'maker-forgotten' };
     }
     if (request.status !== 'pending') {
       return decision === 'block' && blockableLater(request)
