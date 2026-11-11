@@ -187,6 +187,14 @@ export function hasIssue(
   );
 }
 
+/**
+ * Whether a record is a member's own for their removal (plan 8G): they sent it, or posted the
+ * picture another member had read (plan 7M, `posterId`). Either way record and picture go.
+ */
+function theirs(record: Pick<ScreenshotRecord, 'senderId' | 'posterId'>, memberId: string) {
+  return record.senderId === memberId || record.posterId === memberId;
+}
+
 /** Twelve URL-safe characters: the id of a screenshot, in file names and custom ids. */
 export function newScreenshotId(): string {
   return randomBytes(9).toString('base64url');
@@ -404,7 +412,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
 
   /**
    * What is kept of a member (plan 8G: the look of `/admin forget`): the screenshots they sent
-   * (one kept and copied to review counts once) and, apart, the other members' screenshots that
+   * or whose picture they posted (`theirs`; one kept and copied to review counts once) and, apart, the other members' screenshots that
    * hold feedback of theirs.
    */
   async heldOf(memberId: string): Promise<{ sent: number; feedback: number }> {
@@ -414,7 +422,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
       for (const id of await this.recordIds(folder)) {
         const record = await this.read(folder, id);
         if (!record) continue;
-        if (record.senderId === memberId) sent.add(id);
+        if (theirs(record, memberId)) sent.add(id);
         else if (record.feedback.some((f) => f.memberId === memberId)) feedback.add(id);
       }
     }
@@ -423,7 +431,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
 
   /**
    * Removes what is kept of a member, from both folders (plan 8G, `/admin forget`): every
-   * screenshot they sent, the picture and its record, also one a raid that is going on shows
+   * screenshot they sent or whose picture they posted (`theirs`), the picture and its record, also one a raid that is going on shows
    * (its "Screenshot feedback" then says it is no longer kept); and from other members'
    * screenshots their feedback, their id and what they typed, the rest of the record as it was
    * (an answer key their "All right" made stays: it says what the screenshot shows, not who
@@ -441,7 +449,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
           await this.serially(this.key(folder, id), async () => {
             const record = await this.read(folder, id);
             if (!record) return;
-            if (record.senderId === memberId) {
+            if (theirs(record, memberId)) {
               await this.removeRecord(folder, record);
               removed.add(id);
               return;

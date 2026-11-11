@@ -564,6 +564,25 @@ describe('ScreenshotStore', () => {
       expect(await store.forget(SENDER)).toEqual({ removed: 0, feedback: 0, failed: 0 });
     });
 
+    it('counts and removes a picture the member posted that another member had read', async () => {
+      const THIRD = '700000000000000003';
+      const { store, files } = storeWith();
+      // The member posted it, another pressed "Read screenshot" (plan 7M): it is the poster's.
+      const posted = await kept(store, screenshot(refused, { senderId: OTHER, posterId: SENDER }));
+      // Neither sent nor posted by the member: untouched.
+      const neither = await kept(store, screenshot(refused, { senderId: OTHER, posterId: THIRD }));
+
+      expect(await store.heldOf(SENDER)).toEqual({ sent: 1, feedback: 0 });
+      expect(await store.forget(SENDER)).toEqual({ removed: 1, feedback: 0, failed: 0 });
+
+      const left = [`${neither}.json`, `${neither}.png`].sort();
+      expect(files('held')).toEqual(left);
+      expect(files('review')).toEqual(left);
+      expect(await store.get(posted)).toBeUndefined();
+      expect(await store.heldOf(OTHER)).toEqual({ sent: 1, feedback: 0 });
+      expect(await store.heldOf(SENDER)).toEqual({ sent: 0, feedback: 0 });
+    });
+
     it('frees the bytes of what it removes', async () => {
       const big = new Uint8Array(MB);
       big.set(PNG);
