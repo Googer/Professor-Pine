@@ -8,10 +8,10 @@ The text and how to post it are a page of their own since 2026-11-10, for whoeve
 
 ## 2. The official Professor Pine Discord post (for admins of other instances)
 
-Matt posts it now that version 2.0.1 is released (`master` and the tag `v2.0.1`, 2026-11-10, a few hours after `v2.0.0`, which was never announced; the `legacy` branch has been on GitHub since the first push), in the style of that server's earlier release posts: titled by version, a list of changes, the upgrade requirements as notes after it. `package.json` says `2.0.1`, as the title does. `@Pine Admins` is that server's role: retype it in the message box so that it pings. Three messages, one right after the other, as the larger releases there were: the list of changes alone is over Discord's 2,000 characters, so it goes in two.
+Matt posts it now that version 2.0.2 is released (`master` and the tag `v2.0.2`, 2026-11-10, the same night as `v2.0.0` and `v2.0.1`, which were never announced; the `legacy` branch has been on GitHub since the first push), in the style of that server's earlier release posts: titled by version, a list of changes, the upgrade requirements as notes after it. `package.json` says `2.0.2`, as the title does. `@Pine Admins` is that server's role: retype it in the message box so that it pings. Three messages, one right after the other, as the larger releases there were: the list of changes alone is over Discord's 2,000 characters, so it goes in two.
 
 ```md
-**v2.0.1 Released**
+**v2.0.2 Released**
 
 Pine has been rewritten from the ground up:
 
