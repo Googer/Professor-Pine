@@ -8,7 +8,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { access, readFile } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isSnowflake } from '../db/snowflake.js';
 import { readIndexEntry, type LegacyIndexEntry } from '../domain/history/legacy-index.js';
@@ -124,6 +124,30 @@ export async function hasMemberIndex(
   } catch {
     return false;
   }
+}
+
+/**
+ * The servers whose index holds a file of the member, in ascending order (plan 8G: `/admin
+ * forget` names those files to the owner, who deletes them on the host, since the bot's mount is
+ * read-only). A file counts when it is there, readable to the bot or not; only folders named as
+ * a server's id are looked into (not a `.<server>.new` or `.old` of an import under way), and no
+ * file is read. Nothing for an id that is none, or a root that is not there.
+ */
+export async function memberIndexServers(root: string, memberId: string): Promise<string[]> {
+  if (!isSnowflake(memberId)) return [];
+  const names = await readdir(root).catch(() => [] as string[]);
+  const found: string[] = [];
+  for (const serverId of names.filter((name) => isSnowflake(name)).sort()) {
+    const file = fileOf(root, serverId, memberId);
+    if (file === undefined) continue;
+    try {
+      await access(file);
+      found.push(serverId);
+    } catch {
+      // None of theirs there, or a folder the bot may not search: nothing it can name.
+    }
+  }
+  return found;
 }
 
 /** Reads a member's index file of a server, checking it is theirs and every entry. */

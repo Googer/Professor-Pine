@@ -403,6 +403,85 @@ export class ScreenshotStore implements ScreenshotKeeping {
   }
 
   /**
+   * What is kept of a member (plan 8G: the look of `/admin forget`): the screenshots they sent
+   * (one kept and copied to review counts once) and, apart, the other members' screenshots that
+   * hold feedback of theirs.
+   */
+  async heldOf(memberId: string): Promise<{ sent: number; feedback: number }> {
+    const sent = new Set<string>();
+    const feedback = new Set<string>();
+    for (const folder of [this.held, this.review]) {
+      for (const id of await this.recordIds(folder)) {
+        const record = await this.read(folder, id);
+        if (!record) continue;
+        if (record.senderId === memberId) sent.add(id);
+        else if (record.feedback.some((f) => f.memberId === memberId)) feedback.add(id);
+      }
+    }
+    return { sent: sent.size, feedback: feedback.size };
+  }
+
+  /**
+   * Removes what is kept of a member, from both folders (plan 8G, `/admin forget`): every
+   * screenshot they sent, the picture and its record, also one a raid that is going on shows
+   * (its "Screenshot feedback" then says it is no longer kept); and from other members'
+   * screenshots their feedback, their id and what they typed, the rest of the record as it was
+   * (an answer key their "All right" made stays: it says what the screenshot shows, not who
+   * said so). Each record under its turn, read again there. `removed` and `feedback` count
+   * screenshots (one in both folders once); `failed` those of which something could not be
+   * removed, said in the log without what it shows: run it again for them. Never throws.
+   */
+  async forget(memberId: string): Promise<{ removed: number; feedback: number; failed: number }> {
+    const removed = new Set<string>();
+    const feedback = new Set<string>();
+    const failed = new Set<string>();
+    for (const folder of [this.held, this.review]) {
+      for (const id of await this.recordIds(folder)) {
+        try {
+          await this.serially(this.key(folder, id), async () => {
+            const record = await this.read(folder, id);
+            if (!record) return;
+            if (record.senderId === memberId) {
+              await this.removeRecord(folder, record);
+              removed.add(id);
+              return;
+            }
+            if (!record.feedback.some((f) => f.memberId === memberId)) return;
+            const changed = {
+              ...record,
+              feedback: record.feedback.filter((f) => f.memberId !== memberId),
+            };
+            await this.write(folder, changed);
+            if (folder === this.held) this.index(changed);
+            feedback.add(id);
+          });
+        } catch (err) {
+          failed.add(id);
+          this.options.log.error(
+            { reason: failureReason(err) },
+            'could not remove a member’s kept screenshot',
+          );
+        }
+      }
+    }
+    // One of which a part went and a part did not is not removed yet.
+    for (const id of failed) {
+      removed.delete(id);
+      feedback.delete(id);
+    }
+    return { removed: removed.size, feedback: feedback.size, failed: failed.size };
+  }
+
+  /** The ids of the records of a folder, by their files' names; none for a folder not there. */
+  private async recordIds(folder: string): Promise<string[]> {
+    const names = await readdir(folder).catch(() => [] as string[]);
+    return names
+      .filter((name) => name.endsWith('.json'))
+      .map((name) => name.slice(0, -5))
+      .filter((id) => ID.test(id));
+  }
+
+  /**
    * Copies the record (and the screenshot, as a hard link where it can) to review, kept
    * `reviewDays` from now. Runs under the held record's turn, with the record just written
    * there. A new copy takes one of the server's review places of the day once it is made.
