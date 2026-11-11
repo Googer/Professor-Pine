@@ -278,7 +278,7 @@ export interface ByHand {
  * What only the owner can do, a line each: the old-bot history files, backups, the gym requests
  * on GitHub, posts.
  */
-function byHandLines(look: MemberLook, byHand: ByHand): string[] {
+function byHandLines(look: Pick<MemberLook, 'memberId' | 'legacyFiles'>, byHand: ByHand): string[] {
   const files = look.legacyFiles
     .slice(0, FILES_NAMED)
     .map((server) => `\`${server}/${look.memberId}.json\``);
@@ -396,6 +396,10 @@ export function forgetOutcomeMessage(
 ): V2Message {
   const taken = takenLines(tookAway(outcome));
   const { failed } = outcome.screenshots;
+  const written = {
+    reasons: outcome.removed.reportReasons,
+    records: outcome.removed.meetupRecords,
+  };
   return textMessage(APPROVED_ACCENT, [
     `### Removed the data of ${memberText(member)}`,
     taken.length === 0
@@ -405,13 +409,26 @@ export function forgetOutcomeMessage(
       ? undefined
       : `**${count(failed, 'kept screenshot')} could not be removed** (the log says why): ` +
         `run this again for ${failed === 1 ? 'it' : 'them'}.`,
-    ...restOf(
-      outcome.after,
-      { reasons: outcome.removed.reportReasons, records: outcome.removed.meetupRecords },
-      'Left:',
-      byHand,
-    ),
+    ...(outcome.after === undefined
+      ? unlooked(member, written, byHand)
+      : restOf(outcome.after, written, 'Left:', byHand)),
   ]);
+}
+
+/**
+ * The rest of a removal's answer where the look after it failed: what it knows without one,
+ * that it could not look, and the hand-work it can name without the look (not the old-bot
+ * history files, which the next look names).
+ */
+function unlooked(member: NamedMember, written: Written, byHand: ByHand): string[] {
+  const words = writtenLine(written);
+  return [
+    ...(words === undefined ? [] : [`**Left:**\n${bullets([words])}`]),
+    'I could not look at what is left of them just now: use the command again to see it.',
+    `**Left for you to do by hand:**\n${bullets(
+      byHandLines({ memberId: member.id, legacyFiles: [] }, byHand),
+    )}`,
+  ];
 }
 
 /** The database refused the removal at `step`: nothing changed. */

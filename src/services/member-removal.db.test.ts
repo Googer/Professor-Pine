@@ -527,6 +527,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       savedParties: 1,
       legacyFiles: [HOME, AWAY].sort(),
     });
+    if (outcome.after === undefined) throw new Error('the look after the removal failed');
     expect(removable(outcome.after)).toBe(false);
     // The other member's look is what it was, but for her feedback on his screenshot.
     expect(await removal.look(BOB)).toEqual(bobBefore);
@@ -624,7 +625,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     expect(outcome.removed.sessions).toHaveLength(2);
     expect(endSession).toHaveBeenCalledTimes(2);
     // Without a member index nothing is to delete by hand.
-    expect(outcome.after.legacyFiles).toEqual([]);
+    expect(outcome.after?.legacyFiles).toEqual([]);
     expect(entries.some((entry) => entry.msg === 'could not end a removed login’s streams')).toBe(
       true,
     );

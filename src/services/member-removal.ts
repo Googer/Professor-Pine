@@ -59,7 +59,11 @@ export interface MemberLook {
 export interface MemberRemovalOutcome {
   removed: MemberRemoved;
   screenshots: { removed: number; feedback: number; failed: number };
-  after: MemberLook;
+  /**
+   * What is left, looked at once more after the removal; undefined where that look failed (the
+   * removal stands all the same: run the command again to see it).
+   */
+  after: MemberLook | undefined;
 }
 
 /**
@@ -98,7 +102,8 @@ export function removable(look: MemberLook): boolean {
  * and the kept screenshots the member sent are removed from both folders, with their feedback
  * on others'. Neither of the two fails the removal: a stream that cannot be ended ends within
  * its lifetime (its login is gone), and a screenshot that could not be removed is counted and
- * goes with the store's own sweep, or with a second run.
+ * goes with the store's own sweep, or with a second run. Nor does the look at what is left that
+ * follows (`after`): one that fails is logged, and the outcome goes without it.
  *
  * Nothing is sent to the member and nobody is asked on Discord: the id is enough. One line at
  * info says who was removed and who asked, with none of the data.
@@ -156,6 +161,16 @@ export class MemberRemoval {
       }
     }
     const shots = await screenshots.forget(memberId);
-    return { removed, screenshots: shots, after: await this.look(memberId) };
+    // The removal has committed: a look that fails now must not turn it into a failure.
+    let after: MemberLook | undefined;
+    try {
+      after = await this.look(memberId);
+    } catch (err) {
+      log.warn(
+        { err, member: memberId },
+        'could not look at what is left of a member after the removal',
+      );
+    }
+    return { removed, screenshots: shots, after };
   }
 }

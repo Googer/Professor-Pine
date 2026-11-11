@@ -42,6 +42,8 @@ export class MemoryMemberData implements MemberData {
   readonly removals: string[] = [];
   /** The step at which every removal fails; undefined for none. */
   failing: RemovalStep | undefined;
+  /** Every look fails (the database away), as the look after a removal can. */
+  lookFailing = false;
 
   /** The database holds this of the member (what is not named: nothing). */
   hold(memberId: string, held: Partial<MemberHoldings>): void {
@@ -49,6 +51,7 @@ export class MemoryMemberData implements MemberData {
   }
 
   held(memberId: string): Promise<MemberHoldings> {
+    if (this.lookFailing) return Promise.reject(new Error('the database is away'));
     this.looks.push(memberId);
     return Promise.resolve(this.holdings.get(memberId) ?? NOTHING_HELD);
   }

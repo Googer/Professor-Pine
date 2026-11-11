@@ -441,6 +441,34 @@ describe('/admin forget', () => {
     expect(textOf(lookOf(await ask()))).toContain('- 2 web logins');
   });
 
+  it('says the data was removed when only the look after it fails, and to look again', async () => {
+    const { ask, press, submit, data, entries } = setup();
+    data.hold(ASH, EVERYTHING);
+    const [remove] = customIdsOf(lookOf(await ask()));
+    const pressed = await press(remove ?? '');
+    // The removal commits; the database fails the look that follows it.
+    data.lookFailing = true;
+    const submitted = await submit(shownDialog(pressed));
+    expect(data.removals).toEqual([ASH]);
+    const lines = textOf(asV2(sent(submitted.editReply))).split('\n');
+    expect(lines[0]).toBe(`### Removed the data of **Ash of Pallet** (<@${ASH}>)`);
+    expect(lines).toContain('- 2 web logins');
+    expect(lines).toContain(
+      'I could not look at what is left of them just now: use the command again to see it.',
+    );
+    // Nothing of a failure: the data is gone.
+    expect(lines.join('\n')).not.toContain('Nothing was removed');
+    expect(lines.join('\n')).not.toContain('Something went wrong');
+    expect(
+      entries.filter((entry) => entry.msg === 'removed a member’s data on request'),
+    ).toHaveLength(1);
+    expect(
+      entries.filter(
+        (entry) => entry.msg === 'could not look at what is left of a member after the removal',
+      ),
+    ).toMatchObject([{ level: 40, member: ASH }]);
+  });
+
   it('says so when a kept screenshot could not be removed', async () => {
     const { ask, press, submit, data, screenshots } = setup();
     data.hold(ASH, { sessions: 1 });
