@@ -1,6 +1,6 @@
 {
   "name": "professor-pine",
-  "version": "2.0.2",
+  "version": "2.1.0-dev",
   "description": "Professor Pine Discord bot for Pokemon Go",
   "private": true,
   "type": "module",
