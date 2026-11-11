@@ -403,9 +403,21 @@ describe('MeetupSafetyRepository', () => {
       const store = await seeded();
       // Open with the moderators: the request waiting, the appeal and the ask. Approved and not
       // made yet: request 4, which no moderator can decide again.
-      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 3, unmade: 1, over: 6 });
-      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, unmade: 0, over: 3 });
-      expect(await store.heldOf(MODERATOR)).toEqual({ blocks: 0, open: 0, unmade: 0, over: 0 });
+      expect(await store.heldOf(MAKER)).toEqual({
+        blocks: 1,
+        open: 3,
+        unmade: 1,
+        live: 0,
+        over: 6,
+      });
+      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, unmade: 0, live: 0, over: 3 });
+      expect(await store.heldOf(MODERATOR)).toEqual({
+        blocks: 0,
+        open: 0,
+        unmade: 0,
+        live: 0,
+        over: 0,
+      });
     });
 
     it('takes their id and name off what is decided and over, and leaves what is open, their block and everybody else', async () => {
@@ -443,8 +455,14 @@ describe('MeetupSafetyRepository', () => {
       expect((await store.pendingOf(SAFETY_SERVER, MAKER)).map((one) => one.id)).toEqual([
         requestId(1),
       ]);
-      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 3, unmade: 1, over: 0 });
-      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, unmade: 0, over: 3 });
+      expect(await store.heldOf(MAKER)).toEqual({
+        blocks: 1,
+        open: 3,
+        unmade: 1,
+        live: 0,
+        over: 0,
+      });
+      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, unmade: 0, live: 0, over: 3 });
       // A row without its member still reads.
       expect(await store.request(requestId(2))).toMatchObject({
         makerId: null,
@@ -472,6 +490,75 @@ describe('MeetupSafetyRepository', () => {
       expect(await store.block(SAFETY_SERVER, MAKER)).toMatchObject({ memberName: 'Alice' });
       // Bob's are his still.
       expect(await store.lastKept(SAFETY_SERVER, BOB)).toBe(MOD.at);
+    });
+
+    it('leaves an approval whose meetup is still going on with its maker, counted apart, and clears it once it has ended', async () => {
+      const store = await seeded();
+      const before = await names();
+      // Request 3's meetup is still going on; a party id of nobody's request changes nothing.
+      const going = [requestId(900), requestId(901)];
+      expect(await store.heldOf(MAKER, going)).toEqual({
+        blocks: 1,
+        open: 3,
+        unmade: 1,
+        live: 1,
+        over: 5,
+      });
+
+      expect(await store.forgetMember(MAKER, going)).toBe(5);
+
+      const over = [2, 5].map(requestId);
+      expect(await names()).toEqual({
+        requests: before.requests.map((row) =>
+          over.includes(row.id) ? { ...row, makerId: null, makerName: null, makerTeam: null } : row,
+        ),
+        appeals: before.appeals.map((row) =>
+          [requestId(101), requestId(103)].includes(row.id)
+            ? { ...row, memberId: null, memberName: null }
+            : row,
+        ),
+        asks: before.asks.map((row) =>
+          row.id === requestId(301) ? { ...row, memberId: null, memberName: null } : row,
+        ),
+        blocks: before.blocks,
+      });
+      // The moderators are still told of the changes of her meetup going on.
+      expect(await store.approvedRequestOf(SAFETY_SERVER, MAKER, requestId(900))).toMatchObject({
+        id: requestId(3),
+        makerName: 'Alice',
+        makerTeam: 'mystic',
+      });
+      expect(await store.heldOf(MAKER, going)).toEqual({
+        blocks: 1,
+        open: 3,
+        unmade: 1,
+        live: 1,
+        over: 0,
+      });
+      expect(await store.heldOf(BOB, going)).toEqual({
+        blocks: 1,
+        open: 0,
+        unmade: 0,
+        live: 0,
+        over: 3,
+      });
+
+      // The meetup has ended: the approval is over, and goes as the others went.
+      expect(await store.heldOf(MAKER)).toEqual({
+        blocks: 1,
+        open: 3,
+        unmade: 1,
+        live: 0,
+        over: 1,
+      });
+      expect(await store.forgetMember(MAKER)).toBe(1);
+      expect(await store.approvedRequestOf(SAFETY_SERVER, MAKER, requestId(900))).toBeUndefined();
+      expect(await store.request(requestId(3))).toMatchObject({
+        makerId: null,
+        makerName: null,
+        makerTeam: null,
+        status: 'approved',
+      });
     });
   });
 });

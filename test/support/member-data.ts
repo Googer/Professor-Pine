@@ -18,7 +18,7 @@ export const NOTHING_HELD: MemberHoldings = {
   sessions: 0,
   toolAccess: false,
   reports: { reasons: 0, about: 0 },
-  meetups: { blocks: 0, open: 0, unmade: 0, over: 0 },
+  meetups: { blocks: 0, open: 0, unmade: 0, live: 0, over: 0 },
   audit: 0,
   stopReports: 0,
   stopConfirms: 0,

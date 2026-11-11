@@ -4,7 +4,7 @@ import type {
   MemberRemoved,
 } from '../db/repositories/member-data-repository.js';
 import { MemberRemovalError } from '../db/repositories/member-data-repository.js';
-import { attendeeOf, type Party } from '../domain/party/party.js';
+import { attendeeOf, isMeetup, type Party } from '../domain/party/party.js';
 import type { Logger } from '../log.js';
 
 /** What the store of kept screenshots does for the removal (`ScreenshotStore`). */
@@ -92,6 +92,18 @@ export function removable(look: MemberLook): boolean {
 }
 
 /**
+ * The ids of the meetups going on that the member made: the approved requests they were made
+ * from are not over yet, for the moderators are told of their changes by the request's maker
+ * (`MeetupSafety.tellChange`, `approvedRequestOf`). The removal leaves their id and name on
+ * those until the meetup has ended.
+ */
+function meetupsGoingOn(active: readonly Party[], memberId: string): string[] {
+  return active
+    .filter((party) => isMeetup(party) && party.createdById === memberId)
+    .map((party) => party.id);
+}
+
+/**
  * Removing a member's data on request (plan 8G; the owner's `/admin forget member:`), across
  * every server: the policy's promise that what Pine holds of somebody goes when they ask.
  *
@@ -113,16 +125,15 @@ export class MemberRemoval {
 
   async look(memberId: string): Promise<MemberLook> {
     const { data, screenshots, parties, legacyFiles } = this.options;
+    const active = parties.active();
     const [held, shots, files] = await Promise.all([
-      data.held(memberId),
+      data.held(memberId, meetupsGoingOn(active, memberId)),
       screenshots.heldOf(memberId),
       legacyFiles?.(memberId) ?? [],
     ]);
-    const theirs = parties
-      .active()
-      .filter(
-        (party) => party.createdById === memberId || attendeeOf(party, memberId) !== undefined,
-      );
+    const theirs = active.filter(
+      (party) => party.createdById === memberId || attendeeOf(party, memberId) !== undefined,
+    );
     const savedParties = theirs.filter((party) => party.saved).length;
     return {
       memberId,
@@ -136,10 +147,10 @@ export class MemberRemoval {
 
   /** `by`: the owner who asked. Rejects, with nothing changed, when the database refuses. */
   async remove(memberId: string, by: string): Promise<MemberRemovalOutcome> {
-    const { data, screenshots, endSession, log } = this.options;
+    const { data, screenshots, parties, endSession, log } = this.options;
     let removed: MemberRemoved;
     try {
-      removed = await data.remove(memberId);
+      removed = await data.remove(memberId, meetupsGoingOn(parties.active(), memberId));
     } catch (err) {
       log.error(
         {

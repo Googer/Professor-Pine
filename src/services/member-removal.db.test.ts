@@ -34,6 +34,7 @@ import { UserRepository } from '../db/repositories/user-repository.js';
 import { WebSessionRepository } from '../db/repositories/web-session-repository.js';
 import type { DB } from '../db/types.js';
 import type { Decider } from '../domain/meetups/records.js';
+import type { Party } from '../domain/party/party.js';
 import { storedReport } from '../domain/ocr/screenshot-record.js';
 import { memberIndexServers, writeServerIndex } from '../ops/legacy-index.js';
 import { MemberRemoval, removable } from './member-removal.js';
@@ -333,8 +334,11 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
               values ('900000000000000001', ${member}, 1, ${NOW})`.execute(db);
   };
 
-  /** The service over this database, a store of screenshots and a member index, both empty. */
-  const serviceWith = () => {
+  /**
+   * The service over this database, a store of screenshots and a member index, both empty;
+   * `parties` the parties going on, the world's unless given.
+   */
+  const serviceWith = (parties?: { active(): readonly Party[] }) => {
     const shots = mkdtempSync(path.join(tmpdir(), 'pine-forget-shots-'));
     const index = mkdtempSync(path.join(tmpdir(), 'pine-forget-index-'));
     const { log, entries } = createTestLogger();
@@ -359,7 +363,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     const removal = new MemberRemoval({
       data: new MemberDataRepository(db, ids),
       screenshots: store,
-      parties: { active: () => live },
+      parties: parties ?? { active: () => live },
       legacyFiles: (member) => memberIndexServers(index, member),
       endSession: (id) => ended.push(id),
       log,
@@ -462,7 +466,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     toolAccess: true,
     // Their own report, and the one both of them gave a reason on.
     reports: { reasons: 2, about: 1 },
-    meetups: { blocks: 1, open: 1, unmade: 0, over: 3 },
+    meetups: { blocks: 1, open: 1, unmade: 0, live: 0, over: 3 },
     // Her own entry, and Bob's that made her conductor.
     audit: 2,
     stopReports: 1,
@@ -599,7 +603,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
         sessions: 0,
         toolAccess: false,
         reports: { reasons: 0, about: 1 },
-        meetups: { blocks: 1, open: 1, unmade: 0, over: 0 },
+        meetups: { blocks: 1, open: 1, unmade: 0, live: 0, over: 0 },
         audit: 2,
         stopReports: 1,
         stopConfirms: 1,
@@ -656,6 +660,60 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     });
     await removal.remove(NOBODY, OWNER);
     expect(await dump()).toEqual(after);
+  });
+
+  it('leaves the approval of a meetup still going on with its maker, and clears it once the meetup has ended', async () => {
+    // Two approvals of hers, their meetups made: one still going on, one ended.
+    for (const n of [1, 2]) {
+      await safety.addRequest(newRequest(n, { makerId: ALICE, makerName: 'Alice' }));
+      await safety.decideRequest(requestId(n), 'approved', 'approve', MOD);
+      await safety.settleApproval(requestId(n), { partyId: requestId(950 + n) });
+    }
+    let live: Party[] = [
+      testMeetup({ createdById: ALICE, id: requestId(951) }),
+      // Bob's meetup going on keeps nothing of hers.
+      testMeetup({ createdById: BOB, id: requestId(952) }),
+    ];
+    const { removal } = serviceWith({ active: () => live });
+
+    const look = await removal.look(ALICE);
+    expect(look.held.meetups).toEqual({ blocks: 0, open: 0, unmade: 0, live: 1, over: 1 });
+
+    const outcome = await removal.remove(ALICE, OWNER);
+    expect(outcome.removed.meetupRecords).toBe(1);
+    // The moderators are still told when the meetup going on changes (`tellChange`).
+    expect(await safety.approvedRequestOf(HOME, ALICE, requestId(951))).toMatchObject({
+      id: requestId(1),
+      makerId: ALICE,
+      makerName: 'Alice',
+      makerTeam: 'mystic',
+    });
+    expect(await safety.approvedRequestOf(HOME, ALICE, requestId(952))).toBeUndefined();
+    expect(await safety.request(requestId(2))).toMatchObject({
+      makerId: null,
+      makerName: null,
+      makerTeam: null,
+    });
+    expect(outcome.after?.held.meetups).toEqual({
+      blocks: 0,
+      open: 0,
+      unmade: 0,
+      live: 1,
+      over: 0,
+    });
+
+    // The meetup has ended: a second run clears it.
+    live = [];
+    const again = await removal.remove(ALICE, OWNER);
+    expect(again.removed.meetupRecords).toBe(1);
+    expect(await safety.approvedRequestOf(HOME, ALICE, requestId(951))).toBeUndefined();
+    expect(again.after?.held.meetups).toEqual({
+      blocks: 0,
+      open: 0,
+      unmade: 0,
+      live: 0,
+      over: 0,
+    });
   });
 
   it('leaves everything as it was when a step fails, and says which', async () => {

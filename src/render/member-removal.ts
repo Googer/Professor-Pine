@@ -231,6 +231,16 @@ function leftLines(look: MemberLook, written: Written): string[] {
         'again once the meetup is made.',
     );
   }
+  // The moderators are told of a change of a meetup going on by its request's maker.
+  if (held.meetups.live > 0) {
+    const one = held.meetups.live === 1;
+    lines.push(
+      `${count(held.meetups.live, 'meetup request')} of theirs approved, whose ` +
+        `${one ? 'meetup is' : 'meetups are'} still going on, ${one ? 'keeps' : 'keep'} their ` +
+        `Discord id and name (the moderators are told of the ${one ? 'meetup’s' : 'meetups’'} ` +
+        `changes): run this again once the ${one ? 'meetup has' : 'meetups have'} ended.`,
+    );
+  }
   if (held.audit > 0) {
     lines.push(
       `${count(held.audit, 'entry', 'entries')} of the staff’s log of who did what that ` +

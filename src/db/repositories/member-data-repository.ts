@@ -36,7 +36,8 @@ export interface MemberHoldings {
   reports: ReportsHeld;
   /**
    * Meetup safety: their blocks, which stay, and their own requests, appeals and asks: `open`,
-   * which keep their id and name, and `over`, whose id and name the removal takes off.
+   * `unmade` and `live`, which keep their id and name, and `over`, whose id and name the removal
+   * takes off.
    */
   meetups: MeetupRecordsHeld;
   /**
@@ -76,11 +77,12 @@ export interface MemberRemoved {
 /**
  * A member's data in the database as the removal service sees it (`MemberRemoval`); lets tests
  * keep it in memory. `remove` is all or nothing: when it rejects, with a `MemberRemovalError`
- * that names the step, nothing has changed.
+ * that names the step, nothing has changed. `going`: the ids of the member's meetups going on,
+ * whose approved requests are not over yet (`MeetupSafetyRepository.forgetMember`).
  */
 export interface MemberData {
-  held(memberId: string): Promise<MemberHoldings>;
-  remove(memberId: string): Promise<MemberRemoved>;
+  held(memberId: string, going?: readonly string[]): Promise<MemberHoldings>;
+  remove(memberId: string, going?: readonly string[]): Promise<MemberRemoved>;
 }
 
 /** The steps of the removal, in their order, as the owner is told which one failed. */
@@ -129,9 +131,9 @@ export class MemberRemovalError extends Error {
  * new-train notices and Unown gift rows, their history in every server exactly as an opt-out
  * takes it (`HistoryRepository.forgetEverywhere`), their web logins, their access to the export
  * tool, and their id and name on the reasons of reports they gave and on their own meetup
- * requests, appeals and asks that are decided and over (migration 051). Either all of it is done
- * or the database is as it was. A deadlock (an opt-out or a login of the same member at that
- * moment) runs all of it again.
+ * requests, appeals and asks that are decided and over (migration 051; an approval whose meetup
+ * is still going on is not, `going`). Either all of it is done or the database is as it was. A
+ * deadlock (an opt-out or a login of the same member at that moment) runs all of it again.
  *
  * What it leaves, and `held` counts beside the rest: meetup blocks and rulings, reports about
  * the member, their meetup requests, appeals and asks still open, the words of those it clears,
@@ -147,7 +149,7 @@ export class MemberDataRepository implements MemberData {
   ) {}
 
   /** One snapshot of all of it: the counts belong together. */
-  held(memberId: string): Promise<MemberHoldings> {
+  held(memberId: string, going: readonly string[] = []): Promise<MemberHoldings> {
     return inTransaction(
       this.db,
       async (trx) => ({
@@ -158,14 +160,14 @@ export class MemberDataRepository implements MemberData {
         sessions: await new WebSessionRepository(trx).countOf(memberId),
         toolAccess: (await new ScriptAccessRepository(trx).byUser(memberId)) !== undefined,
         reports: await new ReportRepository(trx).heldOf(memberId),
-        meetups: await new MeetupSafetyRepository(trx).heldOf(memberId),
+        meetups: await new MeetupSafetyRepository(trx).heldOf(memberId, going),
         ...(await left(trx, memberId)),
       }),
       { readOnly: true },
     );
   }
 
-  async remove(memberId: string): Promise<MemberRemoved> {
+  async remove(memberId: string, going: readonly string[] = []): Promise<MemberRemoved> {
     let step: RemovalStep = REMOVAL_STEPS.user;
     const at = async (next: RemovalStep): Promise<void> => {
       step = next;
@@ -190,7 +192,7 @@ export class MemberDataRepository implements MemberData {
           await at(REMOVAL_STEPS.reports);
           const reportReasons = await new ReportRepository(trx).forgetReporter(memberId);
           await at(REMOVAL_STEPS.meetups);
-          const meetupRecords = await new MeetupSafetyRepository(trx).forgetMember(memberId);
+          const meetupRecords = await new MeetupSafetyRepository(trx).forgetMember(memberId, going);
           // Whatever fails from here on (the commit) is the saving's, not the last statement's.
           await at(REMOVAL_STEPS.commit);
           return {

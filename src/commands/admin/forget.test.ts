@@ -43,7 +43,7 @@ const EVERYTHING = {
   sessions: 2,
   toolAccess: true,
   reports: { reasons: 2, about: 1 },
-  meetups: { blocks: 1, open: 1, unmade: 0, over: 3 },
+  meetups: { blocks: 1, open: 1, unmade: 0, live: 0, over: 3 },
   audit: 5,
   stopReports: 1,
   stopConfirms: 2,

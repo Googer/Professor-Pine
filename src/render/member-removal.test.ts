@@ -44,7 +44,7 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
           savedRoutes: 0,
         },
         history: { optIns: 0, boards: 1, fillIns: 2, named: 1, words: 1 },
-        meetups: { blocks: 2, open: 2, unmade: 1, over: 1 },
+        meetups: { blocks: 2, open: 2, unmade: 1, live: 0, over: 1 },
         reports: { reasons: 0, about: 2 },
         audit: 1,
       }),
@@ -129,6 +129,37 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
     expect(savedOnly.join('\n')).not.toContain('LEGACY_PARTIES_DIR');
   });
 
+  it('says an approval whose meetup is still going on stays, until the meetup has ended', () => {
+    const meetups = { ...NOTHING_HELD.meetups, live: 1, over: 1 };
+    expect(linesOf({ meetups })).toContain(
+      '- 1 meetup request of theirs approved, whose meetup is still going on, keeps their ' +
+        'Discord id and name (the moderators are told of the meetup’s changes): run this again ' +
+        'once the meetup has ended.',
+    );
+    // In the answer of a removal too, from the look after it.
+    const lines = textOf(
+      forgetOutcomeMessage(ASH, {
+        removed: {
+          user: undefined,
+          newTrains: 0,
+          unownGifts: 0,
+          history: NOTHING_HELD.history,
+          sessions: [],
+          toolAccess: false,
+          reportReasons: 0,
+          meetupRecords: 1,
+        },
+        screenshots: { removed: 0, feedback: 0, failed: 0 },
+        after: look({ meetups: { ...NOTHING_HELD.meetups, live: 2 } }),
+      }),
+    ).split('\n');
+    expect(lines).toContain(
+      '- 2 meetup requests of theirs approved, whose meetups are still going on, keep their ' +
+        'Discord id and name (the moderators are told of the meetups’ changes): run this again ' +
+        'once the meetups have ended.',
+    );
+  });
+
   it('shows a name that is Markdown as plain text without a working link or ping', () => {
     const name = '**@everyone** [x](https://a.example)';
     const message = forgetLookMessage({ id: ASH.id, name }, look({ sessions: 1 }), CONTROLS);
@@ -157,7 +188,7 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
       sessions: 10,
       toolAccess: true,
       reports: { reasons: 99_999, about: 99_999 },
-      meetups: { blocks: 999, open: 99_999, unmade: 99_999, over: 99_999 },
+      meetups: { blocks: 999, open: 99_999, unmade: 99_999, live: 99_999, over: 99_999 },
       audit: 99_999,
       stopReports: 99_999,
       stopConfirms: 99_999,
