@@ -60,6 +60,8 @@ function reporting(facts: TutorialFacts): string {
       ? [
           '__**Create a Raid via Screenshot**__',
           "Simply post an in-game screenshot in your regional channel and mention @Professor Pine, clearly showing the gym's name, the raid egg or boss and the timer. Professor Pine will read it and create the raid for you! You can also attach one to `/raid`.",
+          // The message command "Read screenshot" (plan 7M), by the name its menu shows.
+          'Forgot the mention? Press and hold the message (right-click on a computer), then pick **Apps** › **Read screenshot**.',
           '',
         ]
       : []),

@@ -79,6 +79,10 @@ and in the Developer Portal (Bot → Privileged Gateway Intents):
 If a setting is on but the portal toggle is off, Pine starts anyway with that feature
 disabled and logs which toggle to enable.
 
+Without `ocr.passive`, a screenshot is read when it is posted with a mention of the bot or
+attached to `/raid` or `/max`, and one posted without the mention when anybody picks
+**Read screenshot** in the Apps menu of its message.
+
 ## Terms and privacy
 
 The [Terms of Service](docs/legal/terms-of-service.md) and the
