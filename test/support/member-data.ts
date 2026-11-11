@@ -21,6 +21,7 @@ export const NOTHING_HELD: MemberHoldings = {
   meetups: { blocks: 0, open: 0, over: 0 },
   audit: 0,
   stopReports: 0,
+  stopConfirms: 0,
   accessGrants: 0,
   staffActs: 0,
 };
@@ -64,6 +65,7 @@ export class MemoryMemberData implements MemberData {
       meetups: { ...held.meetups, over: 0 },
       audit: held.audit,
       stopReports: held.stopReports,
+      stopConfirms: held.stopConfirms,
       accessGrants: held.accessGrants,
       staffActs: held.staffActs,
     });

@@ -46,22 +46,38 @@ const EVERYTHING = {
   meetups: { blocks: 1, open: 1, over: 3 },
   audit: 5,
   stopReports: 1,
+  stopConfirms: 2,
   accessGrants: 1,
   staffActs: 4,
 };
 
-/** `requestsRepo`: the installation sends gym requests to that GitHub repository (`/request`). */
-function setup(options: Parameters<typeof memberRemovalWith>[0] & { requestsRepo?: string } = {}) {
+/**
+ * `requestsRepo`: the installation sends gym requests to that GitHub repository (`/request`);
+ * `legacyPartiesDir`: it has the old bot's own `parties/` folder (`LEGACY_PARTIES_DIR`).
+ */
+function setup(
+  options: Parameters<typeof memberRemovalWith>[0] & {
+    requestsRepo?: string;
+    legacyPartiesDir?: string;
+  } = {},
+) {
   const made = memberRemovalWith(options);
   const base = createTestContext({ memberRemoval: made.removal }).ctx;
+  const { requestsRepo, legacyPartiesDir } = options;
   const { ctx } =
-    options.requestsRepo === undefined
+    requestsRepo === undefined && legacyPartiesDir === undefined
       ? { ctx: base }
       : createTestContext({
           memberRemoval: made.removal,
           config: {
             ...base.config,
-            env: { ...base.config.env, GITHUB_TOKEN: 'token', GITHUB_REPO: options.requestsRepo },
+            env: {
+              ...base.config.env,
+              ...(requestsRepo === undefined
+                ? {}
+                : { GITHUB_TOKEN: 'token', GITHUB_REPO: requestsRepo }),
+              ...(legacyPartiesDir === undefined ? {} : { LEGACY_PARTIES_DIR: legacyPartiesDir }),
+            },
           },
         });
   const router = new InteractionRouter(ctx, [admin], components);
@@ -169,15 +185,22 @@ describe('/admin forget', () => {
         'record.',
       '- 1 meetup request, appeal or place ask of theirs is still open and keeps their ' +
         'Discord id and name: have the moderators decide it, then run this again.',
-      '- 5 entries of the staff’s log of who did what: they age out after 30 days.',
+      '- 5 entries of the staff’s log of who did what that name them: they age out after 30 ' +
+        'days.',
       '- What is live ends by itself: 2 parties they made or signed up for, 1 report at a ' +
-        'stop, 1 forum they were let into for a party.',
+        'stop, 2 confirmations of others’ reports at stops, 1 forum they were let into for a ' +
+        'party.',
       '- 4 records of what they did as staff (decisions, rulings, boss overrides, gyms and ' +
         'stops): the servers’ record.',
       '- Counts without a name: the history’s entries and the activity.',
+      '- Wild spawns they reported name them for about half an hour (the region’s message, the ' +
+        'map), and the database holds no id of theirs; the direct messages others got of them ' +
+        'keep the name they had.',
       '**Left for you to do by hand:**',
       '- Backups made before the removal hold this data until they age out ' +
         '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
+      '- The bot’s logs can hold their Discord id (a command they used, an error); they roll ' +
+        'over by themselves.',
       '- Posts on Discord that name them are not edited.',
       '-# Only you can press Remove…, within 10 minutes. Nothing is sent to them.',
     ]);
@@ -237,15 +260,21 @@ describe('/admin forget', () => {
         'record.',
       '- 1 meetup request, appeal or place ask of theirs is still open and keeps their ' +
         'Discord id and name: have the moderators decide it, then run this again.',
-      '- 5 entries of the staff’s log of who did what: they age out after 30 days.',
-      '- What is live ends by itself: 1 report at a stop, 1 forum they were let into for a ' +
-        'party.',
+      '- 5 entries of the staff’s log of who did what that name them: they age out after 30 ' +
+        'days.',
+      '- What is live ends by itself: 1 report at a stop, 2 confirmations of others’ reports ' +
+        'at stops, 1 forum they were let into for a party.',
       '- 4 records of what they did as staff (decisions, rulings, boss overrides, gyms and ' +
         'stops): the servers’ record.',
       '- Counts without a name: the history’s entries and the activity.',
+      '- Wild spawns they reported name them for about half an hour (the region’s message, the ' +
+        'map), and the database holds no id of theirs; the direct messages others got of them ' +
+        'keep the name they had.',
       '**Left for you to do by hand:**',
       '- Backups made before the removal hold this data until they age out ' +
         '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
+      '- The bot’s logs can hold their Discord id (a command they used, an error); they roll ' +
+        'over by themselves.',
       '- Posts on Discord that name them are not edited.',
     ]);
     expect(buttonsOf(outcome)).toEqual([]);
@@ -311,6 +340,9 @@ describe('/admin forget', () => {
       '**Left for you to do by hand:**',
       '- Backups made before the removal hold this data until they age out ' +
         '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
+      // Whoever Pine never kept a row of may still be in its logs.
+      '- The bot’s logs can hold their Discord id (a command they used, an error); they roll ' +
+        'over by themselves.',
       '- Posts on Discord that name them are not edited.',
     ]);
     expect(buttonsOf(unknown)).toEqual([]);
@@ -354,27 +386,40 @@ describe('/admin forget', () => {
     expect(textOf(lookOf(await setup().ask()))).not.toContain('old-bot history on the host');
   });
 
-  it('names the public gym requests on GitHub among the hand-work where `/request` is set up', async () => {
-    const { ask, press, submit, data } = setup({ requestsRepo: 'owner/repo' });
+  it('names the public gym requests on GitHub and the old bot’s folder among the hand-work where the installation has them', async () => {
+    const { ask, press, submit, data } = setup({
+      requestsRepo: 'owner/repo',
+      legacyPartiesDir: '/legacy/parties',
+    });
     data.hold(ASH, EVERYTHING);
     const asked = lookOf(await ask());
     const onGitHub =
       '- Gym requests they sent with `/request` are public issues of `owner/repo` on GitHub, ' +
       'under the name they had: edit or delete them there.';
+    const oldFolder =
+      '- The old bot’s own `parties/` folder on the host (`LEGACY_PARTIES_DIR`) holds their ' +
+      'Discord id in the files of the parties they made or joined, as that bot wrote them; I ' +
+      'can only read it: edit those files there.';
     const lines = textOf(asked).split('\n');
-    // After the backups, before the posts on Discord.
     expect(lines.slice(lines.indexOf('**Left for you to do by hand:**') + 1)).toEqual([
+      oldFolder,
       '- Backups made before the removal hold this data until they age out ' +
         '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
+      '- The bot’s logs can hold their Discord id (a command they used, an error); they roll ' +
+        'over by themselves.',
       onGitHub,
       '- Posts on Discord that name them are not edited.',
       '-# Only you can press Remove…, within 10 minutes. Nothing is sent to them.',
     ]);
     const [remove] = customIdsOf(asked);
     const outcome = await submit(shownDialog(await press(remove ?? '')));
-    expect(textOf(asV2(sent(outcome.editReply))).split('\n')).toContain(onGitHub);
-    // Without `/request` nothing is said of it.
-    expect(textOf(lookOf(await setup().ask()))).not.toContain('GitHub');
+    const after = textOf(asV2(sent(outcome.editReply))).split('\n');
+    expect(after).toContain(onGitHub);
+    expect(after).toContain(oldFolder);
+    // Without `/request` or the folder nothing is said of them.
+    const plain = textOf(lookOf(await setup().ask()));
+    expect(plain).not.toContain('GitHub');
+    expect(plain).not.toContain('LEGACY_PARTIES_DIR');
   });
 
   it('says which step failed and that nothing was removed', async () => {

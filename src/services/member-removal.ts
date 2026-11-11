@@ -44,6 +44,11 @@ export interface MemberLook {
   /** The parties going on that they made or are signed up for: left, they end by themselves. */
   liveParties: number;
   /**
+   * Of the same, those staff saved (`/admin save-party`, `Party.saved`), counted apart: kept from
+   * the clock, they end only when staff let them go.
+   */
+  savedParties: number;
+  /**
    * The servers whose member index holds a file of theirs, which the owner deletes by hand on
    * the host (the bot's mount is read-only): `<server>/<member>.json` under `LEGACY_INDEX_DIR`.
    */
@@ -108,12 +113,20 @@ export class MemberRemoval {
       screenshots.heldOf(memberId),
       legacyFiles?.(memberId) ?? [],
     ]);
-    const liveParties = parties
+    const theirs = parties
       .active()
       .filter(
         (party) => party.createdById === memberId || attendeeOf(party, memberId) !== undefined,
-      ).length;
-    return { memberId, held, screenshots: shots, liveParties, legacyFiles: files };
+      );
+    const savedParties = theirs.filter((party) => party.saved).length;
+    return {
+      memberId,
+      held,
+      screenshots: shots,
+      liveParties: theirs.length - savedParties,
+      savedParties,
+      legacyFiles: files,
+    };
   }
 
   /** `by`: the owner who asked. Rejects, with nothing changed, when the database refuses. */

@@ -23,6 +23,7 @@ const look = (held: Partial<MemberHoldings>, more: Partial<MemberLook> = {}): Me
   held: { ...NOTHING_HELD, ...held },
   screenshots: { sent: 0, feedback: 0 },
   liveParties: 0,
+  savedParties: 0,
   legacyFiles: [],
   ...more,
 });
@@ -68,11 +69,16 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
         'id: the moderators’ record.',
       '- 2 meetup requests, appeals and place asks of theirs are still open and keep their ' +
         'Discord id and name: have the moderators decide them, then run this again.',
-      '- 1 entry of the staff’s log of who did what: it ages out after 30 days.',
+      '- 1 entry of the staff’s log of who did what that names them: it ages out after 30 days.',
       '- Counts without a name: the history’s entries and the activity.',
+      '- Wild spawns they reported name them for about half an hour (the region’s message, the ' +
+        'map), and the database holds no id of theirs; the direct messages others got of them ' +
+        'keep the name they had.',
       '**Left for you to do by hand:**',
       '- Backups made before the removal hold this data until they age out ' +
         '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
+      '- The bot’s logs can hold their Discord id (a command they used, an error); they roll ' +
+        'over by themselves.',
       '- Posts on Discord that name them are not edited.',
       '-# Only you can press Remove…, within 10 minutes. Nothing is sent to them.',
     ]);
@@ -83,6 +89,41 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
       '- Their settings',
       '- Their feedback on 2 others',
     ]);
+  });
+
+  it('says what is live and ends by itself apart from what staff saved, and the old bot’s folder', () => {
+    const lines = textOf(
+      forgetLookMessage(
+        ASH,
+        look(
+          { sessions: 1, stopReports: 1, stopConfirms: 2, accessGrants: 1 },
+          { liveParties: 1, savedParties: 2 },
+        ),
+        CONTROLS,
+        { legacyParties: true },
+      ),
+    ).split('\n');
+    expect(lines).toContain(
+      '- What is live ends by itself: 1 party they made or signed up for, 1 report at a stop, ' +
+        '2 confirmations of others’ reports at stops, 1 forum they were let into for a party.',
+    );
+    expect(lines).toContain(
+      '- 2 parties they made or signed up for that staff saved (`/admin save-party`): they ' +
+        'end when staff let them go.',
+    );
+    expect(lines).toContain(
+      '- The old bot’s own `parties/` folder on the host (`LEGACY_PARTIES_DIR`) holds their ' +
+        'Discord id in the files of the parties they made or joined, as that bot wrote them; I ' +
+        'can only read it: edit those files there.',
+    );
+    // A saved party alone is not live in the words of the line before.
+    const savedOnly = linesOf({ sessions: 1 }, { savedParties: 1 });
+    expect(savedOnly.some((line) => line.startsWith('- What is live'))).toBe(false);
+    expect(savedOnly).toContain(
+      '- 1 party they made or signed up for that staff saved (`/admin save-party`): it ends ' +
+        'when staff let it go.',
+    );
+    expect(savedOnly.join('\n')).not.toContain('LEGACY_PARTIES_DIR');
   });
 
   it('shows a name that is Markdown as plain text without a working link or ping', () => {
@@ -116,6 +157,7 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
       meetups: { blocks: 999, open: 99_999, over: 99_999 },
       audit: 99_999,
       stopReports: 99_999,
+      stopConfirms: 99_999,
       accessGrants: 99_999,
       staffActs: 99_999,
     };

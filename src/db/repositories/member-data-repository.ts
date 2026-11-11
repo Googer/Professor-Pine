@@ -39,10 +39,15 @@ export interface MemberHoldings {
    * which keep their id and name, and `over`, whose id and name the removal takes off.
    */
   meetups: MeetupRecordsHeld;
-  /** Entries of the staff's 30-day log (`PartyAudit`) of what they did: they age out. */
+  /**
+   * Entries of the staff's 30-day log (`PartyAudit`) that name them: what they did, and what
+   * others did that names them (a train's conductor, `detail`'s `from` or `to`). They age out.
+   */
   audit: number;
   /** Reports at stops they made that still stand (`StopReport`): they end by themselves. */
   stopReports: number;
+  /** Reports at stops of others they confirmed, still standing (`StopReport.confirmedBy`). */
+  stopConfirms: number;
   /** Forums the bot let them into for a party going on (`PartyAccessGrant`): taken back with it. */
   accessGrants: number;
   /**
@@ -119,8 +124,9 @@ export class MemberRemovalError extends Error {
  *
  * What it leaves, and `held` counts beside the rest: meetup blocks and rulings, reports about
  * the member, their meetup requests, appeals and asks still open, the words of those it clears,
- * the staff's 30-day log, what is live (parties, today's reports at stops, the forums they were
- * let into), what they did as staff, and every count without a name.
+ * the staff's 30-day log, what is live (parties, today's reports at stops and their
+ * confirmations of others', the forums they were let into), what they did as staff, and every
+ * count without a name.
  */
 export class MemberDataRepository implements MemberData {
   constructor(
@@ -190,21 +196,24 @@ export class MemberDataRepository implements MemberData {
   }
 }
 
+type Left = 'audit' | 'stopReports' | 'stopConfirms' | 'accessGrants' | 'staffActs';
+
 /**
  * What the removal leaves, counted: the staff's log, what is live, and what the member did as
  * staff. Read whole where no index begins with the member: the tables are small or the read is
- * the owner's alone.
+ * the owner's alone. An entry of the log counts once, whether it names them as who did it or in
+ * what was done (a train's conductor before or after, `$.from.id`, `$.to.id`).
  */
-async function left(
-  db: Kysely<DB>,
-  memberId: string,
-): Promise<Pick<MemberHoldings, 'audit' | 'stopReports' | 'accessGrants' | 'staffActs'>> {
-  const counted = await sql<
-    Record<'audit' | 'stopReports' | 'accessGrants' | 'staffActs', number | string>
-  >`
+async function left(db: Kysely<DB>, memberId: string): Promise<Pick<MemberHoldings, Left>> {
+  const counted = await sql<Record<Left, number | string>>`
     select
-      (select count(*) from PartyAudit where actorId = ${memberId}) as audit,
+      (select count(*) from PartyAudit
+        where actorId = ${memberId}
+           or json_unquote(json_extract(detail, '$.to.id')) = ${memberId}
+           or json_unquote(json_extract(detail, '$.from.id')) = ${memberId}) as audit,
       (select count(*) from StopReport where reporterId = ${memberId}) as stopReports,
+      (select count(*) from StopReport
+        where json_contains(confirmedBy, json_quote(${memberId}))) as stopConfirms,
       (select count(*) from PartyAccessGrant where memberId = ${memberId}) as accessGrants,
       (select count(*) from MeetupRequest where decidedBy = ${memberId})
         + (select count(*) from MeetupAppeal where decidedBy = ${memberId})
@@ -224,6 +233,7 @@ async function left(
   return {
     audit: Number(row?.audit ?? 0),
     stopReports: Number(row?.stopReports ?? 0),
+    stopConfirms: Number(row?.stopConfirms ?? 0),
     accessGrants: Number(row?.accessGrants ?? 0),
     staffActs: Number(row?.staffActs ?? 0),
   };

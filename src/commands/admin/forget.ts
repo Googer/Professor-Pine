@@ -117,13 +117,19 @@ export const forget: SubcommandPart = {
   },
 };
 
-/** What this installation leaves the owner to do by hand: where `/request` sends gym requests. */
+/**
+ * What this installation leaves the owner to do by hand: where `/request` sends gym requests,
+ * and whether it has the old bot's own `parties/` folder.
+ */
 function byHandOf(ctx: Pick<AppContext, 'config'>): ByHand {
-  const { GITHUB_TOKEN, GITHUB_REPO } = ctx.config.env;
-  // Only where the command is offered (both set), as `/request` itself asks.
-  return GITHUB_TOKEN === undefined || GITHUB_REPO === undefined
-    ? {}
-    : { requestsRepo: GITHUB_REPO };
+  const { GITHUB_TOKEN, GITHUB_REPO, LEGACY_PARTIES_DIR } = ctx.config.env;
+  return {
+    // Only where the command is offered (both set), as `/request` itself asks.
+    ...(GITHUB_TOKEN === undefined || GITHUB_REPO === undefined
+      ? {}
+      : { requestsRepo: GITHUB_REPO }),
+    ...(LEGACY_PARTIES_DIR === undefined ? {} : { legacyParties: true }),
+  };
 }
 
 /**

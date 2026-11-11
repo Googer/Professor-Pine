@@ -225,8 +225,9 @@ function leftLines(look: MemberLook, written: Written): string[] {
   }
   if (held.audit > 0) {
     lines.push(
-      `${count(held.audit, 'entry', 'entries')} of the staff’s log of who did what: ` +
-        `${held.audit === 1 ? 'it ages' : 'they age'} out after ${String(AUDIT_DAYS)} days.`,
+      `${count(held.audit, 'entry', 'entries')} of the staff’s log of who did what that ` +
+        `${held.audit === 1 ? 'names them: it ages' : 'name them: they age'} out after ` +
+        `${String(AUDIT_DAYS)} days.`,
     );
   }
   const live = [
@@ -234,11 +235,22 @@ function leftLines(look: MemberLook, written: Written): string[] {
       ? [`${count(look.liveParties, 'party', 'parties')} they made or signed up for`]
       : []),
     ...(held.stopReports > 0 ? [`${count(held.stopReports, 'report')} at a stop`] : []),
+    ...(held.stopConfirms > 0
+      ? [`${count(held.stopConfirms, 'confirmation')} of others’ reports at stops`]
+      : []),
     ...(held.accessGrants > 0
       ? [`${count(held.accessGrants, 'forum')} they were let into for a party`]
       : []),
   ];
   if (live.length > 0) lines.push(`What is live ends by itself: ${live.join(', ')}.`);
+  // Kept from the clock by staff (`/admin save-party`): not live in the line's words.
+  if (look.savedParties > 0) {
+    lines.push(
+      `${count(look.savedParties, 'party', 'parties')} they made or signed up for that staff ` +
+        `saved (\`/admin save-party\`): ${look.savedParties === 1 ? 'it ends' : 'they end'} ` +
+        `when staff let ${look.savedParties === 1 ? 'it' : 'them'} go.`,
+    );
+  }
   if (held.staffActs > 0) {
     lines.push(
       `${count(held.staffActs, 'record')} of what they did as staff (decisions, rulings, boss ` +
@@ -255,6 +267,11 @@ export interface ByHand {
    * installation has one: its issues are public and carry the name of who asked.
    */
   requestsRepo?: string | undefined;
+  /**
+   * Whether the installation has the old bot's own `parties/` folder (`LEGACY_PARTIES_DIR`),
+   * whose files name members by id as that bot wrote them; the bot's mount is read-only.
+   */
+  legacyParties?: boolean;
 }
 
 /**
@@ -277,8 +294,17 @@ function byHandLines(look: MemberLook, byHand: ByHand): string[] {
               : `, and the file of that name in ${String(more)} more server ` +
                 `${more === 1 ? 'folder' : 'folders'} there.`),
         ]),
+    ...(byHand.legacyParties === true
+      ? [
+          'The old bot’s own `parties/` folder on the host (`LEGACY_PARTIES_DIR`) holds their ' +
+            'Discord id in the files of the parties they made or joined, as that bot wrote ' +
+            'them; I can only read it: edit those files there.',
+        ]
+      : []),
     'Backups made before the removal hold this data until they age out ' +
       '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
+    'The bot’s logs can hold their Discord id (a command they used, an error); they roll over ' +
+      'by themselves.',
     ...(byHand.requestsRepo === undefined
       ? []
       : [
@@ -299,7 +325,14 @@ function restOf(look: MemberLook, written: Written, stays: string, byHand: ByHan
   const leftAll =
     left.length === 0 && !removable(look)
       ? []
-      : [...left, 'Counts without a name: the history’s entries and the activity.'];
+      : [
+          ...left,
+          'Counts without a name: the history’s entries and the activity.',
+          // Kept by name alone, never by id: nothing finds them by the member to count.
+          'Wild spawns they reported name them for about half an hour (the region’s message, ' +
+            'the map), and the database holds no id of theirs; the direct messages others got ' +
+            'of them keep the name they had.',
+        ];
   return [
     ...(leftAll.length === 0 ? [] : [`**${stays}**\n${bullets(leftAll)}`]),
     `**Left for you to do by hand:**\n${bullets(byHandLines(look, byHand))}`,

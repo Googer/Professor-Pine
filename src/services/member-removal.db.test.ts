@@ -304,6 +304,8 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       testRaid({ createdById: ALICE }),
       withAttendees(testMeetup({ createdById: BOB }), { [ALICE]: {} }),
       testMeetup({ createdById: BOB, id: requestId(999) }),
+      // Saved by staff (`/admin save-party`): it ends when they let it go, not by itself.
+      { ...testRaid({ createdById: ALICE, id: requestId(998) }), saved: true },
     ];
     const removal = new MemberRemoval({
       data: new MemberDataRepository(db, ids),
@@ -329,6 +331,15 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     await seed(ALICE, 'Alice', 1);
     await seed(BOB, 'Bob', 2);
     await kept(HOME, ALICE, [ALICE, BOB]);
+    // Bob's doings that name her: he made her a train's conductor, and she confirmed his
+    // report at a stop today.
+    await sql`insert into PartyAudit (serverId, partyId, at, actorId, actorName, action, detail)
+              values (${HOME}, ${requestId(802)}, ${NOW}, ${BOB}, 'Bob', 'conductor',
+                      ${JSON.stringify({ from: null, to: { id: ALICE, name: 'Alice' } })})`.execute(
+      db,
+    );
+    await sql`update StopReport set confirmedBy = ${JSON.stringify([ALICE])}
+              where reporterId = ${BOB}`.execute(db);
     const keep = async (sender: string, refused = false) => {
       const id = await made.store.keep(PNG, shot(sender, refused));
       if (id === undefined) throw new Error('not kept');
@@ -371,8 +382,10 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     toolAccess: true,
     reports: { reasons: 1, about: 1 },
     meetups: { blocks: 1, open: 1, over: 3 },
-    audit: 1,
+    // Her own entry, and Bob's that made her conductor.
+    audit: 2,
     stopReports: 1,
+    stopConfirms: 1,
     accessGrants: 1,
     staffActs: 3,
   };
@@ -388,8 +401,9 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       memberId: ALICE,
       held: HELD,
       screenshots: { sent: 2, feedback: 1 },
-      // The raid she reported and the meetup she signed up for.
+      // The raid she reported and the meetup she signed up for; and the raid staff saved.
       liveParties: 2,
+      savedParties: 1,
       legacyFiles: [HOME, AWAY].sort(),
     });
     expect(removable(look)).toBe(true);
@@ -502,13 +516,15 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
         toolAccess: false,
         reports: { reasons: 0, about: 1 },
         meetups: { blocks: 1, open: 1, over: 0 },
-        audit: 1,
+        audit: 2,
         stopReports: 1,
+        stopConfirms: 1,
         accessGrants: 1,
         staffActs: 3,
       },
       screenshots: { sent: 0, feedback: 0 },
       liveParties: 2,
+      savedParties: 1,
       legacyFiles: [HOME, AWAY].sort(),
     });
     expect(removable(outcome.after)).toBe(false);
