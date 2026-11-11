@@ -14,7 +14,7 @@ export const NOTHING_HELD: MemberHoldings = {
   user: undefined,
   newTrains: 0,
   unownGifts: 0,
-  history: { optIns: 0, boards: 0, fillIns: 0, named: 0 },
+  history: { optIns: 0, boards: 0, fillIns: 0, named: 0, words: 0 },
   sessions: 0,
   toolAccess: false,
   reports: { reasons: 0, about: 0 },

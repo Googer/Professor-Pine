@@ -136,12 +136,22 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
               values (1, 1, 1234567890123456788), (2, 2, 1234567890123456789)`.execute(db);
   });
 
-  /** A party of the history in a server, made and led by `creator`, with these attendees. */
-  const kept = async (server: string, creator: string | null, members: string[]) => {
+  /**
+   * A party of the history in a server, made and led by `creator`, with these attendees, named
+   * and described by its maker when `words` says so.
+   */
+  const kept = async (
+    server: string,
+    creator: string | null,
+    members: string[],
+    words: { name: string; description: string } | null = null,
+  ) => {
     await sql`insert into PartyHistory (source, kind, serverId, createdAt, ending, createdById,
-                                        conductorId)
+                                        conductorId, name, description)
               values ('live', 'train', ${server}, ${NOW}, 'completed', ${creator},
-                      ${creator})`.execute(db);
+                      ${creator}, ${words?.name ?? null}, ${words?.description ?? null})`.execute(
+      db,
+    );
     const id = Number(
       (await sql<{ id: number }>`select max(id) as id from PartyHistory`.execute(db)).rows[0]?.id,
     );
@@ -183,7 +193,10 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       .insertInto('LegacyFillIn')
       .values({ serverId: HOME, memberId: member, requestedAt: String(NOW) })
       .execute();
-    await kept(HOME, member, [member]);
+    await kept(HOME, member, [member], {
+      name: `${name}’s Tuesday walk`,
+      description: `Call ${name} at 555-0100`,
+    });
     await kept(AWAY, null, [member]);
     await db
       .insertInto('StopReportHistory')
@@ -353,7 +366,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     newTrains: 2,
     unownGifts: 2,
     // Three parties (their own, another server's, the one they share) and a report at a stop.
-    history: { optIns: 2, boards: 1, fillIns: 1, named: 4 },
+    history: { optIns: 2, boards: 1, fillIns: 1, named: 4, words: 1 },
     sessions: 2,
     toolAccess: true,
     reports: { reasons: 1, about: 1 },
@@ -430,10 +443,13 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       LegacyFillIn: without('LegacyFillIn', hersBy('memberId')),
       WebSession: without('WebSession', hersBy('userId')),
       ScriptAccess: without('ScriptAccess', hersBy('userId')),
+      // What she wrote of the parties she made goes with her id; Bob's train keeps his words.
       PartyHistory: changed('PartyHistory', (row) =>
-        blank(blank(row, row.createdById === ALICE, ['createdById']), row.conductorId === ALICE, [
-          'conductorId',
-        ]),
+        blank(
+          blank(row, row.createdById === ALICE, ['createdById', 'name', 'description']),
+          row.conductorId === ALICE,
+          ['conductorId'],
+        ),
       ),
       PartyHistoryAttendee: changed('PartyHistoryAttendee', (row) =>
         blank(row, row.memberId === ALICE, ['memberId']),
@@ -481,7 +497,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
         user: undefined,
         newTrains: 0,
         unownGifts: 0,
-        history: { optIns: 0, boards: 0, fillIns: 0, named: 0 },
+        history: { optIns: 0, boards: 0, fillIns: 0, named: 0, words: 0 },
         sessions: 0,
         toolAccess: false,
         reports: { reasons: 0, about: 1 },
@@ -519,7 +535,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       user: undefined,
       newTrains: 0,
       unownGifts: 0,
-      history: { optIns: 0, boards: 0, fillIns: 0, named: 0 },
+      history: { optIns: 0, boards: 0, fillIns: 0, named: 0, words: 0 },
       sessions: [],
       toolAccess: false,
       reportReasons: 0,

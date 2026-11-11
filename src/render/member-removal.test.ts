@@ -42,7 +42,7 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
           gymTargets: 0,
           savedRoutes: 0,
         },
-        history: { optIns: 0, boards: 1, fillIns: 2, named: 1 },
+        history: { optIns: 0, boards: 1, fillIns: 2, named: 1, words: 1 },
         meetups: { blocks: 2, open: 2, over: 1 },
         reports: { reasons: 0, about: 2 },
         audit: 1,
@@ -56,12 +56,16 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
       // A place on the boards that outlived its history switch is named with its servers.
       '- Their place on the boards in 1 server',
       '- Their Discord id on 1 history entry (the entries stay and count, without it)',
+      '- The name and description of 1 train or meetup they made, in the history',
       '- 2 requests to add their old-bot history',
       '- Their Discord id and name on 1 meetup request, appeal or place ask that is decided ' +
         'and over',
       '**It leaves:**',
       '- 2 meetup blocks, lifted or not: the moderators need them for the safety of others.',
       '- 2 reports to the moderators about them: the moderators’ record.',
+      '- The words of 1 meetup request, appeal or place ask of theirs (a meetup’s name, ' +
+        'information and place; an appeal’s or ask’s text) stay, without their name or Discord ' +
+        'id: the moderators’ record.',
       '- 2 meetup requests, appeals and place asks of theirs are still open and keep their ' +
         'Discord id and name: have the moderators decide them, then run this again.',
       '- 1 entry of the staff’s log of who did what: it ages out after 30 days.',
@@ -105,7 +109,7 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
       },
       newTrains: 999,
       unownGifts: 999,
-      history: { optIns: 999, boards: 999, fillIns: 999, named: 9_999_999 },
+      history: { optIns: 999, boards: 999, fillIns: 999, named: 9_999_999, words: 99_999 },
       sessions: 10,
       toolAccess: true,
       reports: { reasons: 99_999, about: 99_999 },

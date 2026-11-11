@@ -39,7 +39,7 @@ const EVERYTHING = {
   },
   newTrains: 2,
   unownGifts: 1,
-  history: { optIns: 2, boards: 1, fillIns: 1, named: 340 },
+  history: { optIns: 2, boards: 1, fillIns: 1, named: 340, words: 3 },
   sessions: 2,
   toolAccess: true,
   reports: { reasons: 2, about: 1 },
@@ -152,6 +152,7 @@ describe('/admin forget', () => {
       '- The record of their one-time Unown want in 1 server',
       '- Their history switch in 2 servers and their place on the boards in 1',
       '- Their Discord id on 340 history entries (the entries stay and count, without it)',
+      '- The name and description of 3 trains and meetups they made, in the history',
       '- 1 request to add their old-bot history',
       '- 2 web logins',
       '- Their access to the Wayfarer export tool',
@@ -162,6 +163,10 @@ describe('/admin forget', () => {
       '**It leaves:**',
       '- 1 meetup block, lifted or not: the moderators need it for the safety of others.',
       '- 1 report to the moderators about them: the moderators’ record.',
+      '- Their reasons on 2 reports to the moderators and the words of 3 meetup requests, ' +
+        'appeals and place asks of theirs (a meetup’s name, information and place; an ' +
+        'appeal’s or ask’s text) stay, without their name or Discord id: the moderators’ ' +
+        'record.',
       '- 1 meetup request, appeal or place ask of theirs is still open and keeps their ' +
         'Discord id and name: have the moderators decide it, then run this again.',
       '- 5 entries of the staff’s log of who did what: they age out after 30 days.',
@@ -214,6 +219,7 @@ describe('/admin forget', () => {
       '- The record of their one-time Unown want in 1 server',
       '- Their history switch in 2 servers and their place on the boards in 1',
       '- Their Discord id on 340 history entries (the entries stay and count, without it)',
+      '- The name and description of 3 trains and meetups they made, in the history',
       '- 1 request to add their old-bot history',
       '- 2 web logins',
       '- Their access to the Wayfarer export tool',
@@ -224,6 +230,11 @@ describe('/admin forget', () => {
       '**Left:**',
       '- 1 meetup block, lifted or not: the moderators need it for the safety of others.',
       '- 1 report to the moderators about them: the moderators’ record.',
+      // Counted before the ids went: the look after the removal no longer finds them.
+      '- Their reasons on 2 reports to the moderators and the words of 3 meetup requests, ' +
+        'appeals and place asks of theirs (a meetup’s name, information and place; an ' +
+        'appeal’s or ask’s text) stay, without their name or Discord id: the moderators’ ' +
+        'record.',
       '- 1 meetup request, appeal or place ask of theirs is still open and keeps their ' +
         'Discord id and name: have the moderators decide it, then run this again.',
       '- 5 entries of the staff’s log of who did what: they age out after 30 days.',

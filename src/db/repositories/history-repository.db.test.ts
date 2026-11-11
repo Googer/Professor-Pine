@@ -278,13 +278,14 @@ describe('HistoryRepository: who is named in the history', () => {
       const away = await reported(AWAY, ALICE);
 
       // Four parties (each once, however it names her) and two reports.
-      const held = { optIns: 2, boards: 1, fillIns: 2, named: 6 };
+      const held = { optIns: 2, boards: 1, fillIns: 2, named: 6, words: 0 };
       expect(await history.heldEverywhere(ALICE)).toEqual(held);
       expect(await history.heldEverywhere(BOB)).toEqual({
         optIns: 1,
         boards: 1,
         fillIns: 1,
         named: 3,
+        words: 0,
       });
 
       expect(await history.forgetEverywhere(ALICE)).toEqual(held);
@@ -294,6 +295,7 @@ describe('HistoryRepository: who is named in the history', () => {
         boards: 0,
         fillIns: 0,
         named: 0,
+        words: 0,
       });
       expect(await switches()).toEqual({
         history: [{ serverId: HOME, memberId: BOB }],
@@ -328,13 +330,54 @@ describe('HistoryRepository: who is named in the history', () => {
         boards: 1,
         fillIns: 1,
         named: 3,
+        words: 0,
       });
+    });
+
+    it('takes the name and description off the trains and meetups they made; an opt-out leaves them', async () => {
+      const words = (id: number, name: string | null, description: string | null) =>
+        db.updateTable('PartyHistory').set({ name, description }).where('id', '=', id).execute();
+      const hers = await kept(HOME, ALICE, [ALICE]);
+      await words(hers, 'Alice’s Tuesday walk', 'Call me at 555-0100');
+      const named = await kept(AWAY, ALICE, [ALICE]);
+      await words(named, 'Book swap', null);
+      // Made by Bob, with Alice along: his words stay.
+      const his = await kept(HOME, BOB, [BOB, ALICE]);
+      await words(his, 'Bob’s loop', 'Bring water');
+      // Hers without words: nothing to count.
+      await kept(HOME, ALICE, [ALICE]);
+      const wordsOf = async () =>
+        db
+          .selectFrom('PartyHistory')
+          .select(['id', 'name', 'description'])
+          .where('id', 'in', [hers, named, his])
+          .orderBy('id')
+          .execute();
+
+      // An opt-out keeps what was written: the record is the server's.
+      await history.optIn(ALICE, AWAY, NOW);
+      await history.optOut(ALICE, AWAY);
+      expect((await wordsOf()).find((row) => row.id === named)?.name).toBe('Book swap');
+      await sql`update PartyHistory set createdById = ${ALICE} where id = ${named}`.execute(db);
+
+      expect((await history.heldEverywhere(ALICE)).words).toBe(2);
+      expect((await history.heldEverywhere(BOB)).words).toBe(1);
+
+      expect((await history.forgetEverywhere(ALICE)).words).toBe(2);
+
+      expect(await wordsOf()).toEqual([
+        { id: hers, name: null, description: null },
+        { id: named, name: null, description: null },
+        { id: his, name: 'Bob’s loop', description: 'Bring water' },
+      ]);
+      expect((await history.heldEverywhere(ALICE)).words).toBe(0);
+      expect((await history.heldEverywhere(BOB)).words).toBe(1);
     });
 
     it('finds nothing to forget of a member the history never named', async () => {
       await history.optIn(BOB, HOME, NOW);
       await kept(HOME, BOB, [BOB]);
-      const nothing = { optIns: 0, boards: 0, fillIns: 0, named: 0 };
+      const nothing = { optIns: 0, boards: 0, fillIns: 0, named: 0, words: 0 };
       expect(await history.forgetEverywhere(ALICE)).toEqual(nothing);
       expect(await history.isOptedIn(BOB, HOME)).toBe(true);
       expect(await history.namedIn(BOB, HOME)).toBe(1);
@@ -357,6 +400,7 @@ describe('HistoryRepository: who is named in the history', () => {
         boards: 0,
         fillIns: 1,
         named: 1,
+        words: 0,
       });
     });
   });
