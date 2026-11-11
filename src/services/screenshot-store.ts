@@ -46,6 +46,12 @@ export interface ScreenshotRecord {
   use: ScreenshotUse;
   /** The member who sent it. */
   senderId: string;
+  /**
+   * The member who posted the picture, where another sent it to be read ("Read screenshot" on
+   * somebody's message, plan 7M, review F7): they keep the view of their own picture
+   * (`mayLookAt`). Absent: the sender posted it, and in records before it.
+   */
+  posterId?: string;
   /** When the message or interaction that brought it was made. */
   uploadedAt: number;
   /** When it was taken by the name of its file, when that was read (`takenAtFromFileName`). */

@@ -365,7 +365,7 @@ export class ScreenshotService implements Screenshots {
         await store.keep(download.bytes, {
           guildId: where.guildId,
           use: where.use,
-          senderId: where.senderId,
+          ...senders(where),
           uploadedAt: where.uploadedAt,
           fileTakenAt: reportFrom.fileTakenAt ?? null,
           timeFrom: read.timeFrom,
@@ -497,7 +497,7 @@ export class ScreenshotService implements Screenshots {
             {
               guildId: where.guildId,
               use: where.use,
-              senderId: where.senderId,
+              ...senders(where),
               uploadedAt: where.uploadedAt,
               fileTakenAt: reportFrom.fileTakenAt ?? null,
               timeFrom: read.timeFrom,
@@ -579,7 +579,7 @@ export class ScreenshotService implements Screenshots {
         : await keep({
             guildId: where.guildId,
             use: where.use,
-            senderId: where.senderId,
+            ...senders(where),
             uploadedAt: where.uploadedAt,
             fileTakenAt: maxFrom.fileTakenAt ?? null,
             timeFrom: read.timeFrom,
@@ -667,6 +667,21 @@ export function keptReading(reading: ScreenReading, raidScreen = true): ScreenRe
     text: { ...reading.text, gym: null, bossName: null },
     lines: reading.lines.map(blank),
     status: reading.status.map(blank),
+  };
+}
+
+/**
+ * Who a kept record names: its sender, and the picture's poster where that is another member
+ * (`ScreenshotWhere.postedBy`, plan 7M, review F7).
+ */
+function senders(
+  where: Pick<ScreenshotWhere, 'senderId' | 'postedBy'>,
+): Pick<NewScreenshot, 'senderId' | 'posterId'> {
+  return {
+    senderId: where.senderId,
+    ...(where.postedBy !== undefined && where.postedBy !== where.senderId
+      ? { posterId: where.postedBy }
+      : {}),
   };
 }
 

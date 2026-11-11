@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   asV2,
   FAKE_BOT_ID,
+  fakeButton,
   fakeChatInput,
   fakeMessageCommand,
   fakeSelect,
@@ -247,6 +248,21 @@ describe('Read screenshot (the Apps menu of a message, plan 7M)', () => {
     );
     expect(did).toEqual([]);
     await trigger.close();
+  });
+
+  it('shows the kept picture to who posted it and to who had it read, not to a third (review F7)', async () => {
+    const { use, image, store, router } = await setup();
+    await use([image('a.png', egg())]);
+    const shotId = asRaid(store.active()[0]).raid.screenshot?.id ?? '';
+    const shown = async (userId: string) => {
+      const press = fakeButton({ customId: `shot:${shotId}:show`, userId });
+      await router.handle(press as never);
+      return sent(press.editReply).files;
+    };
+    // The record's sender is who pressed (Sol); the picture is the author's (Rhea's) all the same.
+    expect(await shown(OTHER)).toEqual([expect.objectContaining({ name: `${shotId}.png` })]);
+    expect(await shown(AUTHOR)).toEqual([expect.objectContaining({ name: `${shotId}.png` })]);
+    expect(await shown('700000000000000003')).toEqual([]);
   });
 
   it('says to use it again on a question of its own that expired (review F6)', async () => {
