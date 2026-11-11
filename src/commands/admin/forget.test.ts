@@ -42,8 +42,8 @@ const EVERYTHING = {
   history: { optIns: 2, boards: 1, fillIns: 1, named: 340 },
   sessions: 2,
   toolAccess: true,
-  reports: { reasons: 2, named: 2, about: 1 },
-  meetups: { blocks: 1, open: 1, over: 3, named: 3 },
+  reports: { reasons: 2, about: 1 },
+  meetups: { blocks: 1, open: 1, over: 3 },
   audit: 5,
   stopReports: 1,
   accessGrants: 1,
@@ -155,16 +155,15 @@ describe('/admin forget', () => {
       '- 1 request to add their old-bot history',
       '- 2 web logins',
       '- Their access to the Wayfarer export tool',
-      '- Their name on 2 reports they made to the moderators',
-      '- Their name on 3 meetup requests, appeals and place asks that are decided and over',
+      '- Their Discord id and name on 2 reports they made to the moderators',
+      '- Their Discord id and name on 3 meetup requests, appeals and place asks that are ' +
+        'decided and over',
       '- 4 kept screenshots they sent, and their feedback on 1 other',
       '**It leaves:**',
       '- 1 meetup block, lifted or not: the moderators need it for the safety of others.',
       '- 1 report to the moderators about them: the moderators’ record.',
-      '- Their Discord id on 2 reports they made and on 4 meetup requests, appeals and place ' +
-        'asks: the moderators’ record, whose rows cannot be kept without it.',
-      '- 1 of those requests, appeals and asks is still open and keeps their name too: have ' +
-        'the moderators decide it, then run this again.',
+      '- 1 meetup request, appeal or place ask of theirs is still open and keeps their ' +
+        'Discord id and name: have the moderators decide it, then run this again.',
       '- 5 entries of the staff’s log of who did what: they age out after 30 days.',
       '- What is live ends by itself: 2 parties they made or signed up for, 1 report at a ' +
         'stop, 1 forum they were let into for a party.',
@@ -218,16 +217,15 @@ describe('/admin forget', () => {
       '- 1 request to add their old-bot history',
       '- 2 web logins',
       '- Their access to the Wayfarer export tool',
-      '- Their name on 2 reports they made to the moderators',
-      '- Their name on 3 meetup requests, appeals and place asks that are decided and over',
+      '- Their Discord id and name on 2 reports they made to the moderators',
+      '- Their Discord id and name on 3 meetup requests, appeals and place asks that are ' +
+        'decided and over',
       '- 4 kept screenshots they sent, and their feedback on 1 other',
       '**Left:**',
       '- 1 meetup block, lifted or not: the moderators need it for the safety of others.',
       '- 1 report to the moderators about them: the moderators’ record.',
-      '- Their Discord id on 2 reports they made and on 4 meetup requests, appeals and place ' +
-        'asks: the moderators’ record, whose rows cannot be kept without it.',
-      '- 1 of those requests, appeals and asks is still open and keeps their name too: have ' +
-        'the moderators decide it, then run this again.',
+      '- 1 meetup request, appeal or place ask of theirs is still open and keeps their ' +
+        'Discord id and name: have the moderators decide it, then run this again.',
       '- 5 entries of the staff’s log of who did what: they age out after 30 days.',
       '- What is live ends by itself: 1 report at a stop, 1 forum they were let into for a ' +
         'party.',

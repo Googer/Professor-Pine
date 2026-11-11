@@ -231,6 +231,7 @@ describe('runMigrations', () => {
       '2026_11_07_048_checked_foreign_keys',
       '2026_11_09_049_event_window',
       '2026_11_10_050_sweep_indexes',
+      '2026_11_10_051_forgettable_members',
     ]);
     expect(
       await describeSchema(

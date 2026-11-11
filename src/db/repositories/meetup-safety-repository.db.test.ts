@@ -401,12 +401,12 @@ describe('MeetupSafetyRepository', () => {
 
     it('counts a member’s blocks and their requests, appeals and asks: open, and over', async () => {
       const store = await seeded();
-      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 4, over: 6, named: 6 });
-      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, over: 3, named: 3 });
-      expect(await store.heldOf(MODERATOR)).toEqual({ blocks: 0, open: 0, over: 0, named: 0 });
+      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 4, over: 6 });
+      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, over: 3 });
+      expect(await store.heldOf(MODERATOR)).toEqual({ blocks: 0, open: 0, over: 0 });
     });
 
-    it('takes their name off what is decided and over, and leaves what is open, their block and everybody else', async () => {
+    it('takes their id and name off what is decided and over, and leaves what is open, their block and everybody else', async () => {
       const store = await seeded();
       const before = await names();
 
@@ -414,15 +414,17 @@ describe('MeetupSafetyRepository', () => {
 
       const over = [2, 3, 5].map(requestId);
       expect(await names()).toEqual({
-        // The id stays (the column takes no row without it); the name and the team go.
+        // The id, the name and the team go; the request stays for the moderators.
         requests: before.requests.map((row) =>
-          over.includes(row.id) ? { ...row, makerName: null, makerTeam: null } : row,
+          over.includes(row.id) ? { ...row, makerId: null, makerName: null, makerTeam: null } : row,
         ),
         appeals: before.appeals.map((row) =>
-          [requestId(101), requestId(103)].includes(row.id) ? { ...row, memberName: null } : row,
+          [requestId(101), requestId(103)].includes(row.id)
+            ? { ...row, memberId: null, memberName: null }
+            : row,
         ),
         asks: before.asks.map((row) =>
-          row.id === requestId(301) ? { ...row, memberName: null } : row,
+          row.id === requestId(301) ? { ...row, memberId: null, memberName: null } : row,
         ),
         // A block is the moderators', lifted or not.
         blocks: before.blocks,
@@ -436,17 +438,38 @@ describe('MeetupSafetyRepository', () => {
       });
       expect((await store.openAppeal(SAFETY_SERVER, MAKER))?.memberName).toBe('Alice');
       expect((await store.ask(requestId(302)))?.memberName).toBe('Alice');
-      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 4, over: 6, named: 0 });
-      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, over: 3, named: 3 });
-      // A row without its name still reads.
+      expect((await store.pendingOf(SAFETY_SERVER, MAKER)).map((one) => one.id)).toEqual([
+        requestId(1),
+      ]);
+      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 4, over: 0 });
+      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, over: 3 });
+      // A row without its member still reads.
       expect(await store.request(requestId(2))).toMatchObject({
-        makerId: MAKER,
+        makerId: null,
         makerName: null,
         makerTeam: null,
         status: 'refused',
       });
+      expect(await store.appeal(requestId(101))).toMatchObject({ memberId: null, status: 'kept' });
       // Run again, nothing is left to take off.
       expect(await store.forgetMember(MAKER)).toBe(0);
+    });
+
+    it('no longer finds the forgotten rows by the member: they start anew, their block stays', async () => {
+      const store = await seeded();
+      expect(await store.lastKept(SAFETY_SERVER, MAKER)).toBe(MOD.at);
+      expect(await store.approvedRequestOf(SAFETY_SERVER, MAKER, requestId(900))).toMatchObject({
+        id: requestId(3),
+      });
+
+      await store.forgetMember(MAKER);
+
+      // The seven days after a kept appeal and the approval of her meetup were hers alone.
+      expect(await store.lastKept(SAFETY_SERVER, MAKER)).toBeUndefined();
+      expect(await store.approvedRequestOf(SAFETY_SERVER, MAKER, requestId(900))).toBeUndefined();
+      expect(await store.block(SAFETY_SERVER, MAKER)).toMatchObject({ memberName: 'Alice' });
+      // Bob's are his still.
+      expect(await store.lastKept(SAFETY_SERVER, BOB)).toBe(MOD.at);
     });
   });
 });

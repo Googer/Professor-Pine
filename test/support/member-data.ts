@@ -17,8 +17,8 @@ export const NOTHING_HELD: MemberHoldings = {
   history: { optIns: 0, boards: 0, fillIns: 0, named: 0 },
   sessions: 0,
   toolAccess: false,
-  reports: { reasons: 0, named: 0, about: 0 },
-  meetups: { blocks: 0, open: 0, over: 0, named: 0 },
+  reports: { reasons: 0, about: 0 },
+  meetups: { blocks: 0, open: 0, over: 0 },
   audit: 0,
   stopReports: 0,
   accessGrants: 0,
@@ -29,8 +29,8 @@ export const NOTHING_HELD: MemberHoldings = {
  * `MemberData` in memory, for tests of what is built on the removal service (the command; the
  * repository itself is tested against MySQL, `member-removal.db.test.ts`). A test says what the
  * database holds of a member (`hold`); `remove` takes away what `MemberDataRepository.remove`
- * takes (the row of settings, the notices, the history, the logins, the tool's row, the names
- * on reports and on meetup records that are over) and leaves the rest, all or nothing: with
+ * takes (the row of settings, the notices, the history, the logins, the tool's row, the ids and
+ * names on reports and on meetup records that are over) and leaves the rest, all or nothing: with
  * `failing` set it rejects as the repository does when that step fails, and nothing changes.
  */
 export class MemoryMemberData implements MemberData {
@@ -60,8 +60,8 @@ export class MemoryMemberData implements MemberData {
     this.removals.push(memberId);
     this.holdings.set(memberId, {
       ...NOTHING_HELD,
-      reports: { ...held.reports, named: 0 },
-      meetups: { ...held.meetups, named: 0 },
+      reports: { ...held.reports, reasons: 0 },
+      meetups: { ...held.meetups, over: 0 },
       audit: held.audit,
       stopReports: held.stopReports,
       accessGrants: held.accessGrants,
@@ -76,8 +76,8 @@ export class MemoryMemberData implements MemberData {
         `${memberId}-${String(n)}`.padStart(64, '0'),
       ),
       toolAccess: held.toolAccess,
-      reportNames: held.reports.named,
-      meetupNames: held.meetups.named,
+      reportReasons: held.reports.reasons,
+      meetupRecords: held.meetups.over,
     });
   }
 }

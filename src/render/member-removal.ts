@@ -40,8 +40,8 @@ interface Taken {
   named: number;
   sessions: number;
   toolAccess: boolean;
-  reportNames: number;
-  meetupNames: number;
+  reportReasons: number;
+  meetupRecords: number;
   screenshots: number;
   feedback: number;
 }
@@ -55,8 +55,8 @@ function takenBy(look: MemberLook): Taken {
     ...held.history,
     sessions: held.sessions,
     toolAccess: held.toolAccess,
-    reportNames: held.reports.named,
-    meetupNames: held.meetups.named,
+    reportReasons: held.reports.reasons,
+    meetupRecords: held.meetups.over,
     screenshots: screenshots.sent,
     feedback: screenshots.feedback,
   };
@@ -71,8 +71,8 @@ function tookAway(outcome: MemberRemovalOutcome): Taken {
     ...removed.history,
     sessions: removed.sessions.length,
     toolAccess: removed.toolAccess,
-    reportNames: removed.reportNames,
-    meetupNames: removed.meetupNames,
+    reportReasons: removed.reportReasons,
+    meetupRecords: removed.meetupRecords,
     screenshots: screenshots.removed,
     feedback: screenshots.feedback,
   };
@@ -130,13 +130,16 @@ function takenLines(taken: Taken): string[] {
   }
   if (taken.sessions > 0) lines.push(count(taken.sessions, 'web login'));
   if (taken.toolAccess) lines.push('Their access to the Wayfarer export tool');
-  if (taken.reportNames > 0) {
-    lines.push(`Their name on ${count(taken.reportNames, 'report')} they made to the moderators`);
-  }
-  if (taken.meetupNames > 0) {
+  if (taken.reportReasons > 0) {
     lines.push(
-      `Their name on ${count(taken.meetupNames, 'meetup request, appeal or place ask', 'meetup requests, appeals and place asks')} ` +
-        `that ${taken.meetupNames === 1 ? 'is' : 'are'} decided and over`,
+      `Their Discord id and name on ${count(taken.reportReasons, 'report')} they made to the ` +
+        'moderators',
+    );
+  }
+  if (taken.meetupRecords > 0) {
+    lines.push(
+      `Their Discord id and name on ${count(taken.meetupRecords, 'meetup request, appeal or place ask', 'meetup requests, appeals and place asks')} ` +
+        `that ${taken.meetupRecords === 1 ? 'is' : 'are'} decided and over`,
     );
   }
   if (taken.screenshots > 0 || taken.feedback > 0) {
@@ -172,24 +175,11 @@ function leftLines(look: MemberLook): string[] {
       `${count(held.reports.about, 'report')} to the moderators about them: the moderators’ record.`,
     );
   }
-  const records = held.meetups.open + held.meetups.over;
-  if (held.reports.reasons > 0 || records > 0) {
-    lines.push(
-      `Their Discord id on ${listed([
-        ...(held.reports.reasons > 0 ? [`${count(held.reports.reasons, 'report')} they made`] : []),
-        ...(records > 0
-          ? [
-              `${held.reports.reasons > 0 ? 'on ' : ''}${count(records, 'meetup request, appeal or place ask', 'meetup requests, appeals and place asks')}`,
-            ]
-          : []),
-      ])}: the moderators’ record, whose rows cannot be kept without it.`,
-    );
-  }
   if (held.meetups.open > 0) {
     lines.push(
-      `${String(held.meetups.open)} of those requests, appeals and asks ` +
-        `${held.meetups.open === 1 ? 'is still open and keeps' : 'are still open and keep'} ` +
-        `their name too: have the moderators decide ` +
+      `${count(held.meetups.open, 'meetup request, appeal or place ask', 'meetup requests, appeals and place asks')} ` +
+        `of theirs ${held.meetups.open === 1 ? 'is still open and keeps' : 'are still open and keep'} ` +
+        `their Discord id and name: have the moderators decide ` +
         `${held.meetups.open === 1 ? 'it' : 'them'}, then run this again.`,
     );
   }

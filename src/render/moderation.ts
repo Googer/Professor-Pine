@@ -32,6 +32,7 @@ import {
   cutMarkdown,
   fitItems,
   memberText,
+  memberTextOrFormer,
   type NamedMember,
   plain,
   plainLines,
@@ -162,7 +163,10 @@ export const EDITED_SINCE = 'It was edited after the first report: this is what 
 
 /** One reason: who gave it, when, and what they said (`plain`, one line). */
 function reasonLine(reason: ReportReason): string {
-  const who = memberText({ id: reason.reporterId, name: reason.reporterName ?? undefined });
+  const who = memberTextOrFormer(
+    { id: reason.reporterId, name: reason.reporterName },
+    { start: true },
+  );
   return `${who} ${timestamp(reason.at, 'R')}: ${plain(reason.text)}`;
 }
 

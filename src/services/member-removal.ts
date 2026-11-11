@@ -60,8 +60,8 @@ export interface MemberRemovalOutcome {
 /**
  * Whether a removal would take anything of what a look found (the one rule of the look's
  * button, of "there is nothing to remove" and of the service's tests): a row of settings, a
- * notice, anything of the history, a web login, access to the export tool, a name still on a
- * report or on a meetup record that is over, a kept screenshot or feedback on one.
+ * notice, anything of the history, a web login, access to the export tool, their id on a reason
+ * of a report or on a meetup record that is over, a kept screenshot or feedback on one.
  */
 export function removable(look: MemberLook): boolean {
   const { held, screenshots } = look;
@@ -75,8 +75,8 @@ export function removable(look: MemberLook): boolean {
     held.history.named > 0 ||
     held.sessions > 0 ||
     held.toolAccess ||
-    held.reports.named > 0 ||
-    held.meetups.named > 0 ||
+    held.reports.reasons > 0 ||
+    held.meetups.over > 0 ||
     screenshots.sent > 0 ||
     screenshots.feedback > 0
   );

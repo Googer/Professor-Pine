@@ -294,7 +294,7 @@ export class MemoryMeetupSafety implements MeetupSafetyStore {
   }
 
   async blockMaker(
-    request: Pick<MeetupRequestRecord, 'id' | 'serverId' | 'makerId' | 'makerName'>,
+    request: Pick<MeetupRequestRecord, 'id' | 'serverId' | 'makerName'> & { makerId: string },
     by: Decider,
   ) {
     await this.check('blockMaker');
@@ -346,7 +346,10 @@ export class MemoryMeetupSafety implements MeetupSafetyStore {
     return { lifted: true, appeal: { ...decided } };
   }
 
-  async liftOnAppeal(appeal: Pick<MeetupAppeal, 'id' | 'serverId' | 'memberId'>, by: Decider) {
+  async liftOnAppeal(
+    appeal: Pick<MeetupAppeal, 'id' | 'serverId'> & { memberId: string },
+    by: Decider,
+  ) {
     await this.check('liftOnAppeal');
     const found = this.appeals.get(appeal.id);
     if (!found || found.status !== 'open') return false;

@@ -30,13 +30,13 @@ export interface MemberHoldings {
   /** A row of access to the Wayfarer export tool. */
   toolAccess: boolean;
   /**
-   * Reports to the moderators: the reasons they gave (`named`: those that still carry their
-   * name, which the removal takes off; the id stays) and the reports about them, which stay.
+   * Reports to the moderators: the reasons they gave, whose id and name the removal takes off
+   * (the words stay), and the reports about them, which stay.
    */
   reports: ReportsHeld;
   /**
-   * Meetup safety: their blocks, which stay, and their own requests, appeals and asks, `open` or
-   * `over` (`named`: those over that still carry their name, which the removal takes off).
+   * Meetup safety: their blocks, which stay, and their own requests, appeals and asks: `open`,
+   * which keep their id and name, and `over`, whose id and name the removal takes off.
    */
   meetups: MeetupRecordsHeld;
   /** Entries of the staff's 30-day log (`PartyAudit`) of what they did: they age out. */
@@ -62,10 +62,10 @@ export interface MemberRemoved {
   /** The ids of the web logins deleted, whose live streams are to be ended. */
   sessions: string[];
   toolAccess: boolean;
-  /** The reasons of reports their name was taken off. */
-  reportNames: number;
-  /** The requests, appeals and asks, decided and over, their name was taken off. */
-  meetupNames: number;
+  /** The reasons of reports their id and name were taken off. */
+  reportReasons: number;
+  /** The requests, appeals and asks, decided and over, their id and name were taken off. */
+  meetupRecords: number;
 }
 
 /**
@@ -86,8 +86,8 @@ export const REMOVAL_STEPS = {
   history: 'their history',
   sessions: 'their web logins',
   toolAccess: 'their access to the export tool',
-  reports: 'their name on reports to the moderators',
-  meetups: 'their name on meetup requests, appeals and asks',
+  reports: 'their id and name on reports to the moderators',
+  meetups: 'their id and name on meetup requests, appeals and asks',
 } as const;
 
 export type RemovalStep = (typeof REMOVAL_STEPS)[keyof typeof REMOVAL_STEPS];
@@ -112,14 +112,15 @@ export class MemberRemovalError extends Error {
  * (`UserRepository.forget`, the row locked first, as a member's own changes lock it), their
  * new-train notices and Unown gift rows, their history in every server exactly as an opt-out
  * takes it (`HistoryRepository.forgetEverywhere`), their web logins, their access to the export
- * tool, and their name on the reports they made and on their own meetup requests, appeals and
- * asks that are decided and over. Either all of it is done or the database is as it was. A
- * deadlock (an opt-out or a login of the same member at that moment) runs all of it again.
+ * tool, and their id and name on the reasons of reports they gave and on their own meetup
+ * requests, appeals and asks that are decided and over (migration 051). Either all of it is done
+ * or the database is as it was. A deadlock (an opt-out or a login of the same member at that
+ * moment) runs all of it again.
  *
  * What it leaves, and `held` counts beside the rest: meetup blocks and rulings, reports about
- * the member, their id on the rows named above whose columns take no null, the staff's 30-day
- * log, what is live (parties, today's reports at stops, the forums they were let into), what
- * they did as staff, and every count without a name.
+ * the member, their meetup requests, appeals and asks still open, the words of those it clears,
+ * the staff's 30-day log, what is live (parties, today's reports at stops, the forums they were
+ * let into), what they did as staff, and every count without a name.
  */
 export class MemberDataRepository implements MemberData {
   constructor(
@@ -165,9 +166,9 @@ export class MemberDataRepository implements MemberData {
           step = REMOVAL_STEPS.toolAccess;
           const toolAccess = await new ScriptAccessRepository(trx).forget(memberId);
           step = REMOVAL_STEPS.reports;
-          const reportNames = await new ReportRepository(trx).forgetReporter(memberId);
+          const reportReasons = await new ReportRepository(trx).forgetReporter(memberId);
           step = REMOVAL_STEPS.meetups;
-          const meetupNames = await new MeetupSafetyRepository(trx).forgetMember(memberId);
+          const meetupRecords = await new MeetupSafetyRepository(trx).forgetMember(memberId);
           return {
             user,
             newTrains,
@@ -175,8 +176,8 @@ export class MemberDataRepository implements MemberData {
             history,
             sessions: [...sessions].sort(),
             toolAccess,
-            reportNames,
-            meetupNames,
+            reportReasons,
+            meetupRecords,
           };
         }),
       );

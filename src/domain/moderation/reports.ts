@@ -148,7 +148,8 @@ export function messageSeenAgain(kept: MessageSubject, now: MessageSubject): Mes
 
 /** One member's reason. */
 export interface ReportReason {
-  reporterId: string;
+  /** Who gave it; null once the owner removed their data on request (plan 8G). */
+  reporterId: string | null;
   reporterName: string | null;
   text: string;
   at: number;

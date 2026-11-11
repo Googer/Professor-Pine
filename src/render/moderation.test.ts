@@ -146,6 +146,26 @@ describe('reportMessage of a party', () => {
     expect(buttonsOf(ended).map((button) => button.label)).toEqual(['Go to post']);
   });
 
+  it('names a reporter whose data was removed on request a former member, the reason kept', () => {
+    const text = textOf(
+      reportMessage(
+        open(partySubject(), {
+          status: 'dismissed',
+          reasons: [
+            reason(REPORTER, { reporterId: null, reporterName: null, text: 'A yard.' }),
+            reason(OTHER_REPORTER, { at: SAFETY_NOW + HOUR, text: 'Private.' }),
+          ],
+        }),
+      ),
+    );
+    expect(text).toContain(
+      '**Reasons** (2)\n' +
+        `A former member <t:${String(SAFETY_NOW / 1000)}:R>: A yard.\n` +
+        `**Dave** (<@${OTHER_REPORTER}>) <t:${String((SAFETY_NOW + HOUR) / 1000)}:R>: Private.`,
+    );
+    expect(text).not.toContain(REPORTER);
+  });
+
   it('keeps every reason it can within what a message holds, and says how many it left out', () => {
     const many = Array.from({ length: 12 }, (_, i) =>
       reason(`2000000000000001${String(i).padStart(2, '0')}`, {

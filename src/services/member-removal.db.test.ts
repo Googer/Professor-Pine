@@ -356,8 +356,8 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     history: { optIns: 2, boards: 1, fillIns: 1, named: 4 },
     sessions: 2,
     toolAccess: true,
-    reports: { reasons: 1, named: 1, about: 1 },
-    meetups: { blocks: 1, open: 1, over: 3, named: 3 },
+    reports: { reasons: 1, about: 1 },
+    meetups: { blocks: 1, open: 1, over: 3 },
     audit: 1,
     stopReports: 1,
     accessGrants: 1,
@@ -401,8 +401,8 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       history: HELD.history,
       sessions: [sessionId(17), sessionId(18)],
       toolAccess: true,
-      reportNames: 1,
-      meetupNames: 3,
+      reportReasons: 1,
+      meetupRecords: 3,
     });
     expect(outcome.screenshots).toEqual({ removed: 2, feedback: 1, failed: 0 });
 
@@ -442,16 +442,21 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
         blank(row, row.reporterId === ALICE, ['reporterId']),
       ),
       ModerationReportReason: changed('ModerationReportReason', (row) =>
-        blank(row, row.reporterId === ALICE, ['reporterName']),
+        blank(row, row.reporterId === ALICE, ['reporterId', 'reporterName']),
       ),
+      // What is over loses who she was; her request still waiting keeps both.
       MeetupRequest: changed('MeetupRequest', (row) =>
-        blank(row, row.makerId === ALICE && row.status === 'refused', ['makerName', 'makerTeam']),
+        blank(row, row.makerId === ALICE && row.status === 'refused', [
+          'makerId',
+          'makerName',
+          'makerTeam',
+        ]),
       ),
       MeetupAppeal: changed('MeetupAppeal', (row) =>
-        blank(row, row.memberId === ALICE && row.status === 'kept', ['memberName']),
+        blank(row, row.memberId === ALICE && row.status === 'kept', ['memberId', 'memberName']),
       ),
       MeetupPlaceAsk: changed('MeetupPlaceAsk', (row) =>
-        blank(row, row.memberId === ALICE && row.status === 'expired', ['memberName']),
+        blank(row, row.memberId === ALICE && row.status === 'expired', ['memberId', 'memberName']),
       ),
     });
     // The seed had something of hers in each of them.
@@ -479,8 +484,8 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
         history: { optIns: 0, boards: 0, fillIns: 0, named: 0 },
         sessions: 0,
         toolAccess: false,
-        reports: { reasons: 1, named: 0, about: 1 },
-        meetups: { blocks: 1, open: 1, over: 3, named: 0 },
+        reports: { reasons: 0, about: 1 },
+        meetups: { blocks: 1, open: 1, over: 0 },
         audit: 1,
         stopReports: 1,
         accessGrants: 1,
@@ -517,8 +522,8 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       history: { optIns: 0, boards: 0, fillIns: 0, named: 0 },
       sessions: [],
       toolAccess: false,
-      reportNames: 0,
-      meetupNames: 0,
+      reportReasons: 0,
+      meetupRecords: 0,
     });
     expect(again.screenshots).toEqual({ removed: 0, feedback: 0, failed: 0 });
     expect(await dump()).toEqual(after);

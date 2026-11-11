@@ -148,9 +148,8 @@ describe('ReportRepository', () => {
     const reasons = () =>
       db
         .selectFrom('ModerationReportReason')
-        .select(['reportId', 'reporterId', 'reporterName', 'text'])
-        .orderBy('reportId')
-        .orderBy('reporterId')
+        .select(['id', 'reportId', 'reporterId', 'reporterName', 'text'])
+        .orderBy('id')
         .execute();
 
     /**
@@ -180,35 +179,56 @@ describe('ReportRepository', () => {
 
     it('counts the reasons a member gave and the reports about them, in every server', async () => {
       const store = await seeded();
-      expect(await store.heldOf(REPORTER)).toEqual({ reasons: 2, named: 2, about: 2 });
-      expect(await store.heldOf(OTHER_REPORTER)).toEqual({ reasons: 3, named: 3, about: 0 });
-      expect(await store.heldOf('200000000000000099')).toEqual({ reasons: 0, named: 0, about: 0 });
+      expect(await store.heldOf(REPORTER)).toEqual({ reasons: 2, about: 2 });
+      expect(await store.heldOf(OTHER_REPORTER)).toEqual({ reasons: 3, about: 0 });
+      expect(await store.heldOf('200000000000000099')).toEqual({ reasons: 0, about: 0 });
     });
 
-    it('takes their name off the reasons they gave; the reports stay, and so does everybody else', async () => {
+    it('takes their id and name off the reasons they gave; the reports stay, and so does everybody else', async () => {
       const store = await seeded();
       const before = await reasons();
 
       expect(await store.forgetReporter(REPORTER)).toBe(2);
 
-      // Her words and the reports stay for the moderators; her id stays too (the table's key).
+      // Her words and the reports stay for the moderators, without who wrote them.
       expect(await reasons()).toEqual(
-        before.map((row) => (row.reporterId === REPORTER ? { ...row, reporterName: null } : row)),
+        before.map((row) =>
+          row.reporterId === REPORTER ? { ...row, reporterId: null, reporterName: null } : row,
+        ),
       );
       expect(before.filter((row) => row.reporterId === REPORTER)).toHaveLength(2);
-      expect(await store.heldOf(REPORTER)).toEqual({ reasons: 2, named: 0, about: 2 });
-      expect(await store.heldOf(OTHER_REPORTER)).toEqual({ reasons: 3, named: 3, about: 0 });
+      expect(await store.heldOf(REPORTER)).toEqual({ reasons: 0, about: 2 });
+      expect(await store.heldOf(OTHER_REPORTER)).toEqual({ reasons: 3, about: 0 });
       // What others reported about her is the moderators' record: untouched.
       expect((await store.report(requestId(203)))?.subject).toMatchObject({
         makerId: REPORTER,
         makerName: 'Carol',
       });
       expect((await store.report(requestId(201)))?.reasons).toEqual([
-        expect.objectContaining({ reporterId: REPORTER, reporterName: null }),
+        expect.objectContaining({ reporterId: null, reporterName: null, text: reason().text }),
         expect.objectContaining({ reporterId: OTHER_REPORTER, reporterName: 'Dave' }),
       ]);
       // Run again, there is nothing left to take off.
       expect(await store.forgetReporter(REPORTER)).toBe(0);
+    });
+
+    it('lets a forgotten reporter report again, and keeps both reasons apart', async () => {
+      const store = await seeded();
+      await store.forgetReporter(REPORTER);
+      // "You already reported this" looks for her id, which the open report no longer holds.
+      const again = await store.addReport(
+        newReport(1),
+        reason(REPORTER, { at: SAFETY_NOW + 2, text: 'Again.' }),
+      );
+      expect(again.kind).toBe('added');
+      expect(again.report.reasons.map((one) => [one.reporterId, one.text])).toEqual([
+        [null, reason().text],
+        [OTHER_REPORTER, reason().text],
+        [REPORTER, 'Again.'],
+      ]);
+      // A second reason of hers is still one too many.
+      const twice = await store.addReport(newReport(1), reason(REPORTER, { text: 'Thrice.' }));
+      expect(twice.kind).toBe('already');
     });
   });
 });

@@ -279,7 +279,7 @@ export interface MeetupAppeal {
   decidedBy: string | null;
   decidedByName: string | null;
   id: string;
-  memberId: string;
+  memberId: string | null;
   memberName: string | null;
   messageId: string | null;
   openKey: string | null;
@@ -307,7 +307,7 @@ export interface MeetupPlaceAsk {
   decidedBy: string | null;
   decidedByName: string | null;
   id: string;
-  memberId: string;
+  memberId: string | null;
   memberName: string | null;
   messageId: string | null;
   openKey: string | null;
@@ -347,7 +347,7 @@ export interface MeetupRequest {
   expiresAt: string;
   failure: Json | null;
   id: string;
-  makerId: string;
+  makerId: string | null;
   makerName: string | null;
   makerTeam: string | null;
   messageId: string;
@@ -382,7 +382,8 @@ export interface ModerationReport {
 
 export interface ModerationReportReason {
   createdAt: string;
-  reporterId: string;
+  id: Generated<number>;
+  reporterId: string | null;
   reporterName: string | null;
   reportId: string;
   text: string;

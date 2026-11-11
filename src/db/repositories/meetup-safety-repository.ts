@@ -408,7 +408,7 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
   }
 
   blockMaker(
-    request: Pick<MeetupRequestRecord, 'id' | 'serverId' | 'makerId' | 'makerName'>,
+    request: Pick<MeetupRequestRecord, 'id' | 'serverId' | 'makerName'> & { makerId: string },
     by: Decider,
   ): Promise<{ decided: boolean; newBlock: boolean }> {
     // Read committed: the block's row may not be there yet, and gap locks on it would deadlock
@@ -442,7 +442,7 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
   }
 
   liftOnAppeal(
-    appeal: Pick<MeetupAppeal, 'id' | 'serverId' | 'memberId'>,
+    appeal: Pick<MeetupAppeal, 'id' | 'serverId'> & { memberId: string },
     by: Decider,
   ): Promise<boolean> {
     return inTransaction(this.db, async (trx) => {
@@ -822,47 +822,42 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
 
   /**
    * What meetup safety holds of a member in every server (plan 8G: the look of `/admin forget`):
-   * their blocks, lifted or not, and their own requests, appeals and asks about places, those
-   * still open and those decided and over (`REQUEST_OVER`, `APPEAL_OVER`, `ASK_OVER`), of which
-   * `named` still carry their name. The tables are read whole: their indexes begin with the
-   * server, they are small, and only the owner asks.
+   * their blocks, lifted or not, and their own requests, appeals and asks about places that
+   * carry their id, those still open and those decided and over (`REQUEST_OVER`, `APPEAL_OVER`,
+   * `ASK_OVER`). The tables are read whole: their indexes begin with the server, they are small,
+   * and only the owner asks.
    */
   async heldOf(memberId: string): Promise<MeetupRecordsHeld> {
-    const counted = await sql<Record<'blocks' | 'records' | 'closed' | 'named', number | string>>`
+    const counted = await sql<Record<'blocks' | 'records' | 'closed', number | string>>`
       select
         (select count(*) from MeetupBlock where memberId = ${memberId}) as blocks,
         count(*) as records,
-        coalesce(sum(r.isOver), 0) as closed,
-        coalesce(sum(r.isOver and r.isNamed), 0) as named
+        coalesce(sum(r.isOver), 0) as closed
       from (
-        select ${REQUEST_OVER} as isOver,
-               (makerName is not null or makerTeam is not null) as isNamed
-          from MeetupRequest where makerId = ${memberId}
+        select ${REQUEST_OVER} as isOver from MeetupRequest where makerId = ${memberId}
         union all
-        select ${APPEAL_OVER}, memberName is not null
-          from MeetupAppeal where memberId = ${memberId}
+        select ${APPEAL_OVER} from MeetupAppeal where memberId = ${memberId}
         union all
-        select ${ASK_OVER}, memberName is not null
-          from MeetupPlaceAsk where memberId = ${memberId}) r`.execute(this.db);
+        select ${ASK_OVER} from MeetupPlaceAsk where memberId = ${memberId}) r`.execute(this.db);
     const row = counted.rows[0];
     const over = Number(row?.closed ?? 0);
     return {
       blocks: Number(row?.blocks ?? 0),
       open: Number(row?.records ?? 0) - over,
       over,
-      named: Number(row?.named ?? 0),
     };
   }
 
   /**
-   * Takes a member's name (and a request's team) off their own requests, appeals and asks about
-   * places that are decided and over, in every server (plan 8G, `/admin forget`); from how many.
-   * What is still open keeps it: a request the moderators have not decided, an approval whose
-   * meetup is not made yet (it is made with that name and team), an open appeal or ask. Their id
-   * stays on every row (`makerId`, `memberId`: the columns take no null), and so do their
-   * blocks and the rulings: the moderators' record. The rows are read first, without a lock, and
-   * changed by their ids, each only while it is still over and named: a change by the member
-   * alone would lock every row of the tables. One transaction, the caller's when `db` is one.
+   * Takes a member's id and name (and a request's team) off their own requests, appeals and asks
+   * about places that are decided and over, in every server (plan 8G, `/admin forget`; migration
+   * 051 lets the ids be null); from how many. Their words stay, for the moderators, without who
+   * wrote them. What is still open keeps both: a request the moderators have not decided, an
+   * approval whose meetup is not made yet (it is made by that member, with that name and team),
+   * an open appeal or ask. Their blocks and the rulings stay as they are: the moderators' record.
+   * The rows are read first, without a lock, and changed by their ids, each only while it is
+   * still theirs and over: a change by the member alone would lock every row of the tables. One
+   * transaction, the caller's when `db` is one.
    */
   forgetMember(memberId: string): Promise<number> {
     return inTransaction(this.db, async (trx) => {
@@ -871,54 +866,51 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
         .select('id')
         .where('makerId', '=', memberId)
         .where(REQUEST_OVER)
-        .where((eb) => eb.or([eb('makerName', 'is not', null), eb('makerTeam', 'is not', null)]))
         .execute();
       const appeals = await trx
         .selectFrom('MeetupAppeal')
         .select('id')
         .where('memberId', '=', memberId)
         .where(APPEAL_OVER)
-        .where('memberName', 'is not', null)
         .execute();
       const asks = await trx
         .selectFrom('MeetupPlaceAsk')
         .select('id')
         .where('memberId', '=', memberId)
         .where(ASK_OVER)
-        .where('memberName', 'is not', null)
         .execute();
-      let blanked = 0;
+      let cleared = 0;
       if (requests.length > 0) {
         const changed = await trx
           .updateTable('MeetupRequest')
-          .set({ makerName: null, makerTeam: null })
+          .set({ makerId: null, makerName: null, makerTeam: null })
           .where('id', 'in', ids(requests))
           .where('makerId', '=', memberId)
           .where(REQUEST_OVER)
           .executeTakeFirst();
-        blanked += Number(changed.numUpdatedRows);
+        cleared += Number(changed.numUpdatedRows);
       }
       if (appeals.length > 0) {
         const changed = await trx
           .updateTable('MeetupAppeal')
-          .set({ memberName: null })
+          .set({ memberId: null, memberName: null })
           .where('id', 'in', ids(appeals))
           .where('memberId', '=', memberId)
           .where(APPEAL_OVER)
           .executeTakeFirst();
-        blanked += Number(changed.numUpdatedRows);
+        cleared += Number(changed.numUpdatedRows);
       }
       if (asks.length > 0) {
         const changed = await trx
           .updateTable('MeetupPlaceAsk')
-          .set({ memberName: null })
+          .set({ memberId: null, memberName: null })
           .where('id', 'in', ids(asks))
           .where('memberId', '=', memberId)
           .where(ASK_OVER)
           .executeTakeFirst();
-        blanked += Number(changed.numUpdatedRows);
+        cleared += Number(changed.numUpdatedRows);
       }
-      return blanked;
+      return cleared;
     });
   }
 }
@@ -944,10 +936,8 @@ export interface MeetupRecordsHeld {
   blocks: number;
   /** Their requests, appeals and asks still open: with the moderators, or approved and not made. */
   open: number;
-  /** Their requests, appeals and asks that are decided and over. */
+  /** Their requests, appeals and asks that are decided and over (which the removal clears). */
   over: number;
-  /** Of those over, the ones that still carry their name. */
-  named: number;
 }
 
 /**

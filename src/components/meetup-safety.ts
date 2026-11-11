@@ -54,6 +54,8 @@ export function decisionWords(outcome: DecideOutcome): string {
         'closed). They are told, and may appeal.'
       );
     }
+    case 'maker-forgotten':
+      return 'Its maker’s data was removed on request: there is nobody to block.';
     case 'not-for-a-pin':
       return 'A pin has no ruling: approve it or refuse it for this meetup alone.';
     case 'unchecked':

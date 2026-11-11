@@ -20,7 +20,7 @@ import { placeLine } from './meetup-safety.js';
 import { postLink } from './notify-dm.js';
 import { PLACE_KIND_WORDS } from './place.js';
 import { rulingLine } from './place-asks.js';
-import { memberText, plain, plainNoLinks, timestamp } from './text.js';
+import { memberTextOrFormer, plain, plainNoLinks, timestamp } from './text.js';
 import { actionRow, container, LIST_COLOUR, section, textDisplay } from './v2.js';
 
 /**
@@ -60,8 +60,13 @@ function postOf(serverId: string, channelId: string | null, messageId: string | 
     : ` · [post](<${postLink(serverId, channelId, messageId)}>)`;
 }
 
-function by(id: string, name: string | null): string {
-  return memberText({ id, name: name ?? undefined });
+/**
+ * A member in the list; "a former member" where the owner removed their data on request (plan
+ * 8G), which happens only to what is decided and over, never to what the list shows: kept all
+ * the same for a record that is not what it should be. `start`: at the beginning of a line.
+ */
+function by(id: string | null, name: string | null, start = false): string {
+  return memberTextOrFormer({ id, name }, { start });
 }
 
 /** Every entry of the list, section by section, in the order the page shows them. */
@@ -102,7 +107,7 @@ function entriesOf(view: PlacesView): Entry[] {
     ...view.appeals.map((one) => ({
       section: 'Open appeals',
       text:
-        `${by(one.memberId, one.memberName)} ${timestamp(one.createdAt, 'R')}` +
+        `${by(one.memberId, one.memberName, true)} ${timestamp(one.createdAt, 'R')}` +
         postOf(serverId, one.channelId, one.messageId),
     })),
     ...view.reports.map((one) => {

@@ -102,6 +102,23 @@ describe('the buttons of a moderators’ post', () => {
     expect(made.meetups()).toEqual([]);
   });
 
+  it('blocks nobody on an old request whose maker’s data was removed on request, and says so', async () => {
+    const made = await setup();
+    const request = await made.held();
+    await made.press(request.id, 'refuse');
+    // The owner's `/admin forget` cleared who made it (plan 8G).
+    const refused = made.storage.requests.get(request.id);
+    if (refused === undefined) throw new Error('the request is gone');
+    made.storage.requests.set(request.id, { ...refused, makerId: null, makerName: null });
+    const dmsBefore = made.dms.to(ALICE).length;
+
+    expect(told(await made.press(request.id, 'block'))).toBe(
+      'Its maker’s data was removed on request: there is nobody to block.',
+    );
+    expect(await made.storage.blocks(request.serverId)).toEqual([]);
+    expect(made.dms.to(ALICE)).toHaveLength(dmsBefore);
+  });
+
   it('refuses anybody but staff, privately and without counting', async () => {
     const made = await setup();
     const request = await made.held();
