@@ -9,6 +9,7 @@ import {
 } from '../services/member-removal.js';
 import { AUDIT_KEEP_MS } from '../services/party-audit.js';
 import { APPROVED_ACCENT, EXPIRED_ACCENT, REFUSED_ACCENT } from './meetup-safety.js';
+import { TEXT_BUDGET } from './party-post.js';
 import { count, memberText, type NamedMember } from './text.js';
 import { actionRow, LIST_COLOUR, textMessage } from './v2.js';
 
@@ -28,6 +29,17 @@ const AUDIT_DAYS = Math.round(AUDIT_KEEP_MS / (24 * 3_600_000));
  * Discord takes however many servers the index has).
  */
 const FILES_NAMED = 6;
+
+/**
+ * The characters the text of the look or of a removal's answer takes at most: well under
+ * Discord's `TEXT_BUDGET`, which a send that fails after a committed removal must never cross
+ * (final review). What is taken is said whole; what stays and the hand-work share what is left
+ * (`restOf`), their lines that do not fit folded into one (`folded`).
+ */
+export const FORGET_TEXT_BUDGET = TEXT_BUDGET - 500;
+
+/** The room kept for the line that folds the rest of a list (`foldedLine`). */
+const FOLD_ROOM = 70;
 
 /** What a removal takes, or took: the look's counts and the removal's own, in one shape. */
 interface Taken {
@@ -337,8 +349,44 @@ function byHandLines(look: Pick<MemberLook, 'memberId' | 'legacyFiles'>, byHand:
 
 const bullets = (lines: readonly string[]): string => lines.map((line) => `- ${line}`).join('\n');
 
-/** What stays and what is the owner's to do, under their headings; `stays` heads the first. */
-function restOf(look: MemberLook, written: Written, stays: string, byHand: ByHand): string[] {
+/** The characters of `texts` as text displays: what counts against `FORGET_TEXT_BUDGET`. */
+const lengthOf = (texts: readonly (string | undefined)[]): number =>
+  texts.reduce((sum, text) => sum + (text?.length ?? 0), 0);
+
+/** The line that stands for the `n` lines of a list there was no room for. */
+const foldedLine = (n: number): string =>
+  `…and ${count(n, 'more line')} that ${n === 1 ? 'does' : 'do'} not fit in this message.`;
+
+/**
+ * As many of `lines` as fit in `room` characters as bullets, in their order, the rest folded
+ * into one line (`foldedLine`, whose room is kept while more follow).
+ */
+function folded(lines: readonly string[], room: number): string[] {
+  const shown: string[] = [];
+  let used = 0;
+  for (const [n, line] of lines.entries()) {
+    const cost = line.length + 3;
+    const last = n === lines.length - 1;
+    if (used + cost + (last ? 0 : FOLD_ROOM) > room)
+      return [...shown, foldedLine(lines.length - n)];
+    shown.push(line);
+    used += cost;
+  }
+  return shown;
+}
+
+/**
+ * What stays and what is the owner's to do, under their headings; `stays` heads the first. In
+ * `room` characters: the hand-work first (what the owner must do), what stays in what is left
+ * of it, each list's lines that do not fit folded (`folded`).
+ */
+function restOf(
+  look: MemberLook,
+  written: Written,
+  stays: string,
+  byHand: ByHand,
+  room: number,
+): string[] {
   const left = leftLines(look, written);
   // Counts carry no name; said only where there was something of the member to speak of.
   const leftAll =
@@ -352,9 +400,14 @@ function restOf(look: MemberLook, written: Written, stays: string, byHand: ByHan
             'the map), and the database holds no id of theirs; the direct messages others got ' +
             'of them keep the name they had.',
         ];
+  const handHead = '**Left for you to do by hand:**\n';
+  const hand = handHead + bullets(folded(byHandLines(look, byHand), room - handHead.length));
+  const stayHead = `**${stays}**\n`;
   return [
-    ...(leftAll.length === 0 ? [] : [`**${stays}**\n${bullets(leftAll)}`]),
-    `**Left for you to do by hand:**\n${bullets(byHandLines(look, byHand))}`,
+    ...(leftAll.length === 0
+      ? []
+      : [stayHead + bullets(folded(leftAll, room - hand.length - stayHead.length))]),
+    hand,
   ];
 }
 
@@ -379,21 +432,32 @@ export function forgetLookMessage(
   const title = `### What Pine holds of ${memberText(member)}`;
   const written = { reasons: look.held.reports.reasons, records: look.held.meetups.over };
   if (!removable(look) || controls === undefined) {
+    const head = [title, 'Nothing that a removal would take: there is nothing to remove.'];
     return textMessage(EXPIRED_ACCENT, [
-      title,
-      'Nothing that a removal would take: there is nothing to remove.',
-      ...restOf(look, written, 'What stays:', byHand),
+      ...head,
+      ...restOf(look, written, 'What stays:', byHand, FORGET_TEXT_BUDGET - lengthOf(head)),
     ]);
   }
+  const head = [
+    title,
+    'Across every server.',
+    `**Remove… takes away, for good:**\n${bullets(takenLines(takenBy(look)))}`,
+  ];
+  const foot =
+    `-# Only you can press Remove…, within ${String(controls.minutes)} minutes. Nothing is ` +
+    'sent to them.';
   return textMessage(
     LIST_COLOUR,
     [
-      title,
-      'Across every server.',
-      `**Remove… takes away, for good:**\n${bullets(takenLines(takenBy(look)))}`,
-      ...restOf(look, written, 'It leaves:', byHand),
-      `-# Only you can press Remove…, within ${String(controls.minutes)} minutes. Nothing is ` +
-        'sent to them.',
+      ...head,
+      ...restOf(
+        look,
+        written,
+        'It leaves:',
+        byHand,
+        FORGET_TEXT_BUDGET - lengthOf([...head, foot]),
+      ),
+      foot,
     ],
     [actionRow([controls.remove])],
   );
@@ -419,7 +483,7 @@ export function forgetOutcomeMessage(
     reasons: outcome.removed.reportReasons,
     records: outcome.removed.meetupRecords,
   };
-  return textMessage(APPROVED_ACCENT, [
+  const head = [
     `### Removed the data of ${memberText(member)}`,
     taken.length === 0
       ? 'There was nothing to remove.'
@@ -428,9 +492,12 @@ export function forgetOutcomeMessage(
       ? undefined
       : `**${count(failed, 'kept screenshot')} could not be removed** (the log says why): ` +
         `run this again for ${failed === 1 ? 'it' : 'them'}.`,
+  ];
+  return textMessage(APPROVED_ACCENT, [
+    ...head,
     ...(outcome.after === undefined
       ? unlooked(member, written, byHand)
-      : restOf(outcome.after, written, 'Left:', byHand)),
+      : restOf(outcome.after, written, 'Left:', byHand, FORGET_TEXT_BUDGET - lengthOf(head))),
   ]);
 }
 

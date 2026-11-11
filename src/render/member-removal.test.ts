@@ -1,11 +1,11 @@
 import { ButtonBuilder, ButtonStyle } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import { NOTHING_HELD } from '../../test/support/member-data.js';
-import { textOf } from '../../test/support/messages.js';
+import { textDisplays, textOf } from '../../test/support/messages.js';
 import { expectV2Sendable } from '../../test/support/post-limits.js';
 import type { MemberHoldings } from '../db/repositories/member-data-repository.js';
 import type { MemberLook } from '../services/member-removal.js';
-import { forgetLookMessage, forgetOutcomeMessage } from './member-removal.js';
+import { FORGET_TEXT_BUDGET, forgetLookMessage, forgetOutcomeMessage } from './member-removal.js';
 import { plainNoLinks } from './text.js';
 
 const ASH = { id: '300000000000000001', name: 'Ash' };
@@ -237,6 +237,81 @@ describe('the look and the outcome of `/admin forget` in words (plan 8G)', () =>
         byHand,
       ),
     );
+  });
+
+  it('keeps the look and the outcome within its budget with every line there, folding the rest', () => {
+    const many = 9_999_999;
+    const everything: MemberHoldings = {
+      user: {
+        friendCode: true,
+        inGameName: true,
+        pokebattlerId: true,
+        wants: many,
+        targetWants: many,
+        gymTargets: many,
+        savedRoutes: many,
+      },
+      newTrains: many,
+      unownGifts: many,
+      history: { optIns: many, boards: many, fillIns: many, named: many, words: many },
+      sessions: many,
+      toolAccess: true,
+      reports: { reasons: many, about: many },
+      meetups: { blocks: many, open: many, unmade: many, live: many, over: many },
+      audit: many,
+      stopReports: many,
+      stopConfirms: many,
+      accessGrants: many,
+      staffActs: many,
+    };
+    const full = look(everything, {
+      screenshots: { sent: many, feedback: many },
+      liveParties: many,
+      savedParties: many,
+      legacyFiles: Array.from({ length: 400 }, (_unused, n) =>
+        String(412345678901234500n + BigInt(n)),
+      ),
+    });
+    // The longest name Discord gives, all of it escaped; the longest repository GitHub takes.
+    const member = { id: ASH.id, name: '*_'.repeat(16) };
+    const byHand = { requestsRepo: `${'o'.repeat(39)}/${'r'.repeat(100)}`, legacyParties: true };
+    const length = (message: ReturnType<typeof forgetLookMessage>) =>
+      textDisplays(message).reduce((sum, text) => sum + text.length, 0);
+    const shown = forgetLookMessage(member, full, CONTROLS, byHand);
+    const outcome = forgetOutcomeMessage(
+      member,
+      {
+        removed: {
+          user: everything.user,
+          newTrains: many,
+          unownGifts: many,
+          history: everything.history,
+          sessions: Array.from({ length: 10 }, (_unused, n) => String(n)),
+          toolAccess: true,
+          reportReasons: many,
+          meetupRecords: many,
+        },
+        screenshots: { removed: many, feedback: many, failed: many },
+        after: full,
+      },
+      byHand,
+    );
+    for (const message of [shown, outcome]) {
+      expect(length(message)).toBeLessThanOrEqual(FORGET_TEXT_BUDGET);
+      expectV2Sendable(message);
+    }
+    // What is taken is said whole; the rest is folded, and says that it is.
+    expect(textOf(shown)).toContain('- Their access to the Wayfarer export tool');
+    expect(textOf(shown)).toContain('Remove…, within 10 minutes');
+    expect(FORGET_TEXT_BUDGET).toBeLessThanOrEqual(3_500);
+    for (const message of [shown, outcome]) {
+      const lines = textOf(message).split('\n');
+      // The hand-work whole, what stays folded where it ran out of room.
+      expect(lines).toContain('- Posts on Discord that name them are not edited.');
+      expect(
+        lines.some((line) => /^- …and [\d,]+ more lines? that do(es)? not fit/.test(line)),
+      ).toBe(true);
+    }
   });
 });
 

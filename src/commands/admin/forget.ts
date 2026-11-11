@@ -167,13 +167,24 @@ export const forgetControls: ComponentHandler = {
     if (found === 'expired') throw new UserError(EXPIRED);
     const { member } = found.value;
     await deferSubmit(interaction);
+    let outcome;
     try {
-      const outcome = await ctx.memberRemoval.remove(member.id, interaction.user.id);
-      await answerApart(interaction, forgetOutcomeMessage(member, outcome, byHandOf(ctx)));
+      outcome = await ctx.memberRemoval.remove(member.id, interaction.user.id);
     } catch (err) {
       // Rolled back and logged by the service; anything else is the router's to say.
       if (!(err instanceof MemberRemovalError)) throw err;
       await answerApart(interaction, forgetFailedMessage(member, err.step));
+      return;
     }
+    // Committed: the data is gone, and a send Discord refuses is never answered as a failure
+    // (the answer is kept within `FORGET_TEXT_BUDGET`; this is for whatever else refuses it).
+    await answerApart(interaction, forgetOutcomeMessage(member, outcome, byHandOf(ctx))).catch(
+      (err: unknown) => {
+        ctx.log.warn(
+          { err, member: member.id },
+          'removed a member’s data; the answer could not be sent',
+        );
+      },
+    );
   },
 };

@@ -62,11 +62,13 @@ function setup(
   } = {},
 ) {
   const made = memberRemovalWith(options);
-  const base = createTestContext({ memberRemoval: made.removal }).ctx;
+  const plain = createTestContext({ memberRemoval: made.removal });
+  const base = plain.ctx;
   const { requestsRepo, legacyPartiesDir } = options;
-  const { ctx } =
+  /** `logged`: what the command itself logged (the service logs in `entries`). */
+  const { ctx, entries: logged } =
     requestsRepo === undefined && legacyPartiesDir === undefined
-      ? { ctx: base }
+      ? plain
       : createTestContext({
           memberRemoval: made.removal,
           config: {
@@ -108,12 +110,14 @@ function setup(
   const submit = async (
     dialog: NonNullable<ReturnType<typeof dialogOf>>,
     by: FakeOptions = { userId: OWNER },
+    prepare: (interaction: ReturnType<typeof fakeModal>) => void = () => undefined,
   ) => {
     const interaction = fakeModal({ customId: dialog.custom_id, form: dialog, ...by });
+    prepare(interaction);
     await router.handle(interaction as never);
     return interaction;
   };
-  return { ...made, ask, press, submit };
+  return { ...made, logged, ask, press, submit };
 }
 
 /** The command's answer as a message, and its text. */
@@ -467,6 +471,29 @@ describe('/admin forget', () => {
         (entry) => entry.msg === 'could not look at what is left of a member after the removal',
       ),
     ).toMatchObject([{ level: 40, member: ASH }]);
+  });
+
+  it('does not answer a committed removal as a failure when its answer cannot be sent', async () => {
+    const { ask, press, submit, data, entries, logged } = setup();
+    data.hold(ASH, EVERYTHING);
+    const [remove] = customIdsOf(lookOf(await ask()));
+    const pressed = await press(remove ?? '');
+    const submitted = await submit(shownDialog(pressed), { userId: OWNER }, (interaction) => {
+      // Discord refuses the outcome (the first edit of the deferred reply), once.
+      interaction.editReply.mockImplementationOnce(() =>
+        Promise.reject(new Error('Invalid Form Body')),
+      );
+    });
+    expect(data.removals).toEqual([ASH]);
+    // Nothing more is tried: no "Something went wrong" after the data is gone.
+    expect(submitted.editReply).toHaveBeenCalledTimes(1);
+    expect(submitted.followUp).not.toHaveBeenCalled();
+    expect(
+      logged.filter(
+        (entry) => entry.msg === 'removed a member’s data; the answer could not be sent',
+      ),
+    ).toMatchObject([{ level: 40, member: ASH }]);
+    expect([...entries, ...logged].some((entry) => Number(entry.level) >= 50)).toBe(false);
   });
 
   it('says so when a kept screenshot could not be removed', async () => {
