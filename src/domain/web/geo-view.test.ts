@@ -11,7 +11,7 @@ import {
 } from '../../../test/support/gyms.js';
 import type { GateLook } from '../roles/region-roles.js';
 import { buildRoster, type ServerRole } from '../roles/self-roles.js';
-import { geoView, publicRegions, type GeoInput } from './geo-view.js';
+import { geoView, publicRegionName, publicRegions, type GeoInput } from './geo-view.js';
 
 /** The invented server: West and East (and a region without an outline), its gyms by box. */
 function input(more: Partial<GeoInput> = {}): GeoInput {
@@ -174,6 +174,27 @@ function everyoneLook(
     denials: () => ({ own: false, roles: [] }),
   };
 }
+
+describe('publicRegionName (v2.0.2)', () => {
+  const byForum = { channelId: EAST_CHANNEL, forumChannelId: EAST_FORUM };
+  const byChannel = { channelId: EAST_CHANNEL, forumChannelId: null };
+
+  it('leaves the configured ending off the name of the forum that let a region in', () => {
+    expect(publicRegionName(byForum, 'area-51-board', '-board')).toBe('area-51');
+    expect(publicRegionName(byForum, 'canonsburg-meetups', '-meetups')).toBe('canonsburg');
+  });
+
+  it('shows a forum’s name as it is where it lacks the ending, or is nothing but the ending', () => {
+    expect(publicRegionName(byForum, 'east-raids', '-board')).toBe('east-raids');
+    expect(publicRegionName(byForum, 'east-board', '-meetups')).toBe('east-board');
+    expect(publicRegionName(byForum, 'east-board-x', '-board')).toBe('east-board-x');
+    expect(publicRegionName(byForum, '-board', '-board')).toBe('-board');
+  });
+
+  it('keeps the name of a region let in by its text channel, whatever it ends with', () => {
+    expect(publicRegionName(byChannel, 'east-board', '-board')).toBe('east-board');
+  });
+});
 
 describe('publicRegions (plan 8Z-2)', () => {
   const ids = (views: ReadonlyMap<string, boolean>, regions = testRegions()) =>

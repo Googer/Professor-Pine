@@ -6,7 +6,7 @@ import { regionGate } from '../domain/history/region-tally.js';
 import type { GateLook } from '../domain/roles/region-roles.js';
 import type { Roster } from '../domain/roles/self-roles.js';
 import type { Logger } from '../log.js';
-import { geoView, publicRegions } from '../domain/web/geo-view.js';
+import { geoView, publicRegionName, publicRegions } from '../domain/web/geo-view.js';
 import { REFUSED, type MayCost, type Refused } from '../services/costly.js';
 
 /** How many servers' views are kept, of each kind. */
@@ -36,6 +36,11 @@ export interface GeoSources {
         readonly generation: number;
       }
     | undefined;
+  /**
+   * What a region's forum adds to its channel's name (`settings.regionForumSuffix`), left off
+   * the forum's name in the public view (`publicRegionName`).
+   */
+  forumSuffix: string;
 }
 
 /**
@@ -131,11 +136,18 @@ export class GeoCache {
     }
     const known = new Map((channels.serverChannels(guildId) ?? []).map((c) => [c.id, c.name]));
     // Named, for the public, by the gate that let the region in (F-B1): its text channel may be
-    // one the public cannot view. Kept under the text channel, by which the view finds names.
+    // one the public cannot view; a forum without its ending (`publicRegionName`). Kept under the
+    // text channel, by which the view finds names.
     const channelNames = new Map(
       shown.flatMap((region) => {
-        const name = known.get(audience === 'public' ? regionGate(region) : region.channelId);
-        return name === undefined ? [] : [[region.channelId, name] as const];
+        if (audience === 'members') {
+          const name = known.get(region.channelId);
+          return name === undefined ? [] : [[region.channelId, name] as const];
+        }
+        const name = known.get(regionGate(region));
+        return name === undefined
+          ? []
+          : [[region.channelId, publicRegionName(region, name, this.sources.forumSuffix)] as const];
       }),
     );
     const key = JSON.stringify([

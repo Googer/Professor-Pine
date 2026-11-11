@@ -2095,6 +2095,10 @@ Right before the official release post (section 2 of `2026-10-16-phase-8l2-annou
 
 **v2.0.1, the same evening (Matt: "we could call this v2.0.1"; 2.0.0 was never announced, and 2.1 is kept for a public application):** plans 7M and 8G, the Terms of Service and the Privacy Policy, merged into `master` and tagged `v2.0.1` by the same steps; `main-dev` back on `2.1.0-dev`. Production is updated to it once (step 4, still Matt's go-ahead): the update applies migrations 050 and 051, recreates MySQL, the bot and the backup once, and needs `./pine deploy-commands` after it (a new message command, a new part of `/admin`).
 
+**Step 4 done, 2026-11-10 22:17 EST (Matt: "Yes, we're ready to update prod"):** production's clone got a branch `master` at its commit with `origin/master` as upstream, then `./pine update`: the before-update backup verified (Guild 3, Region 28, Gym 5400, User 2057), 131 commits pulled, the stack recreated in about a minute, migrations 050 and 051 applied, the bot healthy, no warning or error in its log; `./pine deploy-commands`: "Registered 75 command(s) everywhere."; one more `./pine backup` with the new code (as the bot's own account): verified. Checked after it: `db` is internal with MySQL, the bot and the backup alone; a stranger on the proxy's network gets 403; the backup container has no root password; the map answers through the tunnel; **a visitor who is not logged in gets all 28 regions and 5,395 of the 5,400 gyms** (the region roles are on Pine's roster), with `Cache-Control: private, no-cache` and `Vary: Cookie`. **Finding (Minor): that public view names each region after its forum, so the names end in "-board"** ("area-51-board"); members see the channel's name. Fix: where the forum's name is the channel's name plus "-board", the public view says the name without it.
+
+**v2.0.2, the same night (Matt: "Yes, fix it"; production's update cleared in advance):** the two Minor findings fixed: the public view names a forum-named region without the forum's ending (`publicRegionName`: "area-51-board" is shown as "area-51", from the forum's own name alone), and the answer of `/admin forget` replaces its look, so no "Remove…" is left on it. Released by the same steps; production updated to it.
+
 ## The cutover (Pittsburgh, 2026-11-09 night, the Air, main-dev 407908be; Claude drove, Matt as Googer)
 
 Runbook Part 2, the same evening as R4–R6. **Pittsburgh runs on the new bot** on the Air's `~/professor-pine` stack; legacy Pine at the office is stopped, its FireDaemon service "Pine" on manual start (the way back). **Not announced** (Matt): N7's announcement waits for his word.
@@ -3568,3 +3572,25 @@ For the Privacy Policy (`docs/legal/`, written the same day from an inventory of
 Verification is only needed to grow past 100 servers, and it gives the checkmark. The production application now belongs to a Team of Matt's, his identity is verified with Discord, and the Terms of Service and Privacy Policy links are set in the portal. **The one criterion left is an install link, and Discord accepts none for a private application ("Verified apps must be public").** Public Bot was switched off on purpose after the first audit, so that nobody adds Pittsburgh's bot to a server of their own. Before it goes back on: decide what Pine does when a server its owner did not set up adds it (an allow list of servers, or leaving at once), and what of the data two servers share today a stranger's server must not reach. Then Public Bot, the install link, Verify App.
 
 The Message Content intent was not applied for (the review was due 2026-11-11): Pine needs no privileged intent.
+
+## From the staging run of 7M and 8G (2026-11-10 night, the Air's dev stack at 442e9e50, migration 051; Googer in the built-in browser, Tester in Chrome, both driven by Claude)
+
+After `./pine update` and `./pine deploy-commands --global` on the dev stack ("Registered 75 command(s) everywhere."). No warning or error in the bot's log during the run.
+
+**8G, `/admin forget member:` on Tester (Matt: "you can delete Tester as the guinea pig"): all pass.**
+- The look lists what goes (settings, 3 wants and a saved route, the new-train notice, the history switch, 5 history entries, 1 train or meetup's name, 6 web logins, the tool access, 15 report reasons, 36 meetup records, 9 kept screenshots), what stays (1 block, 12 reports about them, the log, staff acts) and the hand-work (the old-bot history file by its path, backups, logs, GitHub, posts). "Remove…" opens "Remove a member's data … This cannot be undone. Submit removes it."; Submit answers "Removed the data of Tester" with the same lists (0.7 s).
+- The database before and after (counted by hand): Tester's `User` row, wants, route, notice, opt-in, sessions and tool access gone; their id off 2 made and 5 attended history records; 15 reasons and 19 requests now without a reporter or maker (10 appeals and 7 asks likewise); the block and the 6 log entries kept. Nobody else touched: the other user, the other 8 web logins, all 253,505 history rows.
+- A second run: "Nothing that a removal would take: there is nothing to remove.", what stays, no button.
+- Tester afterwards uses the bot as a new member (signed up for a raid below).
+- Not staged: a moderator or bot developer refused (`/admin` is hidden from Tester); "Block member" on a forgotten maker's post (the test server's posts of Tester are all decided and carry no button).
+- **Finding (Minor):** after the removal the look's own message still shows "Remove…" (a press would find the look taken). Take the button off when the answer is sent.
+- As the answer says, the moderators' old posts in `#meetup-review` still name Tester: Pine does not edit them.
+
+**7M, "Read screenshot": all pass** (a split screen with its clock repainted to now: a max battle above, a T5 raid below; `#north-side`).
+- Googer on Tester's message (no mention): private "Reported the raid at Historic Deutchtown Blumengarten: … 1 of 2: Max battles are over for today …"; the channel got only "New raid: …"; Tester's message stayed; the raid is Googer's, Tester not signed up; the kept records name Googer as sender and Tester as poster.
+- A second press by Googer: "There is already a raid at …".
+- Tester on their own message: "There is already a raid … You have been signed up for it."; the message stayed (one of its two screens was refused).
+- Tester's own text-less message with the raid's screen alone: "There is already a raid …", and the message was deleted.
+- "Screenshot feedback" on the raid's post as Tester (the poster, not the presser): the reading with the picture.
+- Refusals: Pine's own message ("That is a message of my own …"); a message without a picture ("That message has no picture I can read."); a two-week-old split screenshot ("… By its countdown this raid has already ended."); an old picture of two screens (the reader's own refusal).
+- Not staged: the gym question, a forward, a phone, the window's end, a third member's "Screenshot feedback", a check mark on another member's message when every screen made a report (none appeared when one of two was refused).

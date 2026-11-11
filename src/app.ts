@@ -1600,6 +1600,7 @@ export async function startApp(
           gyms,
           channels: partyGateway,
           roles: config.settings.features.roles ? ctx.selfRoles : undefined,
+          forumSuffix: config.settings.regionForumSuffix,
         },
         { log },
       ),

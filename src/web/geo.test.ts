@@ -205,6 +205,28 @@ describe('the regions a visitor may not see (plan 8Z-2, ruling 8)', () => {
     expect(await shown()).toEqual([1]);
   });
 
+  it('are named for a visitor by their forum without its ending, the hidden channel still nowhere', async () => {
+    const sources = await geoSourcesWith();
+    sources.hidden.add(EAST_CHANNEL);
+    sources.channelNames.set(EAST_CHANNEL, 'east-staff-only');
+    sources.channelNames.set(EAST_FORUM, 'east-board');
+    sources.channelNames.set(WEST_FORUM, 'west-board');
+    const members = new FakeMemberDirectory().add(ASH, 'Ash');
+    const made = webServerWith({ geo: sources, members });
+    web = made;
+    const visitor = (await made.app.inject({ url: GEO })).json<Shown>();
+    expect(visitor.regions.map((region) => [region.id, region.name])).toEqual([
+      [2, 'east'],
+      [1, 'west'],
+    ]);
+    expect(JSON.stringify(visitor)).not.toContain('east-staff-only');
+    expect(JSON.stringify(visitor)).not.toContain('-board');
+    // A member's view names each region by its text channel, as before.
+    const ash = await made.loggedIn(ASH, 'Ash');
+    const member = (await made.app.inject({ url: GEO, headers: { cookie: ash } })).json<Shown>();
+    expect(member.regions.map((region) => region.name)).toEqual(['east-staff-only', 'west']);
+  });
+
   it('are named for a member by their text channel, as before', async () => {
     const { ask, ash, sources } = await hiddenEast();
     sources.channelNames.set(EAST_CHANNEL, 'east-chat');

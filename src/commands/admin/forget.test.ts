@@ -5,9 +5,12 @@ import {
   asV2,
   fakeButton,
   fakeChatInput,
+  fakeMessage,
   fakeModal,
   sent,
+  type FakeMessage,
   type FakeOptions,
+  type FakeRow,
 } from '../../../test/support/fake-interactions.js';
 import { memberRemovalWith } from '../../../test/support/member-data.js';
 import { buttonsOf, customIdsOf, textOf } from '../../../test/support/messages.js';
@@ -16,6 +19,7 @@ import { createTestContext } from '../../../test/support/test-context.js';
 import { TEST_ENV } from '../../../test/support/test-env.js';
 import { components } from '../../components/index.js';
 import { REMOVAL_STEPS } from '../../db/repositories/member-data-repository.js';
+import type { V2Message } from '../../discord/party-gateway.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { admin } from './index.js';
 
@@ -83,6 +87,8 @@ function setup(
           },
         });
   const router = new InteractionRouter(ctx, [admin], components);
+  /** The private message of the latest look, as the owner sees it: its Submit edits it. */
+  let look: FakeMessage | undefined;
   /** `/admin forget member:` as somebody; the owner, who needs no role, unless `by` says. */
   const ask = async (by: FakeOptions = { userId: OWNER }, memberId = ASH, inServer = true) => {
     const interaction = fakeChatInput({
@@ -94,6 +100,8 @@ function setup(
       ...by,
     });
     await router.handle(interaction as never);
+    const answer = interaction.editReply.mock.calls[0]?.[0];
+    if (answer !== undefined) look = fakeMessage((answer.components ?? []) as FakeRow[]);
     return interaction;
   };
   const press = async (customId: string, by: FakeOptions = { userId: OWNER }) => {
@@ -112,12 +120,26 @@ function setup(
     by: FakeOptions = { userId: OWNER },
     prepare: (interaction: ReturnType<typeof fakeModal>) => void = () => undefined,
   ) => {
-    const interaction = fakeModal({ customId: dialog.custom_id, form: dialog, ...by });
+    // Submitted from the look's message, the owner's private answer.
+    const interaction = fakeModal({
+      customId: dialog.custom_id,
+      form: dialog,
+      askedBy: OWNER,
+      ephemeralMessage: true,
+      v2Message: true,
+      ...(look === undefined ? {} : { message: look }),
+      ...by,
+    });
     prepare(interaction);
     await router.handle(interaction as never);
     return interaction;
   };
-  return { ...made, logged, ask, press, submit };
+  /** The latest look's message as it is now. */
+  const lookNow = (): V2Message => ({
+    v2: true,
+    components: (look?.rows ?? []) as unknown as V2Message['components'],
+  });
+  return { ...made, logged, ask, press, submit, lookNow };
 }
 
 /** The command's answer as a message, and its text. */
@@ -217,7 +239,7 @@ describe('/admin forget', () => {
   });
 
   it('asks once more in a dialog, and removes only on its Submit', async () => {
-    const { ask, press, submit, data, screenshots, entries, ended, reporters } = setup();
+    const { ask, press, submit, data, screenshots, entries, ended, reporters, lookNow } = setup();
     data.hold(ASH, EVERYTHING);
     screenshots.keep(ASH, 4, 1);
     const [remove] = customIdsOf(lookOf(await ask()));
@@ -234,8 +256,13 @@ describe('/admin forget', () => {
     expect(pressed.deferReply).not.toHaveBeenCalled();
     expect(data.removals).toEqual([]);
 
+    expect(buttonsOf(lookNow())).toMatchObject([{ label: 'Remove…' }]);
     const submitted = await submit(dialog);
-    expect(submitted.deferReply).toHaveBeenCalledWith({ flags: MessageFlags.Ephemeral });
+    // Answered in the look's place: the look no longer offers Remove….
+    expect(submitted.deferUpdate).toHaveBeenCalled();
+    expect(submitted.deferReply).not.toHaveBeenCalled();
+    expect(buttonsOf(lookNow())).toEqual([]);
+    expect(textOf(lookNow())).toContain('### Removed the data of **Ash of Pallet**');
     expect(data.removals).toEqual([ASH]);
     expect(ended).toHaveLength(2);
     // Their reasons held in memory for a report's next post go too.
@@ -431,11 +458,13 @@ describe('/admin forget', () => {
   });
 
   it('says which step failed and that nothing was removed', async () => {
-    const { ask, press, submit, data, entries, reporters } = setup();
+    const { ask, press, submit, data, entries, reporters, lookNow } = setup();
     data.hold(ASH, EVERYTHING);
     data.failing = REMOVAL_STEPS.history;
     const [remove] = customIdsOf(lookOf(await ask()));
     const failed = await submit(shownDialog(await press(remove ?? '')));
+    // In the look's place too: its Remove… is taken, as the look is.
+    expect(buttonsOf(lookNow())).toEqual([]);
     expect(textOf(asV2(sent(failed.editReply))).split('\n')).toEqual([
       `### Nothing was removed of **Ash of Pallet** (<@${ASH}>)`,
       'The database refused the removal at **their history**, so I undid all of it: ' +
@@ -479,21 +508,48 @@ describe('/admin forget', () => {
     ).toMatchObject([{ level: 40, member: ASH }]);
   });
 
+  it('still answers when the look can no longer be edited (dismissed, its token lapsed)', async () => {
+    const { ask, press, submit, data, entries, logged } = setup();
+    data.hold(ASH, EVERYTHING);
+    const [remove] = customIdsOf(lookOf(await ask()));
+    const pressed = await press(remove ?? '');
+    const submitted = await submit(shownDialog(pressed), { userId: OWNER }, (interaction) => {
+      // Discord refuses the edit of the look, once: the owner dismissed it.
+      interaction.editReply.mockImplementationOnce(() =>
+        Promise.reject(new Error('Unknown Message')),
+      );
+    });
+    expect(data.removals).toEqual([ASH]);
+    // The outcome comes below, privately, whole.
+    const below = sent(submitted.followUp);
+    expect(below.flags).toBe(MessageFlags.Ephemeral | MessageFlags.IsComponentsV2);
+    const lines = textOf(asV2(below)).split('\n');
+    expect(lines[0]).toBe(`### Removed the data of **Ash of Pallet** (<@${ASH}>)`);
+    expect(lines).toContain('- 2 web logins');
+    expect(
+      logged.filter((entry) => entry.msg === 'could not show the outcome in place of the look'),
+    ).toMatchObject([{ level: 40, member: ASH }]);
+    expect([...entries, ...logged].some((entry) => Number(entry.level) >= 50)).toBe(false);
+  });
+
   it('does not answer a committed removal as a failure when its answer cannot be sent', async () => {
     const { ask, press, submit, data, entries, logged } = setup();
     data.hold(ASH, EVERYTHING);
     const [remove] = customIdsOf(lookOf(await ask()));
     const pressed = await press(remove ?? '');
     const submitted = await submit(shownDialog(pressed), { userId: OWNER }, (interaction) => {
-      // Discord refuses the outcome (the first edit of the deferred reply), once.
+      // Discord refuses the outcome, in the look's place and below it.
       interaction.editReply.mockImplementationOnce(() =>
+        Promise.reject(new Error('Invalid Form Body')),
+      );
+      interaction.followUp.mockImplementationOnce(() =>
         Promise.reject(new Error('Invalid Form Body')),
       );
     });
     expect(data.removals).toEqual([ASH]);
     // Nothing more is tried: no "Something went wrong" after the data is gone.
     expect(submitted.editReply).toHaveBeenCalledTimes(1);
-    expect(submitted.followUp).not.toHaveBeenCalled();
+    expect(submitted.followUp).toHaveBeenCalledTimes(1);
     expect(
       logged.filter(
         (entry) => entry.msg === 'removed a member’s data; the answer could not be sent',

@@ -74,6 +74,24 @@ export function publicRegions<
   return regions.filter((region) => open.has(region.id));
 }
 
+/**
+ * The name the public view gives a region (v2.0.2), from the name of its gate (`regionGate`,
+ * the channel that let it in, F-B1): a forum is named after its region's channel with
+ * `settings.regionForumSuffix` added (`north` and `north-board`; `/admin setup-forums`,
+ * `/region import`), so a forum's name that ends with the suffix is shown without it. Nothing
+ * else is read: the text channel's name may be one the public cannot view. A forum named
+ * otherwise, or only the suffix, and a region whose gate is its text channel keep the name.
+ */
+export function publicRegionName(
+  region: { forumChannelId: string | null; channelId: string },
+  gateName: string,
+  forumSuffix: string,
+): string {
+  if (regionGate(region) === region.channelId || !gateName.endsWith(forumSuffix)) return gateName;
+  const shortened = gateName.slice(0, gateName.length - forumSuffix.length);
+  return shortened === '' ? gateName : shortened;
+}
+
 const round = (value: number): number => Math.round(value * 1e6) / 1e6;
 
 /**
