@@ -1,6 +1,9 @@
 import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { connectionId, lockWaits } from '../../../test/support/lock-waits.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
+import type { TestDatabase } from '../../../test/support/mysql.js';
+import { createDb } from '../kysely.js';
 import type { DB } from '../types.js';
 import { GuildRepository } from './guild-repository.js';
 import { findMemberInGuild, withMemberLocked } from './member-rows.js';
@@ -16,11 +19,12 @@ const AWAY = '412345678901234568';
 describe('member rows with a memory of the rows that were seen', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
+  let database: TestDatabase;
   /** The statements since they were last cleared. */
   const statements: string[] = [];
 
   beforeAll(async () => {
-    ({ db, stop } = await startMigratedDatabase({
+    ({ db, stop, database } = await startMigratedDatabase({
       log: (event) => {
         statements.push(event.query.sql);
       },
@@ -136,6 +140,45 @@ describe('member rows with a memory of the rows that were seen', () => {
     );
     expect(seen).toBeUndefined();
     expect(ids.user(ALICE)).toBeUndefined();
+  });
+
+  // Plan 8G, review G-4: the owner's `/admin forget` deletes the row while the member's own
+  // change, which read the row's id from the table just before, waits for its lock.
+  it('makes the change as for a new member when the removal of their row commits under it', async () => {
+    const before = await addTarget(undefined);
+    const other = createDb<DB>(database.config);
+    try {
+      let release = (): void => undefined;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let locked = (): void => undefined;
+      const isLocked = new Promise<void>((resolve) => {
+        locked = resolve;
+      });
+      let removerId = 0;
+      // The removal holds the member's row, deleted, until it commits.
+      const removing = other.transaction().execute(async (trx) => {
+        removerId = await connectionId(trx);
+        await new UserRepository(trx).forget(ALICE);
+        locked();
+        await held;
+      });
+      await isLocked;
+      // The member's change: it reads the row's id (the removal has not committed), then waits
+      // for the row's lock.
+      const adding = addTarget(undefined, ALICE, HOME, '2');
+      expect(await lockWaits(db, removerId)).toBe(1);
+      release();
+      await removing;
+      const after = await adding;
+      expect(after.userId).not.toBe(before.userId);
+      // Their earlier target went with the removal; the new one hangs on their new row.
+      expect(await targets()).toEqual([{ userId: after.userId, gym: '2' }]);
+      expect(await db.selectFrom('User').select('id').execute()).toEqual([{ id: after.userId }]);
+    } finally {
+      await other.destroy();
+    }
   });
 
   it('forgets a server whose row was deleted behind the process, and makes the change on its new row', async () => {
