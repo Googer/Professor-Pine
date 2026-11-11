@@ -283,8 +283,9 @@ export interface ByHand {
 }
 
 /**
- * What only the owner can do, a line each: the old-bot history files, backups, the gym requests
- * on GitHub, posts.
+ * What only the owner can do, or what ages out by itself, a line each: the old-bot history
+ * files, the old bot's own `parties/` folder, backups, the bot's logs, the gym requests on
+ * GitHub, posts.
  */
 function byHandLines(look: Pick<MemberLook, 'memberId' | 'legacyFiles'>, byHand: ByHand): string[] {
   const files = look.legacyFiles

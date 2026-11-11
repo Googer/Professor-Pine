@@ -491,6 +491,9 @@ describe('/admin forget', () => {
     expect(details).toContain('Only the owner of this Pine can use it');
     expect(details).toContain('cannot be undone');
     expect(details).toContain('meetup blocks');
+    // As the removal does since fix round 1: ids too, and what they wrote of their parties.
+    expect(details).toContain('their id and name off the reports they made to the moderators');
+    expect(details).toContain('the names and descriptions of the trains and meetups they made');
     expect(part?.help?.examples).toEqual(['/admin forget member:@Ash']);
   });
 });

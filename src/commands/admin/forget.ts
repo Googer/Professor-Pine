@@ -71,12 +71,16 @@ export const forget: SubcommandPart = {
       'A removal takes their settings, friend code, in-game name and Pokebattler id, their ' +
       'wants, gym notices and saved routes, and their web logins, kept screenshots and access ' +
       'to the export tool.\n\n' +
-      'It takes their id out of the history of every server and switches their history and ' +
-      'boards off, and takes their name off the reports they made to the moderators and off ' +
-      'their own meetup requests that are decided.\n\n' +
+      'It takes their id out of the history of every server, with the names and descriptions ' +
+      'of the trains and meetups they made there, and switches their history and boards ' +
+      'off.\n\n' +
+      'It takes their id and name off the reports they made to the moderators and off their ' +
+      'own meetup requests, appeals and asks that are decided; what they wrote there stays, ' +
+      'without who wrote it.\n\n' +
       'It leaves what the moderators need: meetup blocks and rulings, reports about the ' +
       'person, and anything still waiting for a decision. The staff’s log ages out and what ' +
-      'is live ends by itself; counts that name nobody stay.\n\n' +
+      'is live ends by itself (a party staff saved, when they let it go); counts that name ' +
+      'nobody stay.\n\n' +
       'Backups keep the data until they age out, and posts on Discord are not edited. The ' +
       'person is not told. `member` takes an id too, for somebody who has left.',
     examples: ['/admin forget member:@Ash'],
