@@ -23,6 +23,7 @@ import { MeetupSafetyRepository } from '../db/repositories/meetup-safety-reposit
 import {
   MemberDataRepository,
   MemberRemovalError,
+  REMOVAL_STEPS,
 } from '../db/repositories/member-data-repository.js';
 import { NewTrainRepository } from '../db/repositories/new-train-repository.js';
 import { ReportRepository } from '../db/repositories/report-repository.js';
@@ -32,6 +33,7 @@ import { UnownGiftRepository } from '../db/repositories/unown-gift-repository.js
 import { UserRepository } from '../db/repositories/user-repository.js';
 import { WebSessionRepository } from '../db/repositories/web-session-repository.js';
 import type { DB } from '../db/types.js';
+import type { Decider } from '../domain/meetups/records.js';
 import { storedReport } from '../domain/ocr/screenshot-record.js';
 import { memberIndexServers, writeServerIndex } from '../ops/legacy-index.js';
 import { MemberRemoval, removable } from './member-removal.js';
@@ -264,6 +266,53 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
                                     updatedAt)
               values (${HOME}, ${`Stop ${String(n)}`}, 40, -80, ${member}, ${NOW}, ${member},
                       ${NOW})`.execute(db);
+    // The event window, a gym marked not in Wayfarer, an import and its review decided.
+    const as: Decider = { id: member, name, at: NOW };
+    await sql`insert into EventWindow (id, startsAt, endsAt, setBy, setAt)
+              values (${n}, ${NOW}, ${NOW + 1}, ${member}, ${NOW})`.execute(db);
+    await sql`insert into Gym (id, name, lat, lon) values (${100 + n}, ${`Gym ${String(n)}`}, 40,
+                                                         -80)`.execute(db);
+    await sql`insert into GymWayfarer (gymId, notInWayfarer, notInWayfarerBy, notInWayfarerAt)
+              values (${100 + n}, 1, ${member}, ${NOW})`.execute(db);
+    await sql`insert into WayspotImport (id, guildId, staffId, importedAt, counts)
+              values (${n}, 1, ${member}, ${NOW}, '{}')`.execute(db);
+    await sql`insert into GymReview (guildId, gymId, kind, candidates, importId, createdAt,
+                                     queuedAt, decidedAt, decidedBy, decision)
+              values (1, ${100 + n}, 'new', '[]', ${n}, ${NOW}, ${NOW}, ${NOW}, ${member},
+                      'keep')`.execute(db);
+    // As a moderator: a report, a request, an appeal and an ask of somebody else decided; a
+    // block of somebody else given and lifted.
+    const other = `51234567890123450${String(n)}`;
+    await reports.addReport(
+      newReport(
+        n * 10 + 3,
+        messageSubject({ messageId: `80000000000000010${String(n)}`, authorId: other }),
+      ),
+      { reporterId: STRANGER, reporterName: 'Stranger', text: 'Spam.', at: NOW },
+    );
+    await reports.decideReport(requestId(200 + n * 10 + 3), 'dismissed', null, as);
+    await safety.addRequest(newRequest(n * 10 + 3, { makerId: other, makerName: 'Other' }));
+    await safety.decideRequest(requestId(n * 10 + 3), 'refused', 'refuse', as);
+    await safety.addAppeal(newAppeal(n * 10 + 3, { memberId: other, memberName: 'Other' }));
+    await safety.decideAppeal(requestId(100 + n * 10 + 3), 'kept', as);
+    await safety.addAsk(
+      newAsk(n * 10 + 3, {
+        memberId: other,
+        memberName: 'Other',
+        key: { kind: 'stop', id: `asked-${String(n)}` },
+      }),
+    );
+    const asked = await safety.ask(requestId(300 + n * 10 + 3));
+    if (asked === undefined) throw new Error('the ask is gone');
+    // Allowing it rules the place too: a ruling of theirs more.
+    await safety.allowOnAsk(asked, as);
+    await safety.addBlock(AWAY, other, as, 'Other');
+    await safety.liftBlock(AWAY, other, as);
+    // A wild spawn they reported: kept by name, never by id.
+    await sql`insert into SpawnReport (channelId, messageId, deleteAt, reporterName, guildId,
+                                       pokemonName, madeAt)
+              values ('900000000000000002', ${`90000000000000010${String(n)}`}, ${NOW + 1},
+                      ${name}, ${HOME}, 'Pikachu', ${NOW})`.execute(db);
     // The staff's log, and what is live: a party with a click of theirs, a report at a stop
     // today, the forum they were let into.
     await sql`insert into PartyAudit (serverId, partyId, at, actorId, actorName, action)
@@ -340,6 +389,36 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     );
     await sql`update StopReport set confirmedBy = ${JSON.stringify([ALICE])}
               where reporterId = ${BOB}`.execute(db);
+    // A report both of them gave a reason on.
+    for (const [reporter, name] of [
+      [ALICE, 'Alice'],
+      [BOB, 'Bob'],
+    ] as const) {
+      await reports.addReport(newReport(90, partySubject({ partyId: requestId(790) })), {
+        reporterId: reporter,
+        reporterName: name,
+        text: `${name} saw it too.`,
+        at: NOW,
+      });
+    }
+    // A party going on that both of them signed up for: its state names both.
+    await sql`insert into Party (id, type, guildId, createdById, createdAt, updatedAt, state,
+                                 mirrorMessages)
+              values (${requestId(850)}, 'raid', 1, ${STRANGER}, ${NOW}, ${NOW},
+                      ${JSON.stringify({ attendees: { [ALICE]: { status: 1 }, [BOB]: { status: 1 } } })},
+                      '[]')`.execute(db);
+    // A train of the history Bob made and named, which Alice rode and conducted at the end.
+    await sql`insert into PartyHistory (source, kind, serverId, createdAt, ending, createdById,
+                                        conductorId, name, description)
+              values ('live', 'train', ${HOME}, ${NOW}, 'completed', ${BOB}, ${ALICE},
+                      'Bob’s loop', 'Bring water')`.execute(db);
+    const bobsTrain = Number(
+      (await sql<{ id: number }>`select max(id) as id from PartyHistory`.execute(db)).rows[0]?.id,
+    );
+    for (const [seq, member] of [BOB, ALICE].entries()) {
+      await sql`insert into PartyHistoryAttendee (historyId, seq, memberId, status, furthest)
+                values (${bobsTrain}, ${seq}, ${member}, 'here', 'here')`.execute(db);
+    }
     const keep = async (sender: string, refused = false) => {
       const id = await made.store.keep(PNG, shot(sender, refused));
       if (id === undefined) throw new Error('not kept');
@@ -376,18 +455,23 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     },
     newTrains: 2,
     unownGifts: 2,
-    // Three parties (their own, another server's, the one they share) and a report at a stop.
-    history: { optIns: 2, boards: 1, fillIns: 1, named: 4, words: 1 },
+    // Four parties (their own, another server's, the one they share, Bob's train she
+    // conducted) and a report at a stop; their own train's name and description.
+    history: { optIns: 2, boards: 1, fillIns: 1, named: 5, words: 1 },
     sessions: 2,
     toolAccess: true,
-    reports: { reasons: 1, about: 1 },
+    // Their own report, and the one both of them gave a reason on.
+    reports: { reasons: 2, about: 1 },
     meetups: { blocks: 1, open: 1, unmade: 0, over: 3 },
     // Her own entry, and Bob's that made her conductor.
     audit: 2,
     stopReports: 1,
     stopConfirms: 1,
     accessGrants: 1,
-    staffActs: 3,
+    // Two rulings (one by allowing an ask), a boss override, a stop, the event window, a gym
+    // review, a gym marked, an import, and a report, a request, an appeal, an ask and a block
+    // decided.
+    staffActs: 13,
   };
 
   it('looks: counts what Pine holds of a member over every server, and changes nothing', async () => {
@@ -428,7 +512,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       history: HELD.history,
       sessions: [sessionId(17), sessionId(18)],
       toolAccess: true,
-      reportReasons: 1,
+      reportReasons: 2,
       meetupRecords: 3,
     });
     expect(outcome.screenshots).toEqual({ removed: 2, feedback: 1, failed: 0 });
@@ -520,7 +604,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
         stopReports: 1,
         stopConfirms: 1,
         accessGrants: 1,
-        staffActs: 3,
+        staffActs: 13,
       },
       screenshots: { sent: 0, feedback: 0 },
       liveParties: 2,
@@ -606,6 +690,50 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     expect(
       entries.filter((entry) => entry.msg === 'could not remove a member’s data; nothing changed'),
     ).toMatchObject([{ level: 50, member: ALICE, by: OWNER, step: 'their web logins' }]);
+  });
+
+  it('runs all of it again after a deadlock, and removes what one run removes', async () => {
+    const made = await world();
+    const steps: string[] = [];
+    let deadlocks = 0;
+    const removal = new MemberRemoval({
+      data: new MemberDataRepository(db, new RowIds(), {
+        step: (step) => {
+          steps.push(step);
+          // The first try meets a party's recording or an opt-out in a deadlock half-way, its
+          // settings and notices already gone inside the transaction.
+          if (step === REMOVAL_STEPS.history && deadlocks === 0) {
+            deadlocks += 1;
+            throw Object.assign(new Error('Deadlock found when trying to get lock'), {
+              errno: 1213,
+            });
+          }
+        },
+      }),
+      screenshots: made.store,
+      parties: { active: () => [] },
+      log: createTestLogger().log,
+    });
+    const outcome = await removal.remove(ALICE, OWNER);
+    // The second try began from the first step, and found everything still to do.
+    expect(steps.filter((step) => step === REMOVAL_STEPS.user)).toHaveLength(2);
+    expect(steps.at(-1)).toBe(REMOVAL_STEPS.commit);
+    expect(outcome.removed).toMatchObject({
+      user: HELD.user,
+      newTrains: 2,
+      unownGifts: 2,
+      history: HELD.history,
+      reportReasons: 2,
+      meetupRecords: 3,
+    });
+    expect(outcome.after?.held.user).toBeUndefined();
+    expect(outcome.after?.held.history).toEqual({
+      optIns: 0,
+      boards: 0,
+      fillIns: 0,
+      named: 0,
+      words: 0,
+    });
   });
 
   it('names a failure after the last step as the saving of the removal, and changes nothing', async () => {
