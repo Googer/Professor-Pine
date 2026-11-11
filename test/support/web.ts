@@ -119,6 +119,8 @@ export async function geoSourcesWith() {
         };
       },
     },
+    // The settings' default, as the forums of servers set up with it are named.
+    forumSuffix: '-board',
   };
   return { gyms, directory, regionRows, regions, channelNames, hidden, unseen, opens, sources };
 }
@@ -208,6 +210,7 @@ const NOTHING: GeoSources = {
       denials: () => ({ own: false, roles: [] }),
     }),
   },
+  forumSuffix: '-board',
 };
 
 /**
