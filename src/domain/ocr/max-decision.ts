@@ -2,6 +2,7 @@ import type { RaidBossRef } from '../party/party.js';
 import type { MaxTier } from '../pogo/max-tier.js';
 import type { MaxDoubt, MaxScreenshotReport } from './max-report.js';
 import type { SpotTitle } from './power-spot-match.js';
+import { decidedLate } from './screenshot-decision.js';
 
 /**
  * What Pine does with a max battle's screenshot (design `2026-10-22-max-battle-screenshots-design.md`,
@@ -10,14 +11,25 @@ import type { SpotTitle } from './power-spot-match.js';
  * passed by the upload (`over-for-today`: `/max`'s words; Matt's M2), a countdown that is over
  * (`battle-over`), one that ends at or before the first battle (`before-first`: yesterday's
  * battle seen in the small hours), a Power Spot Pine does not know (`no-spot`, with the name and whether it
- * was read surely, for the moderators' note) and a boss it cannot tell (`no-boss`). Asked: which
+ * was read surely, for the moderators' note), a boss it cannot tell (`no-boss`) and a screen
+ * without a countdown decided long after its upload (`untimed-old`, plan 7M). Asked: which
  * Power Spot, when several may be it; the tier, when only the tier is missing (as `/max` asks).
  * Otherwise reported. No ending-soon question for a screenshot (design 5).
  */
 export type MaxDecision =
   | {
       kind: 'refuse';
-      reason: 'not-a-max-screen' | 'over-for-today' | 'battle-over' | 'before-first' | 'no-boss';
+      /**
+       * `untimed-old`: no countdown read (nor an end typed), decided more than
+       * `UNTIMED_SCREENSHOT_MAX_AGE_MS` after its upload (plan 7M, review F4).
+       */
+      reason:
+        | 'not-a-max-screen'
+        | 'over-for-today'
+        | 'battle-over'
+        | 'before-first'
+        | 'no-boss'
+        | 'untimed-old';
     }
   | { kind: 'refuse'; reason: 'no-spot'; read: string | null; readSurely: boolean }
   | { kind: 'ask'; about: 'spot'; spots: SpotTitle[]; doubts: MaxDoubt[] }
@@ -57,6 +69,12 @@ export interface MaxDecideContext {
    * over by then is over.
    */
   now: number;
+  /**
+   * When the screenshot reached Discord: every caller but "Read screenshot" (plan 7M) decides
+   * at it. A screen without a countdown is refused when `now` is more than
+   * `UNTIMED_SCREENSHOT_MAX_AGE_MS` after it (`/max`'s default end would be counted from now).
+   */
+  uploadedAt: number;
 }
 
 export function decideMax(report: MaxScreenshotReport, context: MaxDecideContext): MaxDecision {
@@ -78,6 +96,9 @@ export function decideMax(report: MaxScreenshotReport, context: MaxDecideContext
       kind: 'refuse',
       reason: report.end === report.lastBattle ? 'over-for-today' : 'battle-over',
     };
+  } else if (report.endFrom !== 'typed' && decidedLate(context)) {
+    // No countdown, read long after its upload (review F4): the default end says nothing of it.
+    return { kind: 'refuse', reason: 'untimed-old' };
   }
   const { match } = report.spot;
   if (match.kind === 'unknown') {

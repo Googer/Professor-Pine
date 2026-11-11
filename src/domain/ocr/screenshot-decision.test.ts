@@ -35,12 +35,14 @@ const doubting = (...doubts: ReportDoubt[]) => report({ doubts });
 /** Uploaded at 2,000; T5 eggs hatch as Yveltal. */
 const CONTEXT: DecideContext = {
   now: 2_000,
+  uploadedAt: 2_000,
   // A T5 raid lasts 45 minutes, an elite raid an hour.
   hatchedMinutes: (tier) => (tier.level === 'Elite' ? 60 : 45),
   autoset: (tier) => (tier.level === 'T5' ? YVELTAL : undefined),
 };
+/** Decided at its upload, unless a test says when it was uploaded. */
 const decide = (r: ScreenshotReport, context: Partial<DecideContext> = {}) =>
-  decideWith(r, { ...CONTEXT, ...context });
+  decideWith(r, { ...CONTEXT, uploadedAt: context.now ?? CONTEXT.now, ...context });
 
 describe('decide', () => {
   it('reports an egg with its time unasked', () => {
@@ -203,6 +205,68 @@ describe('decide', () => {
       doubts: ['tier-unknown', 'time-past'],
     });
     expect(decide(untiered)).toEqual({ kind: 'ask', doubts: ['tier-unknown', 'time-past'] });
+  });
+});
+
+// Plan 7M, review F4: "Read screenshot" may read a message posted a while ago. Without a time
+// read, the report's default time would be counted from the read, whatever the message's age.
+describe('decide: a screenshot without a time read, decided a while after its upload', () => {
+  const MINUTE = 60_000;
+  const UPLOADED = 2_000;
+  const untimed: [string, ScreenshotReport][] = [
+    ['an egg without a countdown', report({ countdown: null, time: null, doubts: ['no-time'] })],
+    [
+      'a hatched raid without a countdown',
+      report({ stage: 'hatched', countdown: null, time: null, doubts: ['no-time'] }),
+    ],
+    [
+      'a countdown longer than a raid lasts',
+      report({ countdown: 9 * 3600, time: { hatch: 9 * 3600_000 }, doubts: ['countdown-long'] }),
+    ],
+    [
+      'a stage it could not tell',
+      report({ stage: null, countdown: null, time: null, doubts: ['stage-unknown', 'no-time'] }),
+    ],
+  ];
+
+  it.each(untimed)('refuses %s eleven minutes after its upload', (_, untimedReport) => {
+    expect(decide(untimedReport, { now: UPLOADED + 11 * MINUTE, uploadedAt: UPLOADED })).toEqual({
+      kind: 'refuse',
+      reason: 'untimed-old',
+    });
+  });
+
+  it.each(untimed)(
+    'reports %s as before at its upload and nine minutes after',
+    (_, untimedReport) => {
+      const atUpload = decide(untimedReport, { now: UPLOADED, uploadedAt: UPLOADED });
+      expect(atUpload).toMatchObject({ kind: 'report', raid: { time: undefined } });
+      expect(decide(untimedReport, { now: UPLOADED + 9 * MINUTE, uploadedAt: UPLOADED })).toEqual(
+        atUpload,
+      );
+    },
+  );
+
+  it('keys on the age of the upload, not on when the screenshot was taken', () => {
+    // Taken an hour before its upload, by its file: decided at once, as before.
+    const takenEarlier = report({
+      countdown: null,
+      time: null,
+      takenAt: UPLOADED - 60 * MINUTE,
+      timeFrom: 'file',
+      doubts: ['no-time'],
+    });
+    expect(decide(takenEarlier, { now: UPLOADED, uploadedAt: UPLOADED })).toMatchObject({
+      kind: 'report',
+    });
+  });
+
+  it('reports a screenshot with a time read however late it is decided', () => {
+    const timed = report({ time: { hatch: UPLOADED + 60 * MINUTE } });
+    expect(decide(timed, { now: UPLOADED + 30 * MINUTE, uploadedAt: UPLOADED })).toMatchObject({
+      kind: 'report',
+      raid: { time: { hatch: UPLOADED + 60 * MINUTE } },
+    });
   });
 });
 

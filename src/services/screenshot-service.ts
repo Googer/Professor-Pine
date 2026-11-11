@@ -461,6 +461,7 @@ export class ScreenshotService implements Screenshots {
     const { settings } = context.config;
     const deciding = {
       now: where.readAt ?? where.uploadedAt,
+      uploadedAt: where.uploadedAt,
       hatchedMinutes: (tier: RaidTier, hatchTime: number) =>
         raidDurationsAt(
           raidDurationKind(tier),
@@ -541,7 +542,7 @@ export class ScreenshotService implements Screenshots {
     const use = where.maxTyped?.(read) ?? {};
     const { typed } = use;
     const report = typed ? withMaxTyped(read, typed) : read;
-    const deciding = { now: where.readAt ?? where.uploadedAt };
+    const deciding = { now: where.readAt ?? where.uploadedAt, uploadedAt: where.uploadedAt };
     const decision = decideMax(report, deciding);
     // A typed boss the screen could not take failed the use: kept as such, so it goes to review.
     const stored: StoredDecision =

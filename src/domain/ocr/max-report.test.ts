@@ -8,7 +8,7 @@ import {
 import { pokemonFixture } from '../../../test/support/providers.js';
 import type { PokemonEntry } from '../pogo/game-master.js';
 import { maxBossesAt, parseMaxBossFeed, type MaxBoss } from '../pogo/max-bosses.js';
-import { decideMax, withSpot } from './max-decision.js';
+import { decideMax, withMaxTyped, withSpot } from './max-decision.js';
 import { maxTierObservation } from './list-tier-doubt.js';
 import { maxScreenshotReport, type MaxReportContext } from './max-report.js';
 import type { SpotTitle } from './power-spot-match.js';
@@ -425,11 +425,13 @@ describe('maxScreenshotReport', () => {
 });
 
 describe('decideMax', () => {
+  /** Decided at its upload, as every caller but "Read screenshot" decides. */
+  const atUpload = (uploaded: string) => ({ now: at(uploaded), uploadedAt: at(uploaded) });
   const decided = (
     shot: ReturnType<typeof screen>,
     uploaded: string,
     taken: string | null = uploaded,
-  ) => decideMax(maxScreenshotReport(shot, context(uploaded, taken)), { now: at(uploaded) });
+  ) => decideMax(maxScreenshotReport(shot, context(uploaded, taken)), atUpload(uploaded));
 
   it('reports a clear battle with what it knows', () => {
     expect(decided(screen(), THURSDAY)).toEqual({
@@ -458,7 +460,7 @@ describe('decideMax', () => {
       context('2026-10-22T14:00', '2026-10-22T12:00'),
     );
     expect(old.doubts).toContain('time-stale');
-    expect(decideMax(old, { now: at('2026-10-22T14:00') })).toMatchObject({
+    expect(decideMax(old, atUpload('2026-10-22T14:00'))).toMatchObject({
       kind: 'report',
       battle: { sureMoment: true, timeUncertain: false, end: at('2026-10-22T15:00') },
     });
@@ -507,7 +509,7 @@ describe('decideMax', () => {
       screen({ countdown: null }),
       context('2026-10-22T21:05', '2026-10-22T20:50'),
     );
-    expect(decideMax(late, { now: at('2026-10-22T21:05') })).toEqual({
+    expect(decideMax(late, atUpload('2026-10-22T21:05'))).toEqual({
       kind: 'refuse',
       reason: 'over-for-today',
     });
@@ -556,14 +558,40 @@ describe('decideMax', () => {
       screen({ max: { powerSpot: 'MAPLE BENCH' } }),
       context(THURSDAY),
     );
-    const asked = decideMax(report, { now: at(THURSDAY) });
+    const asked = decideMax(report, atUpload(THURSDAY));
     expect(asked).toMatchObject({ kind: 'ask', about: 'spot' });
     expect(asked.kind === 'ask' && asked.about === 'spot' && asked.spots.map((s) => s.id)).toEqual([
       'w2',
       'w3',
     ]);
-    const chosen = decideMax(withSpot(report, SPOTS[2] as SpotTitle), { now: at(THURSDAY) });
+    const chosen = decideMax(withSpot(report, SPOTS[2] as SpotTitle), atUpload(THURSDAY));
     expect(chosen).toMatchObject({ kind: 'report', battle: { spotId: 'w3' } });
+  });
+
+  // Plan 7M, review F4: a max screen without a countdown gets `/max`'s default end, counted
+  // from the read: one decided a while after its upload is refused instead.
+  describe('a screen without a countdown, decided a while after its upload', () => {
+    const MINUTE = 60_000;
+    const untimed = () => maxScreenshotReport(screen({ countdown: null }), context(THURSDAY));
+    const decidedAfter = (report: ReturnType<typeof untimed>, minutes: number) =>
+      decideMax(report, { now: at(THURSDAY) + minutes * MINUTE, uploadedAt: at(THURSDAY) });
+
+    it('is refused eleven minutes after its upload', () => {
+      expect(decidedAfter(untimed(), 11)).toEqual({ kind: 'refuse', reason: 'untimed-old' });
+    });
+
+    it('is reported as before at its upload and nine minutes after', () => {
+      const atUpload = decidedAfter(untimed(), 0);
+      expect(atUpload).toMatchObject({ kind: 'report', battle: { end: at('2026-10-22T21:00') } });
+      expect(decidedAfter(untimed(), 9)).toEqual(atUpload);
+    });
+
+    it('is reported with an end typed beside it, or with a countdown, however late', () => {
+      const typed = withMaxTyped(untimed(), { end: at('2026-10-22T15:00') });
+      expect(decidedAfter(typed, 11)).toMatchObject({ kind: 'report' });
+      const timed = maxScreenshotReport(screen(), context(THURSDAY));
+      expect(decidedAfter(timed, 11)).toMatchObject({ kind: 'report' });
+    });
   });
 
   it('asks the tier when only the tier is missing', () => {

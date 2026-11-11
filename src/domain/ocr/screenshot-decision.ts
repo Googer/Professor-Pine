@@ -15,8 +15,13 @@ export type ScreenshotDecision =
    * `raid-over`: by its countdown the raid has already ended. `elite-egg-time`: an Elite egg
    * whose hatch time is not known (plan 8F-1, 8E-1): it would stand its whole incubation and
    * block every other report at its gym, so it is reported only with `/raid` and its time.
+   * `untimed-old`: no time could be read, and it is decided more than
+   * `UNTIMED_SCREENSHOT_MAX_AGE_MS` after its upload (plan 7M, review F4).
    */
-  | { kind: 'refuse'; reason: 'not-a-raid-screen' | 'no-gym' | 'raid-over' | 'elite-egg-time' }
+  | {
+      kind: 'refuse';
+      reason: 'not-a-raid-screen' | 'no-gym' | 'raid-over' | 'elite-egg-time' | 'untimed-old';
+    }
   /** The gym is not clear (or the tier, which a raid screen always has): the member chooses. */
   | { kind: 'ask'; doubts: ReportDoubt[] }
   | { kind: 'report'; raid: ScreenshotRaid; doubts: ReportDoubt[] };
@@ -51,6 +56,12 @@ export interface DecideContext {
    * over by then is over.
    */
   now: number;
+  /**
+   * When the screenshot reached Discord (the message's or interaction's time): every caller but
+   * "Read screenshot" (plan 7M) decides at it, `now`. A screenshot without a time read is
+   * refused when `now` is more than `UNTIMED_SCREENSHOT_MAX_AGE_MS` after it.
+   */
+  uploadedAt: number;
   /**
    * Minutes a raid of this tier lasts once hatched at this time (`raidDurationsAt` with the
    * settings and the raid events: an elite raid, a Raid Hour).
@@ -134,13 +145,29 @@ export function withTyped(report: ScreenshotReport, typed: TypedValues): Screens
 const UNCERTAIN: readonly ReportDoubt[] = ['time-guessed', 'time-stale', 'time-sources-differ'];
 
 /**
+ * How long after its upload a screenshot without a time read may still be decided (plan 7M,
+ * review F4): its report would take a default time counted from the read, so a hatched raid
+ * read half an hour after it was posted would get a full raid's length. Keyed on the upload,
+ * never on the moment the screenshot was taken (an Android file name can date a fresh mention's
+ * screenshot hours back). Raids and max battles alike (`decideMax`).
+ */
+export const UNTIMED_SCREENSHOT_MAX_AGE_MS = 10 * 60_000;
+
+/** Whether a screenshot decided at `now` is older than an untimed one may be. */
+export function decidedLate(context: { now: number; uploadedAt: number }): boolean {
+  return context.now - context.uploadedAt > UNTIMED_SCREENSHOT_MAX_AGE_MS;
+}
+
+/**
  * What to do with a report (see `ScreenshotDecision`). A time that has passed (Matt,
  * 2026-10-14): a hatched raid's end means the raid is over (refused); an egg whose hatch has
  * passed is reported hatched, ending its tier's length after its hatch (certain when the moment
  * of the screenshot was known: then the countdown gave the hatch exactly), with the boss it was
  * read with or the one a hatch would give it, and refused when that end has passed too (one
  * whose tier was not read is asked about like any raid without a tier). A countdown longer
- * than a raid lasts is left out. An Elite egg without its hatch time is refused (8E-1).
+ * than a raid lasts is left out. An Elite egg without its hatch time is refused (8E-1), and so
+ * is any screenshot left without a time when it is decided long after its upload (`untimed-old`,
+ * plan 7M).
  */
 export function decide(report: ScreenshotReport, context: DecideContext): ScreenshotDecision {
   const { doubts } = report;
@@ -165,6 +192,9 @@ export function decide(report: ScreenshotReport, context: DecideContext): Screen
   if (report.tier && eggNeedsHatchTime(report.tier) && !hatched && time === undefined) {
     return { kind: 'refuse', reason: 'elite-egg-time' };
   }
+  // No time to report it with, read long after its upload (review F4): the default time would
+  // be counted from now. Refused before the gym is asked, as no gym picked could mend it.
+  if (time === undefined && decidedLate(context)) return { kind: 'refuse', reason: 'untimed-old' };
   if (!report.gym.clear || report.tier === null) return { kind: 'ask', doubts };
   // The countdown of an egg past its hatch gives the hatch exactly only when the moment of the
   // screenshot is known (by its file or its clock), however long ago that was.

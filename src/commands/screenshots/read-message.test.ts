@@ -272,6 +272,25 @@ describe('Read screenshot (the Apps menu of a message, plan 7M)', () => {
     );
   });
 
+  it('refuses a screenshot without a time read from a message posted a while ago (review F4)', async () => {
+    const { use, image, store } = await setup();
+    // An egg whose countdown was misread as longer than an egg incubates, which is left out:
+    // reported at once it is an egg without a time; half an hour after it was posted that
+    // time would be counted from now.
+    const untimed = () => eggReading('Old Stone Fountain', 5, { hour: 13, minute: 29 }, 3 * 3600);
+    const { interaction } = await use([image('a.png', untimed())], {
+      target: { createdTimestamp: at('2026-10-13T13:30') },
+    });
+    expect(store.active()).toEqual([]);
+    expect(sent(interaction.editReply).content).toBe(
+      'I cannot tell from this screenshot when the raid hatches or ends, and it was posted a ' +
+        'while ago: report it with `/raid` instead.',
+    );
+    // Posted just now, it is reported as a mention reports it.
+    await use([image('b.png', untimed())], { target: { createdTimestamp: PARTY_NOW - MINUTE } });
+    expect(store.active()).toHaveLength(1);
+  });
+
   describe('a forward, whose picture is in its snapshot (review F3)', () => {
     it('reads the forwarded screenshot, as of the forwarded message', async () => {
       const { use, image, store } = await setup();

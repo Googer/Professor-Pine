@@ -302,6 +302,11 @@ export function maxRefusalWords(
         : `I do not know a Power Spot called "${plain(truncate(read, 80))}" here: use \`/max spot:\`.`;
     case 'no-boss':
       return 'I could not tell which boss: use `/max`.';
+    case 'untimed-old':
+      return (
+        'I cannot tell from this screenshot when the battle ends, and it was posted a while ago: ' +
+        'report it with `/max` instead.'
+      );
     case TYPED_BOSS_REFUSED:
       return 'The boss typed beside it cannot battle as this screen shows, so nothing was reported.';
     default:
@@ -448,6 +453,11 @@ export function refusalWords(reason: string, passive = false): string {
       return 'By its countdown this raid has already ended.';
     case 'elite-egg-time':
       return 'I could not read when this Elite egg hatches: report it with `/raid` and its hatch time.';
+    case 'untimed-old':
+      return (
+        'I cannot tell from this screenshot when the raid hatches or ends, and it was posted a ' +
+        'while ago: report it with `/raid` instead.'
+      );
     case 'two-screens':
       return TWO_SCREENS;
     case 'several':

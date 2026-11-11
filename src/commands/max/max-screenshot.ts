@@ -636,7 +636,10 @@ export async function chooseMaxShotSpot(
   acknowledging(token);
   await interaction.deferUpdate();
   if (shot.screenshotId !== undefined) await ctx.screenshots.pickedSpot(shot.screenshotId, spot.id);
-  const decision = decideMax(withSpot(shot.report, spot), { now: shot.uploadedAt });
+  const decision = decideMax(withSpot(shot.report, spot), {
+    now: shot.uploadedAt,
+    uploadedAt: shot.uploadedAt,
+  });
   await afterDeferral(interaction, async () => {
     if (decision.kind === 'report') {
       await goOn(interaction, ctx, shot, decision.battle);
