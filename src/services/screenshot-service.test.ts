@@ -242,7 +242,8 @@ describe('ScreenshotService', () => {
     const egg = () => eggReading('Old Stone Fountain', 5, null, 600);
 
     it('dates it by its upload and decides at the time it is read: an egg hatched since', async () => {
-      const { screenshots, screenshot } = screenshotsWith();
+      // Read at once (the service's clock is the upload's): `readAt` decides.
+      const { screenshots, screenshot } = screenshotsWith(undefined, () => UPLOADED);
       const atOnce = await readOne(screenshots, screenshot('a.png', egg()), where());
       if (atOnce.kind !== 'read' || atOnce.screen !== 'raid') throw new Error('not read');
       expect(atOnce.decision).toMatchObject({ kind: 'report', raid: { hatched: false } });
@@ -267,8 +268,27 @@ describe('ScreenshotService', () => {
       expect(await screenshots.get(later.id)).toMatchObject({ record: { uploadedAt: UPLOADED } });
     });
 
+    // Review F5: `readAt` is when the read was asked; the screenshot may have waited in the
+    // reader's queue since, and is decided when its reading is done.
+    it('decides at the service’s own time when that is later than when the read was asked', async () => {
+      const clock = { now: UPLOADED };
+      const { screenshots, screenshot } = screenshotsWith(undefined, () => clock.now);
+      // Asked thirty minutes after the upload, read two hours after it.
+      clock.now = UPLOADED + 2 * 3600_000;
+      const waited = await readOne(
+        screenshots,
+        screenshot('a.png', egg()),
+        where({ readAt: LATER }),
+      );
+      if (waited.kind !== 'read' || waited.screen !== 'raid') throw new Error('not read');
+      expect(waited.decision).toEqual({ kind: 'refuse', reason: 'raid-over' });
+      // Without `readAt` (every other caller) the upload's time decides, whatever the clock.
+      const posted = await readOne(screenshots, screenshot('b.png', egg()), where());
+      expect(posted).toMatchObject({ decision: { kind: 'report', raid: { hatched: false } } });
+    });
+
     it('refuses a raid that is over by the time it is read, with a gym chosen then too', async () => {
-      const { screenshots, screenshot } = screenshotsWith();
+      const { screenshots, screenshot } = screenshotsWith(undefined, () => UPLOADED);
       const over = await readOne(
         screenshots,
         screenshot('a.png', egg()),

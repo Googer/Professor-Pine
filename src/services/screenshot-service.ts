@@ -269,6 +269,11 @@ export interface ScreenshotServiceOptions {
    * `ListTierWatch`): every read, the passive ones refused included, at its upload time.
    */
   tierWatch?: Pick<ListTierWatch, 'observe'>;
+  /**
+   * The clock (`Date.now` by default): a screenshot read for `ScreenshotWhere.readAt` is decided
+   * at the later of that and this, once its reading is done (review F5 of plan 7M).
+   */
+  now?: () => number;
 }
 
 /** What `ScreenshotService` reads of the bot (`ScreenshotServiceOptions.context`). */
@@ -293,7 +298,11 @@ export type ScreenshotContext = Pick<
  * member's ordinary picture. Nothing about what a screenshot shows is logged.
  */
 export class ScreenshotService implements Screenshots {
-  constructor(private readonly options: ScreenshotServiceOptions) {}
+  private readonly now: () => number;
+
+  constructor(private readonly options: ScreenshotServiceOptions) {
+    this.now = options.now ?? Date.now;
+  }
 
   async fetch(source: ScreenshotSource): Promise<FetchOutcome> {
     if (source.size > MAX_SCREENSHOT_BYTES) return { kind: 'too-large' };
@@ -313,9 +322,10 @@ export class ScreenshotService implements Screenshots {
 
   async readPanes(
     source: ScreenshotSource | FetchedScreenshot,
-    where: ScreenshotWhere,
+    asked: ScreenshotWhere,
   ): Promise<PanesOutcome> {
     const { reader, store, context } = this.options;
+    let where = asked;
     if (source.size > MAX_SCREENSHOT_BYTES) return { kind: 'too-large' };
     // Nothing is downloaded that the reader would turn away.
     if (reader.full()) return { kind: 'busy' };
@@ -332,6 +342,10 @@ export class ScreenshotService implements Screenshots {
       ...(where.startBy === undefined ? {} : { startBy: where.startBy }),
     });
     if (outcome.kind !== 'read') return outcome;
+    // Read for a time after its upload (plan 7M): decided when its reading is done, which its
+    // wait in the reader's queue may have made later than when the read was asked (review F5).
+    if (where.readAt !== undefined)
+      where = { ...where, readAt: Math.max(where.readAt, this.now()) };
     if (!outcome.panes && outcome.twoScreens) {
       // Two screens that could not be told apart (plan 7P): refused, never read as one. Kept
       // for review as any refusal is, but read passively (a member's ordinary picture).
