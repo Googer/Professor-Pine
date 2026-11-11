@@ -93,4 +93,18 @@ describe('UnownGiftRepository', () => {
     ];
     expect(await script(gifts)).toEqual(await script(memory));
   });
+
+  it('forgets a member in every server, counted, and nobody else (plan 8G)', async () => {
+    await gifts.record(ALICE, HOME, NOW);
+    await gifts.record(ALICE, AWAY, NOW + 1);
+    await gifts.record(BOB, AWAY, NOW + 2);
+    expect(await gifts.countOf(ALICE)).toBe(2);
+
+    expect(await gifts.forget(ALICE)).toBe(2);
+
+    expect(await gifts.countOf(ALICE)).toBe(0);
+    expect(await stored()).toEqual([{ guildId: 2, memberId: BOB, createdAt: String(NOW + 2) }]);
+    expect(await gifts.forget(ALICE)).toBe(0);
+    expect(await gifts.given(BOB, AWAY)).toBe(true);
+  });
 });

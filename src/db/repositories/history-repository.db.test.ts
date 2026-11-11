@@ -229,6 +229,138 @@ describe('HistoryRepository: who is named in the history', () => {
     });
   });
 
+  describe('forgetting a member in every server (plan 8G, `/admin forget`)', () => {
+    /** The member's request for their old-bot history in a server. */
+    const asked = (server: string, member: string) =>
+      db
+        .insertInto('LegacyFillIn')
+        .values({ serverId: server, memberId: member, requestedAt: String(NOW) })
+        .execute();
+    const switches = async () => ({
+      history: await db
+        .selectFrom('HistoryOptIn')
+        .select(['serverId', 'memberId'])
+        .orderBy('serverId')
+        .orderBy('memberId')
+        .execute(),
+      boards: await db
+        .selectFrom('LeaderboardOptIn')
+        .select(['serverId', 'memberId'])
+        .orderBy('serverId')
+        .orderBy('memberId')
+        .execute(),
+      fillIns: await db
+        .selectFrom('LegacyFillIn')
+        .select(['serverId', 'memberId'])
+        .orderBy('serverId')
+        .orderBy('memberId')
+        .execute(),
+    });
+
+    beforeEach(async () => {
+      await db.deleteFrom('LegacyFillIn').execute();
+    });
+
+    it('takes their id out of every server’s history as an opt-out does there, and nobody else’s', async () => {
+      await history.joinBoards(ALICE, HOME, NOW);
+      await history.optIn(ALICE, AWAY, NOW);
+      await history.joinBoards(BOB, HOME, NOW);
+      await asked(HOME, ALICE);
+      await asked(AWAY, ALICE);
+      await asked(HOME, BOB);
+      const first = await kept(HOME, ALICE, [ALICE, null, BOB]);
+      const second = await kept(HOME, BOB, [BOB, ALICE]);
+      const elsewhere = await kept(AWAY, ALICE, [ALICE]);
+      // A server the bot left, where she never opted in: her id goes all the same.
+      const left = await kept(NOWHERE, null, [ALICE]);
+      const mine = await reported(HOME, ALICE);
+      const his = await reported(HOME, BOB);
+      const away = await reported(AWAY, ALICE);
+
+      // Four parties (each once, however it names her) and two reports.
+      const held = { optIns: 2, boards: 1, fillIns: 2, named: 6 };
+      expect(await history.heldEverywhere(ALICE)).toEqual(held);
+      expect(await history.heldEverywhere(BOB)).toEqual({
+        optIns: 1,
+        boards: 1,
+        fillIns: 1,
+        named: 3,
+      });
+
+      expect(await history.forgetEverywhere(ALICE)).toEqual(held);
+
+      expect(await history.heldEverywhere(ALICE)).toEqual({
+        optIns: 0,
+        boards: 0,
+        fillIns: 0,
+        named: 0,
+      });
+      expect(await switches()).toEqual({
+        history: [{ serverId: HOME, memberId: BOB }],
+        boards: [{ serverId: HOME, memberId: BOB }],
+        fillIns: [{ serverId: HOME, memberId: BOB }],
+      });
+      // The rows stay and count, without her id; his are as they were.
+      expect(await named()).toEqual({
+        parties: [
+          { id: first, serverId: HOME, createdById: null, conductorId: null },
+          { id: second, serverId: HOME, createdById: BOB, conductorId: BOB },
+          { id: elsewhere, serverId: AWAY, createdById: null, conductorId: null },
+          { id: left, serverId: NOWHERE, createdById: null, conductorId: null },
+        ],
+        attendees: [
+          { historyId: first, seq: 0, memberId: null },
+          { historyId: first, seq: 1, memberId: null },
+          { historyId: first, seq: 2, memberId: BOB },
+          { historyId: second, seq: 0, memberId: BOB },
+          { historyId: second, seq: 1, memberId: null },
+          { historyId: elsewhere, seq: 0, memberId: null },
+          { historyId: left, seq: 0, memberId: null },
+        ],
+      });
+      expect(await reporters()).toEqual([
+        { id: mine, serverId: HOME, reporterId: null },
+        { id: his, serverId: HOME, reporterId: BOB },
+        { id: away, serverId: AWAY, reporterId: null },
+      ]);
+      expect(await history.heldEverywhere(BOB)).toEqual({
+        optIns: 1,
+        boards: 1,
+        fillIns: 1,
+        named: 3,
+      });
+    });
+
+    it('finds nothing to forget of a member the history never named', async () => {
+      await history.optIn(BOB, HOME, NOW);
+      await kept(HOME, BOB, [BOB]);
+      const nothing = { optIns: 0, boards: 0, fillIns: 0, named: 0 };
+      expect(await history.forgetEverywhere(ALICE)).toEqual(nothing);
+      expect(await history.isOptedIn(BOB, HOME)).toBe(true);
+      expect(await history.namedIn(BOB, HOME)).toBe(1);
+    });
+
+    it('still opts a member out of one server alone', async () => {
+      await history.optIn(ALICE, HOME, NOW);
+      await history.optIn(ALICE, AWAY, NOW);
+      await asked(HOME, ALICE);
+      await asked(AWAY, ALICE);
+      await kept(HOME, ALICE, [ALICE]);
+      await kept(AWAY, ALICE, [ALICE]);
+      expect(await history.optOut(ALICE, HOME)).toEqual({
+        changed: true,
+        forgotten: 1,
+        leftBoards: false,
+      });
+      expect(await history.heldEverywhere(ALICE)).toEqual({
+        optIns: 1,
+        boards: 0,
+        fillIns: 1,
+        named: 1,
+      });
+    });
+  });
+
   describe('the switch of the boards (plan 8H-6)', () => {
     leaderboardCases(() => Promise.resolve(history));
 

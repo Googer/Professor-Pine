@@ -10,6 +10,7 @@ import {
   MOD,
   MODERATOR,
   newRequest,
+  OTHER_SERVER,
   requestId,
   SAFETY_NOW,
   SAFETY_SERVER,
@@ -334,5 +335,118 @@ describe('MeetupSafetyRepository', () => {
     });
     await store.addBlock(SAFETY_SERVER, MAKER, { ...MOD, at: MOD.at + 9 });
     expect(await lifted()).toEqual({ liftedBy: null, liftedByName: null, liftedAt: null });
+  });
+
+  describe('forgetting a member (plan 8G, `/admin forget`)', () => {
+    const BOB = '200000000000000003';
+    const names = async () => ({
+      requests: await db
+        .selectFrom('MeetupRequest')
+        .select(['id', 'makerId', 'makerName', 'makerTeam', 'status'])
+        .orderBy('id')
+        .execute(),
+      appeals: await db
+        .selectFrom('MeetupAppeal')
+        .select(['id', 'memberId', 'memberName', 'status'])
+        .orderBy('id')
+        .execute(),
+      asks: await db
+        .selectFrom('MeetupPlaceAsk')
+        .select(['id', 'memberId', 'memberName', 'status'])
+        .orderBy('id')
+        .execute(),
+      blocks: await db
+        .selectFrom('MeetupBlock')
+        .select(['serverId', 'memberId', 'memberName'])
+        .orderBy('memberId')
+        .execute(),
+    });
+
+    /**
+     * Alice in two servers: a request waiting, one approved whose meetup is not made yet, and
+     * three that are over (refused, approved with its meetup, expired); an appeal kept, one
+     * lifted and one open; an ask expired and one open; a block. Bob: one of each, all over.
+     */
+    const seeded = async () => {
+      const store = await fresh();
+      await store.addRequest(newRequest(1));
+      await store.addRequest(newRequest(2, { serverId: OTHER_SERVER }));
+      await store.decideRequest(requestId(2), 'refused', 'refuse', MOD);
+      await store.addRequest(newRequest(3));
+      await store.decideRequest(requestId(3), 'approved', 'approve', MOD);
+      await store.settleApproval(requestId(3), { partyId: requestId(900) });
+      await store.addRequest(newRequest(4));
+      await store.decideRequest(requestId(4), 'approved', 'approve-once', MOD);
+      await store.addRequest(newRequest(5));
+      await store.decideRequest(requestId(5), 'expired', null, null);
+      await store.addAppeal(newAppeal(1));
+      await store.decideAppeal(requestId(101), 'kept', MOD);
+      await store.addAppeal(newAppeal(2));
+      await store.addAppeal(newAppeal(3, { serverId: OTHER_SERVER }));
+      await store.decideAppeal(requestId(103), 'lifted', MOD);
+      await store.addAsk(newAsk(1));
+      await store.expireAsk(requestId(301));
+      await store.addAsk(newAsk(2));
+      await store.addBlock(SAFETY_SERVER, MAKER, MOD, 'Alice');
+
+      await store.addRequest(newRequest(6, { makerId: BOB, makerName: 'Bob', makerTeam: 'valor' }));
+      await store.decideRequest(requestId(6), 'refused', 'refuse', MOD);
+      await store.addAppeal(newAppeal(4, { memberId: BOB, memberName: 'Bob' }));
+      await store.decideAppeal(requestId(104), 'kept', MOD);
+      await store.addAsk(newAsk(3, { serverId: OTHER_SERVER, memberId: BOB, memberName: 'Bob' }));
+      await store.expireAsk(requestId(303));
+      await store.addBlock(SAFETY_SERVER, BOB, MOD, 'Bob');
+      return store;
+    };
+
+    it('counts a member’s blocks and their requests, appeals and asks: open, and over', async () => {
+      const store = await seeded();
+      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 4, over: 6, named: 6 });
+      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, over: 3, named: 3 });
+      expect(await store.heldOf(MODERATOR)).toEqual({ blocks: 0, open: 0, over: 0, named: 0 });
+    });
+
+    it('takes their name off what is decided and over, and leaves what is open, their block and everybody else', async () => {
+      const store = await seeded();
+      const before = await names();
+
+      expect(await store.forgetMember(MAKER)).toBe(6);
+
+      const over = [2, 3, 5].map(requestId);
+      expect(await names()).toEqual({
+        // The id stays (the column takes no row without it); the name and the team go.
+        requests: before.requests.map((row) =>
+          over.includes(row.id) ? { ...row, makerName: null, makerTeam: null } : row,
+        ),
+        appeals: before.appeals.map((row) =>
+          [requestId(101), requestId(103)].includes(row.id) ? { ...row, memberName: null } : row,
+        ),
+        asks: before.asks.map((row) =>
+          row.id === requestId(301) ? { ...row, memberName: null } : row,
+        ),
+        // A block is the moderators', lifted or not.
+        blocks: before.blocks,
+      });
+      // What waits for the moderators, or for its meetup, keeps the name it is made with.
+      expect((await store.request(requestId(1)))?.makerName).toBe('Alice');
+      expect(await store.request(requestId(4))).toMatchObject({
+        status: 'approved',
+        makerName: 'Alice',
+        makerTeam: 'mystic',
+      });
+      expect((await store.openAppeal(SAFETY_SERVER, MAKER))?.memberName).toBe('Alice');
+      expect((await store.ask(requestId(302)))?.memberName).toBe('Alice');
+      expect(await store.heldOf(MAKER)).toEqual({ blocks: 1, open: 4, over: 6, named: 0 });
+      expect(await store.heldOf(BOB)).toEqual({ blocks: 1, open: 0, over: 3, named: 3 });
+      // A row without its name still reads.
+      expect(await store.request(requestId(2))).toMatchObject({
+        makerId: MAKER,
+        makerName: null,
+        makerTeam: null,
+        status: 'refused',
+      });
+      // Run again, nothing is left to take off.
+      expect(await store.forgetMember(MAKER)).toBe(0);
+    });
   });
 });

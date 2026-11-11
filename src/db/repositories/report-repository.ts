@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import { sql, type Kysely, type Selectable } from 'kysely';
 import type { Decider } from '../../domain/meetups/records.js';
 import {
   REPORT_STATUSES,
@@ -343,6 +343,72 @@ export class ReportRepository implements ReportStore {
       ];
     });
   }
+
+  /**
+   * What the reports of every server hold of a member (plan 8G: the look of `/admin forget`):
+   * the reasons they gave, how many of those still carry their name, and the reports about them
+   * (a party they made, a message they wrote: the subject's `makerId` or `authorId`). The tables
+   * are read whole: neither is indexed by the member, both are small, and only the owner asks.
+   */
+  async heldOf(memberId: string): Promise<ReportsHeld> {
+    const reasons = await this.db
+      .selectFrom('ModerationReportReason')
+      .select((eb) => [
+        eb.fn.countAll<number | string>().as('reasons'),
+        eb.fn.count<number | string>('reporterName').as('named'),
+      ])
+      .where('reporterId', '=', memberId)
+      .executeTakeFirst();
+    const about = await sql<{ about: number | string }>`
+      select count(*) as about from ModerationReport
+      where json_unquote(json_extract(subject, '$.makerId')) = ${memberId}
+         or json_unquote(json_extract(subject, '$.authorId')) = ${memberId}`.execute(this.db);
+    return {
+      reasons: Number(reasons?.reasons ?? 0),
+      named: Number(reasons?.named ?? 0),
+      about: Number(about.rows[0]?.about ?? 0),
+    };
+  }
+
+  /**
+   * Takes a member's name off the reasons they gave, in every server (plan 8G, `/admin forget`);
+   * from how many. Their id stays: it is half of the table's primary key (one reason per
+   * reporter and report) and cannot be null, and the reason and its report stay for the
+   * moderators. Reports about the member are not touched. Their reasons are read first, without
+   * a lock, and changed by their key (the report, the reporter): a change by the reporter alone
+   * would lock every reason of the table. In the caller's transaction when `db` is one.
+   */
+  async forgetReporter(memberId: string): Promise<number> {
+    const rows = await this.db
+      .selectFrom('ModerationReportReason')
+      .select('reportId')
+      .where('reporterId', '=', memberId)
+      .where('reporterName', 'is not', null)
+      .execute();
+    if (rows.length === 0) return 0;
+    const blanked = await this.db
+      .updateTable('ModerationReportReason')
+      .set({ reporterName: null })
+      .where('reporterId', '=', memberId)
+      .where(
+        'reportId',
+        'in',
+        rows.map((row) => row.reportId),
+      )
+      .where('reporterName', 'is not', null)
+      .executeTakeFirst();
+    return Number(blanked.numUpdatedRows);
+  }
+}
+
+/** What the reports hold of a member, counted (`ReportRepository.heldOf`). */
+export interface ReportsHeld {
+  /** The reasons they gave, one per report they made or joined. */
+  reasons: number;
+  /** Of those, the ones that still carry their name. */
+  named: number;
+  /** The reports about a party they made or a message they wrote. */
+  about: number;
 }
 
 function reasonRow(reportId: string, reason: ReportReason) {

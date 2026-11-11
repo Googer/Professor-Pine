@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import { sql, type Kysely, type Selectable } from 'kysely';
 import { approvalFailureOf, REQUEST_DECISIONS } from '../../domain/meetups/records.js';
 import type {
   ApprovalOutcome,
@@ -819,6 +819,135 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
       failure: row.status === 'failed' ? failureOf(row.failure) : null,
     };
   }
+
+  /**
+   * What meetup safety holds of a member in every server (plan 8G: the look of `/admin forget`):
+   * their blocks, lifted or not, and their own requests, appeals and asks about places, those
+   * still open and those decided and over (`REQUEST_OVER`, `APPEAL_OVER`, `ASK_OVER`), of which
+   * `named` still carry their name. The tables are read whole: their indexes begin with the
+   * server, they are small, and only the owner asks.
+   */
+  async heldOf(memberId: string): Promise<MeetupRecordsHeld> {
+    const counted = await sql<Record<'blocks' | 'records' | 'closed' | 'named', number | string>>`
+      select
+        (select count(*) from MeetupBlock where memberId = ${memberId}) as blocks,
+        count(*) as records,
+        coalesce(sum(r.isOver), 0) as closed,
+        coalesce(sum(r.isOver and r.isNamed), 0) as named
+      from (
+        select ${REQUEST_OVER} as isOver,
+               (makerName is not null or makerTeam is not null) as isNamed
+          from MeetupRequest where makerId = ${memberId}
+        union all
+        select ${APPEAL_OVER}, memberName is not null
+          from MeetupAppeal where memberId = ${memberId}
+        union all
+        select ${ASK_OVER}, memberName is not null
+          from MeetupPlaceAsk where memberId = ${memberId}) r`.execute(this.db);
+    const row = counted.rows[0];
+    const over = Number(row?.closed ?? 0);
+    return {
+      blocks: Number(row?.blocks ?? 0),
+      open: Number(row?.records ?? 0) - over,
+      over,
+      named: Number(row?.named ?? 0),
+    };
+  }
+
+  /**
+   * Takes a member's name (and a request's team) off their own requests, appeals and asks about
+   * places that are decided and over, in every server (plan 8G, `/admin forget`); from how many.
+   * What is still open keeps it: a request the moderators have not decided, an approval whose
+   * meetup is not made yet (it is made with that name and team), an open appeal or ask. Their id
+   * stays on every row (`makerId`, `memberId`: the columns take no null), and so do their
+   * blocks and the rulings: the moderators' record. The rows are read first, without a lock, and
+   * changed by their ids, each only while it is still over and named: a change by the member
+   * alone would lock every row of the tables. One transaction, the caller's when `db` is one.
+   */
+  forgetMember(memberId: string): Promise<number> {
+    return inTransaction(this.db, async (trx) => {
+      const requests = await trx
+        .selectFrom('MeetupRequest')
+        .select('id')
+        .where('makerId', '=', memberId)
+        .where(REQUEST_OVER)
+        .where((eb) => eb.or([eb('makerName', 'is not', null), eb('makerTeam', 'is not', null)]))
+        .execute();
+      const appeals = await trx
+        .selectFrom('MeetupAppeal')
+        .select('id')
+        .where('memberId', '=', memberId)
+        .where(APPEAL_OVER)
+        .where('memberName', 'is not', null)
+        .execute();
+      const asks = await trx
+        .selectFrom('MeetupPlaceAsk')
+        .select('id')
+        .where('memberId', '=', memberId)
+        .where(ASK_OVER)
+        .where('memberName', 'is not', null)
+        .execute();
+      let blanked = 0;
+      if (requests.length > 0) {
+        const changed = await trx
+          .updateTable('MeetupRequest')
+          .set({ makerName: null, makerTeam: null })
+          .where('id', 'in', ids(requests))
+          .where('makerId', '=', memberId)
+          .where(REQUEST_OVER)
+          .executeTakeFirst();
+        blanked += Number(changed.numUpdatedRows);
+      }
+      if (appeals.length > 0) {
+        const changed = await trx
+          .updateTable('MeetupAppeal')
+          .set({ memberName: null })
+          .where('id', 'in', ids(appeals))
+          .where('memberId', '=', memberId)
+          .where(APPEAL_OVER)
+          .executeTakeFirst();
+        blanked += Number(changed.numUpdatedRows);
+      }
+      if (asks.length > 0) {
+        const changed = await trx
+          .updateTable('MeetupPlaceAsk')
+          .set({ memberName: null })
+          .where('id', 'in', ids(asks))
+          .where('memberId', '=', memberId)
+          .where(ASK_OVER)
+          .executeTakeFirst();
+        blanked += Number(changed.numUpdatedRows);
+      }
+      return blanked;
+    });
+  }
+}
+
+const ids = (rows: readonly { id: string }[]): string[] => rows.map((row) => row.id);
+
+/**
+ * A request that is decided and over (plan 8G): refused, expired, failed or withdrawn, or
+ * approved with its meetup made (`partyId`). Not one that waits for a moderator, nor an approval
+ * whose meetup is still to be made (the sweep of stranded approvals makes it, with the maker's
+ * name and team), nor a status this code does not know.
+ */
+const REQUEST_OVER = sql<boolean>`(status in ('refused', 'expired', 'failed', 'withdrawn')
+  or (status = 'approved' and partyId is not null))`;
+/** An appeal a moderator decided, or that expired. */
+const APPEAL_OVER = sql<boolean>`(status in ('lifted', 'kept', 'expired'))`;
+/** An ask about a place that a moderator decided, that expired, or whose ruling was undone. */
+const ASK_OVER = sql<boolean>`(status in ('allowed', 'kept', 'expired', 'undone'))`;
+
+/** What meetup safety holds of a member, counted (`MeetupSafetyRepository.heldOf`). */
+export interface MeetupRecordsHeld {
+  /** Their blocks, lifted or not. */
+  blocks: number;
+  /** Their requests, appeals and asks still open: with the moderators, or approved and not made. */
+  open: number;
+  /** Their requests, appeals and asks that are decided and over. */
+  over: number;
+  /** Of those over, the ones that still carry their name. */
+  named: number;
 }
 
 /**

@@ -265,4 +265,17 @@ export class ScriptAccessRepository implements ScriptAccessStore {
       .executeTakeFirst();
     return Number(row?.n ?? 0);
   }
+
+  /**
+   * Deletes the member's row (plan 8G, `/admin forget`): their name, their community, the state
+   * of their request and their key, which stops working with it. True when there was one. One
+   * statement, in the caller's transaction when `db` is one.
+   */
+  async forget(userId: string): Promise<boolean> {
+    const gone = await this.db
+      .deleteFrom('ScriptAccess')
+      .where('userId', '=', userId)
+      .executeTakeFirst();
+    return gone.numDeletedRows > 0n;
+  }
 }

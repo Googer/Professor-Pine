@@ -1,6 +1,11 @@
 import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { MOD, requestId, SAFETY_NOW } from '../../../test/support/meetup-safety-cases.js';
+import {
+  MOD,
+  OTHER_SERVER,
+  requestId,
+  SAFETY_NOW,
+} from '../../../test/support/meetup-safety-cases.js';
 import { connectionId, lockWaits } from '../../../test/support/lock-waits.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import type { TestDatabase } from '../../../test/support/mysql.js';
@@ -9,6 +14,7 @@ import {
   messageSubject,
   newReport,
   OTHER_REPORTER,
+  partySubject,
   reason,
   REPORTER,
   reportCases,
@@ -135,5 +141,74 @@ describe('ReportRepository', () => {
     expect(
       entries.filter((entry) => entry.msg === 'a report cannot be read; it is left alone'),
     ).toHaveLength(1);
+  });
+
+  describe('forgetting who made a report (plan 8G, `/admin forget`)', () => {
+    const OTHER_PARTY = '00000000-0000-4000-8000-0000000000bb';
+    const reasons = () =>
+      db
+        .selectFrom('ModerationReportReason')
+        .select(['reportId', 'reporterId', 'reporterName', 'text'])
+        .orderBy('reportId')
+        .orderBy('reporterId')
+        .execute();
+
+    /**
+     * Carol reported a meetup (with Dave) and, in another server, a message; Dave reported a
+     * party Carol made and a message she wrote.
+     */
+    const seeded = async () => {
+      const store = await fresh();
+      await store.addReport(newReport(1), reason(REPORTER));
+      await store.addReport(newReport(1), reason(OTHER_REPORTER, { at: SAFETY_NOW + 1 }));
+      await store.addReport(
+        newReport(2, messageSubject(), { serverId: OTHER_SERVER }),
+        reason(REPORTER, { text: 'Rude.' }),
+      );
+      await store.addReport(
+        newReport(3, partySubject({ partyId: OTHER_PARTY, makerId: REPORTER, makerName: 'Carol' })),
+        reason(OTHER_REPORTER),
+      );
+      await store.addReport(
+        newReport(4, messageSubject({ messageId: '800000000000000002', authorId: REPORTER }), {
+          serverId: OTHER_SERVER,
+        }),
+        reason(OTHER_REPORTER),
+      );
+      return store;
+    };
+
+    it('counts the reasons a member gave and the reports about them, in every server', async () => {
+      const store = await seeded();
+      expect(await store.heldOf(REPORTER)).toEqual({ reasons: 2, named: 2, about: 2 });
+      expect(await store.heldOf(OTHER_REPORTER)).toEqual({ reasons: 3, named: 3, about: 0 });
+      expect(await store.heldOf('200000000000000099')).toEqual({ reasons: 0, named: 0, about: 0 });
+    });
+
+    it('takes their name off the reasons they gave; the reports stay, and so does everybody else', async () => {
+      const store = await seeded();
+      const before = await reasons();
+
+      expect(await store.forgetReporter(REPORTER)).toBe(2);
+
+      // Her words and the reports stay for the moderators; her id stays too (the table's key).
+      expect(await reasons()).toEqual(
+        before.map((row) => (row.reporterId === REPORTER ? { ...row, reporterName: null } : row)),
+      );
+      expect(before.filter((row) => row.reporterId === REPORTER)).toHaveLength(2);
+      expect(await store.heldOf(REPORTER)).toEqual({ reasons: 2, named: 0, about: 2 });
+      expect(await store.heldOf(OTHER_REPORTER)).toEqual({ reasons: 3, named: 3, about: 0 });
+      // What others reported about her is the moderators' record: untouched.
+      expect((await store.report(requestId(203)))?.subject).toMatchObject({
+        makerId: REPORTER,
+        makerName: 'Carol',
+      });
+      expect((await store.report(requestId(201)))?.reasons).toEqual([
+        expect.objectContaining({ reporterId: REPORTER, reporterName: null }),
+        expect.objectContaining({ reporterId: OTHER_REPORTER, reporterName: 'Dave' }),
+      ]);
+      // Run again, there is nothing left to take off.
+      expect(await store.forgetReporter(REPORTER)).toBe(0);
+    });
   });
 });

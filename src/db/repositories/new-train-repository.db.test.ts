@@ -124,6 +124,23 @@ describe('NewTrainRepository', () => {
     ];
     expect(await script(trains)).toEqual(await script(memory));
   });
+
+  it('forgets a member in every server, counted, and nobody else (plan 8G)', async () => {
+    await trains.set(ALICE, HOME, true, NOW);
+    await trains.set(ALICE, AWAY, true, NOW + 1);
+    await trains.set(BOB, HOME, true, NOW + 2);
+    expect(await trains.countOf(ALICE)).toBe(2);
+    expect(await trains.countOf(CAROL)).toBe(0);
+
+    expect(await trains.forget(ALICE)).toBe(2);
+
+    expect(await trains.countOf(ALICE)).toBe(0);
+    expect(await stored()).toEqual([{ guildId: 1, memberId: BOB, createdAt: String(NOW + 2) }]);
+    // Nothing is left to forget, and somebody without a row has none.
+    expect(await trains.forget(ALICE)).toBe(0);
+    expect(await trains.forget(CAROL)).toBe(0);
+    expect(await trains.isOn(BOB, HOME)).toBe(true);
+  });
 });
 
 describe('the migration to new-train notifications per server', () => {
