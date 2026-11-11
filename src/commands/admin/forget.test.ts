@@ -493,7 +493,11 @@ describe('/admin forget', () => {
     expect(details).toContain('meetup blocks');
     // As the removal does since fix round 1: ids too, and what they wrote of their parties.
     expect(details).toContain('their id and name off the reports they made to the moderators');
-    expect(details).toContain('the names and descriptions of the trains and meetups they made');
+    // Only those recorded with their id: made while their history was on (final review).
+    expect(details).toContain(
+      'the trains and meetups they made while their history was on (a record made without it ' +
+        'does not say who made it)',
+    );
     expect(part?.help?.examples).toEqual(['/admin forget member:@Ash']);
   });
 });

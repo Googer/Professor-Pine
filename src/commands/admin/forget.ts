@@ -72,8 +72,8 @@ export const forget: SubcommandPart = {
       'wants, gym notices and saved routes, and their web logins, kept screenshots and access ' +
       'to the export tool.\n\n' +
       'It takes their id out of the history of every server, with the names and descriptions ' +
-      'of the trains and meetups they made there, and switches their history and boards ' +
-      'off.\n\n' +
+      'of the trains and meetups they made while their history was on (a record made without ' +
+      'it does not say who made it), and switches their history and boards off.\n\n' +
       'It takes their id and name off the reports they made to the moderators and off their ' +
       'own meetup requests, appeals and asks that are decided; what they wrote there stays, ' +
       'without who wrote it.\n\n' +
