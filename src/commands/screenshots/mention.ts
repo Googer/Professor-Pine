@@ -164,6 +164,16 @@ export interface ShotAsker {
 }
 
 /**
+ * What a batch read for a member who asked keeps of it (plan 7M): `startBy` (`ShotAsker`), and
+ * who posted the message, `postedBy` (review F1: a sighting against the boss lists is the
+ * poster's, `ScreenshotWhere.postedBy`).
+ */
+interface AskedFor {
+  startBy: number;
+  postedBy: string;
+}
+
+/**
  * Why nothing of a message was read. `handle` leaves such a message alone, unsaid; the member
  * who asked for one (`readFor`) is told. `not-for-me`: a bot's or a webhook's, one outside a
  * server, or one without a mention where pictures are not read passively (none of them an asked
@@ -200,7 +210,7 @@ interface Batch {
    * the message may be old, so each screenshot is decided at the time it is read
    * (`ScreenshotWhere.readAt`), and its turn in the reader must come by `startBy`.
    */
-  asker?: Pick<ShotAsker, 'startBy'>;
+  asker?: AskedFor;
   /**
    * Read from the region's board (plan 8R-9F): nothing is asked; where a mention would ask, the
    * words point to the command that asks privately (R1), and what is made is said too.
@@ -545,7 +555,7 @@ export class ScreenshotTrigger {
           mentionsBot: true,
           bare: message.bare && message.authorId === asker.id,
         },
-        asker,
+        { startBy: asker.startBy, postedBy: message.authorId },
       );
       // (A board's message is never taken for an asker: `handleNow`.)
       return handled === 'read' ? undefined : handled === 'board' ? 'post' : handled;
@@ -571,10 +581,7 @@ export class ScreenshotTrigger {
    * makes it, the member in its author's place): read where it is for the bot to read, else
    * why not (`NotRead`).
    */
-  private async handleNow(
-    message: PostedMessage,
-    asker?: Pick<ShotAsker, 'startBy'>,
-  ): Promise<Handled> {
+  private async handleNow(message: PostedMessage, asker?: AskedFor): Promise<Handled> {
     const { ctx } = this.options;
     if (this.closed) return 'closing';
     if (!ctx.config.settings.ocr.enabled) return 'off';
@@ -958,9 +965,14 @@ export class ScreenshotTrigger {
       use: passive ? 'passive' : 'mention',
       senderId: message.authorId,
       // Asked for, the message may have been posted a while ago: its screenshot is dated by
-      // the message and decided now, and read only while who asked can still be answered.
+      // the message and decided now, and read only while who asked can still be answered. Its
+      // sightings against the boss lists are its poster's (review F1).
       ...(batch.asker
-        ? { readAt: Math.max(this.now(), message.createdAt), startBy: batch.asker.startBy }
+        ? {
+            readAt: Math.max(this.now(), message.createdAt),
+            startBy: batch.asker.startBy,
+            postedBy: batch.asker.postedBy,
+          }
         : {}),
       anotherPane: () => {
         const back = anotherUse();

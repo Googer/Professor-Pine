@@ -87,6 +87,12 @@ export interface ScreenshotWhere {
   use: ScreenshotUse;
   senderId: string;
   /**
+   * The member who posted the picture, where another sent it to be read (plan 7M: "Read
+   * screenshot" on somebody's message; review F1): a sighting against the boss lists is theirs,
+   * so that one picture read for several members counts once. Absent: the sender posted it.
+   */
+  postedBy?: string;
+  /**
    * What the member typed beside it (`/raid`), in the place of what is read; a function of the
    * report for what can only be read once the report is known (a typed time is a hatch or an end
    * by the stage).
@@ -584,7 +590,8 @@ export class ScreenshotService implements Screenshots {
   }
 
   /**
-   * Tells the watch what a screenshot says against a boss list (plan 8X-J): who posted it, the
+   * Tells the watch what a screenshot says against a boss list (plan 8X-J): who posted it (the
+   * picture's poster, `postedBy`, where another member had it read: plan 7M, review F1), the
    * gym or Power Spot it showed (`place`, so that one file posted twice counts once), where and
    * when it was uploaded.
    */
@@ -599,7 +606,7 @@ export class ScreenshotService implements Screenshots {
       {
         serverId: where.guildId,
         channelId: where.channelId,
-        memberId: where.senderId,
+        memberId: where.postedBy ?? where.senderId,
         place,
         at: where.uploadedAt,
       },

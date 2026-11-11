@@ -11,8 +11,13 @@ import { createTestContext } from '../../../test/support/test-context.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { Region } from '../../db/repositories/region-repository.js';
 import { InteractionRouter } from '../../discord/router.js';
+import { listTierDoubt, type ListTierObservation } from '../../domain/ocr/list-tier-doubt.js';
+import { raidBossCp } from '../../domain/pogo/cp.js';
+import { bossStamina } from '../../domain/pogo/raid-tier.js';
 import type { ScreenReading } from '../../ocr/screen-reader.js';
 import type { OcrOutcome } from '../../services/ocr-service.js';
+import type { ScreenshotServiceOptions } from '../../services/screenshot-service.js';
+import { catalogueFixture } from '../../../test/support/game-data.js';
 import { Rehearsal } from '../../services/rehearsal.js';
 import { screenshotControls } from './feedback.js';
 import {
@@ -32,15 +37,23 @@ import {
 
 const CLOCK = { hour: 13, minute: 59 };
 const MINUTE = 60_000;
+/** A third member. */
+const THIRD = '700000000000000003';
 /** A post of a forum, and the region's board among them. */
 const POST = '850000000000000001';
 
 async function setup(
-  options: { gyms?: Gym[]; enabled?: boolean; rehearsal?: Rehearsal; board?: boolean } = {},
+  options: {
+    gyms?: Gym[];
+    enabled?: boolean;
+    rehearsal?: Rehearsal;
+    board?: boolean;
+    watch?: ScreenshotServiceOptions['tierWatch'];
+  } = {},
 ) {
   const gyms = gymsFixture(options.gyms ?? []);
   const made = await partyServiceWith([], { gyms });
-  const shots = screenshotsWith(createTestContext({ gyms }).ctx);
+  const shots = screenshotsWith(createTestContext({ gyms }).ctx, undefined, options.watch);
   const { ctx: base } = createTestContext({
     gyms,
     partyService: made.service,
@@ -216,6 +229,45 @@ describe('a message’s screenshots read because a member asked (plan 7M)', () =
     await trigger.readFor(asked(worded.message), self());
     vi.advanceTimersByTime(20);
     expect(worded.did).not.toContain('deleted');
+  });
+
+  it('counts a picture read for several members once against the boss list, by who posted it (review F1)', async () => {
+    const seen: ListTierObservation[] = [];
+    const { trigger, image } = await setup({
+      watch: {
+        observe: ({ memberId, place, at: when }, sighting) => {
+          seen.push({ memberId, place, at: when, ...sighting });
+        },
+      },
+    });
+    // A hatched raid whose CP and name at one head's tier are Starmie's, listed at T3.
+    const starmie = catalogueFixture().byKey('starmie');
+    if (!starmie) throw new Error('starmie');
+    const misread = () =>
+      readingOf(
+        {
+          gym: 'Old Stone Fountain',
+          clock: CLOCK,
+          countdown: 30 * 60,
+          countdownPlace: 'right',
+          cp: raidBossCp(starmie.stats, bossStamina({ level: 'T1', shadow: false })),
+          bossName: 'Starmie',
+        },
+        { heads: 1 },
+      );
+    // One message's picture, read for its author and for two other members.
+    const { message } = posted([image('a.png', misread())], { mentionsBot: false });
+    for (const who of [self(), asker(), asker({ id: THIRD })]) {
+      expect(await trigger.readFor(asked(message), who)).toBeUndefined();
+    }
+    expect(seen).toHaveLength(3);
+    expect(listTierDoubt(seen, Date.now())).toEqual([]);
+    // Three members' own pictures of it still tell the moderators.
+    for (const [i, authorId] of [OTHER, THIRD].entries()) {
+      await trigger.handle(posted([image(`b${String(i)}.png`, misread())], { authorId }).message);
+    }
+    expect(listTierDoubt(seen, Date.now())).toMatchObject([{ bossKey: 'starmie', count: 3 }]);
+    await trigger.close();
   });
 
   describe('a message posted a while ago', () => {
