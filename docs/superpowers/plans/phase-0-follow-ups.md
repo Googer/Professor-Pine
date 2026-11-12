@@ -3584,6 +3584,8 @@ The Message Content intent was not applied for (the review was due 2026-11-11): 
 
 ### One instance for many servers, and sharding (Matt, 2026-11-12: a 2.1 design item)
 
+**Designed and reviewed on 2026-11-12: `docs/superpowers/specs/2026-11-12-multi-server-instance-design.md`** (the plans A to E at its end; none written yet). What follows is the first look it started from.
+
 The aim: Pine as a public application, one instance that serves many servers that do not interfere with one another, with a public invite link, so that a community can start without hosting Pine itself. Self-hosting stays as it is. Matt will not run such an instance yet, for lack of hardware for it today, but may offer a truly public one later: the work is making Pine able to, built to run in earnest when that day comes, and off by default until then. Sharding is a likely follow-up, maybe part of it from the start.
 
 Earlier notes that already lean this way: "A time zone per server" (Matt, 2026-10-14, under Phase 7: "decide when such an installation exists"); the web map's spec, "One instance serves several Discord servers" (`2026-10-15-web-map-region-editor-design.md`, every address `/s/<guild>/…`); the top page's "No public list of servers" (`2026-10-29-web-top-page-design.md`); "keep the application non-public" and the gyms in no region (under "Phase 8 (cutover, the admin migration guide)" and 5A); and v2.0.1's note that 2.1 is kept for a public application. Sharding is new here.
