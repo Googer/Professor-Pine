@@ -702,6 +702,40 @@ describe('PartyScheduler: running', () => {
     expect(pruned).toBe(1);
   });
 
+  // Plan 19A-1: the staff's log of a server's settings keeps 30 days, as the parties' log.
+  it("has the staff's log of server settings swept with the upkeep, after the parties' log", async () => {
+    const made = await reportedRaid();
+    const swept: string[] = [];
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      audit: {
+        sweep: () => {
+          swept.push('parties');
+          return Promise.reject(new Error('the database is away'));
+        },
+      },
+      settingsAudit: {
+        sweep: () => {
+          swept.push('settings');
+          return Promise.resolve(0);
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    expect(swept).toEqual(['parties', 'settings']);
+  });
+
   // Plan 8Z-2: the pictures of places beside a post's Where, which nothing bounded.
   it('has the pictures of places nobody asked for deleted with the upkeep, also when the maps’ fail', async () => {
     const made = await reportedRaid();

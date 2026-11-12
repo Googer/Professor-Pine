@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { ServerSettingsAuditReader } from '../../src/db/repositories/server-settings-audit-repository.js';
 import type {
   ServerSettingsStorage,
   StoredServer,
@@ -21,15 +22,21 @@ export function filledRow(overrides: Partial<StoredServer> = {}): StoredServer {
   };
 }
 
+/** The staff member of the cases, as a change names them. */
+export const SETTINGS_ACTOR = { id: SETTINGS_STAFF, name: 'Staff' };
+
 /**
  * What every `ServerSettingsStorage` does (`ServerSettingsRepository`, `MemoryServerSettings`):
- * `fresh` gives one that keeps nothing yet.
+ * `fresh` gives one that keeps nothing yet, and the log its writes go to (`log`).
  */
-export function serverSettingsCases(fresh: () => Promise<ServerSettingsStorage>): void {
+export function serverSettingsCases(
+  fresh: () => Promise<{ store: ServerSettingsStorage; log: ServerSettingsAuditReader }>,
+): void {
   describe('ServerSettingsStorage', () => {
     let store: ServerSettingsStorage;
+    let log: ServerSettingsAuditReader;
     beforeEach(async () => {
-      store = await fresh();
+      ({ store, log } = await fresh());
     });
 
     it('keeps no server until one is written', async () => {
@@ -48,7 +55,7 @@ export function serverSettingsCases(fresh: () => Promise<ServerSettingsStorage>)
       await store.create(filledRow());
       await store.create(filledRow({ serverId: OTHER_SETTINGS_SERVER, setUpAt: null }));
       const changed = { distanceUnits: 'imperial', flaggedWords: ['garden'] };
-      await store.write(SETTINGS_SERVER, changed, SETTINGS_NOW + 60_000, SETTINGS_STAFF);
+      await store.write(SETTINGS_SERVER, changed, SETTINGS_NOW + 60_000, SETTINGS_ACTOR, []);
       expect(await store.one(SETTINGS_SERVER)).toEqual(
         filledRow({
           settings: changed,
@@ -62,7 +69,7 @@ export function serverSettingsCases(fresh: () => Promise<ServerSettingsStorage>)
     });
 
     it('gives a server without a row one when its values are written, not set up', async () => {
-      await store.write(SETTINGS_SERVER, { postNewGyms: true }, SETTINGS_NOW, SETTINGS_STAFF);
+      await store.write(SETTINGS_SERVER, { postNewGyms: true }, SETTINGS_NOW, SETTINGS_ACTOR, []);
       expect(await store.all()).toEqual([
         {
           serverId: SETTINGS_SERVER,
@@ -70,6 +77,39 @@ export function serverSettingsCases(fresh: () => Promise<ServerSettingsStorage>)
           setUpAt: null,
           updatedAt: SETTINGS_NOW,
           updatedBy: SETTINGS_STAFF,
+        },
+      ]);
+    });
+
+    it("logs each setting the write changed, with who and when, in the staff's log", async () => {
+      await store.create(filledRow());
+      await store.write(
+        SETTINGS_SERVER,
+        { distanceUnits: 'imperial', postNewGyms: true },
+        SETTINGS_NOW + 60_000,
+        SETTINGS_ACTOR,
+        [
+          { key: 'distanceUnits', before: 'metric', after: 'imperial' },
+          { key: 'postNewGyms', before: false, after: true },
+        ],
+      );
+      const logged = await log.ofServer(SETTINGS_SERVER, 10);
+      expect(logged.map(({ id: _id, ...row }) => row)).toEqual([
+        {
+          serverId: SETTINGS_SERVER,
+          at: SETTINGS_NOW + 60_000,
+          actor: SETTINGS_ACTOR,
+          key: 'distanceUnits',
+          before: 'metric',
+          after: 'imperial',
+        },
+        {
+          serverId: SETTINGS_SERVER,
+          at: SETTINGS_NOW + 60_000,
+          actor: SETTINGS_ACTOR,
+          key: 'postNewGyms',
+          before: false,
+          after: true,
         },
       ]);
     });

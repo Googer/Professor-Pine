@@ -85,6 +85,7 @@ const ADDED_TABLES = [
   'EndedPartyCopy',
   'EventWindow',
   'ServerSettings',
+  'ServerSettingsAudit',
 ];
 /** The columns it adds to tables of the legacy bot, as `Table.column`. */
 const ADDED_COLUMNS = [
@@ -234,6 +235,7 @@ describe('runMigrations', () => {
       '2026_11_10_050_sweep_indexes',
       '2026_11_10_051_forgettable_members',
       '2026_11_12_052_server_settings',
+      '2026_11_12_053_server_settings_audit',
     ]);
     expect(
       await describeSchema(

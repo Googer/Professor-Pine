@@ -11,16 +11,19 @@ import {
   OTHER_SETTINGS_SERVER,
   SETTINGS_NOW,
   SETTINGS_SERVER,
+  SETTINGS_ACTOR,
   SETTINGS_STAFF,
 } from '../../test/support/server-settings-cases.js';
 import { MemoryServerSettings } from '../../test/support/server-settings.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
 import { UserError } from '../discord/errors.js';
+import { AUDIT_KEEP_MS } from './party-audit.js';
 import { ServerSettings, SETTINGS_LOADING } from './server-settings.js';
 
 const settings = loadSettings(TEST_SETTINGS_PATH);
 const BOT_LAB = '300000000000000001';
+const MODERATION = '300000000000000009';
 const THIRD_SERVER = '412345678901234569';
 
 /** The test settings with a moderators' channel and a map member role named. */
@@ -50,7 +53,13 @@ async function servicesWith(rows = [filledRow()], file: Settings = settings) {
   const store = new MemoryServerSettings(rows);
   const { log, entries } = createTestLogger();
   let now = SETTINGS_NOW;
-  const servers = new ServerSettings({ store, settings: file, log, now: () => now });
+  const servers = new ServerSettings({
+    store,
+    audit: store.audit,
+    settings: file,
+    log,
+    now: () => now,
+  });
   await servers.load();
   return {
     store,
@@ -121,7 +130,7 @@ describe('ServerSettings', () => {
     const after = await servers.set(
       SETTINGS_SERVER,
       (values) => ({ ...values, flaggedWords: ['garden'] }),
-      SETTINGS_STAFF,
+      SETTINGS_ACTOR,
     );
     expect(after.flaggedWords).toEqual(['garden']);
     expect(servers.of(SETTINGS_SERVER).flaggedWords).toEqual(['garden']);
@@ -137,7 +146,7 @@ describe('ServerSettings', () => {
     const { servers, store } = await servicesWith();
     store.failing.set('write', new Error('database away'));
     await expect(
-      servers.set(SETTINGS_SERVER, (values) => ({ ...values, postNewGyms: true }), SETTINGS_STAFF),
+      servers.set(SETTINGS_SERVER, (values) => ({ ...values, postNewGyms: true }), SETTINGS_ACTOR),
     ).rejects.toThrow('database away');
     expect(servers.of(SETTINGS_SERVER).postNewGyms).toBe(false);
     store.failing.delete('write');
@@ -145,7 +154,7 @@ describe('ServerSettings', () => {
       servers.set(
         SETTINGS_SERVER,
         (values) => ({ ...values, channels: { ...values.channels, moderation: BOT_LAB } }),
-        SETTINGS_STAFF,
+        SETTINGS_ACTOR,
       ),
     ).rejects.toThrow('must be a channel of its own');
     expect(servers.of(SETTINGS_SERVER).channels).toEqual({ 'bot-lab': BOT_LAB });
@@ -158,12 +167,12 @@ describe('ServerSettings', () => {
       servers.set(
         SETTINGS_SERVER,
         (v) => ({ ...v, flaggedWords: [...v.flaggedWords, 'a'] }),
-        SETTINGS_STAFF,
+        SETTINGS_ACTOR,
       ),
       servers.set(
         SETTINGS_SERVER,
         (v) => ({ ...v, flaggedWords: [...v.flaggedWords, 'b'] }),
-        SETTINGS_STAFF,
+        SETTINGS_ACTOR,
       ),
     ]);
     expect(servers.of(SETTINGS_SERVER).flaggedWords).toEqual(['a', 'b']);
@@ -176,16 +185,16 @@ describe('ServerSettings', () => {
     const create = store.create.bind(store);
     store.create = (row) =>
       row.serverId === THIRD_SERVER ? written.promise.then(() => create(row)) : create(row);
-    const filling = servers.create(THIRD_SERVER, fileDefaults(settings), false);
+    const filling = servers.create(THIRD_SERVER, servers.defaults(), false);
     // Another server's change and fill go through meanwhile.
-    await servers.set(SETTINGS_SERVER, (v) => ({ ...v, postNewGyms: true }), SETTINGS_STAFF);
+    await servers.set(SETTINGS_SERVER, (v) => ({ ...v, postNewGyms: true }), SETTINGS_ACTOR);
     expect(servers.of(SETTINGS_SERVER).postNewGyms).toBe(true);
-    expect(await servers.create(OTHER_SETTINGS_SERVER, fileDefaults(settings), false)).toBe(true);
+    expect(await servers.create(OTHER_SETTINGS_SERVER, servers.defaults(), false)).toBe(true);
     // A change of the held server waits for its fill, then runs.
     const changing = servers.set(
       THIRD_SERVER,
       (v) => ({ ...v, distanceUnits: 'imperial' }),
-      SETTINGS_STAFF,
+      SETTINGS_ACTOR,
     );
     written.resolve();
     expect(await filling).toBe(true);
@@ -197,11 +206,62 @@ describe('ServerSettings', () => {
     const refused = servers.set(
       OTHER_SETTINGS_SERVER,
       (values) => ({ ...values, distanceUnits: 'imperial' }),
-      SETTINGS_STAFF,
+      SETTINGS_ACTOR,
     );
     await expect(refused).rejects.toThrow(SETTINGS_LOADING);
     await expect(refused).rejects.toBeInstanceOf(UserError);
     expect(store.rows.has(OTHER_SETTINGS_SERVER)).toBe(false);
     expect(servers.of(OTHER_SETTINGS_SERVER)).toEqual(fileDefaults(settings));
+  });
+
+  it("logs each setting a change changed in the staff's log, with who and when", async () => {
+    const { servers, store, pass } = await servicesWith();
+    pass(60_000);
+    await servers.set(
+      SETTINGS_SERVER,
+      (values) => ({
+        ...values,
+        channels: { ...values.channels, moderation: MODERATION },
+        postNewGyms: true,
+      }),
+      SETTINGS_ACTOR,
+    );
+    expect(store.audit.rows.map(({ id: _id, ...row }) => row)).toEqual([
+      {
+        serverId: SETTINGS_SERVER,
+        at: SETTINGS_NOW + 60_000,
+        actor: SETTINGS_ACTOR,
+        key: 'channels.moderation',
+        before: null,
+        after: MODERATION,
+      },
+      {
+        serverId: SETTINGS_SERVER,
+        at: SETTINGS_NOW + 60_000,
+        actor: SETTINGS_ACTOR,
+        key: 'postNewGyms',
+        before: false,
+        after: true,
+      },
+    ]);
+  });
+
+  it('writes nothing for a change that changes nothing: no row, no entry of the log', async () => {
+    const { servers, store, pass } = await servicesWith();
+    pass(60_000);
+    const after = await servers.set(SETTINGS_SERVER, (values) => ({ ...values }), SETTINGS_ACTOR);
+    expect(after).toEqual(servers.of(SETTINGS_SERVER));
+    expect(store.rows.get(SETTINGS_SERVER)).toEqual(filledRow());
+    expect(store.audit.rows).toEqual([]);
+  });
+
+  it("deletes the log's entries older than 30 days (the hourly upkeep)", async () => {
+    const { servers, store, pass } = await servicesWith();
+    await servers.set(SETTINGS_SERVER, (v) => ({ ...v, postNewGyms: true }), SETTINGS_ACTOR);
+    pass(AUDIT_KEEP_MS);
+    expect(await servers.sweepLog()).toBe(0);
+    pass(1);
+    expect(await servers.sweepLog()).toBe(1);
+    expect(store.audit.rows).toEqual([]);
   });
 });

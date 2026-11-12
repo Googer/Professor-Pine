@@ -15,6 +15,15 @@ export function memberInfo(interaction: LocatedInteraction): MemberInfo {
 }
 
 /**
+ * Who made an interaction, as a log names them (the staff's log of a server's settings, plan
+ * 19A-1): their id, and their name in the server where the interaction says it.
+ */
+export function actorOf(interaction: LocatedInteraction): { id: string; name?: string } {
+  const { name } = memberInfo(interaction);
+  return name === undefined ? { id: interaction.user.id } : { id: interaction.user.id, name };
+}
+
+/**
  * A member's name in the server and their team, as `memberInfo` reads them from an
  * interaction: also for a member fetched from Discord (a press on the live map, plan 8M-3).
  */

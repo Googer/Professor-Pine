@@ -4,12 +4,18 @@ import {
   fileUnmatched,
   parseServerValues,
   serverValuesSchema,
+  settingChanges,
   type ServerValues,
 } from '../config/server-settings.js';
 import type { Settings } from '../config/settings.js';
+import type {
+  ServerSettingsAuditStore,
+  SettingsActor,
+} from '../db/repositories/server-settings-audit-repository.js';
 import type { ServerSettingsStorage } from '../db/repositories/server-settings-repository.js';
 import { UserError } from '../discord/errors.js';
 import type { Logger } from '../log.js';
+import { AUDIT_KEEP_MS } from './party-audit.js';
 
 /**
  * What a change of a server's values is refused with while the server has no row (review F5):
@@ -41,18 +47,41 @@ export interface ServerSettingsService extends ServerSettingsLookup {
   /**
    * Changes a server's values: `change` gets them as they are (after every change asked before
    * it) and gives them changed. Checked (`ServerValuesError` for a value that is not valid,
-   * nothing written), written with `by` and the time, then kept. The values as kept. Refused
-   * (`SETTINGS_LOADING`) while the server has no row.
+   * nothing written), written with `by` and the time, each setting it changed into the staff's
+   * log in the same step, then kept. A change that changes nothing writes nothing. The values as
+   * kept. Refused (`SETTINGS_LOADING`) while the server has no row.
    */
   set(
     serverId: string,
     change: (values: ServerValues) => ServerValues,
-    by: string,
+    by: SettingsActor,
   ): Promise<ServerValues>;
 }
 
-/** A change of a server's values that is not a valid value: nothing was written. */
-export class ServerValuesError extends Error {}
+/**
+ * One setting a change of a server's values refused: its key, the checker's message (for the
+ * log), and for a channel that would be the same as another the other's key (`same`,
+ * `channels.bot-lab`; fix round 3, H2), so that the panel names it.
+ */
+export interface ValuesProblem {
+  key: string;
+  message: string;
+  same?: string;
+}
+
+/**
+ * A change of a server's values that is not a valid value: nothing was written. `problems`: each
+ * setting refused (its key, `channels.moderation`) and why, which `/admin settings` words.
+ */
+export class ServerValuesError extends Error {
+  constructor(
+    message: string,
+    readonly problems: readonly ValuesProblem[] = [],
+  ) {
+    super(message);
+    this.name = 'ServerValuesError';
+  }
+}
 
 interface Kept {
   values: ServerValues;
@@ -87,6 +116,8 @@ export class ServerSettings implements ServerSettingsService {
   constructor(
     private readonly options: {
       store: ServerSettingsStorage;
+      /** The staff's log of settings, which `store.write` writes and `sweepLog` sweeps. */
+      audit?: Pick<ServerSettingsAuditStore, 'deleteBefore'>;
       /** The file's settings: their server keys are the defaults of a server without a row. */
       settings: Settings;
       log: Logger;
@@ -147,14 +178,19 @@ export class ServerSettings implements ServerSettingsService {
   async set(
     serverId: string,
     change: (values: ServerValues) => ServerValues,
-    by: string,
+    by: SettingsActor,
   ): Promise<ServerValues> {
     await this.fills.get(serverId);
     return this.inTurn(serverId, async () => {
       const kept = this.kept.get(serverId);
       if (kept === undefined) throw new UserError(SETTINGS_LOADING, { givesBack: true });
-      const values = checkServerValues(change(kept.values));
-      await this.options.store.write(serverId, values, this.now(), by);
+      const before = kept.values;
+      const values = checkServerValues(change(before));
+      // Each setting it changed goes into the staff's log with the values; nothing changed,
+      // nothing is written.
+      const changes = settingChanges(before, values);
+      if (changes.length === 0) return before;
+      await this.options.store.write(serverId, values, this.now(), by, changes);
       this.kept.set(serverId, { values, setUpAt: kept.setUpAt });
       return values;
     });
@@ -169,6 +205,15 @@ export class ServerSettings implements ServerSettingsService {
     void done.finally(() => {
       if (this.fills.get(serverId) === done) this.fills.delete(serverId);
     });
+  }
+
+  /**
+   * Deletes the entries of the staff's log of settings older than `AUDIT_KEEP_MS` (30 days, as
+   * `PartyAudit`'s), with the scheduler's hourly upkeep; gives how many.
+   */
+  async sweepLog(): Promise<number> {
+    const { audit } = this.options;
+    return audit === undefined ? 0 : audit.deleteBefore(this.now() - AUDIT_KEEP_MS);
   }
 
   /**
@@ -242,7 +287,19 @@ export function checkServerValues(values: ServerValues): ServerValues {
   try {
     return parseServerValues(values);
   } catch (err) {
-    if (err instanceof z.ZodError) throw new ServerValuesError(z.prettifyError(err));
+    if (err instanceof z.ZodError) {
+      throw new ServerValuesError(
+        z.prettifyError(err),
+        err.issues.map((issue) => {
+          const same: unknown = issue.code === 'custom' ? issue.params?.same : undefined;
+          return {
+            key: issue.path.join('.'),
+            message: issue.message,
+            ...(typeof same === 'string' ? { same } : {}),
+          };
+        }),
+      );
+    }
     throw err;
   }
 }

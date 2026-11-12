@@ -1,6 +1,12 @@
 import type { Kysely } from 'kysely';
+import type { SettingChange } from '../../config/server-settings.js';
 import { isDuplicateEntry } from '../errors.js';
+import { inTransaction } from '../transaction.js';
 import type { DB } from '../types.js';
+import {
+  ServerSettingsAuditRepository,
+  type SettingsActor,
+} from './server-settings-audit-repository.js';
 
 /**
  * A server's row as kept (table `ServerSettings` of migration 052): its values as the document
@@ -30,10 +36,17 @@ export interface ServerSettingsStorage {
    */
   create(row: StoredServer): Promise<boolean>;
   /**
-   * Writes a server's values in the place of those kept, with when and by whom; a server without
-   * a row gets one, not set up. When it was set up is kept.
+   * Writes a server's values in the place of those kept, with when and by whom, and the settings
+   * it changed into the staff's log (`ServerSettingsAudit`), all or nothing; a server without a
+   * row gets one, not set up. When it was set up is kept.
    */
-  write(serverId: string, settings: unknown, at: number, by: string): Promise<void>;
+  write(
+    serverId: string,
+    settings: unknown,
+    at: number,
+    by: SettingsActor,
+    changes: readonly SettingChange[],
+  ): Promise<void>;
 }
 
 type Row = {
@@ -93,12 +106,23 @@ export class ServerSettingsRepository implements ServerSettingsStorage {
     }
   }
 
-  async write(serverId: string, settings: unknown, at: number, by: string): Promise<void> {
-    const values = { settings: JSON.stringify(settings), updatedAt: String(at), updatedBy: by };
-    await this.db
-      .insertInto('ServerSettings')
-      .values({ serverId, setUpAt: null, ...values })
-      .onDuplicateKeyUpdate(values)
-      .execute();
+  async write(
+    serverId: string,
+    settings: unknown,
+    at: number,
+    by: SettingsActor,
+    changes: readonly SettingChange[],
+  ): Promise<void> {
+    const values = { settings: JSON.stringify(settings), updatedAt: String(at), updatedBy: by.id };
+    await inTransaction(this.db, async (trx) => {
+      await trx
+        .insertInto('ServerSettings')
+        .values({ serverId, setUpAt: null, ...values })
+        .onDuplicateKeyUpdate(values)
+        .execute();
+      await new ServerSettingsAuditRepository(trx).insert(
+        changes.map((change) => ({ serverId, at, actor: by, ...change })),
+      );
+    });
   }
 }

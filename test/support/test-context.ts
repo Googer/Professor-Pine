@@ -74,6 +74,8 @@ import { MemoryMeetupSafety } from './meetup-safety.js';
 import { ModerationReports } from '../../src/services/moderation-reports.js';
 import { MemoryReports } from './reports.js';
 import { MemoryPartyAudit } from './party-audit.js';
+import { MemoryServerSettingsAudit } from './server-settings-audit.js';
+import type { ServerSettingsAuditReader } from '../../src/db/repositories/server-settings-audit-repository.js';
 import { MemoryScriptAccess } from './script-access.js';
 import { ScriptAccessService } from '../../src/services/script-access-service.js';
 import type { MemberRemoval } from '../../src/services/member-removal.js';
@@ -190,6 +192,9 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     historyOptIns: new MemoryHistoryOptIns(),
     // Nothing is logged; a test passes the log of partyServiceWith() (`auditStore`) or its own.
     partyAudit: new MemoryPartyAudit(),
+    // The log of the servers' settings: that of the context's servers (`TestServers.audit`)
+    // unless a test passes its own (below).
+    serverSettingsAudit: new MemoryServerSettingsAudit(),
     // Nobody asked for their legacy history, and there is no member index (plan 8H-10); a test
     // passes its own (`MemoryLegacyFillIns` over its opt-ins, `MemoryLegacyIndex`).
     legacyFillIns: new MemoryLegacyFillIns(),
@@ -334,6 +339,10 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       dms: ctx.dms,
       log,
     });
+  }
+  if (overrides.serverSettingsAudit === undefined && ctx.servers instanceof TestServers) {
+    (ctx as { serverSettingsAudit: ServerSettingsAuditReader }).serverSettingsAudit =
+      ctx.servers.audit;
   }
   if (overrides.wantBoxes === undefined) {
     (ctx as { wantBoxes: WantBoxStorage }).wantBoxes = new MemoryWantBoxes(

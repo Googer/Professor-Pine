@@ -39,7 +39,7 @@ import { TestServers, testServerValues } from '../../test/support/server-values.
 import type { ServerValues } from '../config/server-settings.js';
 
 const SERVER = '412345678901234567';
-const STAFF = '200000000000000001';
+const STAFF = { id: '200000000000000001', name: 'Staff' };
 const BOT_UPDATES = '500000000000000010';
 const CATEGORY = '500000000000000011';
 

@@ -7,11 +7,13 @@ import { ALICE, PARTY_NOW, REPORTER } from '../../../test/support/parties.js';
 import { reportedRaid } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { InteractionRouter } from '../../discord/router.js';
-import { AUDIT_WHERE, NOTHING_LOGGED } from '../../render/audit.js';
+import { TestServers } from '../../../test/support/server-values.js';
+import { AUDIT_LINES, AUDIT_WHERE, NOTHING_LOGGED } from '../../render/audit.js';
 import { audit } from './audit.js';
 import { closePartyAs } from './delete.js';
 
 const MOD = { id: '200000000000000009', name: 'Misty' };
+const MODERATORS = '300000000000000099';
 
 async function setup() {
   const made = await reportedRaid({ anonymous: true, reporter: { name: 'Ash' } });
@@ -131,5 +133,68 @@ describe('/audit', () => {
     expect(text).toContain(`### Changes by **Alice A.** (<@${ALICE}>)`);
     expect(text).toContain(`in <#${made.postId}>: kept its post open`);
     expect(text).not.toContain('reported it');
+  });
+
+  it("lists the member's changes of the server's settings among them, by time (plan 19A-1)", async () => {
+    const { run, answerOf, made, ctx } = await setup();
+    if (!(ctx.servers instanceof TestServers)) throw new Error('no TestServers');
+    const servers = ctx.servers;
+    const alice = { id: ALICE, name: 'Alice' };
+    servers.now = () => made.clock.now - 60_000;
+    await servers.set(made.gateway.guildId, (v) => ({ ...v, postNewGyms: false }), alice);
+    await made.service.keep(made.party.id, true, alice);
+    servers.now = () => made.clock.now + 60_000;
+    await servers.set(
+      made.gateway.guildId,
+      (v) => ({ ...v, channels: { ...v.channels, moderation: MODERATORS } }),
+      alice,
+    );
+    // Another member's change, and one in another server, are not hers here.
+    await servers.set(made.gateway.guildId, (v) => ({ ...v, postNewGyms: true }), MOD);
+    await servers.set('412345678901234599', (v) => ({ ...v, distanceUnits: 'imperial' }), alice);
+    const text = answerOf(
+      await run(['Moderator'], {
+        channelId: WEST_CHANNEL,
+        thread: undefined,
+        resolved: { member: { id: ALICE, bot: false, username: 'alice', globalName: 'Alice' } },
+        resolvedMembers: { member: { displayName: 'Alice A.' } },
+      }),
+    );
+    const lines = text.split('\n');
+    const at = (words: string) => lines.findIndex((line) => line.includes(words));
+    expect(at('in the server’s settings: turned off posting new gyms')).toBeGreaterThan(-1);
+    expect(at('kept its post open')).toBeGreaterThan(at('turned off posting new gyms'));
+    expect(
+      at(`in the server’s settings: set the moderators’ channel to <#${MODERATORS}>.`),
+    ).toBeGreaterThan(at('kept its post open'));
+    expect(text).not.toContain('turned on posting new gyms');
+    expect(text).not.toContain('distance units');
+  });
+
+  it('says there are more when her party and settings entries together pass the lines shown', async () => {
+    const { run, answerOf, made, ctx } = await setup();
+    if (!(ctx.servers instanceof TestServers)) throw new Error('no TestServers');
+    const servers = ctx.servers;
+    const alice = { id: ALICE, name: 'Alice' };
+    for (let n = 0; n < AUDIT_LINES; n++) {
+      servers.now = () => made.clock.now + n;
+      await servers.set(
+        made.gateway.guildId,
+        (v) => ({ ...v, postNewGyms: !v.postNewGyms }),
+        alice,
+      );
+    }
+    await made.service.keep(made.party.id, true, alice);
+    made.clock.now += 1_000;
+    const text = answerOf(
+      await run(['Moderator'], {
+        channelId: WEST_CHANNEL,
+        thread: undefined,
+        resolved: { member: { id: ALICE, bot: false, username: 'alice', globalName: 'Alice' } },
+        resolvedMembers: { member: { displayName: 'Alice A.' } },
+      }),
+    );
+    expect(text).toContain('-# …and earlier changes');
+    expect(text.split('\n').filter((line) => line.startsWith('<t:'))).toHaveLength(AUDIT_LINES);
   });
 });

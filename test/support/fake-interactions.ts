@@ -159,6 +159,13 @@ export interface FakeOptions {
   focusedName?: string;
   /** Select menu: the chosen values. */
   values?: string[];
+  /**
+   * Select menu: a channel select (`isChannelSelectMenu`), with the channels picked as Discord
+   * resolves them (`interaction.channels`: id, type, and the server they are in), or a role
+   * select (`isRoleSelectMenu`, `interaction.roles` by id). Neither: a string select.
+   */
+  pickedChannels?: Array<{ id: string; type: number; guildId: string }>;
+  pickedRoles?: Array<{ id: string; name: string }>;
   /** Modal: the text typed into each input, by the input's custom id. */
   fields?: Record<string, string>;
   /** Modal: what was chosen in each select menu of the form, by the menu's custom id. */
@@ -1003,7 +1010,12 @@ function base(kind: Kind, o: FakeOptions) {
     isMessageComponent: () => kind === 'button' || kind === 'select',
     isButton: () => kind === 'button',
     isAnySelectMenu: () => kind === 'select',
-    isStringSelectMenu: () => kind === 'select',
+    isStringSelectMenu: () =>
+      kind === 'select' && o.pickedChannels === undefined && o.pickedRoles === undefined,
+    isChannelSelectMenu: () => kind === 'select' && o.pickedChannels !== undefined,
+    isRoleSelectMenu: () => kind === 'select' && o.pickedRoles !== undefined,
+    channels: new Collection((o.pickedChannels ?? []).map((one) => [one.id, one])),
+    roles: new Collection((o.pickedRoles ?? []).map((one) => [one.id, one])),
     isModalSubmit: () => kind === 'modal',
     /** A form that a control of a message opened; `modalFromCommand` says a command did. */
     isFromMessage: () => kind === 'modal' && o.modalFromCommand !== true,

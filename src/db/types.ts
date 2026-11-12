@@ -690,6 +690,17 @@ export interface ServerSettings {
   updatedBy: string | null;
 }
 
+export interface ServerSettingsAudit {
+  actorId: string;
+  actorName: string | null;
+  after: Json | null;
+  at: string;
+  before: Json | null;
+  id: Generated<string>;
+  key: string;
+  serverId: string;
+}
+
 export interface SpawnReport {
   channelId: string;
   costumed: Generated<number>;
@@ -924,6 +935,7 @@ export interface DB {
   SavedRoutes: SavedRoutes;
   ScriptAccess: ScriptAccess;
   ServerSettings: ServerSettings;
+  ServerSettingsAudit: ServerSettingsAudit;
   SpawnReport: SpawnReport;
   StopLine: StopLine;
   StopPost: StopPost;

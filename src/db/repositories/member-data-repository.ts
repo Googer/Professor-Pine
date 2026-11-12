@@ -41,8 +41,9 @@ export interface MemberHoldings {
    */
   meetups: MeetupRecordsHeld;
   /**
-   * Entries of the staff's 30-day log (`PartyAudit`) that name them: what they did, and what
-   * others did that names them (a train's conductor, `detail`'s `from` or `to`). They age out.
+   * Entries of the staff's 30-day logs that name them: of parties (`PartyAudit`) what they did,
+   * and what others did that names them (a train's conductor, `detail`'s `from` or `to`); of a
+   * server's settings (`ServerSettingsAudit`, plan 19A-1) the changes they made. They age out.
    */
   audit: number;
   /** Reports at stops they made that still stand (`StopReport`): they end by themselves. */
@@ -230,7 +231,8 @@ async function left(db: Kysely<DB>, memberId: string): Promise<Pick<MemberHoldin
       (select count(*) from PartyAudit
         where actorId = ${memberId}
            or json_unquote(json_extract(detail, '$.to.id')) = ${memberId}
-           or json_unquote(json_extract(detail, '$.from.id')) = ${memberId}) as audit,
+           or json_unquote(json_extract(detail, '$.from.id')) = ${memberId})
+        + (select count(*) from ServerSettingsAudit where actorId = ${memberId}) as audit,
       (select count(*) from StopReport where reporterId = ${memberId}) as stopReports,
       (select count(*) from StopReport
         where json_contains(confirmedBy, json_quote(${memberId}))) as stopConfirms,

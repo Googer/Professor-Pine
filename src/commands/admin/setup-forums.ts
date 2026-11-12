@@ -1,6 +1,7 @@
 import { MessageFlags, SlashCommandSubcommandBuilder } from 'discord.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
+import { actorOf } from '../../discord/member-info.js';
 import { MAX_FORUM_TAGS } from '../../discord/party-gateway.js';
 import { count, fitItems, fitMessages, LIMITS, plain } from '../../render/text.js';
 import type { ForumSetup } from '../../services/party-service.js';
@@ -270,7 +271,7 @@ export const setupForums: SubcommandPart = {
     const events =
       ctx.rehearsal || !ctx.eventForum
         ? undefined
-        : await ctx.eventForum.setup(guildId, interaction.user.id).catch((err: unknown) => {
+        : await ctx.eventForum.setup(guildId, actorOf(interaction)).catch((err: unknown) => {
             ctx.log.warn({ err }, 'could not set up the events forum');
             // Said, not left out (branch review BR-6).
             return 'thrown' as const;

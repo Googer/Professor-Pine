@@ -322,6 +322,11 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     await sql`insert into PartyAudit (serverId, partyId, at, actorId, actorName, action)
               values (${HOME}, ${requestId(800 + n)}, ${NOW}, ${member}, ${name},
                       'created')`.execute(db);
+    // A setting of the server they changed, in the staff's log of settings (plan 19A-1).
+    await sql`insert into ServerSettingsAudit (serverId, at, actorId, actorName, \`key\`, \`before\`,
+                                               \`after\`)
+              values (${HOME}, ${NOW}, ${member}, ${name}, 'postNewGyms', 'false',
+                      'true')`.execute(db);
     await sql`insert into Party (id, type, guildId, createdById, createdAt, updatedAt, state,
                                  mirrorMessages)
               values (${requestId(800 + n)}, 'raid', 1, ${member}, ${NOW}, ${NOW}, '{}',
@@ -470,8 +475,8 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     // Their own report, and the one both of them gave a reason on.
     reports: { reasons: 2, about: 1 },
     meetups: { blocks: 1, open: 1, unmade: 0, live: 0, over: 3 },
-    // Her own entry, and Bob's that made her conductor.
-    audit: 2,
+    // Her own entry, Bob's that made her conductor, and her change of the server's settings.
+    audit: 3,
     stopReports: 1,
     stopConfirms: 1,
     accessGrants: 1,
@@ -607,7 +612,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
         toolAccess: false,
         reports: { reasons: 0, about: 1 },
         meetups: { blocks: 1, open: 1, unmade: 0, live: 0, over: 0 },
-        audit: 2,
+        audit: 3,
         stopReports: 1,
         stopConfirms: 1,
         accessGrants: 1,

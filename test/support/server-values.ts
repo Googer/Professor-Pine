@@ -1,14 +1,17 @@
 import {
   fileDefaults,
   parseServerValues,
+  settingChanges,
   type ServerValues,
 } from '../../src/config/server-settings.js';
 import { loadSettings } from '../../src/config/settings.js';
+import type { SettingsActor } from '../../src/db/repositories/server-settings-audit-repository.js';
 import {
   checkServerValues,
   type ServerSettingsService,
 } from '../../src/services/server-settings.js';
 import { ELITE_GYM_CHANNEL, REMOTE_CHANNEL } from './gyms.js';
+import { MemoryServerSettingsAudit } from './server-settings-audit.js';
 import { TEST_SETTINGS_PATH } from './test-settings.js';
 
 /**
@@ -80,16 +83,20 @@ let testDefaults: ServerValues | undefined;
 
 /**
  * The servers' settings of a test (`ServerSettingsService` in memory): every server has `values`
- * (`testServerValues()` unless given) until a change of its own (`set`, recorded in `changes`);
- * `rows` are the servers with a row (all, unless `without` names some), `setUp` when each was set
- * up (null unless given).
+ * (`testServerValues()` unless given) until a change of its own (`set`, recorded in `changes`,
+ * each setting it changed in the staff's log `audit` at `now()`, as the real one; a change of
+ * nothing records nothing); `rows` are the servers with a row (all, unless `without` names some),
+ * `setUp` when each was set up (null unless given).
  */
 export class TestServers implements ServerSettingsService {
   readonly changed = new Map<string, ServerValues>();
-  readonly changes: Array<{ serverId: string; by: string; values: ServerValues }> = [];
+  readonly changes: Array<{ serverId: string; by: SettingsActor; values: ServerValues }> = [];
   readonly without = new Set<string>();
   readonly setUp = new Map<string, number>();
+  readonly audit = new MemoryServerSettingsAudit();
   failing: Error | undefined;
+  /** The clock of the log's entries. */
+  now: () => number = () => Date.now();
 
   /**
    * `values`: what every server has; `fileValues`: the file's defaults (`defaults()`, a DM's), those
@@ -119,14 +126,20 @@ export class TestServers implements ServerSettingsService {
     return this.setUp.get(serverId) ?? null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await -- the real one writes first
   async set(
     serverId: string,
     change: (values: ServerValues) => ServerValues,
-    by: string,
+    by: SettingsActor,
   ): Promise<ServerValues> {
     if (this.failing) throw this.failing;
-    const values = checkServerValues(change(this.of(serverId)));
+    const before = this.of(serverId);
+    const values = checkServerValues(change(before));
+    // As the real one: nothing changed, nothing written; else the staff's log of each setting.
+    const changed = settingChanges(before, values);
+    if (changed.length === 0) return before;
+    await this.audit.insert(
+      changed.map((one) => ({ serverId, at: this.now(), actor: by, ...one })),
+    );
     this.changed.set(serverId, values);
     this.without.delete(serverId);
     this.changes.push({ serverId, by, values });

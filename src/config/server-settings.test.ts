@@ -8,6 +8,7 @@ import {
   moderatorsNamed,
   parseServerValues,
   serverValuesSchema,
+  settingChanges,
 } from './server-settings.js';
 
 const settings = loadSettings(TEST_SETTINGS_PATH);
@@ -160,6 +161,46 @@ describe("the file's defaults of a server without a row", () => {
     };
     expect(fileDefaults(withInvites, server).invite).toBe(invite);
     expect(fileDefaults(withInvites, '412345678901234568').invite).toBeUndefined();
+  });
+});
+
+describe('the changes between two values of a server', () => {
+  const before = parseServerValues({
+    channels: { 'bot-lab': BOT_LAB, moderation: MOD_LAB },
+    flaggedWords: ['garden'],
+  });
+
+  it('are none between equal values', () => {
+    expect(settingChanges(before, parseServerValues(structuredClone(before)))).toEqual([]);
+  });
+
+  it('name each setting that changed by its key, a channel, a feature or a number by itself', () => {
+    const after = parseServerValues({
+      ...before,
+      channels: { 'bot-lab': BOT_LAB, unown: '300000000000000003' },
+      features: { ...before.features, roles: true },
+      eventsForum: { ...before.eventsForum, onThisDay: 0 },
+    });
+    expect(settingChanges(before, after)).toEqual([
+      { key: 'channels.unown', before: null, after: '300000000000000003' },
+      { key: 'channels.moderation', before: MOD_LAB, after: null },
+      { key: 'features.roles', before: false, after: true },
+      { key: 'eventsForum.onThisDay', before: 3, after: 0 },
+    ]);
+  });
+
+  it('take a list, a text or a link as one setting, unset as null', () => {
+    const after = parseServerValues({
+      ...before,
+      flaggedWords: ['garden', 'condo'],
+      regionMapLink: 'https://maps.example.test/pgh',
+      distanceUnits: 'metric',
+    });
+    expect(settingChanges(before, after)).toEqual([
+      { key: 'distanceUnits', before: 'imperial', after: 'metric' },
+      { key: 'flaggedWords', before: ['garden'], after: ['garden', 'condo'] },
+      { key: 'regionMapLink', before: null, after: 'https://maps.example.test/pgh' },
+    ]);
   });
 });
 

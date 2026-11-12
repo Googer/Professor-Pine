@@ -56,6 +56,11 @@ export interface PartySchedulerOptions {
   /** The staff audit log, whose entries older than 30 days go with the upkeep (`PartyAudit`). */
   audit?: { sweep(): Promise<unknown> };
   /**
+   * The staff's log of the servers' settings (plan 19A-1, `ServerSettings.sweepLog`), whose
+   * entries older than 30 days go with the upkeep, right after the parties' log.
+   */
+  settingsAudit?: { sweep(): Promise<unknown> };
+  /**
    * The party history, whose parties left without a record (a record that gave up its tries,
    * a stop before them) are recorded with the forums' upkeep: at start and hourly. The sweep is
    * told of the clock's stop and ends there.
@@ -343,6 +348,7 @@ export class PartyScheduler {
       this.options;
     const { history, activity, splits, stops, grunts, eventForum, legacyFillIns, audit } =
       this.options;
+    const { settingsAudit } = this.options;
     const { placePictures } = this.options;
     this.lastUpkeep = this.now();
     // Each by itself: one that fails does not keep the others from running. Once the clock has
@@ -365,6 +371,7 @@ export class PartyScheduler {
       await step(() => posts.checkSummaries());
       if (access) await step(() => access.sweep());
       if (audit) await step(() => audit.sweep());
+      if (settingsAudit) await step(() => settingsAudit.sweep());
       if (routes) await step(() => routes.removeUnknownStops());
       if (spawns) await step(() => spawns.sweep());
       if (stops) await step(() => stops.sweep());

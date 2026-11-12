@@ -161,6 +161,79 @@ export function parseServerValues(raw: unknown): ServerValues {
 export { ADMINISTRATORS_ONLY, mapMemberRole, moderatorsNamed } from '../domain/servers/standing.js';
 
 /**
+ * One setting of a server that a change changed (plan 19A-1, the staff's log of settings,
+ * `ServerSettingsAudit`): its key (`channels.moderation`, `features.roles`,
+ * `eventsForum.onThisDay`, `flaggedWords`), and its value before and after as stored (ids, not
+ * names), null for unset.
+ */
+export interface SettingChange {
+  key: string;
+  before: unknown;
+  after: unknown;
+}
+
+/** The settings inside a key of several, in the order the panel shows them. */
+const INNER_KEYS: Readonly<Record<string, readonly string[]>> = {
+  channels: SERVER_CHANNEL_ROLES,
+  categories: ['pvp'],
+  roles: ['unown', 'mapMember'],
+  features: ['exGymChannel', 'remoteRaidChannel', 'notifications', 'roles'],
+  eventsForum: ['horizonDays', 'postDaysAhead', 'onThisDay'],
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * What changed between two values of a server, one entry per setting: a channel, a role, a
+ * feature or one of the events forum's numbers by itself, a list or a text as one; in the
+ * order of the schema's keys. None between equal values.
+ */
+export function settingChanges(before: ServerValues, after: ServerValues): SettingChange[] {
+  const changes: SettingChange[] = [];
+  const compare = (key: string, was: unknown, now: unknown): void => {
+    if (JSON.stringify(was ?? null) !== JSON.stringify(now ?? null)) {
+      changes.push({ key, before: was ?? null, after: now ?? null });
+    }
+  };
+  const was = before as Record<string, unknown>;
+  const now = after as Record<string, unknown>;
+  for (const key of Object.keys(serverValuesSchema.shape)) {
+    // Not a setting: what the fill could not find, forgotten once its setting is chosen, which
+    // is the change logged.
+    if (key === 'unmatched') continue;
+    const inner = INNER_KEYS[key];
+    const a = was[key];
+    const b = now[key];
+    if (inner === undefined || !isRecord(a) || !isRecord(b)) {
+      compare(key, a, b);
+      continue;
+    }
+    const keys = [
+      ...inner,
+      ...[...Object.keys(a), ...Object.keys(b)].filter((k) => !inner.includes(k)),
+    ];
+    for (const name of new Set(keys)) compare(`${key}.${name}`, a[name], b[name]);
+  }
+  // A setting the fill could not find that staff left unset (fix round 3, H9): its marker gone,
+  // no value chosen. Logged as from `NOT_FOUND` to unset.
+  for (const key of before.unmatched ?? []) {
+    const chosen =
+      key === 'channels.moderation' ? after.channels.moderation : after.roles.mapMember;
+    if (after.unmatched?.includes(key) !== true && chosen === undefined) {
+      changes.push({ key, before: NOT_FOUND, after: null });
+    }
+  }
+  return changes;
+}
+
+/**
+ * What the log keeps as the value before of a setting the settings file named, the fill did not
+ * find, and staff left unset (`settingChanges`; fix round 3, H9).
+ */
+export const NOT_FOUND = 'not found';
+
+/**
  * The values of the file's server keys (spec: the defaults of a server's first row), for a server
  * without a row: the channels, the category and the roles are names in the file and ids here, so
  * they stay unset until the fill has resolved them in that server (`fillValues`).

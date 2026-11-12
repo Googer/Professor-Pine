@@ -6,6 +6,7 @@ import type { Config } from './config/index.js';
 import type { GymTargetStorage } from './db/repositories/gym-notification-repository.js';
 import type { HistoryOptIns } from './db/repositories/history-repository.js';
 import type { PartyAuditReader } from './db/repositories/party-audit-repository.js';
+import type { ServerSettingsAuditReader } from './db/repositories/server-settings-audit-repository.js';
 import type { LegacyFillIns } from './db/repositories/legacy-fill-in-repository.js';
 import type { LegacyIndex } from './services/legacy-fill-in.js';
 import type { NewTrainStorage } from './db/repositories/new-train-repository.js';
@@ -216,6 +217,11 @@ export interface AppContext {
   readonly historyOptIns: HistoryOptIns;
   /** The staff audit log of parties (`/audit`), kept 30 days. */
   readonly partyAudit: PartyAuditReader;
+  /**
+   * The staff's log of each server's settings (plan 19A-1): the Recent changes of
+   * `/admin settings` and the settings lines of `/audit member:`; kept 30 days.
+   */
+  readonly serverSettingsAudit: ServerSettingsAuditReader;
   /** The requests of members' legacy fill-ins (plan 8H-10, `/settings`), per server. */
   readonly legacyFillIns: LegacyFillIns;
   /**

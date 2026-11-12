@@ -104,7 +104,7 @@ const namingMore: Settings = {
   },
 };
 
-const STAFF = '200000000000000001';
+const STAFF = { id: '200000000000000001', name: 'Staff' };
 
 describe('the fill: rows for servers that have none', () => {
   it("gives a server the file's server keys, its names as the ids found in that server", async () => {

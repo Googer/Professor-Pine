@@ -12,6 +12,7 @@ import { memberSettings } from './member-settings.js';
 import { NICKNAME_DESCRIPTION, NICKNAME_GROUP, nicknameParts } from './nicknames.js';
 import { saveParty } from './save-party.js';
 import { SELF_ROLES_DESCRIPTION, SELF_ROLES_GROUP, selfRoleParts } from './self-roles.js';
+import { serverSettings } from './server-settings.js';
 import { setupForums } from './setup-forums.js';
 import { tutorial } from './tutorial.js';
 
@@ -20,6 +21,7 @@ import { tutorial } from './tutorial.js';
  * adds one by appending it here (and its group, if it has one, to `groups` below).
  */
 const parts: readonly SubcommandPart[] = [
+  serverSettings,
   setupForums,
   saveParty,
   clearImageCache,

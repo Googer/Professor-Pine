@@ -48,6 +48,7 @@ import { startTimeOf } from '../domain/party/timed.js';
 import type { EventPlannedView } from '../render/event-parties.js';
 import type { PartyListener } from './party-store.js';
 import type { ServerSettingsService } from './server-settings.js';
+import type { SettingsActor } from '../db/repositories/server-settings-audit-repository.js';
 
 const DAY_MS = 24 * 60 * 60_000;
 /** A post still open this long after its event's end is archived by the upkeep, once (R1). */
@@ -441,7 +442,7 @@ export class EventForumService {
    * posts but make none) and Manage Posts allowed to the bot. Recorded, then drawn: its listing
    * and posts. What is there already is left as it is, so it is safe to run again.
    */
-  setup(guildId: string, by: string): Promise<EventsForumSetup> {
+  setup(guildId: string, by: SettingsActor): Promise<EventsForumSetup> {
     // One setup per server at a time (branch review BR-6): a second waits and finds the forum.
     const previous = this.setups.get(guildId) ?? Promise.resolve();
     const run = previous.catch(() => undefined).then(() => this.setupOnce(guildId, by));
@@ -459,7 +460,7 @@ export class EventForumService {
   }
 
   /** `setup`, one at a time per server. */
-  private async setupOnce(guildId: string, by: string): Promise<EventsForumSetup> {
+  private async setupOnce(guildId: string, by: SettingsActor): Promise<EventsForumSetup> {
     const { gateway, store, servers, log } = this.options;
     const values = servers.of(guildId);
     const channels = gateway.serverChannels(guildId) ?? [];

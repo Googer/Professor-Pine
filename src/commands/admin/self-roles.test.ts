@@ -90,6 +90,7 @@ describe('/admin self-roles', () => {
       );
     const values = testServerValues();
     expect(paths(values)).toEqual([
+      'settings',
       'setup-forums',
       'save-party',
       'clear-image-cache',
@@ -100,7 +101,7 @@ describe('/admin self-roles', () => {
       'self-roles ungroup',
     ]);
     const off = { ...values, features: { ...values.features, roles: false } };
-    expect(paths(off)).toEqual(['setup-forums', 'save-party', 'clear-image-cache']);
+    expect(paths(off)).toEqual(['settings', 'setup-forums', 'save-party', 'clear-image-cache']);
   });
 
   it('is for staff, and answers privately', async () => {

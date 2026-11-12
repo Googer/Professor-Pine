@@ -68,6 +68,7 @@ import { ServerFill } from './services/server-fill.js';
 import { serverNamesOf } from './discord/server-names.js';
 import { wireServerStart } from './discord/server-start.js';
 import { ServerSettingsRepository } from './db/repositories/server-settings-repository.js';
+import { ServerSettingsAuditRepository } from './db/repositories/server-settings-audit-repository.js';
 import { InteractionRouter } from './discord/router.js';
 import { lobbySize } from './domain/party/lobby.js';
 import { screenshotIdOf } from './domain/party/party.js';
@@ -395,8 +396,12 @@ export async function startApp(
   const guilds = new GuildRepository(db, rowIds);
   // Each server's values (plan 19A-1): what the settings file held that is a server's, one row
   // per server, read once the migrations ran; the file's server keys are a new row's defaults.
+  // The staff's log of the servers' settings (plan 19A-1): written with each change of a server's
+  // values, read by `/admin settings` and `/audit`, swept after 30 days with the upkeep.
+  const serverSettingsAudit = new ServerSettingsAuditRepository(db);
   const servers = new ServerSettings({
     store: new ServerSettingsRepository(db),
+    audit: serverSettingsAudit,
     settings: config.settings,
     log,
   });
@@ -1035,6 +1040,7 @@ export async function startApp(
     attendance,
     access,
     audit: partyAudit,
+    settingsAudit: { sweep: () => servers.sweepLog() },
     routes: trains,
     spawns,
     stops: stopReports,
@@ -1217,6 +1223,7 @@ export async function startApp(
     newTrains,
     historyOptIns: history,
     partyAudit: partyAuditStore,
+    serverSettingsAudit,
     legacyFillIns: legacyFillInStore,
     legacyIndex: legacyFillIns,
     // The region tally (plan 8H-5): the heatmap's buckets summed per region, for /stats.
