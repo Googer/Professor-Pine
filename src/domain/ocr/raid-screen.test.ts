@@ -279,6 +279,37 @@ describe('readScreenText', () => {
     expect(readScreenText(HATCHED, [], SIZE).max).toBeNull();
   });
 
+  it('reads a max battle’s chip under an hour, minutes and seconds, beside its heads', () => {
+    const maxScreen = (chip: TextLine) => [
+      line('5:06 5G 80%', 88, 8, 1008, 57),
+      line('5', 936, 135, 967, 172),
+      chip,
+      line('Dynamax Registeel', 95, 1567, 987, 1669),
+      line('BRIARWOOD FOUNTAIN', 383, 1776, 700, 1816),
+      line('BATTLE', 384, 1893, 562, 1939),
+      line('PRIVATE GROUP', 345, 2113, 735, 2154),
+    ];
+    const chip = line('23:36', 838, 1453, 965, 1503);
+    expect(readScreenText(maxScreen(chip), [], SIZE).countdown).toBe(23 * 60 + 36);
+    expect(readScreenText(maxScreen(line('2:05', 838, 1453, 965, 1503)), [], SIZE).countdown).toBe(
+      2 * 60 + 5,
+    );
+    // Minutes and seconds elsewhere on the screen, or on a raid's, are no countdown.
+    expect(readScreenText(maxScreen(line('23:36', 838, 900, 965, 950)), [], SIZE).countdown).toBe(
+      null,
+    );
+    expect(readScreenText(maxScreen(line('23:36', 120, 1453, 247, 1503)), [], SIZE).countdown).toBe(
+      null,
+    );
+    expect(
+      readScreenText(
+        HATCHED.map((l) => (/^\d+:\d\d:\d\d$/.test(l.text) ? { ...l, text: '23:36' } : l)),
+        [],
+        SIZE,
+      ).countdown,
+    ).toBeNull();
+  });
+
   it('reads a max battle’s name run together, smaller in a split screen, or over two lines', () => {
     // A split screen's lower half: the name smaller and read without its space.
     expect(

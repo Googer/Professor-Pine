@@ -140,6 +140,10 @@ const CENTRED = 0.1;
 /** The middle of a hatched raid's countdown is right of this share of the width. */
 const AT_THE_RIGHT = 0.65;
 const COUNTDOWN = /(\d{1,2})[:.]([0-5]\d)[:.]([0-5]\d)/;
+/** A max battle's chip under an hour: minutes and seconds, the whole line (`maxChip`). */
+const MAX_CHIP = /^([0-5]?\d)[:.]([0-5]\d)$/;
+/** How far above the boss line the chip's middle may stand, in the line's heights (the heads' 1.5). */
+const MAX_CHIP_REACH = 1.5;
 /**
  * The CP's digits, after at most three other characters: "CP", or what the icon beside it and a
  * faint "CP" are read as (`Ocp16997`, `O53394`, `c45435`, `ce41758` on members' screenshots).
@@ -471,6 +475,26 @@ function maxText(body: readonly TextLine[], height: number): MaxText | null {
   return null;
 }
 
+/**
+ * A max battle's chip with under an hour to go, minutes and seconds without the hour (`23:36`, a
+ * production screenshot of 2026-11-11): at the right of the heads' row, which stands within 1.5 of
+ * the boss line's heights above it (`headBand`). In seconds; null without one.
+ */
+function maxChip(body: readonly TextLine[], boss: Box, width: number): number | null {
+  const reach = boxHeight(boss) * MAX_CHIP_REACH;
+  const chip = body.find((l) => {
+    const middle = (l.box.y0 + l.box.y1) / 2;
+    return (
+      MAX_CHIP.test(l.text.replace(/\s+/g, '')) &&
+      middle < boss.y0 &&
+      middle > boss.y0 - reach &&
+      (l.box.x0 + l.box.x1) / 2 >= width * AT_THE_RIGHT
+    );
+  });
+  const hit = chip && MAX_CHIP.exec(chip.text.replace(/\s+/g, ''));
+  return hit ? Number(hit[1]) * 60 + Number(hit[2]) : null;
+}
+
 export interface ScreenTextOptions {
   /**
    * How far down the status bar reaches, in the lines' pixels (`statusBandOf` the screen by
@@ -633,9 +657,10 @@ export function readScreenText(
   }
 
   const cpLetters = cpLine ? undefined : cpLettersOf(body, height)?.box;
+  const max = maxText(body, height);
   return {
     clock,
-    countdown,
+    countdown: countdown ?? (max ? maxChip(body, max.box, width) : null),
     gym,
     ...(gymBelow === undefined ? {} : { gymBelow }),
     gymRoom,
@@ -646,6 +671,6 @@ export function readScreenText(
     countdownPlace,
     cpBox: cpLine?.box ?? null,
     ...(cpLetters ? { cpLetters } : {}),
-    max: maxText(body, height),
+    max,
   };
 }
