@@ -3578,7 +3578,7 @@ For the Privacy Policy (`docs/legal/`, written the same day from an inventory of
 
 ## For 2.1: a public application and Discord's verification (Matt, 2026-11-10)
 
-Verification is only needed to grow past 100 servers, and it gives the checkmark. The production application now belongs to a Team of Matt's, his identity is verified with Discord, and the Terms of Service and Privacy Policy links are set in the portal. **The one criterion left is an install link, and Discord accepts none for a private application ("Verified apps must be public").** Public Bot was switched off on purpose after the first audit, so that nobody adds Pittsburgh's bot to a server of their own. Before it goes back on: decide what Pine does when a server its owner did not set up adds it (an allow list of servers, or leaving at once), and what of the data two servers share today a stranger's server must not reach. Then Public Bot, the install link, Verify App.
+Verification is only needed to grow past 100 servers, and it gives the checkmark. The production application now belongs to a Team of Matt's, his identity is verified with Discord, and the Terms of Service and Privacy Policy links are set in the portal. **The one criterion left is an install link, and Discord accepts none for a private application ("Verified apps must be public").** Public Bot was switched off on purpose after the first audit, so that nobody adds Pittsburgh's bot to a server of their own. Before it goes back on: the next section (what a server nobody set up gets, and what of the data servers share a stranger's server must not reach). Then Public Bot, the install link, Verify App.
 
 The Message Content intent was not applied for (the review was due 2026-11-11): Pine needs no privileged intent.
 
