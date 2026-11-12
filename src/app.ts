@@ -44,7 +44,7 @@ import { ScriptAccessRepository } from './db/repositories/script-access-reposito
 import { MeetupSafetyRepository } from './db/repositories/meetup-safety-repository.js';
 import type { DB } from './db/types.js';
 import { ClickAnswers } from './discord/click-answers.js';
-import { createClient, loginWithFallback } from './discord/client.js';
+import { createClient, identifyConcurrency, loginWithFallback } from './discord/client.js';
 import { enabledCommands, enabledMessageCommands } from './discord/command.js';
 import { DiscordDmGateway } from './discord/dm-gateway.js';
 import { attachGatewayHandlers, GatewayWatch } from './discord/gateway-events.js';
@@ -178,7 +178,7 @@ import {
   servedSettings,
 } from './services/rehearsal.js';
 import { healthFiles } from './ops/health.js';
-import { gatewayConnected, Heartbeat } from './ops/heartbeat.js';
+import { GatewayProbe, Heartbeat } from './ops/heartbeat.js';
 import { startCheckpoint } from './ops/start-stop.js';
 import {
   eventsFeedStep,
@@ -1303,7 +1303,11 @@ export async function startApp(
     log,
     create: createClient,
     configure(client) {
-      heartbeat.loggingIn(() => gatewayConnected(client.ws.shards, Date.now()));
+      // Every shard read at each heartbeat; one away for minutes, or all, is down (plan 19D).
+      const probe = new GatewayProbe(() => client.ws.shards, {
+        maxConcurrency: () => identifyConcurrency(client),
+      });
+      heartbeat.loggingIn((now) => probe.read(now));
       // Whether the gateway is back after a real disconnect, and its shard errors said once per
       // kind (plan 8X-H); attached before the login, whose ready arms it. Back for real, what
       // failed meanwhile is caught up (`catchUp`, made once the services are there).

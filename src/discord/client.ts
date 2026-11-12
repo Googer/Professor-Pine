@@ -97,6 +97,27 @@ export function createClient(intents: GatewayIntentBits[]): Client {
   });
 }
 
+/** What `identifyConcurrency` reads of discord.js's private gateway manager. */
+interface GatewayManagerInside {
+  _ws?: {
+    gatewayInformation?: {
+      data?: { session_start_limit?: { max_concurrency?: unknown } };
+    } | null;
+  } | null;
+}
+
+/**
+ * How many shards discord.js identifies at once (Discord's `max_concurrency`, fix round 1 of
+ * 19D, F4), from the answer to `GET /gateway/bot` that the login keeps in its gateway manager
+ * (`client.ws._ws.gatewayInformation`: private in discord.js 14.28 and `@discordjs/ws` 1.2.3, so
+ * read with care); 1, Discord's value for most bots, before the login or where it is not there.
+ */
+export function identifyConcurrency(client: Pick<Client, 'ws'>): number {
+  const inside = client.ws as unknown as GatewayManagerInside;
+  const value = inside._ws?.gatewayInformation?.data?.session_start_limit?.max_concurrency;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 ? value : 1;
+}
+
 export interface LoginDeps {
   token: string;
   log: Logger;

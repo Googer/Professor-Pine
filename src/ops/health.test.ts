@@ -85,6 +85,68 @@ describe('healthVerdict', () => {
     });
   });
 
+  it('says how many shards are up when there are several, and nothing of one (plan 19D)', () => {
+    const shards = (up: number, total: number) => ({ up, total });
+    expect(
+      healthVerdict(
+        status({
+          gateway: { connected: true, since: NOW - 2 * 60 * MINUTE, shards: shards(3, 4) },
+        }),
+        NOW,
+      ),
+    ).toEqual({
+      healthy: true,
+      kind: 'healthy',
+      reason:
+        'connected to Discord for 2 hours (3 of 4 shards up), the database answered 10 seconds ago',
+    });
+    // One shard away past its grace: the time counts from when it went away.
+    expect(
+      healthVerdict(
+        status({ gateway: { connected: false, since: NOW - 4 * MINUTE, shards: shards(3, 4) } }),
+        NOW,
+      ),
+    ).toEqual({
+      healthy: false,
+      kind: 'gateway',
+      reason: 'a shard away from Discord for 4 minutes (3 of 4 shards up)',
+    });
+    // Several past their grace: how many (fix round 1, F4).
+    expect(
+      healthVerdict(
+        status({
+          gateway: {
+            connected: false,
+            since: NOW - 5 * MINUTE,
+            shards: { up: 2, total: 4, late: 2 },
+          },
+        }),
+        NOW,
+      ).reason,
+    ).toBe('2 shards away from Discord for 5 minutes (2 of 4 shards up)');
+    expect(
+      healthVerdict(
+        status({ gateway: { connected: false, since: NOW - 3 * MINUTE, shards: shards(0, 4) } }),
+        NOW,
+      ).reason,
+    ).toBe('not connected to Discord for 3 minutes (0 of 4 shards up)');
+    expect(
+      healthVerdict(
+        status({ gateway: { connected: false, since: NOW - 1 * MINUTE, shards: shards(0, 4) } }),
+        NOW,
+      ).reason,
+    ).toBe(
+      'connecting to Discord for 60 seconds (0 of 4 shards up), the database answered 10 seconds ago',
+    );
+    // A self-hosted instance's one shard: the line as before.
+    expect(
+      healthVerdict(
+        status({ gateway: { connected: false, since: NOW - 3 * MINUTE, shards: shards(0, 1) } }),
+        NOW,
+      ).reason,
+    ).toBe('not connected to Discord for 3 minutes');
+  });
+
   it('is unhealthy when the database did not answer at the last check, also while starting', () => {
     const database = {
       reachable: false,
