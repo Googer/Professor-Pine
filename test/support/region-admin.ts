@@ -80,6 +80,7 @@ export async function regionAdminWith(parties: readonly Party[] = [], kept?: Par
     routes: made.routes,
     gateway,
     settings: made.settings,
+    servers: made.servers,
     log: made.log,
   });
   return { ...made, regionAdmin };

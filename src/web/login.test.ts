@@ -16,6 +16,7 @@ import {
   TEST_MAP_ROLE,
   TestServers,
   testServerValues,
+  withInvites,
   withMapRole,
 } from '../../test/support/server-values.js';
 
@@ -834,8 +835,8 @@ describe('who is asking', () => {
     const invite = 'https://discord.gg/pinetest';
     const map = webServerWith({
       members,
-      web: { invites: { [FAKE_GUILD_ID]: invite } },
-      serverSettings: withMapRole(),
+      // The server's invite (plan 19A-1: its values).
+      serverSettings: withInvites({ [FAKE_GUILD_ID]: invite }, withMapRole()),
       servers: { has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999' },
     });
     web = map;

@@ -23,6 +23,7 @@ import { openEditForm } from './edit.js';
 import { eliteLine } from './elite.js';
 import { moveGymTo } from './move.js';
 import { gymViewMessage, LOCATION_OPTION, placeOrRefuse, sayGym, staffPlace } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /**
  * The custom-id kind of the buttons of the view of `/gym show` (documented in `custom-id.ts`):
@@ -161,6 +162,7 @@ export const gymViewControls: ComponentHandler = {
           interaction,
           await gymViewMessage(
             ctx,
+            serverValuesOf(interaction, ctx).distanceUnits,
             place,
             gym,
             [eliteLine(isEliteGym(before), eligible, gym)],

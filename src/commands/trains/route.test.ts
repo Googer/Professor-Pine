@@ -39,6 +39,7 @@ import { LIMITS } from '../../render/text.js';
 import { TrainService } from '../../services/train-service.js';
 import { route } from './route.js';
 import { textOf } from '../../../test/support/messages.js';
+import { changeServers } from '../../../test/support/server-values.js';
 
 const maps = (id: number): string => {
   const gym = testGyms().find((found) => found.id === id);
@@ -393,12 +394,7 @@ describe('/route add', () => {
       `Maple Leaf Mosaic (gym) · Birch Street · ${distanceWords(metresBetween(mosaic, lighthouse), 'metric')}`,
     );
     // In the settings' units: feet or miles where they are imperial.
-    Object.assign(made.ctx, {
-      config: {
-        ...made.ctx.config,
-        settings: { ...made.ctx.config.settings, distanceUnits: 'imperial' },
-      },
-    });
+    changeServers(made.ctx, { distanceUnits: 'imperial' });
     const imperial = await made.choices('add', 'stop');
     expect(imperial[0]?.name).toBe(
       `Maple Leaf Mosaic (gym) · Birch Street · ${distanceWords(metresBetween(mosaic, lighthouse), 'imperial')}`,

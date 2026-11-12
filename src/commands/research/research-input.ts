@@ -35,6 +35,7 @@ import type { ResearchSubject } from '../../services/stop-reports.js';
 import { CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import { namedPlace, orList, type PlaceKindsOnly } from '../place-option.js';
 import { stopReportBarred, stopReportBarredWords } from './research-report.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /*
  * What `/research report` reads (plan 8R-1; design 4.3, 9.8): the task (a choice of the period's
@@ -167,7 +168,7 @@ export async function namedStop(
   if (place.kind !== 'pin') return reportedStop(place);
   const row = await ctx.guilds.idFor(guildIdOf(interaction));
   const near = row === undefined ? undefined : ctx.placeFinder.nearestStop(row, place);
-  if (!near) throw new UserError(noStopAtPin(ctx.config.settings.distanceUnits));
+  if (!near) throw new UserError(noStopAtPin(serverValuesOf(interaction, ctx).distanceUnits));
   return reportedStop(near);
 }
 

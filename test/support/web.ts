@@ -1,7 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import type { OutgoingHttpHeaders } from 'node:http';
 import { tmpdir } from 'node:os';
-import type { DistanceUnits } from '../../src/render/distance-words.js';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { Logger } from 'pino';
@@ -121,7 +120,7 @@ export async function geoSourcesWith() {
       },
     },
     // The settings' default, as the forums of servers set up with it are named.
-    forumSuffix: '-board',
+    forumSuffix: () => '-board',
   };
   return { gyms, directory, regionRows, regions, channelNames, hidden, unseen, opens, sources };
 }
@@ -211,7 +210,7 @@ const NOTHING: GeoSources = {
       denials: () => ({ own: false, roles: [] }),
     }),
   },
-  forumSuffix: '-board',
+  forumSuffix: () => '-board',
 };
 
 /**
@@ -754,8 +753,6 @@ export interface WebTestOptions {
   /** Discord's side of a login (a `FakeOAuth` by default); undefined: no client secret. */
   oauth?: OAuthGateway | undefined;
   googleKey?: string;
-  /** `settings.distanceUnits`; imperial by default, as the settings' own. */
-  distanceUnits?: DistanceUnits;
   /** Where the map's view is built from (`geoSourcesWith`); nothing by default. */
   geo?: { sources: GeoSources };
   /** The built bundle (`builtAssets`); by default none was built. */
@@ -856,7 +853,7 @@ export async function regionEditingWith(selfRoles = false) {
     regions: made.regions,
     admin: made.regionAdmin,
     checker: inThisThread,
-    selfRoles,
+    selfRoles: () => selfRoles,
     log: made.log,
   };
   return { ...made, editing };
@@ -875,7 +872,7 @@ const NO_EDITING: RegionEditing = {
     orphanForums: () => Promise.resolve([]),
   },
   checker: inThisThread,
-  selfRoles: false,
+  selfRoles: () => false,
   log: createTestLogger().log,
 };
 
@@ -1037,7 +1034,6 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     // As the bot's: the feeds' host and its own address, whose /pictures/ and /eggs/ posts show.
     pictureOrigins: ['https://cdn.leekduck.com', settings.publicUrl],
     googleKey: options.googleKey,
-    distanceUnits: options.distanceUnits ?? 'imperial',
     servers: options.servers ?? { has: (guildId) => guildId === FAKE_GUILD_ID },
     serverSettings: options.serverSettings ?? new TestServers(),
     // The fakes' server names the map's role of the tests (`withMapRole`) `Verified`.

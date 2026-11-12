@@ -71,11 +71,23 @@ describe('MeetupSafety.verdict', () => {
     expect(await verdict(SAFETY_PIN, true)).toBe('allowed');
   });
 
-  it('adds the words of the settings to the flagged ones', async () => {
+  it("adds the words of the server's settings to the flagged ones, its own alone", async () => {
     const made = await meetupSafetyWith({ flaggedWords: ['park'] });
     expect(
       await made.safety.verdict({ serverId: SERVER, place: PARK, makerId: ALICE, staff: false }),
     ).toBe('review');
+    made.servers.changed.set(OTHER_SERVER, {
+      ...made.servers.values,
+      flaggedWords: ['garden'],
+    });
+    expect(
+      await made.safety.verdict({
+        serverId: OTHER_SERVER,
+        place: PARK,
+        makerId: ALICE,
+        staff: false,
+      }),
+    ).toBe('allowed');
   });
 
   it('checks a gym by its official name as well as by the nickname its post shows', async () => {

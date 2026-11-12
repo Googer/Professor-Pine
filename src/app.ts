@@ -670,6 +670,10 @@ export async function startApp(
   const notify = new NotifyService({
     store: parties,
     posts: partyService,
+    // Whether each server notifies its members (plan 19A-1), its row named by what the process
+    // has seen (every server is seen at the start).
+    servers,
+    serverOfRow: (row) => rowIds.guildSnowflake(row),
     pictures: stopPictures,
     wants,
     targetWants,
@@ -712,7 +716,6 @@ export async function startApp(
     wants,
     gifts: new UnownGiftRepository(db),
     gameData,
-    settings: config.settings,
     servers,
     log,
   });
@@ -919,6 +922,7 @@ export async function startApp(
     routes: savedRoutes,
     gateway: partyGateway,
     settings: config.settings,
+    servers,
     log,
   });
   // Files that members attach to a command, downloaded from Discord's own hosts only.
@@ -1663,7 +1667,6 @@ export async function startApp(
       settings: webSettings,
       pictureOrigins: pictureOrigins(webSettings.publicUrl),
       googleKey: config.env.GOOGLE_MAPS_BROWSER_KEY,
-      distanceUnits: config.settings.distanceUnits,
       servers: { has: (guildId) => client.guilds.cache.has(guildId) },
       serverSettings: servers,
       roleName: (guildId, roleId) =>
@@ -1701,8 +1704,18 @@ export async function startApp(
           regions,
           gyms,
           channels: partyGateway,
-          roles: config.settings.features.roles ? ctx.selfRoles : undefined,
-          forumSuffix: config.settings.regionForumSuffix,
+          // Per server (plan 19A-1): its roles where its members give themselves roles.
+          roles: {
+            roster: (guildId, remember) =>
+              servers.of(guildId).features.roles
+                ? ctx.selfRoles.roster(guildId, remember)
+                : Promise.resolve(undefined),
+            get generation() {
+              return ctx.selfRoles.generation;
+            },
+            usedIn: (guildId) => servers.of(guildId).features.roles,
+          },
+          forumSuffix: (guildId) => servers.of(guildId).regionForumSuffix,
         },
         { log },
       ),
@@ -1723,7 +1736,7 @@ export async function startApp(
           regions,
           admin: regionAdmin,
           checker: new SaveCheckWorker({ log }),
-          selfRoles: config.settings.features.roles,
+          selfRoles: (serverId) => servers.of(serverId).features.roles,
           log,
         },
         // The first step of the shutdown: from then on no save of the editor is started.
@@ -1825,7 +1838,8 @@ export async function startApp(
         guilds,
         regions,
         gates: partyGateway,
-        selfRoles: config.settings.features.roles ? ctx.selfRoles : undefined,
+        // Per server (plan 19A-1): the routes ask its `features.roles`.
+        selfRoles: ctx.selfRoles,
       },
       // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
       // approved, on an instance that has the file (the owner's).

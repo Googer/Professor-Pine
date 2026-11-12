@@ -13,6 +13,7 @@ import {
   TEST_SERVER_CHANNELS,
   TestServers,
   testServerValues,
+  withFeatures,
 } from '../../test/support/server-values.js';
 import { Tally } from '../../test/support/tally.js';
 import {
@@ -123,9 +124,8 @@ describe('the copies of a raid in other channels', () => {
       `sendMessage ${WEST_CHANNEL}`,
     ]);
 
-    const settings = { ...plain.settings };
-    settings.features = { ...settings.features, exGymChannel: false, remoteRaidChannel: false };
-    const off = await mirrored(yveltal, { gyms: gymsWithExLibrary(), settings });
+    const servers = withFeatures({ exGymChannel: false, remoteRaidChannel: false });
+    const off = await mirrored(yveltal, { gyms: gymsWithExLibrary(), servers });
     expect(off.current().mirrorMessages).toEqual([]);
     expect(off.gateway.messagesIn(REMOTE_CHANNEL)).toEqual([]);
     expect(off.gateway.messagesIn(ELITE_GYM_CHANNEL)).toEqual([]);

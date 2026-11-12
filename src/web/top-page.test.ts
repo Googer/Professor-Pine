@@ -7,7 +7,7 @@ import { builtAssets, webServerWith, type TestWeb } from '../../test/support/web
 import { csrfInTop, LOGGED_OUT_MARK as CLIENT_LOGGED_OUT_MARK } from './client/top-logout.js';
 import { AFTER_JOINING, LOGGED_OUT_MARK } from './top-page.js';
 import { TOP_LOOKUP_MS, TOP_PER_MINUTE } from './top-routes.js';
-import { withMapRole } from '../../test/support/server-values.js';
+import { withInvites, withMapRole } from '../../test/support/server-values.js';
 
 const ASH = '700000000000000001';
 const PINEWOOD = { id: '410000000000000001', name: 'Pinewood' };
@@ -168,7 +168,10 @@ describe('the top page', () => {
 
   it('lists the servers of theirs and those they could join, names the visitor and offers Log out', async () => {
     web = webServerWith({
-      web: { invites: { [OAKVALE.id]: OAK_INVITE, [ELMHURST.id]: 'https://discord.gg/elm' } },
+      serverSettings: withInvites({
+        [OAKVALE.id]: OAK_INVITE,
+        [ELMHURST.id]: 'https://discord.gg/elm',
+      }),
       serversWithMap: [PINEWOOD, OAKVALE, ELMHURST, { id: '410000000000000004', name: 'acorn' }],
       members: new FakeMemberDirectory()
         .add(ASH, 'Ash', PINEWOOD.id)
@@ -210,7 +213,7 @@ describe('the top page', () => {
       'Once you have joined, reload this page; Discord can take a minute to tell Pine.',
     );
     web = webServerWith({
-      web: { invites: { [OAKVALE.id]: OAK_INVITE } },
+      serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
       serversWithMap: [PINEWOOD, OAKVALE],
       members: new FakeMemberDirectory().add(ASH, 'Ash', PINEWOOD.id),
     });
@@ -235,7 +238,7 @@ describe('the top page', () => {
 
   it('says they are in no server here, with the servers they could join', async () => {
     web = webServerWith({
-      web: { invites: { [OAKVALE.id]: OAK_INVITE } },
+      serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
       serversWithMap: [PINEWOOD, OAKVALE],
     });
     const answer = await web.app.inject({
@@ -283,7 +286,7 @@ describe('the top page', () => {
   it('counts a server unavailable as one Discord did not answer for, never asking of it (F1)', async () => {
     const members = new FakeMemberDirectory().add(ASH, 'Ash', PINEWOOD.id);
     web = webServerWith({
-      web: { invites: { [OAKVALE.id]: OAK_INVITE } },
+      serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
       serversWithMap: { servers: [PINEWOOD], unavailable: [OAKVALE.id] },
       members,
     });
@@ -326,7 +329,7 @@ describe('the top page', () => {
     const hostile = { id: PINEWOOD.id, name: '<img src=x onerror=alert(1)>\u202Eevil"&' };
     const hostileToJoin = { id: ELMHURST.id, name: '<svg onload=alert(2)>\u202Ejoin"&' };
     web = webServerWith({
-      web: { invites: { [ELMHURST.id]: 'https://discord.gg/elm' } },
+      serverSettings: withInvites({ [ELMHURST.id]: 'https://discord.gg/elm' }),
       serversWithMap: [hostile, OAKVALE, hostileToJoin],
       members: new FakeMemberDirectory().add(ASH, 'Ash', PINEWOOD.id).add(ASH, 'Ash', OAKVALE.id),
     });
@@ -465,7 +468,7 @@ describe('the top page', () => {
 
   it("draws every class of its pages in the short pages' stylesheet, no style in the markup", async () => {
     web = webServerWith({
-      web: { invites: { [OAKVALE.id]: OAK_INVITE } },
+      serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
       serversWithMap: [PINEWOOD, OAKVALE, ELMHURST],
       members: new FakeMemberDirectory().add(ASH, 'Ash', PINEWOOD.id).add(ASH, 'Ash', ELMHURST.id),
     });

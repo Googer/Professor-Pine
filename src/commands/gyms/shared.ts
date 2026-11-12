@@ -429,6 +429,8 @@ export function fetchNote(ctx: AppContext): string {
  */
 export async function gymViewMessage(
   ctx: AppContext,
+  /** The server's units (plan 19A-1). */
+  units: DistanceUnits,
   place: StaffPlace,
   gym: Gym,
   lines: readonly (string | undefined)[],
@@ -445,7 +447,7 @@ export async function gymViewMessage(
     gym,
     regions: ctx.gymAdmin.regionsOf(gym.id, place.guildId),
     nearest: ctx.gymAdmin.nearestFor(gym, place.guildId),
-    units: ctx.config.settings.distanceUnits,
+    units,
     targets,
     map: mapPicture(map, 'Map of the gym'),
     above: lines,

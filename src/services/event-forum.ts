@@ -174,7 +174,7 @@ export interface EventForumOptions {
   gateway: PartyGateway;
   store: EventForumStorage;
   events: ListedEventProvider;
-  settings: Pick<Settings, 'eventsForum' | 'timezone' | 'web'>;
+  settings: Pick<Settings, 'timezone' | 'web'>;
   /**
    * Each server's values (plan 19A-1): its events forum, by id (set by `setup` when it makes
    * one), its channel for bot updates, the map's member role.
@@ -234,6 +234,8 @@ export function newEventsForumName(settings: Pick<Settings, 'channels'>): string
  * hourly upkeep and in the catch-up on reconnect. An unchanged listing is not edited.
  */
 export class EventForumService {
+  /** The servers whose forums the last draw went through: the timer's numbers are theirs. */
+  private drawnServers: string[] = [];
   private readonly now: () => number;
   private readonly setTimer: (run: () => void, ms: number) => () => void;
   /** The draw under way, and whether another was asked for meanwhile. */
@@ -541,6 +543,7 @@ export class EventForumService {
     }
     this.plannedEnds = [];
     this.morePostsDue = false;
+    this.drawnServers = forums.map((forum) => forum.serverId);
     for (const forum of forums) {
       if (this.stopped) return;
       const outcome = await this.drawServer(forum, reopen);
@@ -612,7 +615,7 @@ export class EventForumService {
     // Nothing after a stop, nor a post once one came while the days were read (review W7).
     if (this.stopped) return;
     const { days, settings, store, gateway, log } = this.options;
-    const count = settings.eventsForum.onThisDay;
+    const count = this.options.servers.of(forum.serverId).eventsForum.onThisDay;
     const now = this.now();
     const zone = settings.timezone;
     if (days === undefined || count <= 0 || !onThisDayDue(now, zone)) return;
@@ -791,6 +794,8 @@ export class EventForumService {
     const now = this.now();
     const zone = settings.timezone;
     const byId = new Map(events.map((event) => [event.id, event]));
+    // The server's numbers (plan 19A-1).
+    const { postDaysAhead } = this.options.servers.of(serverId).eventsForum;
     const rows = await store.posts(serverId);
     // Moves first: the row of an old id follows its event (R12).
     // A stop cuts a draw under way short, between posts (re-review RR-3).
@@ -812,7 +817,7 @@ export class EventForumService {
     for (const event of events) {
       if (this.stopped) break;
       if (known.has(event.id) || !isPosted(event) || event.end <= now) continue;
-      if (postOpensAt(event, settings.eventsForum.postDaysAhead, zone) > now) continue;
+      if (postOpensAt(event, postDaysAhead, zone) > now) continue;
       // Refused a while ago: passed over until it is asked for again, not counted among the ten.
       const refusedKey = `${serverId}:${event.id}`;
       if ((this.refusedPosts.get(refusedKey) ?? 0) > now) continue;
@@ -1168,7 +1173,7 @@ export class EventForumService {
       events,
       this.now(),
       settings.timezone,
-      settings.eventsForum.horizonDays,
+      this.options.servers.of(serverId).eventsForum.horizonDays,
     );
     const message = listingMessage(
       sections,
@@ -1281,22 +1286,34 @@ export class EventForumService {
     this.cancelNext?.();
     this.cancelNext = undefined;
     if (this.stopped) return;
-    const { settings } = this.options;
+    const { settings, servers } = this.options;
     const now = this.now();
+    // The numbers of every server drawn (plan 19A-1: each its own), each pair once.
+    const drawn = this.drawnServers.map((serverId) => servers.of(serverId).eventsForum);
+    const numbers = [
+      ...new Map(
+        drawn.map(({ horizonDays, postDaysAhead }) => [
+          `${String(horizonDays)}:${String(postDaysAhead)}`,
+          { horizonDays, postDaysAhead },
+        ]),
+      ).values(),
+    ];
     const times = this.options.events
       .listedEvents()
-      .flatMap((event) => [
-        // Every move of its line between sections (BR-9), and its post's opening.
-        ...sectionChangesAt(event, settings.eventsForum.horizonDays, settings.timezone),
-        ...(isPosted(event)
-          ? [postOpensAt(event, settings.eventsForum.postDaysAhead, settings.timezone)]
-          : []),
-      ])
+      .flatMap((event) =>
+        numbers.flatMap(({ horizonDays, postDaysAhead }) => [
+          // Every move of its line between sections (BR-9), and its post's opening.
+          ...sectionChangesAt(event, horizonDays, settings.timezone),
+          ...(isPosted(event) ? [postOpensAt(event, postDaysAhead, settings.timezone)] : []),
+        ]),
+      )
       .filter((time) => time > now);
     // A counted train or meetup over by the clock leaves its event's count (review EP-5).
     times.push(...this.plannedEnds.filter((time) => time > now));
     // The next 10:00 of "On this day" (plan 8H-8).
-    if (this.options.days !== undefined && settings.eventsForum.onThisDay > 0) {
+    // Of every server drawn, not of the pairs above (review F12): two servers of one pair may
+    // differ in it.
+    if (this.options.days !== undefined && drawn.some((one) => one.onThisDay > 0)) {
       times.push(nextOnThisDayAt(now, settings.timezone));
     }
     if (times.length === 0) return;

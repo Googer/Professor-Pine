@@ -52,6 +52,7 @@ import {
   ROCKET_FROM_A_REGION,
 } from './rocket-input.js';
 import { ListChanged } from '../../discord/errors.js';
+import { testServerValues } from '../../../test/support/server-values.js';
 
 const ASH = '200000000000000061';
 const MISTY = '200000000000000062';
@@ -1068,9 +1069,8 @@ describe('/rocket report’s help (plan 8R-9)', () => {
   it('says the stops are offered near the member’s last report, in the settings’ units', () => {
     const { ctx } = createTestContext();
     for (const distanceUnits of ['metric', 'imperial'] as const) {
-      const message = renderSubcommandHelp(rocket, 'report', {
-        ...ctx.config.settings,
-        distanceUnits,
+      const message = renderSubcommandHelp(rocket, 'report', ctx.config.settings, {
+        server: testServerValues({ distanceUnits }),
       });
       expect(textDisplays(message)[0]).toContain(
         'Those near the stop where you last reported today (research or Team GO Rocket, also a ' +

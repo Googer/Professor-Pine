@@ -209,12 +209,15 @@ export interface MeetupSafetyOptions {
  */
 export class MeetupSafety {
   private readonly now: () => number;
-  private readonly flaggedWords: readonly string[];
+  /**
+   * The flagged words of each server's list as it is (`flaggedWordsOf`, one expression per
+   * list): kept by the list itself, so that a change of the server's values makes a new one.
+   */
+  private readonly flaggedWordsOfList = new WeakMap<readonly string[], readonly string[]>();
   private readonly changesOnTheirWay = new Set<Promise<void>>();
 
   constructor(private readonly options: MeetupSafetyOptions) {
     this.now = options.now ?? (() => Date.now());
-    this.flaggedWords = flaggedWordsOf(options.settings.meetupSafety?.flaggedWords);
   }
 
   /**
@@ -232,6 +235,17 @@ export class MeetupSafety {
   private channelOf(serverId: string, nearChannelId: string): string | undefined {
     const id = this.options.servers.of(serverId).channels.moderation;
     return id === undefined ? undefined : this.options.gateway.findChannel(nearChannelId, id);
+  }
+
+  /** The flagged words of a server: the code's and its own (plan 19A-1, its `flaggedWords`). */
+  private flaggedWordsIn(serverId: string): readonly string[] {
+    const list = this.options.servers.of(serverId).flaggedWords;
+    let words = this.flaggedWordsOfList.get(list);
+    if (words === undefined) {
+      words = flaggedWordsOf(list);
+      this.flaggedWordsOfList.set(list, words);
+    }
+    return words;
   }
 
   /**
@@ -302,7 +316,7 @@ export class MeetupSafety {
       staff: false,
       blocked,
       ruling,
-      flaggedWords: this.flaggedWords,
+      flaggedWords: this.flaggedWordsIn(ask.serverId),
       otherTitles: this.otherTitles(ask.place),
     });
   }

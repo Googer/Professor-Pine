@@ -156,10 +156,12 @@ export const eventsForumSchema = z
   })
   .default(() => ({ ...EVENTS_FORUM_DEFAULTS }));
 export const flaggedWordsSchema = z.array(z.string().trim().min(1).max(100)).max(500).default([]);
+/** What a region's forum's name adds to its channel's unless set: its board. */
+export const DEFAULT_REGION_FORUM_SUFFIX = '-board';
 export const regionForumSuffixSchema = z
   .string()
   .regex(/^-[\p{L}\p{N}_-]{1,30}$/u, { message: 'must be a hyphen and up to 30 letters' })
-  .default('-board');
+  .default(DEFAULT_REGION_FORUM_SUFFIX);
 export const regionMapLinkSchema = z.preprocess(
   // Blank means unset, as for the environment's optional values; spaces around are dropped.
   (value) => (typeof value === 'string' ? value.trim() || undefined : value),

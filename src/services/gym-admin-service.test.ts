@@ -432,8 +432,9 @@ describe('GymAdminService.add', () => {
   });
 
   it('announces nothing where the setting is off or the server has no such channel', async () => {
+    // The server's setting (plan 19A-1).
     const off = await gymAdminWith();
-    off.settings.postNewGyms = false;
+    off.servers.values = { ...off.servers.values, postNewGyms: false };
     await off.admin.add({ name: 'Clock Tower', ...FREE }, STAFF_PLACE);
     await settle(off);
     expect(announced(off)).toEqual([]);

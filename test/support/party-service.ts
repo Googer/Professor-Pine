@@ -455,6 +455,8 @@ export async function partyServiceWith(
     users,
     members,
     dms,
+    servers,
+    serverOfRow: (row) => (row === 1 ? gateway.guildId : undefined),
     guilds: {
       snowflakeOf: (id) => Promise.resolve(id === 1 ? gateway.guildId : undefined),
       idFor: (snowflake) => Promise.resolve(snowflake === gateway.guildId ? 1 : undefined),

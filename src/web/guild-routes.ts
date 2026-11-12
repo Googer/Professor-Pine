@@ -84,7 +84,8 @@ export function guildRoutes(
           tiles,
           googleKey: tiles === 'google' ? deps.googleKey : undefined,
           login: deps.oauth ? 'discord' : 'links',
-          distanceUnits: deps.distanceUnits,
+          // The units of the server it shows (plan 19A-1).
+          distanceUnits: deps.serverSettings.of(request.params.guild).distanceUnits,
         },
         manifest,
       ),
@@ -132,7 +133,6 @@ export function guildRoutes(
   // the address, as it may ask Discord. Somebody logged in whom the directory finds not in the
   // server is given the server's invite where the settings have one (`invite`, plan 8M-11B):
   // nobody logged out (they may be a member), no member without the role, nobody while read-only.
-  const { invites } = deps.settings;
   scope.get(
     '/api/me',
     { onRequest: limitedRead(ME_PER_MINUTE, deps) },
@@ -149,7 +149,8 @@ export function guildRoutes(
       const memberRole = memberRoleOf(guild);
       try {
         const found = await deps.members.find(guild, session.userId);
-        if (found === undefined) invite = invites?.[guild];
+        // The server's invite (plan 19A-1: its values).
+        if (found === undefined) invite = deps.serverSettings.of(guild).invite;
         member = found !== undefined && countsOnTheMap(found.standing, memberRole);
         // Its name as the server has it now (a role the bot cannot see: by what it is for).
         if (found !== undefined && !member && memberRole !== undefined) {

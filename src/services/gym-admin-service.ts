@@ -426,7 +426,7 @@ export class GymAdminService {
    *
    * It answers once the row is stored, the gym can be found and the nearest gyms
    * are settled; its address and the places around it are fetched on the side
-   * (`GymUpkeep.placed`). Where `settings.postNewGyms` is on, the server's channel for bot
+   * (`GymUpkeep.placed`). Where the server's `postNewGyms` is on, its channel for bot
    * updates is told. Once the row exists the gym is added, whatever fails after it: that is
    * logged, and the gym is answered as it was stored.
    */
@@ -986,10 +986,12 @@ export class GymAdminService {
     place: StaffPlace,
     messages: () => readonly OutgoingMessage[] | Promise<readonly OutgoingMessage[]>,
   ): void {
-    const { gateway, settings, servers, log } = this.options;
-    if (!settings.postNewGyms) return;
+    const { gateway, servers, log } = this.options;
     const sending: Promise<unknown> = (async () => {
       for (const near of place.channelIds) {
+        // Where its server's staff want it (plan 19A-1, its `postNewGyms`).
+        const server = gateway.serverOf(near);
+        if (server === undefined || !servers.of(server).postNewGyms) continue;
         const channelId = serverChannel(gateway, servers, near, 'bot-updates');
         if (channelId === undefined) continue;
         // A map is fetched only once there is a channel to show it in.

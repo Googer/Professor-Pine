@@ -79,6 +79,7 @@ import {
   takeBackAs,
   type ResearchReported,
 } from './research-report.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** "Same task at more stops…" offers the stops within this many meters of the first one. */
 export const MORE_STOPS_METRES = 2_000;
@@ -162,7 +163,7 @@ async function answerOf(
   const [first] = outcome.saved;
   return researchAnswer({
     ...view,
-    units: ctx.config.settings.distanceUnits,
+    units: serverValuesOf(interaction, ctx).distanceUnits,
     more:
       first === undefined
         ? []
@@ -460,7 +461,7 @@ const reportResearch: SubcommandPart = {
     );
   })(),
   help: {
-    details: (settings) =>
+    details: (settings, facts) =>
       'Reports the field research task of up to five PokéStops at once. Pick the task from the ' +
       'list that appears while you type; it finds tasks by their rewards too (`dratini`).\n\n' +
       'A task has a choice for each of its rewards, and one that rewards one of several ' +
@@ -468,7 +469,7 @@ const reportResearch: SubcommandPart = {
       'then).\n\nPick the stops from their lists, or paste a maps link to a stop. Your ' +
       'region’s stops come first, then those nearest the stops you picked already; with ' +
       'nothing typed, the stops within ' +
-      `${distanceWords(MORE_STOPS_METRES, settings.distanceUnits)} of them, nearest first.\n\n` +
+      `${distanceWords(MORE_STOPS_METRES, facts?.server?.distanceUnits ?? 'imperial')} of them, nearest first.\n\n` +
       'A report replaces your own at a stop today, and one that names the Pokémon replaces a ' +
       '"one of". Another member’s report is asked about first: tick the stops whose report ' +
       'you replace. The same report again, or one that says less, is answered "Already ' +

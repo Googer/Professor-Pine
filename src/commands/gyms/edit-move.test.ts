@@ -20,6 +20,7 @@ import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gy
 import { REPORTER } from '../../../test/support/parties.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { ANSWERED_BELOW } from '../../discord/late-reply.js';
+import { testServerValues } from '../../../test/support/server-values.js';
 
 type Made = Awaited<ReturnType<typeof gymCommandsWith>>;
 
@@ -663,7 +664,9 @@ describe('/gym move', () => {
     const details = gym.subcommands.get('move')?.help?.details;
     const settings = loadSettings(TEST_SETTINGS_PATH);
     const text = (distanceUnits: 'imperial' | 'metric'): string =>
-      typeof details === 'function' ? details({ ...settings, distanceUnits }) : '';
+      typeof details === 'function'
+        ? details(settings, { server: testServerValues({ distanceUnits }) })
+        : '';
     // The far move in the settings' units (round 2).
     expect(text('metric')).toContain('than 500 m away or right beside another gym.');
     expect(text('imperial')).toContain('than 0.3 mi away or right beside another gym.');

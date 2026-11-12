@@ -11,17 +11,23 @@ import { buttonsOf, textOf } from '../../../test/support/messages.js';
 import { WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { TEST_WEB } from '../../../test/support/web.js';
+import { fileDefaults } from '../../config/server-settings.js';
 import type { Settings } from '../../config/settings.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { maps } from './maps.js';
+import { TestServers, testServerValues } from '../../../test/support/server-values.js';
 
 const ASH = '700000000000000001';
 const LINK = 'https://maps.example.test/regions';
 
 function setup(settings: Partial<Settings>) {
   const base = createTestContext();
+  // The link is the server's (plan 19A-1): its values, and in a DM the file's defaults.
+  const { regionMapLink, ...instance } = settings;
+  const file = { ...base.ctx.config.settings, ...settings };
   const { ctx } = createTestContext({
-    config: { ...base.ctx.config, settings: { ...base.ctx.config.settings, ...settings } },
+    config: { ...base.ctx.config, settings: { ...base.ctx.config.settings, ...instance } },
+    servers: new TestServers(testServerValues({ regionMapLink }), fileDefaults(file)),
   });
   const router = new InteractionRouter(ctx, [maps], []);
   const run = async (extra: object = {}) => {

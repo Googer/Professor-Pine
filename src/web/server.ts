@@ -40,7 +40,6 @@ import type { PostWebDeps } from './post-control-routes.js';
 import type { TrainWebDeps } from './train-routes.js';
 import { toolFileRoutes, toolPageRoutes, type ToolWebDeps } from './tool-routes.js';
 import { topRoutes } from './top-routes.js';
-import type { DistanceUnits } from '../render/distance-words.js';
 import type { ServerSettingsLookup } from '../services/server-settings.js';
 
 /** `settings.web` once it is set. */
@@ -53,8 +52,6 @@ export interface WebDeps {
   pictureOrigins: readonly string[];
   /** `GOOGLE_MAPS_BROWSER_KEY`: Google's tiles are offered only with it and `tiles: 'google'`. */
   googleKey: string | undefined;
-  /** The units distances are said in (`settings.distanceUnits`, task 7): the map's list, the region editor's fixes. */
-  distanceUnits: DistanceUnits;
   /** The servers the bot is in (the client's cache): any other is not found. */
   servers: { has(guildId: string): boolean };
   /** Each server's values (plan 19A-1): the map's member role, by id. */

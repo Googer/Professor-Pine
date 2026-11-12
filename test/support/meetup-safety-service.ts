@@ -19,7 +19,7 @@ export interface SafetyOptions {
   moderation?: string | null;
   /** Whether the server has that channel. Default yes. */
   channel?: boolean;
-  /** `settings.meetupSafety.flaggedWords`. */
+  /** The server's `flaggedWords` (plan 19A-1: its own; `meetupSafety.flaggedWords` of the file). */
   flaggedWords?: string[];
 }
 
@@ -37,15 +37,13 @@ export async function meetupSafetyWith(
 ) {
   const made = await partyServiceWith(parties, overrides);
   const { moderation = MODERATION, channel = true, flaggedWords } = options;
-  const settings = {
-    ...made.settings,
-    ...(flaggedWords === undefined ? {} : { meetupSafety: { flaggedWords } }),
-  };
+  const { settings } = made;
   // The server's moderators' channel (plan 19A-1: by id), for every service of `made`.
   const { moderation: _none, ...channels } = made.servers.values.channels;
   made.servers.values = {
     ...made.servers.values,
     channels: moderation === null ? channels : { ...channels, moderation: MOD_CHANNEL },
+    ...(flaggedWords === undefined ? {} : { flaggedWords }),
   };
   if (channel && moderation !== null) made.gateway.addChannel(MOD_CHANNEL, moderation);
   const storage = new MemoryMeetupSafety();

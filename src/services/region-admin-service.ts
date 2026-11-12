@@ -24,6 +24,7 @@ import type { AdminLock } from './admin-lock.js';
 import type { PartyService } from './party-service.js';
 import type { PartyStore } from './party-store.js';
 import type { RegionProvider } from './region-directory.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 
 /**
  * The staff member a change of regions is made by: their snowflake (the log and the server's
@@ -259,6 +260,8 @@ export interface RegionAdminOptions {
     | 'deleteChannel'
   >;
   settings: Settings;
+  /** Each server's values: the ending of its regions' forums (plan 19A-1). */
+  servers: ServerSettingsLookup;
   log: Logger;
 }
 
@@ -338,7 +341,7 @@ export class RegionAdminService {
     orphanForums: readonly string[] = [],
     removing: readonly number[] = [],
   ): ImportPreview {
-    const { regions, gyms, store, gateway, settings } = this.options;
+    const { regions, gyms, store, gateway, servers } = this.options;
     const mayCreate = gateway.mayCreateChannels(staff.server);
     const plan = planImport({
       areas,
@@ -350,7 +353,7 @@ export class RegionAdminService {
       mayCreate,
       staffMayCreate: staff.mayManageChannels,
       orphanForums,
-      forumSuffix: settings.regionForumSuffix,
+      forumSuffix: servers.of(staff.server).regionForumSuffix,
       removing,
       ...(target ? { target } : {}),
     });

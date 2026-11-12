@@ -3,6 +3,7 @@ import type { SubcommandPart } from '../../discord/command-group.js';
 import { chosenGym, respondWithGyms, withGymOption } from './gym-option.js';
 import { answerGym, gymViewMessage, staffPlace } from './shared.js';
 import { viewControls } from './view-controls.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /**
  * `/gym show`: everything Pine knows of a gym (the spec's `find` and `detail` in one). The
@@ -29,7 +30,17 @@ export const showGym: SubcommandPart = {
   async execute(interaction, ctx) {
     const gym = await chosenGym(interaction, ctx);
     const place = await staffPlace(interaction, ctx);
-    await answerGym(interaction, await gymViewMessage(ctx, place, gym, [], viewControls(gym)));
+    await answerGym(
+      interaction,
+      await gymViewMessage(
+        ctx,
+        serverValuesOf(interaction, ctx).distanceUnits,
+        place,
+        gym,
+        [],
+        viewControls(gym),
+      ),
+    );
   },
   autocomplete: respondWithGyms,
 };

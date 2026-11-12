@@ -183,7 +183,7 @@ describe('RegionAdminService.import', () => {
     // The new region has its forum, named after its channel, with the list of active raids.
     const forumId = south?.forumChannelId ?? '';
     expect(made.gateway.forums.get(forumId)).toMatchObject({
-      name: `south${made.settings.regionForumSuffix}`,
+      name: `south${made.servers.values.regionForumSuffix}`,
       regionChannelId: SOUTH_CHANNEL,
     });
     expect(south?.summaryMessageId).not.toBeNull();
@@ -231,7 +231,7 @@ describe('RegionAdminService.import', () => {
       expect(region).toMatchObject({ guildId: 1 });
       // One command gives channel, outline and forum.
       expect(made.gateway.forums.get(region?.forumChannelId ?? '')?.name).toBe(
-        `${name}${made.settings.regionForumSuffix}`,
+        `${name}${made.servers.values.regionForumSuffix}`,
       );
     }
     expect(

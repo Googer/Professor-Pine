@@ -69,7 +69,7 @@ export async function readAttachedOutcome(
   if (outcome.kind !== 'panes') return outcome;
   const mine = outcome.panes.filter((pane) => pane.screen === more.screen);
   const other = outcome.panes.find((pane) => pane.screen !== more.screen);
-  if (mine.length > 1) throw new UserError(severalWords(ctx, more.screen));
+  if (mine.length > 1) throw new UserError(severalWords(ctx, interaction, more.screen));
   const [one] = mine;
   if (!one) return other ?? { kind: 'two-screens' };
   if (other) more.beside?.(other.screen);
@@ -87,7 +87,7 @@ export async function sayBeside(
   screen: 'raid' | 'max',
 ): Promise<void> {
   await interaction
-    .followUp({ content: besideWords(ctx, screen), flags: MessageFlags.Ephemeral })
+    .followUp({ content: besideWords(ctx, interaction, screen), flags: MessageFlags.Ephemeral })
     .catch((err: unknown) => {
       ctx.log.warn({ err }, 'could not name the screen beside a screenshot');
     });
@@ -95,25 +95,39 @@ export async function sayBeside(
 
 /** A command's refusal of two screens of its kind in one picture (plan 7P, Matt's Q1). */
 export function severalWords(
-  ctx: Pick<AppContext, 'config' | 'features'>,
+  ctx: PassiveContext,
+  where: { guildId: string | null },
   screen: 'raid' | 'max',
 ): string {
   const what = screen === 'raid' ? 'two raids' : 'two max battles';
-  return `This screenshot shows ${what}: ${reportBothWords('it', passiveIn(ctx))}.`;
+  return `This screenshot shows ${what}: ${reportBothWords('it', passiveIn(ctx, where))}.`;
 }
 
 /** What a command says of the pane of the other kind beside the one it reported (plan 7P). */
 export function besideWords(
-  ctx: Pick<AppContext, 'config' | 'features'>,
+  ctx: PassiveContext,
+  where: { guildId: string | null },
   screen: 'raid' | 'max',
 ): string {
   const what = screen === 'raid' ? 'The raid' : 'The max battle';
-  return `${what} beside it was not reported: ${reportBothWords('the screenshot', passiveIn(ctx))}.`;
+  return `${what} beside it was not reported: ${reportBothWords('the screenshot', passiveIn(ctx, where))}.`;
 }
 
-/** Whether screenshots are read passively (`reportBothWords`' pointer). */
-export function passiveIn(ctx: Pick<AppContext, 'config' | 'features'>): boolean {
-  return ctx.config.settings.ocr.passive && ctx.features.ocrPassive;
+/** What `passiveIn` reads: the instance's settings and intents, and the server's values. */
+export type PassiveContext = Pick<AppContext, 'config' | 'features' | 'servers'>;
+
+/**
+ * Whether screenshots are read passively where an interaction came from (`reportBothWords`'
+ * pointer): where the instance allows it (`ocr.passive` and the intent it was granted) and the
+ * server uses it (its `passiveReading`, plan 19A-1); never in a DM.
+ */
+export function passiveIn(ctx: PassiveContext, where: { guildId: string | null }): boolean {
+  return (
+    ctx.config.settings.ocr.passive &&
+    ctx.features.ocrPassive &&
+    where.guildId !== null &&
+    ctx.servers.of(where.guildId).passiveReading
+  );
 }
 
 /** A screenshot a command was given, read pane by pane (plan 7P): `readAttached`'s reading. */
@@ -199,8 +213,9 @@ export const readScreenshot: SimpleCommand = {
     // each pane's reading in a container of its own, named by its place, the thumbnail the
     // whole picture, each in its share of the message's room.
     const picture = attachment.url.startsWith('https://') ? attachment.url : undefined;
+    const passive = passiveIn(ctx, interaction);
     const messages = outcome.panes.map((pane) =>
-      paneMessage(ctx, pane, picture, outcome.panes.length),
+      paneMessage(ctx, passive, pane, picture, outcome.panes.length),
     );
     await interaction.editReply(
       v2Answer({ v2: true, components: messages.flatMap((message) => message.components) }),
@@ -211,6 +226,7 @@ export const readScreenshot: SimpleCommand = {
 /** The answer of `/read-screenshot` for one screen (of `of` in the picture). */
 function paneMessage(
   ctx: AppContext,
+  passive: boolean,
   outcome: ReadOutcome,
   picture: string | undefined,
   of: number,
@@ -229,12 +245,7 @@ function paneMessage(
           : { kind: 'refuse' as const, reason: decision.reason };
     return maxScreenshotMessage({
       report: outcome.report,
-      decision: maxDecisionWords(
-        stored,
-        outcome.report,
-        ctx.config.settings.maxBattles,
-        passiveIn(ctx),
-      ),
+      decision: maxDecisionWords(stored, outcome.report, ctx.config.settings.maxBattles, passive),
       question,
       picture,
       buttons: outcome.id === undefined ? [] : feedbackButtons(outcome.id, true),
@@ -250,7 +261,7 @@ function paneMessage(
   return screenshotMessage({
     report: storedReport(outcome.report),
     gymName: gymNamerOf(ctx),
-    decision: decisionWords(decision, passiveIn(ctx)),
+    decision: decisionWords(decision, passive),
     question,
     picture,
     buttons: outcome.id === undefined ? [] : feedbackButtons(outcome.id),

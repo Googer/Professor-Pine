@@ -102,8 +102,8 @@ export interface RegionEditing {
    * in the bot, on it in tests (`inThisThread`).
    */
   checker: SaveChecker;
-  /** Whether members give themselves roles (`settings.features.roles`): the reminders say so. */
-  selfRoles: boolean;
+  /** Whether a server's members give themselves roles (its `features.roles`): the reminders say so. */
+  selfRoles: (serverId: string) => boolean;
   log: Logger;
 }
 
@@ -601,7 +601,7 @@ export async function carryOutSave(
         ? [REGION_GONE]
         : removal.kind === 'error'
           ? [`I could not remove ${label}: look at the regions and try again.`]
-          : outcomeLines(removal, label, roleReminder(editing.selfRoles, 'removed'));
+          : outcomeLines(removal, label, roleReminder(editing.selfRoles(staff.server), 'removed'));
     removedLines.push(`- ${lines.join(' ')}`);
   }
   log.info(
@@ -617,7 +617,7 @@ export async function carryOutSave(
     'regions were saved in the web editor',
   );
   const words = outcome
-    ? outcomeWords(outcome, roleReminder(editing.selfRoles, 'new'))
+    ? outcomeWords(outcome, roleReminder(editing.selfRoles(staff.server), 'new'))
     : { lines: [], lists: [] as ImportList[] };
   const leftOut = preview.leftOut.map((left) => leftOutLine(left));
   const lists = words.lists.map((list) =>

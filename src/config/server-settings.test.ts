@@ -145,8 +145,9 @@ describe("the file's defaults of a server without a row", () => {
       blacklistWords: settings.blacklistWords,
       postNewGyms: true,
       regionMapLink: 'https://maps.example.test/regions',
-      passiveReading: false,
-      autoAssignRole: false,
+      // On: used where the instance allows them.
+      passiveReading: true,
+      autoAssignRole: true,
     });
   });
 

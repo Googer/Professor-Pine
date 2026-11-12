@@ -16,6 +16,7 @@ import {
 import { EAST_CHANNEL, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { ANSWERED_BELOW } from '../../discord/late-reply.js';
 import { PENDING_HOURS } from './shared.js';
+import { changeServers } from '../../../test/support/server-values.js';
 
 const choices = (interaction: { respond: { mock: { calls: unknown[][] } } }) =>
   interaction.respond.mock.calls[0]?.[0] as { name: string; value: string }[];
@@ -462,10 +463,8 @@ describe('/gym add', () => {
 
   it('names the gym nearby in the settings’ units, feet where they are imperial (round 2)', async () => {
     const made = await gymCommandsWith();
-    const { settings } = made.ctx.config;
-    Object.assign(made.ctx, {
-      config: { ...made.ctx.config, settings: { ...settings, distanceUnits: 'imperial' } },
-    });
+    // The server's units (plan 19A-1).
+    changeServers(made.ctx, { distanceUnits: 'imperial' });
     const question = answerOf(
       await made.use('add', { location: '40.05005,-80.05', name: 'Library Annex' }),
     );

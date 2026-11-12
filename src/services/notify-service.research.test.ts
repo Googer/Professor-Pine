@@ -31,6 +31,7 @@ import { MemoryHistory } from '../../test/support/history.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { ReachRecords } from './reach.js';
 import { FakeDmGateway, FakeLoopDelay, pullUntilIdle } from '../../test/support/dms.js';
+import { withFeatures } from '../../test/support/server-values.js';
 
 const background = watchEachTest();
 const at = (local: string): number => zonedAt(local, 'America/New_York');
@@ -780,11 +781,11 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
 
   it('tells nobody where notifications are off', async () => {
     const made = await researchWith();
-    made.settings.features.notifications = false;
+    made.servers.values = withFeatures({ notifications: false }).values;
     await made.want(ALICE, RESEARCH_DRATINI);
     await made.report(DRAGON, [west(1)]);
     expect(made.dms.recipients).toEqual([]);
-    made.settings.features.notifications = true;
+    made.servers.values = withFeatures({ notifications: true }).values;
     await background.settle();
   });
 });

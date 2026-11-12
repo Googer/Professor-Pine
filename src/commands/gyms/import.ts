@@ -54,6 +54,7 @@ import { distanceWords, type DistanceUnits } from '../../render/distance-words.j
 import { gymWithId } from '../../render/gym-view.js';
 import { actingMember } from '../parties/reply.js';
 import { button, EXPIRED, markAnswered, NOT_YOURS, staffPlace, wasAnswered } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** Discord's upload limit without boosts: an export of all of Pittsburgh is far smaller, packed. */
 export const MAX_EXPORT_BYTES = 10 * 1024 * 1024;
@@ -850,7 +851,7 @@ export const importGyms: SubcommandPart = {
       option.setName('file5').setDescription('Part 5 of the export, if it was saved in parts'),
     ),
   help: {
-    details: (settings) =>
+    details: (settings, facts) =>
       'The true list of gyms is Wayfarer’s. The export is made by the Pine Wayfarer export ' +
       `tool: ask for it at ${settings.wayspotTool}. It takes the KML file of \`/region export\`.\n\n` +
       `Attach the file it saves (${EXPORT_NAME}) here; an export too large for one upload ` +
@@ -861,7 +862,7 @@ export const importGyms: SubcommandPart = {
       'Wayfarer gyms that match none of ours are added, and every gym is listed in the attached ' +
       'report.\n\nAn import never deletes a gym: what needs a person to decide (which Wayspot a gym is, a gym ' +
       'Wayfarer no longer has) goes to the review queue of `/gym review`.\n\nThe scan also goes a ' +
-      `little beyond the regions (${distanceWords(DEFAULT_SCAN_MARGIN, settings.distanceUnits)} unless set otherwise): Wayfarer gyms found ` +
+      `little beyond the regions (${distanceWords(DEFAULT_SCAN_MARGIN, facts?.server?.distanceUnits ?? 'imperial')} unless set otherwise): Wayfarer gyms found ` +
       'there are never added, but the report lists them as `outside`, so you see where an ' +
       'outline should grow.\n\nGyms of this server in no region and beyond the area a finished ' +
       'scan of every region covered are listed as `beyond`: once the import is done, a button ' +
@@ -880,7 +881,7 @@ export const importGyms: SubcommandPart = {
     const file = await attachedExport(interaction, ctx);
     const preview = await ctx.wayfarer.preview(place, file);
     const names = regionNames(interaction, ctx, place);
-    const units = ctx.config.settings.distanceUnits;
+    const units = serverValuesOf(interaction, ctx).distanceUnits;
     if (preview.regions === 0 || changesNothing(preview)) {
       await interaction.editReply(renderImportPreview(preview, file, names, units));
       return;
@@ -1027,7 +1028,7 @@ async function askOutside(
     const gym = ctx.gyms.get(gymId);
     return gym
       ? [
-          `- ${gymWithId(gym)}, ${distanceWords(metres, ctx.config.settings.distanceUnits)} from the ` +
+          `- ${gymWithId(gym)}, ${distanceWords(metres, serverValuesOf(interaction, ctx).distanceUnits)} from the ` +
             "nearest region's outline",
         ]
       : [];

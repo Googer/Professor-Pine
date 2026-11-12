@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, onTestFinished } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { builtAssets, webServerWith, type TestWeb } from '../../test/support/web.js';
 import { readAssets } from './page.js';
+import { TestServers, testServerValues } from '../../test/support/server-values.js';
 
 const MAP = `/s/${FAKE_GUILD_ID}/map`;
 
@@ -91,7 +92,7 @@ describe('the map page', () => {
       'data-guild': FAKE_GUILD_ID,
       'data-tiles': 'osm',
       'data-login': 'discord',
-      'data-distance-units': 'imperial',
+      'data-distance-units': 'metric',
       // The region editor's files (plan 8M-10), loaded only when it is first turned on.
       'data-editor-script': '/assets/editor-QRSTUVWX.js',
       'data-editor-style': '/assets/editor-YZABCDEF.css',
@@ -163,7 +164,7 @@ describe('the map page', () => {
       'data-guild': FAKE_GUILD_ID,
       'data-tiles': 'stadia',
       'data-login': 'discord',
-      'data-distance-units': 'imperial',
+      'data-distance-units': 'metric',
     });
     expect(without.headers['content-security-policy']).not.toContain('googleapis');
     expect(without.headers['content-security-policy']).toContain('https://tiles.stadiamaps.com');
@@ -182,10 +183,19 @@ describe('the map page', () => {
     expect(osm.headers['content-security-policy']).not.toContain('stadiamaps');
   });
 
-  it('tells the page the units of distances the settings name (task 7)', async () => {
-    web = webServerWith({ assets: builtAssets(), distanceUnits: 'metric' });
+  it('tells the page the units of distances of the server it shows (task 7, plan 19A-1)', async () => {
+    const other = '412345678901234999';
+    const serverSettings = new TestServers(testServerValues({ distanceUnits: 'metric' }));
+    serverSettings.changed.set(other, testServerValues({ distanceUnits: 'imperial' }));
+    web = webServerWith({
+      assets: builtAssets(),
+      serverSettings,
+      servers: { has: (guild) => guild === FAKE_GUILD_ID || guild === other },
+    });
     const page = await web.app.inject({ url: MAP });
     expect(bodyData(page.body)['data-distance-units']).toBe('metric');
+    const theirs = await web.app.inject({ url: `/s/${other}/map` });
+    expect(bodyData(theirs.body)['data-distance-units']).toBe('imperial');
   });
 
   it('offers no login with Discord without the client secret', async () => {

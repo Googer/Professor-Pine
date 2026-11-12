@@ -28,6 +28,8 @@ import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { MAX_KML_BYTES } from './import.js';
 import { Rehearsal } from '../../services/rehearsal.js';
 import { PENDING_MINUTES, pendingRegions, REHEARSAL_CHANNELS } from './shared.js';
+import { changeServers } from '../../../test/support/server-values.js';
+import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
 
 type Made = Awaited<ReturnType<typeof regionCommandsWith>>;
 
@@ -398,11 +400,12 @@ describe('/region import: Import and Cancel', () => {
 
   it('says nothing of roles where members do not give themselves any', async () => {
     const made = await regionCommandsWith();
-    made.ctx.config.settings.features.roles = false;
+    changeServers(made.ctx, {
+      features: { ...made.ctx.servers.of(FAKE_GUILD_ID).features, roles: false },
+    });
     const { answer } = await importing(made, [area('South', SOUTH_RING)]);
     const done = answerOf(await made.press(importButton(answer)));
     expect(regionSaid(done)).toBe('Imported 1 region.');
-    made.ctx.config.settings.features.roles = true;
   });
 
   it('says what could not be done, and names a channel it created for nothing', async () => {

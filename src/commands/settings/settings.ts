@@ -47,6 +47,7 @@ import {
   type ListName,
 } from './panel.js';
 import { AUTO_STATUS, FLAGS, PRIVACY, autoStatusName, type FlagSetting } from './settings-lines.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** The Submit of the question before the history goes off: `settings:history:forget`. */
 const FORGET = 'forget';
@@ -157,7 +158,7 @@ function setFlag(
     await ctx.users.update(memberId, { [setting.flag]: on });
     let said = on ? setting.on : setting.off;
     if (on && setting.underMentions && !before.mentions) said += MENTIONS_OFF;
-    if (on && setting.dm && !ctx.config.settings.features.notifications) {
+    if (on && setting.dm && !serverValuesOf(interaction, ctx).features.notifications) {
       said += NOTIFICATIONS_OFF;
     }
     return said;
@@ -172,7 +173,7 @@ function setNewTrain(interaction: ButtonInteraction, ctx: AppContext, on: boolea
       return already(on);
     }
     if (!on) return NEW_TRAIN_OFF;
-    return ctx.config.settings.features.notifications
+    return ctx.servers.of(guildId).features.notifications
       ? NEW_TRAIN_ON
       : NEW_TRAIN_ON + NOTIFICATIONS_OFF;
   });
@@ -448,7 +449,7 @@ const requirePanelServer: Guard = async (interaction, ctx) => {
   }
   if (id === undefined || !PER_SERVER.has(id.id)) return;
   await requireGuild(interaction, ctx);
-  if (id.action === SHOW && !ctx.config.settings.features.notifications) {
+  if (id.action === SHOW && !serverValuesOf(interaction, ctx).features.notifications) {
     throw new UserError(STALE_COMPONENT);
   }
 };
@@ -561,7 +562,7 @@ export const settings: SimpleCommand = {
     details: (config, facts) =>
       'Shows your settings, only to you, with buttons and menus to change them: which pings ' +
       'and DMs you get, how you are signed up for what you report, and whether posts name you.' +
-      (config.features.notifications
+      ((facts?.server?.features.notifications ?? true)
         ? '\n\nIn a server it also has what is set per server: DMs for new trains, your ' +
           'history, the boards, and how many wants and gyms you have there.'
         : '\n\nIn a server it also has what is set per server: DMs for new trains, your ' +

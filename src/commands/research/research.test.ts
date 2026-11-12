@@ -60,6 +60,7 @@ import {
   researchControls,
 } from './research.js';
 import { zonedAt } from '../../../test/support/time.js';
+import { changeServers, testServerValues } from '../../../test/support/server-values.js';
 
 const ASH = '200000000000000061';
 const MISTY = '200000000000000062';
@@ -373,12 +374,7 @@ describe('/research report: nearby stops first (Matt, 2026-10-27)', () => {
 
   it('says the distances in the settings’ units, feet where they are imperial', async () => {
     const made = await setup();
-    Object.assign(made.ctx, {
-      config: {
-        ...made.ctx.config,
-        settings: { ...made.ctx.config.settings, distanceUnits: 'imperial' },
-      },
-    });
+    changeServers(made.ctx, { distanceUnits: 'imperial' });
     const names = (await offered(made, 'stop2', '', { stop: stop(1) })).map((one) => one.name);
     const imperial = (a: number, b: number): string =>
       distanceWords(metresBetween(STOPS[a - 1]!, STOPS[b - 1]!), 'imperial');
@@ -1082,7 +1078,9 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
 
   it('explains versions, "one of", the question and "Already reported" in its help (review W3)', () => {
     const { ctx } = createTestContext();
-    const message = renderSubcommandHelp(research, 'report', ctx.config.settings);
+    const message = renderSubcommandHelp(research, 'report', ctx.config.settings, {
+      server: testServerValues(),
+    });
     if (!message) throw new Error('no help');
     expectV2Sendable(message);
     const [details = ''] = textDisplays(message);
@@ -1099,9 +1097,8 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
     expect(details).toContain(
       `the stops within ${distanceWords(2_000, 'metric')} of them, nearest first`,
     );
-    const imperial = renderSubcommandHelp(research, 'report', {
-      ...ctx.config.settings,
-      distanceUnits: 'imperial',
+    const imperial = renderSubcommandHelp(research, 'report', ctx.config.settings, {
+      server: testServerValues({ distanceUnits: 'imperial' }),
     });
     expect(textDisplays(imperial)[0]).toContain(
       `the stops within ${distanceWords(2_000, 'imperial')} of them, nearest first`,

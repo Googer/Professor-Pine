@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { catalogueFixture } from '../../test/support/game-data.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
-import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
 import { MemoryUnownGifts } from '../../test/support/unown-gifts.js';
 import { MemoryWants } from '../../test/support/wants.js';
-import { loadSettings, type Settings } from '../config/settings.js';
 import { pokemonTarget } from '../domain/pogo/notification-target.js';
 import { MET_MEMBERS, UnownWantService } from './unown-want-service.js';
 import {
@@ -23,10 +21,7 @@ const UNOWN_ROLE = TEST_UNOWN_ROLE;
 const OTHER_UNOWN_ROLE = '300000000000000022';
 const VALOR = '300000000000000023';
 
-function setup(
-  change: (settings: Settings) => Settings = (settings) => settings,
-  more: { maxMet?: number; servers?: TestServers } = {},
-) {
+function setup(more: { maxMet?: number; servers?: TestServers } = {}) {
   const wants = new MemoryWants();
   const gifts = new MemoryUnownGifts(new Set([HOME, AWAY]));
   const { log, entries } = createTestLogger();
@@ -34,7 +29,6 @@ function setup(
     wants,
     gifts,
     gameData: { catalogue: catalogueFixture() },
-    settings: change(loadSettings(TEST_SETTINGS_PATH)),
     servers: new TestServers(),
     log,
     now: () => NOW,
@@ -77,7 +71,7 @@ describe('UnownWantService', () => {
   });
 
   it('gives nobody one in a server whose staff set no Unown role', async () => {
-    const made = setup((settings) => settings, {
+    const made = setup({
       servers: new TestServers(testServerValues({ roles: {} })),
     });
     made.meet(made.service, ALICE, [UNOWN_ROLE]);
@@ -144,10 +138,13 @@ describe('UnownWantService', () => {
   });
 
   it('does nothing where notifications are off', async () => {
-    const made = setup((settings) => ({
-      ...settings,
-      features: { ...settings.features, notifications: false },
-    }));
+    const made = setup({
+      servers: new TestServers(
+        testServerValues({
+          features: { ...testServerValues().features, notifications: false },
+        }),
+      ),
+    });
     made.meet(made.service, ALICE, [UNOWN_ROLE]);
     await made.service.flush();
     expect(made.reads.count).toBe(0);
@@ -232,7 +229,7 @@ describe('UnownWantService', () => {
   });
 
   it('remembers a limited number of members: the one met longest ago is looked at again', () => {
-    const made = setup(undefined, { maxMet: 3 });
+    const made = setup({ maxMet: 3 });
     const idOf = (n: number): string => String(300_000_000_000_000_000n + BigInt(n));
     for (let n = 0; n < 4; n++) made.meet(made.service, idOf(n), []);
     expect(made.service.seen).toBe(3);

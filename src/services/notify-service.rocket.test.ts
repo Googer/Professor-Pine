@@ -31,6 +31,7 @@ import { GruntMessageService } from './grunt-messages.js';
 import { MAX_WANT_QUIET_MS, NotifyService, type NotifyServiceOptions } from './notify-service.js';
 import { RocketService, rocketSubject } from './rocket-reports.js';
 import { StopReportService } from './stop-reports.js';
+import { withFeatures } from '../../test/support/server-values.js';
 
 const background = watchEachTest();
 const RITA = { id: REPORTER, name: 'Rita' };
@@ -429,11 +430,11 @@ describe('NotifyService: Team GO Rocket is reported (plan 8R-2, design 7)', () =
 
   it('tells nobody where notifications are off', async () => {
     const made = await rocketWith();
-    made.settings.features.notifications = false;
+    made.servers.values = withFeatures({ notifications: false }).values;
     await made.want(ALICE, rocketWant('grunt:water'));
     await made.report('grunt:water');
     expect(made.dms.recipients).toEqual([]);
-    made.settings.features.notifications = true;
+    made.servers.values = withFeatures({ notifications: true }).values;
     await background.settle();
   });
 });

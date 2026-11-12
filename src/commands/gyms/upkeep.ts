@@ -10,6 +10,7 @@ import { count, timestamp } from '../../render/text.js';
 import type { FetchOutcome } from '../../services/gym-upkeep.js';
 import { chosenGym, respondWithGyms, withGymOption } from './gym-option.js';
 import { answerGym, GYM_GONE, gymViewMessage, staffPlace } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** How often one member may ask Google about a gym by hand (plan 8Z); the cap is the instance's. */
 const GYM_REFRESH_THROTTLE: Throttle = { uses: 10, perSeconds: 600 };
@@ -89,7 +90,10 @@ export const refreshGym: SubcommandPart = {
     const place = await staffPlace(interaction, ctx);
     await answerGym(
       interaction,
-      await gymViewMessage(ctx, place, gym, [`${gymWithId(gym)}:`, ...lines]),
+      await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, place, gym, [
+        `${gymWithId(gym)}:`,
+        ...lines,
+      ]),
     );
   },
   autocomplete: respondWithGyms,

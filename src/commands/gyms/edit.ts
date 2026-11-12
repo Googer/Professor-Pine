@@ -37,6 +37,7 @@ import {
   type FormOpener,
   type PendingGym,
 } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 type PendingEdit = Extract<PendingGym, { what: 'edit' }>;
 
@@ -194,7 +195,7 @@ export const editForms: Readonly<Record<string, FormAnswer>> = {
       // again with every later change of a gym that has a nickname or keywords.
       const findable = gym.nickname !== null || gym.keywords.length > 0;
       await show(
-        await gymViewMessage(ctx, place, gym, [
+        await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, place, gym, [
           `Changed ${fieldList(names)} of ${gymWithId(gym)}.`,
           note,
           names.includes('name') || !findable ? nameNote(ctx, gym) : undefined,

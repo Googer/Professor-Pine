@@ -280,6 +280,25 @@ describe('the regions a member can open for themselves (F-B10, Matt 2026-11-10)'
     expect(await names()).toEqual([]);
   });
 
+  it("follows the server's self-assigned roles turned off and on at the next build (review F8)", async () => {
+    const { names, roles, sources } = await gated();
+    // As the app gives them: the roster only where the server's members give themselves roles.
+    let on = true;
+    sources.sources.roles = {
+      roster: (guildId, remember) =>
+        on ? roles.selfRoles.roster(guildId, remember) : Promise.resolve(undefined),
+      get generation() {
+        return roles.selfRoles.generation;
+      },
+      usedIn: () => on,
+    };
+    expect(await names()).toEqual(['east']);
+    on = false;
+    expect(await names()).toEqual([]);
+    on = true;
+    expect(await names()).toEqual(['east']);
+  });
+
   it('shows only what everybody views while the roster cannot be read', async () => {
     const { names, roles, sources, made } = await gated();
     roles.storage.failing = new Error('the database is away');

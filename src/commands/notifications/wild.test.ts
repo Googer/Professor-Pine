@@ -43,7 +43,11 @@ import {
   wildCommand,
   wildExceptionsOf,
 } from './wild.js';
-import { TEST_SERVER_CHANNELS } from '../../../test/support/server-values.js';
+import {
+  TEST_SERVER_CHANNELS,
+  TestServers,
+  withFeatures,
+} from '../../../test/support/server-values.js';
 
 const SIGHTINGS = TEST_SERVER_CHANNELS.unown;
 const PERFECT: NotificationTarget = { kind: 'iv', iv: 'perfect' };
@@ -263,9 +267,8 @@ describe('/wild', () => {
   });
 
   it('names `/want` under a report and in its help only where notifications are on', async () => {
-    const settings = loadSettings(TEST_SETTINGS_PATH);
-    const off = { ...settings, features: { ...settings.features, notifications: false } };
-    const made = await setup({ settings: off });
+    const off = withFeatures({ notifications: false });
+    const made = await setup({ servers: off }, { servers: off });
     await made.run({ pokemon: 'dratini' });
     made.gateway.noEmbeds.add(WEST_CHANNEL);
     await made.run({ pokemon: 'dratini' });
@@ -274,14 +277,18 @@ describe('/wild', () => {
       `-# ${SPAWN_CAUTION} · /wild reports a spawn like this one`,
     );
     expect(text?.message.content).toMatch(/\n-# \/wild reports a spawn like this one$/);
-    const help = (of: typeof settings) => textDisplays(renderCommandHelp(wildCommand, of))[0] ?? '';
-    expect(help(settings)).toContain('`/want`');
-    expect(help(settings)).toContain('get a direct message');
+    // The help in the server's words (plan 19A-1).
+    const settings = loadSettings(TEST_SETTINGS_PATH);
+    const help = (of: TestServers) =>
+      textDisplays(renderCommandHelp(wildCommand, settings, { server: of.values }))[0] ?? '';
+    const on = new TestServers();
+    expect(help(on)).toContain('`/want`');
+    expect(help(on)).toContain('get a direct message');
     expect(help(off)).not.toContain('/want');
     expect(help(off)).not.toContain('direct message');
     expect(help(off)).toContain('removed after 30 minutes');
     // The limit, in both: from the throttle itself.
-    for (const of of [settings, off]) {
+    for (const of of [on, off]) {
       expect(help(of)).toContain('You can make 5 reports in half an hour.');
       expect(help(of)).toContain('`details` says where it is and is needed');
     }
@@ -634,10 +641,8 @@ describe('/wild', () => {
   });
 
   it('posts the report where notifications are off, and sends no direct message', async () => {
-    const settings = loadSettings(TEST_SETTINGS_PATH);
-    const made = await setup({
-      settings: { ...settings, features: { ...settings.features, notifications: false } },
-    });
+    const off = withFeatures({ notifications: false });
+    const made = await setup({ servers: off }, { servers: off });
     await made.want(pokemonTarget(147), BOB);
     await made.run({ pokemon: 'dratini' });
     expect(made.reports()).toHaveLength(1);

@@ -17,6 +17,7 @@ import {
   type PlaceChoice,
 } from '../services/place-finder.js';
 import { byName, CHOICE_NAME, MAX_CHOICES, type Choice } from './choices.js';
+import { serverValuesOf } from '../discord/server-values.js';
 
 /**
  * As much as an option that names a place takes: a maps link with all its data (a Google Maps
@@ -181,7 +182,7 @@ export async function nearChoices(
   });
   const anchors = [...named.map((choice) => choice.point), ...((await before?.points?.()) ?? [])];
   if (empty) {
-    const { distanceUnits } = ctx.config.settings;
+    const { distanceUnits } = serverValuesOf(interaction, ctx);
     return ctx.placeFinder
       .nearest(row, kinds, anchors, {
         ...(before?.within === undefined ? {} : { within: before.within }),

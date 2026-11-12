@@ -43,7 +43,8 @@ export interface RegionWebDeps {
   gates: Pick<PartyGateway, 'memberGates'>;
   /**
    * Self-assigned roles (`ctx.selfRoles`), the service `/iam` and its menus go through; undefined
-   * where `settings.features.roles` is off (R6: the view says access alone, the writes are 404).
+   * without them. A server whose `features.roles` is off (plan 19A-1) is as without them (R6: the
+   * view says access alone, the writes are 404).
    */
   selfRoles: Pick<SelfRoleService, 'roster' | 'heldNow' | 'change'> | undefined;
 }
@@ -112,7 +113,8 @@ async function regionsNow(
   const gates = regions.map((region) => region.gateId);
   const look = await regionDeps.gates.memberGates(guild, userId, gates, fresh);
   if (!look) return undefined;
-  const { selfRoles } = regionDeps;
+  // Only where the server's members give themselves roles (plan 19A-1, its `features.roles`).
+  const selfRoles = deps.serverSettings.of(guild).features.roles ? regionDeps.selfRoles : undefined;
   let roster: Roster | undefined;
   if (selfRoles) {
     try {
@@ -208,7 +210,8 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
       const member = await viewers.askedMembership(guild, session.userId);
       if (member.kind === 'not-member') return sendFailure(request, reply, 403);
       if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
-      const roles = deps.regions.selfRoles !== undefined;
+      const roles =
+        deps.regions.selfRoles !== undefined && deps.serverSettings.of(guild).features.roles;
       const readOnly: RegionsMineView = { readOnly: true, roles, regions: [] };
       if (member.readOnly) return readOnly;
       try {
@@ -232,6 +235,10 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
   const known = async (request: ChangeRequest, reply: FastifyReply) => {
     const { region, action } = request.params;
     if (!/^\d{1,10}$/u.test(region) || (action !== 'join' && action !== 'leave')) {
+      return sendFailure(request, reply, 404);
+    }
+    // A server whose members give themselves no roles has nothing here (R6, plan 19A-1).
+    if (!deps.serverSettings.of(request.params.guild).features.roles) {
       return sendFailure(request, reply, 404);
     }
   };

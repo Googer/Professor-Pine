@@ -42,6 +42,8 @@ import {
   type PendingGym,
   type TypedTexts,
 } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
+import type { DistanceUnits } from '../../render/distance-words.js';
 
 type PendingAdd = Extract<PendingGym, { what: 'add' }>;
 
@@ -60,6 +62,8 @@ const DETAIL_FIELDS = ['nickname', 'description', 'notice', 'keywords'] as const
  */
 function addQuestion(
   ctx: AppContext,
+  /** The server's units (plan 19A-1). */
+  units: DistanceUnits,
   userId: string,
   guildId: number | undefined,
   name: string,
@@ -85,7 +89,7 @@ function addQuestion(
         `Add **${gymLabel({ name })}** at ${pointLink(point)}?`,
         approximate ? APPROXIMATE : undefined,
         regionsSentence(regions).replace(/^It lies/, 'It would lie'),
-        ...nearLines(near, ctx.config.settings.distanceUnits),
+        ...nearLines(near, units),
       ]),
     ],
     [
@@ -130,6 +134,7 @@ async function addAnswered(
       interaction,
       addQuestion(
         ctx,
+        serverValuesOf(interaction, ctx).distanceUnits,
         interaction.user.id,
         place.guildId,
         request.name,
@@ -144,7 +149,7 @@ async function addAnswered(
   const { gym } = outcome;
   await answerGym(
     interaction,
-    await gymViewMessage(ctx, place, gym, [
+    await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, place, gym, [
       `Added ${gymWithId(gym)}.`,
       fetchNote(ctx),
       nameNote(ctx, gym),
@@ -249,6 +254,16 @@ export const addGym: SubcommandPart = {
     const { guildId } = await staffPlace(interaction, ctx);
     // Refused before anything is asked; the service decides again when Add is pressed.
     if (!ctx.gymAdmin.mayPlace(place.point, guildId)) throw new UserError(FOREIGN_PLACE);
-    await answerGym(interaction, addQuestion(ctx, interaction.user.id, guildId, name, place));
+    await answerGym(
+      interaction,
+      addQuestion(
+        ctx,
+        serverValuesOf(interaction, ctx).distanceUnits,
+        interaction.user.id,
+        guildId,
+        name,
+        place,
+      ),
+    );
   },
 };

@@ -17,6 +17,7 @@ import type { Config } from '../config/index.js';
 import type { Settings } from '../config/settings.js';
 import type { CustomId } from './custom-id.js';
 import type { Throttle } from './throttle.js';
+import type { ServerValues } from '../config/server-settings.js';
 
 export type GuardableInteraction =
   ChatInputCommandInteraction | MessageComponentInteraction | ModalSubmitInteraction;
@@ -49,6 +50,11 @@ export interface CommandHelp {
 
 /** What a command's help may depend on beyond the settings (`/help` reads them from the context). */
 export interface HelpFacts {
+  /**
+   * The values of the server `/help` was asked in (plan 19A-1: its units, its features); in a DM
+   * the file's defaults. Unsaid (a test of a page alone): the code's defaults.
+   */
+  server?: ServerValues;
   /**
    * The installation is set up for the member index of the legacy history (`LEGACY_INDEX_DIR`;
    * plan 8H-10, B6), whether or not the import has written one yet.

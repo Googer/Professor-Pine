@@ -1,5 +1,4 @@
 import { BoundedMap } from '../bounded-map.js';
-import type { Settings } from '../config/settings.js';
 import { serverChannel } from './server-channels.js';
 import type { ServerSettingsLookup } from './server-settings.js';
 import { isMissingPermission, type PartyGateway } from '../discord/party-gateway.js';
@@ -59,8 +58,7 @@ export interface PartyMirrorsOptions {
    * Without them a power spot is in no region.
    */
   wayspots?: { byId(id: string): { kind: string } | undefined; regionsOf(id: string): string[] };
-  settings: Pick<Settings, 'features'>;
-  /** Each server's values: the channels that take the copies (plan 19A-1). */
+  /** Each server's values: whether it has the copies, and their channels (plan 19A-1). */
   servers: ServerSettingsLookup;
   /** What the post of a party shows now. */
   render: (party: Party) => RenderedPost;
@@ -179,10 +177,12 @@ export class PartyMirrors {
 
   /** The channel that takes copies of this kind for a party of this region; undefined for none. */
   private channelFor(kind: 'ex' | 'remote', near: string | undefined): string | undefined {
-    const { settings, gateway, servers } = this.options;
+    const { gateway, servers } = this.options;
     if (near === undefined) return undefined;
-    const enabled =
-      kind === 'ex' ? settings.features.exGymChannel : settings.features.remoteRaidChannel;
+    const server = gateway.serverOf(near);
+    if (server === undefined) return undefined;
+    const { features } = servers.of(server);
+    const enabled = kind === 'ex' ? features.exGymChannel : features.remoteRaidChannel;
     if (!enabled) return undefined;
     return serverChannel(
       gateway,

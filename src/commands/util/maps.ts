@@ -4,6 +4,7 @@ import { regionChannelOf } from '../../discord/guards.js';
 import { answer, v2Answer } from '../../discord/late-reply.js';
 import { MEMBER_WRITE_THROTTLE } from '../../discord/throttle.js';
 import { actionRow, LIST_COLOUR, linkButton, textMessage } from '../../render/v2.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /**
  * `/maps` (the legacy `!maps`), for the member alone. With the web pages (`settings.web`, plan
@@ -34,7 +35,9 @@ export const maps: SimpleCommand = {
   throttle: MEMBER_WRITE_THROTTLE,
   defer: 'late',
   async execute(interaction, ctx) {
-    const { web, regionMapLink } = ctx.config.settings;
+    const { web } = ctx.config.settings;
+    // The server's link (plan 19A-1); in a DM the file's.
+    const { regionMapLink } = serverValuesOf(interaction, ctx);
     if (web && interaction.inGuild()) {
       const guild = interaction.guildId;
       // One login serves every server: the session is named as the account is, not as the

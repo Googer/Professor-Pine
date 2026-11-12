@@ -29,6 +29,11 @@ export interface ServerSettingsLookup {
 
 /** What `/admin settings` and the fill need of the servers' settings (`ServerSettings`; `TestServers` in tests). */
 export interface ServerSettingsService extends ServerSettingsLookup {
+  /**
+   * The file's defaults: what a server without a row has, and what is said where there is no
+   * server (a DM).
+   */
+  defaults(): ServerValues;
   /** Whether the server has its row. */
   has(serverId: string): boolean;
   /** When the server finished its setup; null when not (yet), or without a row. */
@@ -63,7 +68,7 @@ interface Kept {
  */
 export class ServerSettings implements ServerSettingsService {
   private readonly kept = new Map<string, Kept>();
-  private readonly defaults: ServerValues;
+  private readonly defaults_: ServerValues;
   /**
    * What a server without a readable row has: the defaults, keeping closed what the file names
    * (`fileUnmatched`; fix round 4, I1).
@@ -88,9 +93,9 @@ export class ServerSettings implements ServerSettingsService {
       now?: () => number;
     },
   ) {
-    this.defaults = fileDefaults(options.settings);
+    this.defaults_ = fileDefaults(options.settings);
     const unmatched = fileUnmatched(options.settings);
-    this.withoutRow = unmatched.length === 0 ? this.defaults : { ...this.defaults, unmatched };
+    this.withoutRow = unmatched.length === 0 ? this.defaults_ : { ...this.defaults_, unmatched };
   }
 
   /**
@@ -115,6 +120,10 @@ export class ServerSettings implements ServerSettingsService {
 
   of(serverId: string): ServerValues {
     return this.kept.get(serverId)?.values ?? this.fileDefaultsOf(serverId);
+  }
+
+  defaults(): ServerValues {
+    return this.defaults_;
   }
 
   /** Whether the server has its row. */

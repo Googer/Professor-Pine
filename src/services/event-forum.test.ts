@@ -36,6 +36,7 @@ import {
 } from './event-forum.js';
 import { HistoryDays } from './history-days.js';
 import { TestServers, testServerValues } from '../../test/support/server-values.js';
+import type { ServerValues } from '../config/server-settings.js';
 
 const SERVER = '412345678901234567';
 const STAFF = '200000000000000001';
@@ -57,6 +58,8 @@ function eventForumWith(
     planned?: EventForumOptions['planned'];
     /** The server's events forum, by id, chosen in `/admin settings`; none unless given. */
     eventsForum?: string;
+    /** The server's numbers of its events forum (`eventsForum` of its values). */
+    numbers?: ServerValues['eventsForum'];
   } = {},
 ) {
   const gateway = new FakePartyGateway();
@@ -71,6 +74,7 @@ function eventForumWith(
         'bot-updates': BOT_UPDATES,
         ...(options.eventsForum === undefined ? {} : { events: options.eventsForum }),
       },
+      ...(options.numbers === undefined ? {} : { eventsForum: options.numbers }),
     }),
   );
   const store = new MemoryEventForums();
@@ -1307,10 +1311,9 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
     const made = eventForumWith({
       ...(options.now === undefined ? {} : { now: options.now }),
       ...(options.days === false ? {} : { days }),
-      settings: {
-        eventsForum: { horizonDays: 35, postDaysAhead: 14, onThisDay: options.onThisDay ?? 3 },
-        web: WEB,
-      },
+      settings: { web: WEB },
+      // The server's numbers (plan 19A-1).
+      numbers: { horizonDays: 35, postDaysAhead: 14, onThisDay: options.onThisDay ?? 3 },
     });
     made.listed.known = options.known ?? true;
     const setup = await made.service.setup(SERVER, STAFF);
@@ -1359,6 +1362,24 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
     timer?.run();
     await service.flush();
     expect(recalled().map((post) => post.title)).toEqual([TITLE]);
+  });
+
+  it('sets the timer for 10:00 while any server drawn posts its days, whatever another of the same numbers says (review F12)', async () => {
+    const { timers, service, store, servers } = await recalling({ now: at('2026-11-10T09:00') });
+    // Another server drawn after it, with the same horizon, that recalls nothing.
+    const other = '412345678901234999';
+    const otherForum = '600000000000000999';
+    await store.setForum(other, otherForum);
+    const values = servers.of(SERVER);
+    servers.changed.set(other, {
+      ...values,
+      channels: { ...values.channels, events: otherForum },
+      eventsForum: { ...values.eventsForum, onThisDay: 0 },
+    });
+    service.start();
+    await service.flush();
+    const timer = timers.filter((one) => !one.cancelled).at(-1);
+    expect(timer?.ms).toBe(60 * 60_000 + 1_000);
   });
 
   it('posts at the first draw of the day after 10:00 passed while it was down, never a day missed', async () => {

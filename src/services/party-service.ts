@@ -181,6 +181,7 @@ import {
   type RegionProvider,
 } from './region-directory.js';
 import type { ServerSettingsLookup } from './server-settings.js';
+import { DEFAULT_REGION_FORUM_SUFFIX } from '../config/settings.js';
 
 const MINUTE = 60_000;
 
@@ -965,7 +966,6 @@ export class PartyService {
       regions: options.regions,
       gyms: options.gyms,
       ...(options.wayspots === undefined ? {} : { wayspots: options.wayspots }),
-      settings: options.settings,
       servers: options.servers,
       render: (party) => this.rendered(party),
       refusedFiles: this.refusedFiles,
@@ -4546,7 +4546,7 @@ export class PartyService {
       const made = await gateway
         .createForum(
           before.channelId,
-          this.forumName(gateway.channelName(before.channelId) ?? 'region'),
+          this.forumName(before.channelId, gateway.channelName(before.channelId) ?? 'region'),
           FORUM_TAGS,
           hidden,
         )
@@ -4639,9 +4639,16 @@ export class PartyService {
     };
   }
 
-  /** The name of the forum of a region whose channel has this name (`settings.regionForumSuffix`). */
-  private forumName(regionName: string): string {
-    const suffix = this.options.settings.regionForumSuffix;
+  /**
+   * The name of the forum of a region whose channel has this name (its server's
+   * `regionForumSuffix`, plan 19A-1).
+   */
+  private forumName(channelId: string, regionName: string): string {
+    const server = this.options.gateway.serverOf(channelId);
+    const suffix =
+      server === undefined
+        ? DEFAULT_REGION_FORUM_SUFFIX
+        : this.options.servers.of(server).regionForumSuffix;
     // Discord allows 100 characters in a name.
     return `${[...regionName].slice(0, 100 - [...suffix].length).join('')}${suffix}`;
   }
@@ -4657,7 +4664,7 @@ export class PartyService {
     const regionName = gateway.channelName(region.channelId);
     const current = forumId === null ? undefined : gateway.channelName(forumId);
     if (forumId === null || regionName === undefined || current === undefined) return false;
-    const wanted = this.forumName(regionName);
+    const wanted = this.forumName(region.channelId, regionName);
     const ending = current.startsWith(regionName) ? current.slice(regionName.length) : '';
     if (current === wanted || !/^-[\p{L}\p{N}]+$/u.test(ending)) return false;
     try {

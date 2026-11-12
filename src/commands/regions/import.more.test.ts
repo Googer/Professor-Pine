@@ -34,6 +34,7 @@ import type { ImportOutcome } from '../../services/region-admin-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { textDisplays } from '../../../test/support/messages.js';
 import { renderOutcome } from './import.js';
+import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
 
 type Made = Awaited<ReturnType<typeof regionCommandsWith>>;
 
@@ -316,7 +317,7 @@ describe('/region import: the preview, as review B asked', () => {
       ),
       reloaded: false,
     };
-    const message = renderOutcome(ctx, outcome);
+    const message = renderOutcome(ctx, FAKE_GUILD_ID, outcome);
     expectV2Sendable(message);
     expect(JSON.stringify(message.components)).toContain('attachment://outcome.txt');
     const file = (message.files ?? []).find(

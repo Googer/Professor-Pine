@@ -31,6 +31,29 @@ export const TEST_UNOWN_ROLE = '300000000000000021';
 /** The map's member role of `withMapRole`, which the web server of the tests names `Verified`. */
 export const TEST_MAP_ROLE = '300000000000000031';
 
+/** The servers of a test whose features differ from the test settings' (`features` of their values). */
+export function withFeatures(features: Partial<ServerValues['features']>): TestServers {
+  const values = testServerValues();
+  return new TestServers({ ...values, features: { ...values.features, ...features } });
+}
+
+/** Changes the values every server of a test's context has (`TestServers.values`). */
+export function changeServers(ctx: { servers: unknown }, change: Partial<ServerValues>): void {
+  if (!(ctx.servers instanceof TestServers)) throw new Error('the context has no TestServers');
+  ctx.servers.values = { ...ctx.servers.values, ...change };
+}
+
+/** The servers of a test, those named each with its own invite (`invite` of its values). */
+export function withInvites(
+  invites: Readonly<Record<string, string>>,
+  servers: TestServers = new TestServers(),
+): TestServers {
+  for (const [serverId, invite] of Object.entries(invites)) {
+    servers.changed.set(serverId, { ...servers.of(serverId), invite });
+  }
+  return servers;
+}
+
 /** The servers of a test whose map only members with `TEST_MAP_ROLE` count on. */
 export function withMapRole(): TestServers {
   return new TestServers(
@@ -52,6 +75,9 @@ export function testServerValues(overrides: Partial<ServerValues> = {}): ServerV
   });
 }
 
+/** The file's defaults of the test settings, read once (`TestServers.defaults`). */
+let testDefaults: ServerValues | undefined;
+
 /**
  * The servers' settings of a test (`ServerSettingsService` in memory): every server has `values`
  * (`testServerValues()` unless given) until a change of its own (`set`, recorded in `changes`);
@@ -65,10 +91,24 @@ export class TestServers implements ServerSettingsService {
   readonly setUp = new Map<string, number>();
   failing: Error | undefined;
 
-  constructor(public values: ServerValues = testServerValues()) {}
+  /**
+   * `values`: what every server has; `fileValues`: the file's defaults (`defaults()`, a DM's), those
+   * of the test settings unless given.
+   */
+  constructor(
+    public values: ServerValues = testServerValues(),
+    private readonly fileValues?: ServerValues,
+  ) {}
 
   of(serverId: string): ServerValues {
     return this.changed.get(serverId) ?? this.values;
+  }
+
+  /** The file's defaults of the test settings, as the real one's: no channel, category or role. */
+  defaults(): ServerValues {
+    if (this.fileValues !== undefined) return this.fileValues;
+    testDefaults ??= fileDefaults(loadSettings(TEST_SETTINGS_PATH));
+    return testDefaults;
   }
 
   has(serverId: string): boolean {

@@ -12,12 +12,11 @@ import {
   partyServiceWith,
   reportedRaid,
 } from '../../test/support/party-service.js';
-import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
-import { loadSettings } from '../config/settings.js';
 import { pokemonTarget } from '../domain/pogo/notification-target.js';
 import { PartyStatus } from '../domain/party/status.js';
 import { postLink } from '../render/notify-dm.js';
 import { DM_PRIORITY } from './dm-sender.js';
+import { withFeatures } from '../../test/support/server-values.js';
 
 const DORA = '200000000000000005';
 /** How the meeting-time DMs name the party: the raid by its gym's shown name, a train by its own. */
@@ -33,9 +32,9 @@ const told = (made: Made, userId: string): string[][] =>
   made.dms.to(userId).map((message) => dmSummary(message));
 const stamp = (time: number, style = 't') => `<t:${String(time / 1000)}:${style}>`;
 
+/** Servers that notify nobody (plan 19A-1: their `features.notifications`). */
 function off() {
-  const settings = loadSettings(TEST_SETTINGS_PATH);
-  return { ...settings, features: { ...settings.features, notifications: false } };
+  return withFeatures({ notifications: false });
 }
 const background = watchEachTest();
 
@@ -122,7 +121,7 @@ describe('NotifyService: a train is made', () => {
     expect(meetup.gateway.guildId).toBe('412345678901234567');
     await meetup.notify.flush();
     expect(meetup.dms.jobs).toEqual([]);
-    const train = await createdTrain({}, { settings: off() }, { newTrains });
+    const train = await createdTrain({}, { servers: off() }, { newTrains });
     await train.notify.flush();
     expect(train.dms.jobs).toEqual([]);
   });
@@ -285,7 +284,7 @@ describe('NotifyService: an egg gets its boss', () => {
     const userSettings = new Map([[ALICE, { bossSetNotification: true }]]);
     const made = await reportedRaid(
       { time: { hatch: HATCH } },
-      { settings: off() },
+      { servers: off() },
       { userSettings },
     );
     await made.attendance.signUp(made.party.id, member(ALICE, 'Alice'), PartyStatus.Coming);
@@ -319,7 +318,7 @@ describe('NotifyService: a raid moves to another gym', () => {
   const STACKS = `**${GYM}** (${map(40.05, -80.05)})`;
 
   it('tells who is signed up, not who moved it or is done, naming both gyms, with the post', async () => {
-    const made = await raid({ settings: off() });
+    const made = await raid({ servers: off() });
     await made.raids.setGym(made.party.id, member(ALICE, 'Alice'), 2);
     await made.notify.flush();
     // Whatever the server's notifications: it is part of the raid they are in.
@@ -470,7 +469,7 @@ describe('NotifyService: a meeting time', () => {
   });
 
   it('is sent where notifications are off, and not to who is done or cannot be reached', async () => {
-    const made = await raid({ settings: off() });
+    const made = await raid({ servers: off() });
     await made.attendance.signUp(made.party.id, member(BOB, 'Bob'), PartyStatus.Present);
     await made.attendance.done(made.party.id, member(BOB, 'Bob'));
     await made.attendance.setMeetingTime(made.party.id, member(CAROL, 'Carol'), MEET);

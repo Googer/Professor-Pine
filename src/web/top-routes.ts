@@ -77,7 +77,13 @@ export function topRoutes(app: FastifyInstance, deps: WebDeps): void {
         visitor: session && { name: session.userName },
         discordLogin: deps.oauth !== undefined,
         memberships: session ? await memberships(servers, session.userId) : new Map(),
-        invites: deps.settings.invites,
+        // Each server's invite (plan 19A-1: its values).
+        invites: Object.fromEntries(
+          servers.flatMap((server) => {
+            const invite = deps.serverSettings.of(server.id).invite;
+            return invite === undefined ? [] : [[server.id, invite]];
+          }),
+        ),
         loginFailed: request.query.login === 'failed',
       });
       if (answer.kind === 'redirect') return reply.redirect(answer.to, 302);

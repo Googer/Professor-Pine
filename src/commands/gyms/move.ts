@@ -38,6 +38,7 @@ import {
   type ButtonAnswer,
   type GivenPlace,
 } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 const FOREIGN_PLACE = foreignPlace('move a gym');
 
@@ -78,10 +79,10 @@ function moveQuestion(
         before,
         `Move ${gymWithId(gym)} from ${pointLink(gym)} to ${pointLink(point)}?`,
         far
-          ? `That is ${distanceWords(metres, ctx.config.settings.distanceUnits)} from where it is now.`
+          ? `That is ${distanceWords(metres, serverValuesOf(interaction, ctx).distanceUnits)} from where it is now.`
           : undefined,
         approximate ? APPROXIMATE : undefined,
-        ...nearLines(near, ctx.config.settings.distanceUnits),
+        ...nearLines(near, serverValuesOf(interaction, ctx).distanceUnits),
         raidOf(interaction, ctx) ? USE_LOCATION : undefined,
       ]),
     ],
@@ -153,8 +154,8 @@ async function moveAnswered(
   const elsewhere = regionsBefore.join() !== regionsNow().join();
   await answerGym(
     interaction,
-    await gymViewMessage(ctx, staff, gym, [
-      `Moved ${gymWithId(gym)} from ${pointLink(from)} to ${pointLink(point)} (${distanceWords(metres, ctx.config.settings.distanceUnits)}).`,
+    await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, staff, gym, [
+      `Moved ${gymWithId(gym)} from ${pointLink(from)} to ${pointLink(point)} (${distanceWords(metres, serverValuesOf(interaction, ctx).distanceUnits)}).`,
       fetchNote(ctx),
       namesakeNote(ctx, gym),
       ...(elsewhere
@@ -206,12 +207,12 @@ export const moveGym: SubcommandPart = {
       .setMaxLength(1_000),
   ),
   help: {
-    details: (settings) =>
+    details: (_settings, facts) =>
       `${HOW_TO_LOCATE} The location is read as for ` +
       '`/gym add`.\n\nThe gym keeps its texts, its raids and its ' +
       'place on train routes; its address and the places around it are fetched again, and ' +
       'the regions it lies in follow its new place. I ask first when the new place is more ' +
-      `than ${distanceWords(FAR_MOVE_METRES, settings.distanceUnits)} away or right beside another gym.\n\nThis corrects where a gym is: to ` +
+      `than ${distanceWords(FAR_MOVE_METRES, facts?.server?.distanceUnits ?? 'imperial')} away or right beside another gym.\n\nThis corrects where a gym is: to ` +
       'move a raid to another gym, use `/location` in the raid’s post.',
     examples: ['/gym move gym:Big Fountain location:40.4406, -79.9959'],
   },

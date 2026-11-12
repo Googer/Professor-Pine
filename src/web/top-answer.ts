@@ -19,7 +19,7 @@ export interface TopFacts {
   discordLogin: boolean;
   /** The directory's answer per server with a map; a server without one counts as `unknown`. */
   memberships: ReadonlyMap<string, Membership>;
-  /** `settings.web.invites`. */
+  /** Each server's invite (its values' `invite`, plan 19A-1), by its id. */
   invites: Readonly<Record<string, string>> | undefined;
   /** Whether the address carries `?login=failed`. */
   loginFailed: boolean;

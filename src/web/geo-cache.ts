@@ -34,13 +34,19 @@ export interface GeoSources {
     | {
         roster(guildId: string, remember: 'aside'): Promise<Roster | undefined>;
         readonly generation: number;
+        /**
+         * Whether a server's members give themselves roles (its `features.roles`, plan 19A-1):
+         * part of what its public regions were decided on (review F8), so that turning them off
+         * or on is seen at the next build. Not said: yes.
+         */
+        usedIn?(guildId: string): boolean;
       }
     | undefined;
   /**
-   * What a region's forum adds to its channel's name (`settings.regionForumSuffix`), left off
-   * the forum's name in the public view (`publicRegionName`).
+   * What a region's forum adds to its channel's name (the server's `regionForumSuffix`, plan
+   * 19A-1), left off the forum's name in the public view (`publicRegionName`).
    */
-  forumSuffix: string;
+  forumSuffix(guildId: string): string;
 }
 
 /**
@@ -147,7 +153,12 @@ export class GeoCache {
         const name = known.get(regionGate(region));
         return name === undefined
           ? []
-          : [[region.channelId, publicRegionName(region, name, this.sources.forumSuffix)] as const];
+          : [
+              [
+                region.channelId,
+                publicRegionName(region, name, this.sources.forumSuffix(guildId)),
+              ] as const,
+            ];
       }),
     );
     const key = JSON.stringify([
@@ -188,7 +199,11 @@ export class GeoCache {
   /** The ids of a server's public regions, as decided within the minute (`publicRegions`). */
   private publicIds(guildId: string, own: readonly Region[]): Promise<ReadonlySet<number>> {
     const { regions, channels, roles } = this.sources;
-    const key = JSON.stringify([regions.generation, roles?.generation ?? null]);
+    const key = JSON.stringify([
+      regions.generation,
+      roles?.generation ?? null,
+      roles?.usedIn?.(guildId) ?? roles !== undefined,
+    ]);
     const kept = this.opened.get(guildId);
     if (kept?.key === key && this.now() - kept.at < PUBLIC_REGIONS_KEPT_MS) {
       return Promise.resolve(kept.ids);

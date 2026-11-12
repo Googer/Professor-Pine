@@ -306,11 +306,11 @@ export const wildCommand: SimpleCommand = {
   help: {
     category: 'notifications',
     // `/want` and the direct messages exist only where the server has notifications.
-    details: (settings) =>
+    details: (settings, facts) =>
       'Tells the region about a Pokémon you met in the wild. Use it in the channel of a ' +
       'region (or in its forum or a post there): the report goes into the region’s channel ' +
       `and is removed after ${String(SPAWN_MINUTES)} minutes, because spawns do not last.\n\n` +
-      (settings.features.notifications
+      ((facts?.server?.features.notifications ?? true)
         ? 'Members who put that Pokémon on their list with `/want` get a direct message.\n\n'
         : '') +
       'Any Pokémon that appears in the wild can be reported, a form as that form (`Alolan ' +
@@ -322,7 +322,7 @@ export const wildCommand: SimpleCommand = {
       'nearest to it), or paste a link to the place from a maps app, or its coordinates ' +
       '(`40.4406, -79.9959`): the report shows it with a map link.\n\n`iv` says that you checked it ' +
       'and its IVs are perfect or zero' +
-      (settings.features.notifications
+      ((facts?.server?.features.notifications ?? true)
         ? ', which also tells the members who asked for those.\n\n'
         : '.\n\n') +
       `You can make ${limitWords(WILD_THROTTLE)}.`,

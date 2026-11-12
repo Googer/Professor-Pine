@@ -1,5 +1,4 @@
 import { BoundedMap } from '../bounded-map.js';
-import type { Settings } from '../config/settings.js';
 import type { WantStorage } from '../db/repositories/pokemon-notification-repository.js';
 import type { UnownGiftStorage } from '../db/repositories/unown-gift-repository.js';
 import { pokemonTarget } from '../domain/pogo/notification-target.js';
@@ -12,7 +11,6 @@ export interface UnownWantServiceOptions {
   wants: Pick<WantStorage, 'list' | 'set'>;
   gifts: UnownGiftStorage;
   gameData: GameDataProvider;
-  settings: Settings;
   /** Each server's values: its Unown role (plan 19A-1). */
   servers: ServerSettingsLookup;
   log: Logger;
@@ -70,10 +68,11 @@ export class UnownWantService {
    * shows them, and is asked only at a member's first interaction of this run.
    */
   noticed(guildId: string, memberId: string, roleIds: () => Iterable<string>): void {
-    const { settings, servers, log } = this.options;
-    if (!settings.features.notifications) return;
-    // The role its staff set (plan 19A-1); none set, nobody holds it.
-    const role = servers.of(guildId).roles.unown;
+    const { servers, log } = this.options;
+    // Where its staff set the role and the server notifies its members (plan 19A-1).
+    const values = servers.of(guildId);
+    if (!values.features.notifications) return;
+    const role = values.roles.unown;
     if (role === undefined) return;
     const key = `${guildId}:${memberId}`;
     if (this.met.has(key)) return;

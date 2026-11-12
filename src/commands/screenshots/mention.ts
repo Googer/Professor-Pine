@@ -63,6 +63,7 @@ import {
   SPOT_GONE,
   type MaxShotRequest,
 } from '../max/max-shot.js';
+import { passiveIn } from './read-screenshot.js';
 
 /**
  * A raid screenshot posted in a region channel with a mention of the bot (or, with
@@ -591,7 +592,8 @@ export class ScreenshotTrigger {
     // would see it. The testers report from a screenshot with /raid, answered privately.
     if (ctx.rehearsal) return 'rehearsal';
     const passive = !message.mentionsBot;
-    if (passive && !(ctx.config.settings.ocr.passive && ctx.features.ocrPassive)) {
+    // Where the instance allows it and the server uses it (plan 19A-1).
+    if (passive && !passiveIn(ctx, message)) {
       return 'not-for-me';
     }
     // A post is read only where it is the region's board (plan 8R-9F), and the board only as

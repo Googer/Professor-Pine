@@ -178,8 +178,8 @@ export function fileDefaults(settings: Settings, serverId?: string): ServerValue
     postNewGyms: settings.postNewGyms,
     ...(settings.regionMapLink === undefined ? {} : { regionMapLink: settings.regionMapLink }),
     ...(invite === undefined ? {} : { invite }),
-    passiveReading: settings.ocr.passive,
-    autoAssignRole: settings.autoAssignRole,
+    // Passive reading and the auto-assigned role: on (the code's default), used where the
+    // instance allows them (`ocr.passive`, `autoAssignRole` of the file).
   });
 }
 

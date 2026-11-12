@@ -31,6 +31,7 @@ import {
 } from '../../services/wayfarer-review-service.js';
 import { deletedLines, goesWith, raidThere } from './delete.js';
 import { foreignPlace, GYM_GONE, nearLines, pointLink, staffPlace } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** The custom-id kind of the buttons of `/gym review` (documented in `custom-id.ts`). */
 export const GYM_REVIEW_KIND = 'gymreview';
@@ -543,7 +544,7 @@ export const reviewGyms: SubcommandPart = {
     await interaction.editReply(
       reviewPayload(
         await ctx.wayfarerReview.next(place.guildId),
-        ctx.config.settings.distanceUnits,
+        serverValuesOf(interaction, ctx).distanceUnits,
       ),
     );
   },

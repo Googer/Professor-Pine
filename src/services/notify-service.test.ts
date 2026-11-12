@@ -12,7 +12,7 @@ import {
 import { FakeDmGateway } from '../../test/support/dms.js';
 import { Tally } from '../../test/support/tally.js';
 import { watchImmediates } from '../../test/support/timers.js';
-import { fakeButton, type FakeRow } from '../../test/support/fake-interactions.js';
+import { FAKE_GUILD_ID, fakeButton, type FakeRow } from '../../test/support/fake-interactions.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import { components } from '../components/index.js';
@@ -21,11 +21,10 @@ import { PartyStatus } from '../domain/party/status.js';
 import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { ALICE, at, BOB, CAROL, MINUTE, REPORTER } from '../../test/support/parties.js';
 import { partyServiceWith, reportedRaid } from '../../test/support/party-service.js';
-import { loadSettings } from '../config/settings.js';
 import { pokemonTarget, type NotificationTarget } from '../domain/pogo/notification-target.js';
-import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
 import { postLink } from '../render/notify-dm.js';
 import { DM_PRIORITY } from './dm-sender.js';
+import { withFeatures } from '../../test/support/server-values.js';
 
 const DORA = '200000000000000005';
 const EVE = '200000000000000006';
@@ -107,6 +106,43 @@ describe('NotifyService: a raid is reported', () => {
     expect(job).toMatchObject({ priority: DM_PRIORITY.normal, eventAt: made.clock.now });
     // Without times a message is worth an hour.
     expect(job?.expiresAt).toBe(made.party.lastPossibleTime ?? made.clock.now + 60 * MINUTE);
+  });
+
+  it('asks the database for a server this process has not seen the row of, and tells its members (review F4)', async () => {
+    const made = await reported(
+      async ({ wants, gateway }) => {
+        await wants.set(ALICE, gateway.guildId, YVELTAL, 'both');
+      },
+      { boss: { key: 'yveltal' } },
+      { notifying: { serverOfRow: () => undefined } },
+    );
+    expect(made.dms.recipients).toEqual([ALICE]);
+  });
+
+  it('tells nobody of a raid whose server is not known, and says so in the log (review F4)', async () => {
+    const made = await reported(
+      async ({ wants, gateway }) => {
+        await wants.set(ALICE, gateway.guildId, YVELTAL, 'both');
+      },
+      { boss: { key: 'yveltal' } },
+      {
+        notifying: {
+          serverOfRow: () => undefined,
+          guilds: {
+            snowflakeOf: () => Promise.resolve(undefined),
+            idFor: () => Promise.resolve(undefined),
+          },
+        },
+      },
+    );
+    expect(made.dms.recipients).toEqual([]);
+    expect(made.entries).toContainEqual(
+      expect.objectContaining({
+        level: 40,
+        event: 'a reported raid',
+        msg: 'nobody was told of an event: its server is not known',
+      }),
+    );
   });
 
   it('tells a costumed want only of a boss the list has costumed in the raid’s tier (plan 8R-4)', async () => {
@@ -203,14 +239,13 @@ describe('NotifyService: a raid is reported', () => {
   });
 
   it('tells nobody where notifications are off', async () => {
-    const settings = loadSettings(TEST_SETTINGS_PATH);
-    const off = { ...settings, features: { ...settings.features, notifications: false } };
+    const off = withFeatures({ notifications: false });
     const made = await reported(
       async ({ wants, gateway }) => {
         await wants.set(ALICE, gateway.guildId, T5, 'raid');
       },
       {},
-      { settings: off },
+      { servers: off },
     );
     expect(made.dms.jobs).toEqual([]);
     expect(made.members.batches).toEqual([]);
@@ -309,9 +344,8 @@ describe('NotifyService: a raid on its way to another region', () => {
   });
 
   it('remembers nothing where notifications are off', async () => {
-    const settings = loadSettings(TEST_SETTINGS_PATH);
-    const off = { ...settings, features: { ...settings.features, notifications: false } };
-    const made = await reported(() => Promise.resolve(), {}, { settings: off });
+    const off = withFeatures({ notifications: false });
+    const made = await reported(() => Promise.resolve(), {}, { servers: off });
     made.notify.raidMoving(made.party.id, 'the party it becomes');
     expect(made.notify.remembered).toBe(0);
   });
@@ -414,6 +448,55 @@ describe('NotifyService: a raid changes', () => {
     await made.notify.flush();
     return outcome;
   };
+
+  it('tells the events of a row whose server it asks the database for in their order (fix round 3, H6)', async () => {
+    // Each ask of the database waits for the test, which lets the later answer first; once let
+    // go, the database answers at once.
+    const asked: Array<{ answer: () => void; answered: Promise<unknown> }> = [];
+    let holding = true;
+    const notifying = {
+      serverOfRow: () => undefined,
+      guilds: {
+        snowflakeOf: (row: number) => {
+          if (!holding) return Promise.resolve(row === 1 ? FAKE_GUILD_ID : undefined);
+          let answer!: () => void;
+          const answered = new Promise<string | undefined>((resolve) => {
+            answer = () => {
+              resolve(row === 1 ? FAKE_GUILD_ID : undefined);
+            };
+          });
+          asked.push({ answer, answered });
+          return answered;
+        },
+        idFor: (snowflake: string) => Promise.resolve(snowflake === FAKE_GUILD_ID ? 1 : undefined),
+      },
+    };
+    const made = await reported(
+      async ({ wants, gateway }) => {
+        await wants.set(ALICE, gateway.guildId, T5, 'raid');
+        await wants.set(BOB, gateway.guildId, YVELTAL, 'raid');
+      },
+      { time: { hatch: HATCH } },
+      { notifying },
+    );
+    await made.raids.setBoss(made.party.id, member(CAROL, 'Somebody'), {
+      tier: { level: 'T5', shadow: false },
+      boss: { key: 'yveltal' },
+      label: 'Yveltal (T5)',
+    });
+    holding = false;
+    for (const ask of [...asked].reverse()) ask.answer();
+    await Promise.all(asked.map((ask) => ask.answered));
+    await made.notify.flush();
+    // The egg's news first, then its boss's: Alice hears of the egg, not of a raid with a boss.
+    expect(made.dms.recipients).toEqual([ALICE, BOB]);
+    expect(told(made, ALICE)).toEqual([
+      expect.stringMatching(/^A T5 egg has been reported at \*\*The Stacks\*\*/u),
+    ]);
+    expect(told(made, BOB)).toEqual([
+      `The raid at **The Stacks** (<#${WEST_CHANNEL}>) now has its boss, **Yveltal**.`,
+    ]);
+  });
 
   it('tells who wants the boss when a member sets it, and nobody a second time', async () => {
     const made = await egg();

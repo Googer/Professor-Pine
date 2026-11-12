@@ -57,6 +57,8 @@ import {
   trainPlaces,
   type TrainAnswer,
 } from './train-changes.js';
+import { serverValuesOf } from '../../discord/server-values.js';
+import type { DistanceUnits } from '../../render/distance-words.js';
 
 /**
  * The text of a change to a train, when it worked; a refusal and a train that has ended are
@@ -373,8 +375,12 @@ function lastStopPoint(ctx: AppContext, party: TrainParty): LatLon | undefined {
  * nearest first whatever the train's kind, without a radius, those on the route left out, each
  * with its distance.
  */
-function nearestStops(ctx: AppContext, party: TrainParty, last: LatLon): Choice[] {
-  const { distanceUnits } = ctx.config.settings;
+function nearestStops(
+  ctx: AppContext,
+  distanceUnits: DistanceUnits,
+  party: TrainParty,
+  last: LatLon,
+): Choice[] {
   return ctx.placeFinder
     .nearest(party.guildId, STOP_KINDS, [last], {
       count: MAX_CHOICES,
@@ -459,7 +465,7 @@ const add: SubcommandPart = {
     if (typed.trim() === '') {
       await interaction.respond(
         party && last
-          ? nearestStops(ctx, party, last)
+          ? nearestStops(ctx, serverValuesOf(interaction, ctx).distanceUnits, party, last)
           : firstStops(interaction, ctx, party).filter((c) => unrouted(c.value)),
       );
       return;

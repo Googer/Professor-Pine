@@ -681,10 +681,11 @@ export const OUTCOME_FILE = 'outcome.txt';
  */
 export function renderOutcome(
   ctx: AppContext,
+  serverId: string,
   outcome: ImportOutcome,
   channelNames: ReadonlyMap<string, string> = new Map(),
 ): V2Message {
-  const { lines, lists } = outcomeWords(outcome, selfRoleReminder(ctx, 'new'));
+  const { lines, lists } = outcomeWords(outcome, selfRoleReminder(ctx, serverId, 'new'));
   return importMessage(lines, lists, OUTCOME_FILE, channelNames);
 }
 
@@ -887,7 +888,7 @@ export const importAnswers: Readonly<Record<string, ButtonAnswer>> = {
       const channelNames = new Map(
         ctx.regionAdmin.channelsOf(staff).map((channel) => [channel.id, channel.name]),
       );
-      await answerRegion(interaction, renderOutcome(ctx, outcome, channelNames));
+      await answerRegion(interaction, renderOutcome(ctx, staff.server, outcome, channelNames));
     } catch (err) {
       // An import of many areas may outlast the interaction (a quarter of an hour): what it did
       // is in the log, the only place left to say it.

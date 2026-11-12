@@ -38,6 +38,7 @@ import { raid, raidControls } from './raid.js';
 import { besideWords } from '../screenshots/read-screenshot.js';
 import { reportedBoss } from './raid-input.js';
 import { buttonsOf, customIdsOf } from '../../../test/support/messages.js';
+import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
 
 /** PARTY_NOW is 14:00 in New York: the phone's clock a minute before. */
 const CLOCK = { hour: 13, minute: 59 };
@@ -406,7 +407,7 @@ describe('/raid with a screenshot', () => {
         },
         features: { ocrPassive: true, autoAssignRole: false },
       };
-      expect(besideWords(passive, 'max')).toBe(
+      expect(besideWords(passive, { guildId: FAKE_GUILD_ID }, 'max')).toBe(
         'The max battle beside it was not reported: post the screenshot in the channel to report both.',
       );
     });

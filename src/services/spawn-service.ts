@@ -239,7 +239,7 @@ export class SpawnService {
   }
 
   private async post(report: SpawnReport): Promise<SpawnOutcome> {
-    const { gateway, notify, settings, log } = this.options;
+    const { gateway, notify, log } = this.options;
     const eventAt = this.now();
     const costumed = this.costumed(report.pokemon.key, eventAt);
     const view: SpawnView = {
@@ -252,7 +252,7 @@ export class SpawnService {
       ...(costumed ? { costumed: true } : {}),
     };
     // Without the permission to embed Discord would show the sentence alone: as text then.
-    const footer = spawnFooter(settings.features.notifications);
+    const footer = spawnFooter(this.options.servers.of(report.guildId).features.notifications);
     const goneAt = eventAt + this.deleteAfterMs;
     const embeds = gateway.mayPost(report.regionChannelId);
     const message = (shown: SpawnView): OutgoingMessage =>

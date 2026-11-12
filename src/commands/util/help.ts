@@ -31,6 +31,7 @@ import {
   renderSubcommandHelp,
   type HelpGroup,
 } from './help-render.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 const MAX_CHOICES = 25;
 
@@ -93,13 +94,21 @@ const TOLD_INSTEAD: ReadonlyMap<string, string> = new Map([
  * boss`) as the member who asks may see it; a staff command is answered to anybody else exactly
  * as one that does not exist.
  */
-function commandPage(path: string, staff: boolean, ctx: AppContext): V2Message {
+function commandPage(
+  path: string,
+  staff: boolean,
+  ctx: AppContext,
+  where: { guildId: string | null },
+): V2Message {
   const onMessage = messageCommandNamed(normalise(path), staff, ctx);
   if (onMessage) return renderMessageCommandHelp(onMessage, ctx.config.settings);
   const [name = '', ...rest] = path.split(' ');
   const command = visibleCommands(staff, ctx).find((c) => c.data.name === name);
   // What the help may depend on besides the settings (`HelpFacts`).
-  const facts = { oldHistory: ctx.legacyIndex !== undefined };
+  const facts = {
+    oldHistory: ctx.legacyIndex !== undefined,
+    server: serverValuesOf(where, ctx),
+  };
   const page =
     command &&
     (rest.length === 0
@@ -156,7 +165,9 @@ export const help: SimpleCommand = {
     const staff = isStaff(interaction, ctx);
     const asked = normalise(interaction.options.getString('command') ?? '');
     const page =
-      asked === '' ? renderHelpOverview(groupsFor(staff, ctx)) : commandPage(asked, staff, ctx);
+      asked === ''
+        ? renderHelpOverview(groupsFor(staff, ctx))
+        : commandPage(asked, staff, ctx, interaction);
     await interaction.reply({
       ...v2Answer(page),
       flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
@@ -218,7 +229,7 @@ export const helpControls: ComponentHandler = {
         page = groupPage(onMessage.help.category, staff, ctx);
       } else if (words.length > 1) {
         // One level up: `/admin boss add` to `/admin boss`, `/route add` to `/route`.
-        page = commandPage(words.slice(0, -1).join(' '), staff, ctx);
+        page = commandPage(words.slice(0, -1).join(' '), staff, ctx, interaction);
       } else {
         const command = visibleCommands(staff, ctx).find((c) => c.data.name === name);
         if (!command) throw noCommand(name);
@@ -241,9 +252,9 @@ export const helpControls: ComponentHandler = {
       id.id === HELP_PAGES.group &&
       (control === HELP_CONTROLS.command || control === HELP_CONTROLS.more)
     ) {
-      page = commandPage(value, staff, ctx);
+      page = commandPage(value, staff, ctx, interaction);
     } else if (id.id === HELP_PAGES.command && control === HELP_CONTROLS.subgroup) {
-      page = commandPage(`${id.action} ${value}`, staff, ctx);
+      page = commandPage(`${id.action} ${value}`, staff, ctx, interaction);
     } else {
       throw new UserError(STALE_COMPONENT);
     }

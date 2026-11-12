@@ -293,6 +293,6 @@ export async function submitRemoval(
   const lines =
     outcome.kind === 'gone'
       ? [REGION_GONE]
-      : outcomeLines(outcome, label, selfRoleReminder(ctx, 'removed'));
+      : outcomeLines(outcome, label, selfRoleReminder(ctx, staff.server, 'removed'));
   await answerApart(interaction, regionQuestion([content(lines)]));
 }

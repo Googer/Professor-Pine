@@ -40,6 +40,7 @@ import { wants as wantsCommand } from '../notifications/wants.js';
 import { help as helpCommand } from '../util/help.js';
 import { settings, settingsControls } from './settings.js';
 import { settingsLines, type LegacyLine } from './settings-lines.js';
+import { changeServers } from '../../../test/support/server-values.js';
 
 type Fake = ReturnType<typeof fakeButton>;
 
@@ -96,7 +97,8 @@ function setup(features: { notifications?: boolean } = {}, legacy: { index?: boo
     legacyFillIns: fillIns,
     legacyIndex: legacy.index === true ? legacyIndex : undefined,
   });
-  ctx.config.settings.features = { ...ctx.config.settings.features, ...features };
+  // The server's features (plan 19A-1).
+  changeServers(ctx, { features: { ...ctx.servers.of(FAKE_GUILD_ID).features, ...features } });
   const router = new InteractionRouter(
     ctx,
     [settings, wantsCommand, targetsCommand],
@@ -190,7 +192,10 @@ describe('/settings', () => {
     const { details } = settings.help;
     const said =
       typeof details === 'function'
-        ? details(setup(features).ctx.config.settings, { oldHistory: facts.oldHistory === true })
+        ? details(setup(features).ctx.config.settings, {
+            oldHistory: facts.oldHistory === true,
+            server: setup(features).ctx.servers.of(FAKE_GUILD_ID),
+          })
         : details;
     return (said ?? '').split('\n\n');
   };

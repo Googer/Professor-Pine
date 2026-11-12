@@ -261,8 +261,9 @@ describe('/admin setup-forums', () => {
     );
   });
 
-  it('names a forum after its region with the ending of the settings, and renames one that has another', async () => {
-    const { run, gateway, regions } = await setup({ regionForumSuffix: '-gatherings' });
+  it("names a forum after its region with the ending of its server's settings, and renames one that has another", async () => {
+    const { run, gateway, regions, servers } = await setup();
+    servers.values = { ...servers.values, regionForumSuffix: '-gatherings' };
     gateway.channelNames.set(WEST_CHANNEL, 'west');
     gateway.channelNames.set(WEST_FORUM, 'west-raids');
     // A name somebody chose by hand is not the bot's to change.
