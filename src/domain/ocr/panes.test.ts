@@ -242,6 +242,46 @@ describe('two gyms’ titles', () => {
     expect(twoScreens(screenAnchors(rows))).toBe(true);
   });
 
+  /** One row of two pieces, as the reader joins them: `[text, x0, x1]` each, at the name's height. */
+  const row = (...pieces: [string, number, number][]): TextLine => {
+    const [first] = pieces;
+    const last = pieces[pieces.length - 1];
+    return {
+      ...line(pieces.map(([text]) => text).join(' '), first?.[1] ?? 0, 95, last?.[2] ?? 0, 125),
+      parts: pieces.map(([text, x0, x1]) => ({
+        box: { x0, y0: 95, x1, y1: 125 },
+        length: text.length,
+      })),
+    };
+  };
+  /** A raid's CP, countdown and buttons, `dx` from the left (the production pane's places). */
+  const raidBody = (dx: number): TextLine[] => [
+    line('56867', dx + 342, 177, dx + 596, 257),
+    line('0:00:14', dx + 585, 593, dx + 669, 619),
+    line('0 BATTLE', dx + 307, 694, dx + 464, 727),
+    line('PRIVATEGROUP', dx + 357, 814, dx + 526, 838),
+  ];
+
+  it('sees one screen in a name read in two pieces of a row, the screen’s middle under both', () => {
+    // Production, 2026-11-11: a raid pane's long name, its middle words read too faintly to be
+    // kept, came out as two pieces of one row far apart; its CP, BATTLE and PRIVATE GROUP stand
+    // under the middle of the two taken together.
+    const name = row(['The Temple of', 144, 339], ['Garden', 544, 675]);
+    expect(twoScreens(screenAnchors([name, ...raidBody(0)]))).toBe(false);
+    // The faint words at one end: the gap is off the middle.
+    const offCentre = row(['The Temple of Old', 144, 500], ['Garden', 600, 700]);
+    expect(twoScreens(screenAnchors([offCentre, ...raidBody(0)]))).toBe(false);
+    // Without the screen's middle under them, two titles of one row are two screens'.
+    expect(twoScreens(screenAnchors([name, line('0:00:14', 585, 593, 669, 619)]))).toBe(true);
+  });
+
+  it('sees two screens in one row of titles with only one screen’s buttons, beside its title', () => {
+    // A heading of another screen or app at the left, GO's raid at the right with a short name:
+    // the raid's BATTLE stands between the two titles, but under its own.
+    const titles = row(['Sixth Church', 200, 800], ['Arch', 1410, 1470]);
+    expect(twoScreens(screenAnchors([titles, ...raidBody(1000)]))).toBe(true);
+  });
+
   it('sees one screen in a name over two lines', () => {
     const lines = [
       line('Sixth Presbyterian', 200, 130, 800, 190),

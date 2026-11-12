@@ -31,6 +31,8 @@ export interface Anchor {
   box: Box;
   /** A CP read as digits alone, without "CP" or the icon before them (`589`, `32779`). */
   bare?: true;
+  /** A title's line among the reading's lines: two pieces of one row have the same. */
+  row?: number;
 }
 
 const MAX_WORD = /dynamax|gigantamax|eternamax/gi;
@@ -87,22 +89,23 @@ function piecesOf(line: TextLine): TextLine[] {
  * row read across two panes gives each pane's anchors.
  */
 export function screenAnchors(lines: readonly TextLine[]): Anchor[] {
-  const pieces = lines.flatMap(piecesOf);
+  const rows = lines.flatMap((line, row) => piecesOf(line).map((piece) => ({ piece, row })));
+  const pieces = rows.map(({ piece }) => piece);
   const tallest = Math.max(0, ...pieces.map((piece) => boxHeight(piece.box)));
   const anchors: Anchor[] = [];
   // Titles: the tallest words in the top fifth of what was read, as `raid-screen.ts` finds a gym.
   const top = Math.min(...pieces.map((piece) => piece.box.y0));
   const bottom = Math.max(...pieces.map((piece) => piece.box.y1));
-  const nearTop = pieces.filter(
-    (piece) =>
+  const nearTop = rows.filter(
+    ({ piece }) =>
       piece.box.y1 < top + (bottom - top) * TITLE_TOP &&
       LETTERS.test(piece.text) &&
       !COUNTDOWN_ONE.test(piece.text),
   );
-  const tallestNearTop = Math.max(0, ...nearTop.map((piece) => boxHeight(piece.box)));
-  for (const piece of nearTop) {
+  const tallestNearTop = Math.max(0, ...nearTop.map(({ piece }) => boxHeight(piece.box)));
+  for (const { piece, row } of nearTop) {
     if (boxHeight(piece.box) >= tallestNearTop * TITLE_TALL) {
-      anchors.push({ kind: 'title', box: piece.box });
+      anchors.push({ kind: 'title', box: piece.box, row });
     }
   }
   for (const piece of pieces) {
@@ -144,6 +147,34 @@ function sideBySide(a: Box, b: Box): boolean {
   return rows > 0 && gap >= Math.max(boxHeight(a), boxHeight(b));
 }
 
+/** The kinds a raid's screen shows once, centered under its name (`oneName`). */
+const MIDDLE: ReadonlySet<AnchorKind> = new Set(['cp', 'battle', 'private-group']);
+/**
+ * How far from the middle of a name's two pieces taken together (in shares of their whole
+ * width) the screen's CP, BATTLE or PRIVATE GROUP may stand for them to be one name: 0.11 on the
+ * raid pane of 2026-11-11; two screens side by side stand theirs about a quarter of the picture
+ * from that middle.
+ */
+const NAME_MIDDLE = 0.15;
+
+/**
+ * Whether two titles side by side are one name: two pieces of one row read with words between
+ * them too faint to keep, the screen's CP, BATTLE or PRIVATE GROUP centered under the two taken
+ * together (a raid pane of 2026-11-11). Two screens side by side keep those under their own
+ * titles, away from the middle of both.
+ */
+function oneName(a: Anchor, b: Anchor, anchors: readonly Anchor[]): boolean {
+  if (a.row === undefined || a.row !== b.row) return false;
+  const x0 = Math.min(a.box.x0, b.box.x0);
+  const x1 = Math.max(a.box.x1, b.box.x1);
+  const middle = (x0 + x1) / 2;
+  return anchors.some(
+    (one) =>
+      MIDDLE.has(one.kind) &&
+      Math.abs((one.box.x0 + one.box.x1) / 2 - middle) <= (x1 - x0) * NAME_MIDDLE,
+  );
+}
+
 /** Whether two boxes share pixels (boxes that only touch do not: two words of one line). */
 function overlap(a: Box, b: Box): boolean {
   return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
@@ -151,8 +182,8 @@ function overlap(a: Box, b: Box): boolean {
 
 /**
  * Two anchors that cannot be of one screen, or undefined: the same kind twice where a screen
- * shows it once, apart (not one line read twice); a max battle's title with a raid's CP; a max
- * battle's title with a countdown far from it.
+ * shows it once, apart (not one line read twice); two titles side by side (not `oneName`); a
+ * max battle's title with a raid's CP; a max battle's title with a countdown far from it.
  */
 export function screensApart(anchors: readonly Anchor[]): [Anchor, Anchor] | undefined {
   for (const [i, a] of anchors.entries()) {
@@ -162,7 +193,7 @@ export function screensApart(anchors: readonly Anchor[]): [Anchor, Anchor] | und
         continue;
       }
       if (a.kind === 'title' && b.kind === 'title') {
-        if (sideBySide(a.box, b.box)) return [a, b];
+        if (sideBySide(a.box, b.box) && !oneName(a, b, anchors)) return [a, b];
         continue;
       }
       const title = a.kind === 'max-title' ? a : b.kind === 'max-title' ? b : undefined;
