@@ -478,6 +478,20 @@ const BRIGHT_SKY: TextLine[] = [
   line('BATTLE', 417, 1841, 602, 1889),
 ];
 
+/**
+ * A raid's CP read together with the boss's name under it (production, 2026-11-11: GO's raid
+ * screen in the top pane of a split, 1080 × 1753; the boss's hair over the digits): one line from
+ * the heads' row to the name's foot, its digits misread, the name's line inside it.
+ */
+const PANE = { width: 1080, height: 1753 };
+const MERGED: TextLine[] = [
+  line('5:02 80%', 90, 9, 1007, 55),
+  line('Maple Grove', 251, 170, 726, 221),
+  line('z54367', 216, 268, 858, 591),
+  line('Zam enta', 229, 446, 848, 572),
+  line('0:23:58', 860, 1000, 1040, 1050),
+];
+
 describe('cpRowToReadAgain and withCpReadAgain', () => {
   it('reads the CP’s row again where its digits stand far right of "CP", or are not read', () => {
     // The row: from half the letters' height left of them to the screen's edge, from 3.2 of
@@ -510,9 +524,9 @@ describe('cpRowToReadAgain and withCpReadAgain', () => {
   it('takes the row read again in place of what stood there when it read more digits', () => {
     const row = cpRowToReadAgain(BRIGHT_SKY, IPHONE);
     expect(row).not.toBeNull();
-    const box = row?.box ?? { x0: 0, y0: 0, x1: 0, y1: 0 };
+    if (!row) return;
     const again = [line('CP 56867', 219, 451, 928, 612)];
-    const lines = withCpReadAgain(BRIGHT_SKY, box, again);
+    const lines = withCpReadAgain(BRIGHT_SKY, row, again, IPHONE.height);
     expect(lines.map((one) => one.text)).toEqual([
       '10:26',
       'Maple Grove',
@@ -524,8 +538,139 @@ describe('cpRowToReadAgain and withCpReadAgain', () => {
     ]);
     expect(readScreenText(lines, [], IPHONE)).toMatchObject({ cp: 56867, bossName: 'Zan enta' });
     // Fewer digits, or none, leave the first reading as it was.
-    expect(withCpReadAgain(BRIGHT_SKY, box, [line('CP 67', 219, 451, 928, 612)])).toBe(BRIGHT_SKY);
-    expect(withCpReadAgain(BRIGHT_SKY, box, [line('CP', 219, 541, 324, 612)])).toBe(BRIGHT_SKY);
+    expect(
+      withCpReadAgain(BRIGHT_SKY, row, [line('CP 67', 219, 451, 928, 612)], IPHONE.height),
+    ).toBe(BRIGHT_SKY);
+    expect(withCpReadAgain(BRIGHT_SKY, row, [line('CP', 219, 541, 324, 612)], IPHONE.height)).toBe(
+      BRIGHT_SKY,
+    );
+  });
+
+  it('reads the CP’s row again above the boss’s name where the CP was read together with it', () => {
+    // The CP's digits (the boss's hair over them) read in one box with the heads above them and
+    // the name under them (production, 2026-11-11, a raid pane 1080 × 1753 of a split).
+    const row = cpRowToReadAgain(MERGED, PANE);
+    // The row: from the CP's top to the name's, from half a letter left of the CP to the edge;
+    // read at the height a "CP" alone's row is read at (3.35 of its 50-pixel letters).
+    const letters = (446 - 268) / 3.35;
+    expect(row).toMatchObject({
+      box: { x0: Math.round(216 - letters * 0.5), y0: 268, x1: 1080, y1: 446 },
+      merged: { x0: 216, y0: 268, x1: 858, y1: 591 },
+    });
+    expect(row?.scale).toBeCloseTo(50 / letters, 9);
+    if (!row) return;
+    // As many digits read again stand in place of the line read with the name.
+    const again = [line('CP 56867', 290, 321, 804, 444)];
+    const lines = withCpReadAgain(MERGED, row, again, PANE.height);
+    expect(lines.map((one) => one.text)).toEqual([
+      '5:02 80%',
+      'Maple Grove',
+      'Zam enta',
+      '0:23:58',
+      'CP 56867',
+    ]);
+    expect(readScreenText(lines, [], PANE)).toMatchObject({
+      cp: 56867,
+      bossName: 'Zam enta',
+      cpBox: { x0: 290, y0: 321, x1: 804, y1: 444 },
+    });
+    // Fewer digits leave the first reading as it was.
+    expect(withCpReadAgain(MERGED, row, [line('CP 6867', 290, 321, 804, 444)], PANE.height)).toBe(
+      MERGED,
+    );
+  });
+
+  it('ends a CP read together with the boss’s name at the name, for the heads above it', () => {
+    const text = readScreenText(MERGED, [], PANE);
+    expect(text).toMatchObject({
+      cp: 54367,
+      bossName: 'Zam enta',
+      cpBox: { x0: 216, y0: 268, x1: 858, y1: 446 },
+    });
+    // The name read under the CP, its middle under the CP's box, is no such line, nor the "CP"
+    // read apart from the digits within their box (a full screen of the same raid).
+    const apart = [
+      line('56867', 365, 216, 725, 315),
+      line('CP', 300, 265, 370, 310),
+      line('Zam enta', 335, 316, 757, 393),
+    ];
+    expect(readScreenText(apart, [], PANE)).toMatchObject({
+      cp: 56867,
+      bossName: 'Zam enta',
+      cpBox: { x0: 365, y0: 216, x1: 725, y1: 315 },
+    });
+    expect(cpRowToReadAgain(apart, PANE)).toBeNull();
+  });
+
+  it('takes no "CP" read as a word beside the CP’s digits for a name inside them', () => {
+    // The letters stand left of the digits, overlapping them by a few pixels only.
+    for (const letters of ['Cp.', 'OCP', 'CPo']) {
+      const apart = [
+        line('56867', 365, 216, 725, 315),
+        line(letters, 300, 265, 370, 310),
+        line('Zam enta', 335, 316, 757, 393),
+      ];
+      expect(readScreenText(apart, [], PANE), letters).toMatchObject({
+        cp: 56867,
+        bossName: 'Zam enta',
+        cpBox: { x0: 365, y0: 216, x1: 725, y1: 315 },
+      });
+      expect(cpRowToReadAgain(apart, PANE), letters).toBeNull();
+    }
+  });
+
+  it('takes a name as read inside the CP only in the screen’s top half', () => {
+    const low = [
+      line('Maple Grove', 251, 1000, 726, 1050),
+      line('z54367', 216, 1100, 858, 1420),
+      line('Zam enta', 229, 1280, 848, 1400),
+    ];
+    expect(readScreenText(low, [], PANE).cpBox).toEqual({ x0: 216, y0: 1100, x1: 858, y1: 1420 });
+    expect(cpRowToReadAgain(low, PANE)).toBeNull();
+  });
+
+  it('reads no row again shorter than a raid’s "CP" row can be', () => {
+    // A small name just under the CP's top: the row would be 32 pixels, its "CP" 10 tall.
+    const thin = [line('z54367', 216, 268, 858, 591), line('Zam enta', 229, 300, 848, 320)];
+    expect(cpRowToReadAgain(thin, PANE)).toBeNull();
+  });
+
+  it('replaces the line read with the name though its middle stands under the row', () => {
+    const lines = [line('z54367', 216, 268, 858, 591), line('Zam enta', 229, 420, 848, 540)];
+    const row = cpRowToReadAgain(lines, PANE);
+    expect(row?.box.y1).toBe(420);
+    if (!row) return;
+    const again = [line('CP 56867', 290, 300, 804, 418)];
+    expect(withCpReadAgain(lines, row, again, PANE.height).map((one) => one.text)).toEqual([
+      'Zam enta',
+      'CP 56867',
+    ]);
+    // Nothing read again with digits leaves the lines as they were.
+    expect(withCpReadAgain(lines, row, [line('CP', 290, 360, 370, 418)], PANE.height)).toBe(lines);
+    expect(withCpReadAgain(lines, row, [], PANE.height)).toBe(lines);
+  });
+
+  it('keeps the first reading where the CP read again is too short for a CP', () => {
+    const row = cpRowToReadAgain(MERGED, PANE);
+    if (!row) throw new Error('no row');
+    // 44 pixels of a 1753-pixel pane: under `CP_MIN_HEIGHT`, no CP's line.
+    const short = [line('CP 56867', 290, 400, 804, 444)];
+    expect(withCpReadAgain(MERGED, row, short, PANE.height)).toBe(MERGED);
+  });
+
+  it('keeps a merged CP read clean beside a re-read of as many digits', () => {
+    // "CP" before the digits: the name's rows did not run into them.
+    const clean = [line('CP 56867', 216, 268, 858, 591), line('Zam enta', 229, 446, 848, 572)];
+    const row = cpRowToReadAgain(clean, PANE);
+    if (!row) throw new Error('no row');
+    const again = [line('CP 58867', 290, 321, 804, 444)];
+    expect(withCpReadAgain(clean, row, again, PANE.height)).toBe(clean);
+    // More digits read again still stand in its place.
+    const more = [line('CP 568671', 290, 321, 804, 444)];
+    expect(withCpReadAgain(clean, row, more, PANE.height).map((one) => one.text)).toEqual([
+      'Zam enta',
+      'CP 568671',
+    ]);
   });
 
   it('keeps where a "CP" read alone stands when no CP was read, for the heads above it', () => {

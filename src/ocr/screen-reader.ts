@@ -466,7 +466,7 @@ async function readRegion(
   );
   const cpRow = cpRowToReadAgain(firstLines, { width, height });
   const lines = cpRow
-    ? withCpReadAgain(firstLines, cpRow.box, await readCpRow(region, box, cpRow))
+    ? withCpReadAgain(firstLines, cpRow, await readCpRow(region, box, cpRow), height)
     : firstLines;
   const text = readScreenText(
     lines,

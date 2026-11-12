@@ -43,6 +43,11 @@ export interface ScreenText {
    * hatched raid (the research's samples: the middle at 0.50 and 0.83 of the width).
    */
   countdownPlace: 'centre' | 'right' | null;
+  /**
+   * Where the CP's digits stand: its line's box, ended at the boss's name when the detector read
+   * the name inside it (production, 2026-11-11: the heads' band sized by a box from the heads to
+   * the name's foot counted one head of five).
+   */
   cpBox: Box | null;
   /**
    * Where a "CP" read alone stands (`cpLettersOf`) when no CP was read: the heads stand above
@@ -351,6 +356,69 @@ export function cpLettersOf(lines: readonly TextLine[], height: number): TextLin
 export interface CpRow {
   box: Box;
   scale: number;
+  /**
+   * The box of the CP's line read together with the boss's name under it (`nameWithin`), which
+   * the row read again replaces; absent for a "CP" read alone.
+   */
+  merged?: Box;
+}
+
+/**
+ * The CP's line: digits after "CP" or little else (`CP`), taller than `CP_MIN_HEIGHT` of the
+ * screen, the first from the top.
+ */
+function cpLineOf(lines: readonly TextLine[], height: number): TextLine | undefined {
+  return [...lines]
+    .sort((a, b) => a.box.y0 - b.box.y0 || a.box.x0 - b.box.x0)
+    .find((l) => isCpLine(l, height));
+}
+
+/** Whether a line is a CP's (`cpLineOf`) on a screen `height` tall. */
+function isCpLine(line: TextLine, height: number): boolean {
+  return CP.test(line.text.replace(/\s/g, '')) && boxHeight(line.box) > height * CP_MIN_HEIGHT;
+}
+
+/**
+ * The boss's name read inside the box of a CP's line whose top is in the top half of a screen
+ * `height` tall: a line of a name's letters (`BOSS_NAME`, not the "CP" alone) under the CP, its
+ * middle above the CP's foot, at least its own height under the CP's top (room for the digits
+ * over it, which GO draws at least as tall as the name), and under the CP's digits, overlapping
+ * at least half the narrower of the two (a "CP" read as a word, "Cp." or "OCP", stands left of
+ * the digits and overlaps them by a few pixels). The detector then read the CP's digits together
+ * with the name (production, 2026-11-11: a Zamazenta's hair over its digits in a split's raid
+ * pane, one box from the heads' row to the name's foot, read "z54367" for 56867; the name
+ * overlapped 620 of its 642 pixels, starting 178 under its top, 126 tall): the digits end where
+ * the name starts.
+ */
+function nameWithin(
+  cp: TextLine,
+  lines: readonly TextLine[],
+  height: number,
+): TextLine | undefined {
+  if (cp.box.y0 >= height / 2) return undefined;
+  return lines.find((l) => {
+    const text = l.text.trim();
+    const middle = (l.box.y0 + l.box.y1) / 2;
+    const overlap = Math.min(l.box.x1, cp.box.x1) - Math.max(l.box.x0, cp.box.x0);
+    return (
+      l !== cp &&
+      BOSS_NAME.test(text) &&
+      !CP_LETTERS.test(text) &&
+      l.box.y0 - cp.box.y0 >= boxHeight(l.box) &&
+      middle < cp.box.y1 &&
+      overlap >= Math.min(boxWidth(l.box), boxWidth(cp.box)) / 2
+    );
+  });
+}
+
+/**
+ * Where the CP's digits stand: the CP's line's box, ended at the boss's name when the name was
+ * read inside it (`nameWithin`; screen `height` tall); the heads are looked for above it
+ * (`headBand`).
+ */
+function cpBoxOf(cp: TextLine, lines: readonly TextLine[], height: number): Box {
+  const name = nameWithin(cp, lines, height);
+  return name ? { ...cp.box, y1: name.box.y0 } : cp.box;
 }
 
 /**
@@ -360,9 +428,18 @@ export interface CpRow {
  * are not one line of three digits at least, starting within a digit's width of the letters.
  * The row runs from half the letters' height left of them to the screen's right edge, from
  * `CP_ROW_ABOVE` of their heights over their foot to `CP_ROW_BELOW` under it; it is read at the
- * size where the letters are `CP_LETTERS_READ` pixels tall. Null when the CP was read whole.
+ * size where the letters are `CP_LETTERS_READ` pixels tall. Otherwise the row of a CP read
+ * together with the boss's name under it (`mergedCpRow`). Null when the CP was read whole.
  */
 export function cpRowToReadAgain(
+  lines: readonly TextLine[],
+  size: { width: number; height: number },
+): CpRow | null {
+  return lettersCpRow(lines, size) ?? mergedCpRow(lines, size);
+}
+
+/** The row of a "CP" read alone (`cpRowToReadAgain`), null without one or with its digits. */
+function lettersCpRow(
   lines: readonly TextLine[],
   size: { width: number; height: number },
 ): CpRow | null {
@@ -395,26 +472,82 @@ export function cpRowToReadAgain(
 }
 
 /**
+ * The row of a raid's CP read together with the boss's name under it (`nameWithin`): from the
+ * CP's top to the name's (the CP's digits end where the name starts; the CP's own box ran to the
+ * name's foot), from half a letter left of the CP to the screen's right edge, read at the height
+ * the row of a "CP" alone is read at (`CP_ROW_ABOVE` and `CP_ROW_BELOW` of letters
+ * `CP_LETTERS_READ` pixels tall: the row runs from the heads to the digits' foot as that one
+ * does). Null for a row shorter than a raid's "CP" alone makes (letters under
+ * `CP_LETTERS_MIN_HEIGHT`), which would be read enlarged without bound. Read so by the brightest
+ * channel (`readCpRow`), the production screen of 2026-11-11 read "CP 56867" at 0.65 to 1 of its
+ * size (0.94 by this rule), its box the digits' own; in GO's own colors, "CP 6867" at 0.8 and 1.
+ */
+function mergedCpRow(
+  lines: readonly TextLine[],
+  size: { width: number; height: number },
+): CpRow | null {
+  const cp = cpLineOf(lines, size.height);
+  const name = cp && nameWithin(cp, lines, size.height);
+  if (!cp || !name) return null;
+  const letters = (name.box.y0 - cp.box.y0) / (CP_ROW_ABOVE + CP_ROW_BELOW);
+  if (letters <= size.height * CP_LETTERS_MIN_HEIGHT) return null;
+  return {
+    box: {
+      x0: Math.max(0, Math.round(cp.box.x0 - letters * 0.5)),
+      y0: Math.max(0, Math.round(cp.box.y0)),
+      x1: size.width,
+      y1: Math.min(size.height, Math.round(name.box.y0)),
+    },
+    scale: CP_LETTERS_READ / letters,
+    merged: cp.box,
+  };
+}
+
+/**
  * The lines of a screen with its CP's row (`row`, `cpRowToReadAgain`) read again (`again`, in the
  * screen's pixels): when the row read again has a CP of more digits than the lines in the row had
  * (by the CP's rule), its line stands in place of every line whose middle lies in the row;
- * otherwise `lines` as they are.
+ * otherwise `lines` as they are. A CP read together with the boss's name (`row.merged`) is
+ * replaced, with the lines in the row, by a CP read again of more digits, or of as many when
+ * something other than "CP" stands before its own digits (production's "z54367": the name's rows
+ * ran into them); one read cleanly ("CP 56867" in a box to the name's foot) stays. Only a line
+ * the screen (`height` tall) takes for a CP (`cpLineOf`) is taken: a shorter one would leave the
+ * screen without a CP.
  */
 export function withCpReadAgain(
   lines: TextLine[],
-  row: Box,
+  row: CpRow,
   again: readonly TextLine[],
+  height: number,
 ): TextLine[] {
   const digits = (l: TextLine) => CP.exec(l.text.replace(/\s/g, ''))?.[1]?.length ?? 0;
-  const inRow = (l: TextLine) => {
+  const { box, merged } = row;
+  const isMerged = (l: TextLine) => merged !== undefined && sameBox(l.box, merged);
+  const replaced = (l: TextLine) => {
     const x = (l.box.x0 + l.box.x1) / 2;
     const y = (l.box.y0 + l.box.y1) / 2;
-    return x >= row.x0 && x < row.x1 && y >= row.y0 && y < row.y1;
+    return (x >= box.x0 && x < box.x1 && y >= box.y0 && y < box.y1) || isMerged(l);
   };
-  const found = [...again].sort((a, b) => digits(b) - digits(a))[0];
-  const before = Math.max(0, ...lines.filter(inRow).map(digits));
-  if (!found || digits(found) <= before) return lines;
-  return [...lines.filter((l) => !inRow(l)), found];
+  const found = again.filter((l) => isCpLine(l, height)).sort((a, b) => digits(b) - digits(a))[0];
+  if (!found) return lines;
+  const count = digits(found);
+  const before = Math.max(0, ...lines.filter(replaced).map(digits));
+  const mergedLine = lines.find(isMerged);
+  const tie = count === before && mergedLine !== undefined && !readCleanly(mergedLine);
+  if (count < before || (count === before && !tie)) return lines;
+  return [...lines.filter((l) => !replaced(l)), found];
+}
+
+/** Whether a CP's line has nothing but "CP" (in either case) or nothing before its digits. */
+function readCleanly(line: TextLine): boolean {
+  const text = line.text.replace(/\s/g, '');
+  const digits = CP.exec(text)?.[1] ?? '';
+  return /^(?:cp)?$/i.test(text.slice(0, text.length - digits.length));
+}
+
+/** Whether two boxes stand in the very same place. */
+function sameBox(a: Box, b: Box): boolean {
+  return a.x0 === b.x0 && a.y0 === b.y0 && a.x1 === b.x1 && a.y1 === b.y1;
 }
 
 /**
@@ -529,10 +662,9 @@ export function readScreenText(
   const body = sorted.filter((l) => !inStatus.has(l));
   const clock = clockIn(status) ?? clockIn([...inStatus]);
 
-  // The CP: digits after "CP" or little else, in a tall line.
-  const cpLine = body.find(
-    (l) => CP.test(l.text.replace(/\s/g, '')) && boxHeight(l.box) > height * CP_MIN_HEIGHT,
-  );
+  // The CP: digits after "CP" or little else, in a tall line; where its digits stand.
+  const cpLine = cpLineOf(body, height);
+  const cpBox = cpLine ? cpBoxOf(cpLine, body, height) : null;
 
   // The countdown: the first, or on a hatched raid (a CP) the one that ends farthest right: the
   // raid's own stands at the right edge, a nearby raid's timer further in.
@@ -647,11 +779,10 @@ export function readScreenText(
   // The boss's name is the first line of letters under the CP.
   let cp: number | null = null;
   let bossName: string | null = null;
-  if (cpLine) {
+  if (cpLine && cpBox) {
     cp = Number(CP.exec(cpLine.text.replace(/\s/g, ''))?.[1]);
     const below = body.find(
-      (l) =>
-        l.box.y0 > cpLine.box.y0 + boxHeight(cpLine.box) * 0.5 && BOSS_NAME.test(l.text.trim()),
+      (l) => l.box.y0 > cpBox.y0 + boxHeight(cpBox) * 0.5 && BOSS_NAME.test(l.text.trim()),
     );
     bossName = below ? below.text.trim() : null;
   }
@@ -669,7 +800,7 @@ export function readScreenText(
     bossName,
     countdownBox,
     countdownPlace,
-    cpBox: cpLine?.box ?? null,
+    cpBox,
     ...(cpLetters ? { cpLetters } : {}),
     max,
   };
