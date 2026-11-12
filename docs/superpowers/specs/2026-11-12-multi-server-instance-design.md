@@ -132,7 +132,7 @@ A public instance runs with none: the Message Content intent (passive screenshot
 One gateway connection (a shard) serves at most 2,500 servers, and Discord tells a bot in more how many it needs (`GET /gateway/bot`). Pine runs its shards in one process: `createClient` sets `shards: 'auto'`, and discord.js connects as many as Discord asks.
 
 - **Health:** the heartbeat's gateway probe reads every shard (`gatewayConnected` over `client.ws.shards`). With several, one shard reconnecting is routine: the bot is unhealthy (and the watchdog restarts it) only when a shard has been away longer than a few minutes, or all are. The health line says how many shards are up.
-- `GatewayWatch` keeps its time away per shard, and a shard's return catches up only that shard's servers.
+- `GatewayWatch` keeps its time away per shard. A shard's real return (by its time away or its errors) runs the whole catch-up, every server's, which coalesces; a routine new session of a shard asks for it at most once per 10 minutes (plan 19D: the requests that failed while a shard was away went out for every shard's servers alike).
 - Start-up work per server (`syncGuilds`, meetup safety's warnings, the spawns that stood through a restart) runs on each shard's ready; the checks of who is in (above) run once every shard is ready.
 - Several processes (`ShardingManager`) are not built. What would have to change for them is written down for when one machine's process is the limit: everything kept in memory and shared (the party store's one-change-at-a-time, throttles, caches, schedulers, the web server, the DM queue) split by server or moved into the database, and each process seeing only its shards' servers.
 
