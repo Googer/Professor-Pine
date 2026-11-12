@@ -1,3 +1,4 @@
+import type { ShardStart } from './discord/shard-readiness.js';
 import { taskPictureSources } from './domain/stops/pictures.js';
 import type { PartyService } from './services/party-service.js';
 import type { PartyStore } from './services/party-store.js';
@@ -57,6 +58,58 @@ export function reportPictures(pictures: PictureMaking): StopReportListener {
   return {
     reported: (news) => {
       void pictures.prepare(taskPictureSources(news.reports.map((report) => report.research)));
+    },
+  };
+}
+
+/** The start-up work for the servers of a shard (`shardStartWork`); each never throws. */
+export interface ShardStartWork {
+  /** Makes sure every server has its `Guild` row (`syncGuilds`). */
+  syncServers(servers: readonly string[]): void;
+  /** Says in the log where meetup safety cannot work (`MeetupSafety.warnAtStart`). */
+  warnAtStart(servers: readonly string[]): void;
+  /** The square pictures of the spawns that stood through the restart (`SpawnService`). */
+  prepareStanding(servers: readonly string[]): void;
+}
+
+/**
+ * What a shard's ready does for its servers (plan 19D; `ShardReadiness.onShardReady`), so that a
+ * server on a late shard is not missed. At every ready the servers are recorded: one that added
+ * the bot while its shard was away comes in the new session's READY, and discord.js then says
+ * `GuildAvailable` of it, never `GuildCreate`, so nothing else would record it. Only at the
+ * shard's first ready (the start): the warnings of meetup safety (lines of the log at the start,
+ * which a new session, several a day, would only repeat; not of a server Discord said unavailable,
+ * whose channels are not known yet) and the pictures of the spawns that stood through the restart
+ * (after a new session nothing restarted, and later spawns had theirs made when reported).
+ * Servers a new session's READY no longer names (`ShardStart.gone`) are not recorded; nothing
+ * acts on them yet (plan C marks them left).
+ *
+ * `clientReady`, at `ClientReady` (19D fix round 1, F1; round 2, R2: the very moment discord.js
+ * begins to say `GuildCreate`, which an every-shard-ready after a resume is not): discord.js says
+ * `GuildCreate` only once the client is ready, so a server that adds the bot on a shard already
+ * ready while later shards still identify lands in the cache without an event; the cached servers
+ * the shards' readies did not cover are recorded then. Only the first time: afterwards
+ * `GuildCreate` is said, and the servers recorded are forgotten.
+ */
+export function shardStartWork(work: ShardStartWork): {
+  shardReady(start: ShardStart): void;
+  clientReady(cached: readonly string[]): void;
+} {
+  let recorded: Set<string> | undefined = new Set();
+  return {
+    shardReady: ({ servers, unavailable, first }) => {
+      work.syncServers(servers);
+      for (const server of servers) recorded?.add(server);
+      if (!first) return;
+      work.warnAtStart(servers.filter((server) => !unavailable.has(server)));
+      work.prepareStanding(servers);
+    },
+    clientReady: (cached) => {
+      if (recorded === undefined) return;
+      const covered = recorded;
+      recorded = undefined;
+      const missed = cached.filter((server) => !covered.has(server));
+      if (missed.length > 0) work.syncServers(missed);
     },
   };
 }

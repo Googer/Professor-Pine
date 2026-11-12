@@ -207,6 +207,8 @@ export class MeetupSafety {
   private readonly now: () => number;
   private readonly flaggedWords: readonly string[];
   private readonly changesOnTheirWay = new Set<Promise<void>>();
+  /** That the safety is off was said: once, though each shard's servers are checked apart. */
+  private offSaid = false;
 
   constructor(private readonly options: MeetupSafetyOptions) {
     this.now = options.now ?? (() => Date.now());
@@ -225,16 +227,18 @@ export class MeetupSafety {
 
   /**
    * Says at the start where meetup safety cannot work: off without the setting, said once (plan
-   * 8M-11A: the setting is the instance's, not a server's); per server the bot is in, a server
-   * without a text channel of that name, or one where the bot may not post in it (`mayPost`: View
-   * Channel, Send Messages, Embed Links). Meetups that need a moderator's approval cannot be made
-   * there; a channel made or fixed later is found then. Never throws.
+   * 8M-11A: the setting is the instance's, not a server's; once in the process, though it is
+   * called for each shard's servers, plan 19D); per server the bot is in, a server without a text
+   * channel of that name, or one where the bot may not post in it (`mayPost`: View Channel, Send
+   * Messages, Embed Links). Meetups that need a moderator's approval cannot be made there; a
+   * channel made or fixed later is found then. Never throws.
    */
   warnAtStart(guildIds: readonly string[]): void {
     const { gateway, log } = this.options;
     const name = this.channelName;
     if (name === undefined) {
-      log.warn('meetup safety is off: settings.channels.moderation is not set');
+      if (!this.offSaid) log.warn('meetup safety is off: settings.channels.moderation is not set');
+      this.offSaid = true;
       return;
     }
     for (const server of guildIds) {

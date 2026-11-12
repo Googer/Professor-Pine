@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { DB } from '../types.js';
 import { RowIds } from './row-ids.js';
 
@@ -6,8 +6,13 @@ import { RowIds } from './row-ids.js';
 export interface GuildStore {
   /** Creates the guild's row if it is missing and returns its id. */
   ensure(snowflake: string): Promise<number>;
+  /** Creates the rows of those servers that lack one, in chunks (`ensure` for many). */
+  ensureAll(snowflakes: readonly string[]): Promise<void>;
   remove(snowflake: string): Promise<void>;
 }
+
+/** As many servers as one statement of `ensureAll` writes and reads back. */
+export const GUILD_CHUNK = 500;
 
 /**
  * The Guild table: one row per Discord server the bot is in. With `ids` (the process's memory
@@ -43,6 +48,38 @@ export class GuildRepository implements GuildStore {
     }
     if (!this.db.isTransaction) this.ids.sawGuild(snowflake, row.id);
     return row.id;
+  }
+
+  /**
+   * `ensure` for many servers (19D fix round 1, F3: a shard's ready records up to 2,500): per
+   * chunk of `GUILD_CHUNK`, one insert of every row with a no-op on a duplicate, then one read of
+   * their ids, remembered as `ensure` remembers them. Every chunk is tried; the first failure is
+   * thrown after the others.
+   */
+  async ensureAll(snowflakes: readonly string[]): Promise<void> {
+    const unique = [...new Set(snowflakes)];
+    let failure: Error | undefined;
+    for (let start = 0; start < unique.length; start += GUILD_CHUNK) {
+      const chunk = unique.slice(start, start + GUILD_CHUNK);
+      try {
+        await this.db
+          .insertInto('Guild')
+          .values(chunk.map((snowflake) => ({ snowflake })))
+          .onDuplicateKeyUpdate({ snowflake: sql`snowflake` })
+          .execute();
+        const rows = await this.db
+          .selectFrom('Guild')
+          .select(['id', 'snowflake'])
+          .where('snowflake', 'in', chunk)
+          .execute();
+        if (this.db.isTransaction) continue;
+        for (const row of rows)
+          if (row.snowflake !== null) this.ids.sawGuild(row.snowflake, row.id);
+      } catch (err) {
+        failure ??= err instanceof Error ? err : new Error(String(err));
+      }
+    }
+    if (failure !== undefined) throw failure;
   }
 
   /** Deleting a guild cascades to its regions, roles and notifications. */

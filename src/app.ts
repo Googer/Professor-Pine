@@ -48,6 +48,7 @@ import { createClient, identifyConcurrency, loginWithFallback } from './discord/
 import { enabledCommands, enabledMessageCommands } from './discord/command.js';
 import { DiscordDmGateway } from './discord/dm-gateway.js';
 import { attachGatewayHandlers, catchUpOnReturn, GatewayWatch } from './discord/gateway-events.js';
+import { ShardReadiness } from './discord/shard-readiness.js';
 import { DiscordMemberDirectory } from './discord/member-directory.js';
 import { managementRoleIdsOf } from './discord/guards.js';
 import { DiscordRegionStaff } from './discord/web-staff.js';
@@ -185,6 +186,7 @@ import {
   liveSources,
   picturesServed,
   reportPictures,
+  shardStartWork,
   stopReportSteps,
 } from './app-wiring.js';
 import { createShutdown } from './shutdown.js';
@@ -1334,22 +1336,45 @@ export async function startApp(
       members.use(client);
       roleGateway.use(client);
       dmGateway.use(client);
-      client.once(Events.ClientReady, (ready) => {
-        log.info({ user: ready.user.tag, guilds: ready.guilds.cache.size }, 'connected to Discord');
-        void syncGuilds(guilds, [...ready.guilds.cache.keys()], log);
-        botServers = () => [...ready.guilds.cache.keys()];
-        bossAnnouncer.ready();
+      // The work per server at each shard's ready (plan 19D, `shardStartWork`): the servers
+      // recorded, and at the shard's first ready meetup safety's warnings and the spawns that
+      // stood through the restart; at `ClientReady`, the servers that added the bot meanwhile
+      // without an event. Plan C's checks of who is in go to `onEveryShardReady`.
+      const startWork = shardStartWork({
+        syncServers: (servers) => void syncGuilds(guilds, servers, log),
         // Where meetup safety cannot work: once per server, in the log of the start.
-        meetupSafety.warnAtStart([...ready.guilds.cache.keys()]);
+        warnAtStart: (servers) => {
+          meetupSafety.warnAtStart(servers);
+        },
+        // Never awaited, and it logs what fails (review SF1-4).
+        prepareStanding: (servers) => void spawns.prepareStanding(servers),
+      });
+      new ShardReadiness({
+        log,
+        shardIds: () => client.ws.shards.keys(),
+        serversOf: (shard) => [
+          ...client.guilds.cache.filter((guild) => guild.shardId === shard).keys(),
+        ],
+      })
+        .attach(client)
+        .onShardReady((start) => {
+          startWork.shardReady(start);
+        });
+      // The client's once: after the last shard's first ready.
+      client.once(Events.ClientReady, (ready) => {
+        log.info(
+          { user: ready.user.tag, guilds: ready.guilds.cache.size, shards: ready.ws.shards.size },
+          'connected to Discord',
+        );
+        botServers = () => [...ready.guilds.cache.keys()];
+        startWork.clientReady([...ready.guilds.cache.keys()]);
+        bossAnnouncer.ready();
         // Before the first posts are shown; `refresh` logs what fails and never throws.
         void appEmoji.refresh();
         markConnected();
         // The reader's files (about 15 MB the first time) are had now, so that the first
         // screenshot does not wait for them; never awaited, and `ensure` logs what fails.
         if (config.settings.ocr.enabled) void ocrAssets.ensure();
-        // The square pictures of the spawns that stood through the restart (review SF1-4); never
-        // awaited, and it logs what fails.
-        void spawns.prepareStanding([...ready.guilds.cache.keys()]);
       });
       client.on(Events.GuildCreate, (guild) => {
         guilds

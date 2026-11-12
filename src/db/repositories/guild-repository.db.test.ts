@@ -6,6 +6,7 @@ import { createDb } from '../kysely.js';
 import { runMigrations } from '../migrator.js';
 import type { DB } from '../types.js';
 import { GuildRepository } from './guild-repository.js';
+import { RowIds } from './row-ids.js';
 
 describe('GuildRepository', () => {
   let database: TestDatabase;
@@ -34,6 +35,25 @@ describe('GuildRepository', () => {
     expect(rows[0]?.snowflake).toBe('412345678901234567');
     expect(first).toBe(rows[0]?.id);
     expect(second).toBe(first);
+  });
+
+  it('ensureAll makes the rows of many servers in chunks, keeps those there and remembers them (19D fix round 1, F3)', async () => {
+    const ids = new RowIds();
+    const remembering = new GuildRepository(db, ids);
+    const kept = await guilds.ensure('412345678901234567');
+    const snowflakes = Array.from({ length: 1_203 }, (_, n) =>
+      String(412345678901234567n + BigInt(n)),
+    );
+
+    await remembering.ensureAll(snowflakes);
+    await remembering.ensureAll([]);
+
+    const rows = await db.selectFrom('Guild').select(['id', 'snowflake']).execute();
+    expect(rows).toHaveLength(1_203);
+    expect(new Set(rows.map((row) => row.snowflake))).toEqual(new Set(snowflakes));
+    expect(rows.find((row) => row.snowflake === '412345678901234567')?.id).toBe(kept);
+    const last = snowflakes.at(-1) ?? '';
+    expect(ids.guild(last)).toBe(rows.find((row) => row.snowflake === last)?.id);
   });
 
   it('idFor returns undefined for an unknown guild', async () => {

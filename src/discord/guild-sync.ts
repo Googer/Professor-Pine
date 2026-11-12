@@ -1,19 +1,20 @@
 import type { GuildStore } from '../db/repositories/guild-repository.js';
 import type { Logger } from '../log.js';
 
-/** Makes sure every guild the bot is in has a Guild row. */
+/**
+ * Makes sure every guild the bot is in has a Guild row: in chunks (`GuildStore.ensureAll`; a
+ * shard's ready names up to 2,500 servers, 19D fix round 1, F3). Never rejects: a failure is
+ * logged with how many servers it was about.
+ */
 export async function syncGuilds(
   store: GuildStore,
   guildIds: readonly string[],
   log: Logger,
 ): Promise<void> {
-  const results = await Promise.allSettled(guildIds.map((id) => store.ensure(id)));
-  results.forEach((result, index) => {
-    if (result.status === 'rejected') {
-      log.error(
-        { err: result.reason as unknown, guild: guildIds[index] },
-        'could not record guild',
-      );
-    }
-  });
+  if (guildIds.length === 0) return;
+  try {
+    await store.ensureAll(guildIds);
+  } catch (err) {
+    log.error({ err, guilds: guildIds.length }, 'could not record the servers');
+  }
 }

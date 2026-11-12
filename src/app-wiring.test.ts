@@ -12,6 +12,7 @@ import {
   liveSources,
   picturesServed,
   reportPictures,
+  shardStartWork,
   stopReportSteps,
 } from './app-wiring.js';
 import { PartyStatus } from './domain/party/status.js';
@@ -232,5 +233,92 @@ describe('the shutdown step of the events feed and the events forum (branch revi
     });
     await createShutdown([step], log)();
     expect(done).toEqual(['feed stopped', 'feed idle']);
+  });
+});
+
+describe('the start-up work of a shard (plan 19D)', () => {
+  const SERVER_A = '100000000000000001';
+  const SERVER_B = '100000000000000002';
+
+  const SERVER_C = '100000000000000003';
+  const SERVER_X = '100000000000000009';
+
+  function work() {
+    const done: [string, readonly string[]][] = [];
+    const startWork = shardStartWork({
+      syncServers: (servers) => void done.push(['sync', servers]),
+      warnAtStart: (servers) => void done.push(['warn', servers]),
+      prepareStanding: (servers) => void done.push(['spawns', servers]),
+    });
+    return { done, startWork };
+  }
+
+  it('records, checks and prepares the servers of a shard at its first ready', () => {
+    const { done, startWork } = work();
+    startWork.shardReady({
+      shard: 1,
+      servers: [SERVER_A, SERVER_B],
+      gone: [],
+      unavailable: new Set([SERVER_B]),
+      first: true,
+    });
+    expect(done).toEqual([
+      ['sync', [SERVER_A, SERVER_B]],
+      // An unavailable server's channels are not known: no warning of a channel it lacks.
+      ['warn', [SERVER_A]],
+      ['spawns', [SERVER_A, SERVER_B]],
+    ]);
+  });
+
+  it('only records the servers again after a new session', () => {
+    const { done, startWork } = work();
+    startWork.shardReady({
+      shard: 0,
+      servers: [SERVER_A],
+      gone: [SERVER_B],
+      unavailable: new Set(),
+      first: false,
+    });
+    expect(done).toEqual([['sync', [SERVER_A]]]);
+  });
+
+  it('records at ClientReady a server that added the bot between two shards’ readies (19D fix round 1, F1; round 2, R2)', () => {
+    const { done, startWork } = work();
+    startWork.shardReady({
+      shard: 0,
+      servers: [SERVER_A],
+      gone: [],
+      unavailable: new Set(),
+      first: true,
+    });
+    // Server X adds the bot on shard 0 while shard 1 still identifies: discord.js puts it in its
+    // cache and says no GuildCreate, the client not being ready.
+    startWork.shardReady({
+      shard: 1,
+      servers: [SERVER_C],
+      gone: [],
+      unavailable: new Set(),
+      first: true,
+    });
+    done.length = 0;
+    startWork.clientReady([SERVER_A, SERVER_X, SERVER_C]);
+    expect(done).toEqual([['sync', [SERVER_X]]]);
+    // From then on discord.js says GuildCreate: a second call records nothing more.
+    startWork.clientReady([SERVER_A, SERVER_X, SERVER_C, SERVER_B]);
+    expect(done).toEqual([['sync', [SERVER_X]]]);
+  });
+
+  it('records nothing more at ClientReady when the shards covered every server', () => {
+    const { done, startWork } = work();
+    startWork.shardReady({
+      shard: 0,
+      servers: [SERVER_A],
+      gone: [],
+      unavailable: new Set(),
+      first: true,
+    });
+    done.length = 0;
+    startWork.clientReady([SERVER_A]);
+    expect(done).toEqual([]);
   });
 });

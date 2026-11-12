@@ -632,6 +632,13 @@ describe('MeetupSafety.warnAtStart', () => {
     ]);
   });
 
+  it('says it once also when each shard’s servers are checked by themselves (plan 19D)', async () => {
+    const made = await meetupSafetyWith({ moderation: null });
+    made.safety.warnAtStart([SERVER]);
+    made.safety.warnAtStart([OTHER_SERVER]);
+    expect(made.entries.filter((entry) => entry.level === 40)).toHaveLength(1);
+  });
+
   it('says so of a server whose moderators’ channel the bot cannot post in', async () => {
     const made = await meetupSafetyWith();
     made.gateway.noEmbeds.add(MOD_CHANNEL);
