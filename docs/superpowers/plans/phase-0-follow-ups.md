@@ -3582,6 +3582,20 @@ Verification is only needed to grow past 100 servers, and it gives the checkmark
 
 The Message Content intent was not applied for (the review was due 2026-11-11): Pine needs no privileged intent.
 
+### One instance for many servers, and sharding (Matt, 2026-11-12: a 2.1 design item)
+
+The aim: Pine as a public application, one instance that serves many servers that do not interfere with one another, with a public invite link, so that a community can start without hosting Pine itself. Self-hosting stays as it is. Matt will not run such an instance for now (no hardware for it): the work is making Pine able to, and leaving it off by default. Sharding is a likely follow-up, maybe part of it from the start.
+
+What a design has to settle (a first look, 2026-11-12, not a design):
+
+- **Settings per server.** Today one settings file holds what is really a server's: `channels` and `categories` by name, `roles`, `features`, `timezone`, `distanceUnits`, `emoji`, `eventsForum`, `meetupSafety`, `regionForumSuffix`, `helpGroups`, the lobby sizes, `rehearsal`. The database already keys regions, gyms, parties and member rows by server. The file keeps what is the installation's (secrets' names, OCR, the web server, the feeds, Google's budgets); the rest moves into the database, set by each server's staff on Discord (a setup flow, beside `/admin setup-forums`), with today's file as the defaults a self-hosted installation keeps using.
+- **What servers share today.** Gyms and PokéStops of one area, the boss overrides, nicknames, the image cache, Google's monthly budget, the OCR queue, the DM queue: per server, shared by choice, or fair-shared (a busy server must not starve the others' screenshots, DMs or Google lookups). The 8Z-2 owner DM on shared-data changes is a first piece of this.
+- **Who is the owner.** `OWNER_ID` is the installation's operator; each server needs its own admins (`/admin forget`, alerts about its own setup), and the operator's alerts must not name another server's members.
+- **A server nobody set up adds the bot:** it starts in a setup state that does nothing until its staff finish the setup (or the instance keeps an allow list and leaves servers not on it). Leaving a server: what of its data stays, and for how long (the Privacy Policy changes with it).
+- **The web map and the history page** are already per server (`/s/<guild>/…`); its login, rate limits and cost budgets per member hold across servers, the public view per server.
+- **Load and limits.** The heartbeat and the watchdog assume one gateway connection; Discord's global rate limit (50 requests a second per bot) is shared by every server; the DM sender, the OCR worker and the schedulers must be fair per server; the database grows with every server.
+- **Sharding.** Discord still requires it: one gateway connection (a shard) serves at most 2,500 servers, and a bot in more must shard (Discord says how many through `GET /gateway/bot`). discord.js does it inside one process (the client's `shards: 'auto'`) or across processes (`ShardingManager`). In one process little changes but the heartbeat and `gatewayConnected` over several shards (they already take `client.ws.shards`). Across processes, everything that lives in memory and is shared (the party store's one-change-at-a-time, the throttles, the caches, the schedulers, the web server, the DM queue) has to be split by server or moved into the database, and a process sees only its shards' servers. Plan: one process with `shards: 'auto'` first; several processes only when one machine's process is the limit.
+
 ## From the staging run of 7M and 8G (2026-11-10 night, the Air's dev stack at 442e9e50, migration 051; Googer in the built-in browser, Tester in Chrome, both driven by Claude)
 
 After `./pine update` and `./pine deploy-commands --global` on the dev stack ("Registered 75 command(s) everywhere."). No warning or error in the bot's log during the run.
