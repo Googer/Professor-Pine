@@ -16,6 +16,10 @@ import { serverValuesOf } from '../../discord/server-values.js';
  * set; also in a DM with the bot and the post of a party: the legacy bot sent it by DM to keep
  * raid channels quiet, and a private answer is as quiet.
  */
+/** What staff are told to set where a server has no map (plan 19A-1). */
+export const MAPS_NOT_SET_UP =
+  'Staff set the address of the map of all regions in /admin settings.';
+
 export const maps: SimpleCommand = {
   data: new SlashCommandBuilder()
     .setName('maps')
@@ -30,8 +34,12 @@ export const maps: SimpleCommand = {
         : 'Gives you the address of a map that shows every region. Only you see the answer.',
     examples: ['/maps'],
   },
-  enabled: (config) =>
-    config.settings.regionMapLink !== undefined || config.settings.web !== undefined,
+  // Registered everywhere (plan 19A-1): any server could set its link; set up where the instance
+  // serves the web pages or the server has its link.
+  setUpIn: (values, config) =>
+    config.settings.web !== undefined || values.regionMapLink !== undefined
+      ? undefined
+      : MAPS_NOT_SET_UP,
   throttle: MEMBER_WRITE_THROTTLE,
   defer: 'late',
   async execute(interaction, ctx) {

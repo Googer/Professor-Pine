@@ -129,6 +129,14 @@ export interface CommandHandler {
    * nothing (plan 8S-3).
    */
   checks?: ControlThrottle;
+  /**
+   * For a command that depends on a server's values (plan 19A-1, `set-up.ts`): undefined where
+   * the server has what it needs; else what its staff set and where, in words. It is registered
+   * for everyone (any server could use it), answers `This is not set up in this server.` with
+   * those words where it is not on, and is left out of that server's `/help`. A command that
+   * depends on the instance alone has `enabled(config)` instead.
+   */
+  setUpIn?: (values: ServerValues, config: Config) => string | undefined;
   execute(interaction: ChatInputCommandInteraction, ctx: AppContext): Promise<void>;
   autocomplete?(interaction: AutocompleteInteraction, ctx: AppContext): Promise<void>;
 }

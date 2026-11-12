@@ -20,7 +20,6 @@ import {
 import { gymName } from '../render/raid-post.js';
 import { plain } from '../render/text.js';
 import { dialogName, scopeOf } from '../commands/notifications/want-boxes.js';
-import { notificationsEnabled } from '../commands/notifications/shared.js';
 import {
   NOT_A_MEMBER,
   WANTS_OFF,
@@ -165,7 +164,7 @@ async function readForChange<T>(
   guildId: string,
   read: () => Promise<T>,
 ): Promise<T> {
-  if (!notificationsEnabled(ctx.config)) throw new UserError(WANTS_OFF);
+  if (!ctx.servers.of(guildId).features.notifications) throw new UserError(WANTS_OFF);
   const [member, value] = await readInTime(ctx.log, interaction, () =>
     Promise.all([ctx.members.find(guildId, interaction.user.id), read()]),
   );

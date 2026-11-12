@@ -1,11 +1,18 @@
-import type { Config } from '../../config/index.js';
+import type { ServerValues } from '../../config/server-settings.js';
 import type { Guard, LocatedInteraction } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
 import { plain, truncate } from '../../render/text.js';
 import type { RoleMember } from '../../services/self-role-service.js';
 
-/** Whether this installation has self-assigned roles at all (`settings.features.roles`). */
-export const rolesEnabled = (config: Config): boolean => config.settings.features.roles;
+/** What staff are told to set where a server's members give themselves no roles (plan 19A-1). */
+export const ROLES_NOT_SET_UP = 'Staff turn on self-assigned roles in /admin settings.';
+
+/**
+ * Whether a server's members give themselves roles (its `features.roles`, plan 19A-1): `/iam`,
+ * `/iamnot` and `/admin self-roles` are set up only there (`CommandHandler.setUpIn`).
+ */
+export const rolesSetUp = (values: ServerValues): string | undefined =>
+  values.features.roles ? undefined : ROLES_NOT_SET_UP;
 
 /** A role in a sentence: its name in bold, never a mention (nothing here may ping). */
 export function roleText(name: string): string {

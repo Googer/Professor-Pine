@@ -44,6 +44,7 @@ import {
   untarget,
   untargetAll,
 } from './targets.js';
+import { testServerValues } from '../../../test/support/server-values.js';
 
 const OTHER_GUILD = '499999999999999999';
 /** The channels of the fakes' server: the regions West and East. */
@@ -122,18 +123,17 @@ function controls(interaction: FakeInteraction) {
 }
 
 describe('the target commands', () => {
-  it('exist only where notifications are switched on, with help in the notifications category', () => {
+  it('are set up only where the server notifies, with help in the notifications category', () => {
     const { ctx } = createTestContext();
-    const off = {
-      ...ctx.config,
-      settings: {
-        ...ctx.config.settings,
-        features: { ...ctx.config.settings.features, notifications: false },
-      },
-    };
+    const values = testServerValues();
+    const off = { ...values, features: { ...values.features, notifications: false } };
     for (const command of [target, untarget, targets, untargetAll]) {
-      expect(command.enabled?.(ctx.config)).toBe(true);
-      expect(command.enabled?.(off)).toBe(false);
+      // Registered whatever the server (plan 19A-1); not set up where it does not notify.
+      expect(command.enabled).toBeUndefined();
+      expect(command.setUpIn?.(values, ctx.config)).toBeUndefined();
+      expect(command.setUpIn?.(off, ctx.config)).toBe(
+        'Staff turn on notifications in /admin settings.',
+      );
       expect(command.help.category).toBe('notifications');
       expect(command.help.details).toBeTruthy();
       expect(command.help.examples?.length).toBeGreaterThan(0);

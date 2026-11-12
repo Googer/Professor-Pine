@@ -87,6 +87,22 @@ export function isStaff(interaction: LocatedInteraction, ctx: AppContext): boole
 }
 
 /**
+ * Whether the invoking member is staff as `/admin` and `/help` count them (admins, moderators, bot
+ * developers, the bot's owner: `requireBotManagement`): only they are told of a staff command,
+ * such as `/admin settings` in a refusal (plan 19A-1, review F11).
+ */
+export function isBotStaff(
+  interaction: LocatedInteraction,
+  ctx: Pick<AppContext, 'config'>,
+): boolean {
+  return isBotManagement(
+    memberRoleNames(interaction),
+    interaction.user.id,
+    ctx.config.env.OWNER_ID,
+  );
+}
+
+/**
  * Whether the invoking member may manage the server's channels (Manage Channels), which
  * deleting or creating one through the bot takes as doing it by hand does (`/region remove`'s
  * forum, an import's new channels, `/admin cleanup-legacy`). Read from the server
@@ -188,10 +204,13 @@ export const requireBotChannel: Guard = (interaction, ctx) => {
   const values = ctx.servers.of(guildIdOf(interaction));
   if (!isBotChannel(channelContext(interaction).baseChannelId, values)) {
     const lab = values.channels['bot-lab'];
+    // `/admin settings` is named to staff only (review F11).
     throw new UserError(
-      lab === undefined
-        ? 'This server has no bot lab yet: staff set one with /admin settings.'
-        : `Use this in <#${lab}>.`,
+      lab !== undefined
+        ? `Use this in <#${lab}>.`
+        : isBotStaff(interaction, ctx)
+          ? 'This server has no bot lab yet: staff set one with /admin settings.'
+          : 'This server has no bot lab yet.',
     );
   }
 };

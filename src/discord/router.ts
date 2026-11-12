@@ -31,6 +31,8 @@ import { answerApart, deferLate, LATE_DEFER_MS } from './late-reply.js';
 import { Throttles, waitText, type Throttle } from './throttle.js';
 import { LockOverdueError } from '../services/keyed-lock.js';
 import { REHEARSAL_REFUSAL } from '../services/rehearsal.js';
+import { notSetUpIn, notSetUpWords } from './set-up.js';
+import { isBotStaff } from './guards.js';
 
 export const STALE_COMPONENT = 'This no longer works.';
 /**
@@ -302,6 +304,11 @@ export class InteractionRouter {
         throw new UserError(UNKNOWN_COMMAND);
       }
       const { handler, name, counted: key } = found;
+      // Before its guards (plan 19A-1): a command the server has not set up is said so, uncounted.
+      const missing = this.notSetUp(interaction, handler);
+      if (missing !== undefined) {
+        throw new UserError(notSetUpWords(missing, isBotStaff(interaction, this.ctx)));
+      }
       await runGuards(found.guards, interaction, this.ctx);
       const { checks } = handler;
       if (checks) {
@@ -421,12 +428,23 @@ export class InteractionRouter {
         }
       }
       const handler = this.find(interaction)?.handler;
-      if (handler?.autocomplete) await handler.autocomplete(interaction, this.ctx);
-      else await interaction.respond([]);
+      // Nothing to offer where the server has not set it up (plan 19A-1).
+      if (handler?.autocomplete && this.notSetUp(interaction, handler) === undefined) {
+        await handler.autocomplete(interaction, this.ctx);
+      } else await interaction.respond([]);
     } catch (err) {
       this.ctx.log.error({ err, interaction: describe(interaction) }, 'autocomplete failed');
       if (!interaction.responded) await interaction.respond([]).catch(() => undefined);
     }
+  }
+
+  /** What the server an interaction came from must set for a handler; never in a DM. */
+  private notSetUp(
+    interaction: { guildId: string | null },
+    handler: Pick<CommandHandler, 'setUpIn'>,
+  ): string | undefined {
+    if (interaction.guildId === null) return undefined;
+    return notSetUpIn(handler, this.ctx.servers.of(interaction.guildId), this.ctx.config);
   }
 
   /**

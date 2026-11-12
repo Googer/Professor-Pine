@@ -14,6 +14,9 @@ import { InteractionRouter } from '../../discord/router.js';
 import { commands } from '../index.js';
 import { iam, iamnot } from './iam.js';
 import { memberProblem } from './words.js';
+import { testServerValues } from '../../../test/support/server-values.js';
+import { commandsIn } from '../../discord/set-up.js';
+import type { ServerValues } from '../../config/server-settings.js';
 
 const ELSEWHERE = '499999999999999999';
 /** What a member reads when Discord refuses a role for lack of a permission. */
@@ -61,20 +64,20 @@ async function setup() {
 }
 
 describe('the role commands', () => {
-  it('are offered only where the feature is on, in servers, under Roles', () => {
+  it('are registered for every server, set up where its members give themselves roles, under Roles', () => {
     const { ctx } = createTestContext();
-    const names = (config: typeof ctx.config) =>
-      enabledCommands(commands, config).map((command) => command.data.name);
-    expect(names(ctx.config)).toEqual(expect.arrayContaining(['iam', 'iamnot']));
-    const off = {
-      ...ctx.config,
-      settings: {
-        ...ctx.config.settings,
-        features: { ...ctx.config.settings.features, roles: false },
-      },
-    };
+    const names = (values: ServerValues) =>
+      commandsIn(enabledCommands(commands, ctx.config), values, ctx.config).map(
+        (command) => command.data.name,
+      );
+    const values = testServerValues();
+    expect(names(values)).toEqual(expect.arrayContaining(['iam', 'iamnot']));
+    const off = { ...values, features: { ...values.features, roles: false } };
     expect(names(off)).not.toContain('iam');
     expect(names(off)).not.toContain('iamnot');
+    expect(iam.setUpIn?.(off, ctx.config)).toBe(
+      'Staff turn on self-assigned roles in /admin settings.',
+    );
     expect(iam.help.category).toBe('roles');
     expect(iamnot.help.category).toBe('roles');
     expect(iam.data.toJSON().contexts).toBeUndefined();

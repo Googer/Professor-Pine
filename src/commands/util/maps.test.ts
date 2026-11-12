@@ -47,21 +47,32 @@ function setup(settings: Partial<Settings>) {
 }
 
 describe('/maps', () => {
-  it('is offered where there is a map: the web pages, or the address of a map', () => {
+  it("is registered everywhere, set up where there is a map: the web pages, or the server's link", () => {
     const { ctx } = createTestContext();
-    const settings = ctx.config.settings;
-    expect(
-      maps.enabled?.({ ...ctx.config, settings: { ...settings, regionMapLink: undefined } }),
-    ).toBe(false);
-    expect(maps.enabled?.({ ...ctx.config, settings: { ...settings, regionMapLink: LINK } })).toBe(
-      true,
+    const { web: _none, ...settings } = ctx.config.settings;
+    const without = { ...ctx.config, settings };
+    const withWeb = { ...ctx.config, settings: { ...settings, web: TEST_WEB } };
+    const values = testServerValues();
+    const { regionMapLink: _link, ...noLink } = values;
+    expect(maps.enabled).toBeUndefined();
+    expect(maps.setUpIn?.(noLink, without)).toBe(
+      'Staff set the address of the map of all regions in /admin settings.',
     );
-    expect(
-      maps.enabled?.({
-        ...ctx.config,
-        settings: { ...settings, regionMapLink: undefined, web: TEST_WEB },
-      }),
-    ).toBe(true);
+    expect(maps.setUpIn?.({ ...values, regionMapLink: LINK }, without)).toBeUndefined();
+    expect(maps.setUpIn?.(noLink, withWeb)).toBeUndefined();
+  });
+
+  it('answers in a server without a map that it is not set up there', async () => {
+    const { run } = setup({ web: undefined, regionMapLink: undefined });
+    const used = await run();
+    expect(sent(used.reply).content).toBe(
+      'This is not set up in this server. The server’s staff have not turned this on.',
+    );
+    const byStaff = await run({ roleNames: ['Admin'] });
+    expect(sent(byStaff.reply).content).toBe(
+      'This is not set up in this server. Staff set the address of the map of all regions in ' +
+        '/admin settings.',
+    );
   });
 
   it("gives the server's map and a link that logs the member in, privately", async () => {

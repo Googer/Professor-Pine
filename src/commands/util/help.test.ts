@@ -35,6 +35,7 @@ import { MEMBER_READ_THROTTLE } from '../../discord/throttle.js';
 import { meet } from '../parties/meet.js';
 import { end } from '../raids/change.js';
 import { help, helpControls } from './help.js';
+import { withFeatures } from '../../../test/support/server-values.js';
 
 const noop = () => Promise.resolve();
 const sub = (name: string) =>
@@ -90,6 +91,33 @@ const groupsOf = (message: V2Message): string[] =>
 /** The title of a help page. */
 const titleOf = (message: V2Message | undefined): string | undefined =>
   textDisplays(message)[0]?.split('\n')[0];
+
+// Plan 19A-1: a command a server has not set up is left out of its /help and its autocomplete.
+describe('/help: what a server has not set up', () => {
+  const want: SimpleCommand = {
+    data: new SlashCommandBuilder().setName('want').setDescription('Want a Pokémon'),
+    help: { category: 'notifications', details: 'Tells you of it.' },
+    setUpIn: (values) => (values.features.notifications ? undefined : 'Turn it on.'),
+    execute: noop,
+  };
+  const quiet = createTestContext({
+    commands: [help, want],
+    servers: withFeatures({ notifications: false }),
+  }).ctx;
+  const notifying = createTestContext({ commands: [help, want] }).ctx;
+
+  it('lists it, offers it and explains it only where the server has set it up', async () => {
+    expect(JSON.stringify(textDisplays(await ask({}, notifying)))).toContain('/want');
+    expect(await choices('wa', {}, notifying)).toEqual(['want']);
+    expect(JSON.stringify(textDisplays(await ask({}, quiet)))).not.toContain('/want');
+    expect(await choices('wa', {}, quiet)).toEqual([]);
+    await expect(ask({ options: { command: 'want' } }, quiet)).rejects.toThrow(
+      'There is no /want command.',
+    );
+    // In a DM, which is no server, it is as registered.
+    expect(await choices('wa', { isDm: true }, quiet)).toEqual(['want']);
+  });
+});
 
 describe('/help: a command with another name', () => {
   it('lists the other name beside the command, not on its own', async () => {

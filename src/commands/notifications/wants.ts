@@ -55,7 +55,7 @@ import {
   type Choice,
 } from '../choices.js';
 import { removeAllQuestion } from './remove-all.js';
-import { NOTIFICATION_THROTTLE, notificationsEnabled } from './shared.js';
+import { NOTIFICATION_THROTTLE, notificationsSetUp } from './shared.js';
 import {
   boxWords,
   costumesShown,
@@ -510,7 +510,7 @@ export const want: SimpleCommand = {
       '/want target:Dragon-type grunt',
     ],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild, readsUse],
   // The dialog is the first answer where one opens: nothing is deferred before it; every other
   // use writes under the member's lock first, so it is acknowledged when that takes long (B2).
@@ -626,7 +626,7 @@ export async function changeRefusal(
   guildId: string,
   memberId: string,
 ): Promise<string | undefined> {
-  if (!notificationsEnabled(ctx.config)) return WANTS_OFF;
+  if (!ctx.servers.of(guildId).features.notifications) return WANTS_OFF;
   return (await ctx.members.find(guildId, memberId)) ? undefined : NOT_A_MEMBER;
 }
 
@@ -1021,7 +1021,7 @@ export const unwant: SimpleCommand = {
       '`/want`. To keep some of what you ticked, use `/want` again instead.',
     examples: ['/unwant target:Mewtwo', '/unwant target:t5'],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild],
   defer: 'late',
   throttle: NOTIFICATION_THROTTLE,
@@ -1240,7 +1240,7 @@ export const wants: SimpleCommand = {
       'everything else has a Remove button. "Remove all…" asks before it empties the list.',
     examples: ['/wants'],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild],
   defer: 'late',
 
@@ -1277,7 +1277,7 @@ export const unwantAll: SimpleCommand = {
       'other servers and your gyms (`/targets`) stay as they are.',
     examples: ['/unwant-all'],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild],
   // The dialog is the first answer: nothing is deferred before it.
   throttle: NOTIFICATION_THROTTLE,

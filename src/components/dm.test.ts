@@ -33,9 +33,8 @@ import { components } from './index.js';
 import { dialogField, dialogFields, dialogText, shownDialog } from '../../test/support/dialogs.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { fakeModal } from '../../test/support/fake-interactions.js';
-import { loadSettings } from '../config/settings.js';
-import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
 import type { AppContext } from '../app-context.js';
+import { withFeatures } from '../../test/support/server-values.js';
 
 const HOME = '412345678901234567';
 const AWAY = '412345678901234568';
@@ -602,13 +601,8 @@ describe('Manage… under a direct message (plan 8R-4)', () => {
       content: 'You are no longer a member of that server: there is nothing to change there.',
       flags: MessageFlags.Ephemeral,
     });
-    const settings = loadSettings(TEST_SETTINGS_PATH);
-    const off = changing({
-      config: {
-        ...createTestContext().ctx.config,
-        settings: { ...settings, features: { ...settings.features, notifications: false } },
-      },
-    });
+    // A server that notifies nobody (plan 19A-1).
+    const off = changing({ servers: withFeatures({ notifications: false }) });
     const refused = await off.press();
     expect(sent(refused.reply).content).toBe(
       'Wants are switched off in that server: there is nothing to change.',
@@ -678,15 +672,8 @@ describe('Manage… under a direct message (plan 8R-4)', () => {
     expect((await made.wants.list(ALICE, HOME)).wants).toEqual([
       { target: pokemonTarget(25), scope: 'raid' },
     ]);
-    const settings = loadSettings(TEST_SETTINGS_PATH);
     const off = new InteractionRouter(
-      {
-        ...made.ctx,
-        config: {
-          ...made.ctx.config,
-          settings: { ...settings, features: { ...settings.features, notifications: false } },
-        },
-      },
+      { ...made.ctx, servers: withFeatures({ notifications: false }) },
       [],
       components,
     );
@@ -874,13 +861,7 @@ describe('Manage… of Team GO Rocket under a direct message (plan 8R-4)', () =>
       content: 'You are no longer a member of that server: there is nothing to change there.',
       flags: MessageFlags.Ephemeral,
     });
-    const settings = loadSettings(TEST_SETTINGS_PATH);
-    const off = rocketDm({
-      config: {
-        ...createTestContext().ctx.config,
-        settings: { ...settings, features: { ...settings.features, notifications: false } },
-      },
-    });
+    const off = rocketDm({ servers: withFeatures({ notifications: false }) });
     expect(sent((await off.press()).reply)).toEqual({
       content: 'Wants are switched off in that server: there is nothing to change.',
       flags: MessageFlags.Ephemeral,

@@ -29,7 +29,7 @@ import { gymInGuild, gymRegionsInGuild } from '../../services/region-directory.j
 import { beginningFirst, byName, CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import { gymChoices, reportedGym } from '../raids/raid-input.js';
 import { removeAllQuestion } from './remove-all.js';
-import { NOTIFICATION_THROTTLE, notificationsEnabled } from './shared.js';
+import { NOTIFICATION_THROTTLE, notificationsSetUp } from './shared.js';
 import { answer, v2Answer } from '../../discord/late-reply.js';
 
 /** The custom-id kind of the gym menu of `/target` and `/untarget`. */
@@ -188,7 +188,7 @@ export const target: SimpleCommand = {
       'leave `gym` out, for the gym of that raid or the stop the train is at.',
     examples: ['/target gym:Big Fountain', '/target'],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild],
   defer: 'late',
   throttle: NOTIFICATION_THROTTLE,
@@ -287,7 +287,7 @@ export const untarget: SimpleCommand = {
       'that raid or the stop the train is at.',
     examples: ['/untarget gym:Big Fountain', '/untarget'],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild],
   defer: 'late',
   throttle: NOTIFICATION_THROTTLE,
@@ -507,7 +507,7 @@ export const targets: SimpleCommand = {
       '"Remove all…" asks before it removes them all.',
     examples: ['/targets'],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild],
   defer: 'late',
 
@@ -540,7 +540,7 @@ export const untargetAll: SimpleCommand = {
       'in other servers and your list of Pokémon (`/wants`) stay as they are.',
     examples: ['/untarget-all'],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild],
   // The dialog is the first answer: nothing is deferred before it.
   throttle: NOTIFICATION_THROTTLE,

@@ -34,7 +34,6 @@ import {
   actingRoleMember,
   requireJoined,
   ROLES_UNAVAILABLE,
-  rolesEnabled,
   roleText,
   STILL_WORKING,
 } from './shared.js';
@@ -204,9 +203,11 @@ function changeNote(
   return sentences.join(' ');
 }
 
-/** Old messages may still be about when the feature was switched off. */
-const requireRoles: Guard = (_interaction, ctx) => {
-  if (!rolesEnabled(ctx.config)) throw new UserError(STALE_COMPONENT);
+/** Old messages may still be about when the server's staff switched the feature off. */
+const requireRoles: Guard = (interaction, ctx) => {
+  if (interaction.guildId === null || !ctx.servers.of(interaction.guildId).features.roles) {
+    throw new UserError(STALE_COMPONENT);
+  }
 };
 
 /**

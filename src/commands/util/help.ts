@@ -13,7 +13,7 @@ import {
   type SimpleCommand,
 } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
-import { isBotManagement, memberRoleNames } from '../../discord/guards.js';
+import { isBotStaff, type memberRoleNames } from '../../discord/guards.js';
 import { v2Answer } from '../../discord/late-reply.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
@@ -32,6 +32,7 @@ import {
   type HelpGroup,
 } from './help-render.js';
 import { serverValuesOf } from '../../discord/server-values.js';
+import { commandsIn } from '../../discord/set-up.js';
 
 const MAX_CHOICES = 25;
 
@@ -43,18 +44,22 @@ function normalise(text: string): string {
 type Asker = Parameters<typeof memberRoleNames>[0];
 
 function isStaff(interaction: Asker, ctx: AppContext): boolean {
-  return isBotManagement(
-    memberRoleNames(interaction),
-    interaction.user.id,
-    ctx.config.env.OWNER_ID,
-  );
+  return isBotStaff(interaction, ctx);
 }
 
 /** The commands a member may read about: staff commands are shown to staff only. */
-function visibleCommands(staff: boolean, ctx: AppContext): readonly CommandModule[] {
-  return staff
+function visibleCommands(
+  staff: boolean,
+  ctx: AppContext,
+  where: { guildId: string | null },
+): readonly CommandModule[] {
+  const seen = staff
     ? ctx.commands
     : ctx.commands.filter((c) => !isStaffCommand(c, ctx.config.settings.helpGroups));
+  // Without what the server has not set up (plan 19A-1); in a DM, as registered.
+  return where.guildId === null
+    ? seen
+    : commandsIn(seen, ctx.servers.of(where.guildId), ctx.config);
 }
 
 /** The message commands a member may read about: staff ones are shown to staff only. */
@@ -103,7 +108,7 @@ function commandPage(
   const onMessage = messageCommandNamed(normalise(path), staff, ctx);
   if (onMessage) return renderMessageCommandHelp(onMessage, ctx.config.settings);
   const [name = '', ...rest] = path.split(' ');
-  const command = visibleCommands(staff, ctx).find((c) => c.data.name === name);
+  const command = visibleCommands(staff, ctx, where).find((c) => c.data.name === name);
   // What the help may depend on besides the settings (`HelpFacts`).
   const facts = {
     oldHistory: ctx.legacyIndex !== undefined,
@@ -119,9 +124,13 @@ function commandPage(
 }
 
 /** The groups of commands the member sees. */
-function groupsFor(staff: boolean, ctx: AppContext): HelpGroup[] {
+function groupsFor(
+  staff: boolean,
+  ctx: AppContext,
+  where: { guildId: string | null },
+): HelpGroup[] {
   return helpGroupsOf(
-    visibleCommands(staff, ctx),
+    visibleCommands(staff, ctx, where),
     ctx.config.settings.helpGroups,
     staff,
     visibleMessageCommands(staff, ctx),
@@ -129,8 +138,13 @@ function groupsFor(staff: boolean, ctx: AppContext): HelpGroup[] {
 }
 
 /** The page of one group of commands, if the member sees it. */
-function groupPage(category: string, staff: boolean, ctx: AppContext): V2Message {
-  const group = groupsFor(staff, ctx).find((each) => each.category === category);
+function groupPage(
+  category: string,
+  staff: boolean,
+  ctx: AppContext,
+  where: { guildId: string | null },
+): V2Message {
+  const group = groupsFor(staff, ctx, where).find((each) => each.category === category);
   if (!group) throw new UserError('There is no such group of commands.');
   return renderGroupHelp(group);
 }
@@ -166,7 +180,7 @@ export const help: SimpleCommand = {
     const asked = normalise(interaction.options.getString('command') ?? '');
     const page =
       asked === ''
-        ? renderHelpOverview(groupsFor(staff, ctx))
+        ? renderHelpOverview(groupsFor(staff, ctx, interaction))
         : commandPage(asked, staff, ctx, interaction);
     await interaction.reply({
       ...v2Answer(page),
@@ -177,7 +191,7 @@ export const help: SimpleCommand = {
   async autocomplete(interaction, ctx) {
     const typed = normalise(interaction.options.getFocused());
     const staff = isStaff(interaction, ctx);
-    const slashNames = visibleCommands(staff, ctx).flatMap((command) => {
+    const slashNames = visibleCommands(staff, ctx, interaction).flatMap((command) => {
       const { options } = command.data.toJSON();
       const groups = (options ?? []).flatMap((option) =>
         option.type === ApplicationCommandOptionType.SubcommandGroup ? [option.name] : [],
@@ -220,20 +234,20 @@ export const helpControls: ComponentHandler = {
     const [control] = id.args;
     let page: V2Message;
     if (control === HELP_CONTROLS.overview) {
-      page = renderHelpOverview(groupsFor(staff, ctx));
+      page = renderHelpOverview(groupsFor(staff, ctx, interaction));
     } else if (id.id === HELP_PAGES.command && control === HELP_CONTROLS.back) {
       const onMessage = messageCommandNamed(id.action, staff, ctx);
       const words = id.action.split(' ');
       const [name = ''] = words;
       if (onMessage) {
-        page = groupPage(onMessage.help.category, staff, ctx);
+        page = groupPage(onMessage.help.category, staff, ctx, interaction);
       } else if (words.length > 1) {
         // One level up: `/admin boss add` to `/admin boss`, `/route add` to `/route`.
         page = commandPage(words.slice(0, -1).join(' '), staff, ctx, interaction);
       } else {
-        const command = visibleCommands(staff, ctx).find((c) => c.data.name === name);
+        const command = visibleCommands(staff, ctx, interaction).find((c) => c.data.name === name);
         if (!command) throw noCommand(name);
-        page = groupPage(command.help.category, staff, ctx);
+        page = groupPage(command.help.category, staff, ctx, interaction);
       }
     } else {
       throw new UserError(STALE_COMPONENT);
@@ -247,7 +261,7 @@ export const helpControls: ComponentHandler = {
     if (value === undefined) throw new UserError(STALE_COMPONENT);
     let page: V2Message;
     if (id.id === HELP_PAGES.overview && id.action === HELP_CONTROLS.group) {
-      page = groupPage(value, staff, ctx);
+      page = groupPage(value, staff, ctx, interaction);
     } else if (
       id.id === HELP_PAGES.group &&
       (control === HELP_CONTROLS.command || control === HELP_CONTROLS.more)

@@ -124,7 +124,12 @@ describe('guards', () => {
     const { ctx: unset } = createTestContext({
       servers: new TestServers(testServerValues({ channels: {} })),
     });
+    // `/admin settings` named only to staff (review F11).
     expect(() => requireBotChannel(as(fakeChatInput({ channelId: BOT_LAB })), unset)).toThrow(
+      /^This server has no bot lab yet\.$/u,
+    );
+    const staff = fakeChatInput({ channelId: BOT_LAB, roleNames: ['Moderator'] });
+    expect(() => requireBotChannel(as(staff), unset)).toThrow(
       'This server has no bot lab yet: staff set one with /admin settings.',
     );
   });
