@@ -2099,6 +2099,8 @@ Right before the official release post (section 2 of `2026-10-16-phase-8l2-annou
 
 **v2.0.2, the same night (Matt: "Yes, fix it"; production's update cleared in advance):** the two Minor findings fixed: the public view names a forum-named region without the forum's ending (`publicRegionName`: "area-51-board" is shown as "area-51", from the forum's own name alone), and the answer of `/admin forget` replaces its look, so no "Remove…" is left on it. Released by the same steps; production updated to it.
 
+**v2.0.3, 2026-11-11 (Matt: "put these into master as 2.0.3 … and update prod with it"):** minor screenshot reading improvements, from production's screenshots of the day ("From the production screenshots of 2026-11-11"). Released by the same steps; production updated to it.
+
 ## The cutover (Pittsburgh, 2026-11-09 night, the Air, main-dev 407908be; Claude drove, Matt as Googer)
 
 Runbook Part 2, the same evening as R4–R6. **Pittsburgh runs on the new bot** on the Air's `~/professor-pine` stack; legacy Pine at the office is stopped, its FireDaemon service "Pine" on manual start (the way back). **Not announced** (Matt): N7's announcement waits for his word.
@@ -3500,6 +3502,13 @@ Checks from the left-open lists of Phases 2 to 5 that only Discord or a staging 
 ## Event windows (2026-11-09)
 
 - **Built** on branch `lead-up-window` (Matt, 2026-11-09: during "Into the Wild 2026" raids last 25 minutes all day and max battles rotate every 30 minutes, which neither the feed nor Leek Duck's page says): `/admin event-window set until:<time> [from:<time>]` and `end`, one window per installation for the days around a big event (its lead-up and the event itself), kept in `EventWindow` (migration 049); every reader of the raid and max events gets it as a Raid Hour and a Max Battle Day (`utilities.md`, "The event window"). Deployed to the dev instance and **staged 2026-11-09 on the Air (f1ffb53a), all pass**: an end in the past and one 21 days out refused in their own words; the answer names the minutes and the end; set again keeps the start ("Still counted from …") and names the window it replaces; the window survives a restart; a Zacian hatched at 7:00 PM (after the page's Raid Hour) ends 7:25 PM; a Dynamax Chansey reported 7:01 PM ends 7:30 PM (Matt saw the game's D-Max battles on 30-minute timers that evening); after `end`, a Dynamax Beldum reported 7:02 PM lasts until 9:00 PM. Production needs the deploy at the cutover. The window's half-hour rotation wins over every max event and big event on at the same time (controller's ruling, 2026-11-09: a Max Battle Weekend inside one has the same format; the Wild Area weekend under a window rotates every half hour); the feed's Raid Day still wins on the raid side. Review fixes LW-1 to LW-6 (2026-11-09): a set without `from:` keeps the start of a window on or ended less than 2 hours ago, sets and ends run one at a time, the 14 days are calendar days counted from the later of the start and now, an end in the past is refused in its own words, and the options ask for am or pm.
+
+## From the production screenshots of 2026-11-11
+
+Fixed on `main-dev` (181e446f0, for 2.0.3; the dev bot runs it): a max battle's chip under an hour (`maxChip`), a CP read together with the boss's name (`nameWithin`), a split's raid pane taken for two screens by its gym's name in two pieces (`oneName`); `ocr-improvements.md`, causes 21 to 23. Left:
+
+- **A long gym name whose middle words the model cannot read** (a split's raid pane, white letters on the stadium's light): read "The Church of Episcopal" for a name of six words; the search finds the gym, not sure (asked). Matt, 2026-11-11: fine as it is.
+- **Staged on the dev bot (2026-11-11, `/read-screenshot` as Tester in the region of the gyms): all pass.** The church split read as a T5 Zamazenta at The Church of the Redeemer Episcopal (not sure: its middle words unread), the low manor pane T5 with CP 56867 and its boss, the Registeel split's chip 0:24:36 as its countdown.
 
 ## From the production screenshots of 2026-11-10 (#monroeville)
 
