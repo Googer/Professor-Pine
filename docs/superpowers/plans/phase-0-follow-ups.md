@@ -2099,6 +2099,8 @@ Right before the official release post (section 2 of `2026-10-16-phase-8l2-annou
 
 **v2.0.2, the same night (Matt: "Yes, fix it"; production's update cleared in advance):** the two Minor findings fixed: the public view names a forum-named region without the forum's ending (`publicRegionName`: "area-51-board" is shown as "area-51", from the forum's own name alone), and the answer of `/admin forget` replaces its look, so no "Remove…" is left on it. Released by the same steps; production updated to it.
 
+**v2.0.3, 2026-11-11 (Matt: "put these into master as 2.0.3 … and update prod with it"):** minor screenshot reading improvements, from production's screenshots of the day ("From the production screenshots of 2026-11-11"). Released by the same steps; production updated to it.
+
 ## The cutover (Pittsburgh, 2026-11-09 night, the Air, main-dev 407908be; Claude drove, Matt as Googer)
 
 Runbook Part 2, the same evening as R4–R6. **Pittsburgh runs on the new bot** on the Air's `~/professor-pine` stack; legacy Pine at the office is stopped, its FireDaemon service "Pine" on manual start (the way back). **Not announced** (Matt): N7's announcement waits for his word.
