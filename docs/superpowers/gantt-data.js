@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-10T21:42",
+  "updated": "2026-11-12T15:23",
   "items": [
     {
       "id": "0",
@@ -11975,6 +11975,197 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-09T22:20",
       "end": "2026-11-09T22:41"
+    },
+    {
+      "id": "19",
+      "kind": "phase",
+      "name": "2.1: one instance for many servers",
+      "dependsOn": [
+        "16"
+      ],
+      "scope": "Spec 2026-11-12-multi-server-instance-design: per-server settings and zones, separation and fairness, sharding in one process, onboarding and leaving, neighbors"
+    },
+    {
+      "id": "19A-1",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19A-1 A server’s settings",
+      "size": 3,
+      "dependsOn": [],
+      "scope": "ServerSettings table and lookup, the fill at ready, channels by id, /admin settings panel, commands per server, /report needs a moderators’ channel",
+      "doneWhen": "Merged into main-dev"
+    },
+    {
+      "id": "19A-1.1",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "The store and the lookup",
+      "status": "todo"
+    },
+    {
+      "id": "19A-1.2",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "The fill: rows for servers that have none",
+      "status": "todo"
+    },
+    {
+      "id": "19A-1.3",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "Channels, the category and roles by id",
+      "status": "todo"
+    },
+    {
+      "id": "19A-1.4",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "The other server keys",
+      "status": "todo"
+    },
+    {
+      "id": "19A-1.5",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "Commands per server",
+      "status": "todo"
+    },
+    {
+      "id": "19A-1.6",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "/report and the map’s Report never post in the open",
+      "status": "todo"
+    },
+    {
+      "id": "19A-1.7",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "/admin settings: the server’s settings panel",
+      "status": "todo"
+    },
+    {
+      "id": "19A-1.8",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "Docs",
+      "status": "todo"
+    },
+    {
+      "id": "19A-2",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19A-2 A time zone per server",
+      "size": 4,
+      "dependsOn": [
+        "19A-1"
+      ],
+      "scope": "Feeds as wall-clock times, the boss list per zone, event windows, midnights per zone, the activity store, the web",
+      "doneWhen": "Merged into main-dev",
+      "status": "unplanned"
+    },
+    {
+      "id": "19B",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19B Separation and fairness",
+      "size": 6,
+      "dependsOn": [
+        "19A-1"
+      ],
+      "scope": "Operators in two tiers and /operator, gyms by link table, Wayspots per server, nicknames and gym search per server, ids checked against their server, fair DM and screenshot queues, Google shares",
+      "doneWhen": "Merged into main-dev",
+      "status": "unplanned"
+    },
+    {
+      "id": "19D",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19D Sharding in one process",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "shards: auto, health with several shards, the gateway watch per shard, start-up work per shard",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-12T14:14",
+        "end": "2026-11-12T15:23",
+        "review": {
+          "start": "2026-11-12T14:39",
+          "end": "2026-11-12T15:22"
+        }
+      }
+    },
+    {
+      "id": "19D.1",
+      "kind": "task",
+      "parent": "19D",
+      "name": "Shards on demand",
+      "status": "done",
+      "start": "2026-11-12T14:26",
+      "end": "2026-11-12T14:26"
+    },
+    {
+      "id": "19D.2",
+      "kind": "task",
+      "parent": "19D",
+      "name": "Health with several shards",
+      "status": "done",
+      "start": "2026-11-12T14:26",
+      "end": "2026-11-12T15:04"
+    },
+    {
+      "id": "19D.3",
+      "kind": "task",
+      "parent": "19D",
+      "name": "The gateway watch per shard",
+      "status": "done",
+      "start": "2026-11-12T15:04",
+      "end": "2026-11-12T15:20"
+    },
+    {
+      "id": "19D.4",
+      "kind": "task",
+      "parent": "19D",
+      "name": "Start-up work per shard",
+      "status": "done",
+      "start": "2026-11-12T15:20",
+      "end": "2026-11-12T15:20"
+    },
+    {
+      "id": "19D.5",
+      "kind": "task",
+      "parent": "19D",
+      "name": "Docs of the shards",
+      "status": "done",
+      "start": "2026-11-12T15:20",
+      "end": "2026-11-12T15:22"
+    },
+    {
+      "id": "19C",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19C Onboarding and leaving",
+      "size": 4,
+      "dependsOn": [
+        "19B",
+        "19D"
+      ],
+      "scope": "servers setting and checks at ready, the setup state and checklist, /operator servers and the block list, leaving and the deletion after 30 days, the map’s visitors, legal texts",
+      "doneWhen": "Merged into main-dev",
+      "status": "unplanned"
+    },
+    {
+      "id": "19E",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19E Neighbors",
+      "size": 2,
+      "dependsOn": [
+        "19B"
+      ],
+      "scope": "Consent of both servers, the line in a post, copying the curated text",
+      "doneWhen": "Merged into main-dev",
+      "status": "unplanned"
     }
   ]
 };

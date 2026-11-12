@@ -3600,6 +3600,14 @@ What a design has to settle (a first look, 2026-11-12, not a design):
 - **Load and limits.** The heartbeat and the watchdog assume one gateway connection; Discord's global rate limit (50 requests a second per bot) is shared by every server; the DM sender, the OCR worker and the schedulers must be fair per server; the database grows with every server.
 - **Sharding.** Discord still requires it: one gateway connection (a shard) serves at most 2,500 servers, and a bot in more must shard (Discord says how many through `GET /gateway/bot`). discord.js does it inside one process (the client's `shards: 'auto'`) or across processes (`ShardingManager`). In one process little changes but the heartbeat and `gatewayConnected` over several shards (they already take `client.ws.shards`). Across processes, everything that lives in memory and is shared (the party store's one-change-at-a-time, the throttles, the caches, the schedulers, the web server, the DM queue) has to be split by server or moved into the database, and a process sees only its shards' servers. Plan: one process with `shards: 'auto'` first; several processes only when one machine's process is the limit.
 
+## From Phase 19D (sharding in one process, 2026-11-12)
+
+Plan `2026-11-12-phase-19d-sharding.md`, merged on main-dev; check 13,747, database suite 870, build pass. **Staging not run** (its plan's three steps, one shard; several shards cannot be staged).
+
+- `identifyConcurrency` reads discord.js's private kept gateway answer (`client.ws._ws.gatewayInformation`) and falls back to 1: check it after a discord.js upgrade (`client.test.ts` covers it by a faked login).
+- `onEveryShardReady` and `ShardStart.gone` are built for plan 19C, which marks a gone server left; nothing acts on them yet.
+- Beyond about 90,000 servers (36 shards and more at a `max_concurrency` of 1) the login's identify slots are long; the health rule gives each shard its slot, but nothing has been tried at that size.
+
 ## From the staging run of 7M and 8G (2026-11-10 night, the Air's dev stack at 442e9e50, migration 051; Googer in the built-in browser, Tester in Chrome, both driven by Claude)
 
 After `./pine update` and `./pine deploy-commands --global` on the dev stack ("Registered 75 command(s) everywhere."). No warning or error in the bot's log during the run.
