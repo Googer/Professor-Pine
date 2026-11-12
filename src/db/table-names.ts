@@ -58,6 +58,7 @@ export const PINE_TABLES: readonly string[] = [
   'RocketLineup',
   'RoleGroup',
   'ScriptAccess',
+  'ServerSettings',
   'SpawnReport',
   'StopLine',
   'StopPost',

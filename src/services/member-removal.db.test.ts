@@ -271,6 +271,9 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     const as: Decider = { id: member, name, at: NOW };
     await sql`insert into EventWindow (id, startsAt, endsAt, setBy, setAt)
               values (${n}, ${NOW}, ${NOW + 1}, ${member}, ${NOW})`.execute(db);
+    // A server's settings they changed last (plan 19A-1).
+    await sql`insert into ServerSettings (serverId, settings, updatedAt, updatedBy)
+              values (${`41234567890123456${String(n)}`}, '{}', ${NOW}, ${member})`.execute(db);
     await sql`insert into Gym (id, name, lat, lon) values (${100 + n}, ${`Gym ${String(n)}`}, 40,
                                                          -80)`.execute(db);
     await sql`insert into GymWayfarer (gymId, notInWayfarer, notInWayfarerBy, notInWayfarerAt)
@@ -475,7 +478,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     // Two rulings (one by allowing an ask), a boss override, a stop, the event window, a gym
     // review, a gym marked, an import, and a report, a request, an appeal, an ask and a block
     // decided.
-    staffActs: 13,
+    staffActs: 14,
   };
 
   it('looks: counts what Pine holds of a member over every server, and changes nothing', async () => {
@@ -608,7 +611,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
         stopReports: 1,
         stopConfirms: 1,
         accessGrants: 1,
-        staffActs: 13,
+        staffActs: 14,
       },
       screenshots: { sent: 0, feedback: 0 },
       liveParties: 2,

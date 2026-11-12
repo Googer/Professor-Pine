@@ -27,7 +27,7 @@ const clockTime = z
   .regex(/^([01]?\d|2[0-3]):[0-5]\d$/, { error: 'must be a time of day, as 06:00 or 21:00' })
   .transform((time) => time.padStart(5, '0'));
 
-function isTimeZone(zone: string): boolean {
+export function isTimeZone(zone: string): boolean {
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: zone });
     return true;
@@ -96,7 +96,8 @@ export function isLocalAddress(publicUrl: string): boolean {
  * `https://discord.com/invite/<code>`, the code (a vanity one too) letters, digits and hyphens,
  * nothing after it.
  */
-const INVITE_ADDRESS = /^https:\/\/(?:discord\.gg|discord\.com\/invite)\/[A-Za-z0-9-]{2,32}$/u;
+export const INVITE_ADDRESS =
+  /^https:\/\/(?:discord\.gg|discord\.com\/invite)\/[A-Za-z0-9-]{2,32}$/u;
 
 /**
  * The address every link of the web server points at (spec 2.1): `https:`, or `http:` for this
@@ -137,6 +138,40 @@ const optionalChannelName = z.preprocess(
     })
     .optional(),
 );
+
+/**
+ * The checks of the keys a server's own values share with the file (plan 19A-1,
+ * `server-settings.ts`): the same refinements, whichever holds the value.
+ */
+export const EVENTS_FORUM_DEFAULTS = { horizonDays: 35, postDaysAhead: 14, onThisDay: 3 };
+export const eventsForumSchema = z
+  .strictObject({
+    horizonDays: z.number().int().min(1).max(365).default(EVENTS_FORUM_DEFAULTS.horizonDays),
+    postDaysAhead: z.number().int().min(0).max(365).default(EVENTS_FORUM_DEFAULTS.postDaysAhead),
+    onThisDay: z.number().int().min(0).max(10).default(EVENTS_FORUM_DEFAULTS.onThisDay),
+  })
+  .refine((forum) => forum.postDaysAhead <= forum.horizonDays, {
+    error: 'must be at most horizonDays: a post opens for an event the listing names',
+    path: ['postDaysAhead'],
+  })
+  .default(() => ({ ...EVENTS_FORUM_DEFAULTS }));
+export const flaggedWordsSchema = z.array(z.string().trim().min(1).max(100)).max(500).default([]);
+export const regionForumSuffixSchema = z
+  .string()
+  .regex(/^-[\p{L}\p{N}_-]{1,30}$/u, { message: 'must be a hyphen and up to 30 letters' })
+  .default('-board');
+export const regionMapLinkSchema = z.preprocess(
+  // Blank means unset, as for the environment's optional values; spaces around are dropped.
+  (value) => (typeof value === 'string' ? value.trim() || undefined : value),
+  z.url({ protocol: /^https?$/ }).optional(),
+);
+export const timezoneSchema = z
+  .string()
+  .refine(isTimeZone, { message: 'must be an IANA time zone, e.g. America/New_York' });
+export const distanceUnitsSchema = z.enum(['imperial', 'metric']).default('imperial');
+export const inviteSchema = z
+  .string()
+  .regex(INVITE_ADDRESS, 'must be https://discord.gg/<code> or https://discord.com/invite/<code>');
 
 /** The settings' keys and their checks, before the checks across keys (`settingsSchema`). */
 export const settingsObject = z.strictObject({
@@ -281,17 +316,7 @@ export const settingsObject = z.strictObject({
    * (plan 8H-8): on a local day that was one of an earlier year's top `onThisDay` big days, a post
    * "On this day" recalls it (3 unless set, at most 10; 0 off).
    */
-  eventsForum: z
-    .strictObject({
-      horizonDays: z.number().int().min(1).max(365).default(35),
-      postDaysAhead: z.number().int().min(0).max(365).default(14),
-      onThisDay: z.number().int().min(0).max(10).default(3),
-    })
-    .refine((forum) => forum.postDaysAhead <= forum.horizonDays, {
-      error: 'must be at most horizonDays: a post opens for an event the listing names',
-      path: ['postDaysAhead'],
-    })
-    .default(() => ({ horizonDays: 35, postDaysAhead: 14, onThisDay: 3 })),
+  eventsForum: eventsForumSchema,
   /**
    * Meetup safety (plan 8S-1): `flaggedWords` are words and phrases that, in the title of a gym,
    * PokéStop or power spot, send a meetup there to the moderators first, besides the list in
@@ -301,7 +326,7 @@ export const settingsObject = z.strictObject({
    */
   meetupSafety: z
     .strictObject({
-      flaggedWords: z.array(z.string().trim().min(1).max(100)).max(500).default([]),
+      flaggedWords: flaggedWordsSchema,
     })
     .optional(),
   helpGroups: z.array(z.string().min(1)),
@@ -323,20 +348,13 @@ export const settingsObject = z.strictObject({
    * name is the region's with another one-word ending (`north-meetups`); a name chosen by hand
    * stays.
    */
-  regionForumSuffix: z
-    .string()
-    .regex(/^-[\p{L}\p{N}_-]{1,30}$/u, { message: 'must be a hyphen and up to 30 letters' })
-    .default('-board'),
+  regionForumSuffix: regionForumSuffixSchema,
   /**
    * Address of a map of all regions, which `/maps` gives members; without it the command is
    * not offered. A setting, not the environment variable `REGION_MAP_LINK` the spec named: it is
    * no secret (plan 6A).
    */
-  regionMapLink: z.preprocess(
-    // Blank means unset, as for the environment's optional values; spaces around are dropped.
-    (value) => (typeof value === 'string' ? value.trim() || undefined : value),
-    z.url({ protocol: /^https?$/ }).optional(),
-  ),
+  regionMapLink: regionMapLinkSchema,
   /**
    * Where `/find-region` searches places by name: a Nominatim server (`url`, OpenStreetMap's own
    * by default) and the User-Agent that names this installation to it, as its usage policy
@@ -394,15 +412,7 @@ export const settingsObject = z.strictObject({
                   ),
                 )
               : value,
-          z.record(
-            z.string().regex(/^\d{17,20}$/u, "must be a server's ID"),
-            z
-              .string()
-              .regex(
-                INVITE_ADDRESS,
-                'must be https://discord.gg/<code> or https://discord.com/invite/<code>',
-              ),
-          ),
+          z.record(z.string().regex(/^\d{17,20}$/u, "must be a server's ID"), inviteSchema),
         )
         .optional(),
     })
@@ -433,15 +443,13 @@ export const settingsObject = z.strictObject({
       staffRoles: z.array(z.string().min(1)).default([]),
     })
     .optional(),
-  timezone: z
-    .string()
-    .refine(isTimeZone, { message: 'must be an IANA time zone, e.g. America/New_York' }),
+  timezone: timezoneSchema,
   /**
    * The units every distance Pine says is in, on the map and on Discord alike (Matt,
    * 2026-10-25): `imperial` (feet and miles, the default) or `metric` (meters and kilometers);
    * `distanceWords` of `src/render/distance-words.ts`.
    */
-  distanceUnits: z.enum(['imperial', 'metric']).default('imperial'),
+  distanceUnits: distanceUnitsSchema,
   /**
    * Reading raid screenshots (Phase 7). The models run in a child process of their own, one
    * screenshot at a time; everything but `passive` and `debug` has a default.

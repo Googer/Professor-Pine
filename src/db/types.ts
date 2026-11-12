@@ -682,6 +682,14 @@ export interface ScriptAccess {
   userId: string;
 }
 
+export interface ServerSettings {
+  serverId: string;
+  settings: Json;
+  setUpAt: string | null;
+  updatedAt: string;
+  updatedBy: string | null;
+}
+
 export interface SpawnReport {
   channelId: string;
   costumed: Generated<number>;
@@ -915,6 +923,7 @@ export interface DB {
   RoleGroup: RoleGroup;
   SavedRoutes: SavedRoutes;
   ScriptAccess: ScriptAccess;
+  ServerSettings: ServerSettings;
   SpawnReport: SpawnReport;
   StopLine: StopLine;
   StopPost: StopPost;

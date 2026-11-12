@@ -248,7 +248,10 @@ async function left(db: Kysely<DB>, memberId: string): Promise<Pick<MemberHoldin
         + (select count(*) from GymReview where decidedBy = ${memberId})
         + (select count(*) from GymWayfarer where notInWayfarerBy = ${memberId})
         + (select count(*) from WayspotImport where staffId = ${memberId})
-        + (select count(*) from EventWindow where setBy = ${memberId}) as staffActs`.execute(db);
+        + (select count(*) from EventWindow where setBy = ${memberId})
+        + (select count(*) from ServerSettings where updatedBy = ${memberId}) as staffActs`.execute(
+    db,
+  );
   const row = counted.rows[0];
   return {
     audit: Number(row?.audit ?? 0),

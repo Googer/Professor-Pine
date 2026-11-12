@@ -76,10 +76,16 @@ import type { RegionTallies } from './services/region-tallies.js';
 import type { Boards } from './services/boards.js';
 import type { MemberStatsService } from './services/member-stats.js';
 import type { EventWindows } from './services/event-window-service.js';
+import type { ServerSettingsService } from './services/server-settings.js';
 
 /** Everything a handler may use. Later phases add services here. */
 export interface AppContext {
   readonly config: Config;
+  /**
+   * Each server's values (plan 19A-1, `servers.md`): what the settings file held that is a
+   * server's, read through `servers.of(serverId)`, never from `config.settings`.
+   */
+  readonly servers: ServerSettingsService;
   readonly log: Logger;
   readonly db: Kysely<DB>;
   readonly commands: readonly CommandModule[];

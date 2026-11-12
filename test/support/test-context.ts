@@ -56,6 +56,7 @@ import { rocketLineupsFixture } from './rocket.js';
 import { selfRolesWith } from './roles.js';
 import { createTestLogger } from './test-logger.js';
 import { TEST_SETTINGS_PATH } from './test-settings.js';
+import { TestServers } from './server-values.js';
 import { MemoryGymTargets } from './gym-targets.js';
 import { TEST_ENV } from './test-env.js';
 import { unavailableReader } from './screenshots.js';
@@ -107,6 +108,8 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
   const gameData = overrides.gameData ?? { catalogue: catalogueFixture() };
   const ctx: AppContext = {
     config: { settings: loadSettings(TEST_SETTINGS_PATH), env: loadEnv(TEST_ENV) },
+    // Every server has the test settings' values (`testServerValues`), unless a test passes its own.
+    servers: new TestServers(),
     log,
     db: {} as Kysely<DB>,
     commands: [],

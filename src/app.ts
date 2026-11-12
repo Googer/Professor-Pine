@@ -63,6 +63,8 @@ import { BoardKeeper } from './services/board-keeper.js';
 import { DiscordApplicationEmoji } from './discord/application-emoji.js';
 import { DiscordPartyGateway } from './discord/party-gateway.js';
 import { syncGuilds } from './discord/guild-sync.js';
+import { ServerSettings } from './services/server-settings.js';
+import { ServerSettingsRepository } from './db/repositories/server-settings-repository.js';
 import { InteractionRouter } from './discord/router.js';
 import { lobbySize } from './domain/party/lobby.js';
 import { screenshotIdOf } from './domain/party/party.js';
@@ -388,6 +390,13 @@ export async function startApp(
   // would otherwise ask for a row id before every statement (plan 4F).
   const rowIds = new RowIds();
   const guilds = new GuildRepository(db, rowIds);
+  // Each server's values (plan 19A-1): what the settings file held that is a server's, one row
+  // per server, read once the migrations ran; the file's server keys are a new row's defaults.
+  const servers = new ServerSettings({
+    store: new ServerSettingsRepository(db),
+    settings: config.settings,
+    log,
+  });
   const regionRepository = new RegionRepository(db);
   const regions = new RegionDirectory({ regions: regionRepository, log });
   // Reports at stops (plan 8R-1), each in the research period of the stored events.
@@ -1053,6 +1062,7 @@ export async function startApp(
     // Before the first read of the feed: the week's featured boss, a max battle's default end.
     await raidEvents.loadMax();
     await eventWindows.load();
+    await servers.load();
     // Before the first read too: the events forum's listing survives a restart (plan 8V-1).
     await raidEvents.loadListed();
     await gyms.load();
@@ -1111,6 +1121,7 @@ export async function startApp(
     throttles,
     memberRemoval,
     config,
+    servers,
     log,
     db,
     commands,
