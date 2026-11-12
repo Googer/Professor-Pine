@@ -2,7 +2,14 @@ import { EventEmitter } from 'node:events';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestLogger } from '../../test/support/test-logger.js';
-import { attachGatewayHandlers, GatewayWatch, type GatewayBack } from './gateway-events.js';
+import {
+  attachGatewayHandlers,
+  catchUpOnReturn,
+  GatewayWatch,
+  REAL_AWAY_MS,
+  SESSION_CATCH_UP_EVERY_MS,
+  type GatewayBack,
+} from './gateway-events.js';
 
 const closeEvent = { code: 4004, reason: '', wasClean: true };
 
@@ -45,16 +52,19 @@ function notFound(): Error {
   });
 }
 
-/** A client of one shard, on an EventEmitter, a clock the test moves, and what the watch said. */
+/**
+ * A client on an EventEmitter (shard 0 unless a step names another), a clock the test moves, and
+ * what the watch said.
+ */
 function watched(options: { lastAck?: number } = {}) {
   const { log, entries } = createTestLogger();
   const client = new EventEmitter();
   let now = START;
-  let lastAck = options.lastAck;
+  const lastAcks = new Map<number, number | undefined>([[0, options.lastAck]]);
   const watch = new GatewayWatch({
     log,
     now: () => now,
-    lastAck: () => lastAck,
+    lastAck: (shard) => lastAcks.get(shard),
   }).attach(client as unknown as Pick<Client, 'on'>);
   const back: GatewayBack[] = [];
   watch.onBack((event) => {
@@ -66,13 +76,13 @@ function watched(options: { lastAck?: number } = {}) {
     pass(ms: number) {
       now += ms;
     },
-    ack(at: number) {
-      lastAck = at;
+    ack(at: number, shard = 0) {
+      lastAcks.set(shard, at);
     },
-    ready: () => client.emit(Events.ShardReady, 0, undefined),
-    reconnecting: () => client.emit(Events.ShardReconnecting, 0),
-    resume: () => client.emit(Events.ShardResume, 0, 3),
-    error: (err: Error = notFound()) => client.emit(Events.ShardError, err, 0),
+    ready: (shard = 0) => client.emit(Events.ShardReady, shard, undefined),
+    reconnecting: (shard = 0) => client.emit(Events.ShardReconnecting, shard),
+    resume: (shard = 0) => client.emit(Events.ShardResume, shard, 3),
+    error: (err: Error = notFound(), shard = 0) => client.emit(Events.ShardError, err, shard),
     said: (msg: string) => entries.filter((entry) => entry['msg'] === msg),
   };
 }
@@ -98,7 +108,9 @@ describe('GatewayWatch (plan 8X-H): when the gateway is back after a real discon
     made.reconnecting();
     made.pass(25 * SECOND);
     made.resume();
-    expect(made.back).toEqual([{ awayMs: 45 * SECOND, shardErrors: 0, newSession: false }]);
+    expect(made.back).toEqual([
+      { shard: 0, awayMs: 45 * SECOND, shardErrors: 0, newSession: false, real: 'time' },
+    ]);
     expect(made.said('discord gateway back')).toEqual([
       expect.objectContaining({ level: 30, awayMs: 45 * SECOND, shardErrors: 0 }),
     ]);
@@ -118,14 +130,18 @@ describe('GatewayWatch (plan 8X-H): when the gateway is back after a real discon
     errors.error();
     errors.pass(2 * SECOND);
     errors.resume();
-    expect(errors.back).toEqual([{ awayMs: 2 * SECOND, shardErrors: 1, newSession: false }]);
+    expect(errors.back).toEqual([
+      { shard: 0, awayMs: 2 * SECOND, shardErrors: 1, newSession: false, real: 'errors' },
+    ]);
     // ECONNRESET and the like give no shard error: the shard comes back with a new session.
     const fresh = watched();
     fresh.ready();
     fresh.reconnecting();
     fresh.pass(3 * SECOND);
     fresh.ready();
-    expect(fresh.back).toEqual([{ awayMs: 3 * SECOND, shardErrors: 0, newSession: true }]);
+    expect(fresh.back).toEqual([
+      { shard: 0, awayMs: 3 * SECOND, shardErrors: 0, newSession: true, real: 'session' },
+    ]);
   });
 
   it('counts nothing before the first ready: the login and its own reconnections', () => {
@@ -145,7 +161,13 @@ describe('GatewayWatch (plan 8X-H): when the gateway is back after a real discon
     made.pass(5 * SECOND);
     made.resume();
     expect(made.back).toEqual([
-      { awayMs: 60 * 60 * SECOND + 5 * SECOND, shardErrors: 0, newSession: false },
+      {
+        shard: 0,
+        awayMs: 60 * 60 * SECOND + 5 * SECOND,
+        shardErrors: 0,
+        newSession: false,
+        real: 'time',
+      },
     ]);
   });
 
@@ -173,7 +195,9 @@ describe('GatewayWatch (plan 8X-H): when the gateway is back after a real discon
     made.reconnecting();
     made.pass(2 * SECOND);
     made.resume();
-    expect(made.back).toEqual([{ awayMs: 87 * SECOND, shardErrors: 0, newSession: false }]);
+    expect(made.back).toEqual([
+      { shard: 0, awayMs: 87 * SECOND, shardErrors: 0, newSession: false, real: 'time' },
+    ]);
   });
 
   it('takes the last acknowledgement at the reconnection: the new connection’s first one comes before the resume (review F3)', () => {
@@ -185,7 +209,9 @@ describe('GatewayWatch (plan 8X-H): when the gateway is back after a real discon
     // The new connection's first heartbeat is acknowledged before Discord says RESUMED.
     made.ack(START + 86 * SECOND);
     made.resume();
-    expect(made.back).toEqual([{ awayMs: 87 * SECOND, shardErrors: 0, newSession: false }]);
+    expect(made.back).toEqual([
+      { shard: 0, awayMs: 87 * SECOND, shardErrors: 0, newSession: false, real: 'time' },
+    ]);
   });
 
   it('is not away for a shard error while connected: only a reconnection starts it', () => {
@@ -199,6 +225,179 @@ describe('GatewayWatch (plan 8X-H): when the gateway is back after a real discon
     made.pass(2 * SECOND);
     made.resume();
     expect(made.back).toEqual([]);
+  });
+});
+
+describe('GatewayWatch (plan 19D): each shard by itself', () => {
+  it('keeps each shard’s time away: one shard’s return does not end another’s', () => {
+    const made = watched();
+    made.ready(0);
+    made.ready(1);
+    made.reconnecting(0);
+    made.pass(10 * SECOND);
+    made.reconnecting(1);
+    made.pass(25 * SECOND);
+    made.resume(0);
+    made.pass(20 * SECOND);
+    made.resume(1);
+    expect(made.back).toEqual([
+      { shard: 0, awayMs: 35 * SECOND, shardErrors: 0, newSession: false, real: 'time' },
+      { shard: 1, awayMs: 45 * SECOND, shardErrors: 0, newSession: false, real: 'time' },
+    ]);
+    // The line names the shard and how long it was away.
+    expect(made.said('discord gateway back')).toEqual([
+      expect.objectContaining({ shard: 0, awayMs: 35 * SECOND }),
+      expect.objectContaining({ shard: 1, awayMs: 45 * SECOND }),
+    ]);
+  });
+
+  it('arms each shard by its own first ready: a late shard’s login is no return', () => {
+    const made = watched();
+    made.ready(0);
+    // Shard 1 identifies seconds later, after a try that failed.
+    made.reconnecting(1);
+    made.pass(60 * SECOND);
+    made.ready(1);
+    expect(made.back).toEqual([]);
+  });
+
+  it('counts a shard error for its own shard only', () => {
+    const made = watched();
+    made.ready(0);
+    made.ready(1);
+    made.reconnecting(1);
+    // Shard 0, connected, has an error meanwhile: shard 1's resume stays routine.
+    made.error(notFound(), 0);
+    made.pass(2 * SECOND);
+    made.resume(1);
+    expect(made.back).toEqual([]);
+    made.reconnecting(0);
+    made.error(notFound(), 0);
+    made.pass(2 * SECOND);
+    made.resume(0);
+    expect(made.back).toEqual([
+      { shard: 0, awayMs: 2 * SECOND, shardErrors: 1, newSession: false, real: 'errors' },
+    ]);
+  });
+
+  it('takes each shard’s own last acknowledgement', () => {
+    const made = watched();
+    made.ack(START, 1);
+    made.ready(0);
+    made.ready(1);
+    made.pass(90 * SECOND);
+    made.ack(START + 85 * SECOND, 0);
+    made.reconnecting(0);
+    made.reconnecting(1);
+    made.pass(SECOND);
+    made.resume(0);
+    made.resume(1);
+    // Shard 0's last acknowledgement was fresh: routine. Shard 1's was a zombie's.
+    expect(made.back).toEqual([
+      { shard: 1, awayMs: 91 * SECOND, shardErrors: 0, newSession: false, real: 'time' },
+    ]);
+  });
+
+  it('says a kind of shard error once for every shard, and counts each shard’s own (fix round 1, F6)', () => {
+    const made = watched();
+    made.ready(0);
+    made.ready(1);
+    made.ready(2);
+    // The network away: every shard reconnects, and each tries twice a second.
+    made.reconnecting(0);
+    made.reconnecting(1);
+    made.reconnecting(2);
+    for (let n = 0; n < 40; n++) {
+      made.pass(500);
+      for (const shard of [0, 1, 2]) made.error(notFound(), shard);
+    }
+    expect(made.said('discord shard error')).toHaveLength(1);
+    expect(made.said('discord shard errors repeated')).toEqual([]);
+    for (let n = 0; n < 81; n++) {
+      made.pass(500);
+      for (const shard of [0, 1, 2]) made.error(notFound(), shard);
+    }
+    // Once a minute for all of them, with how many since.
+    expect(made.said('discord shard errors repeated')).toEqual([
+      expect.objectContaining({ count: 120 * 3 }),
+    ]);
+    made.resume(0);
+    made.resume(1);
+    made.resume(2);
+    expect(made.back.map((back) => [back.shard, back.shardErrors])).toEqual([
+      [0, 121],
+      [1, 121],
+      [2, 121],
+    ]);
+    // Back for every shard: the next outage's first error is said again.
+    made.reconnecting(1);
+    made.error(notFound(), 1);
+    expect(made.said('discord shard error')).toHaveLength(2);
+  });
+});
+
+describe('catchUpOnReturn (fix round 1, F5)', () => {
+  const MINUTE = 60 * SECOND;
+  /** A short return with a new session, unless the test says otherwise. */
+  const back = (overrides: Partial<GatewayBack> = {}): GatewayBack => ({
+    shard: 0,
+    awayMs: 5 * SECOND,
+    shardErrors: 0,
+    newSession: true,
+    real: 'session',
+    ...overrides,
+  });
+
+  function requests(shards = 3) {
+    let now = START;
+    let asked = 0;
+    const listener = catchUpOnReturn(
+      () => {
+        asked += 1;
+      },
+      { shards: () => shards, now: () => now },
+    );
+    return {
+      listener,
+      asked: () => asked,
+      pass(ms: number) {
+        now += ms;
+      },
+    };
+  }
+
+  it('asks for the catch-up at every return real by its time away or its errors', () => {
+    const made = requests();
+    made.listener(back({ awayMs: REAL_AWAY_MS, newSession: false, real: 'time' }));
+    made.listener(back({ shardErrors: 1, newSession: false, real: 'errors' }));
+    made.listener(back({ awayMs: 10 * MINUTE, real: 'time' }));
+    expect(made.asked()).toBe(3);
+  });
+
+  it('asks at every return with one shard, as before (19D fix round 2, R3)', () => {
+    const made = requests(1);
+    made.listener(back());
+    made.pass(MINUTE);
+    made.listener(back());
+    expect(made.asked()).toBe(2);
+  });
+
+  it('asks at most once in ten minutes for a short return with a new session of one of several shards', () => {
+    const made = requests();
+    made.listener(back({ shard: 0 }));
+    made.pass(MINUTE);
+    made.listener(back({ shard: 1 }));
+    made.pass(SESSION_CATCH_UP_EVERY_MS - MINUTE - 1);
+    made.listener(back({ shard: 2 }));
+    expect(made.asked()).toBe(1);
+    made.pass(1);
+    made.listener(back({ shard: 2 }));
+    expect(made.asked()).toBe(2);
+    // A real outage meanwhile counts as the catch-up of those ten minutes.
+    made.pass(SESSION_CATCH_UP_EVERY_MS);
+    made.listener(back({ awayMs: MINUTE, real: 'time' }));
+    made.listener(back());
+    expect(made.asked()).toBe(3);
   });
 });
 

@@ -47,7 +47,7 @@ import { ClickAnswers } from './discord/click-answers.js';
 import { createClient, identifyConcurrency, loginWithFallback } from './discord/client.js';
 import { enabledCommands, enabledMessageCommands } from './discord/command.js';
 import { DiscordDmGateway } from './discord/dm-gateway.js';
-import { attachGatewayHandlers, GatewayWatch } from './discord/gateway-events.js';
+import { attachGatewayHandlers, catchUpOnReturn, GatewayWatch } from './discord/gateway-events.js';
 import { DiscordMemberDirectory } from './discord/member-directory.js';
 import { managementRoleIdsOf } from './discord/guards.js';
 import { DiscordRegionStaff } from './discord/web-staff.js';
@@ -1310,15 +1310,24 @@ export async function startApp(
       heartbeat.loggingIn((now) => probe.read(now));
       // Whether the gateway is back after a real disconnect, and its shard errors said once per
       // kind (plan 8X-H); attached before the login, whose ready arms it. Back for real, what
-      // failed meanwhile is caught up (`catchUp`, made once the services are there).
+      // failed meanwhile is caught up (`catchUp`, made once the services are there). Each shard
+      // by itself (plan 19D), but a shard's return catches up every server: what failed while it
+      // was away were REST requests, which go out for every shard's servers alike. With several
+      // shards, a short return with a new session alone asks at most once in ten minutes
+      // (`catchUpOnReturn`).
       new GatewayWatch({
         log,
         lastAck: (shard) => client.ws.shards.get(shard)?.lastPingTimestamp,
       })
         .attach(client)
-        .onBack(() => {
-          reconnect.catchUp?.request();
-        });
+        .onBack(
+          catchUpOnReturn(
+            () => {
+              reconnect.catchUp?.request();
+            },
+            { shards: () => client.ws.shards.size },
+          ),
+        );
       discordGateway.use(client);
       liveClient = client;
       appEmojiSource.use(client);
