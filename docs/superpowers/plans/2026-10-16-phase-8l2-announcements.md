@@ -8,10 +8,10 @@ The text and how to post it are a page of their own since 2026-11-10, for whoeve
 
 ## 2. The official Professor Pine Discord post (for admins of other instances)
 
-Matt posts it now that version 2.0.3 is released (`master` and the tag `v2.0.3`, 2026-11-11, a day after `v2.0.0`, `v2.0.1` and `v2.0.2`, which were never announced; the `legacy` branch has been on GitHub since the first push), in the style of that server's earlier release posts: titled by version, a list of changes, the upgrade requirements as notes after it. `package.json` says `2.0.3`, as the title does. `@Pine Admins` is that server's role: retype it in the message box so that it pings. Three messages, one right after the other, as the larger releases there were: the list of changes alone is over Discord's 2,000 characters, so it runs over all three, and the notes follow it in the third. Checked against the code and brought up to date on 2026-11-10 (the board, Manage…, "Today’s Stops", Pokebattler's four roles, the events forum, `/stats`, the map as it is, `/settings` as one panel, the warning about `git pull`).
+Matt posts it now that version 2.0.2 is released (`master` and the tag `v2.0.2`, 2026-11-10, the same night as `v2.0.0` and `v2.0.1`, which were never announced; the `legacy` branch has been on GitHub since the first push), in the style of that server's earlier release posts: titled by version, a list of changes, the upgrade requirements as notes after it. `package.json` said `2.0.2`, as the title does (2.0.3 has a post of its own, section 3). `@Pine Admins` is that server's role: retype it in the message box so that it pings. Three messages, one right after the other, as the larger releases there were: the list of changes alone is over Discord's 2,000 characters, so it runs over all three, and the notes follow it in the third. Checked against the code and brought up to date on 2026-11-10 (the board, Manage…, "Today’s Stops", Pokebattler's four roles, the events forum, `/stats`, the map as it is, `/settings` as one panel, the warning about `git pull`).
 
 ```md
-**v2.0.3 Released**
+**v2.0.2 Released**
 
 Pine has been rewritten from the ground up:
 
@@ -57,4 +57,20 @@ New instances: <https://github.com/Googer/Professor-Pine/blob/master/docs/guides
 @Pine Admins Please check your e-mail from Discord for your date, and move before it. Not ready in time? The `legacy` branch runs the old bot without Server Members and Presence: notifications then reach only members the bot has seen since it started, there is no auto role, and commands need a mention of the bot itself (not its role) instead of `!` (`@Professor Pine join`). The guide says how to switch. The legacy bot gets no further updates.
 
 Questions? Ask here.
+```
+
+## 3. The official post of 2.0.3 (a small bug-fix release)
+
+Released 2026-11-11 (`master`, tag `v2.0.3`; Matt: "an official release announcement as a small bug-fix release"). Fixes of how screenshots are read, from production's screenshots of that day (`docs/superpowers/ocr-improvements.md`, causes 21 to 23). Nothing to do but update: no new commands to deploy, no change to the database or the settings.
+
+```md
+**v2.0.3 Released**
+
+A small bug-fix release: screenshots are read better.
+
+- A max battle with less than an hour to go: its countdown (shown as minutes and seconds) is now read, so the battle ends when the game says, not at `/max`'s default end
+- A raid whose CP the Pokémon's head partly covers: the CP is read again on its own, so the boss and the tier come out right instead of a wrong tier
+- A split screen whose raid shows a long gym name with faint words: no longer taken for two screens and refused
+
+Update with `./pine update`; no new commands to deploy.
 ```
