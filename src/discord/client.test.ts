@@ -5,6 +5,7 @@ import {
   GuildMessageManager,
   LimitedCollection,
   MessageManager,
+  Routes,
   type Client,
 } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
@@ -111,6 +112,37 @@ describe('createClient', () => {
     const client = createClient([GatewayIntentBits.Guilds]);
     const filter = client.options.rest?.rejectOnRateLimit;
     expect(typeof filter).toBe('function');
+  });
+
+  it('connects as many shards as Discord asks for (plan 19D)', async () => {
+    const client = createClient([GatewayIntentBits.Guilds]);
+    // No connection: a strategy of the test's own takes the shards discord.js would connect.
+    const spawned: number[][] = [];
+    const ws = client.options.ws ?? {};
+    ws.buildStrategy = () => ({
+      spawn: (ids: number[]) => {
+        spawned.push([...ids]);
+        return Promise.resolve();
+      },
+      connect: () => Promise.resolve(),
+      destroy: () => Promise.resolve(),
+      send: () => Promise.resolve(),
+      fetchStatus: () => Promise.reject(new Error('not asked')),
+    });
+    client.options.ws = ws;
+    // What `GET /gateway/bot` answers a bot in some 6,000 servers.
+    const get = vi.spyOn(client.rest, 'get').mockResolvedValue({
+      url: 'wss://gateway.discord.gg',
+      shards: 3,
+      session_start_limit: { total: 1000, remaining: 999, reset_after: 60_000, max_concurrency: 1 },
+    });
+
+    await client.login('a.b.c');
+
+    expect(get).toHaveBeenCalledWith(Routes.gatewayBot());
+    expect(spawned.at(-1)).toEqual([0, 1, 2]);
+    expect([...client.ws.shards.keys()]).toEqual([0, 1, 2]);
+    await client.destroy();
   });
 });
 

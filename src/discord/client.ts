@@ -79,9 +79,16 @@ export function cacheFactory(): CacheFactory {
   });
 }
 
+/**
+ * The client Pine logs in with. `shards: 'auto'` (plan 19D): discord.js asks Discord how many
+ * gateway connections the bot needs (`GET /gateway/bot`; one up to 2,500 servers) and connects
+ * them all in this process, as many at a time as Discord's `max_concurrency` allows, five seconds
+ * apart; `ClientReady` comes once every shard is ready (`operations.md`, "Shards").
+ */
 export function createClient(intents: GatewayIntentBits[]): Client {
   return new Client({
     intents,
+    shards: 'auto',
     partials: [Partials.Channel],
     makeCache: cacheFactory(),
     // Mentions are off unless a send opts in with its own allowedMentions.
