@@ -350,7 +350,7 @@ export const ANNOUNCE_NEEDS: readonly Need[] = [VIEW, SEND, EMBED, ATTACH];
 export const TUTORIAL_NEEDS: readonly Need[] = [VIEW, SEND, EMBED, HISTORY];
 
 /**
- * What it needs in the moderators' channel of meetup safety (`settings.channels.moderation`,
+ * What it needs in the moderators' channel of meetup safety (the server's moderators' channel,
  * plan 8S-1): its posts of requests and appeals, with their buttons and the Wayspot's picture.
  */
 export const MODERATION_NEEDS: readonly Need[] = [VIEW, SEND, EMBED];
@@ -377,7 +377,7 @@ export const FORUM_NEEDS: readonly Need[] = [
 ];
 
 /**
- * What it needs in the events forum (`settings.channels.events`, plan 8V-1): its posts (Create
+ * What it needs in the events forum (the server's events forum, plan 8V-1): its posts (Create
  * Posts, a forum's Send Messages: members make none), their messages and the listing's edits,
  * and pinning, locking and archiving them (Manage Posts).
  */

@@ -101,7 +101,7 @@ export function rulingKeyOf(place: Place): RulingKey | undefined {
 
 /** What may be asked of the check; 8M-5 (meetups from the web map) asks the same. */
 export interface PlaceCheck {
-  /** Whether meetup safety is on in the server (`settings.channels.moderation` is set). */
+  /** Whether meetup safety is on in the server (the server's moderators' channel is set). */
   on: boolean;
   /** The place the meetup is to be at, as it was named. */
   place: Place;

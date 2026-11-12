@@ -66,6 +66,7 @@ import type { partyServiceWith } from './party-service.js';
 import { LiveSignals } from '../../src/web/live-signals.js';
 import { MEMBER_LOOKUPS_PER_SECOND } from '../../src/web/paced-members.js';
 import { Tally } from './tally.js';
+import { TEST_MAP_ROLE, TestServers } from './server-values.js';
 
 /** The bot's owner in the tests' environment (`TEST_ENV.OWNER_ID`), staff in every server. */
 export const TEST_OWNER_ID = TEST_ENV.OWNER_ID ?? '';
@@ -268,7 +269,11 @@ export class FakeActingMembers implements ActingMembers {
     const member = this.members.get(key);
     if (!member) return Promise.resolve({ kind: 'not-member' });
     const held = this.held.get(key);
-    const standing = this.standings.get(key) ?? { roleNames: [], administrator: false };
+    const standing = this.standings.get(key) ?? {
+      roleNames: [],
+      roleIds: [],
+      administrator: false,
+    };
     return Promise.resolve(
       held
         ? { kind: held }
@@ -729,6 +734,11 @@ export interface WebTestOptions {
   /** Changes of `TEST_WEB`. */
   web?: Partial<WebSettings>;
   servers?: WebDeps['servers'];
+  /**
+   * Each server's values (plan 19A-1): the test settings' by default; `withMapRole()` for a map
+   * only members with its role count on.
+   */
+  serverSettings?: WebDeps['serverSettings'];
   /** Lowers the limits of the reads (`WebDeps.readUses`); each its own number by default. */
   readUses?: WebDeps['readUses'];
   /**
@@ -1029,6 +1039,10 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     googleKey: options.googleKey,
     distanceUnits: options.distanceUnits ?? 'imperial',
     servers: options.servers ?? { has: (guildId) => guildId === FAKE_GUILD_ID },
+    serverSettings: options.serverSettings ?? new TestServers(),
+    // The fakes' server names the map's role of the tests (`withMapRole`) `Verified`.
+    roleName: (guildId, roleId) =>
+      guildId === FAKE_GUILD_ID && roleId === TEST_MAP_ROLE ? 'Verified' : undefined,
     serversWithMap: serversWithMapOf(options.serversWithMap),
     // Those a test of the region editor names by `staff` are not listed as members as well: the
     // editor asks the directory first (plan 8Z), and a test of that gives its own.

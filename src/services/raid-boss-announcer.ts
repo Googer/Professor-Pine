@@ -3,6 +3,8 @@ import type { PartyGateway } from '../discord/party-gateway.js';
 import type { Logger } from '../log.js';
 import { bossChangeAnnouncement, staleWarning } from '../render/boss-changes.js';
 import type { FeedChange, RaidBossService, StaleFeed } from './raid-boss-service.js';
+import type { ServerChannelRole } from '../config/server-settings.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 
 /** At most this many announcements wait for Discord; older ones are dropped first. */
 const MAX_WAITING = 10;
@@ -10,14 +12,16 @@ const MAX_WAITING = 10;
 export interface RaidBossAnnouncerOptions {
   gateway: Pick<PartyGateway, 'serverChannels' | 'mayPost' | 'sendMessage'>;
   /** The servers (snowflakes) the bot is in, as the client knows them once it is ready. */
-  servers: () => readonly string[];
-  settings: Pick<Settings, 'channels' | 'raidBosses'>;
+  serverIds: () => readonly string[];
+  /** Each server's values: its channels for bot updates and of its moderators (plan 19A-1). */
+  servers: ServerSettingsLookup;
+  settings: Pick<Settings, 'raidBosses'>;
   log: Logger;
 }
 
 interface Announcement {
-  /** The name of the channel it goes to in every server (`settings.channels`). */
-  channel: string;
+  /** The channel it goes to in every server, by its role (each server's own, by id). */
+  channel: ServerChannelRole;
   content: string;
   /** For the log. */
   what: 'change' | 'stale';
@@ -25,10 +29,10 @@ interface Announcement {
 
 /**
  * Tells the servers of the bot about the raid boss list: a change of the list as members see it
- * (the feed's list with the overrides in force) in the channel for bot updates (`settings.channels['bot-updates']`, where
+ * (the feed's list with the overrides in force) in the channel for bot updates (where
  * `settings.raidBosses.announceChanges` is on), and a list that is out of date in the
- * moderators' bot channel (`settings.channels['mod-bot-lab']`). A message goes to the oldest
- * text channel of that name in each server in which the bot may post embeds, and pings nobody.
+ * moderators' bot channel: in each server the text channel its staff set (plan 19A-1, by id),
+ * where the bot may post embeds; a message pings nobody.
  *
  * What the service reports before the client is ready waits (`ready`). A message is worded when
  * the event comes. Nobody waits for the sending, and a failure is logged.
@@ -71,7 +75,7 @@ export class RaidBossAnnouncer {
     const content = bossChangeAnnouncement(change.seen);
     if (content === undefined) return;
     this.announce({
-      channel: this.options.settings.channels['bot-updates'],
+      channel: 'bot-updates',
       content,
       what: 'change',
     });
@@ -79,7 +83,7 @@ export class RaidBossAnnouncer {
 
   stale(event: StaleFeed): void {
     this.announce({
-      channel: this.options.settings.channels['mod-bot-lab'],
+      channel: 'mod-bot-lab',
       content: staleWarning(event.lastSyncedAt),
       what: 'stale',
     });
@@ -111,11 +115,12 @@ export class RaidBossAnnouncer {
   }
 
   private send(announcement: Announcement): void {
-    const { gateway, servers, log } = this.options;
-    for (const guildId of servers()) {
+    const { gateway, serverIds, servers, log } = this.options;
+    for (const guildId of serverIds()) {
+      const id = servers.of(guildId).channels[announcement.channel];
+      if (id === undefined) continue;
       const channel = (gateway.serverChannels(guildId) ?? []).find(
-        (one) =>
-          one.kind === 'text' && one.name === announcement.channel && gateway.mayPost(one.id),
+        (one) => one.kind === 'text' && one.id === id && gateway.mayPost(one.id),
       );
       if (!channel) continue;
       const sent: Promise<void> = gateway

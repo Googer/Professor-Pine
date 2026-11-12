@@ -104,7 +104,7 @@ import { EventWindowRepository } from './db/repositories/event-window-repository
 import { EventWindowService } from './services/event-window-service.js';
 import { ListedEventRepository } from './db/repositories/listed-event-repository.js';
 import { EventForumRepository } from './db/repositories/event-forum-repository.js';
-import { eventForumWanted, EventForumService } from './services/event-forum.js';
+import { eventForumWanted, EventForumService, newEventsForumName } from './services/event-forum.js';
 import { StopReportRepository } from './db/repositories/stop-report-repository.js';
 import { StopReportService } from './services/stop-reports.js';
 import { rewardHash } from './domain/research/versions.js';
@@ -541,7 +541,8 @@ export async function startApp(
   // is ready (what comes earlier waits). Listening from here on: before the first sync.
   const bossAnnouncer = new RaidBossAnnouncer({
     gateway: partyGateway,
-    servers: () => botServers(),
+    serverIds: () => botServers(),
+    servers,
     settings: config.settings,
     log,
   });
@@ -598,6 +599,7 @@ export async function startApp(
   const partyService = new PartyService({
     eggPictures,
     wayspots,
+    servers,
     // The raids along an ended train's way, for its card (plan 8H-7A).
     raidsAlong: history,
     // What ended parties left on Discord, written with their end, swept with the upkeep.
@@ -711,6 +713,7 @@ export async function startApp(
     gifts: new UnownGiftRepository(db),
     gameData,
     settings: config.settings,
+    servers,
     log,
   });
   const spawns = new SpawnService({
@@ -722,6 +725,7 @@ export async function startApp(
     notify,
     store: new SpawnReportRepository(db),
     settings: config.settings,
+    servers,
     log,
   });
   // The grunts' messages (plan 8R-2), deleted after their half hour; none in rehearsal mode,
@@ -745,6 +749,8 @@ export async function startApp(
         store: eventForumRecords,
         events: raidEvents,
         settings: config.settings,
+        servers,
+        forumName: newEventsForumName(config.settings),
         log,
         days: historyDays,
         // The trains and meetups planned during the events (Matt, 2026-11-07).
@@ -874,6 +880,7 @@ export async function startApp(
     gateway: partyGateway,
     maps,
     settings: config.settings,
+    servers,
     log,
   });
   // The Wayfarer import writes gyms through gym administration, under its lock.
@@ -951,14 +958,21 @@ export async function startApp(
     dms: memberDms,
     log,
   });
-  // Meetup safety (plan 8S-1): off without settings.channels.moderation. Its requests expire
+  // Meetup safety (plan 8S-1): off without the server's moderators' channel. Its requests expire
   // with the clock. In rehearsal mode its requests and appeals go into the moderators' channel
   // (Matt, 2026-10-17): through a gateway of its own, so that nothing else of the bot does.
-  const moderation = config.settings.channels.moderation;
-  const moderatorsGateway =
-    rehearsal && moderation !== undefined
-      ? rehearsalModeratorsGateway(partyGateway, discordGateway, moderation, log)
-      : partyGateway;
+  const moderatorsGateway = rehearsal
+    ? rehearsalModeratorsGateway(
+        partyGateway,
+        discordGateway,
+        // A server's moderators' channel, by its values (plan 19A-1).
+        (channelId) => {
+          const server = discordGateway.serverOf(channelId);
+          return server !== undefined && servers.of(server).channels.moderation === channelId;
+        },
+        log,
+      )
+    : partyGateway;
   const meetupSafety = new MeetupSafety({
     storage: new MeetupSafetyRepository(db, log),
     gateway: moderatorsGateway,
@@ -970,6 +984,7 @@ export async function startApp(
     store: parties,
     guilds,
     settings: config.settings,
+    servers,
     log,
   });
   // Reports to the moderators (plan 8S-2): their posts go into meetup safety's channel, through
@@ -984,6 +999,7 @@ export async function startApp(
     gyms,
     wayspots,
     settings: config.settings,
+    servers,
     log,
   });
   reports.watch(parties);
@@ -1063,6 +1079,9 @@ export async function startApp(
     rest: () => liveClient?.rest,
     botId: () => liveClient?.user?.id,
     partiesDir: config.env.LEGACY_PARTIES_DIR,
+    settingsChannelIds: (guildId) =>
+      Object.values(servers.of(guildId).channels).filter((id) => id !== undefined),
+    // And the file's names of them, as before 2.1 (review F6).
     settingsChannelNames: channelNamesOf(config.settings),
     log,
   });
@@ -1442,7 +1461,7 @@ export async function startApp(
           if (interaction.inCachedGuild()) {
             const { member } = interaction;
             unownWants.noticed(interaction.guildId, interaction.user.id, () =>
-              member.roles.cache.map((role) => role.name),
+              member.roles.cache.map((role) => role.id),
             );
           }
         } catch (err) {
@@ -1646,6 +1665,9 @@ export async function startApp(
       googleKey: config.env.GOOGLE_MAPS_BROWSER_KEY,
       distanceUnits: config.settings.distanceUnits,
       servers: { has: (guildId) => client.guilds.cache.has(guildId) },
+      serverSettings: servers,
+      roleName: (guildId, roleId) =>
+        client.guilds.cache.get(guildId)?.roles.cache.get(roleId)?.name,
       // The top page's servers (plan 8M-14): those the bot is in with a region that has an outline.
       serversWithMap: mapServers({
         joined: () => joinedServers(client.guilds.cache.values()),

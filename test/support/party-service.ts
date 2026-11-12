@@ -70,6 +70,7 @@ import { createTestLogger } from './test-logger.js';
 import { NO_MAX_BOSSES } from './test-context.js';
 import { MemoryUsers } from './users.js';
 import { TEST_SETTINGS_PATH } from './test-settings.js';
+import { TestServers } from './server-values.js';
 import { PartyHistory } from '../../src/services/party-history.js';
 import { stopRegionsInGuild } from '../../src/services/region-directory.js';
 import { PartyStore } from '../../src/services/party-store.js';
@@ -233,9 +234,9 @@ export class MemoryAccessGrants implements AccessGrantStorage {
 }
 
 /**
- * A fake gateway whose server has the two channels for copies of raids, under the names of the
- * test settings (`REMOTE_CHANNEL`, `ELITE_GYM_CHANNEL`). Without them, as in most tests, a raid has no
- * copies. Pass it as `{ gateway }` in `kept`.
+ * A fake gateway whose server has the two channels for copies of raids, as the test servers'
+ * values name them by id (`REMOTE_CHANNEL`, `ELITE_GYM_CHANNEL`), under the test settings' names.
+ * Without them, as in most tests, a raid has no copies. Pass it as `{ gateway }` in `kept`.
  */
 export function gatewayWithMirrorChannels(): FakePartyGateway {
   const { channels } = loadSettings(TEST_SETTINGS_PATH);
@@ -278,6 +279,8 @@ export interface Outliving {
  * those of the notifier alone (a provider of its own that fails, a clock of its own).
  */
 export type ServiceOverrides = Partial<PartyServiceOptions> & {
+  /** Each server's values (plan 19A-1); `new TestServers()` unless given. */
+  servers?: TestServers;
   notifying?: Partial<NotifyServiceOptions>;
   /** How long a spawn report stands (the service of `/wild`); default thirty minutes. */
   spawnDeleteAfterMs?: number;
@@ -393,6 +396,8 @@ export async function partyServiceWith(
   };
   const regions = kept?.regions ?? new TestRegions();
   const settings = loadSettings(TEST_SETTINGS_PATH);
+  // Every server's values (plan 19A-1): the test settings', unless a test passes its own.
+  const servers = forService.servers ?? new TestServers();
   const userSettings = kept?.userSettings ?? new Map<string, Partial<UserSettings>>();
   const users = new MemoryUsers(userSettings);
   // One list of gyms for all the services, as in the bot; a test of gym administration passes
@@ -410,6 +415,7 @@ export async function partyServiceWith(
     raidEvents: raidEventsFixture(),
     users,
     settings,
+    servers,
     log,
     // The fakes' server is the guild of row 1, which the invented regions belong to.
     guilds: {
@@ -477,6 +483,7 @@ export async function partyServiceWith(
     notify,
     store: spawnReports,
     settings: overrides.settings ?? settings,
+    servers,
     ...(spawnDeleteAfterMs === undefined ? {} : { deleteAfterMs: spawnDeleteAfterMs }),
     ...(spawnCostumes === undefined ? {} : { costumes: spawnCostumes }),
     log,
@@ -636,6 +643,7 @@ export async function partyServiceWith(
     entries,
     log,
     settings,
+    servers,
     clock,
   };
 }

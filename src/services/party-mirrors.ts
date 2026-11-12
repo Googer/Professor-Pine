@@ -1,5 +1,7 @@
 import { BoundedMap } from '../bounded-map.js';
 import type { Settings } from '../config/settings.js';
+import { serverChannel } from './server-channels.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 import { isMissingPermission, type PartyGateway } from '../discord/party-gateway.js';
 import {
   isRaid,
@@ -35,7 +37,13 @@ export interface PartyMirrorsOptions {
   store: PartyStore;
   gateway: Pick<
     PartyGateway,
-    'sendMessage' | 'editMessage' | 'deleteMessage' | 'findChannel' | 'mayPost' | 'channelUnknown'
+    | 'sendMessage'
+    | 'editMessage'
+    | 'deleteMessage'
+    | 'findChannel'
+    | 'serverOf'
+    | 'mayPost'
+    | 'channelUnknown'
   >;
   regions: {
     byId(id: number): { channelId: string } | undefined;
@@ -51,7 +59,9 @@ export interface PartyMirrorsOptions {
    * Without them a power spot is in no region.
    */
   wayspots?: { byId(id: string): { kind: string } | undefined; regionsOf(id: string): string[] };
-  settings: Pick<Settings, 'features' | 'channels'>;
+  settings: Pick<Settings, 'features'>;
+  /** Each server's values: the channels that take the copies (plan 19A-1). */
+  servers: ServerSettingsLookup;
   /** What the post of a party shows now. */
   render: (party: Party) => RenderedPost;
   /** The channels that refused files lately (the post's own service shares them). */
@@ -123,7 +133,7 @@ function slotOf(copy: WantedCopy): string {
  * post's: all raids of a server edit in those channels, and a post must never wait for them.
  * The copies of a train in region channels are kept by that queue too.
  *
- * A server without such a channel (by the names in `settings.channels`), with the feature
+ * A server without such a channel (by the ids its staff set, `ServerSettings`), with the feature
  * switched off, or with a channel the bot may not write in, simply has no copy there.
  *
  * A run of the queue that left something undone (an edit or a send failed, a channel was left
@@ -169,14 +179,16 @@ export class PartyMirrors {
 
   /** The channel that takes copies of this kind for a party of this region; undefined for none. */
   private channelFor(kind: 'ex' | 'remote', near: string | undefined): string | undefined {
-    const { settings, gateway } = this.options;
+    const { settings, gateway, servers } = this.options;
     if (near === undefined) return undefined;
     const enabled =
       kind === 'ex' ? settings.features.exGymChannel : settings.features.remoteRaidChannel;
     if (!enabled) return undefined;
-    return gateway.findChannel(
+    return serverChannel(
+      gateway,
+      servers,
       near,
-      settings.channels[kind === 'ex' ? 'elite-gym-raids' : 'remote-raids'],
+      kind === 'ex' ? 'elite-gym-raids' : 'remote-raids',
     );
   }
 

@@ -97,11 +97,13 @@ export interface FakeOptions {
   guildRoleNames?: Record<string, string>;
   /** Name of the category the channel is under. */
   parentName?: string | null;
+  /** Id of the category the channel is under (plan 19A-1: the PvP category is one by id). */
+  parentId?: string;
   /**
-   * Makes the channel a thread (a forum post is one). `parentName` is then ignored: the
-   * category is that of the channel the thread belongs to.
+   * Makes the channel a thread (a forum post is one). `parentName` and `parentId` are then
+   * ignored: the category is that of the channel the thread belongs to.
    */
-  thread?: { parentId?: string; parentName?: string; categoryName?: string };
+  thread?: { parentId?: string; parentName?: string; categoryName?: string; categoryId?: string };
   /** Added to `interaction.channel`: its `type`, and its `messages` and `send` for a test that posts. */
   channelMore?: object;
   /** What the bot may do here: `interaction.appPermissions` (everything unless given). */
@@ -398,7 +400,8 @@ export const FAKE_USER_ID = '700000000000000001';
 
 function fakeChannel(o: FakeOptions, id: string) {
   if (o.uncachedChannel) return null;
-  const category = (name: string | null | undefined) => (name ? { name } : null);
+  const category = (name: string | null | undefined, id: string | undefined) =>
+    name || id ? { id: id ?? '600000000000000003', name: name ?? 'category' } : null;
   if (o.thread) {
     const parentId = o.thread.parentId ?? FAKE_PARENT_ID;
     return {
@@ -408,7 +411,8 @@ function fakeChannel(o: FakeOptions, id: string) {
       parent: {
         id: parentId,
         name: o.thread.parentName ?? 'forum',
-        parent: category(o.thread.categoryName),
+        parentId: o.thread.categoryId ?? null,
+        parent: category(o.thread.categoryName, o.thread.categoryId),
       },
       isThread: () => true,
       isDMBased: () => false,
@@ -429,8 +433,8 @@ function fakeChannel(o: FakeOptions, id: string) {
     ...o.channelMore,
     id,
     name: o.channelName ?? 'general',
-    parentId: null,
-    parent: category(o.parentName),
+    parentId: o.parentId ?? null,
+    parent: category(o.parentName, o.parentId),
     isThread: () => false,
     isDMBased: () => false,
   };

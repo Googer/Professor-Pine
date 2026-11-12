@@ -1,14 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { fakeAutocomplete, fakeChatInput } from '../../test/support/fake-interactions.js';
+import {
+  FAKE_CHANNEL_ID,
+  FAKE_PARENT_ID,
+  fakeAutocomplete,
+  fakeChatInput,
+} from '../../test/support/fake-interactions.js';
 import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { partyStoreWith, testMeetup, testRaid, testTrain } from '../../test/support/parties.js';
 import { TestRegions } from '../../test/support/party-service.js';
+import {
+  TEST_PVP_CATEGORY,
+  TEST_SERVER_CHANNELS,
+  TestServers,
+  testServerValues,
+} from '../../test/support/server-values.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import type { GuardableInteraction, LocatedInteraction } from './command.js';
 import { UserError } from './errors.js';
 import {
   guildIdOf,
-  isBotChannelName,
+  isBotChannel,
   isBotManagement,
   isManagement,
   isPvpContext,
@@ -31,7 +42,8 @@ import {
 const OWNER = '223456789012345678'; // TEST_ENV.OWNER_ID
 const USER = '700000000000000001';
 const { ctx } = createTestContext();
-const { settings } = ctx.config;
+const values = testServerValues();
+const BOT_LAB = TEST_SERVER_CHANNELS['bot-lab'];
 const as = (fake: unknown) => fake as GuardableInteraction;
 
 describe('role checks', () => {
@@ -64,19 +76,19 @@ describe('role checks', () => {
 });
 
 describe('channel checks', () => {
-  it('recognises both bot channels by configured name', () => {
-    expect(isBotChannelName('the-bot-lab', settings)).toBe(true);
-    expect(isBotChannelName('mod-bot-only', settings)).toBe(true);
-    expect(isBotChannelName('general', settings)).toBe(false);
-    expect(isBotChannelName(undefined, settings)).toBe(false);
+  it("recognises both bot channels by the server's ids, whatever their names", () => {
+    expect(isBotChannel(BOT_LAB, values)).toBe(true);
+    expect(isBotChannel(TEST_SERVER_CHANNELS['mod-bot-lab'], values)).toBe(true);
+    expect(isBotChannel(FAKE_CHANNEL_ID, values)).toBe(false);
+    expect(isBotChannel(undefined, values)).toBe(false);
+    expect(isBotChannel(BOT_LAB, testServerValues({ channels: {} }))).toBe(false);
   });
 
-  it('allows PvP commands in DMs and under the PvP category', () => {
-    expect(isPvpContext({ isDm: true, parentName: undefined }, settings)).toBe(true);
-    expect(isPvpContext({ isDm: false, parentName: 'PVP CHAT AND TOURNAMENTS' }, settings)).toBe(
-      true,
-    );
-    expect(isPvpContext({ isDm: false, parentName: 'RAIDS' }, settings)).toBe(false);
+  it("allows PvP commands in DMs and under the server's PvP category", () => {
+    expect(isPvpContext({ isDm: true, categoryId: undefined }, undefined)).toBe(true);
+    expect(isPvpContext({ isDm: false, categoryId: TEST_PVP_CATEGORY }, values)).toBe(true);
+    expect(isPvpContext({ isDm: false, categoryId: FAKE_PARENT_ID }, values)).toBe(false);
+    expect(isPvpContext({ isDm: false, categoryId: undefined }, values)).toBe(false);
   });
 });
 
@@ -102,40 +114,53 @@ describe('guards', () => {
   });
 
   it('requireBotChannel names the channel to use', () => {
-    expect(() => requireBotChannel(as(fakeChatInput({ channelName: 'general' })), ctx)).toThrow(
-      /#the-bot-lab/,
+    expect(() => requireBotChannel(as(fakeChatInput({ channelName: 'the-bot-lab' })), ctx)).toThrow(
+      `Use this in <#${BOT_LAB}>.`,
     );
-    expect(() =>
-      requireBotChannel(as(fakeChatInput({ channelName: 'the-bot-lab' })), ctx),
-    ).not.toThrow();
+    expect(() => requireBotChannel(as(fakeChatInput({ channelId: BOT_LAB })), ctx)).not.toThrow();
+  });
+
+  it('requireBotChannel says that staff have set no bot lab in a server without one', () => {
+    const { ctx: unset } = createTestContext({
+      servers: new TestServers(testServerValues({ channels: {} })),
+    });
+    expect(() => requireBotChannel(as(fakeChatInput({ channelId: BOT_LAB })), unset)).toThrow(
+      'This server has no bot lab yet: staff set one with /admin settings.',
+    );
   });
 
   it('requireBotChannel also holds in a thread of the bot channel', () => {
     const inThread = fakeChatInput({
       channelName: 'How do I add a gym?',
-      thread: { parentName: 'the-bot-lab' },
+      thread: { parentId: BOT_LAB, parentName: 'renamed-lab' },
     });
     expect(() => requireBotChannel(as(inThread), ctx)).not.toThrow();
     const elsewhere = fakeChatInput({
       channelName: 'the-bot-lab',
-      thread: { parentName: 'general' },
+      thread: { parentName: 'the-bot-lab' },
     });
     expect(() => requireBotChannel(as(elsewhere), ctx)).toThrow(UserError);
   });
 
-  it('requirePvpContext uses the parent category', () => {
-    expect(() => requirePvpContext(as(fakeChatInput({ parentName: 'RAIDS' })), ctx)).toThrow(
-      UserError,
-    );
-    expect(() => requirePvpContext(as(fakeChatInput({ isDm: true })), ctx)).not.toThrow();
+  it("requirePvpContext uses the parent category, named in the server's words", () => {
     expect(() =>
       requirePvpContext(as(fakeChatInput({ parentName: 'PVP CHAT AND TOURNAMENTS' })), ctx),
+    ).toThrow(`Use this in a DM with me or under <#${TEST_PVP_CATEGORY}>.`);
+    expect(() => requirePvpContext(as(fakeChatInput({ isDm: true })), ctx)).not.toThrow();
+    expect(() =>
+      requirePvpContext(as(fakeChatInput({ parentId: TEST_PVP_CATEGORY })), ctx),
     ).not.toThrow();
+    const { ctx: unset } = createTestContext({
+      servers: new TestServers(testServerValues({ categories: {} })),
+    });
+    expect(() =>
+      requirePvpContext(as(fakeChatInput({ parentId: TEST_PVP_CATEGORY })), unset),
+    ).toThrow('Use this in a DM with me.');
   });
 
   it('requirePvpContext holds in a thread under the PvP category and in an uncached DM', () => {
     const thread = fakeChatInput({
-      thread: { parentName: 'rank-checker', categoryName: 'PVP CHAT AND TOURNAMENTS' },
+      thread: { parentName: 'rank-checker', categoryId: TEST_PVP_CATEGORY },
     });
     expect(() => requirePvpContext(as(thread), ctx)).not.toThrow();
     expect(() =>

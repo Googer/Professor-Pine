@@ -27,9 +27,22 @@ import { Rehearsal } from '../../services/rehearsal.js';
 import { EventForumService } from '../../services/event-forum.js';
 import { MemoryEventForums } from '../../../test/support/event-forum-store.js';
 import { admin } from './index.js';
+import {
+  TEST_SERVER_CHANNELS,
+  type TestServers,
+  testServerValues,
+} from '../../../test/support/server-values.js';
 
 /** The server's bot-updates channel, beside which the events forum is made (plan 8V-1). */
 const BOT_UPDATES = '500000000000000010';
+
+/** The server's staff chose this forum as its events forum in `/admin settings`. */
+function chooseForum(servers: TestServers, forumId: string): void {
+  servers.values = {
+    ...servers.values,
+    channels: { ...servers.values.channels, events: forumId },
+  };
+}
 
 async function setup(
   changed: Partial<Settings> = {},
@@ -40,9 +53,13 @@ async function setup(
     settings: { ...loadSettings(TEST_SETTINGS_PATH), ...changed },
     ...(rehearsal ? { rehearsal } : {}),
   });
-  // The events forum (plan 8V-1), where the settings name one; never in rehearsal mode.
+  // The events forum (plan 8V-1); never in rehearsal mode. Beside the server's channel for bot
+  // updates (plan 19A-1: by id, in its values).
   const loaded = loadSettings(TEST_SETTINGS_PATH);
   made.gateway.addChannel(BOT_UPDATES, 'bot-updates');
+  made.servers.values = testServerValues({
+    channels: { ...TEST_SERVER_CHANNELS, 'bot-updates': BOT_UPDATES },
+  });
   const eventForum =
     options.events === true
       ? new EventForumService({
@@ -54,7 +71,9 @@ async function setup(
             listingKnown: () => options.feedUnread !== true,
             droppedIds: () => new Set<string>(),
           },
-          settings: { ...loaded, channels: { ...loaded.channels, events: 'events' } },
+          settings: loaded,
+          servers: made.servers,
+          forumName: 'events',
           log: made.log,
         })
       : undefined;
@@ -62,6 +81,7 @@ async function setup(
     partyService: made.service,
     parties: made.store,
     regions: made.regions,
+    servers: made.servers,
     ...(rehearsal ? { rehearsal } : {}),
     ...(eventForum ? { eventForum } : {}),
   });
@@ -176,7 +196,8 @@ describe('/admin setup-forums', () => {
   });
 
   it('says what it could not do in the events forum, or why it has none', async () => {
-    const { run, gateway } = await setup({}, undefined, { events: true });
+    const { run, gateway, servers } = await setup({}, undefined, { events: true });
+    chooseForum(servers, '600000000000000001');
     gateway.addForum('600000000000000001', [], 'events');
     gateway.noReserving.add('600000000000000001');
     const lines = sent((await run()).editReply).content?.split(NEWLINE) ?? [];
@@ -190,8 +211,8 @@ describe('/admin setup-forums', () => {
     without.gateway.channels.delete(BOT_UPDATES);
     const said = sent((await without.run()).editReply).content?.split(NEWLINE) ?? [];
     expect(said.at(-1)).toBe(
-      'Events forum: this server has no #bot-updates to make #events beside: add that channel, ' +
-        'or make the forum #events by hand, and run this again.',
+      'Events forum: this server has no channel for bot updates to make #events beside: set ' +
+        'one with /admin settings, or choose a forum there, and run this again.',
     );
   });
 
@@ -205,7 +226,8 @@ describe('/admin setup-forums', () => {
 
   // Branch review BR-7.
   it('says where members cannot write in the event posts', async () => {
-    const { run, gateway } = await setup({}, undefined, { events: true });
+    const { run, gateway, servers } = await setup({}, undefined, { events: true });
+    chooseForum(servers, '600000000000000001');
     gateway.addForum('600000000000000001', [], 'events');
     gateway.noReplies.set('600000000000000001', ['@everyone']);
     const lines = sent((await run()).editReply).content?.split(NEWLINE) ?? [];

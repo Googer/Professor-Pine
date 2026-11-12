@@ -36,6 +36,8 @@ export interface ServerMember {
 /** A member's roles by name and whether they are an administrator, as Discord has them. */
 export interface MemberStanding {
   roleNames: readonly string[];
+  /** The ids of the same roles (plan 19A-1: the map's member role is one by id). */
+  roleIds: readonly string[];
   administrator: boolean;
   /**
    * Manage Server (also as an administrator), for the map's hint of the region editor
@@ -57,6 +59,7 @@ export interface MemberStanding {
 export function memberStanding(member: GuildMember): MemberStanding {
   return {
     roleNames: member.roles.cache.map((role) => role.name),
+    roleIds: member.roles.cache.map((role) => role.id),
     administrator: member.permissions.has(PermissionFlagsBits.Administrator),
     manageGuild: member.permissions.has(PermissionFlagsBits.ManageGuild),
     manageMessages: member.permissions.has(PermissionFlagsBits.ManageMessages),

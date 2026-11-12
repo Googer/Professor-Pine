@@ -8,6 +8,7 @@ import {
 import type { Settings } from '../config/settings.js';
 import type { Logger } from '../log.js';
 import type { ServerSettings } from './server-settings.js';
+import { channelNameFor } from '../domain/regions/region-import.js';
 
 /**
  * What the fill needs of a server (plan 19A-1): its channels, categories and roles by name, as
@@ -66,12 +67,15 @@ export function filledValues(
     [ServerChannelRole, string | undefined]
   >) {
     if (name === undefined || channels[role] !== undefined) continue;
+    // The events forum as Discord stores its name, as `/admin setup-forums` looked for it
+    // before 2.1 (review V7, ruling R4: lower case, spaces to hyphens).
     const kind = role === 'events' ? 'forum' : 'text';
-    const id = names.channel(name, kind);
+    const named = role === 'events' ? channelNameFor(name) || name : name;
+    const id = names.channel(named, kind);
     if (id !== undefined) {
       channels[role] = id;
-      if (names.howMany(name, kind) > 1) {
-        several.push({ setting: `${CHANNEL_LABELS[role]} #${name}`, kept: id });
+      if (names.howMany(named, kind) > 1) {
+        several.push({ setting: `${CHANNEL_LABELS[role]} #${named}`, kept: id });
       }
       continue;
     }

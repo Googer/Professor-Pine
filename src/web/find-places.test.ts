@@ -7,6 +7,7 @@ import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import { partyWebWith, stopWebWith, webServerWith, type TestWeb } from '../../test/support/web.js';
 import type { FoundPlacesView } from '../domain/web/find-data.js';
 import { FIND_PER_MINUTE } from './find-routes.js';
+import { TEST_MAP_ROLE, withMapRole } from '../../test/support/server-values.js';
 
 const URL = `/s/${FAKE_GUILD_ID}/api/find-places`;
 
@@ -146,7 +147,7 @@ describe('the places Find finds on the map (plan 8M-12)', () => {
       members,
       parties: partyWebWith(made.made),
       stops: stopWebWith(made.ctx),
-      web: { memberRole: 'Verified' },
+      serverSettings: withMapRole(),
     });
     web.clock.now = STOP_NOON;
     const ask = async () =>
@@ -156,7 +157,11 @@ describe('the places Find finds on the map (plan 8M-12)', () => {
         headers: { cookie: await web.loggedIn(ALICE, 'x') },
       });
     expect((await ask())?.statusCode).toBe(403);
-    members.standing(ALICE, { roleNames: ['Verified'], administrator: false });
+    members.standing(ALICE, {
+      roleNames: ['Verified'],
+      roleIds: [TEST_MAP_ROLE],
+      administrator: false,
+    });
     expect((await ask())?.statusCode).toBe(200);
   });
 

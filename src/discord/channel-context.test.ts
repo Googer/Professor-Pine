@@ -10,17 +10,19 @@ import { channelContext } from './channel-context.js';
 import type { GuardableInteraction, LocatedInteraction } from './command.js';
 
 const as = (fake: unknown) => fake as GuardableInteraction;
+const RAIDS = '600000000000000009';
 
 describe('channelContext', () => {
   it('describes a text channel by itself and its category', () => {
     const context = channelContext(
-      as(fakeChatInput({ channelName: 'downtown', parentName: 'RAIDS' })),
+      as(fakeChatInput({ channelName: 'downtown', parentName: 'RAIDS', parentId: RAIDS })),
     );
     expect(context).toEqual({
       channelId: FAKE_CHANNEL_ID,
       baseChannelId: FAKE_CHANNEL_ID,
       name: 'downtown',
       categoryName: 'RAIDS',
+      categoryId: RAIDS,
       isThread: false,
       isDm: false,
     });
@@ -32,7 +34,7 @@ describe('channelContext', () => {
         fakeButton({
           customId: 'p:1:join',
           channelName: 'Mewtwo · Big Fountain',
-          thread: { parentName: 'downtown-raids', categoryName: 'RAIDS' },
+          thread: { parentName: 'downtown-raids', categoryName: 'RAIDS', categoryId: RAIDS },
         }),
       ),
     );
@@ -41,6 +43,7 @@ describe('channelContext', () => {
       baseChannelId: FAKE_PARENT_ID,
       name: 'downtown-raids',
       categoryName: 'RAIDS',
+      categoryId: RAIDS,
       isThread: true,
       isDm: false,
     });

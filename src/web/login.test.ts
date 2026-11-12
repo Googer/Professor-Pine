@@ -12,6 +12,12 @@ import {
   webServerWith,
   type TestWeb,
 } from '../../test/support/web.js';
+import {
+  TEST_MAP_ROLE,
+  TestServers,
+  testServerValues,
+  withMapRole,
+} from '../../test/support/server-values.js';
 
 const ASH = '700000000000000001';
 const MAP = `/s/${FAKE_GUILD_ID}/map`;
@@ -714,9 +720,9 @@ describe('who is asking', () => {
     expect(members.asked).toEqual([`${FAKE_GUILD_ID}:${ASH}`, `412345678901234999:${ASH}`]);
   });
 
-  it("is no member without the map's member role, when the settings name one", async () => {
+  it("is no member without the map's member role, when the server's staff set one", async () => {
     const members = new FakeMemberDirectory().add(ASH, 'Ash');
-    const map = webServerWith({ members, web: { memberRole: 'Verified' } });
+    const map = webServerWith({ members, serverSettings: withMapRole() });
     web = map;
     const cookie = await map.loggedIn(ASH, 'Ash');
     const ask = async () => (await map.app.inject({ url: ME, headers: { cookie } })).json<object>();
@@ -727,34 +733,79 @@ describe('who is asking', () => {
       readOnly: false,
       missingRole: 'Verified',
     });
-    members.standing(ASH, { roleNames: ['Trainer'], administrator: false });
+    members.standing(ASH, { roleNames: ['Trainer'], roleIds: [], administrator: false });
     expect(await ask()).toMatchObject({ member: false, missingRole: 'Verified' });
-    // By name, as Pine's other role settings: trimmed, whatever its letter case.
-    members.standing(ASH, { roleNames: ['Trainer', ' VERIFIED '], administrator: false });
+    // By its id (plan 19A-1): another role of its name is not it.
+    members.standing(ASH, {
+      roleNames: ['Trainer', 'Verified'],
+      roleIds: ['300000000000000099'],
+      administrator: false,
+    });
+    expect(await ask()).toMatchObject({ member: false, missingRole: 'Verified' });
+    members.standing(ASH, {
+      roleNames: ['Trainer', 'Verified'],
+      roleIds: ['300000000000000099', TEST_MAP_ROLE],
+      administrator: false,
+    });
     expect(await ask()).toMatchObject({ member: true, readOnly: false });
     expect(await ask()).not.toHaveProperty('missingRole');
-    members.standing(ASH, { roleNames: [], administrator: true });
+    members.standing(ASH, { roleNames: [], roleIds: [], administrator: true });
+    expect(await ask()).toMatchObject({ member: true });
+  });
+
+  it('counts administrators only where the file named a member role the server lacks (review F1)', async () => {
+    const members = new FakeMemberDirectory().add(ASH, 'Ash');
+    const map = webServerWith({
+      members,
+      serverSettings: new TestServers(testServerValues({ unmatched: ['roles.mapMember'] })),
+    });
+    web = map;
+    const cookie = await map.loggedIn(ASH, 'Ash');
+    const ask = async () => (await map.app.inject({ url: ME, headers: { cookie } })).json<object>();
+    members.standing(ASH, {
+      roleNames: ['Verified'],
+      roleIds: [TEST_MAP_ROLE],
+      administrator: false,
+    });
+    expect(await ask()).toMatchObject({ member: false });
+    members.standing(ASH, { roleNames: [], roleIds: [], administrator: true });
     expect(await ask()).toMatchObject({ member: true });
   });
 
   it('may edit regions, as a hint, by what the directory says of the member (plan 8M-10)', async () => {
     const members = new FakeMemberDirectory().add(ASH, 'Ash');
     // The map's member role does not concern staff: the hint is judged on the member as found.
-    const map = webServerWith({ members, web: { memberRole: 'Verified' } });
+    const map = webServerWith({ members, serverSettings: withMapRole() });
     web = map;
     const cookie = await map.loggedIn(ASH, 'Ash');
     const ask = async () => (await map.app.inject({ url: ME, headers: { cookie } })).json<object>();
     expect(await ask()).toMatchObject({ mayEditRegions: false });
-    members.standing(ASH, { roleNames: ['Moderator'], administrator: false, manageGuild: false });
+    members.standing(ASH, {
+      roleNames: ['Moderator'],
+      roleIds: [],
+      administrator: false,
+      manageGuild: false,
+    });
     expect(await ask()).toMatchObject({ mayEditRegions: false });
-    members.standing(ASH, { roleNames: ['Moderator'], administrator: false, manageGuild: true });
+    members.standing(ASH, {
+      roleNames: ['Moderator'],
+      roleIds: [],
+      administrator: false,
+      manageGuild: true,
+    });
     expect(await ask()).toMatchObject({ member: false, mayEditRegions: true });
-    members.standing(ASH, { roleNames: ['Trainer'], administrator: true, manageGuild: true });
+    members.standing(ASH, {
+      roleNames: ['Trainer'],
+      roleIds: [],
+      administrator: true,
+      manageGuild: true,
+    });
     expect(await ask()).toMatchObject({ mayEditRegions: false });
     // The bot's owner, as `/region`'s guard admits them.
     const owner = await map.loggedIn(TEST_OWNER_ID, 'Owner');
     members.add(TEST_OWNER_ID, 'Owner').standing(TEST_OWNER_ID, {
       roleNames: [],
+      roleIds: [],
       administrator: false,
       manageGuild: true,
     });
@@ -769,7 +820,7 @@ describe('who is asking', () => {
 
   it('names no role to somebody who is not in the server', async () => {
     const members = new FakeMemberDirectory();
-    const map = webServerWith({ members, web: { memberRole: 'Verified' } });
+    const map = webServerWith({ members, serverSettings: withMapRole() });
     web = map;
     const cookie = await map.loggedIn(ASH, 'Ash');
     const me = (await map.app.inject({ url: ME, headers: { cookie } })).json<object>();
@@ -783,7 +834,8 @@ describe('who is asking', () => {
     const invite = 'https://discord.gg/pinetest';
     const map = webServerWith({
       members,
-      web: { memberRole: 'Verified', invites: { [FAKE_GUILD_ID]: invite } },
+      web: { invites: { [FAKE_GUILD_ID]: invite } },
+      serverSettings: withMapRole(),
       servers: { has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999' },
     });
     web = map;
@@ -800,7 +852,11 @@ describe('who is asking', () => {
     expect(await ask()).toMatchObject({ member: false, missingRole: 'Verified' });
     expect(await ask()).not.toHaveProperty('invite');
     // A member: none.
-    members.standing(ASH, { roleNames: ['Verified'], administrator: false });
+    members.standing(ASH, {
+      roleNames: ['Verified'],
+      roleIds: [TEST_MAP_ROLE],
+      administrator: false,
+    });
     expect(await ask()).toMatchObject({ member: true });
     expect(await ask()).not.toHaveProperty('invite');
     // Discord cannot say whether they are in it: read-only, no invite.

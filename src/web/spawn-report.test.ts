@@ -556,7 +556,7 @@ describe('reporting a wild Pokémon on the map', () => {
     web = map.web;
     // Discord shows an administrator (and the server's owner) every channel, whatever its
     // overwrites say.
-    map.acting.standing(ALICE, { roleNames: [], administrator: true });
+    map.acting.standing(ALICE, { roleNames: [], roleIds: [], administrator: true });
     map.made.gateway.addChannel(WEST_CHANNEL, 'west');
     map.made.gateway.barred.set(WEST_CHANNEL, new Set([ALICE]));
     map.made.gateway.failing.set('memberAccess', new Error('not asked of an administrator'));
@@ -905,8 +905,8 @@ describe('the wild spawns on the map', () => {
     expect(await seen(ALICE, 'Alice')).toBe(0);
     expect(await seen(BOB, 'Bob')).toBe(1);
     // An administrator sees it and reports there, whatever the overwrites say.
-    map.acting.standing(ALICE, { roleNames: [], administrator: true });
-    map.members.standing(ALICE, { roleNames: [], administrator: true });
+    map.acting.standing(ALICE, { roleNames: [], roleIds: [], administrator: true });
+    map.members.standing(ALICE, { roleNames: [], roleIds: [], administrator: true });
     // What the directory said of a member is used for a minute.
     map.web.clock.now += 60_000;
     expect(await seen(ALICE, 'Alice')).toBe(1);

@@ -33,8 +33,13 @@ async function closing(throttles = new Throttles()) {
     parties: made.store,
     regions: made.regions,
   });
-  const moderator = { roleNames: ['Moderator'], administrator: false, manageMessages: true };
-  const noManaging = { roleNames: ['Moderator'], administrator: false };
+  const moderator = {
+    roleNames: ['Moderator'],
+    roleIds: [],
+    administrator: false,
+    manageMessages: true,
+  };
+  const noManaging = { roleNames: ['Moderator'], roleIds: [], administrator: false };
   const members = new FakeMemberDirectory()
     .add(ALICE, 'Alice')
     .add(BOB, 'Bob')
@@ -112,7 +117,7 @@ describe("staff's Delete… on the map (plan 8M-8B)", () => {
       const map = await closing();
       web = map.web;
       // A moderator by role in the list a minute ago, without the permission since.
-      map.acting.standing(BOB, { roleNames: ['Moderator'], administrator: false });
+      map.acting.standing(BOB, { roleNames: ['Moderator'], roleIds: [], administrator: false });
       const refused = await map.close({ removal: 'archive' });
       expect(refused.status).toBe(403);
       expect(map.made.store.get(map.id)).toBeDefined();

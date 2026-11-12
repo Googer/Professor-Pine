@@ -6,12 +6,15 @@ import { pokemonTarget } from '../domain/pogo/notification-target.js';
 import type { Logger } from '../log.js';
 import type { GameDataProvider } from './game-data-service.js';
 import { UNOWN_DEX } from './spawn-service.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 
 export interface UnownWantServiceOptions {
   wants: Pick<WantStorage, 'list' | 'set'>;
   gifts: UnownGiftStorage;
   gameData: GameDataProvider;
   settings: Settings;
+  /** Each server's values: its Unown role (plan 19A-1). */
+  servers: ServerSettingsLookup;
   log: Logger;
   now?: () => number;
   /** As many members as are remembered as met. Default `MET_MEMBERS`. */
@@ -28,10 +31,10 @@ export const MET_MEMBERS = 50_000;
 
 /**
  * Unown wants for holders of the old role (Matt, 2026-10-12). The legacy bot answered `!want
- * unown` with a role (`settings.roles.unown`) and pinged that role for a sighting; this bot
+ * unown` with a role (the Unown role of the server's settings) and pinged that role for a sighting; this bot
  * tells who has a want for Unown, as for any other Pokémon. The holders of a role cannot be
  * listed without the Server Members intent, so they are met one by one: a member whose
- * interaction shows a role of that name, and who has no want for Unown in that server, is
+ * interaction shows that role, and who has no want for Unown in that server, is
  * given one for its spawns (the species, every letter). Once per member and server, recorded in
  * the database (`UnownWantGift`), so that a member who removes the want keeps it removed. Only
  * where notifications are on.
@@ -63,20 +66,21 @@ export class UnownWantService {
   }
 
   /**
-   * A member used the bot in a server. `roleNames` gives the names of their roles as the
-   * interaction shows them, and is asked only at a member's first interaction of this run.
+   * A member used the bot in a server. `roleIds` gives the ids of their roles as the interaction
+   * shows them, and is asked only at a member's first interaction of this run.
    */
-  noticed(guildId: string, memberId: string, roleNames: () => Iterable<string>): void {
-    const { settings, log } = this.options;
+  noticed(guildId: string, memberId: string, roleIds: () => Iterable<string>): void {
+    const { settings, servers, log } = this.options;
     if (!settings.features.notifications) return;
+    // The role its staff set (plan 19A-1); none set, nobody holds it.
+    const role = servers.of(guildId).roles.unown;
+    if (role === undefined) return;
     const key = `${guildId}:${memberId}`;
     if (this.met.has(key)) return;
     // The one met longest ago goes when there are too many.
     this.met.set(key, true);
     try {
-      // As a team is read from the roles: by name, whatever its letter case.
-      const role = settings.roles.unown.trim().toLowerCase();
-      const holds = [...roleNames()].some((name) => name.trim().toLowerCase() === role);
+      const holds = [...roleIds()].includes(role);
       if (!holds) return;
     } catch (err) {
       log.warn({ err, guild: guildId }, 'could not read the roles of a member');

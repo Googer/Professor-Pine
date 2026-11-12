@@ -15,9 +15,11 @@ import type { Region } from '../../src/db/repositories/region-repository.js';
 import { NORTH_CHANNEL, NORTH_PLACE, northRegion, OTHER_GUILD_ROW, WEST_CHANNEL } from './gyms.js';
 import { partyServiceWith, TestRegions, type Outliving } from './party-service.js';
 import type { MemorySavedRoutes } from './saved-routes.js';
+import { TEST_SERVER_CHANNELS, type TestServers } from './server-values.js';
 
 /** The channel for bot updates of the fakes' server, under the name of the test settings. */
-export const UPDATES_CHANNEL = '100000000000000031';
+/** The server's channel for bot updates, as the test servers' values name it (`TEST_SERVER_CHANNELS`). */
+export const UPDATES_CHANNEL = TEST_SERVER_CHANNELS['bot-updates'];
 
 /** The staff member of `STAFF_PLACE`. */
 export const STAFF = '200000000000000009';
@@ -96,11 +98,15 @@ export class MemoryGymRemoval implements GymRemoval {
 export async function gymAdminWith(
   parties: readonly Party[] = [],
   kept?: Partial<Outliving>,
-  options: { maps?: Pick<MapProvider, 'gym'> } = {},
+  options: { maps?: Pick<MapProvider, 'gym'>; servers?: TestServers } = {},
 ) {
   const regions = kept?.regions ?? new TestRegions();
   const { gyms: gymStore, directory } = await gymDirectoryWith(new MemoryGyms(), regions);
-  const made = await partyServiceWith(parties, { gyms: directory }, { ...kept, regions });
+  const made = await partyServiceWith(
+    parties,
+    { gyms: directory, ...(options.servers === undefined ? {} : { servers: options.servers }) },
+    { ...kept, regions },
+  );
   made.gateway.channelNames.set(UPDATES_CHANNEL, made.settings.channels['bot-updates']);
   const geo = new FakeGeoGateway();
   // The line and the month's counts, for a test to fill and read (plan 8W-6).
@@ -138,6 +144,7 @@ export async function gymAdminWith(
     gateway: made.gateway,
     ...(options.maps === undefined ? {} : { maps: options.maps }),
     settings: made.settings,
+    servers: made.servers,
     log: made.log,
   });
   return {

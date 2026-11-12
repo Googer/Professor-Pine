@@ -180,6 +180,7 @@ import {
   stopRegionsInGuild,
   type RegionProvider,
 } from './region-directory.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 
 const MINUTE = 60_000;
 
@@ -745,6 +746,8 @@ export interface PartyServiceOptions {
    */
   appEmoji?: { get(name: string): string | undefined; refused?(): void };
   settings: Settings;
+  /** Each server's values (plan 19A-1): the channels of the copies, the forums' ending. */
+  servers: ServerSettingsLookup;
   log: Logger;
   now?: () => number;
   /**
@@ -963,6 +966,7 @@ export class PartyService {
       gyms: options.gyms,
       ...(options.wayspots === undefined ? {} : { wayspots: options.wayspots }),
       settings: options.settings,
+      servers: options.servers,
       render: (party) => this.rendered(party),
       refusedFiles: this.refusedFiles,
       emojiRefused: () => options.appEmoji?.refused?.(),

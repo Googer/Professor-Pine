@@ -29,6 +29,7 @@ import {
   thumbnailsOf,
 } from '../../../test/support/messages.js';
 import { expectV2Sendable } from '../../../test/support/post-limits.js';
+import { TEST_PVP_CATEGORY } from '../../../test/support/server-values.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
@@ -36,7 +37,8 @@ import { PokemonCatalogue } from '../../domain/pogo/catalogue.js';
 import { rankButtonId, rankPickId } from '../../render/pvp-rank.js';
 import { leagueRanks, rank, rankControls } from './rank.js';
 
-const PVP = 'PVP CHAT AND TOURNAMENTS';
+const PVP = TEST_PVP_CATEGORY;
+const RAIDS = '600000000000000004';
 const { ctx } = createTestContext({
   gameData: { catalogue: catalogueFixture(), icons: iconsFixture() },
 });
@@ -47,7 +49,7 @@ const IVS = { attack: 10, defense: 12, stamina: 13 };
 async function use(options: Record<string, string | number | boolean>, extra: object = {}) {
   const interaction = fakeChatInput({
     commandName: 'rank',
-    parentName: PVP,
+    parentId: PVP,
     options: { ...IVS, ...options },
     ...extra,
   });
@@ -82,9 +84,9 @@ describe('/rank: the command', () => {
   });
 
   it('is refused outside the PvP category and a DM', async () => {
-    const used = await use({ pokemon: 'mewtwo' }, { parentName: 'RAIDS' });
+    const used = await use({ pokemon: 'mewtwo' }, { parentId: RAIDS });
     expect(sent(used.reply)).toEqual({
-      content: `Use this in a DM with me or under ${PVP}.`,
+      content: `Use this in a DM with me or under <#${PVP}>.`,
       flags: MessageFlags.Ephemeral,
     });
   });
@@ -148,7 +150,7 @@ describe('/rank: the answer', () => {
     });
     const interaction = fakeChatInput({
       commandName: 'rank',
-      parentName: PVP,
+      parentId: PVP,
       options: { ...IVS, pokemon: 'mewtwo', league: 'ultra' },
     });
     await new InteractionRouter(withIcons, [rank], [rankControls]).handle(interaction as never);
@@ -178,7 +180,7 @@ describe('/rank: the answer', () => {
     });
     const interaction = fakeChatInput({
       commandName: 'rank',
-      parentName: PVP,
+      parentId: PVP,
       options: { ...IVS, pokemon: 'mewtwo' },
     });
     interaction.reply.mockImplementationOnce(() =>
@@ -291,7 +293,7 @@ describe('/rank: the answer', () => {
     const { ctx: lacking } = createTestContext({ gameData: { catalogue: short } });
     const interaction = fakeChatInput({
       commandName: 'rank',
-      parentName: PVP,
+      parentId: PVP,
       options: { ...IVS, pokemon: 'mewtwo' },
     });
     await new InteractionRouter(lacking, [rank], []).handle(interaction as never);
@@ -530,7 +532,7 @@ describe('/rank: the controls under an answer', () => {
 
   it('work where /rank may not be used: the answer stands where it was allowed', async () => {
     const pressed = await press('rank:mewtwo:show:little:10-12-13:none:0', ASKER, {
-      parentName: 'RAIDS',
+      parentId: RAIDS,
     });
     expect(header(asV2(sent(pressed.update)))[1]).toBe('Little Cup');
   });
@@ -610,7 +612,7 @@ describe('/rank: the pokemon option', () => {
   it('offers what the search finds, megas too', async () => {
     const interaction = fakeAutocomplete({
       commandName: 'rank',
-      parentName: PVP,
+      parentId: PVP,
       focused: 'charizard',
       focusedName: 'pokemon',
     });
@@ -632,7 +634,7 @@ describe('/little, /great, /ultra and /master', () => {
   ) => {
     const interaction = fakeChatInput({
       commandName,
-      parentName: PVP,
+      parentId: PVP,
       options: { ...IVS, ...options },
       ...extra,
     });
@@ -673,8 +675,8 @@ describe('/little, /great, /ultra and /master', () => {
   });
 
   it('are refused where /rank is, and count as uses of /rank', async () => {
-    const outside = await useIn('great', { pokemon: 'mewtwo' }, { parentName: 'RAIDS' });
-    expect(sent(outside.reply).content).toBe(`Use this in a DM with me or under ${PVP}.`);
+    const outside = await useIn('great', { pokemon: 'mewtwo' }, { parentId: RAIDS });
+    expect(sent(outside.reply).content).toBe(`Use this in a DM with me or under <#${PVP}>.`);
     const member = { userId: '700000000000000123' };
     for (let n = 0; n < 15; n++) {
       await useIn('rank', { pokemon: 'mewtwo' }, member);

@@ -636,7 +636,7 @@ describe('reports at stops from the map', () => {
       const made = await setup();
       web = made.web;
       made.made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
-      made.acting.standing(ALICE, { roleNames: [], administrator: true });
+      made.acting.standing(ALICE, { roleNames: [], roleIds: [], administrator: true });
       const answer = await made.post('/research', { task: DRAGON.key, stops: [wayspotId(3)] });
       expect(answer.status).toBe(200);
     });
@@ -922,7 +922,7 @@ describe('reports at stops from the map', () => {
       expect(bobs.json.text).toBe(NOT_YOUR_REPORT);
       expect(made.store.rows.size).toBe(1);
       // Bob's refusal was not counted: his last use is there for it as staff.
-      made.acting.standing(BOB, { roleNames: ['Moderator'], administrator: false });
+      made.acting.standing(BOB, { roleNames: ['Moderator'], roleIds: [], administrator: false });
       const staff = await made.post(`/stop-reports/${String(id)}/remove`, {}, made.bob);
       expect(staff.status).toBe(200);
       expect(
@@ -959,7 +959,7 @@ describe('reports at stops from the map', () => {
       const hers = await remove(listed);
       expect(hers.status).toBe(409);
       expect(hers.json.text).toBe(REPORT_CHANGED);
-      made.acting.standing(ALICE, { roleNames: ['Moderator'], administrator: false });
+      made.acting.standing(ALICE, { roleNames: ['Moderator'], roleIds: [], administrator: false });
       expect((await remove(listed)).json.text).toBe(REPORT_CHANGED);
       expect([...made.store.rows.values()].map((row) => row.subjectKey)).toEqual([
         'grunt:water:male',

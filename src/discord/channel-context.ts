@@ -16,6 +16,8 @@ export interface ChannelContext {
   name: string | undefined;
   /** Name of the category the base channel is under. */
   categoryName: string | undefined;
+  /** Id of the category the base channel is under (plan 19A-1: the PvP category is one by id). */
+  categoryId: string | undefined;
   isThread: boolean;
   isDm: boolean;
 }
@@ -38,6 +40,7 @@ export function channelContext(interaction: LocatedInteraction): ChannelContext 
       baseChannelId: undefined,
       name: undefined,
       categoryName: undefined,
+      categoryId: undefined,
       isThread: false,
       isDm,
     };
@@ -49,6 +52,7 @@ export function channelContext(interaction: LocatedInteraction): ChannelContext 
       baseChannelId: channel.parentId ?? undefined,
       name: nameOf(parent),
       categoryName: parent?.parent?.name,
+      categoryId: parent?.parentId ?? undefined,
       isThread: true,
       isDm,
     };
@@ -58,6 +62,7 @@ export function channelContext(interaction: LocatedInteraction): ChannelContext 
     baseChannelId: channel.id,
     name: nameOf(channel),
     categoryName: 'parent' in channel ? channel.parent?.name : undefined,
+    categoryId: 'parentId' in channel ? (channel.parentId ?? undefined) : undefined,
     isThread: false,
     isDm,
   };

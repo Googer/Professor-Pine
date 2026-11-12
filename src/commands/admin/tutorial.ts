@@ -1,6 +1,7 @@
 import { ChannelType, SlashCommandSubcommandBuilder } from 'discord.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
+import { guildIdOf } from '../../discord/guards.js';
 import { discordPayload } from '../../discord/party-gateway.js';
 import { missingNeeds, TUTORIAL_NEEDS } from '../../ops/permissions.js';
 import { count } from '../../render/text.js';
@@ -40,9 +41,10 @@ export const tutorial: SubcommandPart = {
       throw new UserError('Use this in a plain text channel.');
     }
     const { settings } = ctx.config;
+    const server = ctx.servers.of(guildIdOf(interaction));
     if (
       ctx.regions.byChannel(channel.id) !== undefined ||
-      Object.values(settings.channels).includes(channel.name)
+      Object.values(server.channels).includes(channel.id)
     ) {
       throw new UserError(
         'This channel has another job: use one for the tutorial alone, such as #raid-bot-tutorial.',
@@ -60,7 +62,7 @@ export const tutorial: SubcommandPart = {
       screenshots: settings.ocr.enabled,
       liveMap: settings.web !== undefined,
       hasStops: row !== undefined && ctx.placeFinder.hasStops(row),
-      meetupsChecked: settings.channels.moderation !== undefined,
+      meetupsChecked: server.channels.moderation !== undefined,
       oldHistory: (await ctx.legacyIndex?.hasServer(interaction.guildId ?? '')) === true,
       icons: { controlIcon: (name) => ctx.emoji.find(name, null) },
     });

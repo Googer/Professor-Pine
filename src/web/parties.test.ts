@@ -8,6 +8,7 @@ import { partyWebWith, webServerWith, type TestWeb } from '../../test/support/we
 import type { PartiesView } from '../domain/web/party-data.js';
 import { PartyStatus } from '../domain/party/status.js';
 import { PARTIES_PER_MINUTE } from './party-routes.js';
+import { TEST_MAP_ROLE, withMapRole } from '../../test/support/server-values.js';
 
 const PARTIES = `/s/${FAKE_GUILD_ID}/api/parties`;
 
@@ -80,19 +81,19 @@ describe('the parties of a server on the map', () => {
     expect(changed.headers.etag).not.toBe(etag);
   });
 
-  it("are for members with the map's member role or administrators, when the settings name one", async () => {
+  it("are for members with the map's member role or administrators, where the server sets one", async () => {
     const made = await reportedRaid();
     const members = new FakeMemberDirectory()
       .add(ALICE, 'Alice')
-      .standing(ALICE, { roleNames: ['Trainer'], administrator: false })
+      .standing(ALICE, { roleNames: ['Trainer'], roleIds: [], administrator: false })
       .add(BOB, 'Bob')
-      .standing(BOB, { roleNames: ['verified'], administrator: false })
+      .standing(BOB, { roleNames: ['verified'], roleIds: [TEST_MAP_ROLE], administrator: false })
       .add(CAROL, 'Carol')
-      .standing(CAROL, { roleNames: [], administrator: true });
+      .standing(CAROL, { roleNames: [], roleIds: [], administrator: true });
     const map = webServerWith({
       members,
       parties: partyWebWith(made),
-      web: { memberRole: 'Verified' },
+      serverSettings: withMapRole(),
     });
     web = map;
     map.clock.now = PARTY_NOW;

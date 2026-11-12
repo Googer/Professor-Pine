@@ -1546,11 +1546,12 @@ export class FakePartyGateway implements PartyGateway {
   }
 
   /** `@everyone` and the roles named that `noReplies` keeps from writing in the posts (BR-7). */
-  rolesWithoutReplies(forumId: string, roleNames: readonly string[]) {
+  /** The fake knows no roles: a role's id stands for its name here (`noReplies`). */
+  rolesWithoutReplies(forumId: string, roleIds: readonly string[]) {
     return this.attempt('rolesWithoutReplies', forumId, () => {
       if (!this.forums.has(forumId) || this.gone.has(forumId)) return undefined;
       const without = this.noReplies.get(forumId) ?? [];
-      return ['@everyone', ...roleNames].filter((name) => without.includes(name));
+      return ['@everyone', ...roleIds].filter((name) => without.includes(name));
     });
   }
 
@@ -1888,14 +1889,22 @@ export class FakePartyGateway implements PartyGateway {
   }
 
   /**
-   * Every channel of the fake is in the one server: the channel named so in `channelNames`,
-   * and like the real gateway only one in which the bot may post embeds (`noEmbeds`).
+   * A channel the fake knows (`channelNames`) in the server of `nearChannelId` (`serverOf`), and
+   * like the real gateway only a text channel (not a forum, nor a channel `addChannel` gave another
+   * kind) in which the bot may post embeds (`noEmbeds`).
    */
-  findChannel(_nearChannelId: string, name: string): string | undefined {
-    for (const [id, known] of this.channelNames) {
-      if (known === name && !this.gone.has(id) && !this.noEmbeds.has(id)) return id;
-    }
-    return undefined;
+  findChannel(nearChannelId: string, channelId: string): string | undefined {
+    if (!this.channelNames.has(channelId) || this.gone.has(channelId)) return undefined;
+    if (this.forums.has(channelId)) return undefined;
+    const known = this.channels.get(channelId);
+    if (known !== undefined && known.kind !== 'text') return undefined;
+    if (this.noEmbeds.has(channelId)) return undefined;
+    return this.serverOf(channelId) === this.serverOf(nearChannelId) ? channelId : undefined;
+  }
+
+  /** Every channel of the fake is in its one server, but one `addChannel` put in another. */
+  serverOf(channelId: string): string | undefined {
+    return this.channels.get(channelId)?.guildId ?? this.guildId;
   }
 
   /**

@@ -29,6 +29,8 @@ import type { GameDataProvider } from './game-data-service.js';
 import type { RaidBossProvider } from './raid-boss-service.js';
 import type { PictureMaking } from './research-task-service.js';
 import { ReadsBetweenWrites } from './reads-between-writes.js';
+import { serverChannel } from './server-channels.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 
 /** The Pokédex number of Unown, whose sightings a server may collect in a channel of their own. */
 export const UNOWN_DEX = 201;
@@ -92,7 +94,12 @@ export interface SpawnServiceOptions {
    * and delete a message, find a channel by name where the bot may post embeds, ask whether it
    * may post embeds in one), with a fake that is as strict: no port of their own.
    */
-  gateway: Pick<PartyGateway, 'sendMessage' | 'deleteMessage' | 'findChannel' | 'mayPost'>;
+  gateway: Pick<
+    PartyGateway,
+    'sendMessage' | 'deleteMessage' | 'findChannel' | 'serverOf' | 'mayPost'
+  >;
+  /** Each server's values: its Unown sightings channel (plan 19A-1). */
+  servers: ServerSettingsLookup;
   /** The pictures of the Pokémon that are raid bosses now: what the feed shows wins. */
   raidBosses: Pick<RaidBossProvider, 'bosses'>;
   /** The catalogue and the icon files that exist: the picture of every other Pokémon. */
@@ -147,7 +154,7 @@ export interface SpawnServiceOptions {
  *
  * Unown is a species like any other (Matt, 2026-10-12): the region message and the direct
  * messages as for every Pokémon. Where the server has the channel for Unown sightings
- * (`settings.channels.unown`, found by name, only where the bot may post embeds) the report
+ * (the server's Unown channel, by the id its staff set, only where the bot may post embeds) the report
  * is also posted there, and stays. No role is assigned or pinged and nothing is pinned.
  */
 export class SpawnService {
@@ -285,7 +292,12 @@ export class SpawnService {
     }
     if (report.pokemon.dex === UNOWN_DEX) {
       try {
-        const sightings = gateway.findChannel(report.regionChannelId, settings.channels.unown);
+        const sightings = serverChannel(
+          gateway,
+          this.options.servers,
+          report.regionChannelId,
+          'unown',
+        );
         if (sightings !== undefined && sightings !== report.regionChannelId) {
           await this.sendWithoutPicture(sightings, view, (shown) =>
             sightingMessage(shown, report.regionChannelId),

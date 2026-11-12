@@ -41,6 +41,7 @@ import type { TrainWebDeps } from './train-routes.js';
 import { toolFileRoutes, toolPageRoutes, type ToolWebDeps } from './tool-routes.js';
 import { topRoutes } from './top-routes.js';
 import type { DistanceUnits } from '../render/distance-words.js';
+import type { ServerSettingsLookup } from '../services/server-settings.js';
 
 /** `settings.web` once it is set. */
 export type WebSettings = NonNullable<Settings['web']>;
@@ -56,6 +57,10 @@ export interface WebDeps {
   distanceUnits: DistanceUnits;
   /** The servers the bot is in (the client's cache): any other is not found. */
   servers: { has(guildId: string): boolean };
+  /** Each server's values (plan 19A-1): the map's member role, by id. */
+  serverSettings: ServerSettingsLookup;
+  /** A role's name as the server has it now, from the client's cache; undefined for one it lacks. */
+  roleName(guildId: string, roleId: string): string | undefined;
   /**
    * The servers with a map (plan 8M-14, the top page): those the bot is in with a region that
    * has an outline, with their names (`mapServers`), and apart by id those Discord has not made

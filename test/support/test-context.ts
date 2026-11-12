@@ -302,6 +302,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       store: ctx.parties,
       guilds: ctx.guilds,
       settings: ctx.config.settings,
+      servers: ctx.servers,
       log,
     });
   }
@@ -320,6 +321,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       regions: ctx.regions,
       gyms: ctx.gyms,
       settings: ctx.config.settings,
+      servers: ctx.servers,
       log,
     });
   }

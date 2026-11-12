@@ -4,10 +4,16 @@ import { ELITE_GYM_CHANNEL, REMOTE_CHANNEL, WEST_CHANNEL } from '../../test/supp
 import { ALICE, asRaid, at, BOB, MINUTE, withAttendees } from '../../test/support/parties.js';
 import {
   gatewayWithMirrorChannels,
+  type ServiceOverrides,
   reportedRaid,
   restarted,
 } from '../../test/support/party-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
+import {
+  TEST_SERVER_CHANNELS,
+  TestServers,
+  testServerValues,
+} from '../../test/support/server-values.js';
 import { Tally } from '../../test/support/tally.js';
 import {
   watchBackground,
@@ -31,6 +37,7 @@ import {
   thumbnailsOf,
 } from '../../test/support/messages.js';
 
+const AFAR_CHANNEL = '100000000000000029';
 const alice: Member = { id: ALICE, name: 'Alice' };
 
 /** What a copy elsewhere shows of a post: its texts (Meet… works there too, plan 8X-1B). */
@@ -51,7 +58,7 @@ function gymsWithExLibrary(): PartyServiceOptions['gyms'] {
 }
 
 /** A raid at the Library in a server that has both channels for copies. */
-function mirrored(report: Partial<RaidReport> = {}, overrides: Partial<PartyServiceOptions> = {}) {
+function mirrored(report: Partial<RaidReport> = {}, overrides: ServiceOverrides = {}) {
   return reportedRaid(report, overrides, { gateway: gatewayWithMirrorChannels() });
 }
 
@@ -88,6 +95,25 @@ describe('the copies of a raid in other channels', () => {
     );
     expect(elite.gateway.messagesIn(ELITE_GYM_CHANNEL)).toHaveLength(1);
     expect(elite.gateway.messagesIn(REMOTE_CHANNEL)).toEqual([]);
+  });
+
+  it("makes the copy in the channel the server's staff set, by its id, whatever its name", async () => {
+    const gateway = gatewayWithMirrorChannels();
+    gateway.channelNames.set(AFAR_CHANNEL, 'raids-from-afar');
+    const servers = new TestServers(
+      testServerValues({ channels: { ...TEST_SERVER_CHANNELS, 'remote-raids': AFAR_CHANNEL } }),
+    );
+    const made = await reportedRaid(yveltal, { gyms: gymsWithExLibrary(), servers }, { gateway });
+    expect(made.gateway.messagesIn(AFAR_CHANNEL)).toHaveLength(1);
+    expect(made.gateway.messagesIn(REMOTE_CHANNEL)).toEqual([]);
+    // None where the server has none set.
+    const unset = new TestServers(testServerValues({ channels: {} }));
+    const none = await reportedRaid(
+      yveltal,
+      { gyms: gymsWithExLibrary(), servers: unset },
+      { gateway: gatewayWithMirrorChannels() },
+    );
+    expect(none.current().mirrorMessages).toEqual([]);
   });
 
   it('makes no copy where the server has no such channel or the feature is off', async () => {
@@ -435,9 +461,9 @@ describe('the copies of a raid: what can go wrong on the way', () => {
     const sends = () => gateway.calls.filter((call) => call === `sendMessage ${REMOTE_CHANNEL}`);
     let asked = 0;
     const real = gateway.findChannel.bind(gateway);
-    gateway.findChannel = (near, name) => {
-      if (name === 'remote-raids') asked++;
-      return real(near, name);
+    gateway.findChannel = (near, id) => {
+      if (id === REMOTE_CHANNEL) asked++;
+      return real(near, id);
     };
     for (let change = 0; change < 3; change++) {
       await attendance.changeNumber(made.party.id, alice, 1);

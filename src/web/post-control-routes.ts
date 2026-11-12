@@ -476,7 +476,12 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       });
       if (full) return full;
       try {
-        await refuseReportedBefore(deps.posts.ctx, { kind: 'party', partyId: party.id }, userId);
+        await refuseReportedBefore(
+          deps.posts.ctx,
+          request.params.guild,
+          { kind: 'party', partyId: party.id },
+          userId,
+        );
       } catch (err) {
         if (!(err instanceof UserError)) throw err;
         return reply.code(422).send({ error: err.message });

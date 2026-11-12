@@ -98,16 +98,18 @@ export const reportMessageCommand: MessageCommand = {
   async run(interaction, ctx) {
     const target = interaction.targetMessage;
     const reporterId = interaction.user.id;
+    const serverId = guildIdOf(interaction);
     const party = partyOfMessage(ctx.parties, target.channelId, target.id);
     if (party) {
-      await refuseReportedBefore(ctx, { kind: 'party', partyId: party.id }, reporterId);
+      await refuseReportedBefore(ctx, serverId, { kind: 'party', partyId: party.id }, reporterId);
       await interaction.showModal(partyReportForm(party));
       return;
     }
     if (target.author.id === interaction.client.user.id) throw new UserError(NOTHING_TO_REPORT);
-    if (!ctx.reports.on) throw new UserError(NO_MODERATORS);
+    if (!ctx.reports.on(serverId)) throw new UserError(NO_MODERATORS);
     await refuseReportedBefore(
       ctx,
+      serverId,
       { kind: 'message', channelId: target.channelId, messageId: target.id },
       reporterId,
     );

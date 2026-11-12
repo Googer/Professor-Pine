@@ -6,6 +6,7 @@ import { editorRoutes } from './editor-routes.js';
 import { findRoutes } from './find-routes.js';
 import { etagMatches } from './geo-cache.js';
 import { liveRoutes } from './live-routes.js';
+import { mapMemberRole } from '../config/server-settings.js';
 import { countsOnTheMap, mapMembers } from './map-members.js';
 import { maxRoutes } from './max-routes.js';
 import { meetupRoutes } from './meetup-routes.js';
@@ -38,6 +39,9 @@ export type GuildRequest = FastifyRequest<{ Params: { guild: string } }>;
  * The addresses of one Discord server, `/s/<guild>/…` (spec 2.1): a server the bot is not in,
  * or no snowflake at all, is not found before anything else is looked at.
  */
+/** The map's member role where the bot cannot name it: `you need the map member role`. */
+export const MAP_ROLE_UNNAMED = 'map member';
+
 export function guildRoutes(
   scope: FastifyInstance,
   deps: WebDeps,
@@ -45,10 +49,12 @@ export function guildRoutes(
   costOf: CostOf,
 ): void {
   const { sessions } = deps;
-  // Who counts as a member on the map (`settings.web.memberRole`): the parties (`/api/me` judges
-  // it by `countsOnTheMap` itself, to tell a member without the role which role it is); the
-  // region editor asks its own question (staff) and is not affected.
-  const judged = mapMembers(deps.members, deps.settings.memberRole);
+  // Who counts as a member on the map (the map's member role of the server's values, plan
+  // 19A-1): the parties (`/api/me` judges it by `countsOnTheMap` itself, to tell a member without
+  // the role which role it is); the region editor asks its own question (staff) and is not
+  // affected.
+  const memberRoleOf = (guildId: string) => mapMemberRole(deps.serverSettings.of(guildId));
+  const judged = mapMembers(deps.members, memberRoleOf);
   const map: WebDeps = {
     ...deps,
     members: {
@@ -126,7 +132,7 @@ export function guildRoutes(
   // the address, as it may ask Discord. Somebody logged in whom the directory finds not in the
   // server is given the server's invite where the settings have one (`invite`, plan 8M-11B):
   // nobody logged out (they may be a member), no member without the role, nobody while read-only.
-  const { memberRole, invites } = deps.settings;
+  const { invites } = deps.settings;
   scope.get(
     '/api/me',
     { onRequest: limitedRead(ME_PER_MINUTE, deps) },
@@ -139,11 +145,16 @@ export function guildRoutes(
       let readOnly = false;
       let mayEdit = false;
       let invite: string | undefined;
+      const { guild } = request.params;
+      const memberRole = memberRoleOf(guild);
       try {
-        const found = await deps.members.find(request.params.guild, session.userId);
-        if (found === undefined) invite = invites?.[request.params.guild];
+        const found = await deps.members.find(guild, session.userId);
+        if (found === undefined) invite = invites?.[guild];
         member = found !== undefined && countsOnTheMap(found.standing, memberRole);
-        if (found !== undefined && !member) missingRole = memberRole;
+        // Its name as the server has it now (a role the bot cannot see: by what it is for).
+        if (found !== undefined && !member && memberRole !== undefined) {
+          missingRole = deps.roleName(guild, memberRole) ?? MAP_ROLE_UNNAMED;
+        }
         // Whether to offer "Edit regions" (plan 8M-10): a hint by the member as the directory
         // keeps them, never asked of Discord for it; the editor's data asks fresh and decides.
         mayEdit =
@@ -177,7 +188,7 @@ export function guildRoutes(
   // gyms' question who is a member.
   const viewers = new PartyViewers({
     members: map.members,
-    asks: mapMembers(pacedMembers, deps.settings.memberRole),
+    asks: mapMembers(pacedMembers, memberRoleOf),
     forums: deps.parties.forums,
     log: deps.log,
     now: deps.now,

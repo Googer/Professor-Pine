@@ -415,8 +415,8 @@ describe('making a meetup on the map', () => {
   it('lets staff skip the check: a pin of a moderator is posted at once', async () => {
     const map = await making();
     web = map.web;
-    map.members.standing(BOB, { roleNames: ['Moderator'], administrator: false });
-    map.acting.standing(BOB, { roleNames: ['Moderator'], administrator: false });
+    map.members.standing(BOB, { roleNames: ['Moderator'], roleIds: [], administrator: false });
+    map.acting.standing(BOB, { roleNames: ['Moderator'], roleIds: [], administrator: false });
     const answer = await map.make(
       asked({ lat: 40.0805, lon: -80.0805 }),
       await map.web.posting(BOB, 'Bob'),

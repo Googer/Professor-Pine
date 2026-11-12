@@ -28,6 +28,11 @@ import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { Member } from './attendance-service.js';
 import { REVIEW_SUMMARY_MS, type AddOutcome } from './gym-admin-service.js';
 import type { RaidReport } from './party-service.js';
+import {
+  TEST_SERVER_CHANNELS,
+  TestServers,
+  testServerValues,
+} from '../../test/support/server-values.js';
 
 type Made = Awaited<ReturnType<typeof gymAdminWith>>;
 
@@ -286,6 +291,25 @@ describe('GymAdminService.add', () => {
     expect(message?.mention).toBeUndefined();
     // Without a map provider, no map.
     expect(galleryOf(message)).toEqual([]);
+  });
+
+  it('tells the channel its staff set for bot updates, by its id, and none where unset', async () => {
+    const news = '100000000000000039';
+    const servers = new TestServers(
+      testServerValues({ channels: { ...TEST_SERVER_CHANNELS, 'bot-updates': news } }),
+    );
+    const made = await gymAdminWith([], undefined, { servers });
+    made.gateway.channelNames.set(news, 'pine-news');
+    await made.admin.add({ name: 'Clock Tower', ...FREE }, STAFF_PLACE);
+    await settle(made);
+    expect(made.gateway.messagesIn(news)).toHaveLength(1);
+    expect(announced(made)).toEqual([]);
+    const unset = await gymAdminWith([], undefined, {
+      servers: new TestServers(testServerValues({ channels: {} })),
+    });
+    await unset.admin.add({ name: 'Clock Tower', ...FREE }, STAFF_PLACE);
+    await settle(unset);
+    expect(announced(unset)).toEqual([]);
   });
 
   it('shows the map of a new gym in its announcement, and goes without one that fails', async () => {

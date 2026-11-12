@@ -47,6 +47,8 @@ import type { GymProvider } from './gym-directory.js';
 import type { PartyService, PostRemoved } from './party-service.js';
 import type { PartyListener, PartyProvider } from './party-store.js';
 import type { RegionProvider } from './region-directory.js';
+import { moderatorsNamed } from '../config/server-settings.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 
 /** A member's report of a party, as `/report` (or the Apps menu) gives it. */
 export interface PartyReportAsk {
@@ -133,7 +135,7 @@ export type ReportOutcome =
   /** A message reported where the server has no moderators' channel. */
   | { kind: 'no-channel' }
   /**
-   * Without a moderators' channel (`settings.channels.moderation`): put into the party's post,
+   * Without a moderators' channel (the server's values): put into the party's post,
    * the staff roles pinged once (`PartyService.requestDeletion`, as a member's `/delete` before),
    * or asked by this member before.
    */
@@ -167,6 +169,8 @@ export interface ModerationReportsOptions {
   /** The kept Wayspots, for a train at a power spot (plan 8X-4); without them it is at no place. */
   wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf'>;
   settings: Settings;
+  /** Each server's values: its moderators' channel, which reports go to (plan 19A-1). */
+  servers: ServerSettingsLookup;
   log: Logger;
   now?: () => number;
   /**
@@ -206,7 +210,7 @@ const LINE_ROOM = 1000;
 /**
  * Reports to the moderators (plan 8S-2; spec `2026-10-17-moderation-reports-design.md`): a
  * member's report of a party (`/report`, the Apps menu on its post) or of a message goes to the
- * moderators' channel (`settings.channels.moderation`, meetup safety's) as a post with what is
+ * moderators' channel (the server's moderators' channel, meetup safety's) as a post with what is
  * reported and every reporter's reason, where the moderators decide. Reports are kept in the
  * database (`ReportStore`), so that a press on an old post works after a restart; reasons of one
  * party or message gather on its one open report. Without the moderators' channel a party's
@@ -243,9 +247,21 @@ export class ModerationReports {
     this.now = options.now ?? (() => Date.now());
   }
 
-  /** Whether reports go to the moderators: the settings name their channel. */
-  get on(): boolean {
-    return this.options.settings.channels.moderation !== undefined;
+  /**
+   * Whether reports go to the moderators of a server: its staff set their channel (plan 19A-1),
+   * or the settings file named one the server lacks (`moderatorsNamed`, review F2: unreachable).
+   */
+  on(serverId: string): boolean {
+    return moderatorsNamed(this.options.servers.of(serverId));
+  }
+
+  /**
+   * The server's moderators' channel near `nearChannelId`, where the bot may post in it;
+   * undefined where none is set or it is gone.
+   */
+  private channelOf(serverId: string, nearChannelId: string): string | undefined {
+    const id = this.options.servers.of(serverId).channels.moderation;
+    return id === undefined ? undefined : this.options.gateway.findChannel(nearChannelId, id);
   }
 
   /**
@@ -270,13 +286,12 @@ export class ModerationReports {
    * notice that cannot be sent is logged. Nothing without the moderators' channel.
    */
   maxAtPin(notice: MaxPinNotice): void {
-    if (!this.on) return;
-    const { gateway, settings, store, log } = this.options;
-    const name = settings.channels.moderation ?? '';
+    if (!this.on(notice.serverId)) return;
+    const { gateway, store, log } = this.options;
     const work = async (): Promise<void> => {
-      const channelId = gateway.findChannel(notice.regionChannelId, name);
+      const channelId = this.channelOf(notice.serverId, notice.regionChannelId);
       if (channelId === undefined) {
-        log.warn({ party: notice.partyId, channel: name }, "the moderators' channel is not there");
+        log.warn({ party: notice.partyId }, "the moderators' channel is not there");
         return;
       }
       const messageId = await gateway.sendMessage(channelId, maxPinNotice(notice));
@@ -304,11 +319,10 @@ export class ModerationReports {
    * the next screenshot of the name sends it.
    */
   missingSpot(notice: { serverId: string; channelId: string; name: string }): boolean {
-    const { gateway, settings, log } = this.options;
+    const { gateway, log } = this.options;
     // Where only: the name a member's screenshot showed stays out of the log (review r4 B2).
     const about = { server: notice.serverId, channel: notice.channelId };
-    const name = settings.channels.moderation;
-    const channelId = name === undefined ? undefined : gateway.findChannel(notice.channelId, name);
+    const channelId = this.channelOf(notice.serverId, notice.channelId);
     if (channelId === undefined) {
       log.info(about, 'a screenshot showed a Power Spot Pine does not know');
       return false;
@@ -343,10 +357,9 @@ export class ModerationReports {
    * so the next screenshot sends it.
    */
   listTier(notice: ListTierNotice): boolean {
-    const { gateway, settings, log } = this.options;
+    const { gateway, log } = this.options;
     const about = { server: notice.serverId, channel: notice.channelId };
-    const name = settings.channels.moderation;
-    const channelId = name === undefined ? undefined : gateway.findChannel(notice.channelId, name);
+    const channelId = this.channelOf(notice.serverId, notice.channelId);
     if (channelId === undefined) {
       log.info(about, 'screenshots disagree with the boss list');
       return false;
@@ -426,7 +439,7 @@ export class ModerationReports {
     if (reason === '' || reason.length > MAX_REPORT_REASON) return { kind: 'no-reason' };
     const party = this.options.store.get(ask.partyId);
     if (!party?.forumPostId) return { kind: 'gone' };
-    if (!this.on) {
+    if (!this.on(ask.serverId)) {
       const asked = await this.options.parties.requestDeletion(
         party.id,
         ask.reporter,
@@ -452,7 +465,7 @@ export class ModerationReports {
   async reportMessage(ask: MessageReportAsk): Promise<ReportOutcome> {
     const reason = ask.reason.trim();
     if (reason === '' || reason.length > MAX_REPORT_REASON) return { kind: 'no-reason' };
-    if (!this.on) return { kind: 'no-channel' };
+    if (!this.on(ask.serverId)) return { kind: 'no-channel' };
     const { message } = ask;
     const subject: MessageSubject = {
       kind: 'message',
@@ -484,12 +497,13 @@ export class ModerationReports {
    * or takes longer than `checkTimeoutMs` (logged): the form opens then, and its submit says it.
    */
   async reportedBefore(
+    serverId: string,
     subject:
       | Pick<PartySubject, 'kind' | 'partyId'>
       | Pick<MessageSubject, 'kind' | 'channelId' | 'messageId'>,
     reporterId: string,
   ): Promise<boolean> {
-    if (!this.on) return false;
+    if (!this.on(serverId)) return false;
     const ms = this.options.checkTimeoutMs ?? 1_000;
     let timer: NodeJS.Timeout | undefined;
     const timeout = new Promise<never>((_, reject) => {
@@ -589,17 +603,14 @@ export class ModerationReports {
     nearChannelId: string,
     openerId: string,
   ): Promise<ReportOutcome> {
-    const { storage, gateway, settings, store, log } = this.options;
+    const { storage, gateway, store, log } = this.options;
     const report = await storage.report(reportId);
     if (!report) return { kind: 'not-sent' };
-    const name = settings.channels.moderation;
-    const channelId = name === undefined ? undefined : gateway.findChannel(nearChannelId, name);
+    const channelId = this.channelOf(report.serverId, nearChannelId);
     const sentMessage = reportMessage(report);
     let messageId: string | undefined;
     try {
-      if (channelId === undefined) {
-        throw new Error(`the moderators' channel #${name ?? ''} is not there`);
-      }
+      if (channelId === undefined) throw new Error("the moderators' channel is not there");
       messageId = await gateway.sendMessage(channelId, sentMessage);
       if (messageId === undefined) throw new Error('the moderators’ channel is gone');
       await storage.setReportPost(report.id, channelId, messageId);

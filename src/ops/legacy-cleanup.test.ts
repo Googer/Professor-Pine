@@ -70,14 +70,15 @@ describe('cleanupList', () => {
 
   const list = (
     files: readonly (string | LegacyParty)[] | undefined = [],
-    more: { forums?: string[] } = {},
+    more: { forums?: string[]; settings?: string[]; settingsNames?: string[] } = {},
   ) =>
     cleanupList(api, {
       guildId: guild.id,
       botId: FAKE_BOT_ID,
       regionChannelIds: [region.id],
       regionForumIds: more.forums ?? [],
-      settingsChannelNames: ['the-bot-lab', 'bot-updates'],
+      settingsChannelIds: more.settings ?? [],
+      settingsChannelNames: more.settingsNames ?? [],
       legacyParties: files?.map((one) => (typeof one === 'string' ? raidFile(one) : one)),
     });
   /** The first message of a legacy raid's channel, as the legacy bot wrote it. */
@@ -118,15 +119,38 @@ describe('cleanupList', () => {
     expect(api.onlyRead()).toBe(true);
   });
 
-  it('never lists a channel of the settings, a region channel or a forum, even one a file names', async () => {
+  it("never lists a channel of the server's settings, a region channel or a forum, even one a file names", async () => {
     const lab = api.addChannel(guild, 'the-bot-lab', { parentId: category.id, messages: [status] });
-    api.addChannel(guild, 'bot-updates', { parentId: category.id, messages: [FAKE_BOT_ID] });
+    const updates = api.addChannel(guild, 'bot-updates', {
+      parentId: category.id,
+      messages: [FAKE_BOT_ID],
+    });
     const forum = api.addChannel(guild, 'squirrelbreeze-meetups', {
       type: ChannelType.GuildText,
       parentId: category.id,
       messages: [status],
     });
-    const listed = await list([lab.id, region.id, forum.id], { forums: [forum.id] });
+    const listed = await list([lab.id, region.id, forum.id], {
+      forums: [forum.id],
+      settings: [lab.id, updates.id],
+    });
+    expect(listed).toMatchObject({ remove: [], kept: [] });
+  });
+
+  it('never lists a channel of a name the settings file gives, also one the server lacks the id of (review F6)', async () => {
+    // A second channel of the name, or one the fill did not match: protected by its name, as before 2.1.
+    const unown = api.addChannel(guild, 'unown-sightings', {
+      parentId: category.id,
+      messages: [status],
+    });
+    const updates = api.addChannel(guild, 'bot-updates', {
+      parentId: category.id,
+      messages: [FAKE_BOT_ID],
+    });
+    const listed = await list([unown.id, updates.id], {
+      settings: [],
+      settingsNames: ['unown-sightings', 'bot-updates'],
+    });
     expect(listed).toMatchObject({ remove: [], kept: [] });
   });
 
@@ -155,6 +179,7 @@ describe('cleanupList', () => {
       botId: FAKE_BOT_ID,
       regionChannelIds: [lonely.id],
       regionForumIds: [],
+      settingsChannelIds: [],
       settingsChannelNames: [],
       legacyParties: [raidFile(named.id)],
     });
@@ -222,6 +247,7 @@ describe('cleanupList at the cutover', () => {
       botId: FAKE_BOT_ID,
       regionChannelIds: [region.id],
       regionForumIds: [],
+      settingsChannelIds: [],
       settingsChannelNames: [],
       legacyParties,
     });

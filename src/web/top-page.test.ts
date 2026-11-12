@@ -7,6 +7,7 @@ import { builtAssets, webServerWith, type TestWeb } from '../../test/support/web
 import { csrfInTop, LOGGED_OUT_MARK as CLIENT_LOGGED_OUT_MARK } from './client/top-logout.js';
 import { AFTER_JOINING, LOGGED_OUT_MARK } from './top-page.js';
 import { TOP_LOOKUP_MS, TOP_PER_MINUTE } from './top-routes.js';
+import { withMapRole } from '../../test/support/server-values.js';
 
 const ASH = '700000000000000001';
 const PINEWOOD = { id: '410000000000000001', name: 'Pinewood' };
@@ -152,11 +153,11 @@ describe('the top page', () => {
 
   it('asks the member directory itself: a member without the map role still counts', async () => {
     web = webServerWith({
-      web: { memberRole: 'Trainer' },
+      serverSettings: withMapRole(),
       serversWithMap: [PINEWOOD],
       members: new FakeMemberDirectory()
         .add(ASH, 'Ash', PINEWOOD.id)
-        .standing(ASH, { roleNames: [], administrator: false }, PINEWOOD.id),
+        .standing(ASH, { roleNames: [], roleIds: [], administrator: false }, PINEWOOD.id),
     });
     const answer = await web.app.inject({
       url: '/',

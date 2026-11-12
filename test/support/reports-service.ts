@@ -30,6 +30,7 @@ export async function reportsWith(
     regions: made.regions,
     gyms: made.gyms,
     settings: made.settings,
+    servers: made.servers,
     log: made.log,
     now: () => made.clock.now,
   });

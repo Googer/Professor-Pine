@@ -1,10 +1,13 @@
 import { trustProxyWarning } from '../config/warnings.js';
 import { ApplicationFlags, ChannelType, PermissionFlagsBits, Routes } from 'discord.js';
+import { parseServerValues, type ServerValues } from '../config/server-settings.js';
 import { channelNamesOf, type Settings } from '../config/settings.js';
+import type { StoredServer } from '../db/repositories/server-settings-repository.js';
+import { filledValues, type ServerNames } from '../services/server-fill.js';
 import type { MigrationPlan } from '../db/migrator.js';
 import type { CutoverRegion, CutoverSelfRole } from '../db/repositories/cutover-repository.js';
 import type { LegacyCommandRoles } from '../db/repositories/role-authorization-repository.js';
-import { channelKey, channelNameFor } from '../domain/regions/region-import.js';
+import { channelNameFor } from '../domain/regions/region-import.js';
 import type { DiscordRead } from './discord-rest.js';
 import { applicationEmojiNames, failureReason, iconSources, missingIcons } from './emoji-upload.js';
 import { cleanupList } from './legacy-cleanup.js';
@@ -48,6 +51,8 @@ export interface CutoverStore {
   legacyRestrictions(): Promise<LegacyCommandRoles[]>;
   /** The self-assigned roles of `Role`, which the bot gives and takes. */
   selfRoles(): Promise<CutoverSelfRole[]>;
+  /** The servers' settings (plan 19A-1, `ServerSettings`); none before the first start of 2.1. */
+  serverSettings(): Promise<StoredServer[]>;
 }
 
 export type CheckStatus = 'pass' | 'warn' | 'fail';
@@ -207,6 +212,61 @@ function needNames(needs: readonly Need[]): string {
   return needs.map((one) => one.name).join(', ');
 }
 
+/**
+ * A server's channels, categories and roles by name as the fill finds them (`ServerFill`, plan
+ * 19A-1), from what Discord's REST API gives: of several by a name, one the bot may post in
+ * first, the oldest first.
+ */
+function apiNames(
+  guildId: string,
+  channels: readonly ApiChannel[],
+  roles: readonly ApiRole[],
+  permissionsIn: (channel: ApiChannel) => bigint,
+): ServerNames {
+  const all = (name: string, types: readonly ChannelType[]) =>
+    channels.filter((one) => one.name === name && types.includes(one.type));
+  const typesOf = (kind: 'text' | 'forum' | 'category') => [
+    kind === 'forum'
+      ? ChannelType.GuildForum
+      : kind === 'category'
+        ? ChannelType.GuildCategory
+        : ChannelType.GuildText,
+  ];
+  const named = (name: string, types: readonly ChannelType[]) =>
+    all(name, types).sort((a, b) => {
+      const posts = (one: ApiChannel) =>
+        missingNeeds(permissionsIn(one), ANNOUNCE_NEEDS).required.length === 0 ? 0 : 1;
+      return posts(a) - posts(b) || (BigInt(a.id) < BigInt(b.id) ? -1 : 1);
+    })[0]?.id;
+  return {
+    serverId: guildId,
+    channel: (name, kind) => named(name, typesOf(kind)),
+    category: (name) => named(name, [ChannelType.GuildCategory]),
+    role: (name) => roles.find((one) => roleKey(one.name) === roleKey(name))?.id,
+    howMany: (name, kind) => all(name, typesOf(kind)).length,
+  };
+}
+
+/**
+ * A server's values as the bot reads them (plan 19A-1): its row's; without one (before the first
+ * start of 2.1), the file's as the fill will make them, its names resolved in the server. A row
+ * whose values cannot be read counts as none.
+ */
+function valuesOf(
+  stored: StoredServer | undefined,
+  settings: Settings,
+  names: ServerNames,
+): { values: ServerValues; row: boolean } {
+  if (stored !== undefined) {
+    try {
+      return { values: parseServerValues(stored.settings), row: true };
+    } catch {
+      // As the bot: the file's defaults, here with the fill's names.
+    }
+  }
+  return { values: filledValues(settings, names).values, row: false };
+}
+
 /** One server's lines: the bot's member and permissions, each region, the names of the settings. */
 async function serverLines(
   discord: DiscordRead,
@@ -215,7 +275,13 @@ async function serverLines(
   regions: readonly CutoverRegion[],
   settings: Settings,
   selfRoles: readonly CutoverSelfRole[],
-): Promise<{ lines: CheckLine[]; withoutForum: string[]; withoutBoard: string[] }> {
+  stored: StoredServer | undefined,
+): Promise<{
+  lines: CheckLine[];
+  withoutForum: string[];
+  withoutBoard: string[];
+  values: ServerValues | undefined;
+}> {
   const lines: CheckLine[] = [];
   const guild = (await discord.get(Routes.guild(guildId))) as {
     id: string;
@@ -232,7 +298,7 @@ async function serverLines(
       status: 'fail',
       text: `server ${guild.name}: the bot's member could not be read: ${failureReason(err)}`,
     });
-    return { lines, withoutForum: [], withoutBoard: [] };
+    return { lines, withoutForum: [], withoutBoard: [], values: undefined };
   }
   const channels = (await discord.get(Routes.guildChannels(guildId))) as ApiChannel[];
   const me: ApiMember = { id: bot.id, roleIds: member.roles };
@@ -373,8 +439,14 @@ async function serverLines(
     }
   }
 
-  lines.push(namesLine(guild.name, channels, guild.roles, settings));
-  lines.push(announceLine(guild.name, channels, settings, permissionsIn));
+  const found = apiNames(guild.id, channels, guild.roles, permissionsIn);
+  const { values, row } = valuesOf(stored, settings, found);
+  lines.push(
+    row
+      ? setIdsLine(guild.name, channels, guild.roles, values)
+      : namesLine(guild.name, found, settings),
+  );
+  lines.push(announceLine(guild.name, channels, values, permissionsIn));
   // Who may see a staff-only channel beside staff and the bot: everyone (the server's everyone
   // role), or the roles that let a member who is no staff see it. Staff are the roles the bot
   // takes for staff by their names (`isStaffRoleName`) and those that may manage the server.
@@ -409,8 +481,20 @@ async function serverLines(
     guild.roles
       .filter((role) => isManagementRoleName(role.name) && !sees(holderOf([role.id]), channel))
       .map((role) => role.name);
-  lines.push(moderationLine(guild.name, channels, settings, permissionsIn, seenBy, unseenByStaff));
-  if (settings.channels.moderation !== undefined) lines.push(reportsLine(guild.name, reportGaps));
+  // Without a row, what the file names and the fill will not find is said by its name.
+  const unfound = (name: string | undefined) => (row ? undefined : name);
+  lines.push(
+    moderationLine(
+      guild.name,
+      channels,
+      values,
+      unfound(settings.channels.moderation),
+      permissionsIn,
+      seenBy,
+      unseenByStaff,
+    ),
+  );
+  if (values.channels.moderation !== undefined) lines.push(reportsLine(guild.name, reportGaps));
   // Whether a holder of these roles sees a channel but cannot write in its posts (BR-7; re-review
   // RR-4: one that cannot see it is left out, as a server may keep @everyone out of channels).
   const silentIn = (channel: ApiChannel, roleIds: readonly string[]): boolean => {
@@ -426,48 +510,53 @@ async function serverLines(
       (has & PermissionFlagsBits.SendMessagesInThreads) === 0n
     );
   };
-  const events = eventsLine(guild.name, channels, settings, permissionsIn, {
-    guildId: guild.id,
-    roles: guild.roles,
-    silentIn,
-  });
+  const events = eventsLine(
+    guild.name,
+    channels,
+    values,
+    unfound(settings.channels.events),
+    permissionsIn,
+    {
+      guildId: guild.id,
+      roles: guild.roles,
+      silentIn,
+    },
+  );
   if (events) lines.push(events);
   const rolesCheck = rolesLine(guild.name, guild.roles, member.roles, selfRoles);
   if (rolesCheck) lines.push(rolesCheck);
-  return { lines, withoutForum, withoutBoard };
+  return { lines, withoutForum, withoutBoard, values };
 }
 
-/** The channels the bot announces in or copies posts to, as the settings name them. */
-function announceChannels(settings: Settings): string[] {
-  const { channels: named, features } = settings;
+/** The channels the bot announces in or copies posts to, as the server's values set them. */
+function announceChannels(values: ServerValues): string[] {
+  const { channels: set, features } = values;
   return [
-    named['bot-updates'],
-    named['mod-bot-lab'],
-    named.unown,
-    ...(features.exGymChannel ? [named['elite-gym-raids']] : []),
-    ...(features.remoteRaidChannel ? [named['remote-raids']] : []),
-  ];
+    set['bot-updates'],
+    set['mod-bot-lab'],
+    set.unown,
+    ...(features.exGymChannel ? [set['elite-gym-raids']] : []),
+    ...(features.remoteRaidChannel ? [set['remote-raids']] : []),
+  ].filter((id) => id !== undefined);
 }
 
 /** Whether the bot may post in the channels it announces in (those that exist: `names` says the rest). */
 function announceLine(
   server: string,
   channels: readonly ApiChannel[],
-  settings: Settings,
+  values: ServerValues,
   permissionsIn: (channel: ApiChannel) => bigint,
 ): CheckLine {
-  const gaps = announceChannels(settings).flatMap((name) => {
-    // Of several channels by the name, the bot sends to one it may post in (`findChannel`): one
-    // such passes; where none does, the first says what it lacks.
-    const missing = channels
-      .filter(
-        (one) =>
-          one.name === name &&
-          (one.type === ChannelType.GuildText || one.type === ChannelType.GuildAnnouncement),
-      )
-      .map((channel) => missingNeeds(permissionsIn(channel), ANNOUNCE_NEEDS).required);
-    if (missing.length === 0 || missing.some((one) => one.length === 0)) return [];
-    return [`${needNames(missing[0] ?? [])} in #${name}`];
+  const gaps = announceChannels(values).flatMap((id) => {
+    // A channel that is gone is the names line's.
+    const channel = channels.find(
+      (one) =>
+        one.id === id &&
+        (one.type === ChannelType.GuildText || one.type === ChannelType.GuildAnnouncement),
+    );
+    if (!channel) return [];
+    const missing = missingNeeds(permissionsIn(channel), ANNOUNCE_NEEDS).required;
+    return missing.length === 0 ? [] : [`${needNames(missing)} in #${channel.name}`];
   });
   return gaps.length === 0
     ? {
@@ -492,30 +581,39 @@ function announceLine(
 function moderationLine(
   server: string,
   channels: readonly ApiChannel[],
-  settings: Settings,
+  values: ServerValues,
+  fileName: string | undefined,
   permissionsIn: (channel: ApiChannel) => bigint,
   seenBy: (channel: ApiChannel) => 'everyone' | string[],
   unseenByStaff: (channel: ApiChannel) => string[],
 ): CheckLine {
-  const name = settings.channels.moderation;
-  if (name === undefined) {
+  const id = values.channels.moderation;
+  const cannot = 'a meetup that needs approval cannot be made there';
+  if (id === undefined && fileName !== undefined) {
+    return {
+      what: 'moderation',
+      status: 'warn',
+      text: `moderation: ${server} has no channel #${fileName}: ${cannot}`,
+    };
+  }
+  if (id === undefined) {
     return {
       what: 'moderation',
       status: 'warn',
       text:
-        'moderation: settings.channels.moderation is not set, so meetup safety is off: every ' +
-        'meetup is posted at once, wherever it is',
+        `moderation: ${server} has no moderators' channel set, so meetup safety is off there: ` +
+        'every meetup is posted at once, wherever it is',
     };
   }
-  const channel = channels.find((one) => one.name === name && one.type === ChannelType.GuildText);
-  const cannot = 'a meetup that needs approval cannot be made there';
+  const channel = channels.find((one) => one.id === id && one.type === ChannelType.GuildText);
   if (!channel) {
     return {
       what: 'moderation',
       status: 'warn',
-      text: `moderation: ${server} has no channel #${name}: ${cannot}`,
+      text: `moderation: the moderators' channel of ${server} is gone: ${cannot}`,
     };
   }
+  const { name } = channel;
   const missing = missingNeeds(permissionsIn(channel), MODERATION_NEEDS).required;
   if (missing.length > 0) {
     return {
@@ -572,7 +670,8 @@ function moderationLine(
 function eventsLine(
   server: string,
   channels: readonly ApiChannel[],
-  settings: Settings,
+  values: ServerValues,
+  fileName: string | undefined,
   permissionsIn: (channel: ApiChannel) => bigint,
   members: {
     guildId: string;
@@ -581,20 +680,26 @@ function eventsLine(
   },
 ): CheckLine | undefined {
   const { guildId, roles, silentIn } = members;
-  const named = settings.channels.events;
-  if (named === undefined) return undefined;
-  // As Discord stores the name, and as `/admin setup-forums` finds it (review V7, ruling R4).
-  const name = channelNameFor(named) || named;
-  const forum = channels.find(
-    (one) => channelKey(one.name) === channelKey(name) && one.type === ChannelType.GuildForum,
-  );
-  if (!forum) {
+  const id = values.channels.events;
+  if (id === undefined && fileName !== undefined) {
+    // As Discord stores the name, and as the fill looks for it (review V7, ruling R4).
+    const name = channelNameFor(fileName) || fileName;
     return {
       what: 'events',
       status: 'warn',
       text: `events: ${server} has no forum #${name}: /admin setup-forums makes it`,
     };
   }
+  if (id === undefined) return undefined;
+  const forum = channels.find((one) => one.id === id && one.type === ChannelType.GuildForum);
+  if (!forum) {
+    return {
+      what: 'events',
+      status: 'warn',
+      text: `events: the events forum of ${server} is gone: /admin setup-forums makes one`,
+    };
+  }
+  const { name } = forum;
   const missing = missingNeeds(permissionsIn(forum), inForum(EVENTS_FORUM_NEEDS)).required;
   if (missing.length > 0) {
     return {
@@ -606,11 +711,11 @@ function eventsLine(
     };
   }
   // Members write in the event posts (branch review BR-7): @everyone, and the map's member role
-  // where the settings name one.
-  const memberRole = settings.web?.memberRole;
+  // where the server sets one.
+  const memberRole = values.roles.mapMember;
   const silent = [
     { id: guildId, name: '@everyone' },
-    ...roles.filter((role) => memberRole !== undefined && role.name === memberRole),
+    ...roles.filter((role) => memberRole !== undefined && role.id === memberRole),
   ]
     .filter((role) => silentIn(forum, role.id === guildId ? [] : [role.id]))
     .map((role) => role.name);
@@ -713,24 +818,11 @@ function rolesLine(
   };
 }
 
-/** The channels, categories and roles the settings name that the server lacks. */
-function namesLine(
-  server: string,
-  channels: readonly ApiChannel[],
-  roles: readonly ApiRole[],
-  settings: Settings,
-): CheckLine {
-  const text = new Set(
-    channels
-      .filter(
-        (one) => one.type === ChannelType.GuildText || one.type === ChannelType.GuildAnnouncement,
-      )
-      .map((one) => one.name),
-  );
-  const categories = new Set(
-    channels.filter((one) => one.type === ChannelType.GuildCategory).map((one) => one.name),
-  );
-  const roleNames = new Set(roles.map((one) => roleKey(one.name)));
+/**
+ * The channels, categories and roles the settings name that the server lacks, as the fill of the
+ * first start of 2.1 finds them (`apiNames`): what it does not find stays unset.
+ */
+function namesLine(server: string, found: ServerNames, settings: Settings): CheckLine {
   const { channels: named, features } = settings;
   const wanted: [string, string][] = [
     ['bot-lab', named['bot-lab']],
@@ -746,12 +838,12 @@ function namesLine(
   ];
   const lacking = [
     ...wanted
-      .filter(([, name]) => !text.has(name))
+      .filter(([, name]) => found.channel(name, 'text') === undefined)
       .map(([key, name]) => `channels.${key} (#${name})`),
-    ...(categories.has(settings.categories.pvp)
+    ...(found.category(settings.categories.pvp) !== undefined
       ? []
       : [`categories.pvp (${settings.categories.pvp})`]),
-    ...(roleNames.has(roleKey(settings.roles.unown))
+    ...(found.role(settings.roles.unown) !== undefined
       ? []
       : [`roles.unown (${settings.roles.unown})`]),
   ];
@@ -768,6 +860,45 @@ function namesLine(
       };
 }
 
+/**
+ * The channels, category and roles a server's row sets (plan 19A-1, by id) that the server no
+ * longer has: unset in effect until its staff set them again in `/admin settings`.
+ */
+function setIdsLine(
+  server: string,
+  channels: readonly ApiChannel[],
+  roles: readonly ApiRole[],
+  values: ServerValues,
+): CheckLine {
+  const has = new Set(channels.map((one) => one.id));
+  const roleIds = new Set(roles.map((one) => one.id));
+  const lacking = [
+    ...Object.entries(values.channels)
+      .filter(([, id]) => id !== undefined && !has.has(id))
+      .map(([key]) => `the ${key} channel`),
+    ...(values.categories.pvp !== undefined && !has.has(values.categories.pvp)
+      ? ['the PvP category']
+      : []),
+    ...(values.roles.unown !== undefined && !roleIds.has(values.roles.unown)
+      ? ['the Unown role']
+      : []),
+    ...(values.roles.mapMember !== undefined && !roleIds.has(values.roles.mapMember)
+      ? ["the map's member role"]
+      : []),
+  ];
+  return lacking.length === 0
+    ? {
+        what: 'names',
+        status: 'pass',
+        text: `names: ${server} has every channel, category and role its settings set`,
+      }
+    : {
+        what: 'names',
+        status: 'warn',
+        text: `names: ${server} no longer has ${lacking.join(', ')} of its settings: set them again with /admin settings`,
+      };
+}
+
 /** What `/admin cleanup-legacy` would list in a server, counted (it deletes nothing here). */
 async function cleanupLine(
   discord: DiscordRead,
@@ -777,7 +908,10 @@ async function cleanupLine(
     name: string;
     botId: string;
     regions: readonly CutoverRegion[];
-    settings: Settings;
+    /** The channels of the server's settings (plan 19A-1: by id), never listed. */
+    settingsChannelIds: readonly string[];
+    /** The names the settings file gives its channels, never listed either (review F6). */
+    settingsChannelNames: readonly string[];
   },
 ): Promise<CheckLine> {
   const read = readLegacyActive(dir);
@@ -796,7 +930,8 @@ async function cleanupLine(
     regionForumIds: server.regions.flatMap((one) =>
       one.forumChannelId === null ? [] : [one.forumChannelId],
     ),
-    settingsChannelNames: channelNamesOf(server.settings),
+    settingsChannelIds: server.settingsChannelIds,
+    settingsChannelNames: server.settingsChannelNames,
     legacyParties: read.parties,
   });
   const byFile = list.remove.filter((entry) => named.has(entry.channelId)).length;
@@ -853,6 +988,7 @@ async function discordLines(
   regions: readonly CutoverRegion[],
   guildIds: readonly string[],
   selfRoles: readonly CutoverSelfRole[],
+  stored: readonly StoredServer[],
 ): Promise<CheckLine[]> {
   const { discord, appId, settings } = options;
   let application: { id: string; name: string; flags?: number; bot_public?: boolean };
@@ -980,6 +1116,8 @@ async function discordLines(
     }
     const withoutForum: string[] = [];
     const withoutBoard: string[] = [];
+    // The channels of each server's settings, by id, which the cleanup never lists.
+    const settingsChannels = new Map<string, string[]>();
     for (const guildId of guildIds.filter((id) => joinedIds.has(id))) {
       const ofServer = regions.filter((one) => one.guild === guildId);
       // A server that cannot be read is a failure of its own; the others are still checked.
@@ -991,6 +1129,11 @@ async function discordLines(
           ofServer,
           settings,
           selfRoles.filter((one) => one.guild === guildId),
+          stored.find((one) => one.serverId === guildId),
+        );
+        settingsChannels.set(
+          guildId,
+          Object.values(server.values?.channels ?? {}).filter((id) => id !== undefined),
         );
         lines.push(...server.lines);
         withoutForum.push(...server.withoutForum);
@@ -1018,7 +1161,8 @@ async function discordLines(
               name,
               botId: bot.id,
               regions: ofServer,
-              settings,
+              settingsChannelIds: settingsChannels.get(guildId) ?? [],
+              settingsChannelNames: channelNamesOf(options.settings),
             }),
           );
         } catch (err) {
@@ -1090,11 +1234,13 @@ export async function cutoverCheck(options: CutoverCheckOptions): Promise<CheckL
   let guildIds: string[] = [];
   let regions: CutoverRegion[] = [];
   let selfRoles: CutoverSelfRole[] = [];
+  let stored: StoredServer[] = [];
   let servers: CheckLine | undefined;
   try {
     guildIds = await store.guilds();
     regions = await store.regionRows();
     selfRoles = await store.selfRoles();
+    stored = await store.serverSettings();
   } catch (err) {
     servers = {
       what: 'servers',
@@ -1102,7 +1248,7 @@ export async function cutoverCheck(options: CutoverCheckOptions): Promise<CheckL
       text: `servers: the servers and regions of the database could not be read: ${failureReason(err)}`,
     };
   }
-  const found = await discordLines(options, regions, guildIds, selfRoles);
+  const found = await discordLines(options, regions, guildIds, selfRoles, stored);
   // A copy of production (a legacy or Pine database) without servers or regions is the wrong
   // copy, not a new install: what is a warning for an empty database fails it.
   const copy = !servers && (plan?.kind === 'takeover' || plan?.kind === 'pine');

@@ -141,12 +141,12 @@ function line(result: ForumSetup): string {
 }
 
 /** The events forum's line (plan 8V-1): what was done, then what was not and why. */
-function eventsLine(result: EventsForumSetup | 'thrown', botUpdates: string): string {
+function eventsLine(result: EventsForumSetup | 'thrown'): string {
   if (result === 'thrown') return 'Events forum: something went wrong (see the log).';
   if (result.forum === 'no-bot-updates') {
     return (
-      `Events forum: this server has no #${botUpdates} to make #${result.name} beside: add that ` +
-      `channel, or make the forum #${result.name} by hand, and run this again.`
+      `Events forum: this server has no channel for bot updates to make #${result.name} beside: ` +
+      'set one with /admin settings, or choose a forum there, and run this again.'
     );
   }
   if (result.forum === 'failed') return `Events forum (#${result.name}): ${result.reason}`;
@@ -242,9 +242,9 @@ export const setupForums: SubcommandPart = {
       'need Manage Messages in the forum).\n\nRun it again whenever you like: it changes only ' +
       'what is missing or out of date. A board that stands is pinned again, and one locked ' +
       'before members could use it is opened once; a lock a moderator sets later stays. A forum whose ' +
-      'region is gone is named and left alone.\n\nWhere my settings name an events forum, it is ' +
-      'made too, in the category of bot-updates, where only I can make posts, and its listing ' +
-      '"Events" is posted, pinned and locked.',
+      'region is gone is named and left alone.\n\nThe events forum is set up too: the one chosen ' +
+      'in /admin settings, or one made in the category of the channel for bot updates, where ' +
+      'only I can make posts, and its listing "Events" is posted, pinned and locked.',
     examples: ['/admin setup-forums'],
   },
   defer: 'ephemeral',
@@ -270,15 +270,13 @@ export const setupForums: SubcommandPart = {
     const events =
       ctx.rehearsal || !ctx.eventForum
         ? undefined
-        : await ctx.eventForum.setup(guildId).catch((err: unknown) => {
+        : await ctx.eventForum.setup(guildId, interaction.user.id).catch((err: unknown) => {
             ctx.log.warn({ err }, 'could not set up the events forum');
             // Said, not left out (branch review BR-6).
             return 'thrown' as const;
           });
     const closing = [
-      ...(events === undefined
-        ? []
-        : [eventsLine(events, ctx.config.settings.channels['bot-updates'])]),
+      ...(events === undefined ? [] : [eventsLine(events)]),
       ...(orphans.length === 0 ? [] : [orphanLine(orphans)]),
       ...(ctx.rehearsal ? [rehearsalLine(ctx.rehearsal.settings.regions)] : []),
       ...(unmatched === undefined

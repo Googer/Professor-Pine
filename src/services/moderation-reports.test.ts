@@ -86,6 +86,14 @@ describe('ModerationReports: a party reported', () => {
     expect(made.reportStore.reports.size).toBe(0);
   });
 
+  it('keeps nothing, and says nothing in the post, where the file named a moderators’ channel the server lacks (review F2)', async () => {
+    const made = await reportedMeetup({ moderation: null });
+    made.servers.values = { ...made.servers.values, unmatched: ['channels.moderation'] };
+    expect((await made.report()).kind).toBe('not-sent');
+    expect(made.reportStore.reports.size).toBe(0);
+    expect(made.gateway.messagesIn(made.postId)).toEqual([]);
+  });
+
   it('puts the report into the post and pings the staff once without a moderators’ channel', async () => {
     const made = await reportedMeetup({ moderation: null });
     expect((await made.report()).kind).toBe('asked');

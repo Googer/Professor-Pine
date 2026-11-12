@@ -7,6 +7,11 @@ import { MemoryWants } from '../../test/support/wants.js';
 import { loadSettings, type Settings } from '../config/settings.js';
 import { pokemonTarget } from '../domain/pogo/notification-target.js';
 import { MET_MEMBERS, UnownWantService } from './unown-want-service.js';
+import {
+  TEST_UNOWN_ROLE,
+  TestServers,
+  testServerValues,
+} from '../../test/support/server-values.js';
 
 const HOME = '412345678901234567';
 const AWAY = '412345678901234568';
@@ -14,10 +19,13 @@ const ALICE = '200000000000000002';
 const BOB = '200000000000000003';
 const UNOWN = pokemonTarget(201);
 const NOW = 1_800_000_000_000;
+const UNOWN_ROLE = TEST_UNOWN_ROLE;
+const OTHER_UNOWN_ROLE = '300000000000000022';
+const VALOR = '300000000000000023';
 
 function setup(
   change: (settings: Settings) => Settings = (settings) => settings,
-  more: { maxMet?: number } = {},
+  more: { maxMet?: number; servers?: TestServers } = {},
 ) {
   const wants = new MemoryWants();
   const gifts = new MemoryUnownGifts(new Set([HOME, AWAY]));
@@ -27,6 +35,7 @@ function setup(
     gifts,
     gameData: { catalogue: catalogueFixture() },
     settings: change(loadSettings(TEST_SETTINGS_PATH)),
+    servers: new TestServers(),
     log,
     now: () => NOW,
     ...more,
@@ -50,31 +59,41 @@ function setup(
 describe('UnownWantService', () => {
   it('gives a holder of the role a want for the spawns of Unown, and records it', async () => {
     const made = setup();
-    made.meet(made.service, ALICE, ['Valor', 'unown']);
+    made.meet(made.service, ALICE, [VALOR, UNOWN_ROLE]);
     await made.service.flush();
     expect(await made.wantsOf(ALICE)).toEqual([{ target: UNOWN, scope: 'spawn' }]);
     expect(made.gifts.rows).toEqual([{ memberId: ALICE, guildId: HOME, createdAt: NOW }]);
   });
 
-  it('reads the role by its name as the team is read: whatever its letter case', async () => {
+  it("reads the role by the id the server's staff set, whatever its name", async () => {
     const made = setup();
-    made.meet(made.service, ALICE, [' Unown ']);
-    made.meet(made.service, BOB, ['unown-hunters', 'Mystic']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
+    // Another role named unown is not it.
+    made.meet(made.service, BOB, [OTHER_UNOWN_ROLE, VALOR]);
     await made.service.flush();
     expect(await made.wantsOf(ALICE)).toHaveLength(1);
     expect(await made.wantsOf(BOB)).toEqual([]);
     expect(made.gifts.rows.map((row) => row.memberId)).toEqual([ALICE]);
   });
 
+  it('gives nobody one in a server whose staff set no Unown role', async () => {
+    const made = setup((settings) => settings, {
+      servers: new TestServers(testServerValues({ roles: {} })),
+    });
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
+    await made.service.flush();
+    expect(await made.wantsOf(ALICE)).toEqual([]);
+  });
+
   it('gives it once: a member who removed the want keeps it removed, also after a restart', async () => {
     const made = setup();
-    made.meet(made.service, ALICE, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
     await made.service.flush();
     await made.wants.remove(ALICE, HOME, UNOWN);
-    made.meet(made.service, ALICE, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
     await made.service.flush();
     const again = made.restarted();
-    made.meet(again, ALICE, ['unown']);
+    made.meet(again, ALICE, [UNOWN_ROLE]);
     await again.flush();
     expect(await made.wantsOf(ALICE)).toEqual([]);
     expect(made.gifts.rows).toHaveLength(1);
@@ -84,8 +103,8 @@ describe('UnownWantService', () => {
     const made = setup();
     await made.wants.set(ALICE, HOME, pokemonTarget(201, 'unown_f'), 'both');
     await made.wants.set(BOB, HOME, UNOWN, 'raid');
-    made.meet(made.service, ALICE, ['unown']);
-    made.meet(made.service, BOB, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
+    made.meet(made.service, BOB, [UNOWN_ROLE]);
     await made.service.flush();
     expect(await made.wantsOf(ALICE)).toEqual([
       { target: pokemonTarget(201, 'unown_f'), scope: 'both' },
@@ -96,7 +115,7 @@ describe('UnownWantService', () => {
 
   it('is per server', async () => {
     const made = setup();
-    made.meet(made.service, ALICE, ['unown'], HOME);
+    made.meet(made.service, ALICE, [UNOWN_ROLE], HOME);
     made.meet(made.service, ALICE, [], AWAY);
     await made.service.flush();
     expect(await made.wantsOf(ALICE, HOME)).toHaveLength(1);
@@ -106,7 +125,7 @@ describe('UnownWantService', () => {
   it('costs one look into a set after the first interaction of a member, role or not', async () => {
     const made = setup();
     for (let n = 0; n < 5; n++) {
-      made.meet(made.service, ALICE, ['unown']);
+      made.meet(made.service, ALICE, [UNOWN_ROLE]);
       made.meet(made.service, BOB, ['Valor']);
     }
     expect(made.reads.count).toBe(2);
@@ -117,7 +136,7 @@ describe('UnownWantService', () => {
 
   it('returns at once: nothing is read or written before the interaction goes on', async () => {
     const made = setup();
-    made.meet(made.service, ALICE, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
     expect(made.wants.rows).toEqual([]);
     expect(made.gifts.rows).toEqual([]);
     await made.service.flush();
@@ -129,7 +148,7 @@ describe('UnownWantService', () => {
       ...settings,
       features: { ...settings.features, notifications: false },
     }));
-    made.meet(made.service, ALICE, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
     await made.service.flush();
     expect(made.reads.count).toBe(0);
     expect(made.wants.rows).toEqual([]);
@@ -140,13 +159,13 @@ describe('UnownWantService', () => {
     const made = setup();
     made.wants.failing = new Error('the database is away');
     expect(() => {
-      made.meet(made.service, ALICE, ['unown']);
+      made.meet(made.service, ALICE, [UNOWN_ROLE]);
     }).not.toThrow();
     await made.service.flush();
     expect(made.gifts.rows).toEqual([]);
     expect(made.entries.some((entry) => entry.msg === 'could not give an Unown want')).toBe(true);
     made.wants.failing = undefined;
-    made.meet(made.service, ALICE, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
     await made.service.flush();
     expect(await made.wantsOf(ALICE)).toHaveLength(1);
     expect(made.gifts.rows).toHaveLength(1);
@@ -161,20 +180,20 @@ describe('UnownWantService', () => {
   it('gives nothing twice when the record could not be written after the want', async () => {
     const made = setup();
     made.gifts.failing = new Error('the database is away');
-    made.meet(made.service, ALICE, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
     await made.service.flush();
     // The first read of the record failed: nothing was given.
     expect(made.wants.rows).toEqual([]);
     made.gifts.failing = undefined;
     const real = made.gifts.record.bind(made.gifts);
     made.gifts.record = () => Promise.reject(new Error('lost'));
-    made.meet(made.service, ALICE, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
     await made.service.flush();
     expect(await made.wantsOf(ALICE)).toHaveLength(1);
     expect(made.gifts.rows).toEqual([]);
     // The next try finds the want and only records.
     made.gifts.record = real;
-    made.meet(made.service, ALICE, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
     await made.service.flush();
     expect(made.wants.rows).toHaveLength(1);
     expect(made.gifts.rows).toHaveLength(1);
@@ -184,7 +203,7 @@ describe('UnownWantService', () => {
     const made = setup();
     const real = made.gifts.record.bind(made.gifts);
     made.gifts.record = () => Promise.reject(new Error('lost'));
-    made.meet(made.service, ALICE, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
     await made.service.flush();
     expect(await made.wantsOf(ALICE)).toHaveLength(1);
     expect(made.gifts.rows).toEqual([]);
@@ -192,19 +211,19 @@ describe('UnownWantService', () => {
     // it back.
     await made.wants.remove(ALICE, HOME, UNOWN);
     made.gifts.record = real;
-    made.meet(made.service, ALICE, ['unown']);
+    made.meet(made.service, ALICE, [UNOWN_ROLE]);
     await made.service.flush();
     expect(await made.wantsOf(ALICE)).toEqual([]);
     expect(made.gifts.rows).toEqual([{ memberId: ALICE, guildId: HOME, createdAt: NOW }]);
     // And a record that fails again is owed again.
     const other = setup();
     other.gifts.record = () => Promise.reject(new Error('lost'));
-    other.meet(other.service, ALICE, ['unown']);
+    other.meet(other.service, ALICE, [UNOWN_ROLE]);
     await other.service.flush();
     await other.wants.remove(ALICE, HOME, UNOWN);
-    other.meet(other.service, ALICE, ['unown']);
+    other.meet(other.service, ALICE, [UNOWN_ROLE]);
     await other.service.flush();
-    other.meet(other.service, ALICE, ['unown']);
+    other.meet(other.service, ALICE, [UNOWN_ROLE]);
     await other.service.flush();
     expect(await other.wantsOf(ALICE)).toEqual([]);
     expect(

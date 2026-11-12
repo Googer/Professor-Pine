@@ -379,11 +379,11 @@ export interface PartyGateway {
   ): Promise<'allowed' | 'was-allowed' | 'not-allowed' | undefined>;
   /**
    * Who cannot write in a forum's posts (branch review BR-7: the events forum): `@everyone` and
-   * those of `roleNames` the server has, by name, where the forum lets them see it but not Send
+   * those of `roleIds` the server has, by name, where the forum lets them see it but not Send
    * Messages in Posts (re-review RR-4: one that cannot see it is left out). Undefined when the
    * forum is gone.
    */
-  rolesWithoutReplies(forumId: string, roleNames: readonly string[]): Promise<string[] | undefined>;
+  rolesWithoutReplies(forumId: string, roleIds: readonly string[]): Promise<string[] | undefined>;
   /** Deletes a post (its thread); one that is already gone is fine. */
   deletePost(postId: string): Promise<void>;
   /**
@@ -534,11 +534,13 @@ export interface PartyGateway {
   /** The name of a server the bot is in, from the cache (for a DM that names it). */
   guildName(guildId: string): string | undefined;
   /**
-   * The text channel with this name in the server that `nearChannelId` is in, in which the bot
-   * may send messages with embeds, from the cache: its id, or undefined when that server has
-   * none (of several, the oldest).
+   * The text channel of this id (a channel of a server's settings, plan 19A-1), when it is in the
+   * server that `nearChannelId` is in and the bot may send messages with embeds there, from the
+   * cache: its id; undefined otherwise (deleted, moved out of reach, of another server).
    */
-  findChannel(nearChannelId: string, name: string): string | undefined;
+  findChannel(nearChannelId: string, channelId: string): string | undefined;
+  /** The server a channel is in, from the cache; undefined for one it lacks (and a DM). */
+  serverOf(channelId: string): string | undefined;
   /**
    * Whether the bot may send messages with embeds in a text channel, from the cache: what
    * `findChannel` asks of the channels it finds. It is for text channels (the channels of
@@ -1815,13 +1817,13 @@ export class DiscordPartyGateway implements PartyGateway {
 
   async rolesWithoutReplies(
     forumId: string,
-    roleNames: readonly string[],
+    roleIds: readonly string[],
   ): Promise<string[] | undefined> {
     const forum = await this.forum(forumId);
     if (!forum) return undefined;
     const everyone = forum.guild.roles.everyone;
-    const named = roleNames.flatMap((name) => {
-      const role = [...forum.guild.roles.cache.values()].find((one) => one.name === name);
+    const named = roleIds.flatMap((id) => {
+      const role = forum.guild.roles.cache.get(id);
       return role ? [role] : [];
     });
     // Only a role that sees the forum and cannot write in its posts (re-review RR-4): a server
@@ -2310,21 +2312,21 @@ export class DiscordPartyGateway implements PartyGateway {
       : undefined;
   }
 
-  findChannel(nearChannelId: string, name: string): string | undefined {
+  findChannel(nearChannelId: string, channelId: string): string | undefined {
     const near = this.client.channels.cache.get(nearChannelId);
     if (!near || near.isDMBased()) return undefined;
     const me = near.guild.members.me;
-    const found = near.guild.channels.cache
-      .filter(
-        (channel) =>
-          channel.type === ChannelType.GuildText &&
-          channel.name === name &&
-          // Unknown (the bot's own member is not cached) counts as allowed: Discord will say.
-          (me === null || (channel.permissionsFor(me)?.has(CAN_POST) ?? false)),
-      )
-      .sort((a, b) => (a.createdTimestamp ?? 0) - (b.createdTimestamp ?? 0))
-      .first();
-    return found?.id;
+    const channel = near.guild.channels.cache.get(channelId);
+    if (channel?.type !== ChannelType.GuildText) return undefined;
+    // Unknown (the bot's own member is not cached) counts as allowed: Discord will say.
+    return me === null || (channel.permissionsFor(me)?.has(CAN_POST) ?? false)
+      ? channel.id
+      : undefined;
+  }
+
+  serverOf(channelId: string): string | undefined {
+    const channel = this.client.channels.cache.get(channelId);
+    return channel && !channel.isDMBased() ? channel.guildId : undefined;
   }
 
   async channelUnknown(channelId: string): Promise<boolean> {

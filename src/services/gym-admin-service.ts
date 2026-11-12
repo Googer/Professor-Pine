@@ -39,6 +39,8 @@ import { AdminLock } from './admin-lock.js';
 import type { PartyStore } from './party-store.js';
 import { gymRegionsInGuild, type RegionProvider } from './region-directory.js';
 import type { TrainService } from './train-service.js';
+import { serverChannel } from './server-channels.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 
 /** Another gym this near to a place is asked about before a gym is put there. */
 /** Another gym this near a place is named before one is added or moved there. */
@@ -234,7 +236,9 @@ export interface GymAdminOptions {
   >;
   geo: Pick<GeoGateway, 'followShortLink'>;
   /** To announce a new gym and a deletion in the server's channel for bot updates. */
-  gateway: Pick<PartyGateway, 'findChannel' | 'sendMessage'>;
+  gateway: Pick<PartyGateway, 'findChannel' | 'serverOf' | 'sendMessage'>;
+  /** Each server's values: its channel for bot updates (plan 19A-1). */
+  servers: ServerSettingsLookup;
   /** The map of a new gym for its announcement; without it the announcement has none. */
   maps?: Pick<MapProvider, 'gym'>;
   /** How long the review's changes are gathered (`REVIEW_SUMMARY_MS`). */
@@ -982,12 +986,11 @@ export class GymAdminService {
     place: StaffPlace,
     messages: () => readonly OutgoingMessage[] | Promise<readonly OutgoingMessage[]>,
   ): void {
-    const { gateway, settings, log } = this.options;
+    const { gateway, settings, servers, log } = this.options;
     if (!settings.postNewGyms) return;
     const sending: Promise<unknown> = (async () => {
-      const name = settings.channels['bot-updates'];
       for (const near of place.channelIds) {
-        const channelId = gateway.findChannel(near, name);
+        const channelId = serverChannel(gateway, servers, near, 'bot-updates');
         if (channelId === undefined) continue;
         // A map is fetched only once there is a channel to show it in.
         const tried = await messages();

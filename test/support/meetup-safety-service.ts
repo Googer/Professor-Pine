@@ -12,7 +12,10 @@ export const MODERATION = 'meetup-review';
 export const MOD_CHANNEL = '600000000000000777';
 
 export interface SafetyOptions {
-  /** The name the settings give the moderators' channel; null for none (the safety off). */
+  /**
+   * The name of the server's moderators' channel (`MOD_CHANNEL` in its values); null for none
+   * set (the safety off).
+   */
   moderation?: string | null;
   /** Whether the server has that channel. Default yes. */
   channel?: boolean;
@@ -34,11 +37,15 @@ export async function meetupSafetyWith(
 ) {
   const made = await partyServiceWith(parties, overrides);
   const { moderation = MODERATION, channel = true, flaggedWords } = options;
-  const { moderation: _none, ...channels } = made.settings.channels;
   const settings = {
     ...made.settings,
-    channels: moderation === null ? channels : { ...channels, moderation },
     ...(flaggedWords === undefined ? {} : { meetupSafety: { flaggedWords } }),
+  };
+  // The server's moderators' channel (plan 19A-1: by id), for every service of `made`.
+  const { moderation: _none, ...channels } = made.servers.values.channels;
+  made.servers.values = {
+    ...made.servers.values,
+    channels: moderation === null ? channels : { ...channels, moderation: MOD_CHANNEL },
   };
   if (channel && moderation !== null) made.gateway.addChannel(MOD_CHANNEL, moderation);
   const storage = new MemoryMeetupSafety();
@@ -54,6 +61,7 @@ export async function meetupSafetyWith(
       idFor: (snowflake) => Promise.resolve(snowflake === made.gateway.guildId ? 1 : undefined),
     },
     settings,
+    servers: made.servers,
     log: made.log,
     now: () => made.clock.now,
   });

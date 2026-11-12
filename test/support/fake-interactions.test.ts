@@ -243,8 +243,15 @@ describe('fake interactions', () => {
     expect(post.channel?.parent).toEqual({
       id: FAKE_PARENT_ID,
       name: 'downtown-raids',
-      parent: { name: 'RAIDS' },
+      parentId: null,
+      parent: { id: '600000000000000003', name: 'RAIDS' },
     });
+    // A category by its id (plan 19A-1).
+    const under = fakeChatInput({ parentId: '600000000000000009' });
+    expect([under.channel?.parentId, under.channel?.parent?.id]).toEqual([
+      '600000000000000009',
+      '600000000000000009',
+    ]);
 
     expect(fakeChatInput({ uncachedChannel: true }).channel).toBeNull();
     const dm = fakeChatInput({ isDm: true });

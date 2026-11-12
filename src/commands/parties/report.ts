@@ -196,7 +196,12 @@ export const report: SimpleCommand = {
   checks: REPORT_WINDOW,
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
-    await refuseReportedBefore(ctx, { kind: 'party', partyId: party.id }, interaction.user.id);
+    await refuseReportedBefore(
+      ctx,
+      guildIdOf(interaction),
+      { kind: 'party', partyId: party.id },
+      interaction.user.id,
+    );
     await interaction.showModal(partyReportForm(party));
   },
 };
@@ -208,10 +213,13 @@ export const report: SimpleCommand = {
  */
 export async function refuseReportedBefore(
   ctx: Pick<AppContext, 'reports'>,
-  subject: Parameters<AppContext['reports']['reportedBefore']>[0],
+  serverId: string,
+  subject: Parameters<AppContext['reports']['reportedBefore']>[1],
   reporterId: string,
 ): Promise<void> {
-  if (await ctx.reports.reportedBefore(subject, reporterId)) throw new UserError(REPORT_ALREADY);
+  if (await ctx.reports.reportedBefore(serverId, subject, reporterId)) {
+    throw new UserError(REPORT_ALREADY);
+  }
 }
 
 /**

@@ -35,8 +35,10 @@ import {
   type EventForumOptions,
 } from './event-forum.js';
 import { HistoryDays } from './history-days.js';
+import { TestServers, testServerValues } from '../../test/support/server-values.js';
 
 const SERVER = '412345678901234567';
+const STAFF = '200000000000000001';
 const BOT_UPDATES = '500000000000000010';
 const CATEGORY = '500000000000000011';
 
@@ -53,17 +55,24 @@ function eventForumWith(
     now?: number;
     days?: EventForumOptions['days'];
     planned?: EventForumOptions['planned'];
+    /** The server's events forum, by id, chosen in `/admin settings`; none unless given. */
+    eventsForum?: string;
   } = {},
 ) {
   const gateway = new FakePartyGateway();
   gateway.addChannel(CATEGORY, 'INFO', { kind: 'category' });
   gateway.addChannel(BOT_UPDATES, 'bot-updates', { categoryId: CATEGORY });
   const loaded = loadSettings(TEST_SETTINGS_PATH);
-  const settings: Settings = {
-    ...loaded,
-    channels: { ...loaded.channels, events: 'events' },
-    ...options.settings,
-  };
+  const settings: Settings = { ...loaded, ...options.settings };
+  // The server's values (plan 19A-1): its channel for bot updates, and its events forum if given.
+  const servers = new TestServers(
+    testServerValues({
+      channels: {
+        'bot-updates': BOT_UPDATES,
+        ...(options.eventsForum === undefined ? {} : { events: options.eventsForum }),
+      },
+    }),
+  );
   const store = new MemoryEventForums();
   // What the feed's provider knows: the listing, whether it is known, what it dropped (V1).
   const listed = {
@@ -85,6 +94,8 @@ function eventForumWith(
       droppedIds: () => listed.dropped,
     },
     settings,
+    servers,
+    forumName: 'events',
     log,
     ...(options.days === undefined ? {} : { days: options.days }),
     ...(options.planned === undefined ? {} : { planned: options.planned }),
@@ -135,6 +146,7 @@ function eventForumWith(
     listed,
     entries,
     settings,
+    servers,
     clock,
     timers,
     read,
@@ -147,7 +159,7 @@ function eventForumWith(
 describe('EventForumService: the forum of /admin setup-forums (plan 8V-1)', () => {
   it('makes the forum in the category of bot-updates, closed to posts by members, and records it', async () => {
     const { service, gateway, store } = eventForumWith();
-    const result = await service.setup(SERVER);
+    const result = await service.setup(SERVER, STAFF);
     expect(result).toMatchObject({
       forum: 'created',
       posting: 'reserved',
@@ -166,42 +178,59 @@ describe('EventForumService: the forum of /admin setup-forums (plan 8V-1)', () =
     expect(await store.forum(SERVER)).toMatchObject({ serverId: SERVER, forumId });
   });
 
-  it('finds the forum by its name when it is there, and makes nothing then', async () => {
-    const { service, gateway, store } = eventForumWith();
-    gateway.addChannel('600000000000000001', 'Events', { kind: 'forum' });
-    gateway.addForum('600000000000000001', [], 'Events');
-    expect(await service.setup(SERVER)).toMatchObject({
+  it("keeps the forum it made as the server's events forum, by its id, with who ran the setup", async () => {
+    const { service, servers } = eventForumWith();
+    const result = await service.setup(SERVER, STAFF);
+    const forumId = result.forum === 'created' ? result.forumId : '';
+    expect(servers.of(SERVER).channels.events).toBe(forumId);
+    expect(servers.changes.map((change) => change.by)).toEqual([STAFF]);
+    // Run again, it finds it: nothing more is made or kept.
+    expect(await service.setup(SERVER, STAFF)).toMatchObject({ forum: 'ready', forumId });
+    expect(servers.changes).toHaveLength(1);
+  });
+
+  it('finds the forum its staff chose, whatever its name, and makes nothing then', async () => {
+    const { service, gateway, store } = eventForumWith({ eventsForum: '600000000000000001' });
+    gateway.addChannel('600000000000000001', 'Game News', { kind: 'forum' });
+    gateway.addForum('600000000000000001', [], 'Game News');
+    // A forum named as a new one would be is not it.
+    gateway.addChannel('600000000000000002', 'events', { kind: 'forum' });
+    gateway.addForum('600000000000000002', [], 'events');
+    expect(await service.setup(SERVER, STAFF)).toMatchObject({
       forum: 'ready',
+      name: 'Game News',
       forumId: '600000000000000001',
     });
-    expect([...gateway.forums.keys()]).toEqual(['600000000000000001']);
+    expect([...gateway.forums.keys()].sort()).toEqual(['600000000000000001', '600000000000000002']);
     expect((await store.forum(SERVER))?.forumId).toBe('600000000000000001');
   });
 
-  // Review V7 (ruling R4): the name compared as Discord stores it, lower case, spaces to hyphens.
-  it('makes and finds the forum by its name as Discord stores it', async () => {
-    const loaded = loadSettings(TEST_SETTINGS_PATH);
-    const named = { channels: { ...loaded.channels, events: 'Game Events' } };
-    const made = eventForumWith({ settings: named });
-    const result = await made.service.setup(SERVER);
+  it('makes one where the forum its staff chose is gone, and keeps it in its place', async () => {
+    const { service, gateway, servers } = eventForumWith({ eventsForum: '600000000000000001' });
+    const result = await service.setup(SERVER, STAFF);
     const forumId = result.forum === 'created' ? result.forumId : '';
-    expect(made.gateway.forums.get(forumId)?.name).toBe('game-events');
-    const found = eventForumWith({ settings: named });
-    found.gateway.addChannel('600000000000000001', 'game-events', { kind: 'forum' });
-    found.gateway.addForum('600000000000000001', [], 'game-events');
-    expect(await found.service.setup(SERVER)).toMatchObject({
-      forum: 'ready',
-      forumId: '600000000000000001',
-    });
+    expect(gateway.forums.get(forumId)?.name).toBe('events');
+    expect(servers.of(SERVER).channels.events).toBe(forumId);
   });
 
-  it('takes the forum the name names over one recorded under another name (R7)', async () => {
-    const { service, gateway, store } = eventForumWith();
+  it("takes back the forum it made when it cannot keep it in the server's values", async () => {
+    const { service, gateway, servers } = eventForumWith();
+    servers.failing = new Error('database away');
+    expect(await service.setup(SERVER, STAFF)).toEqual({
+      forum: 'failed',
+      name: 'events',
+      reason: 'Something went wrong (see the log).',
+    });
+    expect([...gateway.forums.keys()].filter((id) => !gateway.gone.has(id))).toEqual([]);
+  });
+
+  it('takes the forum its staff chose over one recorded before (R7)', async () => {
+    const { service, gateway, store } = eventForumWith({ eventsForum: '600000000000000001' });
     await store.setForum(SERVER, '600000000000000009');
     await store.setListing(SERVER, '600000000000000009', '700000000000000001');
     gateway.addChannel('600000000000000001', 'events', { kind: 'forum' });
     gateway.addForum('600000000000000001', [], 'events');
-    await service.setup(SERVER);
+    await service.setup(SERVER, STAFF);
     const record = await store.forum(SERVER);
     expect(record?.forumId).toBe('600000000000000001');
     // The listing of the old forum is forgotten; the new forum has its own.
@@ -209,11 +238,11 @@ describe('EventForumService: the forum of /admin setup-forums (plan 8V-1)', () =
   });
 
   it('says what it could not do: close it to members, let itself manage the posts', async () => {
-    const { service, gateway } = eventForumWith();
+    const { service, gateway } = eventForumWith({ eventsForum: '600000000000000001' });
     gateway.addChannel('600000000000000001', 'events', { kind: 'forum' });
     gateway.addForum('600000000000000001', [], 'events');
     gateway.noReserving.add('600000000000000001');
-    expect(await service.setup(SERVER)).toMatchObject({
+    expect(await service.setup(SERVER, STAFF)).toMatchObject({
       forum: 'ready',
       posting: 'not-allowed',
       managing: 'not-allowed',
@@ -223,42 +252,46 @@ describe('EventForumService: the forum of /admin setup-forums (plan 8V-1)', () =
   // Branch review BR-6: one setup per server at a time.
   it('makes one forum for two setups of a server at once', async () => {
     const { service, gateway } = eventForumWith();
-    const [first, second] = await Promise.all([service.setup(SERVER), service.setup(SERVER)]);
+    const [first, second] = await Promise.all([
+      service.setup(SERVER, STAFF),
+      service.setup(SERVER, STAFF),
+    ]);
     expect([...gateway.forums.values()].filter((forum) => forum.name === 'events')).toHaveLength(1);
     expect([first.forum, second.forum].sort()).toEqual(['created', 'ready']);
   });
 
   // Branch review BR-7.
   it('says who cannot write in the event posts', async () => {
-    const { service, gateway } = eventForumWith();
+    const { service, gateway } = eventForumWith({ eventsForum: '600000000000000001' });
     gateway.addChannel('600000000000000001', 'events', { kind: 'forum' });
     gateway.addForum('600000000000000001', [], 'events');
     gateway.noReplies.set('600000000000000001', ['@everyone']);
-    expect(await service.setup(SERVER)).toMatchObject({ replies: ['@everyone'] });
+    expect(await service.setup(SERVER, STAFF)).toMatchObject({ replies: ['@everyone'] });
   });
 
-  it('makes it beside the bot-updates channel the bot may post in, of two by that name', async () => {
-    // PGP Bot Development Lab has #bot-updates under two categories; the bot sees only one.
+  it("makes it beside the server's channel for bot updates, not another of that name", async () => {
+    // PGP Bot Development Lab has #bot-updates under two categories.
     const { service, gateway } = eventForumWith();
     gateway.addChannel('500000000000000020', 'DEV', { kind: 'category' });
     gateway.addChannel('500000000000000021', 'bot-updates', { categoryId: '500000000000000020' });
-    gateway.noEmbeds.add(BOT_UPDATES);
-    const result = await service.setup(SERVER);
+    const result = await service.setup(SERVER, STAFF);
     const forumId = result.forum === 'created' ? result.forumId : '';
-    expect(gateway.forums.get(forumId)).toMatchObject({ regionChannelId: '500000000000000021' });
+    expect(gateway.forums.get(forumId)).toMatchObject({ regionChannelId: BOT_UPDATES });
   });
 
-  it('makes none without a bot-updates channel to make it beside', async () => {
-    const { service, gateway } = eventForumWith();
+  it('makes none without a channel for bot updates to make it beside', async () => {
+    const { service, gateway, servers } = eventForumWith();
     gateway.channels.delete(BOT_UPDATES);
-    expect(await service.setup(SERVER)).toEqual({ forum: 'no-bot-updates', name: 'events' });
+    expect(await service.setup(SERVER, STAFF)).toEqual({ forum: 'no-bot-updates', name: 'events' });
+    servers.values = testServerValues({ channels: {} });
+    expect(await service.setup(SERVER, STAFF)).toEqual({ forum: 'no-bot-updates', name: 'events' });
     expect(gateway.forums.size).toBe(0);
   });
 
   it('says why a forum it could not make is missing', async () => {
     const { service, gateway, entries } = eventForumWith();
     gateway.botPermissions = 0n;
-    expect(await service.setup(SERVER)).toEqual({
+    expect(await service.setup(SERVER, STAFF)).toEqual({
       forum: 'failed',
       name: 'events',
       reason: 'I need Manage Channels in the category of #bot-updates',
@@ -305,7 +338,7 @@ describe('EventForumService: the listing "Events" (plan 8V-1)', () => {
   /** The service with its forum made by the setup, and the feed read once. */
   const drawn = async (events: ListedEvent[] = [COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD]) => {
     const made = eventForumWith({ events });
-    const setup = await made.service.setup(SERVER);
+    const setup = await made.service.setup(SERVER, STAFF);
     made.service.start();
     await made.service.flush();
     const forumId = setup.forum === 'created' ? setup.forumId : '';
@@ -473,7 +506,7 @@ describe('EventForumService: the listing "Events" (plan 8V-1)', () => {
 describe('EventForumService: an event’s post (plan 8V-1)', () => {
   const drawn = async (events: ListedEvent[] = [COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD]) => {
     const made = eventForumWith({ events });
-    const setup = await made.service.setup(SERVER);
+    const setup = await made.service.setup(SERVER, STAFF);
     made.service.start();
     await made.service.flush();
     const forumId = setup.forum === 'created' ? setup.forumId : '';
@@ -623,7 +656,7 @@ describe('EventForumService: an event’s post (plan 8V-1)', () => {
 describe('EventForumService: the review’s fixes (plan 8V-1, round 1)', () => {
   const drawn = async (events: ListedEvent[] = [COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD]) => {
     const made = eventForumWith({ events });
-    const setup = await made.service.setup(SERVER);
+    const setup = await made.service.setup(SERVER, STAFF);
     made.service.start();
     await made.service.flush();
     const forumId = setup.forum === 'created' ? setup.forumId : '';
@@ -669,7 +702,7 @@ describe('EventForumService: the review’s fixes (plan 8V-1, round 1)', () => {
   it('makes the posts anew in a forum that replaced the old one, none marked gone', async () => {
     const { service, gateway, forumId, store } = await drawn();
     gateway.gone.add(forumId);
-    const again = await service.setup(SERVER);
+    const again = await service.setup(SERVER, STAFF);
     const newForum = again.forum === 'created' ? again.forumId : '';
     expect(newForum).not.toBe(forumId);
     await service.flush();
@@ -708,7 +741,8 @@ describe('EventForumService: the review’s fixes (plan 8V-1, round 1)', () => {
 
   // V4: another pinned post (Discord's one pin per forum) keeps nothing else from happening.
   it('makes, locks and records the listing although the forum’s one pin is taken, said once', async () => {
-    const made = eventForumWith({ events: [COMMUNITY_DAY] });
+    const made = eventForumWith({ events: [COMMUNITY_DAY], eventsForum: '600000000000000001' });
+    made.gateway.addChannel('600000000000000001', 'events', { kind: 'forum' });
     made.gateway.addForum('600000000000000001', [], 'events');
     const other =
       (await made.gateway.createPost('600000000000000001', {
@@ -717,7 +751,7 @@ describe('EventForumService: the review’s fixes (plan 8V-1, round 1)', () => {
         tagIds: [],
       })) ?? '';
     await made.gateway.pinPost(other);
-    const setup = await made.service.setup(SERVER);
+    const setup = await made.service.setup(SERVER, STAFF);
     expect(setup).toMatchObject({ listing: 'made' });
     const listingId = (await made.store.forum(SERVER))?.listingPostId ?? '';
     expect(made.gateway.posts.get(listingId)).toMatchObject({ locked: true, pinned: false });
@@ -769,7 +803,7 @@ describe('EventForumService: the review’s fixes (plan 8V-1, round 1)', () => {
 describe('EventForumService: the re-review’s fixes (plan 8V-1, round 2)', () => {
   const drawn = async (events: ListedEvent[] = [COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD]) => {
     const made = eventForumWith({ events });
-    const setup = await made.service.setup(SERVER);
+    const setup = await made.service.setup(SERVER, STAFF);
     made.service.start();
     await made.service.flush();
     const forumId = setup.forum === 'created' ? setup.forumId : '';
@@ -796,7 +830,7 @@ describe('EventForumService: the re-review’s fixes (plan 8V-1, round 2)', () =
 
   // W2: no draw straddles setup's change of forum: a draw under way ends first.
   it('lets a draw under way end before setup changes the forum, so no row of the old forum is left', async () => {
-    const { store, gateway, forumId, read, service } = await drawn();
+    const { store, gateway, forumId, read, service, servers } = await drawn();
     const hold = heldCall('the posts of a draw');
     const posts = store.posts.bind(store);
     let holding = true;
@@ -810,11 +844,15 @@ describe('EventForumService: the re-review’s fixes (plan 8V-1, round 2)', () =
     };
     const reading = read([COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD, FAR_OFF]);
     await hold.reached;
-    // The old forum is renamed by hand and a new one takes the settings' name.
-    const old = gateway.forums.get(forumId);
-    if (old) old.name = 'old-events';
+    // Staff choose another forum in /admin settings, and set it up.
+    gateway.addChannel('600000000000000002', 'events', { kind: 'forum' });
     gateway.addForum('600000000000000002', [], 'events');
-    const setup = service.setup(SERVER);
+    servers.changed.set(SERVER, {
+      ...servers.of(SERVER),
+      channels: { ...servers.of(SERVER).channels, events: '600000000000000002' },
+    });
+    expect(forumId).not.toBe('600000000000000002');
+    const setup = service.setup(SERVER, STAFF);
     hold.release();
     await setup;
     await reading;
@@ -830,7 +868,7 @@ describe('EventForumService: the re-review’s fixes (plan 8V-1, round 2)', () =
 describe('EventForumService: the branch review’s fixes to the posts (BR-3 to BR-5)', () => {
   const drawn = async (events: ListedEvent[] = [COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD]) => {
     const made = eventForumWith({ events });
-    await made.service.setup(SERVER);
+    await made.service.setup(SERVER, STAFF);
     made.service.start();
     await made.service.flush();
     const rowOf = async (eventId: string) =>
@@ -937,7 +975,7 @@ describe('EventForumService: the branch review’s fixes to the posts (BR-3 to B
 describe('EventForumService: a post brought to its message though its event is unchanged (plan 8M-15)', () => {
   const drawn = async () => {
     const made = eventForumWith({ events: [COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD] });
-    await made.service.setup(SERVER);
+    await made.service.setup(SERVER, STAFF);
     made.service.start();
     await made.service.flush();
     const postOf = async (eventId: string) => {
@@ -1050,7 +1088,7 @@ describe('EventForumService: how many posts a feed may make (plan 8Z-2)', () => 
     const made = eventForumWith({ events: [] });
     // Posts made with ids of the clock's time, as Discord's are: the cap counts by them.
     made.gateway.clock = () => made.clock.now;
-    await made.service.setup(SERVER);
+    await made.service.setup(SERVER, STAFF);
     made.service.start();
     await made.service.flush();
     const posted = async () =>
@@ -1275,7 +1313,7 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
       },
     });
     made.listed.known = options.known ?? true;
-    const setup = await made.service.setup(SERVER);
+    const setup = await made.service.setup(SERVER, STAFF);
     const forumId = setup.forum === 'created' ? setup.forumId : '';
     const recalled = () =>
       made.gateway.postsIn(forumId).filter((post) => post.title.startsWith('On this day'));
@@ -1349,7 +1387,7 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
 
   it('takes over a post made before a restart that was not recorded, never making a second', async () => {
     const made = eventForumWith({ settings: { web: WEB } });
-    const setup = await made.service.setup(SERVER);
+    const setup = await made.service.setup(SERVER, STAFF);
     const forumId = setup.forum === 'created' ? setup.forumId : '';
     // The run before made the post and stopped before its record was written.
     const left = await made.gateway.createPost(forumId, {
@@ -1517,14 +1555,12 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
     expect(recalled()).toHaveLength(1);
   });
 
-  it('is never made in rehearsal mode, nor without a forum named (G18)', () => {
+  it('is never made in rehearsal mode (G18); which servers have a forum is theirs', () => {
     const loaded = loadSettings(TEST_SETTINGS_PATH);
-    const named = { ...loaded, channels: { ...loaded.channels, events: 'events' } };
-    expect(eventForumWanted(named)).toBe(true);
-    expect(eventForumWanted(loaded)).toBe(false);
+    expect(eventForumWanted(loaded)).toBe(true);
     expect(
       eventForumWanted({
-        ...named,
+        ...loaded,
         rehearsal: { allowlist: ['200000000000000001'], regions: ['west'], staffRoles: [] },
       }),
     ).toBe(false);
@@ -1579,7 +1615,7 @@ describe('EventForumService: the trains and meetups planned during an event', ()
         deny: '0',
       },
     ]);
-    await made.service.setup(SERVER);
+    await made.service.setup(SERVER, STAFF);
     made.service.start();
     await made.service.flush();
     const postOf = async (eventId: string) => {

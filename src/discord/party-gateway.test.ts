@@ -333,13 +333,17 @@ describe('FakePartyGateway', () => {
     expect(gateway.posts.get(postId)).toMatchObject({ archived: false, reopened: 1 });
   });
 
-  it('finds a channel of the server by its name', () => {
+  it('finds a channel of the server by its id, not one of another server', () => {
     const gateway = new FakePartyGateway();
     gateway.channelNames.set('500000000000000001', 'remote-raids');
-    expect(gateway.findChannel('100000000000000001', 'remote-raids')).toBe('500000000000000001');
-    expect(gateway.findChannel('100000000000000001', 'elite-gym-raids')).toBeUndefined();
+    gateway.addChannel('500000000000000002', 'remote-raids', { guildId: '412345678901234568' });
+    expect(gateway.findChannel('100000000000000001', '500000000000000001')).toBe(
+      '500000000000000001',
+    );
+    expect(gateway.findChannel('100000000000000001', '500000000000000003')).toBeUndefined();
+    expect(gateway.findChannel('100000000000000001', '500000000000000002')).toBeUndefined();
     gateway.gone.add('500000000000000001');
-    expect(gateway.findChannel('100000000000000001', 'remote-raids')).toBeUndefined();
+    expect(gateway.findChannel('100000000000000001', '500000000000000001')).toBeUndefined();
   });
 
   it('says who sees a forum of overwrites from the everyone role’s permissions as its shares do (8H5-3)', async () => {
@@ -2103,7 +2107,7 @@ describe('the events forum’s posts (plan 8V-1)', () => {
         channels: { fetch: () => Promise.resolve(forum) },
         user: { id: 'bot' },
       } as unknown as Client);
-      await expect(gateway.rolesWithoutReplies('f', ['Member', 'Nobody'])).resolves.toEqual([
+      await expect(gateway.rolesWithoutReplies('f', ['m', 'nobody'])).resolves.toEqual([
         '@everyone',
       ]);
     });
@@ -2545,7 +2549,7 @@ describe('the events forum’s posts (plan 8V-1)', () => {
         channels: { fetch: () => Promise.resolve(forum) },
         user: { id: 'bot' },
       } as unknown as Client);
-      await expect(gateway.rolesWithoutReplies('f', ['Member'])).resolves.toEqual(['Member']);
+      await expect(gateway.rolesWithoutReplies('f', ['m'])).resolves.toEqual(['Member']);
     });
 
     it('lists the bot’s archived posts of a forum page by page, newest first', async () => {

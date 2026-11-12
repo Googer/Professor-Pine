@@ -26,6 +26,7 @@ import {
   type CheckLine,
   type CutoverStore,
 } from './cutover-check.js';
+import type { StoredServer } from '../db/repositories/server-settings-repository.js';
 
 const bits = (...flags: bigint[]): string => String(flags.reduce((all, flag) => all | flag, 0n));
 
@@ -39,6 +40,8 @@ class MemoryCutoverStore implements CutoverStore {
   regions: CutoverRegion[] = [];
   restrictions: LegacyCommandRoles[] = [];
   roles: CutoverSelfRole[] = [];
+  /** The servers' settings of 2.1 (plan 19A-1); none before its first start. */
+  stored: StoredServer[] = [];
   /** The sections that fail when read (a table the database lacks). */
   failing = new Set<'plan' | 'servers' | 'restrictions'>();
 
@@ -49,6 +52,9 @@ class MemoryCutoverStore implements CutoverStore {
   }
   selfRoles(): Promise<CutoverSelfRole[]> {
     return Promise.resolve(this.roles);
+  }
+  serverSettings(): Promise<StoredServer[]> {
+    return Promise.resolve(this.stored);
   }
   guilds(): Promise<string[]> {
     if (this.failing.has('servers'))
@@ -412,6 +418,50 @@ describe('cutoverCheck', () => {
     });
   });
 
+  // Plan 19A-1: after the first start of 2.1 each server has its row, by ids, whatever the file.
+  describe("a server's row", () => {
+    const idOf = (name: string) => shape.guild.channels.find((one) => one.name === name)?.id;
+    const rowWith = (channels: Record<string, string | undefined>) => {
+      store.stored = [
+        {
+          serverId: shape.guild.id,
+          settings: { channels },
+          setUpAt: 1,
+          updatedAt: 1,
+          updatedBy: null,
+        },
+      ];
+    };
+
+    it('reads the channels its row sets, by id, not the names of the file', async () => {
+      rowWith({ 'bot-updates': idOf('bot-updates'), moderation: idOf('meetup-review') });
+      settings = { ...settings, channels: { ...settings.channels, moderation: 'renamed' } };
+      const lines = await check();
+      expect(line(lines, 'names')).toMatchObject({
+        status: 'pass',
+        text: 'names: Pittsburgh has every channel, category and role its settings set',
+      });
+      expect(line(lines, 'moderation').text).toBe(
+        'moderation: in Pittsburgh meetups that need approval go to #meetup-review',
+      );
+    });
+
+    it('warns of what its row sets that the server no longer has', async () => {
+      rowWith({ 'bot-lab': '512345678901234599', moderation: '512345678901234598' });
+      const lines = await check();
+      expect(line(lines, 'names')).toMatchObject({
+        status: 'warn',
+        text:
+          'names: Pittsburgh no longer has the bot-lab channel, the moderation channel of its ' +
+          'settings: set them again with /admin settings',
+      });
+      expect(line(lines, 'moderation').text).toBe(
+        "moderation: the moderators' channel of Pittsburgh is gone: a meetup that needs " +
+          'approval cannot be made there',
+      );
+    });
+  });
+
   describe('meetup safety', () => {
     it("passes a moderators' channel the bot may post in", async () => {
       expect(line(await check(), 'moderation')).toEqual({
@@ -428,8 +478,8 @@ describe('cutoverCheck', () => {
         what: 'moderation',
         status: 'warn',
         text:
-          'moderation: settings.channels.moderation is not set, so meetup safety is off: ' +
-          'every meetup is posted at once, wherever it is',
+          "moderation: Pittsburgh has no moderators' channel set, so meetup safety is off " +
+          'there: every meetup is posted at once, wherever it is',
       });
     });
 

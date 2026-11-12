@@ -25,7 +25,7 @@ import {
   eventPostTitle,
   listingMessage,
 } from '../render/events-forum.js';
-import { channelKey, channelNameFor } from '../domain/regions/region-import.js';
+import { channelNameFor } from '../domain/regions/region-import.js';
 import { BoundedMap } from '../bounded-map.js';
 import type { Logger } from '../log.js';
 import type { CatchUpOutcome } from './catch-up.js';
@@ -47,6 +47,7 @@ import type { Party } from '../domain/party/party.js';
 import { startTimeOf } from '../domain/party/timed.js';
 import type { EventPlannedView } from '../render/event-parties.js';
 import type { PartyListener } from './party-store.js';
+import type { ServerSettingsService } from './server-settings.js';
 
 const DAY_MS = 24 * 60 * 60_000;
 /** A post still open this long after its event's end is archived by the upkeep, once (R1). */
@@ -173,7 +174,14 @@ export interface EventForumOptions {
   gateway: PartyGateway;
   store: EventForumStorage;
   events: ListedEventProvider;
-  settings: Pick<Settings, 'channels' | 'eventsForum' | 'timezone' | 'web'>;
+  settings: Pick<Settings, 'eventsForum' | 'timezone' | 'web'>;
+  /**
+   * Each server's values (plan 19A-1): its events forum, by id (set by `setup` when it makes
+   * one), its channel for bot updates, the map's member role.
+   */
+  servers: ServerSettingsService;
+  /** The name a new events forum is given (the file's `channels.events`, else `events`). */
+  forumName: string;
   log: Logger;
   /**
    * The big days (plan 8H-8, `HistoryDays`): "On this day" is posted only with them, and
@@ -196,18 +204,25 @@ export interface EventForumOptions {
 }
 
 /**
- * Whether the bot has an events forum (`app.ts` makes `EventForumService` only then): where the
- * settings name one, and never in rehearsal mode (R8: the rehearsal's gateway would drop and log
- * its posts at every draw; plan 8H-8, G18: nor "On this day").
+ * Whether the bot has events forums (`app.ts` makes `EventForumService` only then): never in
+ * rehearsal mode (R8: the rehearsal's gateway would drop and log its posts at every draw; plan
+ * 8H-8, G18: nor "On this day"). Which servers have one is theirs (plan 19A-1): those whose staff
+ * ran `/admin setup-forums` or chose a forum in `/admin settings`.
  */
-export function eventForumWanted(settings: Pick<Settings, 'channels' | 'rehearsal'>): boolean {
-  return settings.rehearsal === undefined && settings.channels.events !== undefined;
+export function eventForumWanted(settings: Pick<Settings, 'rehearsal'>): boolean {
+  return settings.rehearsal === undefined;
+}
+
+/** The name of a new events forum: the file's `channels.events` (plan 8V-1), else `events`. */
+export function newEventsForumName(settings: Pick<Settings, 'channels'>): string {
+  const name = settings.channels.events ?? 'events';
+  return channelNameFor(name) || name;
 }
 
 /**
  * The events forum of each server (plan 8V-1; design `2026-10-28-events-forum-design.md`): one
- * forum, named by `settings.channels.events`, made by `/admin setup-forums` in the category of
- * `bot-updates`, with Pine's pinned and locked listing "Events" (`EVENTS_TITLE`: Now, This week,
+ * forum, the server's events forum (plan 19A-1: by id), made by `/admin setup-forums` in the
+ * category of its channel for bot updates, with Pine's pinned and locked listing "Events" (`EVENTS_TITLE`: Now, This week,
  * Coming up, `listingSections`) and a post per event of a posted kind (`isPosted`), opened
  * `settings.eventsForum.postDaysAhead` before its start. Made only where the settings name a
  * forum and rehearsal mode is off (`app.ts`, R8).
@@ -297,17 +312,6 @@ export class EventForumService {
           clearTimeout(timer);
         };
       });
-  }
-
-  /**
-   * The forum's name as Discord stores it (review V7, ruling R4: lower case, spaces to hyphens;
-   * `channelNameFor`, the one normalizer of setup and lookup), from the settings' name; the
-   * service is made only where they give one.
-   */
-  private get forumName(): string {
-    const name = this.options.settings.channels.events;
-    if (name === undefined) throw new Error('settings.channels.events names no forum');
-    return channelNameFor(name) || name;
   }
 
   /**
@@ -428,17 +432,17 @@ export class EventForumService {
   }
 
   /**
-   * Gives the server its events forum (`/admin setup-forums`): the forum of that name where the
-   * server has one (the name decides, R7: a forum recorded under another name is replaced), else
-   * one made beside `bot-updates`, in its category and with its permissions; Create Posts denied
-   * to everyone (members write in Pine's posts but make none) and Manage Posts allowed to the
-   * bot. Recorded, then drawn: its listing and posts. What is there already is left as it is, so
-   * it is safe to run again.
+   * Gives the server its events forum (`/admin setup-forums`, by staff member `by`): the forum its
+   * values name (plan 19A-1: by id, chosen in `/admin settings`; a forum recorded before is
+   * replaced, R7), else one made beside its channel for bot updates, in its category and with its
+   * permissions, and kept in its values; Create Posts denied to everyone (members write in Pine's
+   * posts but make none) and Manage Posts allowed to the bot. Recorded, then drawn: its listing
+   * and posts. What is there already is left as it is, so it is safe to run again.
    */
-  setup(guildId: string): Promise<EventsForumSetup> {
+  setup(guildId: string, by: string): Promise<EventsForumSetup> {
     // One setup per server at a time (branch review BR-6): a second waits and finds the forum.
     const previous = this.setups.get(guildId) ?? Promise.resolve();
-    const run = previous.catch(() => undefined).then(() => this.setupOnce(guildId));
+    const run = previous.catch(() => undefined).then(() => this.setupOnce(guildId, by));
     // What is kept for the next setup never rejects: the caller has the failure (`run`).
     const kept = run
       .then(
@@ -453,21 +457,20 @@ export class EventForumService {
   }
 
   /** `setup`, one at a time per server. */
-  private async setupOnce(guildId: string): Promise<EventsForumSetup> {
-    const { gateway, store, settings, log } = this.options;
-    const name = this.forumName;
+  private async setupOnce(guildId: string, by: string): Promise<EventsForumSetup> {
+    const { gateway, store, servers, log } = this.options;
+    const values = servers.of(guildId);
     const channels = gateway.serverChannels(guildId) ?? [];
-    let forumId = channels.find(
-      (one) => one.kind === 'forum' && channelKey(one.name) === channelKey(name),
-    )?.id;
+    const chosen = channels.find(
+      (one) => one.kind === 'forum' && one.id === values.channels.events,
+    );
+    let forumId = chosen?.id;
+    const name = chosen?.name ?? this.options.forumName;
     const created = forumId === undefined;
     if (forumId === undefined) {
-      // Of two channels by that name (a server may have one per category), the one the bot may
-      // post in, as live sends pick (`findChannel`); else the first.
-      const named = channels.filter(
-        (one) => one.kind === 'text' && one.name === settings.channels['bot-updates'],
+      const botUpdates = channels.find(
+        (one) => one.kind === 'text' && one.id === values.channels['bot-updates'],
       );
-      const botUpdates = named.find((one) => gateway.mayPost(one.id)) ?? named[0];
       if (!botUpdates) return { forum: 'no-bot-updates', name };
       try {
         forumId = (await gateway.createForum(botUpdates.id, name, []))?.forumId;
@@ -481,6 +484,21 @@ export class EventForumService {
       if (forumId === undefined) {
         return { forum: 'failed', name, reason: `#${botUpdates.name} is gone.` };
       }
+      // Kept as the server's events forum (plan 19A-1); one that cannot be kept is taken back.
+      const made = forumId;
+      try {
+        await servers.set(
+          guildId,
+          (now) => ({ ...now, channels: { ...now.channels, events: made } }),
+          by,
+        );
+      } catch (err) {
+        log.error({ err, guild: guildId }, 'could not keep the new events forum');
+        await gateway.deleteChannel(made).catch((deleteErr: unknown) => {
+          log.warn({ err: deleteErr, guild: guildId }, 'could not take back the events forum');
+        });
+        return { forum: 'failed', name, reason: 'Something went wrong (see the log).' };
+      }
     }
     // In the one line of draws (re-review W2): a draw that read the old forum ends first, so none
     // makes a post in it after its rows were retired.
@@ -488,7 +506,7 @@ export class EventForumService {
     await this.exclusive(() => store.setForum(guildId, recordedId));
     const posting = (await gateway.reservePosts(forumId)) ?? 'not-allowed';
     const managing = (await gateway.letBotManagePosts(forumId)) ?? 'not-allowed';
-    const memberRole = settings.web?.memberRole;
+    const memberRole = values.roles.mapMember;
     const replies =
       (await gateway.rolesWithoutReplies(forumId, memberRole === undefined ? [] : [memberRole])) ??
       [];
@@ -540,8 +558,11 @@ export class EventForumService {
    * catch-up puts right).
    */
   private async drawServer(forum: EventForumRecord, reopen = false): Promise<ListingOutcome> {
-    const { gateway, log } = this.options;
+    const { gateway, servers, log } = this.options;
     const { serverId, forumId } = forum;
+    // Only the forum the server's staff chose (plan 19A-1): none chosen, or another one not set
+    // up yet (`/admin setup-forums` records it), nothing is drawn.
+    if (servers.of(serverId).channels.events !== forumId) return 'failed';
     if (gateway.channelKind(forumId) !== 'forum') {
       if (!this.forumGoneTold.has(serverId)) {
         this.forumGoneTold.add(serverId);

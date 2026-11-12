@@ -43,8 +43,9 @@ import {
   wildCommand,
   wildExceptionsOf,
 } from './wild.js';
+import { TEST_SERVER_CHANNELS } from '../../../test/support/server-values.js';
 
-const SIGHTINGS = '100000000000000031';
+const SIGHTINGS = TEST_SERVER_CHANNELS.unown;
 const PERFECT: NotificationTarget = { kind: 'iv', iv: 'perfect' };
 
 async function setup(

@@ -181,7 +181,7 @@ export interface AppContext {
   readonly bossMoves: Pick<BossTierMoves, 'move'>;
   /**
    * Meetup safety (plan 8S-1): the check of a meetup's place, the requests held for the
-   * moderators and their decisions, blocks and appeals. Off without `settings.channels.moderation`.
+   * moderators and their decisions, blocks and appeals. Off without the server's moderators' channel.
    */
   readonly meetupSafety: MeetupSafety;
   /**
@@ -286,8 +286,8 @@ export interface AppContext {
    */
   readonly rehearsal?: Rehearsal;
   /**
-   * The events forum (plan 8V-1): only where `settings.channels.events` names one and rehearsal
-   * mode is off; `/admin setup-forums` makes it.
+   * The events forums (plan 8V-1): only while rehearsal mode is off; each server's is its own
+   * (plan 19A-1), and `/admin setup-forums` makes it.
    */
   readonly eventForum?: EventForumService;
 }

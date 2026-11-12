@@ -28,6 +28,15 @@ export const TEST_SERVER_CHANNELS = {
 /** The PvP category (`categories.pvp`, "PVP CHAT AND TOURNAMENTS") and the Unown role (`unown`). */
 export const TEST_PVP_CATEGORY = '300000000000000011';
 export const TEST_UNOWN_ROLE = '300000000000000021';
+/** The map's member role of `withMapRole`, which the web server of the tests names `Verified`. */
+export const TEST_MAP_ROLE = '300000000000000031';
+
+/** The servers of a test whose map only members with `TEST_MAP_ROLE` count on. */
+export function withMapRole(): TestServers {
+  return new TestServers(
+    testServerValues({ roles: { unown: TEST_UNOWN_ROLE, mapMember: TEST_MAP_ROLE } }),
+  );
+}
 
 /**
  * A server's values as the upgrade makes them of the test settings: the file's server keys, its

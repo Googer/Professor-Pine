@@ -39,6 +39,7 @@ async function stored() {
       gameData: { catalogue: catalogueFixture() },
       store,
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
       now: () => made.clock.now,
       setTimer: (run, ms) => {
@@ -64,6 +65,7 @@ describe('SpawnService: the pictures of the spawns that stand at a start', () =>
         gameData: { catalogue: catalogueFixture(), icons: iconsFixture() },
         store,
         settings: made.settings,
+        servers: made.servers,
         log: made.log,
         now: () => made.clock.now,
         setTimer: () => () => undefined,
@@ -210,6 +212,7 @@ describe('SpawnService with stored reports', () => {
       raidBosses: { bosses: () => [] },
       gameData: { catalogue: catalogueFixture() },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
     });
     expect(await bare.sweep()).toBe(0);
@@ -294,6 +297,7 @@ describe('the spawns that stand, for the map', () => {
       raidBosses: { bosses: () => [] },
       gameData: { catalogue: catalogueFixture() },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
     });
     await bare.report(report(made.gateway.guildId));

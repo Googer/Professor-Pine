@@ -8,17 +8,14 @@ import {
   requestId,
   SAFETY_PIN,
 } from '../../test/support/meetup-safety-cases.js';
-import {
-  MOD_CHANNEL,
-  MODERATION,
-  meetupSafetyWith,
-} from '../../test/support/meetup-safety-service.js';
+import { MOD_CHANNEL, meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
 import { buttonLabels, linksOf, textOf } from '../../test/support/messages.js';
 import { ALICE, BOB, MINUTE, PARTY_NOW } from '../../test/support/parties.js';
 import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import type { KnownPlace } from '../domain/geo/place.js';
 import { MAX_MEETUP_DESCRIPTION } from '../domain/party/party.js';
 import type { RequestAsk } from './meetup-safety.js';
+import { testServerValues } from '../../test/support/server-values.js';
 
 const HOUR = 60 * MINUTE;
 const SERVER = '412345678901234567';
@@ -48,7 +45,7 @@ describe('MeetupSafety.verdict', () => {
     const made = await meetupSafetyWith({ moderation: null });
     made.storage.failing.add('ruling');
     made.storage.failing.add('block');
-    expect(made.safety.on).toBe(false);
+    expect(made.safety.on(SERVER)).toBe(false);
     for (const place of [SAFETY_PIN, LIBRARY]) {
       expect(
         await made.safety.verdict({ serverId: SERVER, place, makerId: ALICE, staff: false }),
@@ -58,7 +55,7 @@ describe('MeetupSafety.verdict', () => {
 
   it('holds a pin and a flagged Wayspot, and follows the rulings and blocks of the server', async () => {
     const made = await meetupSafetyWith();
-    expect(made.safety.on).toBe(true);
+    expect(made.safety.on(SERVER)).toBe(true);
     const verdict = (place: typeof LIBRARY | typeof SAFETY_PIN, staff = false) =>
       made.safety.verdict({ serverId: SERVER, place, makerId: ALICE, staff });
     expect(await verdict(PARK)).toBe('allowed');
@@ -142,7 +139,26 @@ describe('MeetupSafety.submit', () => {
     expect((await made.safety.submit(asked())).kind).toBe('not-sent');
     expect(made.storage.requests.size).toBe(0);
     expect(made.entries.map((entry) => entry.msg)).toContain(
-      `the moderators' channel #${MODERATION} is not there: a meetup was not sent for approval`,
+      "the moderators' channel is not there: a meetup was not sent for approval",
+    );
+  });
+
+  it('stays on where the file named a moderators’ channel the server lacks, and sends nothing (review F2)', async () => {
+    const made = await meetupSafetyWith({ moderation: null });
+    made.servers.values = { ...made.servers.values, unmatched: ['channels.moderation'] };
+    expect(made.safety.on(SERVER)).toBe(true);
+    expect(
+      await made.safety.verdict({
+        serverId: SERVER,
+        place: SAFETY_PIN,
+        makerId: ALICE,
+        staff: false,
+      }),
+    ).not.toBe('allowed');
+    expect((await made.safety.submit(asked())).kind).toBe('not-sent');
+    expect(made.storage.requests.size).toBe(0);
+    expect(made.entries.map((entry) => entry.msg)).toContain(
+      "the moderators' channel is not there: a meetup was not sent for approval",
     );
   });
 
@@ -622,44 +638,64 @@ describe('MeetupSafety.expire', () => {
 });
 
 describe('MeetupSafety.warnAtStart', () => {
-  // Plan 8M-11A: the setting is the instance's, so it is said once, whatever the servers.
-  it('says once that meetup safety is off without the setting, not once per server', async () => {
-    const made = await meetupSafetyWith({ moderation: null });
-    made.safety.warnAtStart([SERVER, OTHER_SERVER]);
-    const warned = made.entries.filter((entry) => entry.level === 40);
-    expect(warned.map((entry) => [entry.msg, entry.server])).toEqual([
-      ['meetup safety is off: settings.channels.moderation is not set', undefined],
-    ]);
-  });
+  // Plan 19A-1: the moderators' channel is a server's; fix round 4, I5: one line per reason for
+  // the servers of a shard's start, their ids listed.
+  const warnedOf = (made: Awaited<ReturnType<typeof meetupSafetyWith>>) =>
+    made.entries.filter((entry) => entry.level === 40).map((entry) => [entry.msg, entry.servers]);
+  const THIRD_SERVER = '412345678901234569';
 
-  it('says it once also when each shard’s servers are checked by themselves (plan 19D)', async () => {
-    const made = await meetupSafetyWith({ moderation: null });
-    made.safety.warnAtStart([SERVER]);
-    made.safety.warnAtStart([OTHER_SERVER]);
-    expect(made.entries.filter((entry) => entry.level === 40)).toHaveLength(1);
-  });
-
-  it('says so of a server whose moderators’ channel the bot cannot post in', async () => {
+  it("says in one line which servers have no moderators' channel", async () => {
     const made = await meetupSafetyWith();
-    made.gateway.noEmbeds.add(MOD_CHANNEL);
-    made.safety.warnAtStart([SERVER]);
-    const warned = made.entries.filter((entry) => entry.level === 40);
-    expect(warned.map((entry) => [entry.msg, entry.server])).toEqual([
+    made.servers.changed.set(OTHER_SERVER, testServerValues());
+    made.servers.changed.set(THIRD_SERVER, testServerValues());
+    made.safety.warnAtStart([SERVER, OTHER_SERVER, THIRD_SERVER]);
+    expect(warnedOf(made)).toEqual([
       [
-        `the bot cannot post in #${MODERATION} (View Channel, Send Messages, Embed Links): meetups that need a moderator's approval cannot be made there`,
-        SERVER,
+        "meetup safety is off in these servers: they have no moderators' channel set",
+        [OTHER_SERVER, THIRD_SERVER],
       ],
     ]);
   });
 
-  it('says so of a server that has no such channel, and nothing of one that has it', async () => {
+  it('says each reason once for three servers, each server under its own', async () => {
     const made = await meetupSafetyWith();
-    made.safety.warnAtStart([SERVER, OTHER_SERVER]);
-    const warned = made.entries.filter((entry) => entry.level === 40);
-    expect(warned.map((entry) => [entry.msg, entry.server])).toEqual([
+    made.gateway.noEmbeds.add(MOD_CHANNEL);
+    made.servers.changed.set(
+      OTHER_SERVER,
+      testServerValues({ unmatched: ['channels.moderation'] }),
+    );
+    // THIRD_SERVER: the test's moderators' channel, which is not among its channels.
+    made.safety.warnAtStart([SERVER, OTHER_SERVER, THIRD_SERVER]);
+    expect(warnedOf(made)).toEqual([
       [
-        `the server has no text channel #${MODERATION}: meetups that need a moderator's approval cannot be made there`,
-        OTHER_SERVER,
+        "the moderators' channel of the settings file is not in these servers: meetups that need a moderator's approval cannot be made there until their staff set one",
+        [OTHER_SERVER],
+      ],
+      [
+        "the moderators' channel of these servers is gone: meetups that need a moderator's approval cannot be made there",
+        [THIRD_SERVER],
+      ],
+      [
+        "the bot cannot post in the moderators' channel of these servers (View Channel, Send Messages, Embed Links): meetups that need a moderator's approval cannot be made there",
+        [SERVER],
+      ],
+    ]);
+  });
+
+  it('says nothing of a server that has its channel', async () => {
+    const made = await meetupSafetyWith();
+    made.safety.warnAtStart([SERVER]);
+    expect(warnedOf(made)).toEqual([]);
+  });
+
+  it('lists the first 50 servers of a reason and how many more', async () => {
+    const made = await meetupSafetyWith();
+    const many = Array.from({ length: 53 }, (_, i) => `4123456789012${String(i).padStart(5, '0')}`);
+    made.safety.warnAtStart(many);
+    expect(warnedOf(made)).toEqual([
+      [
+        "the moderators' channel of these servers is gone: meetups that need a moderator's approval cannot be made there",
+        [...many.slice(0, 50), 'and 3 more'],
       ],
     ]);
   });

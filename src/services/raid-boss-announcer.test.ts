@@ -15,9 +15,13 @@ import { diffFeed, effectiveBosses, type NewBossOverride } from '../domain/pogo/
 import type { RaidTier } from '../domain/pogo/raid-tier.js';
 import { RaidBossAnnouncer } from './raid-boss-announcer.js';
 import type { FeedChange } from './raid-boss-service.js';
+import { TestServers, testServerValues } from '../../test/support/server-values.js';
 
 const HOUR = 60 * 60_000;
 const OTHER_GUILD = '412345678901234599';
+const UPDATES = '700000000000000001';
+const OTHER_UPDATES = '700000000000000003';
+const MOD_LAB = '700000000000000005';
 const T1: RaidTier = { level: 'T1', shadow: false };
 const T5: RaidTier = { level: 'T5', shadow: false };
 
@@ -60,9 +64,20 @@ function setup(options: { announceChanges?: boolean; servers?: string[] } = {}) 
     raidBosses: { ...base.raidBosses, announceChanges: options.announceChanges ?? true },
   };
   const { log, entries } = createTestLogger();
+  // The channels each server's staff set (plan 19A-1): the main server's bot updates and
+  // moderators' bot lab, the other's bot updates, none in a third.
+  const servers = new TestServers(
+    testServerValues({ channels: { 'bot-updates': UPDATES, 'mod-bot-lab': MOD_LAB } }),
+  );
+  servers.changed.set(
+    OTHER_GUILD,
+    testServerValues({ channels: { 'bot-updates': OTHER_UPDATES } }),
+  );
+  servers.changed.set('412345678901234500', testServerValues({ channels: {} }));
   const announcer = new RaidBossAnnouncer({
     gateway,
-    servers: () => options.servers ?? [gateway.guildId],
+    serverIds: () => options.servers ?? [gateway.guildId],
+    servers,
     settings,
     log,
   });
@@ -85,7 +100,8 @@ describe('RaidBossAnnouncer', () => {
   it('posts a change of the list in the channel for bot updates of every server', async () => {
     const { gateway, announcer, sentTo } = setup({ servers: ['412345678901234567', OTHER_GUILD] });
     gateway.addChannel('700000000000000001', 'bot-updates');
-    gateway.addChannel('700000000000000002', 'general');
+    // Another channel of that name is not the one its staff set.
+    gateway.addChannel('700000000000000002', 'bot-updates');
     gateway.addChannel('700000000000000003', 'bot-updates', { guildId: OTHER_GUILD });
     const bosses = await raidBossServiceWith();
     announcer.attach(bosses.service);

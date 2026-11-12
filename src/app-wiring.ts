@@ -144,7 +144,7 @@ export interface Stopping {
  * one second, as the feed's alone was, so the stack's limits still add up to 145 s
  * (`operations.md`). The forum is stopped first (no draw starts; one under way ends at its next
  * post, re-review RR-3), then the feed (a read under way is aborted); both are waited for. No
- * forum in rehearsal mode or without `settings.channels.events`.
+ * forum in rehearsal mode.
  */
 export function eventsFeedStep(parts: {
   events: Stopping & { whenIdle(): Promise<void> };

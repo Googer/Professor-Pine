@@ -6,7 +6,6 @@ import {
   type SlashCommandIntegerOption,
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
-import type { Settings } from '../../config/settings.js';
 import type { ComponentHandler, SimpleCommand } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
 import { requirePvpContext } from '../../discord/guards.js';
@@ -405,7 +404,7 @@ async function pokemonAutocomplete(
 }
 
 /** What `/help` says of `/rank`, and below the line that names a short form of it. */
-function rankDetails(settings: Settings): string {
+function rankDetails(): string {
   return (
     'Shows where a Pokémon with these IVs stands among all 4,096 combinations in a league: ' +
     'its rank by stat product, how close it comes to the best, the CP and level it can ' +
@@ -414,7 +413,7 @@ function rankDetails(settings: Settings): string {
     'ranking on pvpivs.com come with it. `filter` ranks only the combinations a trade, a ' +
     'raid or a lucky trade can give; without it, a legendary or mythical Pokémon that cannot ' +
     'be traded starts at IVs of 10, and a shadow legendary (`shadow`) at 6.\n\n' +
-    `Use it in a channel of the category ${settings.categories.pvp}, or in a DM with me.`
+    "Use it in a channel under the server's PvP category, or in a DM with me."
   );
 }
 
@@ -428,8 +427,8 @@ export const rank: SimpleCommand = {
   data: rankData('rank', 'The PvP rank of a Pokémon with these IVs in a league', true),
   help: {
     category: 'util',
-    details: (settings) =>
-      `${rankDetails(settings)}\n\n\`/little\`, \`/great\`, \`/ultra\` and \`/master\` are ` +
+    details: () =>
+      `${rankDetails()}\n\n\`/little\`, \`/great\`, \`/ultra\` and \`/master\` are ` +
       '`/rank` in that league.',
     examples: [
       '/rank pokemon:Medicham attack:0 defense:15 stamina:15',
@@ -456,8 +455,8 @@ function leagueRank(league: League): SimpleCommand {
     ),
     help: {
       category: 'util',
-      details: (settings) =>
-        `\`/${league}\` is \`/rank\` in the ${LEAGUE_NAMES[league]}.\n\n${rankDetails(settings)}`,
+      details: () =>
+        `\`/${league}\` is \`/rank\` in the ${LEAGUE_NAMES[league]}.\n\n${rankDetails()}`,
       examples: [`/${league} pokemon:Medicham attack:0 defense:15 stamina:15`],
     },
     formOf: 'rank',

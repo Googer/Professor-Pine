@@ -298,7 +298,13 @@ describe('rehearsalGateway', () => {
       }),
       log,
     );
-    const safety = rehearsalModeratorsGateway(guarded, fake, 'meetup-review', log);
+    // The moderators' channel by its server's values (plan 19A-1): the forum is not it.
+    const safety = rehearsalModeratorsGateway(
+      guarded,
+      fake,
+      (channelId) => channelId === MOD_CHANNEL || channelId === forum,
+      log,
+    );
     expect(await safety.sendMessage(MOD_CHANNEL, { content: 'Meetup waiting' })).toBeDefined();
     expect(await safety.sendMessage(forum, { content: 'Meetup waiting' })).toBeUndefined();
     expect(await safety.sendMessage(WEST_CHANNEL, { content: 'New meetup' })).toBeUndefined();

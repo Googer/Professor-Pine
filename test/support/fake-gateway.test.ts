@@ -186,6 +186,20 @@ describe('FakePartyGateway: who can see a forum', () => {
   });
 });
 
+describe('FakePartyGateway: a channel by its id near another (findChannel)', () => {
+  it('finds a text channel only, as the real one: never a forum or a category', () => {
+    const fake = new FakePartyGateway();
+    fake.addChannel('600000000000000001', 'mods');
+    fake.addChannel('600000000000000002', 'events', { kind: 'forum' });
+    fake.addChannel('600000000000000003', 'STAFF', { kind: 'category' });
+    fake.addForum(WEST_FORUM);
+    expect(fake.findChannel('600000000000000001', '600000000000000001')).toBe('600000000000000001');
+    expect(fake.findChannel('600000000000000001', '600000000000000002')).toBeUndefined();
+    expect(fake.findChannel('600000000000000001', '600000000000000003')).toBeUndefined();
+    expect(fake.findChannel('600000000000000001', WEST_FORUM)).toBeUndefined();
+  });
+});
+
 describe('FakePartyGateway: the limits of an embed', () => {
   const POST = '300000000000000001';
   const field = (name: string, value: string) => ({ name, value });

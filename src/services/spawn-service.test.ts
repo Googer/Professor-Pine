@@ -31,6 +31,7 @@ import {
   type SpawnView,
 } from '../render/spawn.js';
 import { DELETE_AGAIN_MS, SpawnService, UNOWN_DEX, type SpawnReport } from './spawn-service.js';
+import { TEST_SERVER_CHANNELS } from '../../test/support/server-values.js';
 
 const report = (guildId: string, more: Partial<SpawnReport> = {}): SpawnReport => ({
   guildId,
@@ -65,6 +66,7 @@ describe('SpawnService', () => {
         },
         deleteMessage: () => Promise.resolve(),
         findChannel: () => undefined,
+        serverOf: () => undefined,
         mayPost: () => true,
       },
       raidBosses: { bosses: () => [] },
@@ -75,6 +77,7 @@ describe('SpawnService', () => {
         },
       },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
     });
     expect(await service.report(report(made.gateway.guildId))).toEqual({ kind: 'no-channel' });
@@ -196,13 +199,15 @@ describe('SpawnService', () => {
           await gate;
           return made.gateway.deleteMessage(channelId, messageId);
         },
-        findChannel: (near, name) => made.gateway.findChannel(near, name),
+        findChannel: (near, id) => made.gateway.findChannel(near, id),
+        serverOf: (channelId) => made.gateway.serverOf(channelId),
         mayPost: (channelId) => made.gateway.mayPost(channelId),
       },
       raidBosses: { bosses: () => [] },
       gameData: { catalogue: catalogueFixture() },
       notify: { spawnReported: (news) => told.push(news) },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
       setTimer: (run) => {
         timers.push(run);
@@ -267,6 +272,7 @@ describe('SpawnService', () => {
       raidBosses: { bosses: () => [] },
       gameData: { catalogue: catalogueFixture() },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
       deleteAfterMs: 20,
     });
@@ -292,6 +298,7 @@ describe('SpawnService', () => {
       raidBosses: raidBossesFixture(),
       gameData: { catalogue: catalogueFixture(), icons: iconsFixture() },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
       setTimer: () => () => undefined,
     });
@@ -324,6 +331,7 @@ describe('SpawnService', () => {
       raidBosses: raidBossesFixture(),
       gameData: { catalogue: catalogueFixture() },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
       setTimer: () => () => undefined,
     });
@@ -348,6 +356,7 @@ describe('SpawnService', () => {
         },
       },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
       setTimer: () => () => undefined,
     });
@@ -376,6 +385,7 @@ describe('SpawnService', () => {
       gameData: { catalogue: catalogueFixture() },
       notify: { spawnReported: (news) => told.push(news) },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
       now: () => made.clock.now,
     });
@@ -420,6 +430,7 @@ describe('SpawnService', () => {
         },
       },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
       now: () => made.clock.now,
     });
@@ -450,6 +461,7 @@ describe('SpawnService', () => {
         },
       },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
     });
     expect(await service.report(report(made.gateway.guildId))).toMatchObject({ kind: 'posted' });
@@ -468,6 +480,7 @@ describe('SpawnService', () => {
       gameData: { catalogue: catalogueFixture() },
       notify: { spawnReported: (news) => told.push(news) },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
       now: () => made.clock.now,
       deleteAfterMs: 10 * 60_000,
@@ -479,7 +492,7 @@ describe('SpawnService', () => {
 
   async function pictured(withSightings = false) {
     const made = await partyServiceWith();
-    const SIGHTINGS = '100000000000000031';
+    const SIGHTINGS = TEST_SERVER_CHANNELS.unown;
     if (withSightings) made.gateway.channelNames.set(SIGHTINGS, made.settings.channels.unown);
     const told: unknown[] = [];
     const timers: { run: () => void; ms: number }[] = [];
@@ -489,6 +502,7 @@ describe('SpawnService', () => {
       gameData: { catalogue: catalogueFixture(), icons: iconsFixture() },
       notify: { spawnReported: (news) => told.push(news) },
       settings: made.settings,
+      servers: made.servers,
       log: made.log,
       now: () => made.clock.now,
       setTimer: (run, ms) => {

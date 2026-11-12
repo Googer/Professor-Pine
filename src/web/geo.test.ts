@@ -5,6 +5,7 @@ import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ROLE, selfRolesWith } from '../../test/support/roles.js';
 import { GeoCache, PUBLIC_REGIONS_KEPT_MS } from './geo-cache.js';
 import { geoSourcesWith, webServerWith, type TestWeb } from '../../test/support/web.js';
+import { TEST_MAP_ROLE, withMapRole } from '../../test/support/server-values.js';
 
 const GEO = `/s/${FAKE_GUILD_ID}/api/geo`;
 
@@ -124,8 +125,8 @@ describe('the regions a visitor may not see (plan 8Z-2, ruling 8)', () => {
     const members = new FakeMemberDirectory()
       .add(ASH, 'Ash')
       .add(BROCK, 'Brock')
-      .standing(BROCK, { roleNames: ['Verified'], administrator: false });
-    web = webServerWith({ geo: sources, members, web: { memberRole: 'Verified' } });
+      .standing(BROCK, { roleNames: ['Verified'], roleIds: [TEST_MAP_ROLE], administrator: false });
+    web = webServerWith({ geo: sources, members, serverSettings: withMapRole() });
     const names = async (userId: string) => {
       const cookie = (await web?.loggedIn(userId, 'A member')) ?? '';
       const answer = await web?.app.inject({ url: GEO, headers: { cookie } });

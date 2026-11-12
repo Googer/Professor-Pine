@@ -2,6 +2,7 @@ import { ChannelType, Collection, MessageFlags, PermissionFlagsBits } from 'disc
 import { describe, expect, it, vi } from 'vitest';
 import { FAKE_GUILD_ID, fakeChatInput } from '../../../test/support/fake-interactions.js';
 import { MemoryLegacyIndex } from '../../../test/support/legacy-fill-ins.js';
+import { TEST_SERVER_CHANNELS } from '../../../test/support/server-values.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { TUTORIAL_MARK } from '../../render/tutorial.js';
@@ -138,9 +139,12 @@ describe('/admin tutorial', () => {
   });
 
   it('is refused in a channel that has another job', async () => {
-    const { ctx, run } = setup();
-    const named = ctx.config.settings.channels['bot-updates'];
-    const { interaction, send } = await run([], { channelName: named });
+    const { run } = setup();
+    // By its id, whatever its name.
+    const { interaction, send } = await run([], {
+      channelId: TEST_SERVER_CHANNELS['bot-updates'],
+      channelName: 'raid-bot-tutorial',
+    });
     expect(answerOf(interaction)).toContain('another job');
     expect(send).not.toHaveBeenCalled();
   });

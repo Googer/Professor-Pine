@@ -86,7 +86,7 @@ async function bothAnswers() {
     .add(STAFF, 'Staff')
     .add(BARRED, 'Barred')
     .add(NEWCOMER, 'Newcomer')
-    .standing(STAFF, { roleNames: [], administrator: true });
+    .standing(STAFF, { roleNames: [], roleIds: [], administrator: true });
   const web = webServerWith({ members, parties: partyWebWith(made) });
   const fresh = webServerWith({
     members,

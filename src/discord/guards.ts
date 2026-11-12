@@ -1,6 +1,6 @@
 import { PermissionFlagsBits, type Guild } from 'discord.js';
 import type { AppContext } from '../app-context.js';
-import type { Settings } from '../config/index.js';
+import type { ServerValues } from '../config/server-settings.js';
 import {
   isMax,
   isMeetup,
@@ -57,18 +57,22 @@ export function isBotManagement(
   return userId === ownerId || hasRole(roleNames, BOT_MANAGEMENT_ROLES);
 }
 
-export function isBotChannelName(name: string | undefined, settings: Settings): boolean {
+/** Whether a channel is one of the server's two bot channels (the bot lab, the moderators'). */
+export function isBotChannel(channelId: string | undefined, values: ServerValues): boolean {
   return (
-    name !== undefined &&
-    (name === settings.channels['bot-lab'] || name === settings.channels['mod-bot-lab'])
+    channelId !== undefined &&
+    (channelId === values.channels['bot-lab'] || channelId === values.channels['mod-bot-lab'])
   );
 }
 
+/** Whether PvP commands may be used here: in a DM, or under the server's PvP category. */
 export function isPvpContext(
-  context: { isDm: boolean; parentName: string | undefined },
-  settings: Settings,
+  context: { isDm: boolean; categoryId: string | undefined },
+  values: ServerValues | undefined,
 ): boolean {
-  return context.isDm || context.parentName === settings.categories.pvp;
+  if (context.isDm) return true;
+  const category = values?.categories.pvp;
+  return category !== undefined && context.categoryId === category;
 }
 
 /** Role names of the invoking member; empty outside a cached guild. */
@@ -181,8 +185,14 @@ export const requireOwner: Guard = (interaction, ctx) => {
 
 export const requireBotChannel: Guard = (interaction, ctx) => {
   assertGuild(interaction);
-  if (!isBotChannelName(channelContext(interaction).name, ctx.config.settings)) {
-    throw new UserError(`Use this in #${ctx.config.settings.channels['bot-lab']}.`);
+  const values = ctx.servers.of(guildIdOf(interaction));
+  if (!isBotChannel(channelContext(interaction).baseChannelId, values)) {
+    const lab = values.channels['bot-lab'];
+    throw new UserError(
+      lab === undefined
+        ? 'This server has no bot lab yet: staff set one with /admin settings.'
+        : `Use this in <#${lab}>.`,
+    );
   }
 };
 
@@ -194,11 +204,20 @@ export const requireRegion: Guard = (interaction, ctx) => {
 };
 
 export const requirePvpContext: Guard = (interaction, ctx) => {
-  const { isDm, categoryName } = channelContext(interaction);
-  if (!isPvpContext({ isDm, parentName: categoryName }, ctx.config.settings)) {
-    throw new UserError(`Use this in a DM with me or under ${ctx.config.settings.categories.pvp}.`);
+  const { isDm, categoryId } = channelContext(interaction);
+  const values = interaction.guildId === null ? undefined : ctx.servers.of(interaction.guildId);
+  if (!isPvpContext({ isDm, categoryId }, values)) {
+    throw new UserError(pvpPlaces(values));
   }
 };
+
+/** Where PvP commands may be used, in words: in a DM, or under the server's PvP category. */
+export function pvpPlaces(values: ServerValues | undefined): string {
+  const category = values?.categories.pvp;
+  return category === undefined
+    ? 'Use this in a DM with me.'
+    : `Use this in a DM with me or under <#${category}>.`;
+}
 
 /**
  * The party whose forum post an interaction came from, by the id of the post alone: the post

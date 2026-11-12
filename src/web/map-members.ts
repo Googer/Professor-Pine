@@ -1,14 +1,12 @@
+import { ADMINISTRATORS_ONLY } from '../config/server-settings.js';
 import type { MemberDirectory, MemberStanding } from '../discord/member-directory.js';
 
-/** A role's name as Pine's role settings compare it: trimmed, whatever its letter case. */
-function roleKey(name: string): string {
-  return name.trim().toLowerCase();
-}
-
 /**
- * Whether a member of a server counts as one on its map (`settings.web.memberRole`): every
- * member while no role is named; otherwise one who has a role of that name, or an
- * administrator. A member whose roles are not known has none.
+ * Whether a member of a server counts as one on its map (the map's member role of the server's
+ * values, by id, plan 19A-1, as `mapMemberRole` gives it): every member while none is set;
+ * otherwise one who has that role, or an administrator; administrators only where the file named
+ * a role the server lacks (`ADMINISTRATORS_ONLY`, review F1). A member whose roles are not known
+ * has none.
  */
 export function countsOnTheMap(
   standing: MemberStanding | undefined,
@@ -17,8 +15,7 @@ export function countsOnTheMap(
   if (memberRole === undefined) return true;
   if (standing === undefined) return false;
   if (standing.administrator) return true;
-  const wanted = roleKey(memberRole);
-  return standing.roleNames.some((name) => roleKey(name) === wanted);
+  return memberRole !== ADMINISTRATORS_ONLY && standing.roleIds.includes(memberRole);
 }
 
 /**
@@ -29,12 +26,13 @@ export function countsOnTheMap(
  */
 export function mapMembers(
   directory: Pick<MemberDirectory, 'find'>,
-  memberRole: string | undefined,
+  memberRoleOf: (guildId: string) => string | undefined,
 ): Pick<MemberDirectory, 'find'> {
-  if (memberRole === undefined) return directory;
   return {
     async find(guildId, userId) {
       const member = await directory.find(guildId, userId);
+      const memberRole = memberRoleOf(guildId);
+      if (memberRole === undefined) return member;
       return member && countsOnTheMap(member.standing, memberRole) ? member : undefined;
     },
   };
