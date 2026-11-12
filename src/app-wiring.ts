@@ -64,8 +64,8 @@ export function reportPictures(pictures: PictureMaking): StopReportListener {
 
 /** The start-up work for the servers of a shard (`shardStartWork`); each never throws. */
 export interface ShardStartWork {
-  /** Makes sure every server has its `Guild` row (`syncGuilds`). */
-  syncServers(servers: readonly string[]): void;
+  /** Makes sure every server has its `Guild` row (`syncGuilds`); never rejects. */
+  syncServers(servers: readonly string[]): Promise<void>;
   /** Says in the log where meetup safety cannot work (`MeetupSafety.warnAtStart`). */
   warnAtStart(servers: readonly string[]): void;
   /** The square pictures of the spawns that stood through the restart (`SpawnService`). */
@@ -90,26 +90,31 @@ export interface ShardStartWork {
  * ready while later shards still identify lands in the cache without an event; the cached servers
  * the shards' readies did not cover are recorded then. Only the first time: afterwards
  * `GuildCreate` is said, and the servers recorded are forgotten.
+ *
+ * The first ready's work reads the servers' values (plan 19A-1): it waits for the shard's
+ * servers' rows (`filled`, `wireServerStart`) and their `Guild` rows. Each resolves once its
+ * work is done (the start waits for the first readies' and `clientReady`'s, fix round 3, H1).
  */
 export function shardStartWork(work: ShardStartWork): {
-  shardReady(start: ShardStart): void;
-  clientReady(cached: readonly string[]): void;
+  shardReady(start: ShardStart, filled?: Promise<unknown>): Promise<void>;
+  clientReady(cached: readonly string[]): Promise<void>;
 } {
   let recorded: Set<string> | undefined = new Set();
   return {
-    shardReady: ({ servers, unavailable, first }) => {
-      work.syncServers(servers);
+    shardReady: async ({ servers, unavailable, first }, filled) => {
+      const synced = work.syncServers(servers);
       for (const server of servers) recorded?.add(server);
+      await Promise.all([synced, filled]);
       if (!first) return;
       work.warnAtStart(servers.filter((server) => !unavailable.has(server)));
       work.prepareStanding(servers);
     },
-    clientReady: (cached) => {
+    clientReady: async (cached) => {
       if (recorded === undefined) return;
       const covered = recorded;
       recorded = undefined;
       const missed = cached.filter((server) => !covered.has(server));
-      if (missed.length > 0) work.syncServers(missed);
+      if (missed.length > 0) await work.syncServers(missed);
     },
   };
 }

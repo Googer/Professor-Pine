@@ -160,7 +160,7 @@ export class ShardReadiness {
 }
 
 /** The server ids of a gateway READY packet (`{ t: 'READY', d: { guilds: [{ id }] } }`), else undefined. */
-function readyGuilds(packet: unknown): ReadonlySet<string> | undefined {
+export function readyGuilds(packet: unknown): ReadonlySet<string> | undefined {
   if (typeof packet !== 'object' || packet === null) return undefined;
   const { t, d } = packet as { t?: unknown; d?: unknown };
   if (t !== 'READY' || typeof d !== 'object' || d === null) return undefined;

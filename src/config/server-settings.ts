@@ -42,6 +42,22 @@ export const SERVER_CHANNEL_ROLES = [
 ] as const;
 export type ServerChannelRole = (typeof SERVER_CHANNEL_ROLES)[number];
 
+/**
+ * What each channel of a server is called in what Pine says to staff (the fill's message to the
+ * bot lab, `/admin settings`), never its key (fix round 3, H2).
+ */
+export const CHANNEL_LABELS: Readonly<Record<ServerChannelRole, string>> = {
+  'bot-lab': 'the bot lab',
+  'mod-bot-lab': 'the moderators’ bot lab',
+  unown: 'the Unown channel',
+  'elite-gym-raids': 'the elite gym raids channel',
+  'remote-raids': 'the remote raids channel',
+  pvp: 'the PvP channel',
+  'bot-updates': 'the bot updates channel',
+  moderation: 'the moderators’ channel',
+  events: 'the events forum',
+};
+
 const channelsSchema = z
   .strictObject(
     Object.fromEntries(SERVER_CHANNEL_ROLES.map((role) => [role, snowflake.optional()])) as Record<

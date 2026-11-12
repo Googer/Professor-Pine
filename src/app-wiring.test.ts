@@ -246,16 +246,19 @@ describe('the start-up work of a shard (plan 19D)', () => {
   function work() {
     const done: [string, readonly string[]][] = [];
     const startWork = shardStartWork({
-      syncServers: (servers) => void done.push(['sync', servers]),
+      syncServers: (servers) => {
+        done.push(['sync', servers]);
+        return Promise.resolve();
+      },
       warnAtStart: (servers) => void done.push(['warn', servers]),
       prepareStanding: (servers) => void done.push(['spawns', servers]),
     });
     return { done, startWork };
   }
 
-  it('records, checks and prepares the servers of a shard at its first ready', () => {
+  it('records, checks and prepares the servers of a shard at its first ready', async () => {
     const { done, startWork } = work();
-    startWork.shardReady({
+    await startWork.shardReady({
       shard: 1,
       servers: [SERVER_A, SERVER_B],
       gone: [],
@@ -270,9 +273,29 @@ describe('the start-up work of a shard (plan 19D)', () => {
     ]);
   });
 
-  it('only records the servers again after a new session', () => {
+  it('checks and prepares the servers only once their rows are filled (plan 19A-1, fix round 3, H1)', async () => {
     const { done, startWork } = work();
-    startWork.shardReady({
+    let fill!: () => void;
+    const filled = new Promise<void>((resolve) => {
+      fill = resolve;
+    });
+    const working = startWork.shardReady(
+      { shard: 0, servers: [SERVER_A], gone: [], unavailable: new Set(), first: true },
+      filled,
+    );
+    expect(done).toEqual([['sync', [SERVER_A]]]);
+    fill();
+    await working;
+    expect(done).toEqual([
+      ['sync', [SERVER_A]],
+      ['warn', [SERVER_A]],
+      ['spawns', [SERVER_A]],
+    ]);
+  });
+
+  it('only records the servers again after a new session', async () => {
+    const { done, startWork } = work();
+    await startWork.shardReady({
       shard: 0,
       servers: [SERVER_A],
       gone: [SERVER_B],
@@ -282,9 +305,9 @@ describe('the start-up work of a shard (plan 19D)', () => {
     expect(done).toEqual([['sync', [SERVER_A]]]);
   });
 
-  it('records at ClientReady a server that added the bot between two shards’ readies (19D fix round 1, F1; round 2, R2)', () => {
+  it('records at ClientReady a server that added the bot between two shards’ readies (19D fix round 1, F1; round 2, R2)', async () => {
     const { done, startWork } = work();
-    startWork.shardReady({
+    await startWork.shardReady({
       shard: 0,
       servers: [SERVER_A],
       gone: [],
@@ -293,7 +316,7 @@ describe('the start-up work of a shard (plan 19D)', () => {
     });
     // Server X adds the bot on shard 0 while shard 1 still identifies: discord.js puts it in its
     // cache and says no GuildCreate, the client not being ready.
-    startWork.shardReady({
+    await startWork.shardReady({
       shard: 1,
       servers: [SERVER_C],
       gone: [],
@@ -301,16 +324,16 @@ describe('the start-up work of a shard (plan 19D)', () => {
       first: true,
     });
     done.length = 0;
-    startWork.clientReady([SERVER_A, SERVER_X, SERVER_C]);
+    await startWork.clientReady([SERVER_A, SERVER_X, SERVER_C]);
     expect(done).toEqual([['sync', [SERVER_X]]]);
     // From then on discord.js says GuildCreate: a second call records nothing more.
-    startWork.clientReady([SERVER_A, SERVER_X, SERVER_C, SERVER_B]);
+    await startWork.clientReady([SERVER_A, SERVER_X, SERVER_C, SERVER_B]);
     expect(done).toEqual([['sync', [SERVER_X]]]);
   });
 
-  it('records nothing more at ClientReady when the shards covered every server', () => {
+  it('records nothing more at ClientReady when the shards covered every server', async () => {
     const { done, startWork } = work();
-    startWork.shardReady({
+    await startWork.shardReady({
       shard: 0,
       servers: [SERVER_A],
       gone: [],
@@ -318,7 +341,7 @@ describe('the start-up work of a shard (plan 19D)', () => {
       first: true,
     });
     done.length = 0;
-    startWork.clientReady([SERVER_A]);
+    await startWork.clientReady([SERVER_A]);
     expect(done).toEqual([]);
   });
 });

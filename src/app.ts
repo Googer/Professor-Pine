@@ -1,4 +1,4 @@
-import { Events, type Client } from 'discord.js';
+import { Events, type Client, type Guild, type Interaction } from 'discord.js';
 import { sql } from 'kysely';
 import type { AppContext } from './app-context.js';
 import {
@@ -64,6 +64,9 @@ import { DiscordApplicationEmoji } from './discord/application-emoji.js';
 import { DiscordPartyGateway } from './discord/party-gateway.js';
 import { syncGuilds } from './discord/guild-sync.js';
 import { ServerSettings } from './services/server-settings.js';
+import { ServerFill } from './services/server-fill.js';
+import { serverNamesOf } from './discord/server-names.js';
+import { wireServerStart } from './discord/server-start.js';
 import { ServerSettingsRepository } from './db/repositories/server-settings-repository.js';
 import { InteractionRouter } from './discord/router.js';
 import { lobbySize } from './domain/party/lobby.js';
@@ -397,6 +400,23 @@ export async function startApp(
     settings: config.settings,
     log,
   });
+  // The fill (plan 19A-1): a row for a server without one, at ready and when the bot joins one;
+  // the names it cannot find are told in the server's moderators' bot lab. The events forum is
+  // the one its record names (review F3), whether the events forum is drawn here or not.
+  const eventForumRecords = new EventForumRepository(db);
+  const serverFill = new ServerFill({
+    servers,
+    settings: config.settings,
+    log,
+    tell: (channelId, content) =>
+      partyGateway
+        .sendMessage(channelId, { content })
+        .then(() => undefined)
+        .catch((err: unknown) => {
+          log.warn({ err, channel: channelId }, 'could not say which settings were not found');
+        }),
+    recordedForum: async (serverId) => (await eventForumRecords.forum(serverId))?.forumId,
+  });
   const regionRepository = new RegionRepository(db);
   const regions = new RegionDirectory({ regions: regionRepository, log });
   // Reports at stops (plan 8R-1), each in the research period of the stored events.
@@ -722,7 +742,7 @@ export async function startApp(
     ? undefined
     : new EventForumService({
         gateway: partyGateway,
-        store: new EventForumRepository(db),
+        store: eventForumRecords,
         events: raidEvents,
         settings: config.settings,
         log,
@@ -1352,7 +1372,7 @@ export async function startApp(
       // stood through the restart; at `ClientReady`, the servers that added the bot meanwhile
       // without an event. Plan C's checks of who is in go to `onEveryShardReady`.
       const startWork = shardStartWork({
-        syncServers: (servers) => void syncGuilds(guilds, servers, log),
+        syncServers: (servers) => syncGuilds(guilds, servers, log),
         // Where meetup safety cannot work: once per server, in the log of the start.
         warnAtStart: (servers) => {
           meetupSafety.warnAtStart(servers);
@@ -1360,17 +1380,13 @@ export async function startApp(
         // Never awaited, and it logs what fails (review SF1-4).
         prepareStanding: (servers) => void spawns.prepareStanding(servers),
       });
-      new ShardReadiness({
+      const shards = new ShardReadiness({
         log,
         shardIds: () => client.ws.shards.keys(),
         serversOf: (shard) => [
           ...client.guilds.cache.filter((guild) => guild.shardId === shard).keys(),
         ],
-      })
-        .attach(client)
-        .onShardReady((start) => {
-          startWork.shardReady(start);
-        });
+      }).attach(client);
       // The client's once: after the last shard's first ready.
       client.once(Events.ClientReady, (ready) => {
         log.info(
@@ -1378,14 +1394,29 @@ export async function startApp(
           'connected to Discord',
         );
         botServers = () => [...ready.guilds.cache.keys()];
-        startWork.clientReady([...ready.guilds.cache.keys()]);
-        bossAnnouncer.ready();
-        // Before the first posts are shown; `refresh` logs what fails and never throws.
-        void appEmoji.refresh();
-        markConnected();
-        // The reader's files (about 15 MB the first time) are had now, so that the first
-        // screenshot does not wait for them; never awaited, and `ensure` logs what fails.
-        if (config.settings.ocr.enabled) void ocrAssets.ensure();
+      });
+      // The servers' rows (plan 19A-1, `wireServerStart`): each server's fill begun in the
+      // client's own events, before discord.js hands on any interaction of it, every interaction
+      // routed after its server's; a shard's start work after its servers' rows, and what
+      // follows, which reads the servers' values, once every shard's is done: the clock and the
+      // web wait for `connected`.
+      wireServerStart<Guild, Interaction>(client, {
+        fill: serverFill,
+        namesOf: serverNamesOf,
+        serverOf: (serverId) => client.guilds.cache.get(serverId),
+        shards,
+        work: startWork,
+        started: () => {
+          bossAnnouncer.ready();
+          // Before the first posts are shown; `refresh` logs what fails and never throws.
+          void appEmoji.refresh();
+          markConnected();
+          // The reader's files (about 15 MB the first time) are had now, so that the first
+          // screenshot does not wait for them; never awaited, and `ensure` logs what fails.
+          if (config.settings.ocr.enabled) void ocrAssets.ensure();
+        },
+        route: (interaction) => router.handle(interaction),
+        log,
       });
       client.on(Events.GuildCreate, (guild) => {
         guilds
@@ -1417,7 +1448,7 @@ export async function startApp(
         } catch (err) {
           log.warn({ err }, 'could not look at a member for an Unown want');
         }
-        void router.handle(interaction);
+        // Routed by `wireServerStart`, after its server's fill.
       });
       // Only that a member wrote, and where: the archive warning of a busy post is said again.
       // Bots (this one, others, webhooks) do not count.
@@ -1897,6 +1928,15 @@ export async function startApp(
         run: async () => {
           await gymUpkeep.stop();
           wayspotPlaces.stop();
+        },
+      },
+      // A server's fill that waits to be tried again is not (plan 19A-1).
+      {
+        name: 'server fill',
+        timeoutMs: 1_000,
+        run: () => {
+          serverFill.stop();
+          return Promise.resolve();
         },
       },
       { name: 'gym announcements', timeoutMs: 3_000, run: () => gymAdmin.flush() },

@@ -1,0 +1,133 @@
+import { Events } from 'discord.js';
+import type { Logger } from '../log.js';
+import type { ServerFill, ServerNames } from '../services/server-fill.js';
+import { readyGuilds, type ShardStart } from './shard-readiness.js';
+
+/**
+ * What the start of the servers needs of the client (`Client`; an `EventEmitter` in tests): the
+ * events of its servers, the gateway's packets (a shard's READY) and the interactions.
+ */
+export interface ServerStartClient<G, I> {
+  once(
+    event: Events.ClientReady,
+    listener: (ready: { guilds: { cache: ReadonlyMap<string, G> } }) => void,
+  ): unknown;
+  on(event: Events.Raw, listener: (packet: unknown, shard: unknown) => void): unknown;
+  on(event: Events.GuildAvailable | Events.GuildCreate, listener: (guild: G) => void): unknown;
+  on(event: Events.InteractionCreate, listener: (interaction: I) => void): unknown;
+}
+
+/** The work of the shards' readies (`shardStartWork`, `src/app-wiring.ts`); neither rejects. */
+export interface ShardWork {
+  /** A shard's ready: its servers recorded, then, after `filled`, its first ready's work. */
+  shardReady(start: ShardStart, filled: Promise<unknown>): Promise<void>;
+  /** The client's ready: the cached servers no shard's ready covered, recorded. */
+  clientReady(cached: readonly string[]): Promise<void>;
+}
+
+export interface ServerStartDeps<G, I> {
+  fill: Pick<ServerFill, 'begin' | 'whenFilled'>;
+  /** A server's names from the client's cache (`serverNamesOf`). */
+  namesOf: (guild: G) => ServerNames;
+  /** A server of the client's cache by its id. */
+  serverOf: (serverId: string) => G | undefined;
+  /** Each shard's ready (`ShardReadiness`, plan 19D). */
+  shards: { onShardReady(listener: (start: ShardStart) => void): unknown };
+  work: ShardWork;
+  /**
+   * The rest of the start, once every shard's first ready did its work and every server present
+   * has its row and its `Guild` row: what reads the servers' values, and the client marked
+   * connected (the clock and the web wait for it).
+   */
+  started: () => void;
+  /** Hands an interaction on (the router). */
+  route: (interaction: I) => unknown;
+  log: Logger;
+}
+
+/**
+ * The start of the servers (plan 19A-1, `servers.md`; review F14; on plan 19D's shards, fix
+ * round 3, H1). A server's fill is begun in the client's own events, before discord.js hands on
+ * any interaction of it: when it is made available (`GuildAvailable`, which comes before its
+ * shard's ready), at its shard's ready for each of the shard's servers available then (one that
+ * added the bot between the READY and the ready has no event), at `ClientReady` for the cached
+ * servers no shard covered (added between two shards' readies, no event either), and when the bot
+ * joins one (`GuildCreate`). Every interaction waits for its server's fill (`whenFilled`).
+ *
+ * Per shard, its servers' fills and their `Guild` rows are written before its start work (the
+ * warnings of meetup safety and the standing spawns read the servers' values): `work.shardReady`
+ * waits for the fills it is given. `started` runs once every shard's first ready did its work and
+ * the servers of `ClientReady` are filled and recorded (review F4: the notifier finds a party's
+ * server by its `Guild` row).
+ *
+ * Who was present at the upgrade (`'present'`, recorded set up while `upgrading`): only a server
+ * its shard's first READY named, those Discord said unavailable included, so that one down at the
+ * login is set up when it comes. Any other server without a row is `'joined'`: one that adds the
+ * bot (`GuildCreate`, or no event between two readies), or one that added it while its shard was
+ * away (named by a later session's READY, then `GuildAvailable`).
+ */
+export function wireServerStart<
+  G extends { id: string; available: boolean },
+  I extends { guildId: string | null },
+>(client: ServerStartClient<G, I>, deps: ServerStartDeps<G, I>): void {
+  const { fill, namesOf, log } = deps;
+  /** The servers a shard's READY named before the shard's first ready: those of the login. */
+  const atLogin = new Set<string>();
+  /** The shards whose first ready came. */
+  const readied = new Set<number>();
+  /** Each shard's first ready's work: the start waits for all of them. */
+  const firstWork: Promise<void>[] = [];
+  const begin = (guild: G): void => {
+    // A server not available yet is filled when it is (`GuildAvailable`).
+    if (!guild.available) return;
+    fill.begin(namesOf(guild), atLogin.has(guild.id) ? 'present' : 'joined');
+  };
+  const filled = (serverIds: readonly string[]): Promise<unknown> =>
+    Promise.all(serverIds.map((serverId) => fill.whenFilled(serverId)));
+
+  // discord.js gives every packet before it handles it: a shard's READY comes before the
+  // `GuildAvailable` of its servers.
+  client.on(Events.Raw, (packet, shard) => {
+    if (typeof shard !== 'number' || readied.has(shard)) return;
+    for (const serverId of readyGuilds(packet) ?? []) atLogin.add(serverId);
+  });
+  deps.shards.onShardReady((start) => {
+    if (start.first) {
+      readied.add(start.shard);
+      // Without the READY packet seen, the servers of the shard's first ready stand for it.
+      const named = start.inReady ?? [...start.servers, ...start.unavailable];
+      for (const serverId of named) atLogin.add(serverId);
+    }
+    for (const serverId of start.servers) {
+      const guild = deps.serverOf(serverId);
+      if (guild !== undefined) begin(guild);
+    }
+    const work = deps.work.shardReady(start, filled(start.servers)).catch((err: unknown) => {
+      log.error({ err, shard: start.shard }, 'could not start the work of a shard');
+    });
+    if (start.first) firstWork.push(work);
+  });
+  client.once(Events.ClientReady, (ready) => {
+    const all = [...ready.guilds.cache.values()];
+    for (const guild of all) begin(guild);
+    const ids = all.map((guild) => guild.id);
+    void Promise.all([...firstWork, deps.work.clientReady(ids), filled(ids)]).then(() => {
+      try {
+        deps.started();
+      } catch (err) {
+        log.error({ err }, 'could not finish the start');
+      }
+    });
+  });
+  client.on(Events.GuildAvailable, (guild) => {
+    begin(guild);
+  });
+  client.on(Events.GuildCreate, (guild) => {
+    // Its row before its first interaction: joined now, so not set up.
+    fill.begin(namesOf(guild), 'joined');
+  });
+  client.on(Events.InteractionCreate, (interaction) => {
+    // After its server's fill, if one is under way: never before its row.
+    void fill.whenFilled(interaction.guildId).then(() => deps.route(interaction));
+  });
+}

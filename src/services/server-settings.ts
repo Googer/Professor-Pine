@@ -8,7 +8,14 @@ import {
 } from '../config/server-settings.js';
 import type { Settings } from '../config/settings.js';
 import type { ServerSettingsStorage } from '../db/repositories/server-settings-repository.js';
+import { UserError } from '../discord/errors.js';
 import type { Logger } from '../log.js';
+
+/**
+ * What a change of a server's values is refused with while the server has no row (review F5):
+ * its fill comes first, and a change written before it would lose the names the fill finds.
+ */
+export const SETTINGS_LOADING = 'This server’s settings are still loading. Try again in a minute.';
 
 /** What every reader of a server's values needs (`ServerSettings`; a fixed one in tests). */
 export interface ServerSettingsLookup {
@@ -29,7 +36,8 @@ export interface ServerSettingsService extends ServerSettingsLookup {
   /**
    * Changes a server's values: `change` gets them as they are (after every change asked before
    * it) and gives them changed. Checked (`ServerValuesError` for a value that is not valid,
-   * nothing written), written with `by` and the time, then kept. The values as kept.
+   * nothing written), written with `by` and the time, then kept. The values as kept. Refused
+   * (`SETTINGS_LOADING`) while the server has no row.
    */
   set(
     serverId: string,
@@ -68,6 +76,8 @@ export class ServerSettings implements ServerSettingsService {
    * once its last link settles.
    */
   private readonly turns = new Map<string, Promise<unknown>>();
+  /** The fills under way (`ServerFill`, `filling`): a change asked meanwhile waits for its server's. */
+  private readonly fills = new Map<string, Promise<void>>();
 
   constructor(
     private readonly options: {
@@ -120,19 +130,35 @@ export class ServerSettings implements ServerSettingsService {
   /**
    * Changes a server's values: `change` gets them as they are (after every change asked before
    * it) and gives them changed. Checked (`ServerValuesError` for a value that is not valid,
-   * nothing written), written with `by` and the time, then kept. The values as kept.
+   * nothing written), written with `by` and the time, then kept. The values as kept. After the
+   * server's fill under way, if one is (`filling`); refused (`SETTINGS_LOADING`, a `UserError`)
+   * while the server has no row, so that a change never writes the defaults without the names
+   * the fill would find (review F5).
    */
-  set(
+  async set(
     serverId: string,
     change: (values: ServerValues) => ServerValues,
     by: string,
   ): Promise<ServerValues> {
+    await this.fills.get(serverId);
     return this.inTurn(serverId, async () => {
       const kept = this.kept.get(serverId);
-      const values = checkServerValues(change(kept?.values ?? this.fileDefaultsOf(serverId)));
+      if (kept === undefined) throw new UserError(SETTINGS_LOADING, { givesBack: true });
+      const values = checkServerValues(change(kept.values));
       await this.options.store.write(serverId, values, this.now(), by);
-      this.kept.set(serverId, { values, setUpAt: kept?.setUpAt ?? null });
+      this.kept.set(serverId, { values, setUpAt: kept.setUpAt });
       return values;
+    });
+  }
+
+  /**
+   * A server's fill is under way (`ServerFill`; `done` never rejects): a change of its values
+   * asked meanwhile waits for it, and so changes the filled values.
+   */
+  filling(serverId: string, done: Promise<void>): void {
+    this.fills.set(serverId, done);
+    void done.finally(() => {
+      if (this.fills.get(serverId) === done) this.fills.delete(serverId);
     });
   }
 

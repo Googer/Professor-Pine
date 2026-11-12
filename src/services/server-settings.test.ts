@@ -16,7 +16,8 @@ import {
 import { MemoryServerSettings } from '../../test/support/server-settings.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
-import { ServerSettings } from './server-settings.js';
+import { UserError } from '../discord/errors.js';
+import { ServerSettings, SETTINGS_LOADING } from './server-settings.js';
 
 const settings = loadSettings(TEST_SETTINGS_PATH);
 const BOT_LAB = '300000000000000001';
@@ -191,17 +192,16 @@ describe('ServerSettings', () => {
     expect((await changing).distanceUnits).toBe('imperial');
   });
 
-  it('gives a server its row at its first change, from the file defaults, not set up', async () => {
+  it('refuses a change of a server without its row: its fill comes first (review F5)', async () => {
     const { servers, store } = await servicesWith([]);
-    await servers.set(
+    const refused = servers.set(
       OTHER_SETTINGS_SERVER,
       (values) => ({ ...values, distanceUnits: 'imperial' }),
       SETTINGS_STAFF,
     );
-    expect(servers.of(OTHER_SETTINGS_SERVER)).toEqual({
-      ...fileDefaults(settings),
-      distanceUnits: 'imperial',
-    });
-    expect(store.rows.get(OTHER_SETTINGS_SERVER)?.setUpAt).toBeNull();
+    await expect(refused).rejects.toThrow(SETTINGS_LOADING);
+    await expect(refused).rejects.toBeInstanceOf(UserError);
+    expect(store.rows.has(OTHER_SETTINGS_SERVER)).toBe(false);
+    expect(servers.of(OTHER_SETTINGS_SERVER)).toEqual(fileDefaults(settings));
   });
 });
