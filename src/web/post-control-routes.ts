@@ -53,6 +53,7 @@ import { pageWords } from './page-words.js';
 import { forumOnTheMap } from './party-routes.js';
 import { limitedPerAddress, limitedPerMember, RateLimiter, readLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
+import { reportRefusal } from '../domain/moderation/reports.js';
 
 /*
  * The post's controls that open a dialog on Discord, as forms of the live map (plan 8M-8B):
@@ -476,6 +477,9 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       });
       if (full) return full;
       try {
+        // Never into the open (plan 19A-1), as on Discord.
+        const refusal = reportRefusal(deps.serverSettings.of(request.params.guild));
+        if (refusal !== undefined) throw new UserError(refusal);
         await refuseReportedBefore(
           deps.posts.ctx,
           request.params.guild,
@@ -516,7 +520,6 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       }
       const throttled = throttledOnTheMap(deps, reply, reportWindow, userId, REPORT_THROTTLE);
       if (throttled) return throttled;
-      const word = partyWord(found.party);
       let text: string;
       try {
         text = await countedOnTheMap(deps, reportWindow, userId, REPORT_THROTTLE, async () =>
@@ -526,9 +529,7 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
               partyId: found.party.id,
               reporter: { id: userId, name: found.member.name },
               reason,
-              roleIds: deps.posts.staffRoles(guild),
             }),
-            word,
           ),
         );
       } catch (err) {

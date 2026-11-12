@@ -94,16 +94,12 @@ describe('ModerationReports: a party reported', () => {
     expect(made.gateway.messagesIn(made.postId)).toEqual([]);
   });
 
-  it('puts the report into the post and pings the staff once without a moderators’ channel', async () => {
+  // Plan 19A-1: a report is never posted in the open.
+  it('refuses a report without a moderators’ channel, and puts nothing into the post', async () => {
     const made = await reportedMeetup({ moderation: null });
-    expect((await made.report()).kind).toBe('asked');
-    expect((await made.report()).kind).toBe('asked-before');
-    expect((await made.report(CAROL, 'Private.', 'Carol')).kind).toBe('asked');
-    const said = made.gateway.messagesIn(made.postId).map((one) => one.message.content);
-    expect(said).toEqual([
-      `<@&300000000000000001>: **Bob** (<@${BOB}>) asks for this meetup to be deleted.\n> It is somebody’s front yard.`,
-      `**Carol** (<@${CAROL}>) asks for this meetup to be deleted.\n> Private.`,
-    ]);
+    const before = made.gateway.messagesIn(made.postId).length;
+    expect((await made.report()).kind).toBe('no-channel');
+    expect(made.gateway.messagesIn(made.postId)).toHaveLength(before);
     expect(made.reportStore.reports.size).toBe(0);
   });
 
@@ -139,7 +135,6 @@ describe('ModerationReports: a party reported', () => {
       partyId: raid.party.id,
       reporter: { id: BOB, name: 'Bob' },
       reason: 'Duplicate.',
-      roleIds: [],
     });
     const post = made.gateway.messagesIn(MOD_CHANNEL)[0]?.message;
     expect(textOf(post)).toContain('### Reported raid');
@@ -176,7 +171,6 @@ describe('ModerationReports: a party reported', () => {
         partyId: battle.party.id,
         reporter: { id: BOB, name: 'Bob' },
         reason: 'Nobody is there.',
-        roleIds: [],
       });
       expect(outcome.kind).toBe('sent');
       const post = made.gateway.messagesIn(MOD_CHANNEL)[n]?.message;

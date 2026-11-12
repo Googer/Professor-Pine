@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { moderatorsNamed, type ServerStanding } from '../servers/standing.js';
 import type { Place } from '../geo/place.js';
 import type { Decider } from '../meetups/records.js';
 import type { PartyType } from '../party/party.js';
@@ -256,4 +257,23 @@ export interface ReportStore {
   openReports(serverId: string): Promise<ModerationReport[]>;
   /** The open reports whose post was never recorded and that were made at `before` or earlier. */
   unpostedReports(before: number): Promise<ModerationReport[]>;
+}
+
+/**
+ * What a member is told who reports where the server's staff have set no moderators' channel
+ * (plan 19A-1): a report goes to the moderators alone, never into the open (a party's post).
+ */
+export const NO_MODERATORS_CHANNEL =
+  "This server's staff have not set a moderators' channel, so reports cannot be sent here.";
+
+/**
+ * Whether a server takes reports (`/report`, "Report to moderators" in the Apps menu, the map's
+ * Report… alike): undefined where its staff set a moderators' channel, or where the settings file
+ * named one the server lacks (`moderatorsNamed`, review F2: taken, and found unreachable, as
+ * before 2.1); the refusal otherwise.
+ */
+export function reportRefusal(
+  values: Pick<ServerStanding, 'channels' | 'unmatched'>,
+): string | undefined {
+  return moderatorsNamed(values) ? undefined : NO_MODERATORS_CHANNEL;
 }

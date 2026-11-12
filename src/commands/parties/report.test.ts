@@ -15,7 +15,6 @@ import { reportsWith } from '../../../test/support/reports-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { partyButtons } from '../../components/party.js';
 import { InteractionRouter } from '../../discord/router.js';
-import { MAX_REPORT_REASON } from '../../domain/moderation/reports.js';
 import {
   partyReportForm,
   report,
@@ -49,6 +48,7 @@ async function setup(options: SafetyOptions = {}) {
     regions: made.regions,
     reports: made.reports,
     meetupSafety: made.safety,
+    servers: made.servers,
   });
   let now = PARTY_NOW;
   const router = new InteractionRouter(ctx, [report], [reportControls, partyButtons], {
@@ -73,11 +73,14 @@ async function setup(options: SafetyOptions = {}) {
         ...extra,
       }),
     );
+  /** `/report` used in the meetup's post by `userId`. */
+  const run = (userId = BOB) => handle(fakeChatInput({ commandName: 'report', userId, ...inPost }));
   return {
     ...made,
     party,
     postId,
     inPost,
+    run,
     handle,
     submit,
     later: (ms: number) => (now += ms),
@@ -230,23 +233,33 @@ describe('/report', () => {
     expect(made.gateway.messagesIn(MOD_CHANNEL)).toEqual([]);
   });
 
-  it('puts the report into the post without a moderators’ channel, as a member’s /delete did', async () => {
+  // Plan 19A-1: never in the open; refused before the form, and at its Submit.
+  it('refuses without a moderators’ channel, before the form and at its Submit', async () => {
     const made = await setup({ moderation: null });
-    const first = await made.submit('Made twice\n**now**');
-    expect(sent(first.editReply).content).toBe(
-      'I have put your report into the post, for the moderators.',
+    const before = made.gateway.messagesIn(made.postId).length;
+    const opened = await made.run();
+    expect(opened.showModal).not.toHaveBeenCalled();
+    expect(sent(opened.reply).content).toBe(
+      "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
     );
-    expect(made.gateway.messagesIn(made.postId).at(-1)?.message).toEqual({
-      content: `<@&${ADMIN_ROLE}>: **Bob** (<@${BOB}>) asks for this meetup to be deleted.\n> Made twice \\*\\*now\\*\\*`,
-      mention: { roles: [ADMIN_ROLE] },
-    });
-    expect(sent((await made.submit('Again.')).editReply).content).toBe(
-      'You have already asked the moderators about this meetup.',
+    const submitted = await made.submit('Made twice');
+    expect(sent(submitted.followUp).content).toBe(
+      "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
     );
-    // A long reason is quoted in part: the message keeps within what Discord takes.
-    await made.submit('*'.repeat(MAX_REPORT_REASON), CAROL);
-    const quoted = made.gateway.messagesIn(made.postId).at(-1)?.message.content ?? '';
-    expect(quoted.length).toBeLessThan(2000);
+    expect(made.gateway.messagesIn(made.postId)).toHaveLength(before);
+  });
+
+  it('says the moderators cannot be reached where the file named a channel the server lacks (review F2)', async () => {
+    const made = await setup({ moderation: null });
+    made.servers.values = { ...made.servers.values, unmatched: ['channels.moderation'] };
+    const before = made.gateway.messagesIn(made.postId).length;
+    const opened = await made.run();
+    expect(opened.showModal).toHaveBeenCalledWith(partyReportForm(made.party));
+    const submitted = await made.submit('A home address.');
+    expect(sent(submitted.followUp).content).toBe(
+      'I could not send your report to the moderators. Try again later.',
+    );
+    expect(made.gateway.messagesIn(made.postId)).toHaveLength(before);
   });
 
   it('takes a form of the old /delete, opened before it was for staff alone, as a report', async () => {

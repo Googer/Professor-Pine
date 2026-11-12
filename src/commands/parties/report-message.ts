@@ -17,7 +17,7 @@ import type { PartyProvider } from '../../services/party-store.js';
 import { EXPIRED, PendingRequests } from '../../services/pending-requests.js';
 import {
   messageReportForm,
-  NO_MODERATORS,
+  refuseWithoutModerators,
   partyReportForm,
   refuseReportedBefore,
   REPORT_REASON_INPUT,
@@ -99,6 +99,8 @@ export const reportMessageCommand: MessageCommand = {
     const target = interaction.targetMessage;
     const reporterId = interaction.user.id;
     const serverId = guildIdOf(interaction);
+    // Never into the open (plan 19A-1): a party's report and a message's alike.
+    refuseWithoutModerators(ctx, serverId);
     const party = partyOfMessage(ctx.parties, target.channelId, target.id);
     if (party) {
       await refuseReportedBefore(ctx, serverId, { kind: 'party', partyId: party.id }, reporterId);
@@ -106,7 +108,6 @@ export const reportMessageCommand: MessageCommand = {
       return;
     }
     if (target.author.id === interaction.client.user.id) throw new UserError(NOTHING_TO_REPORT);
-    if (!ctx.reports.on(serverId)) throw new UserError(NO_MODERATORS);
     await refuseReportedBefore(
       ctx,
       serverId,
@@ -162,5 +163,5 @@ export async function submitMessageReport(
     reporter: { id: interaction.user.id, name: memberInfo(interaction).name },
     reason,
   });
-  await interaction.editReply({ content: reportAnswer(outcome, 'message') });
+  await interaction.editReply({ content: reportAnswer(outcome) });
 }

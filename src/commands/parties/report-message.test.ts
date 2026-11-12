@@ -37,6 +37,7 @@ async function setup(options: SafetyOptions = {}) {
     regions: made.regions,
     reports: made.reports,
     meetupSafety: made.safety,
+    servers: made.servers,
   });
   const router = new InteractionRouter(ctx, [reportMessageCommand], [reportControls]);
   const handle = async <I extends FakeInteraction>(interaction: I) => {
@@ -175,6 +176,8 @@ describe('Report to moderators (the Apps menu of a message)', () => {
   it('refuses a message where the server has no moderators’ channel', async () => {
     const made = await setup({ moderation: null });
     const used = await made.use({ id: '800000000000000001', authorId: DAVE });
-    expect(sent(used.reply).content).toBe("This server has no moderators' channel.");
+    expect(sent(used.reply).content).toBe(
+      "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
+    );
   });
 });

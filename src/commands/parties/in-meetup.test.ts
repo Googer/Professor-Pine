@@ -12,15 +12,7 @@ import {
   type FakeInteraction,
 } from '../../../test/support/fake-interactions.js';
 import { WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
-import {
-  ALICE,
-  at,
-  BOB,
-  CAROL,
-  MINUTE,
-  PARTY_NOW,
-  REPORTER,
-} from '../../../test/support/parties.js';
+import { ALICE, at, BOB, MINUTE, PARTY_NOW, REPORTER } from '../../../test/support/parties.js';
 import { createdMeetup } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { partyButtons } from '../../components/party.js';
@@ -36,7 +28,7 @@ import { meetup } from '../meetups/meetup.js';
 import { end } from '../raids/change.js';
 import { done, here, interested, join, leave, local, notHere, remote } from './attendance.js';
 import { closeControls, deleteParty } from './delete.js';
-import { partyReportForm, report, REPORT_REASON_INPUT, reportControls } from './report.js';
+import { report, reportControls } from './report.js';
 import { group } from './group.js';
 import { cancelMeet, meet } from './meet.js';
 import { name } from './name.js';
@@ -71,7 +63,6 @@ const HOUR = 60 * MINUTE;
 const START = at('2026-10-13T16:00');
 const END = at('2026-10-13T18:00');
 const stamp = (time: number, style = 't') => `<t:${time / 1000}:${style}>`;
-const ADMIN_ROLE = '800000000000000001';
 
 beforeEach(() => {
   // The handlers read the clock themselves; the fake gateway needs the real timers.
@@ -739,35 +730,16 @@ describe('the other commands in the post of a meetup', () => {
     );
   });
 
-  it('/report asks what is wrong, and puts it into the post without a moderators’ channel', async () => {
+  // Plan 19A-1: never in the open, and refused before its form.
+  it('/report is refused without a moderators’ channel, and puts nothing into the post', async () => {
     const made = await setup();
+    const before = made.gateway.messagesIn(made.postId).length;
     const used = await made.run('report');
-    expect(used.showModal).toHaveBeenCalledWith(partyReportForm(made.party));
-    const submit = (reason: string, userId = ALICE) =>
-      made.handle(
-        fakeModal({
-          customId: partyReportForm(made.party).custom_id,
-          userId,
-          fields: { [REPORT_REASON_INPUT]: reason },
-          guildRoleNames: { [ADMIN_ROLE]: 'Admin' },
-          ...made.where,
-        }),
-      );
-    expect(sent((await submit('   ')).reply).content).toBe(
-      'Say what is wrong, so that the moderators know what to look at.',
+    expect(used.showModal).not.toHaveBeenCalled();
+    expect(sent(used.reply).content).toBe(
+      "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
     );
-    expect(sent((await submit('Made twice')).editReply).content).toBe(
-      'I have put your report into the post, for the moderators.',
-    );
-    expect(made.gateway.messagesIn(made.postId).at(-1)?.message).toEqual({
-      content: `<@&${ADMIN_ROLE}>: **Member** (<@${ALICE}>) asks for this meetup to be deleted.\n> Made twice`,
-      mention: { roles: [ADMIN_ROLE] },
-    });
-    expect(sent((await submit('Again')).editReply).content).toBe(
-      'You have already asked the moderators about this meetup.',
-    );
-    await made.service.end(made.party.id);
-    expect(sent((await submit('Too late', CAROL)).reply).content).toBe('This has ended.');
+    expect(made.gateway.messagesIn(made.postId)).toHaveLength(before);
   });
 
   it('/admin save-party keeps the post of a meetup and lets it go again', async () => {

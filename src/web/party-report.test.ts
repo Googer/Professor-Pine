@@ -38,6 +38,8 @@ function reporting(
     members,
     parties: partyWebWith(made, { acting, throttles }),
     posts: postWebWith(ctx, { staffRoles: () => [STAFF_ROLE] }),
+    // The server's moderators' channel (plan 19A-1), as the services of `made` have it.
+    serverSettings: made.servers,
   });
   web.clock.now = PARTY_NOW;
   const url = `/s/${FAKE_GUILD_ID}/api/parties/${made.party.id}/report`;
@@ -109,7 +111,8 @@ describe('reporting a party to the moderators on the map (plan 8M-8B)', () => {
     });
   });
 
-  it("puts the reason into the post where there is no moderators' channel, pinging the staff roles", async () => {
+  // Plan 19A-1: never in the open, on the map as on Discord.
+  it("refuses a report where there is no moderators' channel, and puts nothing into the post", async () => {
     const made = await reportedRaid();
     const { ctx } = createTestContext({
       partyService: made.service,
@@ -119,13 +122,20 @@ describe('reporting a party to the moderators on the map (plan 8M-8B)', () => {
     });
     const map = reporting(made, ctx);
     web = map.web;
+    const before = made.said().length;
+    const opened = await map.open();
+    expect(opened.status).toBe(422);
+    expect(opened.json).toEqual({
+      error:
+        "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
+    });
     const sent = await map.send({ reason: 'A duplicate of the other raid here.' });
     expect(sent.json).toEqual({
-      ok: true,
-      text: 'I have put your report into the post, for the moderators.',
+      ok: false,
+      text: "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
     });
     await made.service.flush();
-    expect(made.said().join('\n')).toContain(`<@&${STAFF_ROLE}>`);
+    expect(made.said()).toHaveLength(before);
   });
 
   it("refuses a reason of white space alone in /report's words, counting nothing", async () => {

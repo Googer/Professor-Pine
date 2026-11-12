@@ -2,7 +2,12 @@ import { ChannelType, Collection, MessageFlags, PermissionFlagsBits } from 'disc
 import { describe, expect, it, vi } from 'vitest';
 import { FAKE_GUILD_ID, fakeChatInput } from '../../../test/support/fake-interactions.js';
 import { MemoryLegacyIndex } from '../../../test/support/legacy-fill-ins.js';
-import { TEST_SERVER_CHANNELS } from '../../../test/support/server-values.js';
+import {
+  TEST_SERVER_CHANNELS,
+  TestServers,
+  testServerValues,
+} from '../../../test/support/server-values.js';
+import type { ServerValues } from '../../config/server-settings.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { TUTORIAL_MARK } from '../../render/tutorial.js';
@@ -91,6 +96,18 @@ describe('/admin tutorial', () => {
     const text = await sentText(elsewhere);
     expect(text).toContain('/settings');
     expect(text).not.toContain('old bot');
+  });
+
+  it("says the moderators may check a meetup's place where meetup safety is on (review F2)", async () => {
+    const sentText = async (values: Partial<ServerValues>) => {
+      const { run } = setup({ servers: new TestServers(testServerValues(values)) });
+      return JSON.stringify((await run()).send.mock.calls);
+    };
+    const check = 'The moderators may check the place first.';
+    expect(await sentText({})).not.toContain(check);
+    expect(await sentText({ channels: { moderation: '300000000000000099' } })).toContain(check);
+    // Named in the settings file and not found: on, as before 2.1.
+    expect(await sentText({ unmatched: ['channels.moderation'] })).toContain(check);
   });
 
   it('edits its own messages in order when run again, and touches nothing else', async () => {

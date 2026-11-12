@@ -1,3 +1,4 @@
+import { moderatorsNamed } from '../../config/server-settings.js';
 import { ChannelType, SlashCommandSubcommandBuilder } from 'discord.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
@@ -62,7 +63,7 @@ export const tutorial: SubcommandPart = {
       screenshots: settings.ocr.enabled,
       liveMap: settings.web !== undefined,
       hasStops: row !== undefined && ctx.placeFinder.hasStops(row),
-      meetupsChecked: server.channels.moderation !== undefined,
+      meetupsChecked: moderatorsNamed(server),
       oldHistory: (await ctx.legacyIndex?.hasServer(interaction.guildId ?? '')) === true,
       icons: { controlIcon: (name) => ctx.emoji.find(name, null) },
     });

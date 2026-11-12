@@ -58,8 +58,6 @@ export interface PartyReportAsk {
   reporter: NamedMember;
   /** As typed: trimmed here. */
   reason: string;
-  /** The staff roles to ping where there is no moderators' channel (`requestDeletion`). */
-  roleIds: readonly string[];
 }
 
 /** A member's report of one message, as the Apps menu gives it. */
@@ -132,15 +130,11 @@ export type ReportOutcome =
   | { kind: 'not-sent' }
   /** A reason of nothing but white space, or longer than `MAX_REPORT_REASON`. */
   | { kind: 'no-reason' }
-  /** A message reported where the server has no moderators' channel. */
-  | { kind: 'no-channel' }
   /**
-   * Without a moderators' channel (the server's values): put into the party's post,
-   * the staff roles pinged once (`PartyService.requestDeletion`, as a member's `/delete` before),
-   * or asked by this member before.
+   * Where the server has no moderators' channel (plan 19A-1: `reportRefusal`): refused, never
+   * put into the open.
    */
-  | { kind: 'asked' }
-  | { kind: 'asked-before' };
+  | { kind: 'no-channel' };
 
 export interface ModerationReportsOptions {
   storage: ReportStore;
@@ -151,13 +145,7 @@ export interface ModerationReportsOptions {
   >;
   parties: Pick<
     PartyService,
-    | 'requestDeletion'
-    | 'briefOf'
-    | 'postTitle'
-    | 'placeOf'
-    | 'endAs'
-    | 'mayDeletePost'
-    | 'deletePostOf'
+    'briefOf' | 'postTitle' | 'placeOf' | 'endAs' | 'mayDeletePost' | 'deletePostOf'
   >;
   /** Meetup safety: a place refused for good, a maker blocked (Refuse place…, Block maker…). */
   safety: Pick<MeetupSafety, 'refusePlace' | 'blockMember'>;
@@ -196,12 +184,6 @@ export const MISSING_SPOT_DAYS = 7;
  * review M4).
  */
 export const LIST_TIER_NOTE_DAYS = 7;
-
-/**
- * As much of a reason as is quoted in a party's post where there is no moderators' channel: in
- * one message with the pings, escaped (`plain` may double it), within Discord's 2,000.
- */
-const PUBLIC_REASON_ROOM = 500;
 
 /** As many of a party's brief lines as a report keeps, and as much of each. */
 const MAX_LINES = 10;
@@ -439,16 +421,8 @@ export class ModerationReports {
     if (reason === '' || reason.length > MAX_REPORT_REASON) return { kind: 'no-reason' };
     const party = this.options.store.get(ask.partyId);
     if (!party?.forumPostId) return { kind: 'gone' };
-    if (!this.on(ask.serverId)) {
-      const asked = await this.options.parties.requestDeletion(
-        party.id,
-        ask.reporter,
-        // Quoted in one message with the pings, which Discord keeps to 2,000 characters.
-        cutWhole(reason, PUBLIC_REASON_ROOM),
-        ask.roleIds,
-      );
-      return { kind: asked === 'asked' ? 'asked' : asked === 'already' ? 'asked-before' : 'gone' };
-    }
+    // Never into the open (plan 19A-1): without the moderators' channel, refused.
+    if (!this.on(ask.serverId)) return { kind: 'no-channel' };
     const subject = this.subjectOf(party);
     const nearChannelId = subject.regionChannelId;
     if (nearChannelId === null) return { kind: 'gone' };

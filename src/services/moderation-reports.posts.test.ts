@@ -31,7 +31,6 @@ async function setup() {
       partyId: party.id,
       reporter: { id: reporterId, name },
       reason: text,
-      roleIds: [],
     });
   const post = () => made.gateway.messagesIn(MOD_CHANNEL)[0]?.message;
   /** Holds the gateway's next call of `method` into the moderators' channel until released. */

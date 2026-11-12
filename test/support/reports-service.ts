@@ -67,7 +67,6 @@ export async function reportedMeetup(options: SafetyOptions = {}) {
       partyId: party.id,
       reporter: { id: reporterId, name },
       reason,
-      roleIds: ['300000000000000001'],
     });
   return { ...made, party, postId, report };
 }
