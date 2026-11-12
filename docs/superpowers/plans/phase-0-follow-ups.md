@@ -3584,7 +3584,7 @@ The Message Content intent was not applied for (the review was due 2026-11-11): 
 
 ### One instance for many servers, and sharding (Matt, 2026-11-12: a 2.1 design item)
 
-The aim: Pine as a public application, one instance that serves many servers that do not interfere with one another, with a public invite link, so that a community can start without hosting Pine itself. Self-hosting stays as it is. Matt will not run such an instance for now (no hardware for it): the work is making Pine able to, and leaving it off by default. Sharding is a likely follow-up, maybe part of it from the start.
+The aim: Pine as a public application, one instance that serves many servers that do not interfere with one another, with a public invite link, so that a community can start without hosting Pine itself. Self-hosting stays as it is. Matt will not run such an instance yet, for lack of hardware for it today, but may offer a truly public one later: the work is making Pine able to, built to run in earnest when that day comes, and off by default until then. Sharding is a likely follow-up, maybe part of it from the start.
 
 What a design has to settle (a first look, 2026-11-12, not a design):
 
