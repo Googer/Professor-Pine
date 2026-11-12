@@ -3505,8 +3505,8 @@ Checks from the left-open lists of Phases 2 to 5 that only Discord or a staging 
 
 Fixed on `main-dev` (181e446f0, for 2.0.3; the dev bot runs it): a max battle's chip under an hour (`maxChip`), a CP read together with the boss's name (`nameWithin`), a split's raid pane taken for two screens by its gym's name in two pieces (`oneName`); `ocr-improvements.md`, causes 21 to 23. Left:
 
-- **A long gym name whose middle words the model cannot read** (a split's raid pane, white letters on the stadium's light): read "The Church of Episcopal" for a name of six words. Whether production's gym search finds the gym from it is not checked (the labelled folder has no gym list); a nickname would settle it if it does not.
-- **Not staged on Discord.** Each fix was checked on the screenshots themselves with the real models (`var/ocr/prod-2026-11-11-split`), not posted through the dev bot.
+- **A long gym name whose middle words the model cannot read** (a split's raid pane, white letters on the stadium's light): read "The Church of Episcopal" for a name of six words; the search finds the gym, not sure (asked). Matt, 2026-11-11: fine as it is.
+- **Staged on the dev bot (2026-11-11, `/read-screenshot` as Tester in the region of the gyms): all pass.** The church split read as a T5 Zamazenta at The Church of the Redeemer Episcopal (not sure: its middle words unread), the low manor pane T5 with CP 56867 and its boss, the Registeel split's chip 0:24:36 as its countdown.
 
 ## From the production screenshots of 2026-11-10 (#monroeville)
 
