@@ -401,6 +401,7 @@ export class ModerationReports {
     this.ownerNoted.set(key, now);
     dms.send({
       userId: ownerId,
+      serverId: null,
       message: listTierOwnerDm(notice, gateway.guildName(notice.serverId)),
       priority: DM_PRIORITY.normal,
       eventAt: now,

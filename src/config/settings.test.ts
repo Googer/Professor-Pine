@@ -121,6 +121,29 @@ describe('loadSettings', () => {
     }
   });
 
+  it('caps first direct messages per server only beyond what the queue sends at all, unless set (plan 19B-5)', () => {
+    expect(loadSettings(REPO_SETTINGS).dms).toEqual({
+      firstContactsPerWindow: 6_000,
+      firstContactWindowMinutes: 10,
+    });
+    const dms = (more: Record<string, unknown>) =>
+      writeSettings((s) => {
+        s.dms = more;
+      });
+    expect(loadSettings(dms({ firstContactsPerWindow: 200 })).dms).toEqual({
+      firstContactsPerWindow: 200,
+      firstContactWindowMinutes: 10,
+    });
+    for (const wrong of [
+      { firstContactsPerWindow: 0 },
+      { firstContactWindowMinutes: 0 },
+      { firstContactWindowMinutes: 1.5 },
+      { perServer: 3 },
+    ]) {
+      expect(() => loadSettings(dms(wrong))).toThrow(ConfigError);
+    }
+  });
+
   it('takes the reader settings it knows and refuses others', () => {
     const ocr = (more: Record<string, unknown>) =>
       writeSettings((s) => {

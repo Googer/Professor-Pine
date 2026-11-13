@@ -946,6 +946,7 @@ export class ScreenshotTrigger {
     const now = this.now();
     ctx.dms.send({
       userId: posted.authorId,
+      serverId: posted.guildId,
       message: { content: boardDmText(head, lines) },
       priority: DM_PRIORITY.normal,
       eventAt: now,

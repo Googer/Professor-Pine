@@ -208,6 +208,11 @@ describe('NotifyService: a raid is reported', () => {
     expect(told(made, BOB)[0]).toMatch(/^A T5 egg has been reported at \*\*The Stacks\*\*/);
     expect(why(made, BOB)).toEqual(['T5 · Raids']);
     expect(made.dms.jobs[0]?.expiresAt).toBe(made.party.endTime);
+    // Each of the party's server (plan 19B-5).
+    expect(made.dms.jobs.map((job) => job.serverId)).toEqual([
+      made.gateway.guildId,
+      made.gateway.guildId,
+    ]);
   });
 
   it('does not tell the reporter, and does not name one who reports anonymously', async () => {

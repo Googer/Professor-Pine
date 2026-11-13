@@ -15,6 +15,7 @@ import { dbConfigFrom } from './db/db-config.js';
 import { createDb } from './db/kysely.js';
 import { runMigrations } from './db/migrator.js';
 import { AccessGrantRepository } from './db/repositories/access-grant-repository.js';
+import { DmContactRepository } from './db/repositories/dm-contact-repository.js';
 import { PartyAuditRepository } from './db/repositories/party-audit-repository.js';
 import { GuildRepository } from './db/repositories/guild-repository.js';
 import { GymNotificationRepository } from './db/repositories/gym-notification-repository.js';
@@ -593,7 +594,16 @@ export async function startApp(
   // The servers of the client that ended up connected, once it is ready.
   let botServers: () => readonly string[] = () => [];
   const dmGateway = new DiscordDmGateway();
-  const dms = new QueuedDmSender({ gateway: dmGateway, log });
+  // Each server's messages to members never written to are capped (plan 19B-5).
+  const dms = new QueuedDmSender({
+    gateway: dmGateway,
+    log,
+    contacts: new DmContactRepository(db),
+    firstContacts: {
+      perWindow: config.settings.dms.firstContactsPerWindow,
+      windowMs: config.settings.dms.firstContactWindowMinutes * 60_000,
+    },
+  });
   // In rehearsal mode only the allowlist is written to; the queue itself is drained at shutdown.
   const memberDms = rehearsal ? new RehearsalDms(dms, rehearsal, log) : dms;
   // Changes of the boss list told to the servers, and a list that is out of date to the owner
@@ -1414,6 +1424,7 @@ export async function startApp(
     gateway: partyGateway,
     dms: memberDms,
     zoneOfRow: (row) => partyService.zoneOfRow(row),
+    serverOfRow: (row) => rowIds.serverOfRow(row),
     log,
     changed: (regionId) => {
       partyService.summaryChanged(regionId, true);

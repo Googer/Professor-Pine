@@ -62,6 +62,7 @@ describe('ModerationReports: screenshots that disagree with the boss list (plan 
     ]);
     // The owner: the server, the boss and its tiers, what the screenshots showed, the command.
     expect(made.dms.jobs.map((job) => job.userId)).toEqual([OWNER]);
+    expect(made.dms.serversOf(OWNER)).toEqual([null]);
     expect(textDisplays(made.dms.jobs[0]?.message)).toEqual([
       '### Screenshots disagree with the boss list',
       `from **${made.gateway.guildName(SERVER) ?? ''}** · ${SERVER}`,

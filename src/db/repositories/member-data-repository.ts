@@ -1,6 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 import { inTransaction, retryOnDeadlock } from '../transaction.js';
 import type { DB } from '../types.js';
+import { DmContactRepository } from './dm-contact-repository.js';
 import { HistoryRepository, type HistoryHeld } from './history-repository.js';
 import { MeetupSafetyRepository, type MeetupRecordsHeld } from './meetup-safety-repository.js';
 import { NewTrainRepository } from './new-train-repository.js';
@@ -29,6 +30,8 @@ export interface MemberHoldings {
   sessions: number;
   /** A row of access to the Wayfarer export tool. */
   toolAccess: boolean;
+  /** The record that Pine has sent them a direct message (`DmContact`, plan 19B-5). */
+  dmContact: boolean;
   /**
    * Reports to the moderators: the reasons they gave, whose id and name the removal takes off
    * (the words stay), and the reports about them, which stay.
@@ -69,6 +72,7 @@ export interface MemberRemoved {
   /** The ids of the web logins deleted, whose live streams are to be ended. */
   sessions: string[];
   toolAccess: boolean;
+  dmContact: boolean;
   /** The reasons of reports their id and name were taken off. */
   reportReasons: number;
   /** The requests, appeals and asks, decided and over, their id and name were taken off. */
@@ -94,6 +98,7 @@ export const REMOVAL_STEPS = {
   history: 'their history',
   sessions: 'their web logins',
   toolAccess: 'their access to the export tool',
+  dmContact: 'the record that Pine sent them direct messages',
   reports: 'their id and name on reports to the moderators',
   meetups: 'their id and name on meetup requests, appeals and asks',
   /** After the last statement: the commit, or a deadlock that outlasted its tries there. */
@@ -131,7 +136,7 @@ export class MemberRemovalError extends Error {
  * (`UserRepository.forget`, the row locked first, as a member's own changes lock it), their
  * new-train notices and Unown gift rows, their history in every server exactly as an opt-out
  * takes it (`HistoryRepository.forgetEverywhere`), their web logins, their access to the export
- * tool, and their id and name on the reasons of reports they gave and on their own meetup
+ * tool, the record that Pine sent them direct messages (`DmContact`), and their id and name on the reasons of reports they gave and on their own meetup
  * requests, appeals and asks that are decided and over (migration 051; an approval whose meetup
  * is still going on is not, `going`). Either all of it is done or the database is as it was. A
  * deadlock (an opt-out or a login of the same member at that moment) runs all of it again.
@@ -160,6 +165,7 @@ export class MemberDataRepository implements MemberData {
         history: await new HistoryRepository(trx).heldEverywhere(memberId),
         sessions: await new WebSessionRepository(trx).countOf(memberId),
         toolAccess: (await new ScriptAccessRepository(trx).byUser(memberId)) !== undefined,
+        dmContact: (await new DmContactRepository(trx).known([memberId])).has(memberId),
         reports: await new ReportRepository(trx).heldOf(memberId),
         meetups: await new MeetupSafetyRepository(trx).heldOf(memberId, going),
         ...(await left(trx, memberId)),
@@ -190,6 +196,8 @@ export class MemberDataRepository implements MemberData {
           const sessions = await new WebSessionRepository(trx).removeOf(memberId);
           await at(REMOVAL_STEPS.toolAccess);
           const toolAccess = await new ScriptAccessRepository(trx).forget(memberId);
+          await at(REMOVAL_STEPS.dmContact);
+          const dmContact = await new DmContactRepository(trx).forget(memberId);
           await at(REMOVAL_STEPS.reports);
           const reportReasons = await new ReportRepository(trx).forgetReporter(memberId);
           await at(REMOVAL_STEPS.meetups);
@@ -203,6 +211,7 @@ export class MemberDataRepository implements MemberData {
             history,
             sessions: [...sessions].sort(),
             toolAccess,
+            dmContact,
             reportReasons,
             meetupRecords,
           };

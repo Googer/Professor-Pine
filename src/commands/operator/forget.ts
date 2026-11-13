@@ -80,8 +80,8 @@ export const forget: SubcommandPart = {
       'by hand. Nothing changes until you press "Remove…" and confirm, within ' +
       `${String(FORGET_MINUTES)} minutes.\n\n` +
       'A removal takes their settings, friend code, in-game name and Pokebattler id, their ' +
-      'wants, gym notices and saved routes, and their web logins, kept screenshots and access ' +
-      'to the export tool.\n\n' +
+      'wants, gym notices and saved routes, and their web logins, kept screenshots, access ' +
+      'to the export tool and the record that Pine has sent them direct messages.\n\n' +
       'It takes their id out of the history of every server, with the names and descriptions ' +
       'of the trains and meetups they made while their history was on (a record made without ' +
       'it does not say who made it), and switches their history and boards off.\n\n' +

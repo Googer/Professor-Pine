@@ -46,6 +46,8 @@ export interface BoardKeeperOptions {
    * member is told once per local day of that server (Q2).
    */
   zoneOfRow: (row: number | null) => string;
+  /** The server of a `Guild` row (`RowIds.serverOfRow`): the server its DMs are of (plan 19B-5). */
+  serverOfRow: (row: number) => string | undefined;
   log: Logger;
   /**
    * Told of every message in a region's board that is neither the bot's own nor Discord's, as it
@@ -287,6 +289,10 @@ export class BoardKeeper {
   private deletedFrom(region: Region, messages: readonly BoardMessage[]): void {
     const boardId = region.summaryMessageId ?? '';
     const day = isoDate(this.now(), this.options.zoneOfRow(region.guildId));
+    // Every row's server is known once the rows were read at the start (`RowIds`); one that is
+    // not would be sent as the instance's, uncapped, rather than not at all.
+    const serverId =
+      region.guildId === null ? null : (this.options.serverOfRow(region.guildId) ?? null);
     for (const message of messages) {
       if (message.by !== 'member') continue;
       const key = `${String(region.guildId)}:${message.authorId}`;
@@ -295,6 +301,7 @@ export class BoardKeeper {
       const now = this.now();
       this.options.dms.send({
         userId: message.authorId,
+        serverId,
         message: { content: boardDeletedDm(boardId, region.channelId) },
         priority: DM_PRIORITY.normal,
         eventAt: now,

@@ -54,6 +54,7 @@ interface Taken {
   words: number;
   sessions: number;
   toolAccess: boolean;
+  dmContact: boolean;
   reportReasons: number;
   meetupRecords: number;
   screenshots: number;
@@ -69,6 +70,7 @@ function takenBy(look: MemberLook): Taken {
     ...held.history,
     sessions: held.sessions,
     toolAccess: held.toolAccess,
+    dmContact: held.dmContact,
     reportReasons: held.reports.reasons,
     meetupRecords: held.meetups.over,
     screenshots: screenshots.sent,
@@ -85,6 +87,7 @@ function tookAway(outcome: MemberRemovalOutcome): Taken {
     ...removed.history,
     sessions: removed.sessions.length,
     toolAccess: removed.toolAccess,
+    dmContact: removed.dmContact,
     reportReasons: removed.reportReasons,
     meetupRecords: removed.meetupRecords,
     screenshots: screenshots.removed,
@@ -150,6 +153,7 @@ function takenLines(taken: Taken): string[] {
   }
   if (taken.sessions > 0) lines.push(count(taken.sessions, 'web login'));
   if (taken.toolAccess) lines.push('Their access to the Wayfarer export tool');
+  if (taken.dmContact) lines.push('The record that Pine has sent them direct messages');
   if (taken.reportReasons > 0) {
     lines.push(
       `Their Discord id and name on ${count(taken.reportReasons, 'report')} they made to the ` +

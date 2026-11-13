@@ -1,6 +1,7 @@
 import type { DmGateway, DmOutcome } from '../../src/discord/dm-gateway.js';
 import type { OutgoingMessage } from '../../src/discord/party-gateway.js';
 import type {
+  DmContacts,
   DmJob,
   DmSender,
   LoopDelayMeter,
@@ -106,9 +107,66 @@ export class RecordingDms implements DmSender {
     return this.jobs.filter((job) => job.userId === userId).map((job) => job.message);
   }
 
+  /** The servers of the messages for one member (null: the instance's), in order. */
+  serversOf(userId: string): (string | null)[] {
+    return this.jobs.filter((job) => job.userId === userId).map((job) => job.serverId);
+  }
+
   /** The members that have a message in line, each once, in order. */
   get recipients(): string[] {
     return [...new Set(this.jobs.map((job) => job.userId))];
+  }
+}
+
+/**
+ * The members Pine wrote to before (`DmContacts`, the table `DmContact`), kept in memory. `known`
+ * answers in a later turn of the event loop, as the database does; `failing` makes it reject,
+ * and while `hold` is set it answers only when a test calls `release()`. `addFailing` makes
+ * `add` reject (the member is not recorded); while `addHold` is set, `add` never settles (a
+ * write the database does not answer). `asked` holds every batch it was asked about, `added`
+ * every member it was asked to record, in order.
+ */
+export class MemoryDmContacts implements DmContacts {
+  /** The members written to before, with when they were first. */
+  readonly contacts = new Map<string, number>();
+  readonly asked: string[][] = [];
+  readonly added: string[] = [];
+  failing: Error | undefined;
+  addFailing: Error | undefined;
+  /** Records asked while set never settle. */
+  addHold = false;
+  /** Reads asked while set are answered only when a test calls `release()`. */
+  hold = false;
+  private readonly held: (() => void)[] = [];
+
+  constructor(known: readonly string[] = []) {
+    for (const userId of known) this.contacts.set(userId, 0);
+  }
+
+  /** Answers the reads that `hold` kept waiting. */
+  release(): void {
+    this.hold = false;
+    for (const answer of this.held.splice(0)) setImmediate(answer);
+  }
+
+  known(userIds: readonly string[]): Promise<ReadonlySet<string>> {
+    this.asked.push([...userIds]);
+    return new Promise((resolve, reject) => {
+      const answer = (): void => {
+        if (this.failing) reject(this.failing);
+        else resolve(new Set(userIds.filter((userId) => this.contacts.has(userId))));
+      };
+      if (this.hold) this.held.push(answer);
+      else setImmediate(answer);
+    });
+  }
+
+  add(userId: string, at: number): Promise<void> {
+    this.added.push(userId);
+    if (this.addHold) return new Promise<void>(() => undefined);
+    if (this.addFailing) return Promise.reject(this.addFailing);
+    if (!this.contacts.has(userId)) this.contacts.set(userId, at);
+    return Promise.resolve();
   }
 }
 

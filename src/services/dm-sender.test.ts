@@ -4,6 +4,7 @@ import type { V2Message } from '../discord/party-gateway.js';
 import {
   FakeDmGateway,
   FakeLoopDelay,
+  MemoryDmContacts,
   pullUntilIdle,
   RecordingDms,
 } from '../../test/support/dms.js';
@@ -13,6 +14,7 @@ import {
   DM_CLOSED_MEMBERS,
   DM_CLOSED_MS,
   DM_CONCURRENCY,
+  DM_MAX_DEPTH,
   DM_PRIORITY,
   DM_RATE_PER_SECOND,
   DM_SLOW_DOWN_MS,
@@ -23,6 +25,9 @@ import {
 } from './dm-sender.js';
 
 const NOW = 1_800_000_000_000;
+/** Two servers, for the turns between them. */
+const HOME = '412345678901234567';
+const AWAY = '412345678901234568';
 /** A user id of 18 digits for a number. */
 const idOf = (n: number): string => String(300_000_000_000_000_000n + BigInt(n));
 
@@ -54,6 +59,7 @@ function setup(options: Partial<QueuedDmSenderOptions> = {}) {
   });
   const job = (n: number, more: Partial<DmJob> = {}): DmJob => ({
     userId: idOf(n),
+    serverId: HOME,
     message: { content: `message ${String(n)}` },
     priority: DM_PRIORITY.normal,
     eventAt: clock.now,
@@ -435,6 +441,7 @@ describe('QueuedDmSender', () => {
     for (let n = 0; n < 5_000; n++) {
       made.sender.send({
         userId: idOf(n),
+        serverId: HOME,
         message,
         priority: DM_PRIORITY.normal,
         eventAt: NOW,
@@ -523,6 +530,7 @@ describe('QueuedDmSender', () => {
     const { log, entries } = createTestLogger();
     const later: DmJob = {
       userId: idOf(2),
+      serverId: HOME,
       message: { content: 'later' },
       priority: DM_PRIORITY.normal,
       eventAt: Date.now(),
@@ -633,6 +641,365 @@ describe('QueuedDmSender', () => {
   });
 });
 
+/** The members of what was sent, in order. */
+const ids = (sent: readonly { userId: string }[]) => sent.map((one) => one.userId);
+
+describe('QueuedDmSender between servers', () => {
+  it('takes turns between servers within a priority: one server’s burst does not hold back another’s message', async () => {
+    const made = setup();
+    for (let n = 0; n < 50; n++) made.sender.send(made.job(n, { serverId: HOME }));
+    made.sender.send(made.job(100, { serverId: AWAY, eventAt: NOW + 1 }));
+    made.sender.send(made.job(101, { serverId: AWAY, eventAt: NOW + 2 }));
+    await pullUntilIdle(made.sender);
+    expect(ids(made.gateway.sent).slice(0, 5)).toEqual([0, 100, 1, 101, 2].map((n) => idOf(n)));
+    // Each server's own in the order of their events.
+    expect(ids(made.gateway.sent).slice(4)).toEqual(
+      Array.from({ length: 48 }, (_, n) => idOf(n + 2)),
+    );
+  });
+
+  it('serves the messages of the instance (the owner’s) as one more server', async () => {
+    const made = setup();
+    for (let n = 0; n < 10; n++) made.sender.send(made.job(n, { serverId: HOME }));
+    made.sender.send(made.job(99, { serverId: null }));
+    await pullUntilIdle(made.sender);
+    expect(ids(made.gateway.sent).slice(0, 3)).toEqual([0, 99, 1].map((n) => idOf(n)));
+  });
+
+  it('still sends everything urgent first, whichever server it is of', async () => {
+    const made = setup();
+    for (let n = 0; n < 3; n++) made.sender.send(made.job(n, { serverId: HOME }));
+    made.sender.send(made.job(10, { serverId: AWAY, priority: DM_PRIORITY.spawn }));
+    made.sender.send(made.job(11, { serverId: HOME, priority: DM_PRIORITY.urgent }));
+    await pullUntilIdle(made.sender);
+    expect(ids(made.gateway.sent)).toEqual([11, 10, 0, 1, 2].map((n) => idOf(n)));
+  });
+
+  it('when the line is full, drops the oldest of the least urgent of the server with the most waiting', async () => {
+    const made = setup({ maxDepth: 4 });
+    // Away's message is the oldest of all, but Home has the most waiting.
+    made.sender.send(made.job(1, { serverId: AWAY, eventAt: NOW }));
+    for (let n = 2; n <= 4; n++) made.sender.send(made.job(n, { eventAt: NOW + n }));
+    made.sender.send(made.job(5, { eventAt: NOW + 5 }));
+    made.sender.send(made.job(6, { priority: DM_PRIORITY.urgent, eventAt: NOW + 6 }));
+    expect(made.sender.depth).toBe(4);
+    await pullUntilIdle(made.sender);
+    expect(ids(made.gateway.sent)).toEqual([6, 1, 4, 5].map((n) => idOf(n)));
+    expect(made.logged('direct messages sent')[0]).toMatchObject({ overflowed: 2 });
+  });
+
+  it('goes on to the next server when one has a long line of messages that wait', async () => {
+    const made = setup();
+    made.gateway.hold = true;
+    made.sender.send(made.job(1));
+    made.sender.pull();
+    // Member 1 has a send on its way: their next thousand wait, and Away's goes past them.
+    for (let n = 0; n < 1_000; n++) made.sender.send(made.job(1));
+    made.sender.send(made.job(2, { serverId: AWAY }));
+    made.sender.pull();
+    made.sender.pull();
+    expect(made.gateway.asked).toEqual([idOf(1), idOf(2)]);
+    made.gateway.release();
+    await pullUntilIdle(made.sender);
+  });
+});
+
+describe('QueuedDmSender and members written to for the first time', () => {
+  const WINDOW_MS = 10 * 60_000;
+  const capped = (perWindow: number, known: readonly string[] = []) => {
+    const contacts = new MemoryDmContacts(known);
+    const made = setup({ contacts, firstContacts: { perWindow, windowMs: WINDOW_MS } });
+    /** Pulls as a timer would, `times` turns, each one's sends answered before the next. */
+    const pulls = async (times: number) => {
+      for (let turn = 0; turn < times; turn++) {
+        made.sender.pull();
+        await made.settle();
+      }
+    };
+    return { ...made, contacts, pulls };
+  };
+
+  it('opens at most so many new DM channels per server in a window; the rest wait for it', async () => {
+    const made = capped(2, [idOf(9)]);
+    for (const n of [1, 2, 3, 4, 9]) made.sender.send(made.job(n, { serverId: HOME }));
+    made.sender.send(made.job(20, { serverId: AWAY }));
+    made.sender.send(made.job(30, { serverId: null }));
+    await made.pulls(30);
+    // Home's third and fourth new member wait; its known member, Away's and the owner's do not.
+    expect(new Set(ids(made.gateway.sent))).toEqual(new Set([1, 2, 9, 20, 30].map((n) => idOf(n))));
+    expect(made.sender.depth).toBe(2);
+    expect(
+      made.logged('a server opened as many new direct messages as it may; the rest wait'),
+    ).toEqual([expect.objectContaining({ server: HOME, perWindow: 2, windowMinutes: 10 })]);
+    // Once the window has passed, they go.
+    made.clock.now += WINDOW_MS;
+    await pullUntilIdle(made.sender);
+    expect(ids(made.gateway.sent).slice(-2)).toEqual([idOf(3), idOf(4)]);
+    // Every member written to is remembered as such, the owner too; the known one is not again.
+    expect(made.contacts.added.toSorted()).toEqual([1, 2, 3, 4, 20, 30].map((n) => idOf(n)));
+  });
+
+  it('lets a message that waits for the window expire as any does', async () => {
+    const made = capped(1);
+    made.sender.send(made.job(1));
+    made.sender.send(made.job(2, { expiresAt: NOW + 1_000 }));
+    await made.pulls(10);
+    expect(made.sender.depth).toBe(1);
+    made.clock.now += 1_000;
+    await pullUntilIdle(made.sender);
+    expect(ids(made.gateway.sent)).toEqual([idOf(1)]);
+    expect(made.logged('direct messages sent')[0]).toMatchObject({ sent: 1, expired: 1 });
+  });
+
+  it('counts a member written to from then on as known: their next message is not held back', async () => {
+    const made = capped(1);
+    made.sender.send(made.job(1, { message: { content: 'first' } }));
+    made.sender.send(made.job(2));
+    made.sender.send(made.job(1, { message: { content: 'second' } }));
+    await made.pulls(20);
+    expect(ids(made.gateway.sent)).toEqual([idOf(1), idOf(1)]);
+    expect(made.sender.depth).toBe(1);
+  });
+
+  it('does not take a member who takes no direct messages for one written to', async () => {
+    const made = capped(5);
+    made.gateway.closed.add(idOf(1));
+    made.sender.send(made.job(1));
+    made.sender.send(made.job(2));
+    await pullUntilIdle(made.sender);
+    expect(made.contacts.added).toEqual([idOf(2)]);
+  });
+
+  it('takes a member as new when it cannot tell, and says so', async () => {
+    const made = capped(1);
+    made.contacts.failing = new Error('the database is away');
+    made.sender.send(made.job(1));
+    made.sender.send(made.job(2));
+    await made.pulls(10);
+    expect(ids(made.gateway.sent)).toEqual([idOf(1)]);
+    expect(made.logged('could not read whom direct messages went to before')).toHaveLength(1);
+    made.clock.now += WINDOW_MS;
+    await pullUntilIdle(made.sender);
+  });
+
+  it('asks the database about many members at once, not once per message', async () => {
+    const made = capped(10_000);
+    for (let n = 0; n < 500; n++) made.sender.send(made.job(n));
+    await pullUntilIdle(made.sender);
+    expect(made.gateway.sent).toHaveLength(500);
+    expect(made.contacts.asked.length).toBeLessThanOrEqual(5);
+    expect(made.contacts.asked.flat().toSorted()).toEqual(
+      Array.from({ length: 500 }, (_, n) => idOf(n)).toSorted(),
+    );
+  });
+
+  it('asks nothing about the owner’s messages and holds none back', async () => {
+    const made = capped(0);
+    made.sender.send(made.job(1, { serverId: null }));
+    await pullUntilIdle(made.sender);
+    expect(ids(made.gateway.sent)).toEqual([idOf(1)]);
+    expect(made.contacts.asked).toEqual([]);
+  });
+
+  it.each([
+    { held: 'urgent', other: 'normal' },
+    { held: 'normal', other: 'urgent' },
+  ] as const)(
+    'a server its cap holds back stops no other server: its $held messages wait, another’s $other one goes',
+    async ({ held, other }) => {
+      const made = capped(5, [idOf(1_000)]);
+      for (let n = 0; n < 400; n++) {
+        made.sender.send(made.job(n, { priority: DM_PRIORITY[held] }));
+      }
+      made.sender.send(made.job(1_000, { serverId: AWAY, priority: DM_PRIORITY[other] }));
+      await made.pulls(20);
+      expect(ids(made.gateway.sent)).toContain(idOf(1_000));
+      // Home opened its five and no more.
+      expect(made.gateway.sent).toHaveLength(6);
+      expect(made.sender.depth).toBe(395);
+    },
+  );
+
+  it('sends a server’s message to a member written to before at once, past its own messages its cap holds back', async () => {
+    const made = capped(5, [idOf(1_000)]);
+    for (let n = 0; n < 400; n++) made.sender.send(made.job(n));
+    made.sender.send(made.job(1_000, { eventAt: NOW + 1 }));
+    await made.pulls(20);
+    expect(ids(made.gateway.sent)).toContain(idOf(1_000));
+    expect(made.gateway.sent).toHaveLength(6);
+  });
+
+  it('keeps a member’s order when a read finds them written to before', async () => {
+    const made = capped(1, [idOf(7)]);
+    made.sender.send(made.job(1));
+    made.sender.send(made.job(2));
+    made.sender.send(made.job(7, { message: { content: 'first' } }));
+    made.sender.send(made.job(7, { message: { content: 'second' }, eventAt: NOW + 1 }));
+    await made.pulls(20);
+    expect(made.gateway.to(idOf(7)).map((message) => (message.v2 ? '' : message.content))).toEqual([
+      'first',
+      'second',
+    ]);
+  });
+
+  it('reads a member whose message comes behind a full line of first messages: the newest is never left unread', async () => {
+    const made = capped(5, [idOf(20_000)]);
+    for (let n = 0; n < DM_MAX_DEPTH; n++) made.sender.send(made.job(n));
+    made.sender.send(made.job(20_000, { eventAt: NOW + 1 }));
+    await made.pulls(20);
+    // Home is at its cap long before the pulls reach its member written to before: only the
+    // read, which the full list of members to read pushed its oldest out for, lets it go.
+    expect(ids(made.gateway.sent)).toContain(idOf(20_000));
+    expect(made.gateway.sent).toHaveLength(6);
+  });
+
+  it('takes a read that has not answered in ten seconds for one that failed, and reads on', async () => {
+    // Only the timers of the sender's own: the fakes answer on `setImmediate`, which stays real.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const made = capped(5, [idOf(2)]);
+      made.contacts.hold = true;
+      made.sender.send(made.job(1));
+      await made.pulls(3);
+      made.contacts.hold = false;
+      made.sender.send(made.job(2));
+      await made.pulls(3);
+      // The read on its way holds the next back, and nothing goes out meanwhile.
+      expect(made.contacts.asked).toEqual([[idOf(1)]]);
+      expect(made.gateway.sent).toEqual([]);
+      vi.advanceTimersByTime(10_000);
+      await made.pulls(5);
+      expect(made.logged('could not read whom direct messages went to before')).toHaveLength(1);
+      expect(made.contacts.asked).toEqual([[idOf(1)], [idOf(2)]]);
+      // Member 1 taken as new (within the cap), member 2 read as written to.
+      expect(new Set(ids(made.gateway.sent))).toEqual(new Set([idOf(1), idOf(2)]));
+      // The read that answered in its time left no timer behind.
+      expect(vi.getTimerCount()).toBe(0);
+      // Its late answer changes nothing.
+      made.contacts.release();
+      await made.settle();
+      expect(made.logged('could not read whom direct messages went to before')).toHaveLength(1);
+      await pullUntilIdle(made.sender);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('counts the members it could not record as written to, and says so once a burst', async () => {
+    const made = capped(5);
+    made.contacts.addFailing = new Error('the database is away');
+    for (const n of [1, 2, 3]) made.sender.send(made.job(n));
+    await pullUntilIdle(made.sender);
+    expect(made.gateway.sent).toHaveLength(3);
+    const said = 'could not record that a direct message went to a member';
+    expect(made.logged(said)).toHaveLength(1);
+    expect(made.logged('direct messages sent')[0]).toMatchObject({ contactsNotRecorded: 3 });
+    made.sender.send(made.job(4));
+    await pullUntilIdle(made.sender);
+    expect(made.logged(said)).toHaveLength(2);
+    expect(made.logged('direct messages sent')[1]).toMatchObject({ contactsNotRecorded: 1 });
+  });
+
+  it('takes a record of a member written to that has not answered in ten seconds for one that failed: it holds no send back', async () => {
+    // Only the timers of the sender's own: the fakes answer on `setImmediate`, which stays real.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const made = capped(1_000);
+      made.contacts.addHold = true;
+      for (let n = 1; n <= 7; n++) made.sender.send(made.job(n));
+      await made.pulls(20);
+      // Five sends on their way at most: the five records that do not answer hold the rest.
+      expect(made.gateway.sent).toHaveLength(5);
+      vi.advanceTimersByTime(10_000);
+      await made.pulls(20);
+      expect(made.gateway.sent).toHaveLength(7);
+      vi.advanceTimersByTime(10_000);
+      await made.settle();
+      expect(made.sender.idle).toBe(true);
+      const said = 'could not record that a direct message went to a member';
+      expect(made.logged(said)).toHaveLength(1);
+      expect(made.logged('direct messages sent')[0]).toMatchObject({
+        sent: 7,
+        contactsNotRecorded: 7,
+      });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reads first whether the members of the messages it looked at were written to, before the rest', async () => {
+    const made = capped(10_000);
+    for (let n = 0; n < 500; n++) made.sender.send(made.job(n));
+    made.sender.send(made.job(1_000, { serverId: AWAY, priority: DM_PRIORITY.urgent }));
+    await made.pulls(3);
+    // Away's urgent message was looked at in the first pull: its member is in the second read,
+    // not behind the four hundred of Home's burst that wait to be read.
+    expect(made.contacts.asked.findIndex((batch) => batch.includes(idOf(1_000)))).toBe(1);
+    expect(ids(made.gateway.sent)[0]).toBe(idOf(1_000));
+  });
+
+  it('does not wait at shutdown when only first messages its cap holds back are left', async () => {
+    // The timer of `drain` is held and never fires here: a drain that resolves did not wait
+    // for its time to pass. (`setImmediate`, which the fakes answer on, stays real.)
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      // Held back already when the draining begins: it never starts to wait.
+      const made = capped(1);
+      made.sender.send(made.job(1));
+      made.sender.send(made.job(2));
+      await made.pulls(5);
+      expect(made.sender.depth).toBe(1);
+      let ended = false;
+      const drained = made.sender.drain(2_000).then(() => {
+        ended = true;
+      });
+      await made.settle();
+      expect(ended).toBe(true);
+      await drained;
+      expect(vi.getTimerCount()).toBe(0);
+      expect(made.logged('direct messages were still waiting at shutdown')[0]).toMatchObject({
+        abandoned: 1,
+      });
+
+      // Held back only once it drains (its member read meanwhile): the pull that finds nothing
+      // to start ends the wait.
+      const late = capped(1);
+      late.sender.send(late.job(1));
+      await late.pulls(3);
+      late.sender.send(late.job(2));
+      let lateEnded = false;
+      const lateDrained = late.sender.drain(2_000).then(() => {
+        lateEnded = true;
+      });
+      await late.settle();
+      expect(vi.getTimerCount()).toBe(1);
+      await late.pulls(3);
+      expect(lateEnded).toBe(true);
+      await lateDrained;
+      expect(vi.getTimerCount()).toBe(0);
+      expect(ids(late.gateway.sent)).toEqual([idOf(1)]);
+
+      // The window frees within the time there is: it waits for that.
+      const soon = capped(1);
+      soon.sender.send(soon.job(1));
+      soon.sender.send(soon.job(2));
+      await soon.pulls(5);
+      soon.clock.now += WINDOW_MS - 10;
+      const waiting = soon.sender.drain(5_000);
+      await soon.settle();
+      expect(vi.getTimerCount()).toBe(1);
+      soon.clock.now += 10;
+      await soon.pulls(2);
+      await waiting;
+      expect(ids(soon.gateway.sent)).toEqual([idOf(1), idOf(2)]);
+      expect(soon.logged('direct messages were still waiting at shutdown')).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('nodeLoopDelay', () => {
   it('measures the delay of the event loop between start and stop', async () => {
     const meter = nodeLoopDelay();
@@ -698,6 +1065,7 @@ describe('the fakes of direct messages', () => {
     const dms = new RecordingDms();
     const job: DmJob = {
       userId: idOf(1),
+      serverId: null,
       message: { content: 'x' },
       priority: DM_PRIORITY.urgent,
       eventAt: NOW,

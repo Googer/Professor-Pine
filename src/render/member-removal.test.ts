@@ -4,7 +4,7 @@ import { NOTHING_HELD } from '../../test/support/member-data.js';
 import { textDisplays, textOf } from '../../test/support/messages.js';
 import { expectV2Sendable } from '../../test/support/post-limits.js';
 import type { MemberHoldings } from '../db/repositories/member-data-repository.js';
-import type { MemberLook } from '../services/member-removal.js';
+import { removable, type MemberLook } from '../services/member-removal.js';
 import { FORGET_TEXT_BUDGET, forgetLookMessage, forgetOutcomeMessage } from './member-removal.js';
 import { plainNoLinks } from './text.js';
 
@@ -131,6 +131,14 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
     expect(savedOnly.join('\n')).not.toContain('LEGACY_PARTIES_DIR');
   });
 
+  it('names the record that Pine has sent them direct messages, which alone is something to remove (plan 19B-5)', () => {
+    expect(linesOf({ dmContact: true }).slice(2, 4)).toEqual([
+      '**Remove… takes away, for good:**',
+      '- The record that Pine has sent them direct messages',
+    ]);
+    expect(removable(look({ dmContact: true }))).toBe(true);
+  });
+
   it('says an approval whose meetup is still going on stays, until the meetup has ended', () => {
     const meetups = { ...NOTHING_HELD.meetups, live: 1, over: 1 };
     expect(linesOf({ meetups })).toContain(
@@ -148,6 +156,7 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
           history: NOTHING_HELD.history,
           sessions: [],
           toolAccess: false,
+          dmContact: false,
           reportReasons: 0,
           meetupRecords: 1,
         },
@@ -189,6 +198,7 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
       history: { optIns: 999, boards: 999, fillIns: 999, named: 9_999_999, words: 99_999 },
       sessions: 10,
       toolAccess: true,
+      dmContact: true,
       reports: { reasons: 99_999, about: 99_999 },
       meetups: { blocks: 999, open: 99_999, unmade: 99_999, live: 99_999, over: 99_999 },
       audit: 99_999,
@@ -230,6 +240,7 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
             history: everything.history,
             sessions: Array.from({ length: 10 }, (_unused, n) => String(n)),
             toolAccess: true,
+            dmContact: true,
             reportReasons: 99_999,
             meetupRecords: 99_999,
           },
@@ -258,6 +269,7 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
       history: { optIns: many, boards: many, fillIns: many, named: many, words: many },
       sessions: many,
       toolAccess: true,
+      dmContact: true,
       reports: { reasons: many, about: many },
       meetups: { blocks: many, open: many, unmade: many, live: many, over: many },
       audit: many,
@@ -290,6 +302,7 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
           history: everything.history,
           sessions: Array.from({ length: 10 }, (_unused, n) => String(n)),
           toolAccess: true,
+          dmContact: true,
           reportReasons: many,
           meetupRecords: many,
         },

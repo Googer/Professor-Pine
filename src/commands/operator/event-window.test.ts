@@ -276,6 +276,8 @@ describe('/operator event-window', () => {
         start: at('2026-11-10T10:00'),
         end: at('2026-11-13T20:00'),
       });
+      // The owner's DM is the instance's, of no server (plan 19B-5).
+      expect((made.ctx.dms as RecordingDms).jobs[0]?.serverId).toBeNull();
       expect(textDisplays((made.ctx.dms as RecordingDms).jobs[0]?.message).at(-1)).toBe(
         'Set the event window, for every server: from Tuesday, November 10 at 10:00 AM until ' +
           'Friday, November 13 at 8:00 PM, local time in every server’s zone.',

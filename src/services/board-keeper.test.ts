@@ -27,6 +27,7 @@ async function keeping(servers?: TestServers) {
     gateway: made.gateway,
     dms: made.dms,
     zoneOfRow: (row) => made.service.zoneOfRow(row),
+    serverOfRow: (row) => (row === 1 ? made.gateway.guildId : undefined),
     log: made.log,
     changed: (regionId) => changed.push(regionId),
     now: () => made.clock.now,
@@ -66,6 +67,7 @@ describe('BoardKeeper: what members write in the board (plan 8R-9F)', () => {
     // The pin check, for a member's message reopens an archived board unpinned (B7).
     expect(changed).toEqual([west.id]);
     expect(dms.recipients).toEqual([MEMBER]);
+    expect(dms.serversOf(MEMBER)).toEqual([SERVER]);
     expect(dms.to(MEMBER)[0]?.content).toBe(
       `I deleted your message in <#${board}>: the board keeps only my lists of what is on. ` +
         `Chat in <#${WEST_CHANNEL}>, or report with a command such as \`/raid\`, \`/research\` ` +
@@ -206,6 +208,7 @@ describe('BoardKeeper in rehearsal mode (review W2)', () => {
       gateway,
       dms,
       zoneOfRow: (row) => made.service.zoneOfRow(row),
+      serverOfRow: (row) => (row === 1 ? made.gateway.guildId : undefined),
       log: made.log,
       changed: (regionId) => changed.push(regionId),
       now: () => clock.now,

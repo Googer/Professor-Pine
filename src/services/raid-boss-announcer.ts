@@ -140,6 +140,7 @@ export class RaidBossAnnouncer {
     if (announcement.to === 'owner') {
       this.options.dms.send({
         userId: this.options.ownerId.trim(),
+        serverId: null,
         message: { content: announcement.content },
         priority: DM_PRIORITY.normal,
         eventAt: announcement.at,

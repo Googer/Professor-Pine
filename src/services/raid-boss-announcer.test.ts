@@ -324,7 +324,11 @@ describe('RaidBossAnnouncer', () => {
     expect(warning).toContain(`since <t:${String(readAt / 1000)}:f>`);
     expect(warning).not.toContain('500');
     expect(warning).not.toContain('secret');
-    expect(dms.jobs[0]).toMatchObject({ userId: OWNER, priority: DM_PRIORITY.normal });
+    expect(dms.jobs[0]).toMatchObject({
+      userId: OWNER,
+      serverId: null,
+      priority: DM_PRIORITY.normal,
+    });
     // The feed is the instance's: no server's channel hears of it.
     expect(sentTo('700000000000000005')).toEqual([]);
     expect(sentTo('700000000000000001')).toEqual([]);

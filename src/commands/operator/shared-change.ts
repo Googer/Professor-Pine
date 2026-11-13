@@ -57,6 +57,7 @@ function tellOwner(
   if (ownerId === '' || interaction.user.id === ownerId) return;
   ctx.dms.send({
     userId: ownerId,
+    serverId: null,
     message: sharedChangeDm({
       ...what,
       // Their name in the server; in a DM, their account's (plan 19B-1).

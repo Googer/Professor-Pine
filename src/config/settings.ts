@@ -491,6 +491,20 @@ export const settingsObject = z.strictObject({
    */
   distanceUnits: distanceUnitsSchema,
   /**
+   * Direct messages (plan 19B-5), the instance's: Discord limits how many new DM channels a bot
+   * opens, for the whole bot, so each server may start at most `firstContactsPerWindow` messages
+   * to members Pine never wrote to in any `firstContactWindowMinutes`; its others to new members
+   * wait in line for the window. The owner's DMs are never held back. Unless set, 6,000 in 10
+   * minutes: as many as the queue sends in that time at all, which one server alone never
+   * reaches, so a self-hosted instance notices nothing; a public one sets it lower from its load.
+   */
+  dms: z
+    .strictObject({
+      firstContactsPerWindow: z.number().int().min(1).max(1_000_000).default(6_000),
+      firstContactWindowMinutes: z.number().int().min(1).max(1_440).default(10),
+    })
+    .default(() => ({ firstContactsPerWindow: 6_000, firstContactWindowMinutes: 10 })),
+  /**
    * Reading raid screenshots (Phase 7). The models run in a child process of their own, one
    * screenshot at a time; everything but `passive` and `debug` has a default.
    */

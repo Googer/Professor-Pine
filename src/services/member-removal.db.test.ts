@@ -19,6 +19,7 @@ import { eggReading } from '../../test/support/screenshots.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { sessionId, storedSession } from '../../test/support/web-session-cases.js';
 import { indexRouteGyms } from '../db/migrations/2026_11_13_056_gym_servers.js';
+import { DmContactRepository } from '../db/repositories/dm-contact-repository.js';
 import { HistoryRepository } from '../db/repositories/history-repository.js';
 import { MeetupSafetyRepository } from '../db/repositories/meetup-safety-repository.js';
 import {
@@ -231,6 +232,8 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
       community: `${name}’s raiders`,
       at: NOW,
     });
+    // Pine has sent them a direct message (plan 19B-5).
+    await new DmContactRepository(db).add(member, NOW);
     // A report they made, and one about a message they wrote.
     await reports.addReport(newReport(n * 10 + 1, partySubject({ partyId: requestId(700 + n) })), {
       reporterId: member,
@@ -475,6 +478,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
     history: { optIns: 2, boards: 1, fillIns: 1, named: 5, words: 1 },
     sessions: 2,
     toolAccess: true,
+    dmContact: true,
     // Their own report, and the one both of them gave a reason on.
     reports: { reasons: 2, about: 1 },
     meetups: { blocks: 1, open: 1, unmade: 0, live: 0, over: 3 },
@@ -527,6 +531,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
       history: HELD.history,
       sessions: [sessionId(17), sessionId(18)],
       toolAccess: true,
+      dmContact: true,
       reportReasons: 2,
       meetupRecords: 3,
     });
@@ -558,6 +563,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
       LegacyFillIn: without('LegacyFillIn', hersBy('memberId')),
       WebSession: without('WebSession', hersBy('userId')),
       ScriptAccess: without('ScriptAccess', hersBy('userId')),
+      DmContact: without('DmContact', hersBy('userId')),
       // What she wrote of the parties she made goes with her id; Bob's train keeps his words.
       PartyHistory: changed('PartyHistory', (row) =>
         blank(
@@ -591,7 +597,14 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
       ),
     });
     // The seed had something of hers in each of them.
-    for (const table of ['User', 'TargetWant', 'HistoryOptIn', 'WebSession', 'ScriptAccess']) {
+    for (const table of [
+      'User',
+      'TargetWant',
+      'HistoryOptIn',
+      'WebSession',
+      'ScriptAccess',
+      'DmContact',
+    ]) {
       expect((await dump())[table]?.length).toBeLessThan(before[table]?.length ?? 0);
     }
 
@@ -615,6 +628,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
         history: { optIns: 0, boards: 0, fillIns: 0, named: 0, words: 0 },
         sessions: 0,
         toolAccess: false,
+        dmContact: false,
         reports: { reasons: 0, about: 1 },
         meetups: { blocks: 1, open: 1, unmade: 0, live: 0, over: 0 },
         audit: 3,
@@ -656,6 +670,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
       history: { optIns: 0, boards: 0, fillIns: 0, named: 0, words: 0 },
       sessions: [],
       toolAccess: false,
+      dmContact: false,
       reportReasons: 0,
       meetupRecords: 0,
     });

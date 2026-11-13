@@ -95,6 +95,7 @@ describe('Rehearsal', () => {
 describe('RehearsalDms', () => {
   const job = (userId: string) => ({
     userId,
+    serverId: null,
     message: { content: 'A raid you want' },
     priority: DM_PRIORITY.normal,
     eventAt: 0,

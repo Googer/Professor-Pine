@@ -929,6 +929,7 @@ export class MeetupSafety {
       const now = this.now();
       dms.send({
         userId: memberId,
+        serverId,
         message: blockedDm(serverName),
         priority: DM_PRIORITY.normal,
         eventAt: now,
@@ -1108,6 +1109,7 @@ export class MeetupSafety {
       const now = this.now();
       dms.send({
         userId: memberId,
+        serverId: appeal.serverId,
         message: appealOutcomeDm(expired, gateway.guildName(appeal.serverId)),
         priority: DM_PRIORITY.normal,
         eventAt: now,
@@ -1202,6 +1204,7 @@ export class MeetupSafety {
     }
     dms.send({
       userId: appeal.memberId,
+      serverId: appeal.serverId,
       message: appealOutcomeDm(decided, serverName),
       priority: DM_PRIORITY.normal,
       eventAt: now,
@@ -1344,6 +1347,7 @@ export class MeetupSafety {
     await this.showAsk(decided, asked);
     dms.send({
       userId: ask.memberId,
+      serverId: ask.serverId,
       message: askOutcomeDm(decided, serverName ?? gateway.guildName(ask.serverId)),
       priority: DM_PRIORITY.normal,
       eventAt: now,
@@ -1402,6 +1406,7 @@ export class MeetupSafety {
       const now = this.now();
       dms.send({
         userId: ask.memberId,
+        serverId: ask.serverId,
         message: askOutcomeDm(expired, gateway.guildName(ask.serverId)),
         priority: DM_PRIORITY.normal,
         eventAt: now,
@@ -1515,6 +1520,7 @@ export class MeetupSafety {
     }
     this.options.dms.send({
       userId: memberId,
+      serverId,
       message: blockLiftedDm(serverName ?? this.options.gateway.guildName(serverId)),
       priority: DM_PRIORITY.normal,
       eventAt: now,
@@ -1696,6 +1702,7 @@ export class MeetupSafety {
     if (request.makerId === null) return;
     dms.send({
       userId: request.makerId,
+      serverId: request.serverId,
       message: requestOutcomeDm(
         request,
         postId === undefined ? {} : { postUrl: postLink(request.serverId, postId) },

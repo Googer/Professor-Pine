@@ -2113,6 +2113,7 @@ export class NotifyService implements PartyNotifier {
             if (!event.toAll) this.remember(event.partyId, id, reasons);
             dms.send({
               userId: id,
+              serverId: guildId,
               message,
               priority: event.priority(reasons),
               eventAt: event.eventAt,

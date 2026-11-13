@@ -230,6 +230,7 @@ describe('MeetupSafety: asks about a refused place', () => {
     ]);
     expect(decided.map((one) => one.kind).sort()).toEqual(['decided-before', 'done']);
     expect(made.dms.jobs).toHaveLength(1);
+    expect(made.dms.jobs[0]?.serverId).toBe(SERVER);
   });
 
   it('closes an ask that went astray when it is looked at, so that it may be asked again', async () => {
