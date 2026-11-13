@@ -38,6 +38,7 @@ Every phase up to the security pass 8Z and the fixes of the second audit (plan 8
 
 - **Version 2.0.0 was released on 2026-11-10** (`master`, tag `v2.0.0`), and **2.0.1 the same evening** with "Read screenshot" in the Apps menu (plan 7M), the owner's `/admin forget` (plan 8G) and the Terms of Service and Privacy Policy (`docs/legal/`); `main-dev` goes on as `2.1.0-dev`. **Production runs from `master` since the night of 2026-11-10, v2.0.2 since that night's second update** (two small fixes found on production and in staging), **v2.0.3 since 2026-11-11** (screenshot reading: a max battle's chip under an hour, a CP read with the boss's name, a split's raid pane taken for two screens) (its clone follows `origin/master`; a fix reaches it by a release); the dev clone stays on `main-dev`.
 - **Not announced yet** (Matt decides when); then `/admin tutorial` in `#raid-bot-tutorial`. What is left of the night: follow-ups, "The cutover".
+- **2.1 on `main-dev`** (one instance for many servers; spec `2026-11-12-multi-server-instance-design.md`, plans in the Gantt chart's phase 19): 19D (sharding in one process) and 19A-1 (a server's settings in the database, `/admin settings`) are merged, their stagings not run; next 19A-2 (a time zone per server), then 19B, 19C, 19E.
 - **8Z's staging** ran on 2026-11-01/02 on the Air's dev stack: nearly every step passes, one Minor finding and a few steps are left (follow-ups, "From the staging run of 8Z").
 
 Steps of earlier stagings still unrun (third account, Matt's phone) and rulings for Matt are in the follow-ups file, under "From the staging run of …" and "From Phase …". Manage… on Discord for raids and meetups was built on 2026-11-07 (the map's forms as dialogs; staging not run yet).
@@ -109,6 +110,7 @@ These are the rules that hold in every area. Each subsystem's own conventions ar
 ### Configuration and Discord
 
 - Secrets come from environment variables (`.env`, see `.env.example`), never from `data/` files. Blank values mean "unset".
+- A server's values are read through `ServerSettings.of(serverId)` (`ctx.servers`; `serverValuesOf(interaction, ctx)` where an interaction came from), never from `config.settings`: the file's server keys (channels, roles, features, `distanceUnits` and the rest) are only the defaults of a server's first row, and staff change them in `/admin settings`; `src/server-keys.test.ts` refuses such a read outside `src/config/`. Channels, the PvP category and roles are ids there. Detail: `servers.md`.
 - Required intents are `Guilds`, `GuildMessages`, `DirectMessages`. `MessageContent` only when `settings.ocr.passive`; `GuildMembers` only when `settings.autoAssignRole`. Never `GuildPresences` or `GuildMessageReactions`.
 - Ephemeral replies use `flags: MessageFlags.Ephemeral`. Things the user did wrong are thrown as `UserError`; the router turns them into ephemeral replies.
 - Every message that is more than plain text is a components-v2 message (Matt, 2026-10-15), ephemeral answers included: one container from `src/render/v2.ts`, sent and edited through `discordPayload`, never an embed (`APIEmbed`, `EmbedBuilder`). Detail: `discord-framework.md`.
@@ -148,7 +150,7 @@ These are the rules that hold in every area. Each subsystem's own conventions ar
 ### Text
 
 - American spelling in everything Pine says to members and staff, and in new or changed docs (Matt, 2026-10-18): "meters", "center", "color", "canceled", "-ize"; names keep theirs ("Centre Ave"). Code identifiers and the columns of a file format keep theirs (`GYM_COLOUR`, the report's CSV column `metres`).
-- Every distance Pine says to members or staff, on Discord and on the web, goes through `distanceWords(…, settings.distanceUnits)` (`src/render/distance-words.ts`), never hand-worded units; `src/text-distances.test.ts` refuses them.
+- Every distance Pine says to members or staff, on Discord and on the web, goes through `distanceWords(…, units)` in the server's `distanceUnits` (`src/render/distance-words.ts`), never hand-worded units; `src/text-distances.test.ts` refuses them.
 - A member is never named by a bare mention in text that does not ping them (a client that has not loaded the member shows "@unknown-user"): a sentence uses `memberText(member)`, the small print of a post `memberByName(member)`, a list `memberName(member)`, and a line about what a train's maker or an anonymous reporter did `doer(party, member)`. Detail: `parties-and-posts.md`.
 - Text a member or a feed wrote is shown through `plain()` (`src/render/text.ts`); text that reaches other members' DMs or a spawn report, and every member's name, through `plainNoLinks`, which also breaks bare addresses.
 
@@ -168,6 +170,7 @@ Each file under `docs/architecture/` holds the conventions of one subsystem. Rea
 - `meetup-safety.md`: the check of a meetup's place, `/meetup`'s form and refusals, `MeetupSafety.make` (the one way to make a meetup), the requests and the moderators' post, decisions, expiry and sweeps, rulings, blocks and appeals.
 - `moderation.md`: reports to the moderators (`/report`, "Report to moderators" in the Apps menu), their post and decisions, staff's `/delete`, `/places`, `/audit`.
 - `members-and-roles.md`: member settings and rows, member lookups and viewers, self-assigned roles.
+- `servers.md`: a server's settings: what is a server's and what the instance's, the table and `ServerSettings.of`, the fill, commands a server must set up, `/admin settings` and the log of its changes.
 - `utilities.md`: game data, the catalogue, Pokémon search, raid tiers and bosses, nicknames, pictures, emoji, `/rank`, `/counters`, `/find-gym`, `/request`, `/maps`, `/help`, the events forum and the Campfire links.
 - `web.md`: the web server in the bot, its settings and secrets, sessions, CSRF, logging in, rate limits, the map's data and page, the region editor and `/region edit`, the CSP, how to add a route.
 - `operations.md`: the Docker image and stack, `./pine`, the heartbeat and health check, the owner's alerts and the crash marker, the watchdog and its proxy, backups, restore.

@@ -3608,6 +3608,18 @@ Plan `2026-11-12-phase-19d-sharding.md`, merged on main-dev; check 13,747, datab
 - `onEveryShardReady` and `ShardStart.gone` are built for plan 19C, which marks a gone server left; nothing acts on them yet.
 - Beyond about 90,000 servers (36 shards and more at a `max_concurrency` of 1) the login's identify slots are long; the health rule gives each shard its slot, but nothing has been tried at that size.
 
+## From Phase 19A-1 (a server’s settings, 2026-11-12)
+
+Plan `2026-11-12-phase-19a-1-server-settings.md`, merged on main-dev; full check, database suite and build pass. **Staging not run** (its plan’s six steps; needs a global deploy for `/admin settings`).
+
+- `autoAssignRole` is stored per server (default on where the instance allows it) but nothing in the bot reads it: the auto-assigned role was never built in 2.x. Either build it or drop the key (and the `GuildMembers` intent it asks for).
+- `timezone` is stored in each row but still read from the file: 19A-2 moves its readers. `blacklistWords` likewise: plan B moves it with gym search.
+- "Leave unset" opens the map to every member, or turns meetup safety’s approvals and reports off, in one press; its line says so. It asks once more before it writes.
+- "Present" at the upgrade is read from the READY packet (`Events.Raw`) before each shard’s first ready, since `GuildAvailable` comes before `ShardReady`: check it after a discord.js upgrade (`server-start.test.ts` covers it with a fake shard emitter).
+- Plan C reads `setUpAt` (servers joined after the upgrade have none) and gives the setup checklist; nothing acts on it yet.
+- Wording (the last re-review, J1): a second “Leave unset” pressed after another staff member picked a channel answers “That was so already.”; it should say a channel was picked meanwhile (nothing is undone).
+- Wording (J2): a server whose row could not be written or read is closed as if its names were not found, and the start's warning and the panel say “not found”; a reason of its own (“no settings row yet”) would say what is true.
+
 ## From the staging run of 7M and 8G (2026-11-10 night, the Air's dev stack at 442e9e50, migration 051; Googer in the built-in browser, Tester in Chrome, both driven by Claude)
 
 After `./pine update` and `./pine deploy-commands --global` on the dev stack ("Registered 75 command(s) everywhere."). No warning or error in the bot's log during the run.
