@@ -525,6 +525,13 @@ export const settingsObject = z.strictObject({
     priority: z.enum(['low', 'normal']).default('low'),
     /** How many screenshots may wait while one is read; more are refused for the moment. */
     queue: z.number().int().min(0).max(100).default(10),
+    /**
+     * How many screenshots of one server may wait among them (plan 19B-5): the queue takes turns
+     * between servers, and a server with this many waiting is refused for the moment as a full
+     * queue refuses. Unset, `queue`: a Pine of one server notices nothing; a public instance sets
+     * it (3, say).
+     */
+    queuePerServer: z.number().int().min(0).max(100).optional(),
     /** How long one screenshot may take before the reading process is ended and started anew. */
     timeoutSeconds: z.number().int().min(5).max(600).default(60),
     /** The folder the model files are downloaded from (`OCR_ASSETS` names and checks them). */

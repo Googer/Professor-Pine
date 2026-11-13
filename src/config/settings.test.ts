@@ -151,6 +151,10 @@ describe('loadSettings', () => {
       });
     const read = loadSettings(ocr({ device: 'directml', threads: 2, priority: 'normal' })).ocr;
     expect(read).toMatchObject({ device: 'directml', threads: 2, priority: 'normal' });
+    // A server's share of the queue is the whole queue unless set (plan 19B-5): a Pine of one
+    // server notices nothing; a public instance sets it.
+    expect(read.queuePerServer).toBeUndefined();
+    expect(loadSettings(ocr({ queuePerServer: 3 })).ocr.queuePerServer).toBe(3);
     for (const wrong of [
       { device: 'gpu' },
       { threads: -1 },
@@ -162,6 +166,7 @@ describe('loadSettings', () => {
       { reviewDays: 0 },
       { keepMegabytes: 1 },
       { reviewPerDay: -1 },
+      { queuePerServer: -1 },
       { enabled: 'yes' },
     ]) {
       expect(() => loadSettings(ocr(wrong))).toThrow(ConfigError);

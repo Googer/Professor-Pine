@@ -136,7 +136,8 @@ export function screenshotBytes(key: string): Uint8Array {
  * (`answers`, a reading or another outcome); anything else is `not-an-image`. `reads` counts
  * what was read; with `ahead` set, every screenshot is told it waits behind that many; with
  * `lateAfter`, a screenshot whose `startBy` is earlier is answered `busy`, as `OcrService` does;
- * with `isFull`, `full()` says the queue is full (and `read` answers `busy`).
+ * with `isFull`, `full()` says the queue is full (and `read` answers `busy`), with `fullServers` for
+ * those servers alone; `servers` holds the server of every read.
  */
 export class FakeScreenshotReader implements ScreenshotReader {
   readonly answers = new Map<string, ScreenReading | OcrOutcome>();
@@ -148,9 +149,13 @@ export class FakeScreenshotReader implements ScreenshotReader {
   lateAfter: number | undefined;
   /** The queue is full: `full()` says so, and a screenshot is answered `busy`. */
   isFull = false;
+  /** Servers whose share of the queue is full (plan 19B-5): as `isFull`, for them alone. */
+  readonly fullServers = new Set<string>();
+  /** The server of every screenshot read, in order. */
+  readonly servers: (string | undefined)[] = [];
 
-  full(): boolean {
-    return this.isFull;
+  full(server?: string): boolean {
+    return this.isFull || (server !== undefined && this.fullServers.has(server));
   }
 
   /** What reading the screenshot named `key` answers; gives its bytes. */
@@ -160,11 +165,12 @@ export class FakeScreenshotReader implements ScreenshotReader {
   }
 
   read(bytes: Uint8Array, options: ReadOptions = {}): Promise<OcrOutcome> {
-    if (this.isFull) return Promise.resolve({ kind: 'busy' });
+    if (this.full(options.server)) return Promise.resolve({ kind: 'busy' });
     if (options.startBy !== undefined && this.lateAfter !== undefined) {
       if (this.lateAfter > options.startBy) return Promise.resolve({ kind: 'busy' });
     }
     this.reads++;
+    this.servers.push(options.server);
     this.readsBegun.add();
     if (this.ahead !== undefined) options.onQueued?.(this.ahead);
     const answer = this.answers.get(new TextDecoder().decode(bytes.subarray(PNG_SIGNATURE.length)));

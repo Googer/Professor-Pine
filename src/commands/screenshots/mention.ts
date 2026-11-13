@@ -474,8 +474,9 @@ export const MAX_BOARD_MESSAGE_BYTES = 100 * 1024 * 1024;
 
 /**
  * The most bytes the board's messages hold at once, from their downloads until their last picture
- * is read or dropped (plan 8Z-2): the reader's `full()` trips only after about `ocr.queue + 1`
- * messages, as each holds one place in its queue while its pictures are read one at a time, and
+ * is read or dropped (plan 8Z-2): the reader's `full(server)` trips only after about
+ * `ocr.queuePerServer + 1` messages of a server (`ocr.queue + 1` of all; plan 19B-5),
+ * as each holds one place in its queue while its pictures are read one at a time, and
  * messages that come while downloads are on their way all pass it. Two messages as large as one
  * may be; one always fits while no other holds any.
  */
@@ -788,7 +789,8 @@ export class ScreenshotTrigger {
     // A reader with no room, or the board's messages holding as much as they may together
     // (`MAX_BOARD_BYTES_HELD`), refuses the message's pictures as a full reader refuses a
     // mention's: the first takes its use, the rest take none, and nothing is downloaded.
-    const full = ctx.screenshots.full() || this.boardBytesHeld + wanted > MAX_BOARD_BYTES_HELD;
+    const full =
+      ctx.screenshots.full(posted.guildId) || this.boardBytesHeld + wanted > MAX_BOARD_BYTES_HELD;
     let busy = false;
     /** The bytes of the pictures to download, as Discord gives their sizes. */
     let bytes = 0;

@@ -240,10 +240,12 @@ export interface Screenshots {
   /** Downloads a screenshot to be read later (plan 8R-9F, B2), within `MAX_SCREENSHOT_BYTES`. */
   fetch(source: ScreenshotSource): Promise<FetchOutcome>;
   /**
-   * Whether the reader has no room just now (`ScreenshotReader.full`): a screenshot would be
-   * answered `busy`. Asked before pictures are downloaded ahead of their reading (plan 8Z-2).
+   * Whether the reader has no room just now for a screenshot of this server
+   * (`ScreenshotReader.full`: the whole queue, or the server's share of it, plan 19B-5): it
+   * would be answered `busy`. Asked before pictures are downloaded ahead of their reading (plan
+   * 8Z-2).
    */
-  full(): boolean;
+  full(server: string): boolean;
   /** The kept screenshot; `gone` when its file vanished. */
   get(id: string): Promise<KeptScreenshot | 'gone' | undefined>;
   /** A raid's post shows the screenshot: it is kept while the raid lasts. */
@@ -317,8 +319,8 @@ export class ScreenshotService implements Screenshots {
     return { kind: 'fetched', screenshot: { ...source, bytes: download.bytes } };
   }
 
-  full(): boolean {
-    return this.options.reader.full();
+  full(server: string): boolean {
+    return this.options.reader.full(server);
   }
 
   async readPanes(
@@ -329,7 +331,7 @@ export class ScreenshotService implements Screenshots {
     let where = asked;
     if (source.size > MAX_SCREENSHOT_BYTES) return { kind: 'too-large' };
     // Nothing is downloaded that the reader would turn away.
-    if (reader.full()) return { kind: 'busy' };
+    if (reader.full(where.guildId)) return { kind: 'busy' };
     let download: { bytes: Uint8Array };
     if ('bytes' in source) {
       download = source;
@@ -339,6 +341,7 @@ export class ScreenshotService implements Screenshots {
       download = fetched.screenshot;
     }
     const outcome = await reader.read(download.bytes, {
+      server: where.guildId,
       ...(where.onQueued ? { onQueued: where.onQueued } : {}),
       ...(where.startBy === undefined ? {} : { startBy: where.startBy }),
     });

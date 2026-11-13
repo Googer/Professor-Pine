@@ -1159,6 +1159,7 @@ export async function startApp(
     threads: config.settings.ocr.threads,
     priority: config.settings.ocr.priority,
     queue: config.settings.ocr.queue,
+    queuePerServer: config.settings.ocr.queuePerServer ?? config.settings.ocr.queue,
     timeoutMs: config.settings.ocr.timeoutSeconds * 1000,
     log,
   });

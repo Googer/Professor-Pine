@@ -30,6 +30,8 @@ const MB = 1024 * 1024;
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const SENDER = '700000000000000001';
 const OTHER = '700000000000000002';
+/** A server besides the one `screenshot` sends in (plan 19B-5). */
+const AWAY_SERVER = '412345678901234568';
 
 const report = (doubts: StoredReport['doubts'] = []): StoredReport =>
   storedReport({
@@ -427,6 +429,73 @@ describe('ScreenshotStore', () => {
     expect(files('held')).toEqual([]);
     const next = await store.keep(big, screenshot());
     expect(next).toBeDefined();
+    expect(files('review')).not.toContain(`${asked}.png`);
+  });
+
+  it('makes room from the server keeping the most first, though another’s is older (plan 19B-5)', async () => {
+    const { store, files, clock } = storeWith(new Set(), { keepMegabytes: 10 });
+    const big = new Uint8Array(3 * MB);
+    big.set(PNG);
+    const away = await kept(store, screenshot(undefined, { guildId: AWAY_SERVER }), big);
+    clock.now += 1;
+    const home1 = await kept(store, screenshot(), big);
+    clock.now += 1;
+    const home2 = await kept(store, screenshot(), big);
+    clock.now += 1;
+    // Full: Home keeps 6 MB and Away 3, so Home's oldest goes, not Away's older one.
+    expect(await store.keep(big, screenshot(undefined, { guildId: AWAY_SERVER }))).toBeDefined();
+    expect(files('held')).toContain(`${away}.png`);
+    expect(files('held')).not.toContain(`${home1}.png`);
+    expect(files('held')).toContain(`${home2}.png`);
+  });
+
+  it('counts each server’s bytes once when two keeps come at once after a start', async () => {
+    const first = storeWith(new Set(), { keepMegabytes: 10 });
+    const bytesOf = (megabytes: number) => {
+      const bytes = new Uint8Array(megabytes * MB);
+      bytes.set(PNG);
+      return bytes;
+    };
+    const away = await kept(
+      first.store,
+      screenshot(undefined, { guildId: AWAY_SERVER }),
+      bytesOf(2),
+    );
+    first.clock.now += 1;
+    const home1 = await kept(first.store, screenshot(), bytesOf(3));
+    first.clock.now += 1;
+    const home2 = await kept(first.store, screenshot(), bytesOf(3));
+    first.clock.now += 1;
+    // A start: a store of its own over the same folders, which counts them at its first keep.
+    const { store } = storeWith(new Set(), { dir: first.dir, keepMegabytes: 10 });
+    const { files } = first;
+    await Promise.all([kept(store, screenshot()), kept(store, screenshot())]);
+    // Home keeps 6 MB and Away 2: Home's oldest goes.
+    expect(
+      await store.keep(bytesOf(3), screenshot(undefined, { guildId: AWAY_SERVER })),
+    ).toBeDefined();
+    expect(files('held')).not.toContain(`${home1}.png`);
+    // Now Away keeps 5 MB and Home 3: Away's own oldest goes, not Home's.
+    expect(
+      await store.keep(bytesOf(3), screenshot(undefined, { guildId: AWAY_SERVER })),
+    ).toBeDefined();
+    expect(files('held')).not.toContain(`${away}.png`);
+    expect(files('held')).toContain(`${home2}.png`);
+  });
+
+  it('lets the server keeping the most give way with its review copies, before another’s plain one', async () => {
+    const noLinks = () => Promise.reject(new Error('no links here'));
+    const { store, files, clock } = storeWith(new Set(), { keepMegabytes: 10, link: noLinks });
+    const big = new Uint8Array(3 * MB);
+    big.set(PNG);
+    const away = await kept(store, screenshot(undefined, { guildId: AWAY_SERVER }), big);
+    clock.now += 1;
+    // Held and copied to review: Home keeps 6 MB, none of it plain.
+    const asked = await kept(store, screenshot({ kind: 'ask', doubts: ['gym-unclear'] }), big);
+    clock.now += 1;
+    expect(await store.keep(big, screenshot(undefined, { guildId: AWAY_SERVER }))).toBeDefined();
+    expect(files('held')).toContain(`${away}.png`);
+    expect(files('held')).toContain(`${asked}.png`);
     expect(files('review')).not.toContain(`${asked}.png`);
   });
 

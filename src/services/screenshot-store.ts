@@ -163,6 +163,8 @@ export interface ScreenshotStoreOptions {
 }
 
 const ID = /^[A-Za-z0-9_-]{12}$/;
+/** Whose the bytes of a file without a readable record are: no server's (no snowflake is empty). */
+const NO_SERVER = '';
 
 /**
  * The reader's own doubts of a record: a max battle's screen by its max report (its raid report
@@ -207,9 +209,10 @@ export function newScreenshotId(): string {
  * `doubts`, not what was typed), or that a member said something about, kept `reviewDays`, at
  * most `reviewPerDay` of one server a day. A copy is a hard link where the file system allows
  * one, so a screenshot in both folders takes its bytes once. Both folders hold at most
- * `keepMegabytes` together: beyond it, held screenshots without an issue (`hasIssue`) go
- * first, the oldest first and never one an active raid shows, then the oldest review copies
- * that free bytes (not one linked to its held screenshot);
+ * `keepMegabytes` together: beyond it, the server keeping the most gives way first (plan
+ * 19B-5; each file counts for the server of its record), with its held screenshots without an
+ * issue (`hasIssue`), the oldest first and never one an active raid shows, then its oldest review
+ * copies that free bytes (not one linked to its held screenshot), then the next server;
  * when that is not enough a screenshot is read and answered but not kept. The review folder is
  * what a later session improves the reader from (`ocr:review`, `ocr:check`). Writes of one
  * record go one after the other; nothing about what a screenshot shows is logged. Every method
@@ -222,8 +225,18 @@ export class ScreenshotStore implements ScreenshotKeeping {
   private readonly writing = new Map<string, Promise<unknown>>();
   /** Bytes in both folders (a linked pair once); undefined until they were counted. */
   private used: number | undefined;
-  /** Held screenshots without an issue, by id, with when they were read: the first to go. */
-  private readonly plain = new Map<string, number>();
+  /**
+   * Of `used`, each server's (plan 19B-5), by the record a file belongs to; a file without a
+   * readable record is `NO_SERVER`'s. Counted with `used`.
+   */
+  private readonly usedOf = new Map<string, number>();
+  /** The count of the folders on its way: keeps that come meanwhile wait for the same one. */
+  private counting: Promise<void> | undefined;
+  /**
+   * Held screenshots without an issue, by id, with when they were read and their server: the
+   * first to go.
+   */
+  private readonly plain = new Map<string, { readAt: number; server: string }>();
   /** Review copies made per server and day. */
   private readonly reviewed = new BoundedMap<string, number>(1_000);
 
@@ -283,7 +296,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
       await mkdir(this.held, { recursive: true });
       if (record.file && !linked) {
         await writeFile(path.join(this.held, record.file), bytes);
-        this.grow(bytes.byteLength);
+        this.grow(bytes.byteLength, record.guildId);
       }
       await this.serially(this.key(this.held, id), async () => {
         await this.write(this.held, record);
@@ -404,7 +417,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
         if (readable.has(owner)) continue;
         const file = path.join(folder, name);
         const info = await stat(file).catch(() => undefined);
-        if (info && now - info.mtimeMs > DAY_MS) await this.remove(file);
+        if (info && now - info.mtimeMs > DAY_MS) await this.remove(file, NO_SERVER);
       }
     }
     if (deleted > 0) this.options.log.info({ deleted }, 'deleted kept screenshots');
@@ -521,7 +534,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
           const size = (await stat(source)).size;
           if (!(await this.room(size))) return;
           await copyFile(source, image);
-          this.grow(size);
+          this.grow(size, record.guildId);
         }
       }
     }
@@ -558,51 +571,39 @@ export class ScreenshotStore implements ScreenshotKeeping {
 
   /** Notes in the index whether a held record is one of the first to go. */
   private index(record: ScreenshotRecord): void {
-    if (record.file && !hasIssue(record)) this.plain.set(record.id, record.readAt);
+    if (record.file && !hasIssue(record))
+      this.plain.set(record.id, { readAt: record.readAt, server: record.guildId });
     else this.plain.delete(record.id);
   }
 
   /**
    * Whether `bytes` more fit the budget; the folders are counted the first time (a linked pair
-   * once), which also builds the index. Over it, held screenshots of the index make room, the
-   * oldest first, each read again under its turn and left when it is gone, has an issue by now
-   * or an active raid shows it; then the oldest review copies that free something (not one
-   * linked to its held screenshot); then nothing is kept.
+   * once), which also builds the index. Over it, the server keeping the most gives way first
+   * (plan 19B-5), one screenshot at a time, the server keeping the most chosen again after each:
+   * its held screenshots of the index, the oldest first, each read again under its turn and left
+   * when it is gone, has an issue by now or an active raid shows it; then its oldest review
+   * copies that free something (not one linked to its held screenshot). A server with nothing
+   * of that left is passed over for the next; when none has any, nothing is kept.
    */
   private async room(bytes: number): Promise<boolean> {
-    if (this.used === undefined) await this.count();
+    if (this.used === undefined) {
+      // Once counted, `used` is set; a count that failed is tried again by the next keep.
+      await (this.counting ??= this.count().finally(() => {
+        this.counting = undefined;
+      }));
+    }
     const budget = this.options.keepMegabytes * MB;
     const fits = () => (this.used ?? 0) + bytes <= budget;
     if (bytes === 0 || fits()) return true;
-    const oldest = [...this.plain.entries()].sort(([, a], [, b]) => a - b).map(([id]) => id);
-    for (const id of oldest) {
-      if (fits()) break;
-      await this.serially(this.key(this.held, id), async () => {
-        const record = await this.read(this.held, id);
-        this.plain.delete(id);
-        if (!record || hasIssue(record) || this.options.shown().has(id)) return;
-        await this.removeRecord(this.held, record);
-      });
-    }
-    if (!fits()) {
-      const copies: ScreenshotRecord[] = [];
-      for (const name of await readdir(this.review).catch(() => [] as string[])) {
-        if (!name.endsWith('.json')) continue;
-        const record = await this.read(this.review, name.slice(0, -5));
-        if (record) copies.push(record);
-      }
-      copies.sort((a, b) => a.readAt - b.readAt);
-      for (const record of copies) {
-        if (fits()) break;
-        // A copy linked to its held screenshot would free nothing: it stays.
-        if (record.file) {
-          const info = await stat(path.join(this.review, record.file)).catch(() => undefined);
-          if (info && info.nlink > 1) continue;
-        }
-        await this.serially(this.key(this.review, record.id), () =>
-          this.removeRecord(this.review, record),
-        );
-      }
+    let copies: Map<string, ScreenshotRecord[]> | undefined;
+    const reviewCopies = async () => (copies ??= await this.reviewCopies());
+    const givenAll = new Set<string>();
+    while (!fits()) {
+      const server = this.keepingMost(givenAll);
+      if (server === undefined) break;
+      const gave =
+        (await this.givePlain(server)) || (await this.giveCopy((await reviewCopies()).get(server)));
+      if (!gave) givenAll.add(server);
     }
     if (fits()) return true;
     this.options.log.warn(
@@ -612,42 +613,128 @@ export class ScreenshotStore implements ScreenshotKeeping {
     return false;
   }
 
-  /** Counts both folders, a file with two links once, and indexes the held records. */
+  /** The server keeping the most bytes, of those not in `passed`. */
+  private keepingMost(passed: ReadonlySet<string>): string | undefined {
+    let most: string | undefined;
+    let bytes = 0;
+    for (const [server, used] of this.usedOf) {
+      if (used > bytes && !passed.has(server)) {
+        most = server;
+        bytes = used;
+      }
+    }
+    return most;
+  }
+
+  /** Deletes the oldest held screenshot of the index of `server` that may go; whether it did. */
+  private async givePlain(server: string): Promise<boolean> {
+    const oldest = [...this.plain.entries()]
+      .filter(([, entry]) => entry.server === server)
+      .sort(([, a], [, b]) => a.readAt - b.readAt)
+      .map(([id]) => id);
+    for (const id of oldest) {
+      const gone = await this.serially(this.key(this.held, id), async () => {
+        const record = await this.read(this.held, id);
+        this.plain.delete(id);
+        if (!record || hasIssue(record) || this.options.shown().has(id)) return false;
+        await this.removeRecord(this.held, record);
+        return true;
+      });
+      if (gone) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Deletes the oldest of a server's review copies (`copies`, oldest first; taken from it) that
+   * frees something; whether it did.
+   */
+  private async giveCopy(copies: ScreenshotRecord[] | undefined): Promise<boolean> {
+    for (let record = copies?.shift(); record !== undefined; record = copies?.shift()) {
+      // A copy linked to its held screenshot would free nothing: it stays.
+      if (record.file) {
+        const info = await stat(path.join(this.review, record.file)).catch(() => undefined);
+        if (info && info.nlink > 1) continue;
+      }
+      const copy = record;
+      await this.serially(this.key(this.review, copy.id), () =>
+        this.removeRecord(this.review, copy),
+      );
+      return true;
+    }
+    return false;
+  }
+
+  /** The review copies by server, each server's oldest first. */
+  private async reviewCopies(): Promise<Map<string, ScreenshotRecord[]>> {
+    const byServer = new Map<string, ScreenshotRecord[]>();
+    for (const id of await this.recordIds(this.review)) {
+      const record = await this.read(this.review, id);
+      if (!record) continue;
+      const copies = byServer.get(record.guildId);
+      if (copies) copies.push(record);
+      else byServer.set(record.guildId, [record]);
+    }
+    for (const copies of byServer.values()) copies.sort((a, b) => a.readAt - b.readAt);
+    return byServer;
+  }
+
+  /**
+   * Counts both folders, a file with two links once, each file for the server of the record it
+   * belongs to (plan 19B-5), and indexes the held records. One count at a time (`counting`): the
+   * totals are built here and set together at the end.
+   */
   private async count(): Promise<void> {
     let total = 0;
+    const byServer = new Map<string, number>();
     const seen = new Set<string>();
+    const serverOf = new Map<string, string>();
     for (const folder of [this.held, this.review]) {
-      for (const name of await readdir(folder).catch(() => [] as string[])) {
+      const names = await readdir(folder).catch(() => [] as string[]);
+      for (const name of names.filter((n) => n.endsWith('.json'))) {
+        const record = await this.read(folder, name.slice(0, -5));
+        if (!record) continue;
+        serverOf.set(record.id, record.guildId);
+        if (folder === this.held) this.index(record);
+      }
+      for (const name of names) {
         const info = await stat(path.join(folder, name)).catch(() => undefined);
         if (!info) continue;
         const inode = `${info.dev}:${info.ino}`;
         if (info.nlink > 1 && seen.has(inode)) continue;
         seen.add(inode);
         total += info.size;
-        if (folder === this.held && name.endsWith('.json')) {
-          const record = await this.read(folder, name.slice(0, -5));
-          if (record) this.index(record);
-        }
+        const server = serverOf.get(name.replace(/\..*$/, '')) ?? NO_SERVER;
+        byServer.set(server, (byServer.get(server) ?? 0) + info.size);
       }
     }
     this.used = total;
+    this.usedOf.clear();
+    for (const [server, bytes] of byServer) this.usedOf.set(server, bytes);
   }
 
   private async removeRecord(folder: string, record: ScreenshotRecord): Promise<void> {
-    if (record.file) await this.remove(path.join(folder, record.file));
-    await this.remove(path.join(folder, `${record.id}.json`));
+    if (record.file) await this.remove(path.join(folder, record.file), record.guildId);
+    await this.remove(path.join(folder, `${record.id}.json`), record.guildId);
     if (folder === this.held) this.plain.delete(record.id);
   }
 
-  private grow(bytes: number): void {
-    if (this.used !== undefined) this.used = Math.max(0, this.used + bytes);
+  /** Counts bytes more (or fewer) in the folders, and of `server`, once they were counted. */
+  private grow(bytes: number, server: string): void {
+    if (this.used === undefined) return;
+    this.used = Math.max(0, this.used + bytes);
+    const left = Math.max(0, (this.usedOf.get(server) ?? 0) + bytes);
+    if (left > 0) this.usedOf.set(server, left);
+    else this.usedOf.delete(server);
   }
 
-  /** Removes a file; its bytes count as freed only when no other link holds them. */
-  private async remove(file: string): Promise<void> {
+  /**
+   * Removes a file of `server`; its bytes count as freed only when no other link holds them.
+   */
+  private async remove(file: string, server: string): Promise<void> {
     const info = await stat(file).catch(() => undefined);
     await rm(file, { force: true });
-    if (info && info.nlink <= 1) this.grow(-info.size);
+    if (info && info.nlink <= 1) this.grow(-info.size, server);
   }
 
   private key(folder: string, id: string): string {
@@ -686,7 +773,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
       await writeFile(temporary, text);
       // Tried again when Windows refuses it while another program holds the record a moment.
       await moveIntoPlace(temporary, target, this.options.rename, this.options.renamePauseMs);
-      this.grow(Buffer.byteLength(text) - before);
+      this.grow(Buffer.byteLength(text) - before, record.guildId);
     } finally {
       await rm(temporary, { force: true });
     }
