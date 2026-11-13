@@ -68,7 +68,7 @@ export class MemoryResearchEvents implements ResearchEventStorage {
     return Promise.resolve(
       [...this.rows.values()]
         .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id))
-        .map(({ id, name, eventType, start, end }) => ({ id, name, eventType, start, end })),
+        .map(({ firstSeen: _first, lastSeen: _last, ...event }) => event),
     );
   }
 

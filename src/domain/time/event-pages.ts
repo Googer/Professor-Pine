@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { isForEveryone } from './event-reach.js';
 import { eventName } from './raid-events.js';
 import { isEventPage } from './spawn-events.js';
-import { feedTime } from './zoned.js';
+import { localsOf } from './feed-times.js';
+import { momentIn, readFeedTime } from './zoned.js';
 
 /*
  * The events of ScrapedDuck's feed whose Leek Duck page is read for what only the page says
@@ -18,6 +19,10 @@ export interface PagedEvent {
   start: number;
   /** The first moment after it. */
   end: number;
+  /** The start as wall-clock time, where it is one (`FeedTimed`, plan 19A-2). */
+  startLocal?: string;
+  /** The end as wall-clock time, where it is one. */
+  endLocal?: string;
   page: string;
 }
 
@@ -54,12 +59,14 @@ export function parsePagedEventFeed(json: unknown, zone: string): PagedEvent[] {
     if (!parsed.success) continue;
     const { eventID: id, eventType, name, link: page } = parsed.data;
     if (!isEventPage(page) || !isForEveryone(parsed.data)) continue;
-    const start = feedTime(parsed.data.start, zone)?.epochMilliseconds;
-    const end = feedTime(parsed.data.end, zone)?.epochMilliseconds;
-    if (start === undefined || end === undefined) continue;
+    const from = readFeedTime(parsed.data.start);
+    const to = readFeedTime(parsed.data.end);
+    if (from === undefined || to === undefined) continue;
+    const start = momentIn(from, zone).epochMilliseconds;
+    const end = momentIn(to, zone).epochMilliseconds;
     const length = end - start;
     if (length <= 0 || length > MAX_PAGED_EVENT_MS) continue;
-    events.push({ id, name, eventType, start, end, page });
+    events.push({ id, name, eventType, start, end, ...localsOf(from, to), page });
   }
   return events.sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
 }

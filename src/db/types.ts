@@ -129,10 +129,12 @@ export interface EventPost {
 
 export interface EventWindow {
   endsAt: string;
+  endsLocal: string | null;
   id: number;
   setAt: string;
   setBy: string;
   startsAt: string;
+  startsLocal: string | null;
 }
 
 export interface GoogleUseDay {
@@ -250,6 +252,7 @@ export interface LegacyFillIn {
 
 export interface ListedEvent {
   endsAt: string;
+  endsLocal: string | null;
   eventId: string;
   eventType: string;
   formerIds: Json | null;
@@ -258,10 +261,12 @@ export interface ListedEvent {
   link: string | null;
   name: string;
   startsAt: string;
+  startsLocal: string | null;
 }
 
 export interface MaxEvent {
   endsAt: string;
+  endsLocal: string | null;
   eventId: string | null;
   featured: Json | null;
   hoursAssumed: Generated<number>;
@@ -270,6 +275,7 @@ export interface MaxEvent {
   name: string;
   short: Generated<number>;
   startsAt: string;
+  startsLocal: string | null;
 }
 
 export interface MeetupAppeal {
@@ -613,18 +619,21 @@ export interface Region {
 
 export interface ResearchEvent {
   endsAt: string;
+  endsLocal: string | null;
   eventId: string;
   eventType: string;
   firstSeen: string;
   lastSeen: string;
   name: string;
   startsAt: string;
+  startsLocal: string | null;
 }
 
 export interface ResearchTask {
   active: Generated<number>;
   category: string;
   endsAt: string | null;
+  endsLocal: string | null;
   firstSeen: string;
   lastSeen: string;
   position: Generated<number>;

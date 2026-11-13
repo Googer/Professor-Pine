@@ -1,7 +1,7 @@
 import type { PokemonCatalogue } from '../pogo/catalogue.js';
 import { feedLookupOf } from '../pogo/feed-lookup.js';
 import { identifyBoss, wornBy } from '../pogo/raid-boss-feed.js';
-import { feedTime } from '../time/zoned.js';
+import { momentIn, readFeedTime, type FeedTime } from '../time/zoned.js';
 import { itemKey, MAX_TASK_TEXT, taskKeyOf, type ResearchTask, type TaskReward } from './task.js';
 import { rewardKey } from './versions.js';
 
@@ -661,12 +661,19 @@ function categoryWords(page: string): number {
  * offset (`2026-11-01T10:00:00-0800`; the events feed has the same event end
  * `2026-11-01T10:00:00.000`, a local time), so the offset is dropped and the time read in `zone`;
  * `Z` is no zone of Leek Duck's: that moment. The attribute in a shape not read is one not read.
+ * Kept as the feed time it is (plan 19A-2: wall-clock time, a moment in each server's zone).
  */
-function sectionEnd(category: string, zone: string): number | null | undefined {
+function sectionEnd(category: string): FeedTime | null | undefined {
   const tag = category.slice(0, category.indexOf('>') + 1);
   const end = between(tag, 'data-event-end="', '"');
   if (end === undefined) return tag.includes('data-event-end') ? null : undefined;
-  return feedTime(end.replace(/[+-]\d{2}:?\d{2}$/, ''), zone)?.epochMilliseconds ?? null;
+  return readFeedTime(end.replace(/[+-]\d{2}:?\d{2}$/, '')) ?? null;
+}
+
+/** A section's end: its moment in the zone read in, and as the page gave it. */
+interface SectionEnd {
+  at: number;
+  time: FeedTime;
 }
 
 /**
@@ -685,14 +692,15 @@ export function parseResearchPage(
   const reading: Reading = { catalogue, unknown: new Set() };
   const byKey = new Map<string, ResearchTask>();
   /** Each task's end so far: null for a task that has none, as a section without one says. */
-  const ends = new Map<string, number | null>();
+  const ends = new Map<string, SectionEnd | null>();
   let skipped = 0;
   let unreadEnds = 0;
   const categories = categoriesOf(page);
   for (const category of categories) {
-    const read = sectionEnd(category, zone);
+    const read = sectionEnd(category);
     if (read === null) unreadEnds += 1;
-    const end = read ?? null;
+    const end: SectionEnd | null =
+      read == null ? null : { at: momentIn(read, zone).epochMilliseconds, time: read };
     const heading = htmlText(between(category, '<h2>', '</h2>') ?? '')
       .replace(/\s+tasks$/i, '')
       .slice(0, 60);
@@ -715,7 +723,13 @@ export function parseResearchPage(
       const before = ends.get(key);
       ends.set(
         key,
-        before === undefined ? end : before === null || end === null ? null : Math.max(before, end),
+        before === undefined
+          ? end
+          : before === null || end === null
+            ? null
+            : end.at > before.at
+              ? end
+              : before,
       );
       const known = byKey.get(key);
       if (known) {
@@ -730,8 +744,10 @@ export function parseResearchPage(
   if (byKey.size === 0) throw new Error('The research page lists no task');
   return {
     tasks: [...byKey.values()].map((task) => {
-      const endsAt = ends.get(task.key) ?? null;
-      return endsAt === null ? task : { ...task, endsAt };
+      const ending = ends.get(task.key) ?? null;
+      if (ending === null) return task;
+      const local = 'local' in ending.time ? { endsLocal: ending.time.local } : {};
+      return { ...task, endsAt: ending.at, ...local };
     }),
     skipped,
     unknown: [...reading.unknown],

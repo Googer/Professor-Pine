@@ -186,14 +186,19 @@ const FEED_TIME =
   /^(\d{4}-\d{2}-\d{2})(?:[Tt](\d{2})(?::(\d{2})(?::([0-5]\d)(?:\.(\d{1,9}))?)?)?([Zz]|[+-]\d{2}(?::?\d{2})?)?)?$/;
 
 /**
- * A feed's time as the feeds mean it: one with an offset or `Z` is that moment, seen in `zone`;
- * one without is a wall-clock time in `zone`; a date alone is its midnight there; `24:00` is the
- * next day's midnight. Anything else, empty or malformed, is nothing, never a throw. A wall-clock
- * time in the fall overlap is the earlier of the two (`disambiguation: 'compatible'`), whenever
- * Pine reads it: a feed's time is not decided by our clock. Luxon's `fromISO` took the offset
- * of the moment it ran there (the earlier in summer, the later after the clocks fell back).
+ * A feed's time as the feed gave it (plan 19A-2): one with an offset or `Z` is a moment (`at`,
+ * epoch milliseconds), the same in every zone; one without is a wall-clock time (`local`,
+ * `yyyy-mm-ddThh:mm:ss[.fff]`, as `Temporal.PlainDateTime` writes it), which is a moment only in a
+ * zone: Raid Hour at 18:00 is 18:00 in each server's zone. `momentIn` gives its moment in a zone.
  */
-export function feedTime(text: string, zone: string): Temporal.ZonedDateTime | undefined {
+export type FeedTime = { readonly at: number } | { readonly local: string };
+
+/**
+ * A feed's time read without a zone (`FeedTime`): one with an offset or `Z` is that moment; one
+ * without is wall-clock time; a date alone is its midnight; `24:00` is the next day's midnight.
+ * Anything else, empty or malformed, is nothing, never a throw.
+ */
+export function readFeedTime(text: string): FeedTime | undefined {
   const shape = FEED_TIME.exec(text);
   if (!shape) return undefined;
   const [, date = '', hour, minute = '00', second = '00', fraction = '0', offset] = shape;
@@ -205,14 +210,37 @@ export function feedTime(text: string, zone: string): Temporal.ZonedDateTime | u
       hour === undefined ? '' : `T${endOfDay ? '00' : hour}:${minute}:${second}.${fraction}`;
     const iso = `${day}${time}`;
     return offset === undefined
-      ? Temporal.PlainDateTime.from(iso, { overflow: 'reject' }).toZonedDateTime(zone, {
-          disambiguation: 'compatible',
-        })
-      : Temporal.Instant.from(`${iso}${offset.toUpperCase()}`).toZonedDateTimeISO(zone);
+      ? { local: Temporal.PlainDateTime.from(iso, { overflow: 'reject' }).toString() }
+      : { at: Temporal.Instant.from(`${iso}${offset.toUpperCase()}`).epochMilliseconds };
   } catch (error) {
     if (error instanceof RangeError) return undefined;
     throw error;
   }
+}
+
+/**
+ * The moment of a feed's time in `zone`, seen there: a moment as it is; a wall-clock time on
+ * `zone`'s clock, the earlier of the two in the fall overlap (`disambiguation: 'compatible'`),
+ * whenever Pine reads it (a feed's time is not decided by our clock), a time in the spring gap
+ * moved forward by the gap.
+ */
+export function momentIn(time: FeedTime, zone: string): Temporal.ZonedDateTime {
+  return 'at' in time
+    ? zoned(time.at, zone)
+    : Temporal.PlainDateTime.from(time.local).toZonedDateTime(zone, {
+        disambiguation: 'compatible',
+      });
+}
+
+/**
+ * A feed's time as the feeds mean it, in `zone` (`readFeedTime`, then `momentIn`): one with an
+ * offset or `Z` is that moment, seen in `zone`; one without is a wall-clock time in `zone`; a
+ * date alone is its midnight there; `24:00` is the next day's midnight. Anything else is nothing,
+ * never a throw. Luxon's `fromISO` took the offset of the moment it ran there in the overlap.
+ */
+export function feedTime(text: string, zone: string): Temporal.ZonedDateTime | undefined {
+  const time = readFeedTime(text);
+  return time === undefined ? undefined : momentIn(time, zone);
 }
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];

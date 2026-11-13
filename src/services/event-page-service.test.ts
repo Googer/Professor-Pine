@@ -18,7 +18,7 @@ import { RaidEventService } from './raid-event-service.js';
 import type { RaidEvent } from '../domain/time/raid-events.js';
 import { textAnswer } from '../../test/support/responses.js';
 import { PINE_USER_AGENT, type FetchPage } from './research-task-service.js';
-import { zonedAt } from '../../test/support/time.js';
+import { wallClock, zonedAt } from '../../test/support/time.js';
 
 const ZONE = 'America/New_York';
 const HOUR = 3_600_000;
@@ -220,6 +220,7 @@ describe('EventPageService: the Raid Hours of the events’ pages', () => {
     name,
     start: at(iso),
     end: at(iso) + HOUR,
+    ...wallClock(at(iso), at(iso) + HOUR, ZONE),
     // The event whose page named it: the events forum links its line there.
     page: { event: 'into-the-wild-2026', link: INTO_THE_WILD },
   });

@@ -13,12 +13,16 @@ describe('parseBigEventFeed: the events with Gigantamax battles all day (plan 8X
         name: 'Pokémon GO Wild Area 2026: Global',
         start: at('2026-11-14T10:00'),
         end: at('2026-11-15T18:00'),
+        startLocal: '2026-11-14T10:00:00',
+        endLocal: '2026-11-15T18:00:00',
       },
       {
         id: 'pokemon-go-tour-alola-global-2027',
         name: 'Pokémon GO Tour: Alola - Global 2027',
         start: at('2027-02-27T00:00'),
         end: at('2027-02-28T23:59:59'),
+        startLocal: '2027-02-27T00:00:00',
+        endLocal: '2027-02-28T23:59:59',
       },
     ]);
   });

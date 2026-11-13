@@ -64,6 +64,8 @@ describe('parseRaidManifest', () => {
       kind: 'regular',
       start: at('2026-10-27T10:00'),
       end: at('2026-10-27T20:00'),
+      startLocal: '2026-10-27T10:00:00',
+      endLocal: '2026-10-27T20:00:00',
     });
     expect(manifest.skipped).toBe(0);
   });
@@ -118,6 +120,8 @@ describe('parseRaidManifest', () => {
         kind: 'regular',
         start: at('2026-10-27T10:00'),
         end: at('2026-10-27T20:00'),
+        startLocal: '2026-10-27T10:00:00',
+        endLocal: '2026-10-27T20:00:00',
       },
     ]);
   });

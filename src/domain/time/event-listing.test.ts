@@ -113,6 +113,8 @@ describe('which events are listed, posted and hinted (plan 8V-1, design "Which e
       image: expect.stringMatching(/^https:\/\/cdn\.leekduck\.com\//u) as string,
       start: at('2026-11-21T14:00'),
       end: at('2026-11-21T17:00'),
+      startLocal: '2026-11-21T14:00:00',
+      endLocal: '2026-11-21T17:00:00',
       formerIds: [],
     });
   });
@@ -548,6 +550,8 @@ describe('the hours of events’ pages as lines (2026-11-07)', () => {
         image: null,
         start: at('2026-11-09T18:00'),
         end: at('2026-11-09T19:00'),
+        startLocal: '2026-11-09T18:00:00',
+        endLocal: '2026-11-09T19:00:00',
         formerIds: [],
       },
       {
@@ -558,6 +562,8 @@ describe('the hours of events’ pages as lines (2026-11-07)', () => {
         image: null,
         start: at('2026-11-11T18:00'),
         end: at('2026-11-11T19:00'),
+        startLocal: '2026-11-11T18:00:00',
+        endLocal: '2026-11-11T19:00:00',
         formerIds: [],
       },
     ]);

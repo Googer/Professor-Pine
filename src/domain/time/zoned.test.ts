@@ -8,7 +8,9 @@ import {
   isoDate,
   localTime,
   minuteStamp,
+  momentIn,
   monthStart,
+  readFeedTime,
   sameDay,
   shortDateWords,
   shortDayWords,
@@ -306,6 +308,47 @@ describe('feedTime', () => {
     ]) {
       expect(feedTime(text, ZONE), text).toBeUndefined();
     }
+  });
+});
+
+describe('readFeedTime and momentIn (plan 19A-2: a feed time kept as the feed gave it)', () => {
+  it('keeps a time without an offset as wall-clock time, a moment only in a zone', () => {
+    const time = readFeedTime('2026-10-28T18:00:00.000');
+    expect(time).toEqual({ local: '2026-10-28T18:00:00' });
+    if (!time) throw new Error('unread');
+    expect(momentIn(time, ZONE).epochMilliseconds).toBe(Date.UTC(2026, 9, 28, 22));
+    expect(momentIn(time, 'Europe/Berlin').epochMilliseconds).toBe(Date.UTC(2026, 9, 28, 17));
+    expect(momentIn(time, 'Asia/Kolkata').epochMilliseconds).toBe(Date.UTC(2026, 9, 28, 12, 30));
+  });
+
+  it('keeps a time with an offset or Z as one moment, the same in every zone', () => {
+    const time = readFeedTime('2026-10-28T18:00:00Z');
+    expect(time).toEqual({ at: Date.UTC(2026, 9, 28, 18) });
+    if (!time) throw new Error('unread');
+    expect(momentIn(time, 'Europe/Berlin').epochMilliseconds).toBe(Date.UTC(2026, 9, 28, 18));
+    expect(momentIn(time, 'Europe/Berlin').hour).toBe(19);
+    expect(readFeedTime('2026-10-28T10:00-04:00')).toEqual({ at: Date.UTC(2026, 9, 28, 14) });
+  });
+
+  it('keeps a date alone as its local midnight, 24:00 as the next day’s, and a fraction', () => {
+    expect(readFeedTime('2026-10-28')).toEqual({ local: '2026-10-28T00:00:00' });
+    expect(readFeedTime('2026-10-31T24:00')).toEqual({ local: '2026-11-01T00:00:00' });
+    expect(readFeedTime('2026-10-28T10:00:00.250')).toEqual({ local: '2026-10-28T10:00:00.25' });
+  });
+
+  it('gives the earlier of the fall overlap’s two, in each zone its own', () => {
+    const time = readFeedTime('2026-11-01T01:30');
+    if (!time) throw new Error('unread');
+    expect(momentIn(time, ZONE).epochMilliseconds).toBe(Date.UTC(2026, 10, 1, 5, 30));
+    const berlin = readFeedTime('2026-10-25T02:30');
+    if (!berlin) throw new Error('unread');
+    expect(momentIn(berlin, 'Europe/Berlin').epochMilliseconds).toBe(Date.UTC(2026, 9, 25, 0, 30));
+  });
+
+  it('reads what feedTime reads, and nothing it refuses', () => {
+    expect(readFeedTime('2026-02-30T10:00')).toBeUndefined();
+    expect(readFeedTime('2026-10-28 10:00')).toBeUndefined();
+    expect(readFeedTime('')).toBeUndefined();
   });
 });
 

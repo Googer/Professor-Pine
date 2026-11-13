@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { IN_PERSON_TYPES, isForEveryone, isForEveryoneKind } from './event-reach.js';
 import { eventName } from './raid-events.js';
-import { feedTime } from './zoned.js';
+import { localsOf } from './feed-times.js';
+import { momentIn, readFeedTime } from './zoned.js';
 
 /**
  * An event of ScrapedDuck's events feed with field research of its own (plan 8R-1; design 4.2,
@@ -16,6 +17,13 @@ export interface ResearchEvent {
   eventType: string;
   start: number;
   end: number;
+  /**
+   * The start as wall-clock time, where the feed gave it so (`FeedTimed`, plan 19A-2): the truth,
+   * `start` its moment in the instance's default zone. Stored so (`ResearchEvent.startsLocal`).
+   */
+  startLocal?: string;
+  /** The end as wall-clock time, where it is one. */
+  endLocal?: string;
 }
 
 /** A research event longer than this is none, whatever the feed says (a season is no event). */
@@ -94,12 +102,14 @@ export function parseResearchEventFeed(json: unknown, zone: string): ResearchEve
     const { eventID: id, eventType, name, start: from, end: to } = parsed.data;
     if (!RESEARCH_EVENT_TYPES.has(eventType) || !isForEveryone(parsed.data)) continue;
     if (typeof from !== 'string' || typeof to !== 'string') continue;
-    const start = feedTime(from, zone)?.epochMilliseconds;
-    const end = feedTime(to, zone)?.epochMilliseconds;
-    if (start === undefined || end === undefined) continue;
+    const fromTime = readFeedTime(from);
+    const toTime = readFeedTime(to);
+    if (fromTime === undefined || toTime === undefined) continue;
+    const start = momentIn(fromTime, zone).epochMilliseconds;
+    const end = momentIn(toTime, zone).epochMilliseconds;
     const length = end - start;
     if (length <= 0 || length > MAX_RESEARCH_EVENT_MS) continue;
-    events.push({ id, name, eventType, start, end });
+    events.push({ id, name, eventType, start, end, ...localsOf(fromTime, toTime) });
   }
   return events.sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
 }

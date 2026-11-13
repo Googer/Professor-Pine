@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isPictureSource } from '../stops/pictures.js';
 import { IN_PERSON_TYPES, everyonesTimes, isForEveryoneKind } from './event-reach.js';
+import { localsOf } from './feed-times.js';
 import { BIG_EVENT_TYPES, type BigEvent, type MaxEvent } from './max-events.js';
 import { eventName, type RaidEvent } from './raid-events.js';
 import { addDays, isoDate, shortDateWords, shortDayWords, shortHourWords, zoned } from './zoned.js';
@@ -30,6 +31,13 @@ export interface ListedEvent {
   start: number;
   /** The first moment after it. */
   end: number;
+  /**
+   * The start as wall-clock time, where the feed gave it so (`FeedTimed`, plan 19A-2): the truth,
+   * `start` its moment in the instance's default zone. Stored so (`ListedEvent.startsLocal`).
+   */
+  startLocal?: string;
+  /** The end as wall-clock time, where it is one. */
+  endLocal?: string;
   /**
    * The ids it was listed under before it moved (R12: a new id of the same name and type while
    * the old one was dropped before its start), oldest first: a post made for one is its post.
@@ -236,10 +244,14 @@ export function readListedEvents(
       : BIG_KINDS.has(eventType)
         ? parsed.big.find((one) => one.id === id)
         : undefined;
-    let start: number;
-    let end: number;
+    let when: Pick<ListedEvent, 'start' | 'end' | 'startLocal' | 'endLocal'>;
     if (own) {
-      ({ start, end } = own);
+      when = {
+        start: own.start,
+        end: own.end,
+        ...(own.startLocal === undefined ? {} : { startLocal: own.startLocal }),
+        ...(own.endLocal === undefined ? {} : { endLocal: own.endLocal }),
+      };
     } else if (times.kind === 'none') {
       // Not seen (R3).
       untimed.push(id);
@@ -248,8 +260,11 @@ export function readListedEvents(
       // Those parsers left it out (too long, of no shape of theirs): so does the listing.
       continue;
     } else {
-      start = times.start.epochMilliseconds;
-      end = times.end.epochMilliseconds;
+      when = {
+        start: times.start.epochMilliseconds,
+        end: times.end.epochMilliseconds,
+        ...localsOf(times.feed.start, times.feed.end),
+      };
     }
     const event: ListedEvent = {
       id,
@@ -257,8 +272,7 @@ export function readListedEvents(
       eventType,
       link: leekDuckLink(item.data.link),
       image: eventPicture(item.data.image),
-      start,
-      end,
+      ...when,
       formerIds: [],
     };
     if (isListed(event)) read.push(event);
@@ -289,13 +303,16 @@ export function pageHoursListed(
     if (hour.page === undefined) return [];
     return [
       {
-        id: `${hour.page.event}:${eventType}:${isoDate(hour.start, zone)}`,
+        // The local day of a wall-clock hour (plan 19A-2): one id in every zone.
+        id: `${hour.page.event}:${eventType}:${hour.startLocal?.slice(0, 10) ?? isoDate(hour.start, zone)}`,
         name: hour.name,
         eventType,
         link: leekDuckLink(hour.page.link),
         image: null,
         start: hour.start,
         end: hour.end,
+        ...(hour.startLocal === undefined ? {} : { startLocal: hour.startLocal }),
+        ...(hour.endLocal === undefined ? {} : { endLocal: hour.endLocal }),
         formerIds: [],
       },
     ];

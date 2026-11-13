@@ -12,6 +12,8 @@ export const INTO_THE_WILD: ResearchEvent = {
   eventType: 'event',
   start: Date.UTC(2026, 10, 9, 15),
   end: Date.UTC(2026, 10, 14, 1),
+  startLocal: '2026-11-09T10:00:00',
+  endLocal: '2026-11-13T20:00:00',
 };
 
 /** Pawniard Community Day as the events feed of 2026-10-21 has it (14:00 to 17:00 EST). */
@@ -21,6 +23,8 @@ export const PAWNIARD_DAY: ResearchEvent = {
   eventType: 'community-day',
   start: Date.UTC(2026, 10, 21, 19),
   end: Date.UTC(2026, 10, 21, 22),
+  startLocal: '2026-11-21T14:00:00',
+  endLocal: '2026-11-21T17:00:00',
 };
 
 /** A task of the list, by its text. */
@@ -117,6 +121,7 @@ export function researchTaskCases(made: () => Promise<ResearchTaskStorage>): voi
     const ending = listedTask('Catch 8 Ghost-type Pokémon', {
       category: 'Halloween',
       endsAt: Date.UTC(2026, 10, 1, 15),
+      endsLocal: '2026-11-01T10:00:00',
     });
     const standing = listedTask('Catch 7 Pokémon', { category: 'Catching' });
     await store.replace([ending, standing], 1_000);

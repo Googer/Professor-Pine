@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { between, htmlText, partsFrom } from '../research/leekduck.js';
 import { isForEveryone } from '../time/event-reach.js';
-import { feedTime } from '../time/zoned.js';
+import { localsOf } from '../time/feed-times.js';
+import { momentIn, readFeedTime } from '../time/zoned.js';
 import { readHeading } from './raid-boss-feed.js';
 
 /*
@@ -25,6 +26,10 @@ export interface RaidRotation {
   /** Epoch ms; the rotation is in force from `start` until before `end`. */
   start: number;
   end: number;
+  /** The start as wall-clock time, where it is one (`FeedTimed`, plan 19A-2: `local_time`). */
+  startLocal?: string;
+  /** The end as wall-clock time, where it is one. */
+  endLocal?: string;
 }
 
 export interface ParsedManifest {
@@ -141,14 +146,20 @@ export function parseRaidManifest(json: unknown, zone: string): ParsedManifest {
         elsewhere += 1;
         continue;
       }
-      const from = feedTime(start, zone)?.epochMilliseconds;
-      const to = feedTime(end, zone)?.epochMilliseconds;
-      if (from === undefined || to === undefined || to <= from) {
+      const fromTime = readFeedTime(start);
+      const toTime = readFeedTime(end);
+      if (fromTime === undefined || toTime === undefined) {
+        skipped += 1;
+        continue;
+      }
+      const from = momentIn(fromTime, zone).epochMilliseconds;
+      const to = momentIn(toTime, zone).epochMilliseconds;
+      if (to <= from) {
         skipped += 1;
         continue;
       }
       slugs.add(slug);
-      rotations.push({ slug, title, kind, start: from, end: to });
+      rotations.push({ slug, title, kind, start: from, end: to, ...localsOf(fromTime, toTime) });
     }
   }
   return { rotations, skipped, elsewhere };

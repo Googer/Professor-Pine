@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { feedTime, localTime, zoned } from './zoned.js';
+import { localsOf, wallClockOf } from './feed-times.js';
+import { localTime, momentIn, readFeedTime, zoned } from './zoned.js';
 
 /** The kinds of event during which a raid boss stays for another time than usual. */
 export const RAID_EVENT_KINDS = ['raid-hour', 'raid-day'] as const;
@@ -13,6 +14,10 @@ export interface RaidEvent {
   start: number;
   /** The first moment after the event. */
   end: number;
+  /** The start as wall-clock time, where it is one (`FeedTimed`; `timedIn` gives it in a zone). */
+  startLocal?: string;
+  /** The end as wall-clock time, where it is one. */
+  endLocal?: string;
   /** The event whose Leek Duck page named it (`eventPageRaidHours`); none for the feed's own. */
   page?: PageSource;
   /**
@@ -74,9 +79,11 @@ export function parseRaidEventFeed(json: unknown, zone: string): RaidEvent[] {
   for (const item of items) {
     const parsed = feedEvent.safeParse(item);
     if (!parsed.success) continue;
-    const start = feedTime(parsed.data.start, zone)?.epochMilliseconds;
-    const end = feedTime(parsed.data.end, zone)?.epochMilliseconds;
-    if (start === undefined || end === undefined) continue;
+    const from = readFeedTime(parsed.data.start);
+    const to = readFeedTime(parsed.data.end);
+    if (from === undefined || to === undefined) continue;
+    const start = momentIn(from, zone).epochMilliseconds;
+    const end = momentIn(to, zone).epochMilliseconds;
     const length = end - start;
     if (length <= 0 || length > MAX_EVENT_MS) continue;
     events.push({
@@ -84,6 +91,7 @@ export function parseRaidEventFeed(json: unknown, zone: string): RaidEvent[] {
       name: parsed.data.name,
       start,
       end,
+      ...localsOf(from, to),
     });
   }
   return inOrder(events);
@@ -126,12 +134,12 @@ export function eventPageRaidHours(
   page?: PageSource,
 ): RaidEvent[] {
   const events = placePageDays(hours, span, time ?? STANDARD_RAID_HOUR, zone).map(
-    ({ day: { bosses }, start, end }): RaidEvent => {
+    ({ day: { bosses }, ...times }): RaidEvent => {
       const named = eventName.safeParse(
         bosses.length === 0 ? 'Raid Hour' : `${bosses.join(' and ')} Raid Hour`,
       );
       const name = named.success ? named.data : 'Raid Hour';
-      return { kind: 'raid-hour', name, start, end, ...(page === undefined ? {} : { page }) };
+      return { kind: 'raid-hour', name, ...times, ...(page === undefined ? {} : { page }) };
     },
   );
   return inOrder(events);
@@ -142,21 +150,22 @@ export function eventPageRaidHours(
  * of that day, lasting `time.minutes`, in the year in which the day falls within the event
  * (`span`, from its start's day to its end's day in `zone`, an end at midnight the day before's;
  * an event spans at most the turn of one year). A day outside it, or one at the start of a day
- * placed before, is dropped. In the page's order.
+ * placed before, is dropped. In the page's order. Each is wall-clock time (`startLocal`,
+ * `endLocal`: plan 19A-2), its moments those in `zone`.
  */
 export function placePageDays<T extends { month: number; day: number }>(
   days: readonly T[],
   span: { start: number; end: number },
   time: { hour: number; minute?: number; minutes: number },
   zone: string,
-): { day: T; start: number; end: number }[] {
+): { day: T; start: number; end: number; startLocal: string; endLocal: string }[] {
   if (span.end <= span.start) return [];
   const { hour, minute = 0, minutes } = time;
   const first = zoned(span.start, zone).toPlainDate();
   const last = zoned(span.end - 1, zone).toPlainDate();
   const within = (date: Temporal.PlainDate): boolean =>
     Temporal.PlainDate.compare(date, first) >= 0 && Temporal.PlainDate.compare(date, last) <= 0;
-  const placed: { day: T; start: number; end: number }[] = [];
+  const placed: { day: T; start: number; end: number; startLocal: string; endLocal: string }[] = [];
   for (const one of days) {
     const { month, day } = one;
     const start = [first.year, first.year + 1]
@@ -166,10 +175,12 @@ export function placePageDays<T extends { month: number; day: number }>(
     if (start === undefined || placed.some((other) => other.start === start.epochMilliseconds)) {
       continue;
     }
+    const end = start.add({ minutes });
     placed.push({
       day: one,
       start: start.epochMilliseconds,
-      end: start.add({ minutes }).epochMilliseconds,
+      end: end.epochMilliseconds,
+      ...wallClockOf(start, end),
     });
   }
   return placed;

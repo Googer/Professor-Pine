@@ -52,6 +52,7 @@ import { sweepIndexes } from './2026_11_10_050_sweep_indexes.js';
 import { forgettableMembers } from './2026_11_10_051_forgettable_members.js';
 import { serverSettings } from './2026_11_12_052_server_settings.js';
 import { serverSettingsAudit } from './2026_11_12_053_server_settings_audit.js';
+import { feedLocalTimes } from './2026_11_13_054_feed_local_times.js';
 
 /**
  * Every migration, keyed by name. Kysely applies them in name order, so names are
@@ -111,4 +112,5 @@ export const migrations: Record<string, Migration> = {
   '2026_11_10_051_forgettable_members': forgettableMembers,
   '2026_11_12_052_server_settings': serverSettings,
   '2026_11_12_053_server_settings_audit': serverSettingsAudit,
+  '2026_11_13_054_feed_local_times': feedLocalTimes,
 };

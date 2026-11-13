@@ -73,6 +73,22 @@ describe('the repositories of reports at stops', () => {
       return new ResearchEventRepository(db);
     });
 
+    it('trusts the moment over a wall-clock time a write of 2.0 left behind (fix round 1, L8)', async () => {
+      await db.deleteFrom('ResearchEvent').execute();
+      const store = new ResearchEventRepository(db, 'America/New_York');
+      await store.saveSeen([INTO_THE_WILD], 1);
+      expect(await store.all()).toEqual([INTO_THE_WILD]);
+      // 2.0, going back, moves the start an hour and knows nothing of the wall-clock column.
+      const moved = INTO_THE_WILD.start + 3_600_000;
+      await db
+        .updateTable('ResearchEvent')
+        .set({ startsAt: String(moved) })
+        .where('eventId', '=', INTO_THE_WILD.id)
+        .execute();
+      const { startLocal: _gone, ...rest } = INTO_THE_WILD;
+      expect(await store.all()).toEqual([{ ...rest, start: moved }]);
+    });
+
     it('draws no warning of MySQL as it keeps an event again', async () => {
       await db.deleteFrom('ResearchEvent').execute();
       const store = new ResearchEventRepository(db);

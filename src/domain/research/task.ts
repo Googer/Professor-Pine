@@ -51,7 +51,9 @@ export type TaskReward =
  * page's heading without "Tasks": Catching, Throwing, Battling, Exploring, Training, Buddy &
  * Friendship, Team GO Rocket, Sponsored, AR Scanning, or an event's own, `isEventCategory`)
  * and its rewards in the page's order. `endsAt`: where the page gives its section an end (an
- * event's, `data-event-end`), when it stops being offered (`taskOffered`), epoch milliseconds.
+ * event's, `data-event-end`), when it stops being offered (`taskOffered`), epoch milliseconds;
+ * `endsLocal` the same end as wall-clock time where the page gave it so (plan 19A-2: the truth,
+ * `endsAt` its moment in the instance's default zone).
  */
 export interface ResearchTask {
   key: string;
@@ -59,6 +61,7 @@ export interface ResearchTask {
   category: string;
   rewards: TaskReward[];
   endsAt?: number;
+  endsLocal?: string;
 }
 
 /** Whether a task is offered at `now`: not past its event's end. */

@@ -6,7 +6,7 @@ import {
   withPageRaidHours,
   type RaidEvent,
 } from './raid-events.js';
-import { zonedAt } from '../../../test/support/time.js';
+import { wallClock, zonedAt } from '../../../test/support/time.js';
 
 const ZONE = 'America/New_York';
 const at = (iso: string, zone = ZONE): number => zonedAt(iso, zone);
@@ -26,6 +26,8 @@ describe('parseRaidEventFeed', () => {
       name: 'Dialga Raid Hour',
       start: at('2026-10-14T18:00'),
       end: at('2026-10-14T19:00'),
+      startLocal: '2026-10-14T18:00:00',
+      endLocal: '2026-10-14T19:00:00',
     });
   });
 
@@ -139,6 +141,7 @@ describe('eventPageRaidHours', () => {
     name,
     start: at(iso),
     end: at(iso) + minutes * 60_000,
+    ...wallClock(at(iso), at(iso) + minutes * 60_000, ZONE),
   });
 
   it('places each day of the page at the weekly Raid Hour’s time, named by its bosses', () => {

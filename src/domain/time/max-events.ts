@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { everyonesTimes } from './event-reach.js';
 import { eventName, placePageDays, type PageSource } from './raid-events.js';
-import { addDays, feedTime, sameDay, zoned } from './zoned.js';
+import { localsOf, wallClockOf } from './feed-times.js';
+import { addDays, momentIn, readFeedTime, sameDay, zoned } from './zoned.js';
 
 /**
  * The max events of ScrapedDuck's events feed (plan 8X-2; design section 10, the featured boss),
@@ -25,6 +26,10 @@ export interface MaxEvent {
   /** The feed's own start and end (or those assumed, `hoursAssumed`); `end` is the first moment after it. */
   start: number;
   end: number;
+  /** The start as wall-clock time, where it is one (`FeedTimed`, plan 19A-2; assumed hours are). */
+  startLocal?: string;
+  /** The end as wall-clock time, where it is one. */
+  endLocal?: string;
   /**
    * Within one day of the zone and shorter than `SHORT_EVENT_MS`: a Max Battle Day, whose
    * battles rotate about every 30 minutes. Otherwise all day (a Max Monday, a weekend over
@@ -116,12 +121,16 @@ function idDate(item: FeedItem): string | undefined {
 interface Hours {
   start: Temporal.ZonedDateTime;
   end: Temporal.ZonedDateTime;
+  /** What the event keeps of them as wall-clock time (plan 19A-2). */
+  locals: { startLocal?: string; endLocal?: string };
 }
 
 /** An item's own hours (`everyonesTimes`, the one reader of an item's times; plan 8V-1, R4). */
 function hoursOf(item: FeedItem, zone: string): Hours | undefined {
   const times = everyonesTimes(item, zone);
-  return times.kind === 'times' ? { start: times.start, end: times.end } : undefined;
+  return times.kind === 'times'
+    ? { start: times.start, end: times.end, locals: localsOf(times.feed.start, times.feed.end) }
+    : undefined;
 }
 
 /**
@@ -148,8 +157,9 @@ function assumedHours(
   houred: readonly ({ item: FeedItem } & Hours)[],
   zone: string,
 ): Hours | undefined {
-  const day = feedTime(date, zone);
-  if (!day) return undefined;
+  const read = readFeedTime(date);
+  if (!read) return undefined;
+  const day = momentIn(read, zone);
   const apart = (time: Temporal.ZonedDateTime): number =>
     Math.abs(time.startOfDay().epochMilliseconds - day.epochMilliseconds);
   const nearest = houred
@@ -163,7 +173,10 @@ function assumedHours(
   const days = nearest.start.toPlainDate().until(nearest.end.toPlainDate()).days;
   const at = (time: Temporal.ZonedDateTime, plus: number): Temporal.ZonedDateTime =>
     addDays(day, plus).with({ hour: time.hour, minute: time.minute, second: 0, millisecond: 0 });
-  return { start: at(nearest.start, 0), end: at(nearest.end, days) };
+  const start = at(nearest.start, 0);
+  const end = at(nearest.end, days);
+  // Hours assumed are another event's clock times: wall-clock time (plan 19A-2).
+  return { start, end, locals: wallClockOf(start, end) };
 }
 
 /**
@@ -215,6 +228,7 @@ export function parseMaxEventFeed(json: unknown, zone: string): ParsedMaxEvents 
       name: item.name,
       start,
       end,
+      ...hours.locals,
       short:
         length < SHORT_EVENT_MS && sameDay(hours.start, hours.end.subtract({ milliseconds: 1 })),
       hoursAssumed: missing,
@@ -297,7 +311,7 @@ export function eventPageMaxHours(
   page?: PageSource,
 ): MaxEvent[] {
   const events = placePageDays(hours, span, time, zone).map(
-    ({ day: { bosses, gigantamax }, start, end }): MaxEvent => {
+    ({ day: { bosses, gigantamax }, start, end, startLocal, endLocal }): MaxEvent => {
       const names = bosses
         .map((boss) => boss.replace(/^(?:dynamax|gigantamax)\s+/i, '').trim())
         .filter((boss) => boss !== '');
@@ -310,6 +324,8 @@ export function eventPageMaxHours(
         name: named.success ? named.data : 'Max Battle Hour',
         start,
         end,
+        startLocal,
+        endLocal,
         short: end - start < SHORT_EVENT_MS && sameDay(zoned(start, zone), zoned(end - 1, zone)),
         hoursAssumed: false,
         featured: names.length === 0 ? undefined : { gigantamax, names },
@@ -372,6 +388,10 @@ export interface BigEvent {
   start: number;
   /** The first moment after it. */
   end: number;
+  /** The start as wall-clock time, where it is one (`FeedTimed`, plan 19A-2). */
+  startLocal?: string;
+  /** The end as wall-clock time, where it is one. */
+  endLocal?: string;
 }
 
 const bigItem = z.object({
@@ -407,7 +427,7 @@ export function parseBigEventFeed(json: unknown, zone: string): BigEvent[] {
     const end = times.end.epochMilliseconds;
     const length = end - start;
     if (length <= 0 || length > MAX_EVENT_MS) continue;
-    events.push({ id, name, start, end });
+    events.push({ id, name, start, end, ...localsOf(times.feed.start, times.feed.end) });
   }
   return events.sort((a, b) => a.start - b.start || a.name.localeCompare(b.name));
 }

@@ -32,6 +32,8 @@ describe('parsePagedEventFeed', () => {
       eventType: 'event',
       start: at('2026-11-09T10:00'),
       end: at('2026-11-13T20:00'),
+      startLocal: '2026-11-09T10:00:00',
+      endLocal: '2026-11-13T20:00:00',
       page: 'https://leekduck.com/events/into-the-wild-2026/',
     });
   });

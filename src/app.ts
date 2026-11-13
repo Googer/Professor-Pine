@@ -9,7 +9,7 @@ import { wildExceptionsOf } from './commands/notifications/wild.js';
 import { components } from './components/index.js';
 import { ScreenshotTrigger } from './commands/screenshots/mention.js';
 import { loadConfig } from './config/index.js';
-import { channelNamesOf } from './config/settings.js';
+import { channelNamesOf, instanceZone } from './config/settings.js';
 import { configWarnings } from './config/warnings.js';
 import { dbConfigFrom } from './db/db-config.js';
 import { createDb } from './db/kysely.js';
@@ -328,11 +328,11 @@ export async function startApp(
     zone: config.settings.timezone,
     fetch: (url, init) => fetch(url, init),
     // The events with field research of their own, kept as seen (plan 8R-1).
-    research: new ResearchEventRepository(db),
+    research: new ResearchEventRepository(db, instanceZone(config.settings)),
     // The max events and the big events, kept as last merged (plan 8X-F).
-    maxEvents: new MaxEventRepository(db, log),
+    maxEvents: new MaxEventRepository(db, log, instanceZone(config.settings)),
     // The events forum's listed events, kept as last merged (plan 8V-1).
-    listed: new ListedEventRepository(db, log),
+    listed: new ListedEventRepository(db, log, instanceZone(config.settings)),
     // The Raid Hours of the events' Leek Duck pages (2026-11-07), with the feed's for every
     // reader of `events()`; `eventPages` is made just below, and asked only once running.
     pageRaidHours: (): readonly RaidEvent[] => eventPages.raidHours(),
@@ -374,7 +374,7 @@ export async function startApp(
     zone: config.settings.timezone,
     refreshMs: config.settings.research.refreshHours * HOUR_MS,
     staleAfterMs: config.settings.research.staleAfterHours * HOUR_MS,
-    store: new ResearchTaskRepository(db, log),
+    store: new ResearchTaskRepository(db, log, instanceZone(config.settings)),
     gameData,
     fetch: (url, init) => fetch(url, init),
     log,
