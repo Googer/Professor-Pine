@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { ConfigError } from './errors.js';
 import {
   channelNamesOf,
+  isOpenInstance,
+  listedServers,
   loadSettings,
   RETIRED_SETTINGS,
   withoutRetiredSettings,
@@ -70,6 +72,51 @@ describe('loadSettings', () => {
             s.rehearsal = wrong;
           }),
         ),
+      ).toThrow(ConfigError);
+    }
+  });
+
+  it('has no operators and no list of servers unless the file names them (plan 19B-1)', () => {
+    const plain = loadSettings(REPO_SETTINGS);
+    expect(plain.operators).toEqual([]);
+    expect(plain.servers).toBeUndefined();
+    expect(isOpenInstance(plain)).toBe(false);
+    const listed = loadSettings(
+      writeSettings((s) => {
+        s.operators = ['412345678901234567'];
+        s.servers = ['512345678901234567', '612345678901234567'];
+      }),
+    );
+    expect(listed.operators).toEqual(['412345678901234567']);
+    expect(listed.servers).toEqual(['512345678901234567', '612345678901234567']);
+    expect(isOpenInstance(listed)).toBe(false);
+    expect(listedServers(listed)).toEqual(['512345678901234567', '612345678901234567']);
+    expect(listedServers(plain)).toBeUndefined();
+    // An empty list is as none.
+    expect(listedServers({ servers: [] })).toBeUndefined();
+    expect(listedServers({ servers: 'open' })).toBeUndefined();
+    const open = loadSettings(
+      writeSettings((s) => {
+        s.servers = 'open';
+      }),
+    );
+    expect(open.servers).toBe('open');
+    expect(isOpenInstance(open)).toBe(true);
+    for (const [key, wrong] of [
+      ['operators', ['matt']],
+      ['operators', '412345678901234567'],
+      ['servers', ['512345678901234567', 'pittsburgh']],
+      ['servers', 'closed'],
+      ['servers', 'OPEN'],
+    ] as const) {
+      expect(
+        () =>
+          loadSettings(
+            writeSettings((s) => {
+              s[key] = wrong;
+            }),
+          ),
+        `${key}: ${JSON.stringify(wrong)}`,
       ).toThrow(ConfigError);
     }
   });

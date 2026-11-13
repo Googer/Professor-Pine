@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   FAKE_CHANNEL_ID,
+  FAKE_GUILD_ID,
   FAKE_PARENT_ID,
   fakeAutocomplete,
   fakeChatInput,
@@ -21,7 +22,11 @@ import {
   guildIdOf,
   isBotChannel,
   isBotManagement,
+  isInstanceOperatorOf,
   isManagement,
+  isSharedDataOperatorAt,
+  ONLY_OPERATORS,
+  ONLY_OPERATORS_IN_A_DM,
   isPvpContext,
   isStaffRoleName,
   partyOf,
@@ -30,14 +35,17 @@ import {
   requireBotChannel,
   requireBotManagement,
   requireGuild,
+  requireInstanceOperator,
   requireManagement,
   requireMeetup,
   requireParty,
   requirePvpContext,
   requireRaid,
   requireRegion,
+  requireSharedDataOperator,
   requireTimed,
 } from './guards.js';
+import { instanceConfig, OPERATOR_ID } from '../../test/support/operators.js';
 
 const OWNER = '223456789012345678'; // TEST_ENV.OWNER_ID
 const USER = '700000000000000001';
@@ -72,6 +80,105 @@ describe('role checks', () => {
   it('adds bot developer for bot management', () => {
     expect(isBotManagement(['Bot Developer'], USER, OWNER)).toBe(true);
     expect(isBotManagement(['member'], USER, OWNER)).toBe(false);
+  });
+});
+
+describe('the operators’ tiers (plan 19B-1)', () => {
+  const STAFF = '423456789012345678';
+  const listed = createTestContext({
+    config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: [FAKE_GUILD_ID] }),
+  }).ctx;
+  const open = createTestContext({
+    config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: 'open' }),
+  }).ctx;
+  const admin = { userId: STAFF, roleNames: ['Admin'] };
+
+  it('lets the staff of a server of a listed instance change the shared data there', () => {
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), listed)).not.toThrow();
+    // The test settings name no servers: not open either.
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), ctx)).not.toThrow();
+    expect(() =>
+      requireSharedDataOperator(
+        as(fakeChatInput({ userId: STAFF, roleNames: ['member'] })),
+        listed,
+      ),
+    ).toThrow('Only admins, moderators and bot developers can do that.');
+  });
+
+  it('lets the staff of a server that the instance does not list change nothing shared', () => {
+    const elsewhere = createTestContext({
+      config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: ['512345678901234567'] }),
+    }).ctx;
+    // Their roles would never pass there: the operators' words.
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), elsewhere)).toThrow(
+      ONLY_OPERATORS,
+    );
+    expect(isSharedDataOperatorAt(fakeChatInput(admin) as never, elsewhere)).toBe(false);
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ userId: OPERATOR_ID })), elsewhere),
+    ).not.toThrow();
+    // An empty list is no list: any server's staff, as unset.
+    const empty = createTestContext({
+      config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: [] }),
+    }).ctx;
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), empty)).not.toThrow();
+  });
+
+  it('lets on an open instance only its operators change the shared data', () => {
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), open)).toThrow(ONLY_OPERATORS);
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ userId: OPERATOR_ID })), open),
+    ).not.toThrow();
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ userId: OWNER })), open),
+    ).not.toThrow();
+  });
+
+  it('lets in a direct message only the operators change the shared data', () => {
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ userId: OPERATOR_ID, isDm: true })), listed),
+    ).not.toThrow();
+    // A moderator's roles are of a server: none is read in a DM.
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ ...admin, isDm: true })), listed),
+    ).toThrow(ONLY_OPERATORS_IN_A_DM);
+    // One refusal in a DM, whatever the instance.
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ ...admin, isDm: true })), open),
+    ).toThrow(ONLY_OPERATORS_IN_A_DM);
+    expect(ONLY_OPERATORS_IN_A_DM).toBe(
+      'In a direct message only the operators of this Pine can do that.',
+    );
+  });
+
+  it('refuses the shared data to an autocomplete of somebody else, in a DM too', () => {
+    const typing = fakeAutocomplete({ userId: STAFF, isDm: true }) as unknown as LocatedInteraction;
+    expect(() => requireSharedDataOperator(typing, listed)).toThrow(UserError);
+  });
+
+  it('keeps what only the instance operators do from server staff, anywhere', () => {
+    expect(() =>
+      requireInstanceOperator(as(fakeChatInput({ userId: OPERATOR_ID, isDm: true })), listed),
+    ).not.toThrow();
+    expect(() =>
+      requireInstanceOperator(as(fakeChatInput({ userId: OWNER })), listed),
+    ).not.toThrow();
+    expect(() => requireInstanceOperator(as(fakeChatInput(admin)), listed)).toThrow(ONLY_OPERATORS);
+    expect(() => requireInstanceOperator(as(fakeChatInput({ userId: OPERATOR_ID })), ctx)).toThrow(
+      ONLY_OPERATORS,
+    );
+    expect(() =>
+      requireInstanceOperator(as(fakeChatInput({ ...admin, isDm: true })), listed),
+    ).toThrow(ONLY_OPERATORS_IN_A_DM);
+  });
+
+  it('answers who passes each tier where they ask, for /help', () => {
+    expect(isSharedDataOperatorAt(fakeChatInput(admin) as never, listed)).toBe(true);
+    expect(isSharedDataOperatorAt(fakeChatInput({ ...admin, isDm: true }) as never, listed)).toBe(
+      false,
+    );
+    expect(isInstanceOperatorOf(OPERATOR_ID, listed)).toBe(true);
+    expect(isInstanceOperatorOf(STAFF, listed)).toBe(false);
   });
 });
 

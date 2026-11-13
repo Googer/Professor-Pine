@@ -446,6 +446,23 @@ export const settingsObject = z.strictObject({
     })
     .optional(),
   /**
+   * The instance's operators (plan 19B-1; spec "Operators"): Discord user ids who, with
+   * `OWNER_ID`, change what every server shares (`/operator`) and remove a member's data
+   * (`/operator forget`), from any server or a DM with the bot. The instance's, never a server's
+   * key. None unless set.
+   */
+  operators: z.array(z.string().regex(/^\d{17,20}$/u, 'must be a Discord ID')).default([]),
+  /**
+   * Which servers may have this Pine (spec "Joining"): a list of server ids, or `"open"` for any
+   * server (a public instance). Unset, or an empty list: no list. Plan 19B-1 reads it only for
+   * who changes what every server shares (`isOpenInstance`, `listedServers`): on an open instance
+   * the operators alone; on any other a server's staff too, where the instance lists no servers or
+   * lists theirs. Who may join by it is plan 19C's.
+   */
+  servers: z
+    .union([z.literal('open'), z.array(z.string().regex(/^\d{17,20}$/u, "must be a server's ID"))])
+    .optional(),
+  /**
    * The instance's default zone (plan 19A-2): a new server's first zone, and the zone of what has
    * no server. A server's own is in its row (`ServerSettings.zoneOf`); read this one only through
    * `instanceZone`.
@@ -699,6 +716,24 @@ export type Settings = z.output<typeof settingsSchema>;
  */
 export function instanceZone(settings: Pick<Settings, 'timezone'>): string {
   return settings.timezone;
+}
+
+/**
+ * Whether any server may have this Pine (`servers: "open"`, plan 19B-1): a public instance, on
+ * which only its operators change what every server shares.
+ */
+export function isOpenInstance(settings: Pick<Settings, 'servers'>): boolean {
+  return settings.servers === 'open';
+}
+
+/**
+ * The servers the file lists (`servers`, plan 19B-1), whose staff alone of all servers' change
+ * what every server shares; undefined where it lists none: unset, open, or an empty list (as
+ * unset).
+ */
+export function listedServers(settings: Pick<Settings, 'servers'>): readonly string[] | undefined {
+  const { servers } = settings;
+  return Array.isArray(servers) && servers.length > 0 ? servers : undefined;
 }
 
 /**

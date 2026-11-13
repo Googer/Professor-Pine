@@ -1,6 +1,12 @@
 import { PermissionFlagsBits, type Guild } from 'discord.js';
 import type { AppContext } from '../app-context.js';
 import type { ServerValues } from '../config/server-settings.js';
+import { isOpenInstance, listedServers } from '../config/settings.js';
+import {
+  isInstanceOperator,
+  isSharedDataOperator,
+  type Instance,
+} from '../domain/operators/tiers.js';
 import {
   isMax,
   isMeetup,
@@ -179,12 +185,15 @@ export const requireManagement: Guard = (interaction, ctx) => {
   }
 };
 
+/** What `requireBotManagement` tells a member who is no staff of the bot. */
+export const BOT_STAFF_ONLY = 'Only admins, moderators and bot developers can do that.';
+
 export const requireBotManagement: Guard = (interaction, ctx) => {
   assertGuild(interaction);
   if (
     !isBotManagement(memberRoleNames(interaction), interaction.user.id, ctx.config.env.OWNER_ID)
   ) {
-    throw new UserError('Only admins, moderators and bot developers can do that.');
+    throw new UserError(BOT_STAFF_ONLY);
   }
 };
 
@@ -197,6 +206,81 @@ export const ONLY_THE_OWNER = 'Only the owner of this Pine can do that.';
  */
 export const requireOwner: Guard = (interaction, ctx) => {
   if (interaction.user.id !== ctx.config.env.OWNER_ID) throw new UserError(ONLY_THE_OWNER);
+};
+
+/** The instance as the operators' tiers read it (`src/domain/operators/tiers.ts`). */
+function instanceOf(ctx: Pick<AppContext, 'config'>): Instance {
+  return {
+    ownerId: ctx.config.env.OWNER_ID.trim(),
+    operators: ctx.config.settings.operators,
+    open: isOpenInstance(ctx.config.settings),
+    listed: listedServers(ctx.config.settings),
+  };
+}
+
+/** Whether this user is an instance operator (plan 19B-1): the owner or an operator of the file. */
+export function isInstanceOperatorOf(userId: string, ctx: Pick<AppContext, 'config'>): boolean {
+  return isInstanceOperator(userId, instanceOf(ctx));
+}
+
+/**
+ * Whether the invoking member may change what every server shares where they ask (plan 19B-1,
+ * `isSharedDataOperator`): an instance operator anywhere; on an instance that is not open, also
+ * the bot-management staff of the server asked from, where the instance lists no servers or lists
+ * that one; in a DM the instance operators alone.
+ */
+export function isSharedDataOperatorAt(
+  interaction: LocatedInteraction,
+  ctx: Pick<AppContext, 'config'>,
+): boolean {
+  return isSharedDataOperator(
+    {
+      userId: interaction.user.id,
+      serverId: interaction.guildId ?? undefined,
+      botManagement: hasRole(memberRoleNames(interaction), BOT_MANAGEMENT_ROLES),
+    },
+    instanceOf(ctx),
+  );
+}
+
+/**
+ * Whether a server's bot-management staff change what every server shares from that server (plan
+ * 19B-1): the shared-data tier asked for a member of its staff who is no operator. False on an
+ * open instance, and for a server the instance does not list.
+ */
+export function serverStaffShareData(serverId: string, ctx: Pick<AppContext, 'config'>): boolean {
+  return isSharedDataOperator({ userId: '', serverId, botManagement: true }, instanceOf(ctx));
+}
+
+/** What the operators' guards tell anybody they refuse in a server (plan 19B-1). */
+export const ONLY_OPERATORS = 'Only the operators of this Pine can do that.';
+
+/** What the operators' guards tell anybody they refuse in a DM with the bot (plan 19B-1). */
+export const ONLY_OPERATORS_IN_A_DM =
+  'In a direct message only the operators of this Pine can do that.';
+
+/**
+ * The shared-data tier (plan 19B-1): what every server shares (the boss list's overrides and its
+ * sync, the event window, the image cache). Refused in the words of where it would pass: in a
+ * server whose staff it passes (an instance that is not open, and lists no servers or lists that
+ * one), as `/admin` refuses; in another server, the operators'; in a DM, the DM's.
+ */
+export const requireSharedDataOperator: Guard = (interaction, ctx) => {
+  if (isSharedDataOperatorAt(interaction, ctx)) return;
+  if (!interaction.inGuild()) throw new UserError(ONLY_OPERATORS_IN_A_DM);
+  throw new UserError(
+    serverStaffShareData(interaction.guildId, ctx) ? BOT_STAFF_ONLY : ONLY_OPERATORS,
+  );
+};
+
+/**
+ * The instance tier (plan 19B-1): the owner and the file's operators alone, who need no role,
+ * anywhere: for what spans every server and cannot be undone (`/operator forget`). Server staff
+ * are refused (in a DM in the DM's words).
+ */
+export const requireInstanceOperator: Guard = (interaction, ctx) => {
+  if (isInstanceOperatorOf(interaction.user.id, ctx)) return;
+  throw new UserError(interaction.inGuild() ? ONLY_OPERATORS : ONLY_OPERATORS_IN_A_DM);
 };
 
 export const requireBotChannel: Guard = (interaction, ctx) => {
