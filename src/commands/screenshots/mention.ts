@@ -478,7 +478,8 @@ export const MAX_BOARD_MESSAGE_BYTES = 100 * 1024 * 1024;
  * `ocr.queuePerServer + 1` messages of a server (`ocr.queue + 1` of all; plan 19B-5),
  * as each holds one place in its queue while its pictures are read one at a time, and
  * messages that come while downloads are on their way all pass it. Two messages as large as one
- * may be; one always fits while no other holds any.
+ * may be; one always fits while no other holds any. Each server holds at most one message's
+ * worth of it (`MAX_BOARD_MESSAGE_BYTES`, plan 19B-5): one server's burst leaves room for another.
  */
 export const MAX_BOARD_BYTES_HELD = 2 * MAX_BOARD_MESSAGE_BYTES;
 
@@ -509,6 +510,8 @@ export class ScreenshotTrigger {
    * their pictures: one trigger per bot, so the whole process's.
    */
   private boardBytesHeld = 0;
+  /** Of `boardBytesHeld`, each server's (plan 19B-5); servers holding none are not here. */
+  private readonly boardBytesOf = new Map<string, number>();
   /**
    * The messages read just now, by id (plan 7M): one that a member asks for meanwhile is not
    * read a second time beside it (`being-read`).
@@ -787,10 +790,14 @@ export class ScreenshotTrigger {
       return true;
     });
     // A reader with no room, or the board's messages holding as much as they may together
-    // (`MAX_BOARD_BYTES_HELD`), refuses the message's pictures as a full reader refuses a
-    // mention's: the first takes its use, the rest take none, and nothing is downloaded.
+    // (`MAX_BOARD_BYTES_HELD`) or of this server (`MAX_BOARD_MESSAGE_BYTES`, plan 19B-5), refuses
+    // the message's pictures as a full reader refuses a mention's: the first takes its use, the
+    // rest take none, and nothing is downloaded.
+    const server = posted.guildId;
     const full =
-      ctx.screenshots.full(posted.guildId) || this.boardBytesHeld + wanted > MAX_BOARD_BYTES_HELD;
+      ctx.screenshots.full(server) ||
+      this.boardBytesHeld + wanted > MAX_BOARD_BYTES_HELD ||
+      (this.boardBytesOf.get(server) ?? 0) + wanted > MAX_BOARD_MESSAGE_BYTES;
     let busy = false;
     /** The bytes of the pictures to download, as Discord gives their sizes. */
     let bytes = 0;
@@ -822,10 +829,14 @@ export class ScreenshotTrigger {
     // Taken before the first download (no wait since `full` was asked), given back once the
     // last picture is read or dropped, whatever happens meanwhile.
     this.boardBytesHeld += bytes;
+    this.boardBytesOf.set(server, (this.boardBytesOf.get(server) ?? 0) + bytes);
     try {
       return await this.readBoardHeld(posted, region, passive, guildRow, images, said, counted);
     } finally {
       this.boardBytesHeld -= bytes;
+      const left = (this.boardBytesOf.get(server) ?? 0) - bytes;
+      if (left > 0) this.boardBytesOf.set(server, left);
+      else this.boardBytesOf.delete(server);
     }
   }
 

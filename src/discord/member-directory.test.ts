@@ -14,7 +14,7 @@ const ALICE = '200000000000000001';
 const BOB = '200000000000000002';
 
 /** A directory over a fetch that is counted, with a clock a test moves. */
-function setup(members: Record<string, string> = { [ALICE]: 'Alice' }) {
+function setup(members: Record<string, string> = { [ALICE]: 'Alice' }, maxKept?: number) {
   const asked: string[] = [];
   const clock = { now: 1_000_000 };
   const state: { failing?: Error; hold?: Promise<void>; random?: number } = {};
@@ -28,6 +28,7 @@ function setup(members: Record<string, string> = { [ALICE]: 'Alice' }) {
     },
     () => clock.now,
     () => state.random ?? 0,
+    maxKept,
   );
   return { directory, asked, clock, state, members };
 }
@@ -71,6 +72,17 @@ describe('CachedMemberDirectory: how long an answer is kept', () => {
     made.clock.now += 60_000;
     expect(made.directory.holds(GUILD, ALICE)).toBe(false);
     expect(made.directory.holds(GUILD, 'not an id')).toBe(true);
+  });
+});
+
+describe('CachedMemberDirectory between servers (plan 19B-5)', () => {
+  it('keeps what one server knows through another server’s burst of look-ups', async () => {
+    const made = setup({ [ALICE]: 'Alice' }, 10);
+    expect(await made.directory.find(GUILD, ALICE)).toEqual({ id: ALICE, name: 'Alice' });
+    for (let n = 0; n < 50; n++) await made.directory.find(OTHER_GUILD, idOf(n));
+    const before = made.asked.length;
+    expect(await made.directory.find(GUILD, ALICE)).toEqual({ id: ALICE, name: 'Alice' });
+    expect(made.asked.length).toBe(before);
   });
 });
 
@@ -169,14 +181,17 @@ describe('BudgetLine: one request for members at a time (R-A4)', () => {
     const settled: string[] = [];
     const seen: string[][] = [];
     const request = (name: string, fails = false) =>
-      line.run(async () => {
-        // What had settled when this one started.
-        seen.push([name, ...settled]);
-        await Promise.resolve();
-        settled.push(name);
-        if (fails) throw new Error('refused');
-        return name;
-      });
+      line.run(
+        async () => {
+          // What had settled when this one started.
+          seen.push([name, ...settled]);
+          await Promise.resolve();
+          settled.push(name);
+          if (fails) throw new Error('refused');
+          return name;
+        },
+        { server: GUILD },
+      );
     const all = Promise.allSettled([request('first'), request('second', true), request('third')]);
     expect((await all).map((one) => one.status)).toEqual(['fulfilled', 'rejected', 'fulfilled']);
     expect(seen).toEqual([['first'], ['second', 'first'], ['third', 'first', 'second']]);
@@ -192,7 +207,7 @@ describe('BudgetLine: one request for members at a time (R-A4)', () => {
           started.push(name);
           return Promise.resolve(name);
         },
-        { names },
+        { server: GUILD, names },
       );
     // Chosen once the budget's turn is taken (F2): the viewers go first, also ahead of names asked
     // before them.
@@ -210,11 +225,11 @@ describe('BudgetLine: one request for members at a time (R-A4)', () => {
     const line = new BudgetLine({ take: () => Promise.resolve() }, () => now);
     const names = () => {
       line.reserveNames(1);
-      return line.run(() => Promise.resolve('named'), { names: true });
+      return line.run(() => Promise.resolve('named'), { server: GUILD, names: true });
     };
     for (let n = 0; n < NAMES_PER_MINUTE; n++) await names();
     expect(() => line.reserveNames(1)).toThrow(MembersBusy);
-    expect(await line.run(() => Promise.resolve('seen'))).toBe('seen');
+    expect(await line.run(() => Promise.resolve('seen'), { server: GUILD })).toBe('seen');
     now += 60_000;
     expect(await names()).toBe('named');
   });
@@ -229,14 +244,51 @@ describe('BudgetLine: one request for members at a time (R-A4)', () => {
     expect(() => line.reserveNames(1)).toThrow(MembersBusy);
   });
 
+  it('takes turns between servers among the viewers, and among the names (plan 19B-5)', async () => {
+    const HOME = '412345678901234567';
+    const AWAY = '412345678901234568';
+    const line = new BudgetLine({ take: () => Promise.resolve() });
+    const started: string[] = [];
+    const request = (name: string, server: string, names = false) =>
+      line.run(
+        () => {
+          started.push(name);
+          return Promise.resolve(name);
+        },
+        { server, names },
+      );
+    await Promise.all([
+      request('home 1', HOME),
+      request('home 2', HOME),
+      request('home 3', HOME),
+      request('away 1', AWAY),
+      request('home names 1', HOME, true),
+      request('home names 2', HOME, true),
+      request('away names', AWAY, true),
+    ]);
+    // Away's come last and go in Home's burst; every viewer still goes before every name.
+    expect(started).toEqual([
+      'home 1',
+      'away 1',
+      'home 2',
+      'home 3',
+      'home names 1',
+      'away names',
+      'home names 2',
+    ]);
+  });
+
   it('lets the second request of a lookup of viewers go ahead of the names waiting (F2)', async () => {
     const line = new BudgetLine({ take: () => Promise.resolve() });
     const started: string[] = [];
-    const viewers = new CachedViewers((_guild, _channel, ids) =>
-      line.run(() => {
-        started.push(`viewers of ${String(ids.length)}`);
-        return Promise.resolve(new Set(ids));
-      }),
+    const viewers = new CachedViewers((guild, _channel, ids) =>
+      line.run(
+        () => {
+          started.push(`viewers of ${String(ids.length)}`);
+          return Promise.resolve(new Set(ids));
+        },
+        { server: guild },
+      ),
     );
     const many = Array.from({ length: MEMBERS_PER_LOOKUP + 1 }, (_, n) =>
       String(312345678901234567n + BigInt(n)),
@@ -247,7 +299,7 @@ describe('BudgetLine: one request for members at a time (R-A4)', () => {
         started.push('names');
         return Promise.resolve();
       },
-      { names: true },
+      { server: '412345678901234567', names: true },
     );
     await Promise.all([seeing, named]);
     expect(started).toEqual([`viewers of ${String(MEMBERS_PER_LOOKUP)}`, 'viewers of 1', 'names']);

@@ -60,3 +60,72 @@ export class BoundedMap<K, V> {
     return [...this.entries.keys()];
   }
 }
+
+/**
+ * A `BoundedMap` shared by servers (plan 19B-5): `max` entries at most over all of them, each key
+ * a server's own, and when one more is set the oldest entry of the server holding the most goes
+ * first ("by server first"), so that one server's burst pushes out its own entries before any
+ * other's. For what servers fill and every server needs kept (the caches of members). Setting a
+ * key again makes it the newest of its server.
+ */
+export class ServerBoundedMap<K, V> {
+  /** Each server's entries, oldest first. */
+  private readonly servers = new Map<string, Map<K, V>>();
+  private count = 0;
+  private readonly max: number;
+
+  /** `max` is at least one. */
+  constructor(max: number) {
+    this.max = Math.max(1, Math.floor(max));
+  }
+
+  get size(): number {
+    return this.count;
+  }
+
+  has(server: string, key: K): boolean {
+    return this.servers.get(server)?.has(key) ?? false;
+  }
+
+  get(server: string, key: K): V | undefined {
+    return this.servers.get(server)?.get(key);
+  }
+
+  /** Sets an entry as its server's newest; the server holding the most gives way while full. */
+  set(server: string, key: K, value: V): void {
+    this.delete(server, key);
+    while (this.count >= this.max && this.dropOldestOfFullest()) {
+      // Each turn took one entry out.
+    }
+    let entries = this.servers.get(server);
+    if (!entries) {
+      entries = new Map();
+      this.servers.set(server, entries);
+    }
+    entries.set(key, value);
+    this.count += 1;
+  }
+
+  delete(server: string, key: K): boolean {
+    const entries = this.servers.get(server);
+    if (!entries?.delete(key)) return false;
+    this.count -= 1;
+    if (entries.size === 0) this.servers.delete(server);
+    return true;
+  }
+
+  /** Takes out the oldest entry of the server holding the most; whether there was one. */
+  private dropOldestOfFullest(): boolean {
+    let fullest: Map<K, V> | undefined;
+    let fullestServer: string | undefined;
+    for (const [server, entries] of this.servers) {
+      if (fullest === undefined || entries.size > fullest.size) {
+        fullest = entries;
+        fullestServer = server;
+      }
+    }
+    const oldest = fullest?.keys().next();
+    if (fullestServer === undefined || oldest === undefined || oldest.done === true) return false;
+    return this.delete(fullestServer, oldest.value);
+  }
+}

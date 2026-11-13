@@ -352,6 +352,38 @@ describe('PartyService: the emoji of a post', () => {
     );
   });
 
+  it('takes turns between servers when it shows the posts anew (plan 19B-5)', async () => {
+    const made = await fiftyMeetups();
+    // The last five meetups are another server's (the Guild row 2).
+    const away = made.postIds.slice(45);
+    for (const party of made.store.active()) {
+      if (!away.includes(party.forumPostId ?? '')) continue;
+      await made.store.update(party.id, (current) => ({ party: { ...current, guildId: 2 } }));
+    }
+    made.service.emojiChanged();
+    for (let next = made.timers.waiting()[0]; next; next = made.timers.waiting()[0]) {
+      next.fired = true;
+      next.run();
+    }
+    await made.service.flush();
+    const order = [
+      ...new Set(
+        made.gateway.calls
+          .filter((call) => call.startsWith('editPost '))
+          .map((call) => call.slice('editPost '.length)),
+      ),
+    ];
+    expect(order).toHaveLength(50);
+    // One of each server in turn while both have posts waiting: the other server's five do not
+    // wait behind the first one's forty-five.
+    const side = (id: string | undefined) => (away.includes(id ?? '') ? 'away' : 'home');
+    for (let turn = 0; turn < 5; turn++) {
+      expect(new Set([side(order[2 * turn]), side(order[2 * turn + 1])])).toEqual(
+        new Set(['home', 'away']),
+      );
+    }
+  });
+
   it('stops showing posts anew at a flush: what waited is left as it is', async () => {
     const made = await fiftyMeetups();
     made.service.emojiChanged();

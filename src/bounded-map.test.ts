@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BoundedMap } from './bounded-map.js';
+import { BoundedMap, ServerBoundedMap } from './bounded-map.js';
 
 describe('BoundedMap', () => {
   it('keeps what was set, and answers undefined for what was not', () => {
@@ -56,5 +56,42 @@ describe('BoundedMap', () => {
     other.dropWhile((until, key) => until <= 20 && key !== 'x');
     // `c` is behind one that was kept: it stays until its turn comes.
     expect(other.keys()).toEqual(['b', 'c']);
+  });
+});
+
+describe('ServerBoundedMap (plan 19B-5)', () => {
+  it('lets the server holding the most give way first, its oldest entry first', () => {
+    const map = new ServerBoundedMap<string, number>(4);
+    map.set('home', 'h1', 1);
+    map.set('away', 'a1', 1);
+    map.set('home', 'h2', 2);
+    map.set('home', 'h3', 3);
+    expect(map.size).toBe(4);
+    // Full: Home holds three, so its oldest goes, not Away's older one.
+    map.set('away', 'a2', 2);
+    expect(map.get('home', 'h1')).toBeUndefined();
+    expect(map.get('away', 'a1')).toBe(1);
+    // A burst of Home's never pushes out Away's last two.
+    for (let n = 4; n < 20; n++) map.set('home', `h${String(n)}`, n);
+    expect(map.get('away', 'a1')).toBe(1);
+    expect(map.get('away', 'a2')).toBe(2);
+    expect(map.size).toBe(4);
+  });
+
+  it('keeps one server’s keys apart from another’s, and sets a key again as the newest', () => {
+    const map = new ServerBoundedMap<string, number>(3);
+    map.set('home', 'x', 1);
+    map.set('away', 'x', 2);
+    expect(map.get('home', 'x')).toBe(1);
+    expect(map.get('away', 'x')).toBe(2);
+    map.set('home', 'y', 3);
+    map.set('home', 'x', 4);
+    // Full, Home holds the most: its oldest is `y` now.
+    map.set('away', 'z', 5);
+    expect(map.get('home', 'y')).toBeUndefined();
+    expect(map.get('home', 'x')).toBe(4);
+    expect(map.delete('home', 'x')).toBe(true);
+    expect(map.has('home', 'x')).toBe(false);
+    expect(map.size).toBe(2);
   });
 });

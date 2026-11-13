@@ -163,6 +163,7 @@ import type { TimedPostView } from '../render/timed-post.js';
 import { renderTrainPost, trainTitle, type TrainPostView } from '../render/train-post.js';
 import { stopLabel, stopsFrom, type StopLookup } from '../render/train-stops.js';
 import { BoundedMap } from '../bounded-map.js';
+import { Turns } from '../turns.js';
 import { Coalescer } from './coalescer.js';
 import type { GameDataProvider } from './game-data-service.js';
 import { KeyedLock } from './keyed-lock.js';
@@ -960,8 +961,11 @@ export class PartyService {
 
   /** The posts of the stops (`StopPostService`), for the summary's line; none until set. */
   private stopPosts: StopPostsForSummary | undefined;
-  /** The parties whose posts wait to be shown with other emoji, and the timer of the next. */
-  private emojiQueue: string[] = [];
+  /**
+   * The parties whose posts wait to be shown anew (other emoji, the catch-up, a zone), a line per
+   * server (its `Guild` row) served in turns (plan 19B-5), and the timer of the next.
+   */
+  private readonly emojiQueue = new Turns<number | null, string>();
   private emojiTimer: (() => void) | undefined;
   /** Set by `close` at shutdown: nothing is shown anew from then on. */
   private closed = false;
@@ -2858,21 +2862,25 @@ export class PartyService {
   private showAllAnew(): void {
     if (this.closed) return;
     this.allSummaries();
-    this.emojiQueue = this.options.store
-      .active()
-      .filter((party) => party.forumPostId !== null)
-      .map((party) => party.id);
+    // The round starts anew: what waited is in it again.
+    this.emojiQueue.clear();
+    for (const party of this.options.store.active()) {
+      if (party.forumPostId !== null) this.emojiQueue.put(party.guildId, party.id);
+    }
     if (this.emojiTimer === undefined) this.nextEmojiPost();
   }
 
-  /** Shows the next waiting post with the new emoji, and sets the timer of the one after it. */
+  /**
+   * Shows the next waiting post anew, the servers in turns (plan 19B-5: one server's many posts
+   * do not hold back another's), and sets the timer of the one after it.
+   */
   private nextEmojiPost(): void {
     this.emojiTimer = undefined;
-    const partyId = this.emojiQueue.shift();
+    const partyId = this.emojiQueue.take();
     if (partyId === undefined) return;
     // Ended meanwhile: there is nothing to show.
     if (this.options.store.get(partyId)?.forumPostId) this.posts.request(partyId);
-    if (this.emojiQueue.length > 0) {
+    if (this.emojiQueue.size > 0) {
       this.emojiTimer = this.setTimer(() => {
         this.nextEmojiPost();
       }, EMOJI_RENDER_GAP_MS);
@@ -2949,10 +2957,10 @@ export class PartyService {
         this.summaries.request(region.id);
       }
     }
-    const waiting = new Set(this.emojiQueue);
     for (const party of this.options.store.active()) {
-      if (party.forumPostId === null || !ofServer(party.guildId) || waiting.has(party.id)) continue;
-      this.emojiQueue.push(party.id);
+      if (party.forumPostId === null || !ofServer(party.guildId)) continue;
+      if (this.emojiQueue.has(party.guildId, (id) => id === party.id)) continue;
+      this.emojiQueue.put(party.guildId, party.id);
     }
     if (this.emojiTimer === undefined) this.nextEmojiPost();
   }
@@ -3731,7 +3739,7 @@ export class PartyService {
     // Posts that wait for other emoji stay as they are.
     this.emojiTimer?.();
     this.emojiTimer = undefined;
-    this.emojiQueue = [];
+    this.emojiQueue.clear();
     // A raid on its way to another region arrives first.
     await this.moves.whenIdle();
     do {

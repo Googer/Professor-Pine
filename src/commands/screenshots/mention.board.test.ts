@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EAST_CHANNEL, testGym, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
+import {
+  EAST_CHANNEL,
+  OTHER_GUILD_ID,
+  testGym,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../../test/support/gyms.js';
 import { maxReportingWith, MAX_THURSDAY } from '../../../test/support/max-reporting.js';
 import { PARTY_NOW, TEST_SPOT } from '../../../test/support/parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
@@ -426,9 +433,14 @@ describe('what a board message’s pictures may cost (plan 8Z-2)', () => {
     prefix: string,
     authorId: string,
     reading: () => ReturnType<typeof cat> = cat,
+    guildId = FAKE_GUILD_ID,
   ) =>
-    posted(fullMessage(made, prefix, reading), { channelId: BOARD, inThread: true, authorId })
-      .message;
+    posted(fullMessage(made, prefix, reading), {
+      channelId: BOARD,
+      inThread: true,
+      authorId,
+      guildId,
+    }).message;
   const dmsTo = (made: Awaited<ReturnType<typeof setup>>, member: string) =>
     made.dms.to(member).map((message) => message.content);
 
@@ -442,7 +454,7 @@ describe('what a board message’s pictures may cost (plan 8Z-2)', () => {
       third.attachments.map((picture) => picture.url),
     );
     const first = made.trigger.handle(byMember(made, 'a', one));
-    const second = made.trigger.handle(byMember(made, 'b', two));
+    const second = made.trigger.handle(byMember(made, 'b', two, cat, OTHER_GUILD_ID));
     await held.begun.reached(8);
     await expect(made.trigger.handle(third)).resolves.toBe(true);
     // Nothing of the third was downloaded (the first two's are still held).
@@ -460,15 +472,40 @@ describe('what a board message’s pictures may cost (plan 8Z-2)', () => {
     expect(made.attachments.asked).toHaveLength(12);
   });
 
+  it('holds one full message of a server at a time: its second gets the busy words, another server’s is downloaded (plan 19B-5)', async () => {
+    const made = await setup();
+    const [one, two, three] = MEMBERS as [string, string, string];
+    // The second's downloads are not held: were it downloaded, the test would see it.
+    const second = byMember(made, 'b', two);
+    const held = holdDownloads(
+      made,
+      second.attachments.map((picture) => picture.url),
+    );
+    const first = made.trigger.handle(byMember(made, 'a', one));
+    await held.begun.reached(4);
+    await expect(made.trigger.handle(second)).resolves.toBe(true);
+    expect(made.attachments.asked).toEqual([]);
+    expect(dmsTo(made, two)).toEqual([
+      `From your screenshots in <#${BOARD}> (the board keeps only my lists, so I took your ` +
+        `message out of it):\n- 1: ${BUSY}\n- 2: ${BUSY}\n- 3: ${BUSY}\n- 4: ${BUSY}`,
+    ]);
+    // The other server's message still has room beside the first.
+    const away = made.trigger.handle(byMember(made, 'c', three, cat, OTHER_GUILD_ID));
+    await held.begun.reached(8);
+    held.release();
+    await Promise.all([first, away]);
+    expect(made.attachments.asked).toHaveLength(8);
+  });
+
   it('gives the bytes back after downloads that failed and after a reader that threw', async () => {
     const made = await setup();
     const [one, two, three] = MEMBERS as [string, string, string];
-    /** Two full messages are downloaded at once: nothing else holds any bytes. */
+    /** Two full messages, of two servers, are downloaded at once: nothing else holds any bytes. */
     const twoAtOnce = async (prefix: string) => {
       const held = holdDownloads(made);
       const both = Promise.all([
         made.trigger.handle(byMember(made, `${prefix}a`, two)),
-        made.trigger.handle(byMember(made, `${prefix}b`, three)),
+        made.trigger.handle(byMember(made, `${prefix}b`, three, cat, OTHER_GUILD_ID)),
       ]);
       await held.begun.reached(8);
       held.release();

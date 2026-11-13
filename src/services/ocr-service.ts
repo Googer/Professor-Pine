@@ -5,6 +5,7 @@ import { deviceProblem, type OcrAssetPaths, type OcrDevice } from '../domain/ocr
 import type { Logger } from '../log.js';
 import type { ReadRequest, WorkerMessage, WorkerStart } from '../ocr/protocol.js';
 import type { PaneReading, ScreenReading } from '../ocr/screen-reader.js';
+import { Turns } from '../turns.js';
 
 export type OcrOutcome =
   | {
@@ -187,10 +188,8 @@ interface Worker {
  * waiting; beyond either a screenshot is answered `busy`.
  */
 export class OcrService implements ScreenshotReader {
-  /** What waits, a line per server in the order of their turns: the first is served next. */
-  private readonly waiting = new Map<string, Job[]>();
-  /** How many wait, in all. */
-  private waitingCount = 0;
+  /** What waits, a line per server served in turns. */
+  private readonly waiting = new Turns<string, Job>();
   private busy = false;
   private closed = false;
   private worker: Worker | undefined;
@@ -225,25 +224,21 @@ export class OcrService implements ScreenshotReader {
           this.options.log.error({ err }, 'a waiting screenshot could not be told so');
         }
       }
-      const job: Job = {
+      this.waiting.put(server, {
         bytes,
         startBy: options.startBy,
         divider: options.divider ?? true,
         resolve,
-      };
-      const line = this.waiting.get(server);
-      if (line) line.push(job);
-      else this.waiting.set(server, [job]);
-      this.waitingCount += 1;
+      });
       void this.pump();
     });
   }
 
   full(server?: string): boolean {
     if (!this.busy) return false;
-    if (this.waitingCount >= this.options.queue) return true;
+    if (this.waiting.size >= this.options.queue) return true;
     const perServer = this.options.queuePerServer ?? this.options.queue;
-    return (this.waiting.get(server ?? NO_SERVER)?.length ?? 0) >= perServer;
+    return this.waiting.sizeOf(server ?? NO_SERVER) >= perServer;
   }
 
   /**
@@ -251,38 +246,23 @@ export class OcrService implements ScreenshotReader {
    * those of its server, and of every other server one for each turn until its own.
    */
   private aheadOf(server: string): number {
-    const own = this.waiting.get(server)?.length ?? 0;
+    const own = this.waiting.sizeOf(server);
     let ahead = 1 + own;
-    for (const [other, line] of this.waiting) {
-      if (other !== server) ahead += Math.min(line.length, own + 1);
+    for (const [other, count] of this.waiting.waiting()) {
+      if (other !== server) ahead += Math.min(count, own + 1);
     }
     return ahead;
   }
 
-  /** Takes the next screenshot by the turns: the first server's oldest, that server to the back. */
-  private next(): Job | undefined {
-    const first = this.waiting.entries().next();
-    if (first.done === true) return undefined;
-    const [server, line] = first.value;
-    this.waiting.delete(server);
-    const job = line.shift();
-    if (line.length > 0) this.waiting.set(server, line);
-    if (job) this.waitingCount -= 1;
-    return job;
-  }
-
   async close(): Promise<void> {
     this.closed = true;
-    const lines = [...this.waiting.values()];
-    this.waiting.clear();
-    this.waitingCount = 0;
-    for (const job of lines.flat()) job.resolve({ kind: 'unavailable' });
+    for (const job of this.waiting.clear()) job.resolve({ kind: 'unavailable' });
     await this.stopWorker();
   }
 
   private async pump(): Promise<void> {
     if (this.busy) return;
-    const job = this.next();
+    const job = this.waiting.take();
     if (!job) return;
     if (job.startBy !== undefined && this.now() > job.startBy) {
       job.resolve({ kind: 'busy' });
@@ -300,7 +280,7 @@ export class OcrService implements ScreenshotReader {
     }
     job.resolve(outcome);
     this.busy = false;
-    if (this.waitingCount > 0) {
+    if (this.waiting.size > 0) {
       void this.pump();
     } else if (this.worker && !this.closed) {
       this.idleTimer = setTimeout(() => void this.stopWorker(), this.options.idleMs ?? 10 * 60_000);

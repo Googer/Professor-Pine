@@ -1135,7 +1135,7 @@ export class QueuedDmSender implements DmSender {
     // Started in this very turn: the pull that took the job is the pull that sends it.
     let asked: Promise<DmOutcome>;
     try {
-      asked = gateway.send(job.userId, job.message);
+      asked = gateway.send(job.userId, job.message, job.serverId);
     } catch (err) {
       asked = Promise.reject(err instanceof Error ? err : new Error(String(err)));
     }

@@ -25,7 +25,7 @@ const ids = (from: number, count: number): string[] =>
   Array.from({ length: count }, (_unused, index) => idOf(from + index));
 
 /** Viewers over a fetch that is recorded, with a clock a test moves. Odd members see nothing. */
-function setup(options: { budget?: Pick<RequestBudget, 'take'> } = {}) {
+function setup(options: { budget?: Pick<RequestBudget, 'take'>; maxKept?: number } = {}) {
   const requests: string[][] = [];
   const clock = { now: 1_000_000 };
   const state: { failing?: Error; running: number; most: number } = { running: 0, most: 0 };
@@ -46,6 +46,18 @@ function setup(options: { budget?: Pick<RequestBudget, 'take'> } = {}) {
 }
 
 describe('CachedViewers', () => {
+  it('keeps what one server knows through another server’s burst (plan 19B-5)', async () => {
+    const AWAY = '100000000000000002';
+    const made = setup({ maxKept: 20 });
+    await made.viewers.viewers(GUILD, FORUM, ids(0, 4));
+    for (let start = 100; start < 400; start += 10) {
+      await made.viewers.viewers(AWAY, CHANNEL, ids(start, 10));
+    }
+    const before = made.requests.length;
+    await made.viewers.viewers(GUILD, FORUM, ids(0, 4));
+    expect(made.requests.length).toBe(before);
+  });
+
   it('asks for many members in requests of ninety-nine, one after the other', async () => {
     const made = setup();
     const asked = ids(0, 250);
