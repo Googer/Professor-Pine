@@ -38,24 +38,35 @@ export interface PostSpot {
 /** What a power spot that Pine no longer keeps as one is called. */
 export const UNKNOWN_SPOT = 'Unknown Power Spot';
 
+/** The kept Wayspots a server stored references to (`WayspotProvider`). */
+interface StoredWayspots {
+  stored(guildId: number, id: string): Wayspot | undefined;
+  addressOf(wayspot: AddressedWayspot & { id: string }): string;
+}
+
 /** What shows the stops of a route: the gym or power spot a reference names, as it is now. */
 export type StopLookup = (ref: StopRef) => PostStop;
 
 /**
- * The stops as the gyms and the kept Wayspots have them now (`stopsFrom`): a gym by its id (a
- * stop is a reference the train's server stored: `stored`, plan 19B-2), a power spot by its
- * Wayfarer id while it is kept as a power spot. Without Wayspots every power spot is unknown.
+ * The stops of a train of this server (its `Guild` row) as the gyms and the server's kept
+ * Wayspots have them now (`stopsFrom`): a gym by its id (a stop is a reference the train's server
+ * stored: `stored`, plan 19B-2), a power spot by its Wayfarer id while the server keeps it as a
+ * power spot (`stored`, plan 19B-3). Without Wayspots every power spot is unknown.
  */
+export function stopsFrom(gyms: { stored(id: number): PostGym | undefined }): StopLookup;
 export function stopsFrom(
   gyms: { stored(id: number): PostGym | undefined },
-  wayspots?: {
-    byId(id: string): Wayspot | undefined;
-    addressOf(wayspot: AddressedWayspot & { id: string }): string;
-  },
+  wayspots: StoredWayspots | undefined,
+  guildId: number,
+): StopLookup;
+export function stopsFrom(
+  gyms: { stored(id: number): PostGym | undefined },
+  wayspots?: StoredWayspots,
+  guildId?: number,
 ): StopLookup {
   return (ref) => {
     if (ref.kind === 'gym') return { kind: 'gym', gym: gyms.stored(ref.id) };
-    const kept = wayspots?.byId(ref.id);
+    const kept = guildId === undefined ? undefined : wayspots?.stored(guildId, ref.id);
     return {
       kind: 'powerspot',
       spot:

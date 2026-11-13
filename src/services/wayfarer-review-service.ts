@@ -153,8 +153,8 @@ export interface WayfarerReviewOptions {
   storage: WayfarerStorage;
   /** The kept Wayspots: "New gym" deletes the row of the Wayspot it makes a gym. */
   wayspots: Pick<WayspotStorage, 'remove'>;
-  /** The same in memory: whether that Wayspot was a PokéStop, and forgetting it. */
-  kept: Pick<WayspotDirectory, 'byId' | 'forget'>;
+  /** The same in memory: whether that Wayspot was the server's PokéStop, and forgetting it. */
+  kept: Pick<WayspotDirectory, 'of' | 'forget'>;
   /** "Same as" writes a match as an import does. */
   importer: Pick<WayfarerImportService, 'applyMatch'>;
   admin: Pick<GymAdminService, 'batch' | 'delete' | 'mayTouch' | 'regionsOf' | 'references'>;
@@ -446,7 +446,7 @@ export class WayfarerReviewService {
     const outcome = await this.options.importer.applyMatch(
       place,
       gym.id,
-      wayspotOf(candidate, this.options.kept.byId(candidate.id)),
+      wayspotOf(candidate, this.options.kept.of(place.guildId).byId(candidate.id)),
       still,
     );
     switch (outcome.kind) {
@@ -491,7 +491,7 @@ export class WayfarerReviewService {
         // picture is the kept Wayspot's (an item's candidates keep none), the address Wayfarer's
         // (Matt, 2026-10-16: Google is asked for the places around it only, and for the address
         // of a Wayspot without a street).
-        const kept = this.options.kept.byId(candidate.id);
+        const kept = this.options.kept.of(place.guildId).byId(candidate.id);
         const added = await ops.add(
           {
             name,
@@ -528,14 +528,16 @@ export class WayfarerReviewService {
     }
     // The Wayspot lives in `Gym` now (the next import would delete its row otherwise).
     try {
-      await this.options.wayspots.remove([candidate.id]);
+      // The server's own row (plan 19B-3); another server keeps its copy.
+      if (place.guildId !== undefined)
+        await this.options.wayspots.remove(place.guildId, [candidate.id]);
     } catch (err) {
       log.error(
         { err, wayspot: candidate.id },
         'could not delete a kept Wayspot that became a gym',
       );
     }
-    this.options.kept.forget([candidate.id]);
+    if (place.guildId !== undefined) this.options.kept.forget(place.guildId, [candidate.id]);
     await this.close(place, item, 'new-gym');
     return outcome;
   }

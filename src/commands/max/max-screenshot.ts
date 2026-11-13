@@ -397,7 +397,7 @@ async function askSpot(
   const read = report.spot.read ? ` I read "${plain(truncate(report.spot.read, 80))}".` : '';
   const regionName = (channelId: string) => interaction.guild?.channels.cache.get(channelId)?.name;
   const options = shot.spots.map((spot) => {
-    const [elsewhere] = spot.local ? [] : ctx.wayspots.regionsOf(spot.id);
+    const [elsewhere] = spot.local ? [] : ctx.wayspots.of(shot.guildRow).regionsOf(spot.id);
     const region = elsewhere === undefined ? undefined : regionName(elsewhere);
     return {
       label: truncate(spot.title, 100),
@@ -480,7 +480,7 @@ async function goOn(
   ) {
     const token = pending.put(interaction, { ...shot, request });
     const name = plain(maxSpotName(request.spot));
-    const content = ctx.wayspots.regionsOf(request.spot.id).includes(here)
+    const content = ctx.wayspots.of(shot.guildRow).regionsOf(request.spot.id).includes(here)
       ? `${name} will be posted in <#${target.channelId}> (this region has no raid forum). Report it there?`
       : `${name} is in <#${target.channelId}>, not in this region. Report the max battle there?`;
     await interaction.editReply({

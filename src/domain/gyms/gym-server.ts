@@ -24,25 +24,41 @@ export interface UpgradeInput {
 }
 
 /**
+ * The regions that place gyms and Wayspots in servers (plan 19B-3: one rule for the upgrade's
+ * links and copies and for `WayspotDirectory`): of each channel its first row, as `gymsByRegion`
+ * takes it (given oldest first, as the regions are read), and only one of a server: a region of
+ * no server places nothing, and a later row of a channel nothing either.
+ */
+export function placingRegions<R extends { channelId: string; guildId: number | null }>(
+  regions: readonly R[],
+): (R & { guildId: number })[] {
+  const seen = new Set<string>();
+  const placing: (R & { guildId: number })[] = [];
+  for (const region of regions) {
+    if (seen.has(region.channelId)) continue;
+    seen.add(region.channelId);
+    if (region.guildId !== null) placing.push({ ...region, guildId: region.guildId });
+  }
+  return placing;
+}
+
+/**
  * The servers whose regions hold each gym that lies in one (by the rule the gym search sorts gyms
- * into regions by, `gymsByRegion`: the region's own gyms, not its neighbours'); a region of no
- * server holds nothing.
+ * into regions by, `gymsByRegion`: the region's own gyms, not its neighbours'; of the regions
+ * `placingRegions` gives).
  */
 function regionServers(
   input: Pick<UpgradeInput, 'gyms' | 'regions'>,
 ): ReadonlyMap<number, ReadonlySet<number>> {
-  // The server of each channel's first region, as `gymsByRegion` takes the first.
-  const serverOf = new Map<string, number | null>();
-  for (const region of input.regions) {
-    if (!serverOf.has(region.channelId)) serverOf.set(region.channelId, region.guildId);
-  }
+  const placing = placingRegions(input.regions);
+  const serverOf = new Map(placing.map((region) => [region.channelId, region.guildId]));
   const placed = input.gyms.flatMap((gym) =>
     gym.lat === null || gym.lon === null ? [] : [{ id: gym.id, lat: gym.lat, lon: gym.lon }],
   );
   const byGym = new Map<number, Set<number>>();
-  for (const [channelId, membership] of gymsByRegion(input.regions, placed)) {
+  for (const [channelId, membership] of gymsByRegion(placing, placed)) {
     const server = serverOf.get(channelId);
-    if (server === null || server === undefined) continue;
+    if (server === undefined) continue;
     for (const gymId of membership.local) {
       const servers = byGym.get(gymId) ?? new Set<number>();
       servers.add(server);

@@ -94,7 +94,7 @@ export function trainPlaces(
   ctx: Pick<AppContext, 'gyms' | 'wayspots'>,
   party: TrainParty,
 ): TrainPlaces {
-  return { party, stop: stopsFrom(ctx.gyms, ctx.wayspots) };
+  return { party, stop: stopsFrom(ctx.gyms, ctx.wayspots, party.guildId) };
 }
 
 /** Why a train refused, as a sentence. */
@@ -106,8 +106,12 @@ export function trainRefusal(
 }
 
 /** A stop as an answer names it: `**The Stacks**`, `**Gazebo** (Power Spot)`. */
-function named(ctx: Pick<AppContext, 'gyms' | 'wayspots'>, ref: StopRef): string {
-  return stopInWords(stopsFrom(ctx.gyms, ctx.wayspots)(ref));
+function named(
+  ctx: Pick<AppContext, 'gyms' | 'wayspots'>,
+  party: TrainParty,
+  ref: StopRef,
+): string {
+  return stopInWords(stopsFrom(ctx.gyms, ctx.wayspots, party.guildId)(ref));
 }
 
 /** The answer of a change of a train: `said` of what it came to, or the refusal, or over. */
@@ -234,7 +238,7 @@ export async function addStopAs(
   const outcome = await ctx.trains.addStop(party.id, member, added, staff, drawn);
   return answerOf(ctx, outcome, (ok) => {
     const here = sameStop(currentStop(ok.party), added) ? ' The train is there now.' : '';
-    return `${named(ctx, added)} is stop ${ok.number} of the route.${here}`;
+    return `${named(ctx, party, added)} is stop ${ok.number} of the route.${here}`;
   });
 }
 
@@ -255,11 +259,11 @@ export async function removeStopAs(
     const where = !ok.moved
       ? ''
       : at !== undefined
-        ? ` The train is at ${named(ctx, at)} now.`
+        ? ` The train is at ${named(ctx, party, at)} now.`
         : left > 0
           ? ' The train has finished its route.'
           : '';
-    return `${named(ctx, ok.stop)} is off the route, which has ${count(left, 'stop')} now.${where}`;
+    return `${named(ctx, party, ok.stop)} is off the route, which has ${count(left, 'stop')} now.${where}`;
   });
 }
 
@@ -279,16 +283,16 @@ export async function moveStopAs(
 ): Promise<TrainAnswer> {
   const outcome = await ctx.trains.moveStop(party.id, member, from, to, staff, drawn);
   return answerOf(ctx, outcome, (ok) => {
-    if (!ok.changed) return `${named(ctx, ok.stop)} is stop ${to} of the route already.`;
+    if (!ok.changed) return `${named(ctx, party, ok.stop)} is stop ${to} of the route already.`;
     const { route, stop } = ok.party.train;
     const after = route[to];
-    const where = after === undefined ? ', the last' : `, before ${named(ctx, after)}`;
+    const where = after === undefined ? ', the last' : `, before ${named(ctx, party, after)}`;
     const here = routeFinished(ok.party) ? undefined : route[stop];
     const stays =
       here === undefined || stop === party.train.stop
         ? ''
-        : ` The train is still at ${sameStop(here, ok.stop) ? 'it' : named(ctx, here)}, now stop ${stop + 1}.`;
-    return `${named(ctx, ok.stop)} is stop ${to} of the route now${where}.${stays}`;
+        : ` The train is still at ${sameStop(here, ok.stop) ? 'it' : named(ctx, party, here)}, now stop ${stop + 1}.`;
+    return `${named(ctx, party, ok.stop)} is stop ${to} of the route now${where}.${stays}`;
   });
 }
 

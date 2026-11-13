@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   STAFF,
   OTHER_STAFF_PLACE,
@@ -1007,7 +1007,8 @@ describe('WayfarerImportService: a first import adds its gyms in blocks', () => 
 });
 
 describe('WayfarerImportService: the kept Wayspots', () => {
-  const ids = async (made: Made) => (await made.wayspotStore.all()).map((row) => row.id);
+  const ids = async (made: Made) =>
+    (await made.wayspotStore.all(TEST_GUILD_ROW)).map((row) => row.id);
 
   it('keeps every Wayspot of the file but those Pine gyms are, and counts them in the preview', async () => {
     const made = await wayfarerImportWith();
@@ -1030,10 +1031,10 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     // outside every region; never the Wayfarer gyms the gyms are now.
     expect(await ids(made)).toEqual([idOf(4), idOf(5), idOf(8)]);
     // The directory has read them again.
-    expect(made.wayspots.byId(idOf(4))).toMatchObject({ title: 'Bench' });
-    expect(made.wayspots.regionsOf(idOf(4))).toEqual([WEST_CHANNEL]);
-    expect(made.wayspots.regionsOf(idOf(8))).toEqual([]);
-    expect((await made.wayspotStore.all())[0]).toMatchObject({
+    expect(made.wayspots.of(TEST_GUILD_ROW).byId(idOf(4))).toMatchObject({ title: 'Bench' });
+    expect(made.wayspots.of(TEST_GUILD_ROW).regionsOf(idOf(4))).toEqual([WEST_CHANNEL]);
+    expect(made.wayspots.of(TEST_GUILD_ROW).regionsOf(idOf(8))).toEqual([]);
+    expect((await made.wayspotStore.all(TEST_GUILD_ROW))[0]).toMatchObject({
       kind: 'stop',
       title: 'Bench',
       firstSeen: made.clock.now,
@@ -1047,7 +1048,11 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     const { file } = cityFile(made);
     await made.wayfarer.apply(STAFF_PLACE, file);
     const unseen = wayspot(9, 'Shelter', { lat: 40.5, lon: -80.5 }, { kind: 'stop' });
-    await made.wayspotStore.saveFromImport({ upsert: [keptOf(unseen)], remove: [] }, 1);
+    await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
+      { upsert: [keptOf(unseen)], remove: [] },
+      1,
+    );
     await settle(made);
     const before = announced(made).length;
 
@@ -1081,13 +1086,32 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     expect(outcome.wayspots).toEqual({ added: 0, changed: 1, gone: 0, gyms: 0 });
     await settle(made);
     expect(announced(made)).toHaveLength(before);
-    expect((await made.wayspotStore.all()).find((row) => row.id === idOf(4))).toMatchObject({
+    expect(
+      (await made.wayspotStore.all(TEST_GUILD_ROW)).find((row) => row.id === idOf(4)),
+    ).toMatchObject({
       address: '7 Oak Street',
       image: 'https://lh3.googleusercontent.com/new',
     });
   });
 
-  it('leaves alone what a newer scan of another server kept, when an older file comes after it', async () => {
+  it('reads again the importing server’s Wayspots alone after its import (plan 19B-3)', async () => {
+    const made = await wayfarerImportWith();
+    await withOtherServer(made);
+    const mosaic = gymOf(made, 6);
+    const bench = wayspot(4, 'Bench', at(mosaic, 40), { kind: 'stop' });
+    const told: number[] = [];
+    made.wayspots.whenChanged((guildId) => told.push(guildId));
+    const everyServer = vi.spyOn(made.wayspotStore, 'everyServer');
+    const read = vi.spyOn(made.wayspotStore, 'all');
+    await made.wayfarer.apply(OTHER_STAFF_PLACE, exportOf([bench]));
+    expect(everyServer).not.toHaveBeenCalled();
+    expect(read.mock.calls.every(([guildId]) => guildId === OTHER_GUILD_ROW)).toBe(true);
+    expect(told).toEqual([OTHER_GUILD_ROW]);
+    expect(made.wayspots.of(OTHER_GUILD_ROW).byId(bench.id)).toBeDefined();
+    expect(made.wayspots.of(TEST_GUILD_ROW).byId(bench.id)).toBeUndefined();
+  });
+
+  it('keeps an older file of another server as that server’s own, leaving this server’s newer rows alone (plan 19B-3)', async () => {
     const made = await wayfarerImportWith();
     await withOtherServer(made);
     const mosaic = gymOf(made, 6);
@@ -1102,16 +1126,21 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     };
     await made.wayfarer.apply(STAFF_PLACE, newer);
 
+    // The other server kept none of them: its file adds its own bench, as that file has it.
     expect((await made.wayfarer.preview(OTHER_STAFF_PLACE, older)).wayspots).toEqual({
-      added: 0,
+      added: 1,
       changed: 0,
       gone: 0,
       gyms: 0,
     });
     const outcome = await made.wayfarer.apply(OTHER_STAFF_PLACE, older);
 
-    expect(outcome.wayspots).toEqual({ added: 0, changed: 0, gone: 0, gyms: 0 });
-    expect(await made.wayspotStore.all()).toEqual([
+    expect(outcome.wayspots).toEqual({ added: 1, changed: 0, gone: 0, gyms: 0 });
+    expect(await made.wayspotStore.all(OTHER_GUILD_ROW)).toEqual([
+      expect.objectContaining({ id: bench.id, title: 'Bench' }),
+    ]);
+    expect(made.wayspots.of(OTHER_GUILD_ROW).byId(swing.id)).toBeUndefined();
+    expect(await made.wayspotStore.all(TEST_GUILD_ROW)).toEqual([
       expect.objectContaining({
         id: bench.id,
         title: 'Bench by the Mosaic',
@@ -1157,7 +1186,11 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     const clock = wayspot(9, 'Northgate Clock', at(NORTH_PLACE, 1));
     await made.gymStore.update(theirs.id, { pogoId: clock.id });
     await made.directory.load();
-    await made.wayspotStore.saveFromImport({ upsert: [keptOf(clock)], remove: [] }, 1);
+    await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
+      { upsert: [keptOf(clock)], remove: [] },
+      1,
+    );
 
     const outcome = await made.wayfarer.apply(STAFF_PLACE, exportOf([clock]));
 
@@ -1174,7 +1207,9 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     const outcome = await made.wayfarer.apply(STAFF_PLACE, file);
 
     expect(outcome.counts).toMatchObject({ added: 1, failed: 1 });
-    expect((await made.wayspotStore.all()).find((row) => row.id === idOf(6))).toMatchObject({
+    expect(
+      (await made.wayspotStore.all(TEST_GUILD_ROW)).find((row) => row.id === idOf(6)),
+    ).toMatchObject({
       kind: 'gym',
       title: 'Clock Tower',
     });
@@ -1187,6 +1222,7 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     const { file } = cityFile(made);
     const clockTower = file.wayspots.find((one) => one.id === idOf(6))!;
     await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
       { upsert: [keptOf({ ...clockTower, kind: 'stop' })], remove: [] },
       1,
     );
@@ -1222,6 +1258,7 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     const { file } = cityFile(made);
     const clockTower = file.wayspots.find((one) => one.id === idOf(6))!;
     await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
       { upsert: [keptOf({ ...clockTower, kind: 'stop' })], remove: [] },
       1,
     );
@@ -1242,10 +1279,17 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     const { file } = cityFile(made);
     const clockTower = file.wayspots.find((one) => one.id === idOf(6))!;
     await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
       { upsert: [keptOf({ ...clockTower, kind: 'stop' })], remove: [] },
       1,
     );
-    await made.wayspotStore.saveFromImport({ upsert: [], remove: [], gone: [idOf(6)] }, 2, 2, 1);
+    await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
+      { upsert: [], remove: [], gone: [idOf(6)] },
+      2,
+      2,
+      1,
+    );
     expect(await ids(made)).not.toContain(idOf(6));
 
     await made.wayfarer.apply(STAFF_PLACE, file);
@@ -1254,7 +1298,7 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     expect(announced(made).map((message) => textOf(message))[0]).toMatch(
       /^### The gym list changed\nProfessor Pine has added 2 gyms \(1 of them was a PokéStop\)/u,
     );
-    expect(await made.wayspotStore.gone()).toEqual(new Map());
+    expect(await made.wayspotStore.gone(TEST_GUILD_ROW)).toEqual(new Map());
   });
 
   it('notes a write of the Wayspots that failed, and the gyms stand', async () => {
@@ -1273,12 +1317,16 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     const made = await wayfarerImportWith();
     const mosaic = gymOf(made, 6);
     const wall = wayspot(5, 'Mosaic Wall', at(mosaic, -60));
-    await made.wayspotStore.saveFromImport({ upsert: [keptOf(wall)], remove: [] }, 1);
+    await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
+      { upsert: [keptOf(wall)], remove: [] },
+      1,
+    );
     await made.wayspots.load();
 
     expect(await made.wayfarer.applyMatch(STAFF_PLACE, 6, wall)).toMatchObject({ kind: 'matched' });
     expect(await ids(made)).toEqual([]);
-    expect(made.wayspots.byId(wall.id)).toBeUndefined();
+    expect(made.wayspots.of(TEST_GUILD_ROW).byId(wall.id)).toBeUndefined();
   });
 });
 

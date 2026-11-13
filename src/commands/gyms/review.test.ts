@@ -617,7 +617,7 @@ describe('/gym review: the answers to an item to match', () => {
     const made = await gymCommandsWith();
     await usualQueue(made);
     const review = reviewOf(made, 6);
-    vi.spyOn(made.wayspots, 'byId').mockImplementation(() => {
+    vi.spyOn(made.wayspots, 'of').mockImplementation(() => {
       throw new Error('the kept Wayspots cannot be read');
     });
     const pressed = await made.press(`gymreview:${review}:new:${idOf(4)}`);
@@ -633,6 +633,7 @@ describe('/gym review: the answers to an item to match', () => {
     await usualQueue(made);
     const promoted = candidate(made, 4, 'Mosaic of Maple Leaves', 6, 40);
     await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
       {
         upsert: [
           {
@@ -659,8 +660,8 @@ describe('/gym review: the answers to an item to match', () => {
     expect(made.gateway.messagesIn(UPDATES_CHANNEL).map((sent) => textOf(sent.message))).toEqual([
       '### The gym list changed\nProfessor Pine has added 1 gym (it was a PokéStop).',
     ]);
-    expect(await made.wayspotStore.all()).toEqual([]);
-    expect(made.wayspots.byId(idOf(4))).toBeUndefined();
+    expect(await made.wayspotStore.all(TEST_GUILD_ROW)).toEqual([]);
+    expect(made.wayspots.of(TEST_GUILD_ROW).byId(idOf(4))).toBeUndefined();
   });
 
   it('New gym gives the gym the picture of the Wayspot it was kept with', async () => {
@@ -669,6 +670,7 @@ describe('/gym review: the answers to an item to match', () => {
     const wall = candidate(made, 4, 'Mosaic of Maple Leaves', 6, 40);
     const picture = 'https://lh3.googleusercontent.com/mosaic';
     await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
       {
         upsert: [
           {

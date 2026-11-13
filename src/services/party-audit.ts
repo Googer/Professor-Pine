@@ -34,7 +34,7 @@ export interface PartyAuditOptions {
  */
 export function auditNamesOf(deps: {
   gyms: { stored(id: number): { name: string; nickname: string | null } | undefined };
-  wayspots?: { byId(id: string): { title: string } | undefined };
+  wayspots?: { stored(guildId: number, id: string): { title: string } | undefined };
   regions: { byId(id: number): { channelId: string } | undefined };
   gameData: { readonly catalogue: Pick<PokemonCatalogue, 'byKey' | 'move'> };
 }): AuditNames {
@@ -44,7 +44,7 @@ export function auditNamesOf(deps: {
       // `||`: a nickname cleared to an empty text names nothing.
       return gym === undefined ? undefined : gym.nickname || gym.name;
     },
-    spot: (id) => deps.wayspots?.byId(id)?.title,
+    spot: (id, guildId) => deps.wayspots?.stored(guildId, id)?.title,
     boss: (ref) =>
       'name' in ref
         ? ref.name

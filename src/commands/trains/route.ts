@@ -344,7 +344,7 @@ function firstStops(
   if (kindsFirst(party)[0] !== 'powerspot' || region === undefined) {
     return gyms.map((choice) => ({ ...choice, value: `gym:${choice.value.slice(2)}` }));
   }
-  const spots = regionSpotChoices(ctx, region);
+  const spots = regionSpotChoices(ctx, party?.guildId, region);
   const named = gyms.map((choice) => ({
     name: placeLabel({ kind: 'gym', title: choice.name, where: undefined }),
     value: `gym:${choice.value.slice(2)}`,
@@ -503,7 +503,7 @@ function stopChoices(
   const party = trainOf(interaction, ctx);
   if (!party) return [];
   const typed = String(interaction.options.getFocused()).trim().toLowerCase();
-  const stops = stopsFrom(ctx.gyms, ctx.wayspots);
+  const stops = stopsFrom(ctx.gyms, ctx.wayspots, party.guildId);
   // `/route move`'s `to`, its `from` given: where the stop would stand (Matt, 2026-10-24).
   const from =
     interaction.options.getFocused(true).name === 'to'

@@ -39,13 +39,14 @@ describe('seeding the stops of Pine’s own from a file', () => {
   });
   beforeEach(async () => {
     await db.deleteFrom('PineStop').execute();
-    await db.deleteFrom('Wayspot').execute();
+    await db.deleteFrom('ServerWayspot').execute();
     await db.deleteFrom('Region').execute();
     await db.deleteFrom('Guild').execute();
     await sql`insert into Guild (id, snowflake) values (1, ${HOME}), (2, ${AWAY})`.execute(db);
     await new RegionRepository(db).saveBounds(1, WEST, square(40.0, -80.1, 40.1, -80.0));
     // Wayfarer lists a stop beside "Big Box" now.
     await new WayspotRepository(db).saveFromImport(
+      1,
       { upsert: [keptRow(1, { lat: 40.0701, lon: -80.07, title: 'Big Box Store' })], remove: [] },
       NOW,
     );

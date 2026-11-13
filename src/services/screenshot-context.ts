@@ -81,9 +81,11 @@ export function maxReportContext(
       .filter((region) => region.guildId === where.guildRow)
       .map((region) => region.channelId),
   ];
+  // The server's own Power Spots (plan 19B-3), in its regions.
+  const serverSpots = ctx.wayspots.of(where.guildRow);
   const spots = new Map<string, SpotTitle>();
   for (const channelId of new Set(channels)) {
-    for (const spot of ctx.wayspots.inRegion(channelId)) {
+    for (const spot of serverSpots.inRegion(channelId)) {
       if (spot.kind !== 'powerspot' || spot.title.trim() === '' || spots.has(spot.id)) continue;
       spots.set(spot.id, { id: spot.id, title: spot.title, local: channelId === where.channelId });
     }

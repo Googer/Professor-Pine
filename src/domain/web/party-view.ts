@@ -134,10 +134,11 @@ export interface PartyViewInput {
    */
   maxLook?: (party: MaxParty) => MaxLook;
   /**
-   * A power spot Pine keeps, by its Wayfarer id (plan 8X-4: a stop of a train's route): its name
-   * and place; undefined for one it does not keep. Left out: none is known.
+   * A power spot a server (its `Guild` row) keeps, by its Wayfarer id (plan 8X-4: a stop of a
+   * train's route; plan 19B-3): its name and place; undefined for one it does not keep. Left
+   * out: none is known.
    */
-  spotOf?: (id: string) => { name: string; lat: number; lon: number } | undefined;
+  spotOf?: (guildId: number, id: string) => { name: string; lat: number; lon: number } | undefined;
   /** The origins the page may load pictures from (`pictureOrigins`). */
   pictureOrigins: readonly string[];
   /**
@@ -439,7 +440,7 @@ function trainOf(party: TrainParty, link: string, input: PartyViewInput): MapTra
     route: route.map(stopKey),
     spots: route.flatMap((ref) => {
       if (ref.kind !== 'powerspot') return [];
-      const spot = input.spotOf?.(ref.id);
+      const spot = input.spotOf?.(party.guildId, ref.id);
       return spot ? [{ key: stopKey(ref), ...spot }] : [];
     }),
     stop: stop < route.length ? stop : null,

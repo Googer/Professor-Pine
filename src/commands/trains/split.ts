@@ -85,7 +85,14 @@ async function dialogFor(
   const settings = await readInTime(ctx.log, interaction, () => ctx.users.get(memberId));
   const anonymous = settings.raidPrivacy === RaidPrivacy.Anonymous;
   return splitDialog(
-    { party, stop: stopsFrom(ctx.gyms, ctx.wayspots), memberId, staff, anonymous, now: Date.now() },
+    {
+      party,
+      stop: stopsFrom(ctx.gyms, ctx.wayspots, party.guildId),
+      memberId,
+      staff,
+      anonymous,
+      now: Date.now(),
+    },
     groups,
   );
 }

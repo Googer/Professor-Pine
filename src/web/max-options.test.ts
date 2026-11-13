@@ -1,3 +1,4 @@
+import { OTHER_GUILD_ROW } from '../../test/support/gyms.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
@@ -344,6 +345,29 @@ describe("GET /s/<guild>/api/powerspots/<id>/address (a Power Spot's address)", 
     for (let n = 0; n < 8_500; n++) await made.looked.use.use('2026-10-22', 'geocode');
     expect((await addressOf(web, cookie, BARE.id)).answer.json()).toEqual({ address: null });
     expect(made.looked.geo.questions('geocode')).toEqual([]);
+  });
+
+  it('is 404 for a Power Spot only another server keeps, in this server’s region (plan 19B-3)', async () => {
+    const looked = await wayspotAddressesWith();
+    const theirs = keptRow(8, { kind: 'powerspot', lat: 40.063, lon: -80.063, address: null });
+    const made = await maxReportingWith({ moderation: null }, [BARE], looked.addresses, [
+      { guildId: OTHER_GUILD_ROW, rows: [theirs] },
+    ]);
+    web = webServerWith({
+      members: new FakeMemberDirectory().add(ALICE, 'Alice'),
+      parties: partyWebWith(made),
+      maxes: maxWebWith(made.ctx),
+    });
+    web.clock.now = MAX_THURSDAY;
+    const cookie = await web.loggedIn(ALICE, 'Alice');
+    expect((await addressOf(web, cookie, theirs.id)).status).toBe(404);
+    // Its own is answered (positive control).
+    expect((await addressOf(web, cookie, BARE.id)).status).toBe(200);
+    const listed = await web.app.inject({
+      url: `/s/${FAKE_GUILD_ID}/api/powerspots?south=40.06&west=-80.07&north=40.07&east=-80.06`,
+      headers: { cookie },
+    });
+    expect(listed.json<PowerSpotsView>().spots.map(([id]) => id)).toEqual([BARE.id]);
   });
 
   it("is 404 for a PokéStop, a spot of no region of this server's, or one not kept", async () => {

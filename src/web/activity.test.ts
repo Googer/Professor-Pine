@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { activityBucket } from '../../test/support/activity-cases.js';
 import { MemoryActivity } from '../../test/support/activity.js';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { EAST_FORUM, UNBOUNDED_CHANNEL } from '../../test/support/gyms.js';
+import { EAST_FORUM, OTHER_GUILD_ROW, UNBOUNDED_CHANNEL } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
@@ -15,7 +15,7 @@ import {
 } from '../../test/support/providers.js';
 import { STOP_ROWS } from '../../test/support/stop-reporting.js';
 import { zonedAt } from '../../test/support/time.js';
-import { wayspotId } from '../../test/support/wayspot-cases.js';
+import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
 import {
   activityWebWith,
@@ -40,10 +40,12 @@ const SPOT = wayspotId(5);
  * members, the clock at `THURSDAY`. With `kept`, the routes read through the kept reads on the
  * web's clock, as the bot's do (`KeptActivity`); without, each request reads the buckets itself.
  */
-async function setup(options: { kept?: boolean; gyms?: TestGyms } = {}) {
+async function setup(
+  options: { kept?: boolean; gyms?: TestGyms; others?: Parameters<typeof wayspotsWith>[3] } = {},
+) {
   const made = await partyServiceWith();
   const activity = new MemoryActivity();
-  const { wayspots } = await wayspotsWith(STOP_ROWS);
+  const { wayspots } = await wayspotsWith(STOP_ROWS, undefined, undefined, options.others);
   const members = new FakeMemberDirectory().add(ALICE, 'Alice').add(BOB, 'Bob');
   const web: TestWeb = webServerWith({
     members,
@@ -115,6 +117,35 @@ describe('the activity heatmap on the map', () => {
       { kind: 'spot', id: SPOT, lat: 40.0502, lon: -80.0502, weight: 0.5, parties: 3 },
     ]);
     expect(view.leftOut).toBe(0);
+  });
+
+  it('places a Power Spot by the server’s own copy, and none only another server keeps (plan 19B-3)', async () => {
+    const made = await setup({
+      others: [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            keptRow(5, { title: 'Their Garden', kind: 'powerspot', lat: 40.07, lon: -80.07 }),
+            keptRow(9, { title: 'Their Spot', kind: 'powerspot', lat: 40.06, lon: -80.06 }),
+          ],
+        },
+      ],
+    });
+    web = made.web;
+    await made.activity.add(FAKE_GUILD_ID, [
+      activityBucket(5, '2026-10', 4, 17, { placeKind: 'spot', placeId: SPOT, raids: 0, maxes: 3 }),
+      activityBucket(9, '2026-10', 4, 17, {
+        placeKind: 'spot',
+        placeId: wayspotId(9),
+        raids: 0,
+        maxes: 3,
+      }),
+    ]);
+    const view = (await made.ask()).json<ActivityView>();
+    // Its own Library Garden where it keeps it (positive control); the other server's alone not.
+    expect(view.places).toEqual([
+      { kind: 'spot', id: SPOT, lat: 40.0502, lon: -80.0502, weight: 1, parties: 3 },
+    ]);
   });
 
   it('gives a preset and History, by year and by month', async () => {

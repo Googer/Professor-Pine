@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { WEST_CHANNEL } from '../../test/support/gyms.js';
+import { OTHER_GUILD_ROW, WEST_CHANNEL } from '../../test/support/gyms.js';
+import { keptRow } from '../../test/support/wayspot-cases.js';
+import { wayspotsWith } from '../../test/support/wayspots.js';
 import { LIBRARY, MODERATOR } from '../../test/support/meetup-safety-cases.js';
 import { meetupSafetyWith, MOD_CHANNEL } from '../../test/support/meetup-safety-service.js';
 import { buttonsOf, textOf } from '../../test/support/messages.js';
@@ -39,6 +41,55 @@ async function refused() {
   const askPost = () => made.gateway.messagesIn(MOD_CHANNEL).at(-1);
   return { ...made, ruledAt, source, ask, askPost };
 }
+
+describe('MeetupSafety: an ask about a place ruled without it, in two servers (plan 19B-3)', () => {
+  it('shows the server’s own copy of the PokéStop, and takes one only another server keeps as gone', async () => {
+    const theirs = 'b1b2c3d4e5f60718293a4b5c6d7e8f90.16';
+    const { wayspots } = await wayspotsWith(
+      [
+        {
+          ...keptRow(1, { title: LIBRARY.title, lat: LIBRARY.lat, lon: LIBRARY.lon }),
+          id: LIBRARY.id,
+        },
+      ],
+      undefined,
+      undefined,
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            {
+              ...keptRow(1, { title: 'Their Library', lat: LIBRARY.lat, lon: LIBRARY.lon }),
+              id: LIBRARY.id,
+            },
+            { ...keptRow(2, { title: 'Their Bench', lat: 40.0602, lon: -80.0602 }), id: theirs },
+          ],
+        },
+      ],
+    );
+    const made = await meetupSafetyWith({ wayspots });
+    const by = { ...mod, at: made.clock.now };
+    // Ruled before rulings kept their place (8S-1): the place is read as it is now.
+    await made.storage.rule(SERVER, KEY, 'refuse', by);
+    await made.storage.rule(SERVER, { kind: 'stop', id: theirs }, 'refuse', by);
+    made.clock.now += 15 * DAY;
+    const ask = (key: { kind: 'stop'; id: string }) =>
+      made.safety.askAboutPlace({
+        serverId: SERVER,
+        nearChannelId: WEST_CHANNEL,
+        member: { id: BOB, name: 'Bob' },
+        key,
+        text: 'It is a public park now.',
+      });
+    expect(await ask(KEY)).toMatchObject({ kind: 'sent' });
+    const text = textOf(made.gateway.messagesIn(MOD_CHANNEL).at(-1)?.message);
+    expect(text).toContain('Near **Little Free Library** (PokéStop)');
+    expect(text).not.toContain('Their Library');
+    expect(await ask({ kind: 'stop', id: theirs })).toEqual({ kind: 'not-sent' });
+    // The second server keeps it (positive control).
+    expect(wayspots.stored(OTHER_GUILD_ROW, theirs)?.title).toBe('Their Bench');
+  });
+});
 
 describe('MeetupSafety: asks about a refused place', () => {
   it('lets members ask fourteen days after the refusal, not before', async () => {

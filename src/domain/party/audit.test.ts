@@ -9,12 +9,14 @@ import {
   testRaid,
   testTrain,
 } from '../../../test/support/parties.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW } from '../../../test/support/gyms.js';
 import { auditEntries, auditEntryOf, type AuditNames } from './audit.js';
 import { endParty, setSaved, type RaidBossRef } from './party.js';
 
 const NAMES: AuditNames = {
   gym: (id) => ({ 1: 'Big Fountain', 2: 'Old Gym' })[id],
-  spot: (id) => (id === TEST_SPOT.id ? TEST_SPOT.title : undefined),
+  spot: (id, guildId) =>
+    id === TEST_SPOT.id && guildId === TEST_GUILD_ROW ? TEST_SPOT.title : undefined,
   boss: (ref: RaidBossRef) =>
     'name' in ref ? ref.name : ref.key === 'yveltal' ? 'Yveltal' : 'Machamp',
   move: (id) => ({ SNARL_FAST: 'Snarl', HURRICANE: 'Hurricane' })[id],
@@ -173,6 +175,15 @@ describe('auditEntries', () => {
     };
     expect(auditEntries(train, conducted, NAMES)).toEqual([
       { action: 'conductor', from: null, to: { id: ALICE, name: 'Alice' } },
+    ]);
+  });
+
+  it('names a Power Spot of a route as the train’s own server keeps it (plan 19B-3)', () => {
+    const train = { ...testTrain(), guildId: OTHER_GUILD_ROW };
+    const routed = { ...train, train: { ...train.train, route: stops(TEST_SPOT.id) } };
+    // The test server's spot: the second server has none of that id, and names none.
+    expect(auditEntries(train, routed, NAMES)).toEqual([
+      { action: 'route', added: [null], removed: [] },
     ]);
   });
 

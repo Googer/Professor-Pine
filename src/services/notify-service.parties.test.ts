@@ -1,3 +1,4 @@
+import { TEST_GUILD_ROW } from '../../test/support/gyms.js';
 import { describe, expect, it } from 'vitest';
 import { watchEachTest } from '../../test/support/timers.js';
 import { classic, customIdsOf, dmBrief, dmSummary, linksOf } from '../../test/support/messages.js';
@@ -691,6 +692,7 @@ describe('NotifyService: a meeting time', () => {
     );
     // An import renames the stop after the meetup was made.
     await storage.saveFromImport(
+      TEST_GUILD_ROW,
       {
         upsert: [keptRow(1, { title: 'Fountain *Square* Park', lat: 40.0601, lon: -80.0601 })],
         remove: [],

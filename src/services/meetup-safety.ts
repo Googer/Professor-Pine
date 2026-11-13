@@ -193,7 +193,7 @@ export interface MeetupSafetyOptions {
   /** The gyms, by which a gym is checked by its official name and its nickname alike. */
   gyms?: Pick<GymProvider, 'stored'>;
   /** The kept Wayspots: a PokéStop asked about whose ruling kept no place (one of 8S-1). */
-  wayspots?: Pick<WayspotProvider, 'byId'>;
+  wayspots?: Pick<WayspotProvider, 'stored'>;
   settings: Settings;
   /** Each server's values: its moderators' channel, which turns the safety on (plan 19A-1). */
   servers: ServerSettingsLookup;
@@ -1249,7 +1249,8 @@ export class MeetupSafety {
     const state = await this.askState(ask.serverId, ask.key, ask.member.id);
     if (state.kind !== 'may') return state;
     // The place as it was ruled; a ruling of 8S-1 kept none: the gym or Wayspot as it is now.
-    const place = state.ruling.place ?? this.placeNow(ask.key);
+    const place =
+      state.ruling.place ?? this.placeNow(ask.key, await this.options.guilds.idFor(ask.serverId));
     if (place === undefined) {
       log.warn({ server: ask.serverId, place: ask.key }, 'an ask names a place that is gone');
       return { kind: 'not-sent' };
@@ -1410,8 +1411,11 @@ export class MeetupSafety {
     return true;
   }
 
-  /** A ruled place as it is now, where its ruling kept none: the gym or the kept Wayspot. */
-  private placeNow(key: RulingKey): KnownPlace | undefined {
+  /**
+   * A ruled place as it is now, where its ruling kept none (8S-1's): the gym or the server's kept
+   * Wayspot (the ruling's server, by its `Guild` row). The one path for an ask and `/places`.
+   */
+  placeNow(key: RulingKey, guildRow: number | undefined): KnownPlace | undefined {
     if (key.kind === 'gym') {
       const gym = /^\d+$/u.test(key.id) ? this.options.gyms?.stored(Number(key.id)) : undefined;
       return (
@@ -1426,7 +1430,7 @@ export class MeetupSafety {
         }
       );
     }
-    const wayspot = this.options.wayspots?.byId(key.id);
+    const wayspot = this.options.wayspots?.stored(guildRow, key.id);
     return (
       wayspot && {
         kind: key.kind,

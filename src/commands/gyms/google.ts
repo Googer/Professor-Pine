@@ -153,16 +153,10 @@ export function googleLineTexts(
 /** `/gym google` for the staff member's server. */
 async function googleLineMessage(ctx: AppContext, guildId: number | undefined) {
   const line = await ctx.gymAdmin.googleLine();
-  const own = new Set(
-    ctx.regions
-      .all()
-      .filter((region) => guildId !== undefined && region.guildId === guildId)
-      .map((region) => region.channelId),
-  );
   const share = serverShare(
     line,
     (gymId) => ctx.gyms.of(guildId).regionsOf(gymId).length > 0,
-    (wayspotId) => ctx.wayspots.regionsOf(wayspotId).some((channelId) => own.has(channelId)),
+    (wayspotId) => ctx.wayspots.of(guildId).regionsOf(wayspotId).length > 0,
   );
   // The maps of `/find-region`, where it is offered and Google is asked at all.
   const used =

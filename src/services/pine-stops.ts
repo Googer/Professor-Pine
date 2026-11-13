@@ -15,7 +15,7 @@ export const PINE_STOP_NEAR_METRES = 30;
 export interface PineStopServiceOptions {
   storage: PineStopStorage;
   /** The directory that holds them beside the kept Wayspots (`setPineStops`) and finds stops near. */
-  wayspots: Pick<WayspotProvider, 'near'> & {
+  wayspots: Pick<WayspotProvider, 'of'> & {
     setPineStops(stops: readonly PlacedPineStop[]): void;
   };
   /** The row of a server in `Guild`, by its snowflake (`GuildRepository.idFor`). */
@@ -73,12 +73,12 @@ export class PineStopService {
 
   /**
    * The PokéStops within `PINE_STOP_NEAR_METRES` of a point that a new stop of this server would
-   * stand beside: the kept ones of the imports, and this server's own; nearest first.
+   * stand beside: the server's own (plan 19B-3), those its imports kept and its stops of Pine's
+   * own; nearest first. Another server's are none of its business.
    */
-  nearStops(point: LatLon, serverId: string): NearWayspot[] {
-    return this.options.wayspots
-      .near(point, PINE_STOP_NEAR_METRES, ['stop'])
-      .filter(({ wayspot }) => wayspot.pineServer === undefined || wayspot.pineServer === serverId);
+  async nearStops(point: LatLon, serverId: string): Promise<NearWayspot[]> {
+    const guildRow = await this.options.guilds.idFor(serverId);
+    return this.options.wayspots.of(guildRow).near(point, PINE_STOP_NEAR_METRES, ['stop']);
   }
 
   add(stop: NewPineStop): Promise<PineStop> {

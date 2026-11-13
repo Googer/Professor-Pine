@@ -24,8 +24,11 @@ export interface EditorSources {
     of(guildId: number | undefined): Pick<GymView, 'all' | 'regionsOf'>;
     readonly generation: number;
   };
-  /** The kept Wayspots; `generation` changes with every load and forget. */
-  wayspots: { all(): Wayspot[]; readonly generation: number };
+  /**
+   * The kept Wayspots per server (plan 19B-3): a server's editor shows its own, its stops of
+   * Pine's own among them; `generation` changes with every load and forget.
+   */
+  wayspots: { of(guildId: number | undefined): { all(): Wayspot[] }; readonly generation: number };
   /** The server's channels and its name as the bot sees them. */
   servers: {
     serverChannels(guildId: string): ServerChannel[] | undefined;
@@ -77,10 +80,8 @@ export class EditorCache {
         channels,
         gyms: gyms.of(row).all(),
         regionsOf: (id) => gyms.of(row).regionsOf(id),
-        // A stop of Pine's own (plan 8R-1) is its server's alone.
-        wayspots: wayspots
-          .all()
-          .filter((wayspot) => wayspot.pineServer === undefined || wayspot.pineServer === guildId),
+        // The server's own (plan 19B-3), its stops of Pine's own (plan 8R-1) among them.
+        wayspots: wayspots.of(row).all(),
       });
       const { channels: offered, ...rest } = view;
       const json = JSON.stringify(rest);

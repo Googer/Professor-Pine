@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { AppContext } from '../app-context.js';
 import { nearestPlaces } from '../domain/search/nearest.js';
 import type { Wayspot } from '../domain/wayspots/kept.js';
-import type { WayspotProvider } from '../services/wayspot-directory.js';
+import type { WayspotView } from '../services/wayspot-directory.js';
 
 /**
  * The kept Wayspots of one kind in a box of the map (plans 8M-5M, 8X-5): the PokéStops of
@@ -29,7 +29,7 @@ export type BoxedWayspot = [string, number, number, string, string | null];
  * A Wayspot's line of the map's lists; its address where anything of it is known
  * (`WayspotProvider.addressOf`: a Power Spot's looked-up one too).
  */
-const boxed = (wayspots: Pick<WayspotProvider, 'addressOf'>, wayspot: Wayspot): BoxedWayspot => [
+const boxed = (wayspots: Pick<WayspotView, 'addressOf'>, wayspot: Wayspot): BoxedWayspot => [
   wayspot.id,
   wayspot.lat,
   wayspot.lon,
@@ -51,14 +51,16 @@ export function wayspotsInBox(
 ): { found: BoxedWayspot[]; more: boolean } {
   const { south, west, north, east } = box;
   const middle = { lat: (south + north) / 2, lon: (west + east) / 2 };
+  // The server's own (plan 19B-3).
+  const wayspots = ctx.wayspots.of(row);
   const found = new Map<string, BoxedWayspot>();
   for (const region of ctx.regions.all()) {
     if (region.guildId !== row || row === undefined || region.bounds === null) continue;
-    for (const wayspot of ctx.wayspots.inRegion(region.channelId)) {
+    for (const wayspot of wayspots.inRegion(region.channelId)) {
       if (wayspot.kind !== kind || wayspot.title.trim() === '') continue;
       const { lat, lon } = wayspot;
       if (lat < south || lat > north || lon < west || lon > east) continue;
-      found.set(wayspot.id, boxed(ctx.wayspots, wayspot));
+      found.set(wayspot.id, boxed(wayspots, wayspot));
     }
   }
   const distance = ([, lat, lon]: BoxedWayspot): number =>
@@ -106,12 +108,13 @@ export function wayspotsNear(
   kind: 'stop' | 'powerspot',
   count: number,
 ): BoxedWayspot[] {
+  const wayspots = ctx.wayspots.of(row);
   const places = new Map<string, BoxedWayspot>();
   for (const region of ctx.regions.all()) {
     if (region.guildId !== row || row === undefined || region.bounds === null) continue;
-    for (const wayspot of ctx.wayspots.inRegion(region.channelId)) {
+    for (const wayspot of wayspots.inRegion(region.channelId)) {
       if (wayspot.kind !== kind || wayspot.title.trim() === '') continue;
-      places.set(wayspot.id, boxed(ctx.wayspots, wayspot));
+      places.set(wayspot.id, boxed(wayspots, wayspot));
     }
   }
   return nearestPlaces(places.values(), [at], {

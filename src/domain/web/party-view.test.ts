@@ -374,7 +374,7 @@ describe('partyView', () => {
       WEST_FORUM,
       '700000000000000002',
     );
-    const spotOf = (id: string) =>
+    const spotOf = (_guildId: number, id: string) =>
       id === spot ? { name: 'Gazebo of the Lake', lat: 40.05, lon: -80.05 } : undefined;
     const [shown] = partyView(input([train], { spotOf })).trains;
     expect(shown?.route).toEqual(['1', `w${spot}`, `w${gone}`]);

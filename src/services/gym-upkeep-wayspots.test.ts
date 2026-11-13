@@ -47,7 +47,7 @@ async function lineWith(
   const ranks = new GoogleRanks({
     regions,
     gymRegions: (id) => directory.of(TEST_GUILD_ROW).regionsOf(id),
-    wayspotRegions: (id) => wayspots.regionsOf(id),
+    wayspotRegions: (id) => wayspots.of(TEST_GUILD_ROW).regionsOf(id),
     servers: () => Promise.resolve([]),
     activity: { raidsByRegion: () => Promise.resolve(new Map()) },
   });
@@ -183,6 +183,7 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     // a new stop came.
     const fresh = keptRow(5, { title: 'Fresh', lat: 40.06, lon: -80.06 });
     await made.storage.saveFromImport(
+      TEST_GUILD_ROW,
       {
         upsert: [
           { ...STOP, kind: 'powerspot', lat: STOP.lat + 0.00045 },
@@ -203,7 +204,7 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     ]);
     expect(made.places.get(STOP.id)?.kind).toBe('powerspot');
     // The spot becomes a gym: its places go, and it is not queued.
-    await made.storage.saveFromImport({ upsert: [], remove: [SPOT.id] }, 3_000);
+    await made.storage.saveFromImport(TEST_GUILD_ROW, { upsert: [], remove: [SPOT.id] }, 3_000);
     await made.wayspots.load();
     await made.upkeep.flush();
     expect(made.places.get(SPOT.id)).toBeUndefined();

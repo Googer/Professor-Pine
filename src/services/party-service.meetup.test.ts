@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   EAST_CHANNEL,
   EAST_FORUM,
   ELITE_GYM_CHANNEL,
+  OTHER_GUILD_ROW,
   REMOTE_CHANNEL,
   TEST_GUILD_ROW,
   UNBOUNDED_CHANNEL,
@@ -19,6 +20,8 @@ import {
   MINUTE,
   PARTY_NOW,
   REPORTER,
+  TEST_SPOT,
+  testMax,
   testMeetup,
 } from '../../test/support/parties.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
@@ -132,6 +135,7 @@ describe('PartyService.createMeetup', () => {
     // An import renames the stop: the post shows the new name, and the meetup keeps what it was
     // named at.
     await storage.saveFromImport(
+      TEST_GUILD_ROW,
       {
         upsert: [keptRow(1, { title: 'Fountain Square Park', lat: stop.lat, lon: stop.lon })],
         remove: [],
@@ -148,6 +152,76 @@ describe('PartyService.createMeetup', () => {
     await wayspots.load();
     await made.service.flush();
     expect(made.gateway.posts.get(made.postId)?.edits).toBe(edits);
+  });
+
+  it('shows its place anew after its own server’s import alone (plan 19B-3)', async () => {
+    const stop: KnownPlace = {
+      kind: 'stop',
+      id: wayspotId(1),
+      title: 'Fountain Square',
+      lat: 40.0601,
+      lon: -80.0601,
+      address: null,
+      image: null,
+    };
+    const row = keptRow(1, {
+      title: 'Fountain Square',
+      lat: stop.lat,
+      lon: stop.lon,
+      address: null,
+    });
+    const { storage, wayspots } = await wayspotsWith([row], undefined, undefined, [
+      { guildId: OTHER_GUILD_ROW, rows: [{ ...row, title: 'Fountain Plaza' }] },
+    ]);
+    const made = await createdMeetup({ place: stop }, { wayspots });
+    await made.service.flush();
+    const shownAnew = vi.spyOn(made.service, 'changed');
+    // The other server's import: the test server's posts are not shown anew.
+    await storage.saveFromImport(
+      OTHER_GUILD_ROW,
+      { upsert: [{ ...row, title: 'Fountain Plaza Park' }], remove: [] },
+      PARTY_NOW,
+    );
+    await wayspots.load(OTHER_GUILD_ROW);
+    await made.service.flush();
+    expect(shownAnew).not.toHaveBeenCalled();
+    // Its own server's import shows it anew (positive control).
+    await storage.saveFromImport(
+      TEST_GUILD_ROW,
+      { upsert: [{ ...row, title: 'Fountain Square Park' }], remove: [] },
+      PARTY_NOW,
+    );
+    await wayspots.load(TEST_GUILD_ROW);
+    await made.service.flush();
+    expect(shownAnew.mock.calls).toEqual([[made.party.id]]);
+    expect(
+      textDisplays(made.gateway.posts.get(made.postId)?.message).find((text) =>
+        text.startsWith('**Where**'),
+      ),
+    ).toMatch(/Fountain Square Park/);
+  });
+
+  it('shows a max battle’s Power Spot by its server’s own copy, never another server’s (plan 19B-3)', async () => {
+    const theirs = 'c0ffee00c0ffee00c0ffee00c0ffee01.16';
+    const spot = (title: string, id = TEST_SPOT.id) => ({
+      ...keptRow(5, { title, kind: 'powerspot', lat: TEST_SPOT.lat, lon: TEST_SPOT.lon }),
+      id,
+    });
+    const { wayspots } = await wayspotsWith(
+      [spot('Gazebo of the Park Renamed')],
+      undefined,
+      undefined,
+      [{ guildId: OTHER_GUILD_ROW, rows: [spot('Their Gazebo'), spot('Their Bench', theirs)] }],
+    );
+    const { service } = await partyServiceWith([], { wayspots });
+    expect(service.spotOf(testMax())).toMatchObject({ title: 'Gazebo of the Park Renamed' });
+    // One only the other server keeps is shown as it was named.
+    const named = { ...TEST_SPOT, id: theirs, title: 'Bench' };
+    expect(service.spotOf(testMax({ spot: named }))).toMatchObject({ title: 'Bench' });
+    // The other server's battle there shows its own (positive control).
+    expect(service.spotOf(testMax({ guildId: OTHER_GUILD_ROW, spot: named }))).toMatchObject({
+      title: 'Their Bench',
+    });
   });
 
   it('lets the kept Wayspots load before the parties, as the bot starts', async () => {

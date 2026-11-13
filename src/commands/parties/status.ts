@@ -132,7 +132,7 @@ export const where: SimpleCommand = {
       }
       if (at.kind === 'powerspot') {
         // A power spot of its route (plan 8X-4), as a max battle's spot is shown.
-        const shown = stopsFrom(ctx.gyms, ctx.wayspots)(at);
+        const shown = stopsFrom(ctx.gyms, ctx.wayspots, party.guildId)(at);
         const spot = shown.kind === 'powerspot' ? shown.spot : undefined;
         if (!spot) throw new UserError('I no longer know the Power Spot this train is at.');
         await interaction.editReply({

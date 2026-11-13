@@ -76,8 +76,13 @@ export interface ActivityWebDeps {
   gyms: { of(guildId: number | undefined): Pick<GymView, 'get' | 'regionsOf'> };
   /** The row of a server (`Guild.id`), whose regions are its own (plan 8H-7B, review A2). */
   guilds: { idFor(snowflake: string): Promise<number | undefined> };
-  /** The kept Wayspots (`WayspotDirectory`): a Power Spot no longer kept is left out. */
-  wayspots: { byId(id: string): { lat: number; lon: number } | undefined };
+  /**
+   * The kept Wayspots as the server's map has them (`WayspotDirectory.of`, plan 19B-3): a Power
+   * Spot the server no longer keeps is left out.
+   */
+  wayspots: {
+    of(guildId: number | undefined): { byId(id: string): { lat: number; lon: number } | undefined };
+  };
   /** The settings' raid times: how long a raid without an end time stood, on a train's card (W5). */
   durations: RaidStandSettings;
   /** The region tally (plan 8H-5): `/stats regions`' own path (`RegionTallies.tally`). */
@@ -267,7 +272,10 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
       // The server's zone, the request's (plan 19A-2): its buckets' months, weekdays and hours.
       const zone = requestZone(request);
       // The server's gyms (plan 19B-2): a bucket at a gym no longer its own is left out.
-      const gyms = activity.gyms.of(await activity.guilds.idFor(guild));
+      const row = await activity.guilds.idFor(guild);
+      const gyms = activity.gyms.of(row);
+      // The server's Power Spots (plan 19B-3), stored references of its history.
+      const spots = activity.wayspots.of(row);
       const [buckets, months] = await Promise.all([
         activity.reader.buckets(guild, activityWindow(mode, now, zone)),
         activity.reader.months(guild),
@@ -299,7 +307,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         return gate === undefined || !keptOutOf(viewer, gate);
       });
       const pointOf = (kind: 'gym' | 'spot', id: string) =>
-        kind === 'gym' ? gyms.get(Number(id)) : activity.wayspots.byId(id);
+        kind === 'gym' ? gyms.get(Number(id)) : spots.byId(id);
       const weights = activityWeights(
         seen,
         mode,
@@ -550,7 +558,7 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
     if (viewer.kind !== 'member') return { refused: viewer.kind };
     const places: TrainPlaces = {
       gym: (id) => gyms.get(id),
-      spot: (id) => activity.wayspots.byId(id),
+      spot: (id) => activity.wayspots.of(row).byId(id),
       gymRegions: (id) =>
         gyms.regionsOf(id).flatMap((channel) => {
           const regionId = byChannel.get(channel);

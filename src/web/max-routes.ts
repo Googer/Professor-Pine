@@ -336,12 +336,14 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const refused = await memberOrFailure(deps, request, reply, guild, session.userId);
       if (refused) return refused;
       const row = await parties.guilds.idFor(guild);
-      const spot = id.length > MAX_SPOT_ID ? undefined : ctx.wayspots.byId(id);
+      // The server's own Power Spot (plan 19B-3): another server's is as none.
+      const wayspots = ctx.wayspots.of(row);
+      const spot = id.length > MAX_SPOT_ID ? undefined : wayspots.byId(id);
       const ours =
         row !== undefined &&
         spot?.kind === 'powerspot' &&
         spot.title.trim() !== '' &&
-        ctx.wayspots.regionsOf(spot.id).some((channel) => {
+        wayspots.regionsOf(spot.id).some((channel) => {
           return ctx.regions.byChannel(channel)?.guildId === row;
         });
       if (!spot || !ours) return sendFailure(request, reply, 404);

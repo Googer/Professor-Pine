@@ -118,8 +118,8 @@ export type AuditEntry = {
 /** What the log asks of the bot to name what a party holds by id, as it is named now. */
 export interface AuditNames {
   gym(id: number): string | undefined;
-  /** A Power Spot by its Wayfarer id. */
-  spot(id: string): string | undefined;
+  /** A Power Spot by its Wayfarer id, as its party's server (its `Guild` row) keeps it. */
+  spot(id: string, guildId: number): string | undefined;
   boss(ref: RaidBossRef): string;
   move(id: string): string | undefined;
   /** The channel of a region, by the region's id. */
@@ -169,8 +169,8 @@ function movesWords(party: Party, names: AuditNames): string | undefined {
   return `${name(party.raid.fastMove)} / ${name(party.raid.chargedMove)}`;
 }
 
-function stopName(stop: StopRef, names: AuditNames): string | null {
-  return (stop.kind === 'gym' ? names.gym(stop.id) : names.spot(stop.id)) ?? null;
+function stopName(stop: StopRef, guildId: number, names: AuditNames): string | null {
+  return (stop.kind === 'gym' ? names.gym(stop.id) : names.spot(stop.id, guildId)) ?? null;
 }
 
 const stopKey = (stop: StopRef): string => `${stop.kind}:${String(stop.id)}`;
@@ -312,8 +312,8 @@ export function auditEntries(
     const now = after.train.route;
     if (now.length === 0 && was.length > 0) entries.push({ action: 'route-cleared' });
     else {
-      const added = stopsLacking(now, was).map((stop) => stopName(stop, names));
-      const removed = stopsLacking(was, now).map((stop) => stopName(stop, names));
+      const added = stopsLacking(now, was).map((stop) => stopName(stop, after.guildId, names));
+      const removed = stopsLacking(was, now).map((stop) => stopName(stop, after.guildId, names));
       if (added.length > 0 || removed.length > 0) entries.push({ action: 'route', added, removed });
     }
   }

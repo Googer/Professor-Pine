@@ -21,8 +21,11 @@ export async function reportsWith(
   options: SafetyOptions = {},
   parties: readonly Party[] = [],
   overrides: ServiceOverrides = {},
-  /** The owner and whether a server's staff change the boss list (plan 19B-1); DMs in `dms`. */
-  shared: Pick<ModerationReportsOptions, 'ownerId' | 'staffChangeShared'> = {},
+  /**
+   * The owner and whether a server's staff change the boss list (plan 19B-1); DMs in `dms`; the
+   * kept Wayspots a train's Power Spot is read from (`wayspotsWith`; none without).
+   */
+  shared: Pick<ModerationReportsOptions, 'ownerId' | 'staffChangeShared' | 'wayspots'> = {},
 ) {
   const made = await meetupSafetyWith(options, parties, overrides);
   const reportStore = new MemoryReports();

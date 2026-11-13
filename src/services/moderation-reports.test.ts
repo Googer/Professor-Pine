@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { TEST_GUILD_ROW, WEST_CHANNEL } from '../../test/support/gyms.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW, WEST_CHANNEL } from '../../test/support/gyms.js';
+import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
+import { wayspotsWith } from '../../test/support/wayspots.js';
 import { MOD_CHANNEL } from '../../test/support/meetup-safety-service.js';
 import { buttonsOf, textOf } from '../../test/support/messages.js';
 import {
@@ -9,8 +11,10 @@ import {
   CAROL,
   PARTY_NOW,
   REPORTER,
+  stops,
   TEST_PIN,
   TEST_SPOT,
+  testTrain,
 } from '../../test/support/parties.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import {
@@ -21,6 +25,39 @@ import {
 import { MAX_REPORT_REASON } from '../domain/moderation/reports.js';
 import type { MaxSpot } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
+
+describe('ModerationReports: a train at a Power Spot, in two servers (plan 19B-3)', () => {
+  it('places it by its server’s own copy, never by a Power Spot only another server keeps', async () => {
+    const { wayspots } = await wayspotsWith(
+      [keptRow(5, { title: 'Library Garden', kind: 'powerspot', lat: 40.0502, lon: -80.0502 })],
+      undefined,
+      undefined,
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            keptRow(5, { title: 'Their Garden', kind: 'powerspot', lat: 40.0502, lon: -80.0502 }),
+            keptRow(9, { title: 'Their Spot', kind: 'powerspot', lat: 40.0602, lon: -80.0602 }),
+          ],
+        },
+      ],
+    );
+    const made = await reportsWith({}, [], {}, { wayspots });
+    const at = (guildId: number, id: string) => {
+      const train = testTrain({ guildId });
+      return { ...train, train: { ...train.train, route: stops(id), stop: 0 } };
+    };
+    expect(made.reports.subjectOf(at(TEST_GUILD_ROW, wayspotId(5))).place).toMatchObject({
+      kind: 'powerspot',
+      title: 'Library Garden',
+    });
+    expect(made.reports.subjectOf(at(TEST_GUILD_ROW, wayspotId(9))).place).toBeNull();
+    // A train of the second server at its own (positive control).
+    expect(made.reports.subjectOf(at(OTHER_GUILD_ROW, wayspotId(9))).place).toMatchObject({
+      title: 'Their Spot',
+    });
+  });
+});
 
 describe('ModerationReports: a party reported', () => {
   it('sends it privately to the moderators’ channel, and says nothing in the post', async () => {

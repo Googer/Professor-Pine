@@ -1,5 +1,7 @@
 import type { Region } from '../db/repositories/region-repository.js';
 import type { WayspotStorage } from '../db/repositories/wayspot-repository.js';
+import { BoundedMap } from '../bounded-map.js';
+import { placingRegions } from '../domain/gyms/gym-server.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { containment } from '@pine/wayspot-core/region-membership';
@@ -13,6 +15,7 @@ import type { PineStop } from '../domain/stops/pine-stop.js';
 import { pineStopKey } from '../domain/stops/report.js';
 import type { Wayspot } from '../domain/wayspots/kept.js';
 import type { Logger } from '../log.js';
+import { MAX_SERVER_VIEWS } from './server-gyms.js';
 
 /** A kept Wayspot near a point, with how far from it. */
 export interface NearWayspot {
@@ -21,9 +24,35 @@ export interface NearWayspot {
 }
 
 /**
- * What handlers need of the kept Wayspots (plan 8W-2): the stops, power spots and Wayfarer gyms
- * Pine did not take, from memory. A Wayspot's regions are the regions whose outline holds it, by
- * their channel (as `GymDirectory.regionsOf`).
+ * A server's Wayspots (plan 19B-3): the PokéStops, Power Spots and Wayfarer gyms its imports kept
+ * (`ServerWayspot`, its own rows) and its stops of Pine's own, placed in the server's regions
+ * only. Another server's Wayspot is not there, whatever its Wayfarer id and wherever it lies.
+ * Every Wayspot id a member gives (an option, a custom id's argument, a web route) is read through
+ * the view of the server it came from. A view is what the server's Wayspots are when it is read:
+ * ask for it again (`of`) after an await, never keep one.
+ */
+export interface WayspotView {
+  /** The server's Wayspot with this id; undefined for none, and for another server's. */
+  byId(id: string): Wayspot | undefined;
+  /**
+   * A Wayspot's address as one line for every reader (`wayspotAddress`): Wayfarer's where it
+   * gives one, else a Power Spot's looked-up address while it is where it was asked. Empty for none.
+   */
+  addressOf(wayspot: AddressedWayspot & { id: string }): string;
+  /** The server's Wayspots, in no particular order (a new list). */
+  all(): Wayspot[];
+  /** The server's Wayspots in its region of this channel (a new list). */
+  inRegion(channelId: string): Wayspot[];
+  /** The channels of the server's regions one of its Wayspots lies in; empty for none. */
+  regionsOf(id: string): string[];
+  /** The server's Wayspots within `metres` of a point, nearest first; only of `kinds` when given. */
+  near(point: LatLon, metres: number, kinds?: readonly WayspotKind[]): NearWayspot[];
+}
+
+/**
+ * What handlers need of the kept Wayspots (plan 8W-2, per server since plan 19B-3): a server's
+ * view (`of`), a stored reference (`stored`), and for the instance's upkeep the servers that have
+ * Wayspots and where one lies (`regionsIn`).
  */
 export interface WayspotProvider {
   /**
@@ -33,37 +62,57 @@ export interface WayspotProvider {
    */
   readonly generation: number;
   /**
-   * A number that changes with every load: what is built of the Wayspots themselves, not of
-   * where they lie (the search indexes), is built anew when it differs. A change of the regions
-   * and a forget leave it: what is built of them passes over a forgotten Wayspot through where
-   * they lie (`inRegion`, `byId`), which a forget changes at once.
+   * A number that changes with every load and every change of the stops of Pine's own, whichever
+   * server's: what is built of every server's Wayspots is built anew when it differs. A change of
+   * the regions and a forget leave it: what is built of them passes over a forgotten Wayspot
+   * through where they lie (`inRegion`, `byId`), which a forget changes at once.
    */
   readonly contentGeneration: number;
   /**
-   * How many Wayspots are kept now (0 before the first load); the stops of Pine's own (plan 8R-1)
-   * are not counted, so that a sweep waiting for kept Wayspots (`TrainService`) waits for them.
+   * As `contentGeneration`, for one server: it changes only with a load of that server's rows (or
+   * of every server's, at start) and a change of its stops of Pine's own, so that what is built
+   * of one server's Wayspots (its search index) is built anew only when that server's changed.
+   */
+  contentGenerationOf(guildId: number): number;
+  /**
+   * How many Wayspots every server keeps now (0 before the first load); the stops of Pine's own
+   * (plan 8R-1) are not counted, so that a sweep waiting for kept Wayspots (`TrainService`)
+   * waits for them.
    */
   readonly size: number;
-  /** Calls `listener` after every change of `contentGeneration` (it should not throw). */
-  whenChanged(listener: () => void): void;
-  byId(id: string): Wayspot | undefined;
   /**
-   * A Wayspot's address as one line for every reader (`wayspotAddress`): Wayfarer's where it
-   * gives one, else a Power Spot's looked-up address while it is where it was asked. Empty for none.
+   * Calls `listener` with each server (its `Guild` row) whose Wayspots changed, after every change
+   * of its `contentGenerationOf` (it should not throw): a listener acts on that server alone.
    */
+  whenChanged(listener: (guildId: number) => void): void;
+  /** The Wayspots of a server, by its `Guild` row (undefined: a server without one, none). */
+  of(guildId: number | undefined): WayspotView;
+  /**
+   * A Wayspot a server stored a reference to (a stop report's stop, a party's spot or stop, a
+   * history row, a ruling): the server's own row, as its view gives it, read without a view.
+   * Never for an id a member gives.
+   */
+  stored(guildId: number | undefined, id: string): Wayspot | undefined;
+  /** As `WayspotView.addressOf`: the address is the place's, not a server's. */
   addressOf(wayspot: AddressedWayspot & { id: string }): string;
-  /** Every kept Wayspot, in no particular order (a new list). */
-  all(): Wayspot[];
-  /** The Wayspots in the region of this channel (a new list). */
-  inRegion(channelId: string): Wayspot[];
-  /** The channels of the regions a Wayspot lies in; empty for one in none or unknown. */
-  regionsOf(id: string): string[];
-  /** The Wayspots within `metres` of a point, nearest first; only of `kinds` when given. */
-  near(point: LatLon, metres: number, kinds?: readonly WayspotKind[]): NearWayspot[];
+  /** The servers (`Guild` rows) that keep a Wayspot or a stop of Pine's own, in order. */
+  servers(): number[];
+  /**
+   * A server's Wayspots as held, never copied (its view's `all` makes a list): for the instance's
+   * work over every server's (a picture's address looked up). Read at once, never kept.
+   */
+  eachOf(guildId: number): Iterable<Wayspot>;
+  /**
+   * The channels of a server's regions one of its Wayspots lies in, as its view's `regionsOf`
+   * gives them, without working out where the server's other Wayspots lie: for the instance's
+   * upkeep, which asks it of every Wayspot of every server (the Google line's ranks).
+   */
+  regionsIn(guildId: number, id: string): string[];
 }
 
 export interface WayspotDirectoryOptions {
-  wayspots: Pick<WayspotStorage, 'all'>;
+  /** `everyServer` at start; `all(guildId)` for a load of one server (after its import). */
+  wayspots: Pick<WayspotStorage, 'everyServer' | 'all'>;
   /**
    * The regions: their outlines say where each Wayspot lies, worked out again when their
    * `generation` changes (without one, at each load of the Wayspots).
@@ -75,13 +124,15 @@ export interface WayspotDirectoryOptions {
    * Wayfarer id; without it a Wayspot has Wayfarer's address alone.
    */
   addresses?: { lookedUp(id: string): LookedUpAddress | undefined };
+  /** How many servers' placements are kept worked out (`MAX_SERVER_VIEWS`). */
+  maxPlacements?: number;
 }
 
 const METRES_PER_DEGREE = (6_371_000 * Math.PI) / 180;
 
 /**
  * A stop of Pine's own (`/pokestop`, plan 8R-1) as the directory takes it: the stop, and the row
- * of its server in `Guild` (undefined when the server has none), whose regions alone it lies in.
+ * of its server in `Guild` (undefined when the server has none: then it is nobody's).
  */
 export interface PlacedPineStop {
   stop: PineStop;
@@ -105,35 +156,66 @@ export function pineStopWayspot(stop: PineStop): Wayspot {
   };
 }
 
-/** Where the Wayspots lie, worked out for one state of the regions. */
+/** Where a server's Wayspots lie in its regions, worked out for one state of the regions. */
 interface Placement {
-  regions: number | undefined;
   byRegion: Map<string, Set<string>>;
   ofWayspot: Map<string, string[]>;
 }
 
+/** A region's outline as a test of points, with its channel. */
+interface Outline {
+  channelId: string;
+  contains: (point: LatLon) => boolean;
+}
+
+/** The view of a server without a row: nothing. */
+const NONE: WayspotView = {
+  byId: () => undefined,
+  addressOf: (wayspot) => wayspotAddress(wayspot, undefined),
+  all: () => [],
+  inRegion: () => [],
+  regionsOf: () => [],
+  near: () => [],
+};
+
 /**
- * Every kept Wayspot in memory, read from the database (`load`: at start, and after an import was
- * applied). Reads never wait: they use the last complete state, empty until the first load.
- * A Wayspot that became a gym is `forget`-ed at once (the import's write deleted its row), and
- * stays forgotten when a load that read the rows before it was deleted finishes after.
+ * Every server's kept Wayspots in memory, read from the database (`load()`: every server's, at
+ * start only; `load(guildId)`: one server's, after its import was applied), with the stops of
+ * Pine's own. Reads never wait: they use the last complete state, empty until the first load. A
+ * Wayspot of a server that became the server's gym is `forget`-ed at once (the import's write
+ * deleted the server's row), and stays forgotten when a load that read the rows before it was
+ * deleted finishes after. Where each server's Wayspots lie is worked out when the server first
+ * asks after a change of the regions or of its own Wayspots, and kept for at most `maxPlacements`
+ * servers, the one asked for longest ago going first. One server's change touches no other
+ * server's placement, generation or listeners.
  */
 export class WayspotDirectory implements WayspotProvider {
-  private rows = new Map<string, Wayspot>();
-  /** The stops of Pine's own (plan 8R-1), by their keys, with the row of their server. */
-  private pine = new Map<string, { wayspot: Wayspot; guildRow: number | undefined }>();
-  private placement: Placement | undefined;
+  /** The kept Wayspots of each server, by server and id. */
+  private rows = new Map<number, Map<string, Wayspot>>();
+  /** The stops of Pine's own (plan 8R-1), by server and key. */
+  private pine = new Map<number, Map<string, Wayspot>>();
+  private placements: BoundedMap<number, Placement>;
+  /** The outlines of each server's regions, for the regions' generation `regionsAt`. */
+  private outlines: Map<number, Outline[]> | undefined;
+  private regionsAt: number | undefined;
   private queue: Promise<unknown> = Promise.resolve();
   private changes = 0;
   private contents = 0;
-  private readonly listeners: (() => void)[] = [];
-  /** The ids forgotten while the load under way reads, if one does. */
+  /** Each server's `contentGenerationOf`. */
+  private readonly contentsOf = new Map<number, number>();
+  private kept = 0;
+  private readonly listeners: ((guildId: number) => void)[] = [];
+  /** The `<server> <id>` keys forgotten while the load under way reads, if one does. */
   private forgottenMeanwhile: Set<string> | undefined;
+  /** How many placements were worked out: for tests. */
+  placementsBuilt = 0;
 
-  constructor(private readonly options: WayspotDirectoryOptions) {}
+  constructor(private readonly options: WayspotDirectoryOptions) {
+    this.placements = new BoundedMap(options.maxPlacements ?? MAX_SERVER_VIEWS);
+  }
 
   get generation(): number {
-    this.placed();
+    this.regionsNow();
     return this.changes;
   }
 
@@ -141,36 +223,61 @@ export class WayspotDirectory implements WayspotProvider {
     return this.contents;
   }
 
-  get size(): number {
-    return this.rows.size;
+  contentGenerationOf(guildId: number): number {
+    return this.contentsOf.get(guildId) ?? 0;
   }
 
-  whenChanged(listener: () => void): void {
+  get size(): number {
+    return this.kept;
+  }
+
+  whenChanged(listener: (guildId: number) => void): void {
     this.listeners.push(listener);
   }
 
-  /** Reads every kept Wayspot. Loads asked for at the same time run one after the other. */
-  load(): Promise<void> {
+  /**
+   * Reads the kept Wayspots: without a server, every server's (at start only: an instance's
+   * thousands of Wayspots, read once); with one, that server's rows alone (after its import), the
+   * others left as they are. Loads asked for at the same time run one after the other.
+   */
+  load(guildId?: number): Promise<void> {
     const result = this.queue.then(async () => {
       const forgotten = new Set<string>();
       this.forgottenMeanwhile = forgotten;
-      let read: Wayspot[];
+      let read: { guildId: number; wayspot: Wayspot }[];
       try {
-        read = await this.options.wayspots.all();
+        read =
+          guildId === undefined
+            ? await this.options.wayspots.everyServer()
+            : (await this.options.wayspots.all(guildId)).map((wayspot) => ({ guildId, wayspot }));
       } finally {
         this.forgottenMeanwhile = undefined;
       }
-      const rows = read.filter((row) => !forgotten.has(row.id));
       const started = performance.now();
-      this.rows = new Map(rows.map((row) => [row.id, row]));
-      this.placement = undefined;
-      this.changes += 1;
-      this.contentChanged();
-      const placed = this.placed();
+      const rows = new Map<number, Map<string, Wayspot>>();
+      // A server's load: that server has its rows read, none when it has none left.
+      if (guildId !== undefined) rows.set(guildId, new Map());
+      for (const row of read) {
+        if (forgotten.has(keyOf(row.guildId, row.wayspot.id))) continue;
+        let ofServer = rows.get(row.guildId);
+        if (!ofServer) rows.set(row.guildId, (ofServer = new Map<string, Wayspot>()));
+        ofServer.set(row.wayspot.id, row.wayspot);
+      }
+      // Every server's: the servers that had rows and have none now are changed too.
+      const changed = new Set(guildId === undefined ? this.rows.keys() : []);
+      if (guildId === undefined) this.rows = new Map();
+      for (const [server, ofServer] of rows) {
+        changed.add(server);
+        if (ofServer.size === 0) this.rows.delete(server);
+        else this.rows.set(server, ofServer);
+      }
+      this.kept = [...this.rows.values()].reduce((sum, ofServer) => sum + ofServer.size, 0);
+      this.contentChanged([...changed].sort((a, b) => a - b));
       this.options.log.info(
         {
-          wayspots: rows.length,
-          inRegions: placed.ofWayspot.size,
+          wayspots: [...rows.values()].reduce((sum, ofServer) => sum + ofServer.size, 0),
+          servers: rows.size,
+          ...(guildId === undefined ? {} : { guild: guildId }),
           ms: Math.round(performance.now() - started),
         },
         'Wayspots loaded',
@@ -180,14 +287,16 @@ export class WayspotDirectory implements WayspotProvider {
     return result;
   }
 
-  /** Takes these Wayspots out of memory at once (they became gyms; their rows are deleted). */
-  forget(ids: readonly string[]): void {
+  /** Takes these Wayspots of a server out of memory at once (they became its gyms; its rows are deleted). */
+  forget(guildId: number, ids: readonly string[]): void {
+    const ofServer = this.rows.get(guildId);
+    const placement = this.placements.get(guildId);
     let forgot = false;
     for (const id of ids) {
-      this.forgottenMeanwhile?.add(id);
-      if (!this.rows.delete(id)) continue;
+      this.forgottenMeanwhile?.add(keyOf(guildId, id));
+      if (!ofServer?.delete(id)) continue;
       forgot = true;
-      const placement = this.placement;
+      this.kept -= 1;
       for (const channelId of placement?.ofWayspot.get(id) ?? []) {
         placement?.byRegion.get(channelId)?.delete(id);
       }
@@ -198,59 +307,104 @@ export class WayspotDirectory implements WayspotProvider {
 
   /**
    * Takes these as the stops of Pine's own (plan 8R-1: `PineStopService`, at start and after
-   * every change), in the place of those it held: they are found as PokéStops beside the kept
-   * Wayspots, each in the regions of its own server only, and a change of them is a change of
-   * what the Wayspots are (the search indexes, the region editor and the map build anew). A load
-   * of the kept Wayspots leaves them as they are.
+   * every change), in the place of those it held: each is found as a PokéStop of its own server
+   * beside its kept Wayspots, in that server's regions only, and a change of them is a change of
+   * what the Wayspots of its server are (that server's search index, the region editor and the
+   * map build anew); a server whose stops are as they were is not changed. A stop whose server
+   * has no row is nobody's. A load of the kept Wayspots leaves them as they are.
    */
   setPineStops(stops: readonly PlacedPineStop[]): void {
-    this.pine = new Map(
-      stops.map(({ stop, guildRow }) => {
-        const wayspot = pineStopWayspot(stop);
-        return [wayspot.id, { wayspot, guildRow }];
-      }),
-    );
-    this.placement = undefined;
+    const pine = new Map<number, Map<string, Wayspot>>();
+    for (const { stop, guildRow } of stops) {
+      if (guildRow === undefined) continue;
+      const wayspot = pineStopWayspot(stop);
+      let ofServer = pine.get(guildRow);
+      if (!ofServer) pine.set(guildRow, (ofServer = new Map<string, Wayspot>()));
+      ofServer.set(wayspot.id, wayspot);
+    }
+    const changed = [...new Set([...this.pine.keys(), ...pine.keys()])]
+      .filter((guildId) => !sameStops(this.pine.get(guildId), pine.get(guildId)))
+      .sort((a, b) => a - b);
+    this.pine = pine;
+    this.contentChanged(changed);
+  }
+
+  /**
+   * What these servers' Wayspots are changed: their placements are worked out again when asked
+   * for, their generations go up, and each is told; no other server is touched.
+   */
+  private contentChanged(servers: readonly number[]): void {
+    if (servers.length === 0) return;
+    for (const guildId of servers) {
+      this.placements.delete(guildId);
+      this.contentsOf.set(guildId, this.contentGenerationOf(guildId) + 1);
+    }
+    if (this.options.regions.generation === undefined) this.outlines = undefined;
     this.changes += 1;
-    this.contentChanged();
-  }
-
-  private contentChanged(): void {
     this.contents += 1;
-    for (const listener of this.listeners) listener();
+    for (const guildId of servers) {
+      for (const listener of this.listeners) listener(guildId);
+    }
   }
 
-  byId(id: string): Wayspot | undefined {
-    return this.rows.get(id) ?? this.pine.get(id)?.wayspot;
+  of(guildId: number | undefined): WayspotView {
+    if (guildId === undefined) return NONE;
+    return {
+      byId: (id) => this.stored(guildId, id),
+      addressOf: (wayspot) => this.addressOf(wayspot),
+      all: () => [...this.every(guildId)],
+      inRegion: (channelId) => {
+        const ids = this.placement(guildId).byRegion.get(channelId);
+        return ids === undefined ? [] : [...ids].flatMap((id) => this.stored(guildId, id) ?? []);
+      },
+      regionsOf: (id) => [...(this.placement(guildId).ofWayspot.get(id) ?? [])],
+      near: (point, metres, kinds) => this.nearIn(guildId, point, metres, kinds),
+    };
+  }
+
+  stored(guildId: number | undefined, id: string): Wayspot | undefined {
+    if (guildId === undefined) return undefined;
+    return this.rows.get(guildId)?.get(id) ?? this.pine.get(guildId)?.get(id);
   }
 
   addressOf(wayspot: AddressedWayspot & { id: string }): string {
     return wayspotAddress(wayspot, this.options.addresses?.lookedUp(wayspot.id));
   }
 
-  /** Every kept Wayspot and stop of Pine's own. */
-  private *every(): Iterable<Wayspot> {
-    yield* this.rows.values();
-    for (const { wayspot } of this.pine.values()) yield wayspot;
+  servers(): number[] {
+    return [...new Set([...this.rows.keys(), ...this.pine.keys()])].sort((a, b) => a - b);
   }
 
-  all(): Wayspot[] {
-    return [...this.every()];
+  regionsIn(guildId: number, id: string): string[] {
+    const wayspot = this.stored(guildId, id);
+    if (!wayspot) return [];
+    this.regionsNow();
+    const kept = this.placements.get(guildId);
+    if (kept) return [...(kept.ofWayspot.get(id) ?? [])];
+    return (this.outlinesOf(guildId) ?? [])
+      .filter((region) => region.contains(wayspot))
+      .map((region) => region.channelId);
   }
 
-  inRegion(channelId: string): Wayspot[] {
-    const ids = this.placed().byRegion.get(channelId);
-    return ids === undefined ? [] : [...ids].flatMap((id) => this.byId(id) ?? []);
+  eachOf(guildId: number): Iterable<Wayspot> {
+    return this.every(guildId);
   }
 
-  regionsOf(id: string): string[] {
-    return [...(this.placed().ofWayspot.get(id) ?? [])];
+  /** A server's kept Wayspots and stops of Pine's own. */
+  private *every(guildId: number): Iterable<Wayspot> {
+    yield* this.rows.get(guildId)?.values() ?? [];
+    yield* this.pine.get(guildId)?.values() ?? [];
   }
 
-  near(point: LatLon, metres: number, kinds?: readonly WayspotKind[]): NearWayspot[] {
+  private nearIn(
+    guildId: number,
+    point: LatLon,
+    metres: number,
+    kinds?: readonly WayspotKind[],
+  ): NearWayspot[] {
     const latReach = (metres / METRES_PER_DEGREE) * 1.01;
     const found: NearWayspot[] = [];
-    for (const wayspot of this.every()) {
+    for (const wayspot of this.every(guildId)) {
       if (Math.abs(wayspot.lat - point.lat) > latReach) continue;
       if (kinds !== undefined && !kinds.includes(wayspot.kind)) continue;
       const distance = metresBetween(point, wayspot);
@@ -259,36 +413,53 @@ export class WayspotDirectory implements WayspotProvider {
     return found.sort((a, b) => a.metres - b.metres);
   }
 
-  /** Where the Wayspots lie, for the regions as they are now. */
-  private placed(): Placement {
-    const { regions } = this.options;
-    const generation = regions.generation;
-    const kept = this.placement;
-    if (kept !== undefined && (generation === undefined || kept.regions === generation)) {
+  /**
+   * Follows a change of the regions (their `generation`): every placement is worked out again,
+   * and the change counts.
+   */
+  private regionsNow(): void {
+    const generation = this.options.regions.generation;
+    if (generation !== undefined && generation !== this.regionsAt) {
+      const first = this.regionsAt === undefined;
+      this.regionsAt = generation;
+      this.outlines = undefined;
+      this.placements.dropWhile(() => true);
+      // A change of the regions is a change of where the Wayspots lie (the first look is none).
+      if (!first) this.changes += 1;
+    }
+  }
+
+  /** The outlines of a server's regions as they are now. */
+  private outlinesOf(guildId: number): Outline[] | undefined {
+    this.regionsNow();
+    if (!this.outlines) {
+      const outlines = new Map<number, Outline[]>();
+      // The one rule of where a Wayspot lies, the upgrade's too (`placingRegions`, plan 19B-3):
+      // a channel's first row, of a server.
+      for (const region of placingRegions(this.options.regions.all())) {
+        if (region.bounds === null) continue;
+        let ofServer = outlines.get(region.guildId);
+        if (!ofServer) outlines.set(region.guildId, (ofServer = []));
+        ofServer.push({ channelId: region.channelId, contains: containment(region.bounds) });
+      }
+      this.outlines = outlines;
+    }
+    return this.outlines.get(guildId);
+  }
+
+  /** Where a server's Wayspots lie in its regions, for the regions as they are now. */
+  private placement(guildId: number): Placement {
+    const outlines = this.outlinesOf(guildId) ?? [];
+    const kept = this.placements.get(guildId);
+    if (kept) {
+      // Asked for again: the newest, so that the placements of servers that ask go last.
+      this.placements.set(guildId, kept);
       return kept;
     }
-    const outlined = regions.all().flatMap((region) =>
-      region.bounds === null
-        ? []
-        : [
-            {
-              channelId: region.channelId,
-              guildRow: region.guildId,
-              contains: containment(region.bounds),
-            },
-          ],
-    );
     const byRegion = new Map<string, Set<string>>();
     const ofWayspot = new Map<string, string[]>();
-    for (const wayspot of this.every()) {
-      // A stop of Pine's own lies in the regions of its own server only.
-      const pine = this.pine.get(wayspot.id);
-      const channels = outlined.filter(
-        (region) =>
-          (pine === undefined ||
-            (pine.guildRow !== undefined && region.guildRow === pine.guildRow)) &&
-          region.contains(wayspot),
-      );
+    for (const wayspot of this.every(guildId)) {
+      const channels = outlines.filter((region) => region.contains(wayspot));
       if (channels.length === 0) continue;
       ofWayspot.set(
         wayspot.id,
@@ -300,9 +471,37 @@ export class WayspotDirectory implements WayspotProvider {
         ids.add(wayspot.id);
       }
     }
-    // A change of the regions is a change of what the Wayspots are (a load counted itself).
-    if (kept !== undefined) this.changes += 1;
-    this.placement = { regions: generation, byRegion, ofWayspot };
-    return this.placement;
+    const placement = { byRegion, ofWayspot };
+    this.placementsBuilt += 1;
+    this.placements.set(guildId, placement);
+    return placement;
   }
+}
+
+/** Whether a server's stops of Pine's own are the same, in everything a reader shows of them. */
+function sameStops(
+  a: ReadonlyMap<string, Wayspot> | undefined,
+  b: ReadonlyMap<string, Wayspot> | undefined,
+): boolean {
+  if ((a?.size ?? 0) !== (b?.size ?? 0)) return false;
+  for (const [key, one] of a ?? []) {
+    const other = b?.get(key);
+    if (
+      other?.lat !== one.lat ||
+      other.lon !== one.lon ||
+      other.title !== one.title ||
+      other.address !== one.address ||
+      other.firstSeen !== one.firstSeen ||
+      other.lastSeen !== one.lastSeen ||
+      other.pineServer !== one.pineServer
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** A server's Wayspot as one key. */
+function keyOf(guildId: number, id: string): string {
+  return `${String(guildId)} ${id}`;
 }

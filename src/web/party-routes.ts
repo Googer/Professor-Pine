@@ -109,12 +109,12 @@ export interface PartyWebDeps {
    * A power spot Pine keeps, by its Wayfarer id, for a train's route on the map (plan 8X-4);
    * left out: none is known.
    */
-  spotOf?: (id: string) => { name: string; lat: number; lon: number } | undefined;
+  spotOf?: (guildId: number, id: string) => { name: string; lat: number; lon: number } | undefined;
   /**
-   * The stops of trains' routes as they are now (`PartyService.stops`): a train's Move… on the map
+   * The stops of a server's trains' routes as they are now (`PartyService.stopsOf`): a train's Move… on the map
    * names them as the post's dialog does (plan 8M-8C).
    */
-  stops: StopLookup;
+  stopsOf(guildId: number): StopLookup;
   /**
    * The layout a party's post was last shown with (plan 8M-8A, `PartyService.layoutOf`), which the
    * map draws as its popup; undefined while it has none.
@@ -420,8 +420,8 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     // Why Move… and Manage… do not open, in Discord's words (review C1); Move… of a train as the
     // post's dialog draws it, and what lies ahead (plan 8M-8C).
     trainRefusal: (reason) => refusalOnTheMap(parties, reason, wordsIn(zone)),
-    trainMoves: (train) => movesOnTheMap(parties.stops, train, wordsIn(zone)),
-    trainAhead: (train) => aheadOnTheMap(parties.stops, train, wordsIn(zone)),
+    trainMoves: (train) => movesOnTheMap(parties.stopsOf(train.guildId), train, wordsIn(zone)),
+    trainAhead: (train) => aheadOnTheMap(parties.stopsOf(train.guildId), train, wordsIn(zone)),
   });
 
   /** The bot's words as text of the page, in a server's zone. */
@@ -562,7 +562,9 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       if (viewer.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
       if (kind !== 'gym' && kind !== 'wayspot') return sendFailure(request, reply, 404);
       const input = inputFor(guild, own, session.userId, viewer, requestZone(request));
-      const url = parties.places.urlOf(kind, id);
+      // The picture as this server's copy of the place shows it (plan 19B-3).
+      const row = await parties.guilds.idFor(guild);
+      const url = parties.places.urlOf(kind, id, row);
       // The posts that show the picture first, then whether the member sees one of them on the
       // map: `mapParty` makes a party's whole map line, and runs for those few only (review W-2).
       // A wild spawn's popup shows the picture of the place it is near too (staging of
@@ -578,7 +580,7 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
           );
         }) ||
           (await spawnShowsPlacePicture(deps, viewers, guild, session.userId, url, member)));
-      const picture = shown ? await parties.places.read(kind, id) : undefined;
+      const picture = shown ? await parties.places.read(kind, id, row) : undefined;
       if (picture === undefined) return sendFailure(request, reply, 404);
       return reply
         .header('cache-control', 'private, max-age=86400')

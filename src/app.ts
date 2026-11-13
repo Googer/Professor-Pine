@@ -912,7 +912,9 @@ export async function startApp(
       regions,
       // Each gym by the regions of its own servers (plan 19B-2).
       gymRegions: (id) => gymRegionsOfItsServers(gyms, id),
-      wayspotRegions: (id) => wayspots.regionsOf(id),
+      // A Wayspot by the regions of each server that keeps it, each its own (plan 19B-3).
+      wayspotRegions: (id) =>
+        wayspots.servers().flatMap((guildId) => wayspots.regionsIn(guildId, id)),
       // The servers by their rows: the first reading comes before the login (plan 8Z-2).
       servers: () => guilds.snowflakes(),
       activity: history,
@@ -1856,7 +1858,7 @@ export async function startApp(
         store: parties,
         look: (raid) => partyService.raidLookOf(raid),
         // The stops of trains' routes as they are now: a train's Move… names them (plan 8M-8C).
-        stops: partyService.stops,
+        stopsOf: (guildId) => partyService.stopsOf(guildId),
         // How a max battle's post shows it (plan 8X-5): its boss, picture and spot as they are now.
         maxLook: (party) => maxLook(partyService.maxView(party)),
         // The layout each post was last shown with, the popup's (plan 8M-8A), and posts' titles.
@@ -1867,8 +1869,8 @@ export async function startApp(
         // A place's picture beside Where (plan 8M-8A), by its gym or Wayspot, from the image cache.
         places: new PlacePictures({ gyms, wayspots, cache: webPictureCache }),
         // A power spot of a train's route (plan 8X-4), as the kept Wayspots have it now.
-        spotOf: (id) => {
-          const kept = wayspots.byId(id);
+        spotOf: (guildId, id) => {
+          const kept = wayspots.stored(guildId, id);
           return kept?.kind === 'powerspot'
             ? { name: kept.title, lat: kept.lat, lon: kept.lon }
             : undefined;

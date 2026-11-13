@@ -16,7 +16,11 @@ import { renderMirror, type MirrorPlace } from '../render/mirrors.js';
 import type { RenderedPost } from '../render/party-post.js';
 import { Coalescer } from './coalescer.js';
 import type { PartyStore } from './party-store.js';
-import { stopRegionsInGuild, type ServerGymRegions } from './region-directory.js';
+import {
+  stopRegionsInGuild,
+  type ServerGymRegions,
+  type ServerWayspotRegions,
+} from './region-directory.js';
 import { refusalSaid, sendInForms, type MessageForms, type RefusedFiles } from './refused-files.js';
 
 const MINUTE = 60_000;
@@ -56,7 +60,7 @@ export interface PartyMirrorsOptions {
    * The kept Wayspots (plan 8X-4): a train's copies go also where a power spot of its route lies.
    * Without them a power spot is in no region.
    */
-  wayspots?: { byId(id: string): { kind: string } | undefined; regionsOf(id: string): string[] };
+  wayspots?: ServerWayspotRegions;
   /** Each server's values: whether it has the copies, and their channels (plan 19A-1). */
   servers: ServerSettingsLookup;
   /** What the post of a party shows now. */

@@ -14,6 +14,8 @@ import { gymCandidates } from '../commands/screenshots/gym-question.js';
 import { MAX_FEED_READ_AT } from '../../test/support/max-bosses.js';
 import { maxReading } from '../../test/support/screenshots.js';
 import { createTestContext } from '../../test/support/test-context.js';
+import { keptRow } from '../../test/support/wayspot-cases.js';
+import { wayspotsWith } from '../../test/support/wayspots.js';
 import type { AppContext } from '../app-context.js';
 import { maxScreenshotReport } from '../domain/ocr/max-report.js';
 import { typedMaxBoss } from '../domain/pogo/max-boss-list.js';
@@ -24,6 +26,39 @@ import { maxReportContext, reportContext } from './screenshot-context.js';
 const GUILD_ROW = 1;
 /** Another server, in a zone of its own. */
 const OTHER_SERVER = '412345678901234599';
+
+describe('a max battle screenshot’s Power Spots in two servers whose regions overlap (plan 19B-3)', () => {
+  it('offers the server’s own Power Spots alone, by its own titles', async () => {
+    const { gyms, regions } = twoServerGyms();
+    // The test server's Library Garden in West; the second server's copy of it (another title)
+    // and a Power Spot of its own there, in its Wide over West.
+    const { wayspots } = await wayspotsWith(
+      [keptRow(5, { title: 'Library Garden', kind: 'powerspot', lat: 40.0502, lon: -80.0502 })],
+      regionsFixture(regions),
+      undefined,
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            keptRow(5, { title: 'Their Garden', kind: 'powerspot', lat: 40.0502, lon: -80.0502 }),
+            keptRow(6, { title: 'Their Plaza', kind: 'powerspot', lat: 40.0602, lon: -80.0602 }),
+          ],
+        },
+      ],
+    );
+    const { ctx } = createTestContext({ gyms, regions: regionsFixture(regions), wayspots });
+    const titles = (guildId: string, guildRow: number, channelId: string) =>
+      maxReportContext(ctx, { channelId, guildId, guildRow }, 1_000)
+        .spots.map((spot) => spot.title)
+        .sort();
+    expect(titles(FAKE_GUILD_ID, GUILD_ROW, WEST_CHANNEL)).toEqual(['Library Garden']);
+    // The second server's own there (positive control).
+    expect(titles(OTHER_GUILD_ID, OTHER_GUILD_ROW, WIDE_CHANNEL)).toEqual([
+      'Their Garden',
+      'Their Plaza',
+    ]);
+  });
+});
 
 describe('a screenshot’s gym in two servers whose regions overlap (plan 19B-2)', () => {
   it('is never the other server’s gym in a region of both, read or offered', () => {

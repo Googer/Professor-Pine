@@ -136,9 +136,12 @@ export const TOWN_CATEGORY_ID = '100000000000000041';
  * server's channels as `ServerChannel`s: `west` and `east` in the category `Town`, `south` (no
  * region) and a forum. `servers.serverName` names the server `Pinewood`.
  */
-export async function editorSourcesWith(rows: readonly WayspotRow[] = []) {
+export async function editorSourcesWith(
+  rows: readonly WayspotRow[] = [],
+  others: Parameters<typeof wayspotsWith>[3] = [],
+) {
   const geo = await geoSourcesWith();
-  const { wayspots } = await wayspotsWith(rows);
+  const { wayspots } = await wayspotsWith(rows, undefined, undefined, others);
   const channels: ServerChannel[] = [
     { id: TOWN_CATEGORY_ID, name: 'Town', kind: 'category', categoryId: null },
     { id: WEST_CHANNEL, name: 'west', kind: 'text', categoryId: TOWN_CATEGORY_ID },
@@ -194,7 +197,7 @@ const NO_EDITOR: EditorSources = {
   guilds: { idFor: () => Promise.resolve(undefined) },
   regions: { all: () => [], generation: 0 },
   gyms: { of: () => ({ all: () => [], regionsOf: () => [] }), generation: 0 },
-  wayspots: { all: () => [], generation: 0 },
+  wayspots: { of: () => ({ all: () => [] }), generation: 0 },
   servers: { serverChannels: () => undefined, serverName: () => undefined },
 };
 
@@ -332,7 +335,7 @@ export const NO_PARTIES: PartyWebDeps = {
   guilds: { idFor: () => Promise.resolve(undefined) },
   store: { active: () => [], get: () => undefined, raidAt: () => undefined },
   look: () => ({}),
-  stops: () => {
+  stopsOf: () => () => {
     throw new Error('no trains in this test');
   },
   layoutOf: () => undefined,
@@ -390,7 +393,7 @@ export function partyWebWith(
     },
     store: made.store,
     look: (raid) => made.service.raidLookOf(raid),
-    stops: made.service.stops,
+    stopsOf: (guildId) => made.service.stopsOf(guildId),
     maxLook: (party) => maxLook(made.service.maxView(party)),
     layoutOf: (partyId) => made.service.layoutOf(partyId),
     // Nothing waits for a post unless the test says so (`RecordingDraws`, or the service).

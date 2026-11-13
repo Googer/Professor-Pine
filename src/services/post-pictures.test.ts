@@ -211,15 +211,15 @@ describe('a picture that could not be had (review 8A-6)', () => {
       now: () => clock.now,
     });
     expect(await emoji.read(SERVED)).toBeUndefined();
-    expect(await places.read('gym', '1')).toBeUndefined();
+    expect(await places.read('gym', '1', 1)).toBeUndefined();
     clock.now += 59_000;
     expect(await emoji.read(SERVED)).toBeUndefined();
-    expect(await places.read('gym', '1')).toBeUndefined();
+    expect(await places.read('gym', '1', 1)).toBeUndefined();
     expect(emojiCache.asked).toHaveLength(1);
     expect(placeCache.asked).toHaveLength(1);
     clock.now += 2_000;
     await emoji.read(SERVED);
-    await places.read('gym', '1');
+    await places.read('gym', '1', 1);
     expect(emojiCache.asked).toHaveLength(2);
     expect(placeCache.asked).toHaveLength(2);
   });
@@ -235,12 +235,48 @@ describe('PlacePictures (plan 8M-8A)', () => {
     stored: (id: number) =>
       id === 12 ? { imageUrl: 'http://lh3.googleusercontent.com/gym12=s1600' } : undefined,
   };
+  // Server 1's copy of the Wayspot and server 2's, scanned when Wayfarer had another picture.
+  const images = new Map([
+    [1, 'https://lh3.googleusercontent.com/stop'],
+    [2, 'https://lh3.googleusercontent.com/stop-before'],
+  ]);
   const wayspots = {
     contentGeneration: 1,
-    all: () => [{ id: WAYSPOT, image: 'https://lh3.googleusercontent.com/stop' }],
-    byId: (id: string) =>
-      id === WAYSPOT ? { image: 'https://lh3.googleusercontent.com/stop' } : undefined,
+    servers: () => [...images.keys()],
+    eachOf: (guildId: number) => [{ id: WAYSPOT, image: images.get(guildId) ?? null }],
+    stored: (guildId: number, id: string) => {
+      const image = images.get(guildId);
+      return id === WAYSPOT && image !== undefined ? { image } : undefined;
+    },
   };
+
+  it('serves a Wayspot’s picture as the asking server’s copy shows it (plan 19B-3)', async () => {
+    const { cache, asked } = await cacheOf(JPEG, 'image/jpeg');
+    const places = new PlacePictures({ gyms, wayspots, cache });
+    expect(places.keyOf('https://lh3.googleusercontent.com/stop-before=s400')).toBe(
+      `wayspot/${WAYSPOT}`,
+    );
+    expect(places.urlOf('wayspot', WAYSPOT, 2)).toBe(
+      'https://lh3.googleusercontent.com/stop-before=s400',
+    );
+    expect(places.urlOf('wayspot', WAYSPOT, 3)).toBeUndefined();
+    expect(places.urlOf('wayspot', WAYSPOT, undefined)).toBeUndefined();
+    expect(await places.read('wayspot', WAYSPOT, 2)).toBeDefined();
+    expect(await places.read('wayspot', WAYSPOT, 3)).toBeUndefined();
+    expect(asked).toEqual(['https://lh3.googleusercontent.com/stop-before=s400']);
+  });
+
+  it('keeps two servers’ different pictures of one Wayspot apart, each fetched once', async () => {
+    const { cache, asked } = await cacheOf(JPEG, 'image/jpeg');
+    const places = new PlacePictures({ gyms, wayspots, cache });
+    for (const guildRow of [1, 2, 1, 2]) {
+      expect(await places.read('wayspot', WAYSPOT, guildRow)).toBeDefined();
+    }
+    expect(asked).toEqual([
+      'https://lh3.googleusercontent.com/stop=s400',
+      'https://lh3.googleusercontent.com/stop-before=s400',
+    ]);
+  });
 
   it('names a picture a post shows by its gym or Wayspot, never by its address', async () => {
     const { cache } = await cacheOf(JPEG, 'image/jpeg');
@@ -248,10 +284,10 @@ describe('PlacePictures (plan 8M-8A)', () => {
     expect(places.keyOf('https://lh3.googleusercontent.com/gym12=s400')).toBe('gym/12');
     expect(places.keyOf('https://lh3.googleusercontent.com/stop=s400')).toBe(`wayspot/${WAYSPOT}`);
     expect(places.keyOf('https://lh3.googleusercontent.com/other=s400')).toBeUndefined();
-    expect(places.urlOf('gym', '12')).toBe('https://lh3.googleusercontent.com/gym12=s400');
-    expect(places.urlOf('gym', '13')).toBeUndefined();
-    expect(places.urlOf('wayspot', WAYSPOT)).toBe('https://lh3.googleusercontent.com/stop=s400');
-    expect(places.urlOf('wayspot', 'nope')).toBeUndefined();
+    expect(places.urlOf('gym', '12', 1)).toBe('https://lh3.googleusercontent.com/gym12=s400');
+    expect(places.urlOf('gym', '13', 1)).toBeUndefined();
+    expect(places.urlOf('wayspot', WAYSPOT, 1)).toBe('https://lh3.googleusercontent.com/stop=s400');
+    expect(places.urlOf('wayspot', 'nope', 1)).toBeUndefined();
   });
 
   it('finds an address on a miss and keeps it, never indexing every place anew (review W-2)', async () => {
@@ -292,19 +328,19 @@ describe('PlacePictures (plan 8M-8A)', () => {
   it('fetches a place’s picture once through the image cache', async () => {
     const { cache, asked } = await cacheOf(JPEG, 'image/jpeg');
     const places = new PlacePictures({ gyms, wayspots, cache });
-    expect(await places.read('wayspot', WAYSPOT)).toEqual({
+    expect(await places.read('wayspot', WAYSPOT, 1)).toEqual({
       bytes: Buffer.from(JPEG),
       type: 'image/jpeg',
     });
-    expect(await places.read('wayspot', WAYSPOT)).toBeDefined();
-    expect(await places.read('gym', '13')).toBeUndefined();
+    expect(await places.read('wayspot', WAYSPOT, 1)).toBeDefined();
+    expect(await places.read('gym', '13', 1)).toBeUndefined();
     expect(asked).toEqual(['https://lh3.googleusercontent.com/stop=s400']);
   });
 
   it('keeps its pictures out of the daily pruning of the maps of places (review W-1)', async () => {
     const { cache, asked, dir } = await cacheOf(JPEG, 'image/jpeg');
     const places = new PlacePictures({ gyms, wayspots, cache });
-    await places.read('gym', '12');
+    await places.read('gym', '12', 1);
     const dayAgo = (Date.now() - 86_400_000 - 60_000) / 1000;
     for (const folder of await readdir(dir)) {
       for (const file of await readdir(path.join(dir, folder))) {
@@ -312,7 +348,7 @@ describe('PlacePictures (plan 8M-8A)', () => {
       }
     }
     expect(await new StaticMaps(undefined, cache).prunePlaces()).toBe(0);
-    expect(await places.read('gym', '12')).toBeDefined();
+    expect(await places.read('gym', '12', 1)).toBeDefined();
     expect(asked).toEqual(['https://lh3.googleusercontent.com/gym12=s400']);
   });
 
@@ -321,8 +357,8 @@ describe('PlacePictures (plan 8M-8A)', () => {
     const { cache, asked, dir } = await cacheOf(JPEG, 'image/jpeg');
     const places = new PlacePictures({ gyms, wayspots, cache });
     const emoji = new EmojiPictures({ emoji: { hasId: () => true }, cache });
-    await places.read('gym', '12');
-    await places.read('wayspot', WAYSPOT);
+    await places.read('gym', '12', 1);
+    await places.read('wayspot', WAYSPOT, 1);
     await emoji.read(SERVED);
     const longAgo = (Date.now() - PLACE_PICTURE_KEEP_MS - 60_000) / 1000;
     for (const folder of await readdir(dir)) {
@@ -331,7 +367,7 @@ describe('PlacePictures (plan 8M-8A)', () => {
       }
     }
     // The gym's is asked for again: its month starts anew.
-    await places.read('gym', '12');
+    await places.read('gym', '12', 1);
 
     expect(await prunePlacePictures(cache)).toBe(1);
     expect(await readdir(path.join(dir, 'place-pictures'))).toEqual([
@@ -340,7 +376,7 @@ describe('PlacePictures (plan 8M-8A)', () => {
     // An emoji's picture is not a place's.
     expect(await readdir(path.join(dir, 'emoji'))).toHaveLength(1);
     // The Wayspot's is fetched again when a post shows it.
-    expect(await places.read('wayspot', WAYSPOT)).toBeDefined();
+    expect(await places.read('wayspot', WAYSPOT, 1)).toBeDefined();
     expect(
       asked.filter((url) => url === 'https://lh3.googleusercontent.com/stop=s400'),
     ).toHaveLength(2);

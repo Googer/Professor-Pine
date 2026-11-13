@@ -38,25 +38,28 @@ export function gymRegionsInGuild<R extends { guildId: number | null }>(
     });
 }
 
+/** The Wayspots per server, as far as where one lies is concerned (`WayspotDirectory.of`). */
+export interface ServerWayspotRegions {
+  of(guildId: number | undefined): {
+    byId(id: string): { kind: string } | undefined;
+    regionsOf(id: string): string[];
+  };
+}
+
 /**
  * The regions of a server a stop of a route lies in (plan 8X-4; design 6.2): a gym's
- * (`gymRegionsInGuild`), a power spot's while it is kept as one (`WayspotProvider.regionsOf`);
- * none for a power spot without Wayspots, or one gone or of another kind now.
+ * (`gymRegionsInGuild`), a power spot's while the server keeps it as one (its view of the
+ * Wayspots, plan 19B-3: another server's copy lies in none of its regions); none for a power
+ * spot without Wayspots, or one gone or of another kind now.
  */
 export function stopRegionsInGuild<R extends { guildId: number | null }>(
-  places: {
-    gyms: ServerGymRegions;
-    wayspots?: {
-      byId(id: string): { kind: string } | undefined;
-      regionsOf(id: string): string[];
-    };
-  },
+  places: { gyms: ServerGymRegions; wayspots?: ServerWayspotRegions },
   regions: { byChannel(channelId: string): R | undefined },
   ref: StopRef,
   guildId: number,
 ): R[] {
   if (ref.kind === 'gym') return gymRegionsInGuild(places.gyms, regions, ref.id, guildId);
-  const { wayspots } = places;
+  const wayspots = places.wayspots?.of(guildId);
   if (wayspots?.byId(ref.id)?.kind !== 'powerspot') return [];
   return wayspots.regionsOf(ref.id).flatMap((channelId) => {
     const region = regions.byChannel(channelId);

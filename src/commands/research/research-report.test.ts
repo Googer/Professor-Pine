@@ -5,9 +5,11 @@ import {
   boardedRegions,
   OTHER_GUILD_ID,
   OTHER_GUILD_ROW,
+  testRegions,
   WEST_CHANNEL,
+  wideRegion,
 } from '../../../test/support/gyms.js';
-import { regionsFixture } from '../../../test/support/providers.js';
+import { regionsFixture, twoServerGyms } from '../../../test/support/providers.js';
 import { pageTask } from '../../../test/support/research.js';
 import { MemoryStopReports, fixtureRewardHash } from '../../../test/support/stop-reports.js';
 import { createTestContext } from '../../../test/support/test-context.js';
@@ -101,6 +103,32 @@ describe('stopsByKey', () => {
     ]);
     expect(stops[1]).toMatchObject({ address: '12 Market Street', lat: 40.0505, lon: -80.05 });
     expect(await stopsByKey(ctx, OTHER_GUILD_ID, ['pine-1'])).toEqual([]);
+  });
+});
+
+describe('stopsByKey in two servers whose regions overlap (plan 19B-3)', () => {
+  it('gives neither server the other’s kept PokéStop, and each its own copy', async () => {
+    const regions = [...testRegions(), wideRegion()];
+    const { wayspots } = await wayspotsWith(STOPS, regionsFixture(regions), undefined, [
+      {
+        guildId: OTHER_GUILD_ROW,
+        rows: [
+          keptRow(1, { title: 'Yellow Mural (theirs)', lat: 40.06, lon: -80.06, address: null }),
+          keptRow(7, { title: 'Swing Set', lat: 40.063, lon: -80.06, address: null }),
+        ],
+      },
+    ]);
+    const { ctx } = createTestContext({ wayspots, regions: regionsFixture(regions) });
+    Object.assign(ctx, { guilds: twoServerGyms().guilds });
+    // Swing Set lies in West: it is the second server's alone.
+    expect(await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(7), wayspotId(1)])).toEqual([
+      expect.objectContaining({ key: wayspotId(1), name: 'Yellow Mural' }),
+    ]);
+    expect(
+      (await stopsByKey(ctx, OTHER_GUILD_ID, [wayspotId(7), wayspotId(1), wayspotId(2)])).map(
+        (stop) => stop.name,
+      ),
+    ).toEqual(['Swing Set', 'Yellow Mural (theirs)']);
   });
 });
 

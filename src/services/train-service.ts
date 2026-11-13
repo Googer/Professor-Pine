@@ -43,7 +43,7 @@ import { tidyName } from '../domain/party/timed.js';
 import { gymStop, hasStop, sameStop, stopIndexOf } from '../domain/party/stops.js';
 import type { Logger } from '../log.js';
 import type { PostGym } from '../render/raid-post.js';
-import { stopInWords, stopsFrom, type StopLookup } from '../render/train-stops.js';
+import { stopInWords, stopsFrom } from '../render/train-stops.js';
 import { doer } from '../render/activity.js';
 import { groupWords } from '../render/party-controls.js';
 import { count, endSentence, memberText, plain } from '../render/text.js';
@@ -137,7 +137,7 @@ export interface TrainServiceOptions {
    * The kept Wayspots (plan 8X-4), to name a power spot of a route as it is now; without them every
    * power spot is unknown.
    */
-  wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf' | 'regionsOf' | 'size'>;
+  wayspots?: Pick<WayspotProvider, 'of' | 'stored' | 'addressOf' | 'size'>;
   /** The regions, to tell the gyms of the server of a train from those of another. */
   regions: Pick<RegionProvider, 'byChannel'>;
   /** The routes members saved (the table `SavedRoutes`). */
@@ -254,14 +254,12 @@ export class TrainService {
     });
   }
 
-  /** The stops of a route as they are now: gyms from the gym list, power spots from the Wayspots. */
-  private get stops(): StopLookup {
-    return stopsFrom(this.options.gyms, this.options.wayspots);
-  }
-
-  /** A stop as a line names it: `**The Stacks**`, `**Gazebo** (Power Spot)`. */
-  private named(ref: StopRef): string {
-    return stopInWords(this.stops(ref));
+  /**
+   * A stop of a train's route as a line names it, as it is now (gyms from the gym list, power
+   * spots from the train's server's Wayspots): `**The Stacks**`, `**Gazebo** (Power Spot)`.
+   */
+  private named(party: TrainParty, ref: StopRef): string {
+    return stopInWords(stopsFrom(this.options.gyms, this.options.wayspots, party.guildId)(ref));
   }
 
   /**
@@ -283,7 +281,7 @@ export class TrainService {
    */
   private gone(party: TrainParty, ref: StopRef): boolean {
     if (ref.kind === 'gym') return this.options.gyms.of(party.guildId).get(ref.id) === undefined;
-    return this.options.wayspots?.byId(ref.id)?.kind !== 'powerspot';
+    return this.options.wayspots?.of(party.guildId).byId(ref.id)?.kind !== 'powerspot';
   }
 
   /**
@@ -318,8 +316,8 @@ export class TrainService {
         const who = doer(party, member);
         return endSentence(
           who
-            ? `${who} added stop ${result.number} to the route: ${this.named(added)}`
-            : `Stop ${result.number} was added to the route: ${this.named(added)}`,
+            ? `${who} added stop ${result.number} to the route: ${this.named(party, added)}`
+            : `Stop ${result.number} was added to the route: ${this.named(party, added)}`,
         );
       },
     );
@@ -343,8 +341,8 @@ export class TrainService {
       (party, removed) => {
         const who = doer(party, member);
         return who
-          ? `${who} took ${this.named(removed.stop)} off the route.`
-          : `${this.named(removed.stop)} was taken off the route.`;
+          ? `${who} took ${this.named(party, removed.stop)} off the route.`
+          : `${this.named(party, removed.stop)} was taken off the route.`;
       },
     );
   }
@@ -479,8 +477,8 @@ export class TrainService {
       (party, moved) => {
         const who = doer(party, member);
         return who
-          ? `${who} moved ${this.named(moved.stop)} to stop ${to} of the route.`
-          : `${this.named(moved.stop)} was moved to stop ${to} of the route.`;
+          ? `${who} moved ${this.named(party, moved.stop)} to stop ${to} of the route.`
+          : `${this.named(party, moved.stop)} was moved to stop ${to} of the route.`;
       },
     );
   }
@@ -539,11 +537,11 @@ export class TrainService {
     const { route } = party.train;
     const [start, end] = [route[0], route.at(-1)];
     const again =
-      restarted && start !== undefined ? `, and starts again at ${this.named(start)}` : '';
+      restarted && start !== undefined ? `, and starts again at ${this.named(party, start)}` : '';
     const runs =
       start === undefined || end === undefined
         ? ''
-        : `: it now runs from ${this.named(start)} to ${this.named(end)}${again}`;
+        : `: it now runs from ${this.named(party, start)} to ${this.named(party, end)}${again}`;
     const who = doer(party, member);
     return endSentence(
       who ? `The route was reversed by ${who}${runs}` : `The route was reversed${runs}`,
@@ -956,7 +954,7 @@ export class TrainService {
    * as such when the train is where that step took it; otherwise the other words apply.
    */
   private movement(party: TrainParty, pending: PendingMove): Movement | undefined {
-    const { stops } = this;
+    const stops = stopsFrom(this.options.gyms, this.options.wayspots, party.guildId);
     const { route } = party.train;
     const { last, by } = pending;
     if (route.length === 0) return undefined;

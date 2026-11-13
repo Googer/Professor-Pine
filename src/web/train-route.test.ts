@@ -5,7 +5,7 @@ import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { WEST_FORUM } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_FORUM } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, BOB, PARTY_NOW, REPORTER } from '../../test/support/parties.js';
 import { createdMeetup, createdTrain } from '../../test/support/party-service.js';
@@ -283,7 +283,11 @@ describe("a train's route on the map", () => {
     });
     const gone = keptRow(906, { kind: 'powerspot', title: 'Old Kiosk', lat: 40.05, lon: -80.07 });
     const { storage, wayspots } = await wayspotsWith([lake, north, stop, east, gone]);
-    await storage.saveFromImport({ upsert: [], remove: [], gone: [gone.id] }, 5_000);
+    await storage.saveFromImport(
+      TEST_GUILD_ROW,
+      { upsert: [], remove: [], gone: [gone.id] },
+      5_000,
+    );
     await wayspots.load();
     const map = await arranging([4, 1, 7], { wayspots });
     web = map.web;

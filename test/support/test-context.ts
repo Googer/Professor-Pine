@@ -391,7 +391,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       wayspots:
         wayspots instanceof WayspotDirectory
           ? wayspots
-          : { near: (...args) => wayspots.near(...args), setPineStops: () => undefined },
+          : { of: (guildId) => wayspots.of(guildId), setPineStops: () => undefined },
       guilds: ctx.guilds,
       log,
     });

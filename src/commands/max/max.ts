@@ -63,6 +63,7 @@ import {
   shotCarriesOn,
 } from './max-screenshot.js';
 import { MAX_CHOICES } from '../choices.js';
+import { serverOf } from '../util/server-gym.js';
 
 /*
  * `/max` (plan 8X-3; design 3.2): reports a max battle at a power spot, or at a pin, "Unlisted
@@ -338,7 +339,11 @@ function maxCommand(screenshots: boolean): SimpleCommand {
       if (focused.name === 'spot' && focused.value.trim() === '') {
         // Nothing typed: the region's power spots by name (plan 8X-F), as a max train's route.
         await interaction.respond(
-          regionSpotChoices(ctx, regionChannelOf(interaction, ctx)).slice(0, MAX_CHOICES),
+          regionSpotChoices(
+            ctx,
+            await serverOf(interaction, ctx),
+            regionChannelOf(interaction, ctx),
+          ).slice(0, MAX_CHOICES),
         );
         return;
       }

@@ -1363,7 +1363,7 @@ export class ScreenshotTrigger {
           token,
           'spot',
           'Choose the Power Spot',
-          spotMenuOptions(ctx, offered, message),
+          spotMenuOptions(ctx, guildRow, offered, message),
         ),
       },
       this.options.questionMs ?? QUESTION_MS,
@@ -1540,16 +1540,18 @@ function menuQuestion(
 }
 
 /**
- * The options of a Power Spot menu: each by its title, one of another region than the message's
- * told apart by that region's name (as `menuDescription` tells a gym).
+ * The options of a Power Spot menu of a server's spots (its `Guild` row): each by its title, one
+ * of another region than the message's told apart by that region's name (as `menuDescription`
+ * tells a gym).
  */
 function spotMenuOptions(
   ctx: Pick<AppContext, 'wayspots'>,
+  guildRow: number,
   spots: readonly SpotTitle[],
   message: Pick<PostedMessage, 'channelName'>,
 ): APISelectMenuOption[] {
   return spots.map((spot) => {
-    const [elsewhere] = spot.local ? [] : ctx.wayspots.regionsOf(spot.id);
+    const [elsewhere] = spot.local ? [] : ctx.wayspots.of(guildRow).regionsOf(spot.id);
     const region = elsewhere === undefined ? undefined : message.channelName(elsewhere);
     return {
       label: truncate(spot.title, 100),

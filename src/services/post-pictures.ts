@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { wayspotPicture } from '../domain/wayspots/picture.js';
 import { BoundedBytes } from '../bounded-bytes.js';
@@ -176,10 +177,12 @@ export interface PlaceSources {
     all(): readonly { id: number; imageUrl?: string | null | undefined }[];
     stored(id: number): { imageUrl?: string | null | undefined } | undefined;
   };
+  /** The kept Wayspots of every server (plan 19B-3: each server's own rows). */
   wayspots?: {
     readonly contentGeneration: number;
-    all(): readonly { id: string; image: string | null }[];
-    byId(id: string): { image: string | null } | undefined;
+    servers(): number[];
+    eachOf(guildId: number): Iterable<{ id: string; image: string | null }>;
+    stored(guildId: number, id: string): { image: string | null } | undefined;
   };
 }
 
@@ -216,7 +219,7 @@ export class PlacePictures {
     const stamp = `${String(gyms.generation)}:${String(wayspots?.contentGeneration ?? 0)}`;
     const known = this.known.get(url);
     if (known !== undefined && 'stamp' in known && known.stamp === stamp) return undefined;
-    if (known !== undefined && 'kind' in known && this.urlOf(known.kind, known.id) === url) {
+    if (known !== undefined && 'kind' in known && this.shows(known.kind, known.id, url)) {
       return `${known.kind}/${known.id}`;
     }
     const place = this.lookUp(url);
@@ -228,37 +231,75 @@ export class PlacePictures {
   private lookUp(url: string): { kind: PlaceKind; id: string } | undefined {
     const gym = this.options.gyms.all().find((one) => wayspotPicture(one.imageUrl) === url);
     if (gym !== undefined) return { kind: 'gym', id: String(gym.id) };
-    const wayspot = this.options.wayspots?.all().find((one) => wayspotPicture(one.image) === url);
-    return wayspot === undefined ? undefined : { kind: 'wayspot', id: wayspot.id };
+    // Every server's Wayspots: a picture is Wayfarer's of the place, keyed by its Wayfarer id; it
+    // is served only as the asking server's copy shows it (`urlOf`, `read`).
+    // Each server's rows as the directory holds them, never copied (a miss of an instance's
+    // thousands of Wayspots).
+    const { wayspots } = this.options;
+    for (const guildId of wayspots?.servers() ?? []) {
+      for (const one of wayspots?.eachOf(guildId) ?? []) {
+        if (wayspotPicture(one.image) === url) return { kind: 'wayspot', id: one.id };
+      }
+    }
+    return undefined;
   }
 
   /** The address a post shows of a place's picture (`wayspotPicture`), undefined for none. */
-  urlOf(kind: PlaceKind, id: string): string | undefined {
+  urlOf(kind: PlaceKind, id: string, guildRow: number | undefined): string | undefined {
     if (kind === 'gym') {
       return /^\d{1,10}$/u.test(id)
         ? wayspotPicture(this.options.gyms.stored(Number(id))?.imageUrl)
         : undefined;
     }
-    return wayspotPicture(this.options.wayspots?.byId(id)?.image);
+    // The server's own copy of the Wayspot (plan 19B-3), the one its posts show.
+    return guildRow === undefined
+      ? undefined
+      : wayspotPicture(this.options.wayspots?.stored(guildRow, id)?.image);
   }
 
-  /** A place's picture, undefined where it has none or it cannot be had. */
-  async read(kind: PlaceKind, id: string): Promise<PictureBytes | undefined> {
-    const url = this.urlOf(kind, id);
+  /** Whether a place of some server shows this address of a picture (`keyOf`'s check). */
+  private shows(kind: PlaceKind, id: string, url: string): boolean {
+    if (kind === 'gym') return this.urlOf(kind, id, undefined) === url;
+    const { wayspots } = this.options;
+    return (
+      wayspots
+        ?.servers()
+        .some((guildId) => wayspotPicture(wayspots.stored(guildId, id)?.image) === url) ?? false
+    );
+  }
+
+  /**
+   * A place's picture as the server (its `Guild` row) shows it, undefined where it has none or it
+   * cannot be had.
+   */
+  async read(
+    kind: PlaceKind,
+    id: string,
+    guildRow: number | undefined,
+  ): Promise<PictureBytes | undefined> {
+    const url = this.urlOf(kind, id, guildRow);
     if (url === undefined) return undefined;
-    const file = await this.downloads.file(`${kind}/${id}`, {
+    // A Wayspot's file is its picture's own (plan 19B-3): two servers' copies of one Wayfarer id
+    // may show different pictures (scanned at different times), and neither replaces the other.
+    const picture = kind === 'wayspot' ? `-${urlHash(url)}` : '';
+    const file = await this.downloads.file(`${kind}/${id}${picture}`, {
       // A folder of its own: `places` is StaticMaps', pruned daily (`prunePlaces`); a place's
       // picture is kept until its address changes (the variant), or nobody asked for it in a
       // month (`prunePlacePictures`, which counts from its last use: `touch`).
       folder: PLACE_PICTURES_FOLDER,
       // The image cache takes letters, digits, hyphens and underscores: a Wayfarer id has a dot.
-      id: `${kind}-${id.replace(/[^A-Za-z0-9_-]/gu, '_')}`,
+      id: `${kind}-${id.replace(/[^A-Za-z0-9_-]/gu, '_')}${picture}`,
       variant: url,
       url,
       touch: true,
     });
     return pictureOf(file, this.options.read ?? readFile);
   }
+}
+
+/** A picture's address as a short name a file may carry: the first 16 hex digits of its SHA-256. */
+function urlHash(url: string): string {
+  return createHash('sha256').update(url).digest('hex').slice(0, 16);
 }
 
 /**

@@ -140,6 +140,33 @@ describe("the region editor's data", () => {
     expect(data.channels).toEqual([{ id: SOUTH_TEXT_CHANNEL, name: 'south' }]);
   });
 
+  it('gives the server’s own Wayspots alone, never another server’s copy or Wayspot in its regions (plan 19B-3)', async () => {
+    const editor = await editorSourcesWith(
+      [keptRow(1, { lat: 40.05, lon: -80.04 })],
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            keptRow(1, { lat: 40.05, lon: -80.04, title: 'Their Fountain' }),
+            keptRow(4, { lat: 40.06, lon: -80.06, title: 'Their Bench' }),
+          ],
+        },
+      ],
+    );
+    web = webServerWith({ staff: new FakeRegionStaff().asStaff(STAFF), editor });
+    const cookie = await web.loggedIn(STAFF, 'Brock');
+    const data = (await web.app.inject({ url: DATA, headers: { cookie } })).json<EditorData>();
+    expect(data.wayspots.map(([, , , title]) => title)).toEqual(['Stop 1']);
+    // The other server keeps both (positive control).
+    expect(
+      editor.wayspots
+        .of(OTHER_GUILD_ROW)
+        .all()
+        .map((one) => one.title)
+        .sort(),
+    ).toEqual(['Their Bench', 'Their Fountain']);
+  });
+
   it('shows the server’s own stops of Pine’s own, never another server’s, and follows them', async () => {
     const { web, editor } = await made();
     const sponsored = (id: number, serverId: string) => ({

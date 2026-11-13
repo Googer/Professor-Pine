@@ -94,7 +94,7 @@ function stillKnown(
   id: string,
 ): boolean {
   if (kind === 'gym') return /^\d+$/u.test(id) && ctx.gyms.of(row).get(Number(id)) !== undefined;
-  const wayspot = ctx.wayspots.byId(id);
+  const wayspot = ctx.wayspots.of(row).byId(id);
   return wayspot?.kind === kind && wayspot.title.trim() !== '';
 }
 
@@ -120,14 +120,16 @@ export function placeLabel(
 /**
  * The power spots of a region by name, as choices (`powerspot:<Wayfarer id>`, named by their
  * kind): what `/max spot:` and a max train's `/route add stop:` offer before anything is typed
- * (plans 8X-4, 8X-F). None outside a region's channel.
+ * (plans 8X-4, 8X-F): the server's (its row, plan 19B-3). None outside a region's channel.
  */
 export function regionSpotChoices(
   ctx: Pick<AppContext, 'wayspots'>,
+  row: number | undefined,
   region: string | undefined,
 ): Choice[] {
   if (region === undefined) return [];
   return ctx.wayspots
+    .of(row)
     .inRegion(region)
     .filter((spot) => spot.kind === 'powerspot' && spot.title.trim() !== '')
     .sort((a, b) => byName(a.title, b.title))

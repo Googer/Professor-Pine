@@ -27,8 +27,10 @@ import { streetOf, WayspotIndex } from '../domain/search/wayspot-index.js';
 import type { WayspotPlaces } from './wayspot-places.js';
 import type { Wayspot } from '../domain/wayspots/kept.js';
 import type { Logger } from '../log.js';
+import { BoundedMap } from '../bounded-map.js';
+import { MAX_SERVER_VIEWS } from './server-gyms.js';
 import type { GymDirectory } from './gym-directory.js';
-import type { WayspotProvider } from './wayspot-directory.js';
+import type { WayspotProvider, WayspotView } from './wayspot-directory.js';
 
 /**
  * A gym, PokéStop or power spot a member may name (`/wild near:`; plan 8W-2), as a choice: its
@@ -79,9 +81,13 @@ export interface PlaceFinderOptions {
    * as their gyms' places are; the indexes are built anew when it tells of new ones. Without it
    * a Wayspot has none.
    */
-  places?: Pick<WayspotPlaces, 'placesOf' | 'generation' | 'whenChanged'>;
+  places?: Pick<WayspotPlaces, 'placesOf' | 'generation'>;
   regions: { all(): readonly Region[] };
   log: Logger;
+  /** How many servers' indexes are kept built (`MAX_SERVER_VIEWS`). */
+  maxServers?: number;
+  /** Runs a build in a turn of its own; default `setImmediate`. A test passes its own. */
+  nextTurn?: (run: () => void) => void;
 }
 
 /** How many choices are told where they are (an autocomplete list has 25). */
@@ -96,19 +102,21 @@ export const ALL_PLACE_KINDS: readonly PlaceKind[] = ['gym', 'stop', 'powerspot'
 /** The kinds a meetup may be near (Matt, 2026-10-17): power spots are poorly curated. */
 export const MEETUP_PLACE_KINDS: readonly PlaceKind[] = ['gym', 'stop'];
 
+/** A server's indexes of its stops and Power Spots. */
 interface Indexes {
-  /** The Wayspots' `contentGeneration` they were built at. */
-  generation: number;
-  /** The places' `generation` they were built at. */
-  placesGeneration: number;
   stop: WayspotIndex<Wayspot>;
   powerspot: WayspotIndex<Wayspot>;
 }
 
-/** What is searched before the first build: no stop or power spot. */
+/** A server's indexes, with the generations of its Wayspots and their places they were built at. */
+interface BuiltIndexes {
+  indexes: Indexes;
+  contentAt: number;
+  placesAt: number;
+}
+
+/** What is searched before the first build, and for a server without Wayspots: nothing. */
 const NO_INDEXES: Indexes = {
-  generation: -1,
-  placesGeneration: -1,
   stop: new WayspotIndex<Wayspot>([]),
   powerspot: new WayspotIndex<Wayspot>([]),
 };
@@ -117,29 +125,96 @@ const NO_INDEXES: Indexes = {
  * Gyms, PokéStops and power spots of a server by what a member types (Matt, 2026-10-15, "Search
  * over stops and power spots"): the server's gyms through the gym search, the stops and power
  * spots each through an index of their own, merged by `mergePlaces`. Only what lies in a region
- * of the server is offered. The indexes are built from `WayspotDirectory` after every change of
- * what the Wayspots are (`contentGeneration`: a load), in a turn of their own (about a second
+ * of the server is offered.
+ *
+ * Each server's indexes are its own (plan 19B-3), built from its Wayspots on its first search
+ * after they changed (its `contentGenerationOf`, a load of its rows or its stops of Pine's own)
+ * or after the places did (`WayspotPlaces.generation`), in a turn of their own (about a second
  * for a city), never inside a search: until then a search answers from what was built (at first
- * nothing: the gyms alone). A Wayspot forgotten (it became a gym) is passed over at once: a
- * search takes only what the directory's regions hold now.
+ * nothing: the gyms alone). One server's change builds no other server's index; one server is
+ * built per turn; at most `maxServers` servers' indexes are kept, the one searched longest ago
+ * going first. A Wayspot forgotten (it became a gym) is passed over at once: a search takes only
+ * what the directory's regions hold now.
  */
 export class PlaceFinder {
-  private indexes: Indexes = NO_INDEXES;
+  /** Each server's indexes, by its `Guild` row. */
+  private readonly indexes: BoundedMap<number, BuiltIndexes>;
+  /** The servers whose indexes are to be built, in the order they asked. */
+  private readonly waiting = new Set<number>();
   private building: Promise<void> | undefined;
+  private readonly nextTurn: (run: () => void) => void;
+  /** How many servers' indexes were built: for tests. */
+  builds = 0;
 
   constructor(private readonly options: PlaceFinderOptions) {
-    options.wayspots.whenChanged(() => {
-      this.schedule();
-    });
-    options.places?.whenChanged(() => {
-      this.schedule();
-    });
-    this.schedule();
+    this.indexes = new BoundedMap(options.maxServers ?? MAX_SERVER_VIEWS);
+    this.nextTurn =
+      options.nextTurn ??
+      ((run) => {
+        setImmediate(run);
+      });
   }
 
-  /** Resolves once the build that waits, if any, is done. */
-  built(): Promise<void> {
+  /**
+   * For tests: resolves once the indexes of this server (of every server that has Wayspots,
+   * without one) are built of its Wayspots as they are now, as its next search would have them
+   * built. The bot never calls it: a server's indexes are built when it searches.
+   */
+  built(guildId?: number): Promise<void> {
+    for (const server of guildId === undefined ? this.options.wayspots.servers() : [guildId]) {
+      if (!this.current(server, this.indexes.get(server))) this.request(server);
+    }
     return this.building ?? Promise.resolve();
+  }
+
+  /** A server's indexes as built (nothing before the first build); asks for a build when stale. */
+  private indexesOf(guildId: number): Indexes {
+    const kept = this.indexes.get(guildId);
+    if (!this.current(guildId, kept)) this.request(guildId);
+    if (!kept) return NO_INDEXES;
+    // Searched again: the newest, so that the indexes of servers that search go last.
+    this.indexes.set(guildId, kept);
+    return kept.indexes;
+  }
+
+  /** Whether a server's indexes are built of its Wayspots and places as they are now. */
+  private current(guildId: number, kept: BuiltIndexes | undefined): boolean {
+    return (
+      kept !== undefined &&
+      kept.contentAt === this.options.wayspots.contentGenerationOf(guildId) &&
+      kept.placesAt === (this.options.places?.generation ?? 0)
+    );
+  }
+
+  /** Has a server's indexes built in a turn of their own, after those asked for before. */
+  private request(guildId: number): void {
+    this.waiting.add(guildId);
+    if (this.building) return;
+    this.building = new Promise((resolve) => {
+      const turn = (): void => {
+        this.nextTurn(() => {
+          const [next] = this.waiting;
+          if (next !== undefined) {
+            this.waiting.delete(next);
+            try {
+              this.build(next);
+            } catch (err) {
+              this.options.log.error(
+                { err, guild: next },
+                'could not build the search of the Wayspots',
+              );
+            }
+          }
+          if (this.waiting.size > 0) {
+            turn();
+            return;
+          }
+          this.building = undefined;
+          resolve();
+        });
+      };
+      turn();
+    });
   }
 
   /**
@@ -161,7 +236,8 @@ export class PlaceFinder {
     const { kindsFirst, anchors = [] } = order;
     const channels = this.channelsOf(guildId);
     if (channels.size === 0) return [];
-    const { wayspots } = this.options;
+    // The server's Wayspots (plan 19B-3): another server's is never found, offered or named.
+    const wayspots = this.options.wayspots.of(guildId);
     // The server's gyms (plan 19B-2): another server's gym is never found, offered or named.
     const gyms = this.options.gyms.of(guildId);
     const local = (regions: readonly string[]): boolean =>
@@ -190,7 +266,7 @@ export class PlaceFinder {
         distance: anchorMetres(hit.gym, anchors),
       });
     }
-    const { indexes } = this;
+    const indexes = this.indexesOf(guildId);
     for (const kind of ['stop', 'powerspot'] as const) {
       if (!kinds.includes(kind)) continue;
       const within = new Set<string>();
@@ -204,7 +280,7 @@ export class PlaceFinder {
         const regions = wayspots.regionsOf(match.wayspot.id);
         const fit = placeFit(text, [match.wayspot.title], match);
         hits.push({
-          item: wayspotChoice(this.options.wayspots, match.wayspot, fit, local(regions)),
+          item: wayspotChoice(wayspots, match.wayspot, fit, local(regions)),
           kind,
           title: match.wayspot.title,
           fit,
@@ -239,6 +315,7 @@ export class PlaceFinder {
     if (anchors.length === 0) return [];
     const channels = this.channelsOf(guildId);
     const serverGyms = this.gymsOf(guildId, channels);
+    const wayspots = this.options.wayspots.of(guildId);
     type Raw = { gym: Gym; wayspot?: never } | { wayspot: Wayspot; gym?: never };
     const places = new Map<string, Raw>();
     const add = (value: string, raw: Raw): void => {
@@ -250,7 +327,7 @@ export class PlaceFinder {
       }
     }
     for (const channelId of channels) {
-      for (const wayspot of this.options.wayspots.inRegion(channelId)) {
+      for (const wayspot of wayspots.inRegion(channelId)) {
         // A Wayspot called nothing is no place to name (`find`).
         if (kinds.includes(wayspot.kind) && wayspot.title.trim() !== '') {
           add(placeValue(wayspot), { wayspot });
@@ -266,7 +343,7 @@ export class PlaceFinder {
       choice: described(
         item.gym
           ? gymChoice(item.gym, 'exact', false)
-          : wayspotChoice(this.options.wayspots, item.wayspot, 'exact', false),
+          : wayspotChoice(wayspots, item.wayspot, 'exact', false),
         serverGyms,
       ),
       metres,
@@ -287,16 +364,18 @@ export class PlaceFinder {
       if (!gym || !ours(this.options.gyms.of(guildId).regionsOf(gym.id))) return undefined;
       return described(gymChoice(gym, 'exact', false), this.gymsOf(guildId, channels));
     }
-    const wayspot = this.options.wayspots.byId(read.id);
+    // A member's value is read through the server's view (plan 19B-3).
+    const wayspots = this.options.wayspots.of(guildId);
+    const wayspot = wayspots.byId(read.id);
     if (
       wayspot?.kind !== read.kind ||
       wayspot.title.trim() === '' ||
-      !ours(this.options.wayspots.regionsOf(wayspot.id))
+      !ours(wayspots.regionsOf(wayspot.id))
     ) {
       return undefined;
     }
     return described(
-      wayspotChoice(this.options.wayspots, wayspot, 'exact', false),
+      wayspotChoice(wayspots, wayspot, 'exact', false),
       this.gymsOf(guildId, channels),
     );
   }
@@ -330,7 +409,7 @@ export class PlaceFinder {
       }
     }
     // Only the server's own, as `find` offers them, and only one that is called something.
-    const { wayspots } = this.options;
+    const wayspots = this.options.wayspots.of(guildId);
     const spot = wayspots
       .near(
         point,
@@ -383,7 +462,7 @@ export class PlaceFinder {
     kind: 'stop' | 'powerspot',
   ): PlaceChoice | undefined {
     const channels = this.channelsOf(guildId);
-    const { wayspots } = this.options;
+    const wayspots = this.options.wayspots.of(guildId);
     const spot = wayspots
       .near(point, PIN_NEAR_METRES, [kind])
       .find(
@@ -394,7 +473,7 @@ export class PlaceFinder {
     return (
       spot &&
       described(
-        wayspotChoice(this.options.wayspots, spot.wayspot, 'exact', false),
+        wayspotChoice(wayspots, spot.wayspot, 'exact', false),
         this.gymsOf(guildId, channels),
       )
     );
@@ -405,9 +484,10 @@ export class PlaceFinder {
    * none is known says how staff add them).
    */
   hasStops(guildId: number): boolean {
+    const wayspots = this.options.wayspots.of(guildId);
     for (const channelId of this.channelsOf(guildId)) {
       if (
-        this.options.wayspots
+        wayspots
           .inRegion(channelId)
           .some((wayspot) => wayspot.kind === 'stop' && wayspot.title.trim() !== '')
       ) {
@@ -437,46 +517,32 @@ export class PlaceFinder {
     return found;
   }
 
-  /** Builds the indexes in a turn of their own, once for any number of changes before it. */
-  private schedule(): void {
-    if (this.building) return;
-    this.building = new Promise((resolve) => {
-      setImmediate(() => {
-        this.building = undefined;
-        try {
-          this.build();
-        } catch (err) {
-          this.options.log.error({ err }, 'could not build the search of the Wayspots');
-        }
-        resolve();
-      });
-    });
-  }
-
-  /** The indexes of the stops and power spots, built anew when what the Wayspots are changed. */
-  private build(): void {
+  /**
+   * The indexes of a server's stops and power spots, of its own rows and stops of Pine's own;
+   * nothing when they are current (asked twice before the turn came).
+   */
+  private build(guildId: number): void {
     const { wayspots, places, log } = this.options;
-    const generation = wayspots.contentGeneration;
-    const placesGeneration = places?.generation ?? 0;
-    if (
-      this.indexes.generation === generation &&
-      this.indexes.placesGeneration === placesGeneration
-    ) {
-      return;
-    }
+    const contentAt = wayspots.contentGenerationOf(guildId);
+    const placesAt = places?.generation ?? 0;
+    if (this.current(guildId, this.indexes.get(guildId))) return;
     const started = performance.now();
-    const all = wayspots.all();
+    const placesOf = (id: string): string | null => places?.placesOf(id) ?? null;
+    const all = wayspots.of(guildId).all();
     const stops = all.filter((wayspot) => wayspot.kind === 'stop');
     const spots = all.filter((wayspot) => wayspot.kind === 'powerspot');
-    const placesOf = (id: string): string | null => places?.placesOf(id) ?? null;
-    this.indexes = {
-      generation,
-      placesGeneration,
-      stop: new WayspotIndex(stops, placesOf),
-      powerspot: new WayspotIndex(spots, placesOf),
-    };
+    this.indexes.set(guildId, {
+      indexes: {
+        stop: new WayspotIndex(stops, placesOf),
+        powerspot: new WayspotIndex(spots, placesOf),
+      },
+      contentAt,
+      placesAt,
+    });
+    this.builds += 1;
     log.info(
       {
+        guild: guildId,
         stops: stops.length,
         powerspots: spots.length,
         ms: Math.round(performance.now() - started),
@@ -535,7 +601,7 @@ function described(choice: PlaceChoice, gyms: ReadonlyMap<number, Gym>): PlaceCh
 }
 
 function wayspotChoice(
-  wayspots: Pick<WayspotProvider, 'addressOf'>,
+  wayspots: Pick<WayspotView, 'addressOf'>,
   wayspot: Wayspot,
   fit: PlaceFit,
   local: boolean,

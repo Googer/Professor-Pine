@@ -134,13 +134,15 @@ async function moreStops(
       )
       .map((report) => report.stop.key),
   );
-  return ctx.wayspots
+  // The server's own stops (plan 19B-3).
+  const wayspots = ctx.wayspots.of(row);
+  return wayspots
     .near(first, MORE_STOPS_METRES, ['stop'])
     .filter(
       ({ wayspot }) =>
         wayspot.title.trim() !== '' &&
         !reported.has(wayspot.id) &&
-        ctx.wayspots.regionsOf(wayspot.id).some((id) => ours.has(id)),
+        wayspots.regionsOf(wayspot.id).some((id) => ours.has(id)),
     )
     .slice(0, MORE_STOPS)
     .map(({ wayspot, metres }) => ({

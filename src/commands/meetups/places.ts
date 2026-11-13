@@ -8,10 +8,7 @@ import { showInPlace, v2Answer } from '../../discord/late-reply.js';
 import { memberInfo } from '../../discord/member-info.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import type { V2Message } from '../../discord/party-gateway.js';
-import { addressLine } from '../../domain/geo/google.js';
-import type { KnownPlace } from '../../domain/geo/place.js';
 import type { PlaceRulingRecord } from '../../domain/meetups/records.js';
-import type { RulingKey } from '../../domain/meetups/safety.js';
 import type { PlaceKind } from '../../domain/search/place-merge.js';
 import { PLACE_KIND_WORDS } from '../../render/place.js';
 import { PLACES_KIND, placePage, placesList } from '../../render/places.js';
@@ -21,51 +18,24 @@ import { MAX_PLACE_TEXT, namedPlace, nearChoices } from '../place-option.js';
 
 const PLACE_KINDS: readonly PlaceKind[] = ['gym', 'stop', 'powerspot'];
 
-/** A ruled place as it is now, when its ruling kept none (8S-1's): the gym or the Wayspot. */
-function placeNow(ctx: AppContext, key: RulingKey): KnownPlace | undefined {
-  if (key.kind === 'gym') {
-    // A ruling's place is one its server stored (plan 19B-2).
-    const gym = /^\d+$/u.test(key.id) ? ctx.gyms.stored(Number(key.id)) : undefined;
-    return (
-      gym && {
-        kind: 'gym',
-        id: key.id,
-        title: gym.nickname || gym.name,
-        lat: gym.lat,
-        lon: gym.lon,
-        address: addressLine(gym.geodata) || null,
-        image: gym.imageUrl,
-      }
-    );
-  }
-  const wayspot = ctx.wayspots.byId(key.id);
-  return (
-    wayspot && {
-      kind: key.kind,
-      id: wayspot.id,
-      title: wayspot.title,
-      lat: wayspot.lat,
-      lon: wayspot.lon,
-      address: null,
-      image: null,
-    }
-  );
-}
-
-/** The name a ruled place is listed by. */
-function titleOf(ctx: AppContext, ruling: PlaceRulingRecord): string {
+/**
+ * The name a ruled place is listed by: as its ruling kept it, else as it is now (8S-1's kept
+ * none: `MeetupSafety.placeNow`, the server's gym or kept Wayspot).
+ */
+function titleOf(ctx: AppContext, guildRow: number | undefined, ruling: PlaceRulingRecord): string {
   return (
     ruling.place?.title ??
-    placeNow(ctx, ruling.key)?.title ??
+    ctx.meetupSafety.placeNow(ruling.key, guildRow)?.title ??
     `${PLACE_KIND_WORDS[ruling.key.kind]} ${ruling.key.id}`
   );
 }
 
 /** The list of `/places` at a page, read anew. */
 async function listPage(ctx: AppContext, serverId: string, page: number): Promise<V2Message> {
-  const [overview, reports] = await Promise.all([
+  const [overview, reports, guildRow] = await Promise.all([
     ctx.meetupSafety.overview(serverId),
     ctx.reports.openReports(serverId),
+    ctx.guilds.idFor(serverId),
   ]);
   // A block of 8S-1 kept no name: the member as the server knows them now, else the mention.
   const blocks = await Promise.all(
@@ -81,7 +51,7 @@ async function listPage(ctx: AppContext, serverId: string, page: number): Promis
     ),
   );
   return placesList(
-    { serverId, ...overview, blocks, reports, titleOf: (ruling) => titleOf(ctx, ruling) },
+    { serverId, ...overview, blocks, reports, titleOf: (ruling) => titleOf(ctx, guildRow, ruling) },
     page,
   );
 }
@@ -179,7 +149,7 @@ export const placesControls: ComponentHandler = {
     if (kind === undefined) throw new UserError(STALE_COMPONENT);
     const key = { kind, id: arg };
     const undone = await ctx.meetupSafety.undoRuling(serverId, key, moderator);
-    const place = undone?.place ?? placeNow(ctx, key);
+    const place = undone?.place ?? ctx.meetupSafety.placeNow(key, await ctx.guilds.idFor(serverId));
     const said =
       undone === undefined
         ? 'It had no ruling any more.'

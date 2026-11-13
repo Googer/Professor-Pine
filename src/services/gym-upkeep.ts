@@ -17,6 +17,7 @@ import {
 import { MemoryGoogleUse, usedThisMonth, type GoogleCount, type GoogleUse } from './google-use.js';
 import type { GoogleRanks } from './google-ranks.js';
 import { MemoryGymLookups, type GymLookups, type WaitingGym } from './gym-lookups.js';
+import type { Wayspot } from '../domain/wayspots/kept.js';
 import type { WayspotProvider } from './wayspot-directory.js';
 import {
   MemoryWayspotLookups,
@@ -164,7 +165,10 @@ export interface GymUpkeepOptions {
    * Spots in a region of a server wait in the line after the gyms (plan 8W-6). Without them only
    * gyms wait.
    */
-  wayspots?: Pick<WayspotProvider, 'all' | 'byId' | 'near' | 'contentGeneration' | 'whenChanged'>;
+  wayspots?: Pick<
+    WayspotProvider,
+    'servers' | 'of' | 'stored' | 'contentGeneration' | 'whenChanged'
+  >;
   /**
    * The regions (`RegionDirectory`): after each load that changed their outlines the Wayspots' part
    * of the line follows them, so that a region added or saved queues the PokéStops and Power Spots it
@@ -381,7 +385,7 @@ export class GymUpkeep {
       );
       const add: QueuedWayspot[] = [];
       const kept = new Set<string>();
-      for (const wayspot of wayspots.all()) {
+      for (const wayspot of this.everyWayspot()) {
         if (wayspot.kind !== 'stop' && wayspot.kind !== 'powerspot') continue;
         const rank = this.ranks.ofWayspot(wayspot.id);
         if (rank === undefined) continue;
@@ -400,7 +404,7 @@ export class GymUpkeep {
       }
       const leave = [...waiting.keys()].filter((id) => !kept.has(id));
       const drop = this.places.ids().filter((id) => {
-        const kind = wayspots.byId(id)?.kind;
+        const kind = this.copyOf(id)?.wayspot.kind;
         return kind !== 'stop' && kind !== 'powerspot';
       });
       await this.wayspotLookups.add(add, this.now());
@@ -1065,7 +1069,7 @@ export class GymUpkeep {
     /** Its places are kept: what fails after is no failed question, and is not asked again. */
     let saved = false;
     try {
-      const wayspot = this.options.wayspots?.byId(id);
+      const wayspot = this.copyOf(id)?.wayspot;
       if (!wayspot || (wayspot.kind !== 'stop' && wayspot.kind !== 'powerspot')) {
         await this.wayspotLookups.remove([id]);
         return undefined;
@@ -1091,7 +1095,7 @@ export class GymUpkeep {
       });
       saved = true;
       // Moved or of another kind while Google was asked: it waits again, as it is now.
-      const now = this.options.wayspots?.byId(id);
+      const now = this.copyOf(id)?.wayspot;
       const changed =
         now !== undefined &&
         (now.kind !== wayspot.kind || metresBetween(now, wayspot) > WAYSPOT_MOVED_METRES);
@@ -1139,11 +1143,40 @@ export class GymUpkeep {
         nearest = metres;
       }
     }
+    // Its server's other Wayspots (plan 19B-3), of the server whose copy is asked about.
+    const copy = this.copyOf(wayspot.id);
     const other = this.options.wayspots
-      ?.near(wayspot, NEAREST_PLACE_METRES, ['stop', 'powerspot', 'gym'])
+      ?.of(copy?.guildId)
+      .near(wayspot, NEAREST_PLACE_METRES, ['stop', 'powerspot', 'gym'])
       .find((near) => near.wayspot.id !== wayspot.id);
     if (other && (nearest === undefined || other.metres < nearest)) nearest = other.metres;
     return nearest;
+  }
+
+  /**
+   * Every server's kept Wayspots and stops of Pine's own, each Wayfarer id once (the first
+   * server's copy): the line waits by Wayfarer id until plan 19B-3's task 4 keys it by server.
+   */
+  private *everyWayspot(): Iterable<Wayspot> {
+    const { wayspots } = this.options;
+    const seen = new Set<string>();
+    for (const guildId of wayspots?.servers() ?? []) {
+      for (const wayspot of wayspots?.of(guildId).all() ?? []) {
+        if (seen.has(wayspot.id)) continue;
+        seen.add(wayspot.id);
+        yield wayspot;
+      }
+    }
+  }
+
+  /** The first server's copy of a Wayspot, with that server: the line's by Wayfarer id. */
+  private copyOf(id: string): { guildId: number; wayspot: Wayspot } | undefined {
+    const { wayspots } = this.options;
+    for (const guildId of wayspots?.servers() ?? []) {
+      const wayspot = wayspots?.stored(guildId, id);
+      if (wayspot) return { guildId, wayspot };
+    }
+    return undefined;
   }
 
   /** Runs work nobody waits for; what it throws is logged. Nothing is started after `stop`. */

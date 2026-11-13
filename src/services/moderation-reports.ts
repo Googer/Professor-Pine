@@ -157,7 +157,7 @@ export interface ModerationReportsOptions {
   /** The gyms, for a raid's and a train's place and a gym's official name. */
   gyms?: Pick<GymProvider, 'stored'>;
   /** The kept Wayspots, for a train at a power spot (plan 8X-4); without them it is at no place. */
-  wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf'>;
+  wayspots?: Pick<WayspotProvider, 'stored' | 'addressOf'>;
   settings: Settings;
   /** Each server's values: its moderators' channel, which reports go to (plan 19A-1). */
   servers: ServerSettingsLookup;
@@ -979,7 +979,7 @@ export class ModerationReports {
     if (at?.kind === 'powerspot') {
       // A power spot of a train's route (plan 8X-4), as it is kept now.
       const { wayspots } = this.options;
-      const kept = wayspots?.byId(at.id);
+      const kept = wayspots?.stored(party.guildId, at.id);
       return wayspots && kept?.kind === 'powerspot'
         ? spotPlace(kept, wayspots.addressOf(kept))
         : null;

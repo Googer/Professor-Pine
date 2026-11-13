@@ -467,7 +467,7 @@ describe('/gym import: the preview', () => {
     expect(linesOf(sentLast(pressed))).toContain(
       'PokéStops and Power Spots for `/wild` and the map: 2 new, 1 changed.',
     );
-    expect((await made.wayspotStore.all()).map((row) => row.title)).toEqual([
+    expect((await made.wayspotStore.all(TEST_GUILD_ROW)).map((row) => row.title)).toEqual([
       'Bench by the Mosaic',
       'Mosaic Wall',
       'Little Free Library',
@@ -488,7 +488,9 @@ describe('/gym import: the preview', () => {
     const { answer } = await importing(made, packed(file));
     await pressV2(made, buttonId(answer, 'Import'));
     await made.settle();
-    const kept = (await made.wayspotStore.all()).find((row) => row.title === 'Rammummy');
+    const kept = (await made.wayspotStore.all(TEST_GUILD_ROW)).find(
+      (row) => row.title === 'Rammummy',
+    );
     expect(kept?.kind).toBe('powerspot');
   });
 
@@ -520,7 +522,7 @@ describe('/gym import: the preview', () => {
     made.wayspotStore.all = all;
     await pressing(made, buttonId(answer, 'Import'), answer);
     await made.settle();
-    expect((await made.wayspotStore.all()).map((row) => row.title)).toContain(
+    expect((await made.wayspotStore.all(TEST_GUILD_ROW)).map((row) => row.title)).toContain(
       'Bench by the Mosaic',
     );
   });

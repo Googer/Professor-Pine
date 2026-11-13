@@ -804,7 +804,7 @@ export interface PartyServiceOptions {
    * (`shownPlace`), and is shown anew after every change of what they are. Without them it
    * shows the place as it was named.
    */
-  wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf' | 'whenChanged' | 'regionsOf' | 'size'>;
+  wayspots?: Pick<WayspotProvider, 'of' | 'stored' | 'addressOf' | 'whenChanged' | 'size'>;
   /**
    * The raids and max battles of the history (plan 8H-7A): read once when a train ends, for the
    * raids along its way on its card. Without it the card says nothing of raids.
@@ -1041,8 +1041,8 @@ export class PartyService {
           ? options.log.warn({ err, region }, 'could not update a summary')
           : options.log.error({ err, region }, 'could not update a summary'),
     });
-    options.wayspots?.whenChanged(() => {
-      this.wayspotsChanged();
+    options.wayspots?.whenChanged((guildId) => {
+      this.wayspotsChanged(guildId);
     });
     // Each change in memory counted, for the presses that wait for their post (plan 8M-11A, S1).
     options.store.onChange((_before, after) => {
@@ -1344,21 +1344,23 @@ export class PartyService {
       ...(wayspots === undefined
         ? {}
         : {
-            wayspot: (id: string) => wayspots.byId(id),
+            wayspot: (id: string) => wayspots.stored(party.guildId, id),
             addressOf: (wayspot: AddressedWayspot & { id: string }) => wayspots.addressOf(wayspot),
           }),
     };
   }
 
   /**
-   * After the kept Wayspots changed (an import): the meetups near a PokéStop or power spot are
-   * shown anew, with the place as it is now (`shownPlace`).
+   * After a server's kept Wayspots changed (its import): its meetups near a PokéStop or power
+   * spot are shown anew, with the place as it is now (`shownPlace`); another server's parties
+   * read none of its Wayspots, and are left alone.
    */
-  private wayspotsChanged(): void {
+  private wayspotsChanged(guildId: number): void {
     // At shutdown nothing is shown anew any more. At start the kept Wayspots load before the
     // parties: a post shown after that shows the place as it is then anyway.
     if (this.closed || !this.options.store.isLoaded) return;
     for (const party of this.options.store.active()) {
+      if (party.guildId !== guildId) continue;
       // A max battle at a power spot shows it as it is now too (plan 8X-3).
       const kind = isMeetup(party)
         ? party.meetup.place?.kind
@@ -1392,17 +1394,17 @@ export class PartyService {
     if (spot.kind === 'pin' || wayspots === undefined) return spot;
     return spotNow(
       spot,
-      (id) => wayspots.byId(id),
+      (id) => wayspots.stored(party.guildId, id),
       (wayspot) => wayspots.addressOf(wayspot),
     );
   }
 
   /**
-   * The stops of trains' routes as they are now (plan 8X-4): gyms from the gym list, power spots
-   * from the kept Wayspots.
+   * The stops of the routes of a server's trains as they are now (plan 8X-4): gyms from the gym
+   * list, power spots from the server's kept Wayspots (plan 19B-3).
    */
-  get stops(): StopLookup {
-    return stopsFrom(this.options.gyms, this.options.wayspots);
+  stopsOf(guildId: number): StopLookup {
+    return stopsFrom(this.options.gyms, this.options.wayspots, guildId);
   }
 
   /** Everything the renderer needs to show a train as it is now. */
@@ -1411,7 +1413,7 @@ export class PartyService {
     const catalogue = gameData.catalogue;
     return {
       ...this.timedView(party),
-      stop: this.stops,
+      stop: this.stopsOf(party.guildId),
       boss: shownBoss(party, catalogue, raidBosses.bosses(this.zoneOf(party)), gameData.icons),
       catalogue,
     };
@@ -1464,7 +1466,7 @@ export class PartyService {
       ...(wayspots === undefined
         ? {}
         : {
-            wayspot: (id: string) => wayspots.byId(id),
+            wayspot: (id: string) => wayspots.stored(party.guildId, id),
             addressOf: (wayspot: AddressedWayspot & { id: string }) => wayspots.addressOf(wayspot),
           }),
       ...this.lobbiesOf(party),
@@ -4045,7 +4047,7 @@ export class PartyService {
     const meetups = parties.filter(isMeetup).map((party) => ({ party, title: meetupTitle(party) }));
     const trains = parties.filter(isTrain).map((party) => {
       const stop = currentStop(party);
-      const at = stop === undefined ? undefined : stopLabel(this.stops(stop));
+      const at = stop === undefined ? undefined : stopLabel(this.stopsOf(party.guildId)(stop));
       return { party, title: trainTitle(party), at };
     });
     const maxBattles = parties
@@ -4101,7 +4103,7 @@ export class PartyService {
         return {
           party,
           title: trainTitle(party),
-          at: stop === undefined ? undefined : stopLabel(this.stops(stop)),
+          at: stop === undefined ? undefined : stopLabel(this.stopsOf(party.guildId)(stop)),
           copyUrl:
             copy === undefined || snowflake === undefined
               ? undefined

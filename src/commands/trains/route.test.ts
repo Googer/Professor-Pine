@@ -16,7 +16,7 @@ import {
   sent,
   type FakeInteraction,
 } from '../../../test/support/fake-interactions.js';
-import { testGyms, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import { TEST_GUILD_ROW, testGyms, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
 import {
   ALICE,
   BOB,
@@ -678,7 +678,7 @@ describe('/route add stop: a gym or a Power Spot (plan 8X-4; design 6.2)', () =>
     const fromSeven = await values(await withSpots(undefined, [], [4, 1, 7]));
     // The Fountain, the last stop, is forgotten (it became a gym, say): gym 7 is the anchor.
     const gone = await withSpots(undefined, [], [4, 1, 7, spotStop(FOUNTAIN.id)]);
-    gone.directory.forget([FOUNTAIN.id]);
+    gone.directory.forget(TEST_GUILD_ROW, [FOUNTAIN.id]);
     expect(await values(gone)).toEqual(
       fromSeven.filter((value) => value !== `powerspot:${FOUNTAIN.id}`),
     );
@@ -752,7 +752,7 @@ describe('/route add stop: a gym or a Power Spot (plan 8X-4; design 6.2)', () =>
       spotStop(FOUNTAIN.id),
     ]);
     // The fountain is no power spot any more (an import made it a PokéStop): it is left out.
-    made.directory.forget([FOUNTAIN.id]);
+    made.directory.forget(TEST_GUILD_ROW, [FOUNTAIN.id]);
     await made.trains.clearRoute(made.party.id, { id: ALICE }, true);
     const id = made.routes.rows[0]?.id ?? 0;
     expect(await made.answer('load', { route: `id:${id}` })).toMatch(

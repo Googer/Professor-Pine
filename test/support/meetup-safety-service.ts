@@ -1,6 +1,7 @@
 import type { MeetupRequestRecord } from '../../src/domain/meetups/records.js';
 import type { Party } from '../../src/domain/party/party.js';
 import { MeetupSafety, type RequestAsk } from '../../src/services/meetup-safety.js';
+import type { WayspotProvider } from '../../src/services/wayspot-directory.js';
 import { WEST_CHANNEL } from './gyms.js';
 import { LIBRARY, MAKER, SAFETY_SERVER } from './meetup-safety-cases.js';
 import { MemoryMeetupSafety } from './meetup-safety.js';
@@ -21,6 +22,8 @@ export interface SafetyOptions {
   channel?: boolean;
   /** The server's `flaggedWords` (plan 19A-1: its own; `meetupSafety.flaggedWords` of the file). */
   flaggedWords?: string[];
+  /** The kept Wayspots a ruled place of none kept is read from (`wayspotsWith`); none without. */
+  wayspots?: Pick<WayspotProvider, 'stored'>;
 }
 
 /**
@@ -36,7 +39,7 @@ export async function meetupSafetyWith(
   overrides: ServiceOverrides = {},
 ) {
   const made = await partyServiceWith(parties, overrides);
-  const { moderation = MODERATION, channel = true, flaggedWords } = options;
+  const { moderation = MODERATION, channel = true, flaggedWords, wayspots } = options;
   const { settings } = made;
   // The server's moderators' channel (plan 19A-1: by id), for every service of `made`.
   const { moderation: _none, ...channels } = made.servers.values.channels;
@@ -54,6 +57,7 @@ export async function meetupSafetyWith(
     regions: made.regions,
     dms: made.dms,
     gyms: made.gyms,
+    ...(wayspots === undefined ? {} : { wayspots }),
     store: made.store,
     guilds: {
       idFor: (snowflake) => Promise.resolve(snowflake === made.gateway.guildId ? 1 : undefined),

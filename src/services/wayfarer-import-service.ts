@@ -322,7 +322,7 @@ export class WayfarerImportService {
       ...planned.plan.added.map((wayspot) => wayspot.id),
     ]);
     return {
-      wayspots: await this.keptCounts(file, gymIds),
+      wayspots: await this.keptCounts(guildId, file, gymIds),
       plan: planned.plan,
       gyms: planned.gyms,
       holders,
@@ -385,13 +385,14 @@ export class WayfarerImportService {
    * (logged: the preview goes without them).
    */
   private async keptCounts(
+    guildId: number | undefined,
     file: WayspotExport,
     gymIds: ReadonlySet<string>,
   ): Promise<WayspotCounts | undefined> {
     let kept: Wayspot[];
     let gone: Map<string, GoneWayspot>;
     try {
-      [kept, gone] = await Promise.all([this.options.wayspots.all(), this.options.wayspots.gone()]);
+      [kept, gone] = await this.keptOf(guildId);
     } catch (err) {
       this.options.log.error({ err }, 'could not read the kept Wayspots');
       return undefined;
@@ -406,6 +407,23 @@ export class WayfarerImportService {
       scannedAt: scanTimeOf(file, now),
       startedAt: scanStartOf(file, now),
     }).counts;
+  }
+
+  /**
+   * The server's kept Wayspots and those its imports found gone (plan 19B-3: its own rows alone;
+   * another server's copy of a Wayspot is none of its import). A server without a row keeps none.
+   */
+  private async keptOf(
+    guildId: number | undefined,
+  ): Promise<[Wayspot[], Map<string, GoneWayspot>]> {
+    if (guildId === undefined) return [[], new Map()];
+    const { wayspots } = this.options;
+    return Promise.all([wayspots.all(guildId), wayspots.gone(guildId)]);
+  }
+
+  /** Deletes the server's rows of these Wayspots (they are its gyms now); none without a row. */
+  private async removeKept(guildId: number | undefined, ids: readonly string[]): Promise<number> {
+    return guildId === undefined ? 0 : this.options.wayspots.remove(guildId, ids);
   }
 
   /** The Wayfarer ids of every gym, of any server: those Wayspots live in `Gym`. */
@@ -498,9 +516,10 @@ export class WayfarerImportService {
   async apply(staff: StaffPlace, file: WayspotExport): Promise<WayfarerOutcome> {
     const { admin, log } = this.options;
     const outcome = await admin.batch(staff, 'import', (ops) => this.applyLocked(ops, staff, file));
-    // The kept Wayspots as the import left them (an import of a city: about a second).
+    // The server's kept Wayspots as its import left them (plan 19B-3: its rows alone, by the
+    // primary key's prefix; another server's are as they were).
     try {
-      await this.options.kept.load();
+      if (staff.guildId !== undefined) await this.options.kept.load(staff.guildId);
     } catch (err) {
       log.error({ err }, 'could not read the Wayspots again after a Wayfarer import');
     }
@@ -545,8 +564,8 @@ export class WayfarerImportService {
       if (written === 'failed') return { kind: 'failed' };
       await this.record('seen', () => storage.seen([gymId], this.now()));
       // The Wayspot lives in `Gym` now.
-      await this.record('wayspots', () => this.options.wayspots.remove([wayspot.id]));
-      this.options.kept.forget([wayspot.id]);
+      await this.record('wayspots', () => this.removeKept(staff.guildId, [wayspot.id]));
+      if (staff.guildId !== undefined) this.options.kept.forget(staff.guildId, [wayspot.id]);
       if (change.unmark) await this.record('marks', () => storage.clearNotInWayfarer([gymId]));
       return { kind: 'matched', change, gym: directory.of(staff.guildId).get(gymId) ?? gym };
     });
@@ -564,11 +583,7 @@ export class WayfarerImportService {
     const unrecorded: Unrecorded[] = [];
     // The kept Wayspots as they are before the import: whether a Wayfarer gym it adds was a
     // PokéStop, and what it changes of them. Without them the gyms are written all the same.
-    const read = await this.record(
-      'wayspots',
-      () => Promise.all([this.options.wayspots.all(), this.options.wayspots.gone()]),
-      unrecorded,
-    );
+    const read = await this.record('wayspots', () => this.keptOf(guildId), unrecorded);
     const [kept, gone] = read ?? [undefined, undefined];
     const before = new Map((kept ?? []).map((row): [string, Wayspot] => [row.id, row]));
     const counts: AppliedCounts = {
@@ -697,7 +712,8 @@ export class WayfarerImportService {
     // transaction of chunks; seen when the file's scan was made, and what a newer scan wrote is
     // left alone.
     let wayspots: WayspotCounts = { ...NO_WAYSPOT_CHANGES };
-    if (kept !== undefined) {
+    // The server's own rows (plan 19B-3): a server without a row keeps no Wayspot.
+    if (kept !== undefined && guildId !== undefined) {
       const scannedAt = scanTimeOf(file, now);
       const startedAt = scanStartOf(file, now);
       const keep = planKept({
@@ -712,7 +728,13 @@ export class WayfarerImportService {
       const saved = await this.record(
         'wayspots',
         async () => {
-          await this.options.wayspots.saveFromImport(keep.writes, now, scannedAt, startedAt);
+          await this.options.wayspots.saveFromImport(
+            guildId,
+            keep.writes,
+            now,
+            scannedAt,
+            startedAt,
+          );
           return true;
         },
         unrecorded,

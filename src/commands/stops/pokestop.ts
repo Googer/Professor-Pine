@@ -189,7 +189,7 @@ const addStop: SubcommandPart = {
       interaction.options.getString('at', true),
     );
     const serverId = guildIdOf(interaction);
-    const near = ctx.pineStops.nearStops(point, serverId);
+    const near = await ctx.pineStops.nearStops(point, serverId);
     if (near.length === 0) {
       const stop = await ctx.pineStops.add({
         serverId,

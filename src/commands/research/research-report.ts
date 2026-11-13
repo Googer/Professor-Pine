@@ -115,11 +115,13 @@ export async function stopReportBarred(
 ): Promise<Pick<ReportedStop, 'key' | 'name'> | undefined> {
   if (member.administrator) return undefined;
   const ours = await ownChannels(ctx, serverId);
+  // The server's own stops (plan 19B-3): another server's is none of its reports.
+  const wayspots = ctx.wayspots.of(await ctx.guilds.idFor(serverId));
   const asked = new Map<string, Promise<MemberAccess | undefined>>();
   const standing = (gate: string) =>
     asked.getOrInsertComputed(gate, () => memberAccess(gate, member.id));
   for (const stop of stops) {
-    const regions = ctx.wayspots
+    const regions = wayspots
       .regionsOf(stop.key)
       .filter((channelId) => ours.has(channelId))
       .flatMap((channelId) => ctx.regions.byChannel(channelId) ?? []);
@@ -145,16 +147,18 @@ export async function stopsByKey(
   keys: readonly string[],
 ): Promise<ReportedStop[]> {
   const ours = await ownChannels(ctx, serverId);
+  // The server's own stops (plan 19B-3): another server's is none of its reports.
+  const wayspots = ctx.wayspots.of(await ctx.guilds.idFor(serverId));
   return [...new Set(keys)].flatMap((key): ReportedStop[] => {
-    const wayspot = ctx.wayspots.byId(key);
+    const wayspot = wayspots.byId(key);
     if (
       wayspot?.kind !== 'stop' ||
       wayspot.title.trim() === '' ||
-      !ctx.wayspots.regionsOf(key).some((id) => ours.has(id))
+      !wayspots.regionsOf(key).some((id) => ours.has(id))
     ) {
       return [];
     }
-    const address = ctx.wayspots.addressOf(wayspot);
+    const address = wayspots.addressOf(wayspot);
     return [
       {
         key,
@@ -175,10 +179,10 @@ async function postChannels(
   stops: readonly ReportedStop[],
 ): Promise<string[]> {
   const ours = await ownChannels(ctx, serverId);
+  // The server's own stops (plan 19B-3): another server's is none of its reports.
+  const wayspots = ctx.wayspots.of(await ctx.guilds.idFor(serverId));
   return [
-    ...new Set(
-      stops.flatMap((stop) => ctx.wayspots.regionsOf(stop.key).filter((id) => ours.has(id))),
-    ),
+    ...new Set(stops.flatMap((stop) => wayspots.regionsOf(stop.key).filter((id) => ours.has(id)))),
   ];
 }
 

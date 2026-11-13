@@ -1,3 +1,4 @@
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW } from '../../test/support/gyms.js';
 import { describe, expect, it } from 'vitest';
 import { EAST_CHANNEL } from '../../test/support/gyms.js';
 import { customIdsOf, textOf } from '../../test/support/messages.js';
@@ -77,6 +78,7 @@ describe('Power Spots as stops of a train (plan 8X-4; design 6.2)', () => {
   it('takes off a Power Spot that an import found gone or made a PokéStop, as an unknown gym', async () => {
     const made = await spotted([4, spotStop(WEST_SPOT.id), spotStop(EAST_SPOT.id)]);
     await made.storage.saveFromImport(
+      TEST_GUILD_ROW,
       { upsert: [{ ...EAST_SPOT, kind: 'stop' }], remove: [], gone: [WEST_SPOT.id] },
       5_000,
     );
@@ -89,6 +91,38 @@ describe('Power Spots as stops of a train (plan 8X-4; design 6.2)', () => {
     );
   });
 
+  it('takes off a Power Spot its server no longer keeps, though another server keeps it (plan 19B-3)', async () => {
+    // The second server keeps its own copy of the West spot, and a spot of its own in West.
+    const theirs = keptRow(905, {
+      kind: 'powerspot',
+      title: 'Their Gazebo',
+      lat: 40.06,
+      lon: -80.06,
+    });
+    const kept = await wayspotsWith([WEST_SPOT, EAST_SPOT], undefined, undefined, [
+      { guildId: OTHER_GUILD_ROW, rows: [{ ...WEST_SPOT, title: 'Their Lake' }, theirs] },
+    ]);
+    const made = await createdTrain(
+      { route: [4, spotStop(WEST_SPOT.id), spotStop(EAST_SPOT.id)] },
+      { wayspots: kept.wayspots, renderDelayMs: 0, sharedDelayMs: 0 },
+    );
+    // A Power Spot only the other server keeps is none of this train's.
+    expect(await made.trains.addStop(made.party.id, alice, spotStop(theirs.id))).toEqual({
+      kind: 'refused',
+      reason: 'spot-gone',
+    });
+    // The test server's import finds its West spot gone; the other server's copy stays.
+    await kept.storage.saveFromImport(
+      TEST_GUILD_ROW,
+      { upsert: [], remove: [], gone: [WEST_SPOT.id] },
+      5_000,
+    );
+    await kept.wayspots.load(TEST_GUILD_ROW);
+    expect(kept.wayspots.of(OTHER_GUILD_ROW).byId(WEST_SPOT.id)?.title).toBe('Their Lake');
+    expect(await made.trains.removeUnknownStops()).toBe(1);
+    expect(made.current().train.route).toEqual([gym(4), spotStop(EAST_SPOT.id)]);
+  });
+
   it('takes off a Power Spot that is gone while the gym list is empty, and no gym', async () => {
     // A gym list that knows no gym at all (it could not be read), though it still names them.
     const empty = Object.defineProperty(Object.create(gymsFixture()) as GymProvider, 'size', {
@@ -99,7 +133,11 @@ describe('Power Spots as stops of a train (plan 8X-4; design 6.2)', () => {
       { route: [4, spotStop(WEST_SPOT.id), 1] },
       { wayspots: kept.wayspots, gyms: empty },
     );
-    await kept.storage.saveFromImport({ upsert: [], remove: [], gone: [WEST_SPOT.id] }, 5_000);
+    await kept.storage.saveFromImport(
+      TEST_GUILD_ROW,
+      { upsert: [], remove: [], gone: [WEST_SPOT.id] },
+      5_000,
+    );
     await kept.wayspots.load();
     expect(await made.trains.removeUnknownStops()).toBe(1);
     expect(made.current().train.route).toEqual([gym(4), gym(1)]);
@@ -108,7 +146,7 @@ describe('Power Spots as stops of a train (plan 8X-4; design 6.2)', () => {
   it('takes off no Power Spot while no Wayspot is kept at all', async () => {
     const made = await spotted([4, spotStop(WEST_SPOT.id)]);
     for (const id of [WEST_SPOT.id, EAST_SPOT.id, NORTH_SPOT.id, STOP.id]) {
-      made.wayspots.forget([id]);
+      made.wayspots.forget(TEST_GUILD_ROW, [id]);
     }
     expect(made.wayspots.size).toBe(0);
     expect(await made.trains.removeUnknownStops()).toBe(0);
@@ -134,7 +172,7 @@ describe('Power Spots as stops of a train (plan 8X-4; design 6.2)', () => {
     const party = made.current();
     const view = {
       party,
-      stop: stopsFrom(made.gyms ?? { stored: () => undefined }, kept.wayspots),
+      stop: stopsFrom(made.gyms ?? { stored: () => undefined }, kept.wayspots, party.guildId),
       now: Date.now(),
     };
     // Move… and Manage… (plan 8X-G): their dialogs' ids, and the values of Move…'s choices.

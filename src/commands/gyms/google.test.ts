@@ -1,3 +1,4 @@
+import { TEST_GUILD_ROW } from '../../../test/support/gyms.js';
 import { MessageFlags } from 'discord.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withOtherServer } from '../../../test/support/gym-admin.js';
@@ -34,7 +35,11 @@ describe('/gym google', () => {
     const stop = keptRow(1, { lat: 40.05, lon: -80.06 });
     const spot = keptRow(2, { lat: 40.06, lon: -80.06, kind: 'powerspot' });
     const away = keptRow(3);
-    await made.wayspotStore.saveFromImport({ upsert: [stop, spot, away], remove: [] }, 1);
+    await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
+      { upsert: [stop, spot, away], remove: [] },
+      1,
+    );
     await made.wayspots.load();
     await made.wayspotLookups.add(
       [

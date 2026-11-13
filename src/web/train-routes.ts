@@ -326,8 +326,10 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       // Why Move… and Manage… do not open, in Discord's words (review C1).
       trainRefusal: (reason) => refusalOnTheMap(parties, reason, (said) => words(said, request)),
       // Move… as the post's dialog draws it (plan 8M-8C).
-      trainMoves: (train) => movesOnTheMap(parties.stops, train, (said) => words(said, request)),
-      trainAhead: (train) => aheadOnTheMap(parties.stops, train, (said) => words(said, request)),
+      trainMoves: (train) =>
+        movesOnTheMap(parties.stopsOf(train.guildId), train, (said) => words(said, request)),
+      trainAhead: (train) =>
+        aheadOnTheMap(parties.stopsOf(train.guildId), train, (said) => words(said, request)),
     });
     return shown?.kind === 'train' ? shown : undefined;
   };
