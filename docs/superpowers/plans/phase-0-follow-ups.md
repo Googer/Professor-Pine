@@ -3608,6 +3608,15 @@ Plan `2026-11-12-phase-19d-sharding.md`, merged on main-dev; check 13,747, datab
 - `onEveryShardReady` and `ShardStart.gone` are built for plan 19C, which marks a gone server left; nothing acts on them yet.
 - Beyond about 90,000 servers (36 shards and more at a `max_concurrency` of 1) the login's identify slots are long; the health rule gives each shard its slot, but nothing has been tried at that size.
 
+## From Phase 19B-4 (ids checked against their server; nicknames and gym requests per server, 2026-11-13)
+
+Plan `2026-11-13-phase-19b-4-ids-per-server.md`, merged on main-dev; full check, database suite and build pass. **Staging not run** (its plan's four steps; needs `./pine update` for migration 058 and a global deploy).
+
+- **Before the next production deploy:** `/request` becomes offered in Pittsburgh's server; where production has no GitHub settings, requests go to its moderators' bot lab. Tell staff.
+- The `defer` hook still reads a party of another server through `asksFirst` (it decides only whether the answer is deferred, never what it says).
+- Staff-added nicknames are not known in a DM (`/counters`, `/rank` there), as the brief ruled.
+- `memberAccess` answers `barred` for a member not in the forum's server, which reaches the access service's log, region tallies and the web's viewers (harmless: non-members are refused on the web first).
+
 ## From the index fixes since 2.0.0 (2026-11-13)
 
 Plan `2026-11-13-index-fixes-since-2-0-0.md`, merged on main-dev; full check, database suite and build pass. **Staging:** one step (migration 057 applied on the dev stack).
