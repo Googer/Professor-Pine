@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-12T15:38",
+  "updated": "2026-11-12T22:52",
   "items": [
     {
       "id": "0",
@@ -11993,63 +11993,92 @@ window.GANTT = {
       "size": 3,
       "dependsOn": [],
       "scope": "ServerSettings table and lookup, the fill at ready, channels by id, /admin settings panel, commands per server, /report needs a moderators’ channel",
-      "doneWhen": "Merged into main-dev"
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-12T14:14",
+        "end": "2026-11-12T22:46",
+        "review": {
+          "start": "2026-11-12T19:07",
+          "end": "2026-11-12T22:46"
+        }
+      },
+      "review": {
+        "start": "2026-11-12T22:46",
+        "end": "2026-11-12T22:46"
+      },
+      "status": "done"
     },
     {
       "id": "19A-1.1",
       "kind": "task",
       "parent": "19A-1",
       "name": "The store and the lookup",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
     },
     {
       "id": "19A-1.2",
       "kind": "task",
       "parent": "19A-1",
       "name": "The fill: rows for servers that have none",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
     },
     {
       "id": "19A-1.3",
       "kind": "task",
       "parent": "19A-1",
       "name": "Channels, the category and roles by id",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
     },
     {
       "id": "19A-1.4",
       "kind": "task",
       "parent": "19A-1",
       "name": "The other server keys",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
     },
     {
       "id": "19A-1.5",
       "kind": "task",
       "parent": "19A-1",
       "name": "Commands per server",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
     },
     {
       "id": "19A-1.6",
       "kind": "task",
       "parent": "19A-1",
       "name": "/report and the map’s Report never post in the open",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
     },
     {
       "id": "19A-1.7",
       "kind": "task",
       "parent": "19A-1",
       "name": "/admin settings: the server’s settings panel",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
     },
     {
       "id": "19A-1.8",
       "kind": "task",
       "parent": "19A-1",
       "name": "Docs",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
     },
     {
       "id": "19A-2",
