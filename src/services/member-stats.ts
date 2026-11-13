@@ -12,8 +12,8 @@ export interface MemberStatsOptions {
   reader: BoardReader;
   /** Whether the member opted in to the server's history (in `/settings`). */
   optIns: Pick<HistoryOptIns, 'isOptedIn'>;
-  /** `settings.timezone`: a year is local. */
-  zone: string;
+  /** A server's zone (`ServerSettings.zoneOf`, plan 19A-2): a year is local there. */
+  zoneOf: (serverId: string) => string;
   now?: () => number;
 }
 
@@ -53,7 +53,7 @@ export class MemberStatsService {
   ): Promise<ShownStats> {
     if (!(await this.options.optIns.isOptedIn(memberId, serverId))) return { optedIn: false };
     const input = await this.input(serverId, memberId);
-    const { zone } = this.options;
+    const zone = this.options.zoneOf(serverId);
     return {
       optedIn: true,
       stats: memberStats(input, {
@@ -75,7 +75,7 @@ export class MemberStatsService {
     const now = this.now();
     if (kept !== undefined && kept.until > now) return kept.years;
     const years = (await this.options.optIns.isOptedIn(memberId, serverId))
-      ? memberYears(await this.input(serverId, memberId), this.options.zone)
+      ? memberYears(await this.input(serverId, memberId), this.options.zoneOf(serverId))
       : [];
     this.keptYears.set(key, { years, until: now + YEARS_FRESH_MS });
     return years;

@@ -26,8 +26,8 @@ export interface RegionTalliesOptions {
     PartyGateway,
     'memberAccess' | 'channelName' | 'shareKeeps' | 'mayShare' | 'sendMessage'
   >;
-  /** `settings.timezone`: the months of a period. */
-  zone: string;
+  /** A server's zone (`ServerSettings.zoneOf`, plan 19A-2): the months of a period there. */
+  zoneOf: (serverId: string) => string;
 }
 
 /** A tally as shown: its period, the tally, and the server's regions now by id. */
@@ -56,7 +56,8 @@ export class RegionTallies {
     now: number,
     keepOut: (regions: readonly Region[]) => Promise<ReadonlySet<number>>,
   ): Promise<ShownTally> {
-    const { reader, regions, guilds, zone } = this.options;
+    const { reader, regions, guilds } = this.options;
+    const zone = this.options.zoneOf(serverId);
     const [sums, row] = await Promise.all([
       reader.regionSums(serverId, tallyMonths(period, now, zone)),
       guilds.idFor(serverId),

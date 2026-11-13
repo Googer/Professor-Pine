@@ -26,8 +26,11 @@ const SERIES_KEPT = 64;
 export interface HistoryDaysOptions {
   /** The raids per day (`ActivityRepository`). */
   reader: ActivityDayReader;
-  /** `settings.timezone`: which local day is today, never judged. */
-  zone: string;
+  /**
+   * A server's zone (`ServerSettings.zoneOf`, plan 19A-2): which local day is today there, never
+   * judged; its days are stored in it.
+   */
+  zoneOf: (serverId: string) => string;
   /** The catalogue's name of a boss by its key; undefined for one it no longer knows. */
   bossName: (bossKey: string) => string | undefined;
 }
@@ -86,7 +89,8 @@ export class HistoryDays {
   }> {
     const series = await this.series(serverId, leftOut, now);
     const years = seriesYears(series.totals);
-    const shown = year ?? years[0] ?? Number(localDay(now, this.options.zone).slice(0, 4));
+    const shown =
+      year ?? years[0] ?? Number(localDay(now, this.options.zoneOf(serverId)).slice(0, 4));
     const prefix = `${String(shown).padStart(4, '0')}-`;
     return {
       year: shown,
@@ -130,7 +134,7 @@ export class HistoryDays {
     complete: boolean;
     years: Array<{ years: number; day: NamedBigDay }>;
   }> {
-    const today = localDay(now, this.options.zone);
+    const today = localDay(now, this.options.zoneOf(serverId));
     if (count <= 0) return { today, complete: true, years: [] };
     const series = await this.series(serverId, leftOut, now);
     const year = Number(today.slice(0, 4));
@@ -192,7 +196,7 @@ export class HistoryDays {
    * day of `now` (a new day is a new key).
    */
   private series(serverId: string, leftOut: ReadonlySet<number>, now: number): Promise<Series> {
-    const today = localDay(now, this.options.zone);
+    const today = localDay(now, this.options.zoneOf(serverId));
     const regions = [...leftOut].sort((a, b) => a - b);
     const key = `${serverId}|${today}|${regions.join(',')}`;
     const kept = this.kept.get(key);

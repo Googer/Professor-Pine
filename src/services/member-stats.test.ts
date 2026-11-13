@@ -12,6 +12,7 @@ import { MemoryBoards } from '../../test/support/boards.js';
 import { MemoryHistoryOptIns } from '../../test/support/history.js';
 import type { BoardReader } from '../db/repositories/board-repository.js';
 import { MemberStatsService } from './member-stats.js';
+import { zonedAt } from '../../test/support/time.js';
 
 const ZONE = 'America/New_York';
 
@@ -55,9 +56,32 @@ async function setup() {
   );
   boards.reports.push(keptReport({ confirmations: 2 }));
   const { reader, seen } = watched(boards);
-  const stats = new MemberStatsService({ reader, optIns, zone: ZONE });
+  const stats = new MemberStatsService({ reader, optIns, zoneOf: () => ZONE });
   return { stats, seen, boards };
 }
+
+describe('a member’s own stats in each server’s zone (plan 19A-2)', () => {
+  it('counts a year on the clock of the server the raid was in', async () => {
+    const other = '412345678901234599';
+    const optIns = new MemoryHistoryOptIns();
+    const boards = new MemoryBoards(optIns);
+    await optIns.optIn(ASH, BOARD_SERVER, 1);
+    await optIns.optIn(ASH, other, 1);
+    // 20:00 on New Year's Eve in New York, 10:00 on New Year's Day in Tokyo.
+    const eve = zonedAt('2026-12-31T20:00', ZONE);
+    boards.records.push(
+      boardRecord({ createdAt: eve, endedAt: eve + 3_600_000 }),
+      boardRecord({ serverId: other, createdAt: eve, endedAt: eve + 3_600_000 }),
+    );
+    const stats = new MemberStatsService({
+      reader: boards,
+      optIns,
+      zoneOf: (serverId) => (serverId === other ? 'Asia/Tokyo' : ZONE),
+    });
+    expect(await stats.years(BOARD_SERVER, ASH)).toEqual([2026]);
+    expect(await stats.years(other, ASH)).toEqual([2027]);
+  });
+});
 
 describe('a member’s own stats, read', () => {
   it('reads a member’s rows one read at a time, never several connections for one question (plan 8Z-2)', async () => {

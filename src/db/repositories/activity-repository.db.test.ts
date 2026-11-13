@@ -165,7 +165,7 @@ describe('ActivityRepository', () => {
 
   const repository = (batch?: number) =>
     new ActivityRepository(db, {
-      zone: ZONE,
+      zoneOf: () => ZONE,
       settings: SETTINGS,
       ...(batch === undefined ? {} : { batch }),
     });
@@ -529,7 +529,7 @@ describe('ActivityRepository', () => {
       statements.push(event.query.sql);
     });
     try {
-      const adding = new ActivityRepository(logged, { zone: ZONE, settings: SETTINGS });
+      const adding = new ActivityRepository(logged, { zoneOf: () => ZONE, settings: SETTINGS });
       expect(await adding.addNew()).toEqual({ buckets: 5, days: 5 });
     } finally {
       await logged.destroy();
@@ -555,7 +555,7 @@ describe('ActivityRepository', () => {
   /** The adding at a moment after the train of `recordTrain` ended (21:00 on 2026-10-22). */
   const addingAt = (minutesAfterTheTrain: number) =>
     new ActivityRepository(db, {
-      zone: ZONE,
+      zoneOf: () => ZONE,
       settings: SETTINGS,
       now: () => at('2026-10-22T21:00') + minutesAfterTheTrain * 60_000,
     });
@@ -618,7 +618,11 @@ describe('ActivityRepository', () => {
 
   it('says whether the days hold every record that ended before the last upkeep (A1)', async () => {
     const now = at('2026-10-22T20:00');
-    const days = new ActivityRepository(db, { zone: ZONE, settings: SETTINGS, now: () => now });
+    const days = new ActivityRepository(db, {
+      zoneOf: () => ZONE,
+      settings: SETTINGS,
+      now: () => now,
+    });
     // Nothing recorded: nothing to count.
     expect(await days.daysComplete(ACTIVITY_SERVER)).toBe(true);
     // A record that ended hours ago, which the days have not taken: they are behind.
@@ -669,7 +673,7 @@ describe('ActivityRepository', () => {
       .execute();
     const { log, entries } = createTestLogger();
     const added = await new ActivityRepository(db, {
-      zone: ZONE,
+      zoneOf: () => ZONE,
       settings: SETTINGS,
       log,
     }).addNew();
@@ -690,6 +694,23 @@ describe('ActivityRepository', () => {
     expect(await bucketsOf()).toMatchObject([{ placeId: '7', raids: 1 }]);
     expect(await bucketsOf(OTHER_ACTIVITY_SERVER)).toMatchObject([{ placeId: '8', raids: 1 }]);
     expect(await progressOf(OTHER_ACTIVITY_SERVER)).toBe(await lastId());
+  });
+
+  it('buckets and days each server’s records on its own clock (plan 19A-2)', async () => {
+    // 03:30 UTC on the 23rd: 23:30 on Thursday the 22nd in New York, 12:30 on Friday the 23rd in
+    // Tokyo.
+    const hatch = String(Date.UTC(2026, 9, 23, 3, 30));
+    await record({ hatchTime: hatch }, { serverId: OTHER_ACTIVITY_SERVER, hatchTime: hatch });
+    await new ActivityRepository(db, {
+      zoneOf: (serverId) => (serverId === OTHER_ACTIVITY_SERVER ? 'Asia/Tokyo' : ZONE),
+      settings: SETTINGS,
+    }).addNew();
+    expect(await bucketsOf()).toMatchObject([{ month: '2026-10', weekday: 4, hour: 23 }]);
+    expect(await bucketsOf(OTHER_ACTIVITY_SERVER)).toMatchObject([
+      { month: '2026-10', weekday: 5, hour: 12 },
+    ]);
+    expect((await daysOf()).map((one) => one.day)).toEqual(['2026-10-22']);
+    expect((await daysOf(OTHER_ACTIVITY_SERVER)).map((one) => one.day)).toEqual(['2026-10-23']);
   });
 
   it('adds in batches, one transaction each with its mark, as one pass would', async () => {

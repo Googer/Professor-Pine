@@ -122,8 +122,12 @@ export interface RebuiltServer {
 }
 
 export interface ActivityRepositoryOptions {
-  /** `settings.timezone`: the local month, weekday and hour of a bucket. */
-  zone: string;
+  /**
+   * A server's zone (plan 19A-2): the local month, weekday and hour of its buckets and the local
+   * day of its days: `ServerSettings.zoneOf`, in the bot and in `activity:rebuild` alike (which
+   * loads the servers' rows).
+   */
+  zoneOf: (serverId: string) => string;
   /**
    * The settings the counting reads: how long a train may run (`trainReachMs`, the pairing rule,
    * W1) and a raid without an end time stand (`raidTime`, W5).
@@ -194,9 +198,14 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
    * then the adding of `addNew` from there. Safe to run again, and beside the bot's hourly adding: both take
    * the mark's row first, so a batch is never counted twice. Says each server's final mark and
    * the records of its history up to it (8H4-7): beside the hourly adding, some of the batches
-   * are the adding's to read, so what this run read alone says little.
+   * are the adding's to read, so what this run read alone says little. `isStopped` (a shutdown,
+   * fix round 1, N2) ends the adding before its next batch, and the servers after it; the hourly
+   * adding goes on from the mark reached.
    */
-  async rebuild(serverId?: string): Promise<RebuiltServer[]> {
+  async rebuild(
+    serverId?: string,
+    isStopped: () => boolean = () => false,
+  ): Promise<RebuiltServer[]> {
     const servers =
       serverId === undefined
         ? [
@@ -214,6 +223,7 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
         : [serverId];
     const rebuilt: RebuiltServer[] = [];
     for (const server of servers) {
+      if (isStopped()) break;
       // A deadlock with an adding under way (both reach the buckets) runs the reset again.
       await retryOnDeadlock(this.db, () =>
         inTransaction(this.db, async (trx) => {
@@ -227,7 +237,7 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
             .execute();
         }),
       );
-      await this.addServer(server);
+      await this.addServer(server, isStopped);
       rebuilt.push(await this.reached(server));
     }
     return rebuilt;
@@ -364,7 +374,7 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
         const last = records.at(-1);
         if (last === undefined) return { read: 0, buckets: 0, days: 0 };
         const now = this.now();
-        const { zone } = this.options;
+        const zone = this.options.zoneOf(serverId);
         const { trains, around } = await this.trainsOf(trx, serverId, records);
         // The trains around by the places of their stops, once a batch (V5).
         const byPlace = trainsByPlace(around);

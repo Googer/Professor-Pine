@@ -21,6 +21,7 @@ import { GymNotificationRepository } from './db/repositories/gym-notification-re
 import { GymRemovalRepository } from './db/repositories/gym-removal-repository.js';
 import { NewTrainRepository } from './db/repositories/new-train-repository.js';
 import { GymRepository } from './db/repositories/gym-repository.js';
+import { ActivityZoneRebuild } from './services/activity-zone-rebuild.js';
 import { ActivityRepository } from './db/repositories/activity-repository.js';
 import { HistoryDays } from './services/history-days.js';
 import { HistoryRepository } from './db/repositories/history-repository.js';
@@ -507,18 +508,25 @@ export async function startApp(
   // The activity heatmap's buckets (plan 8H-4): derived from the history, added hourly by the
   // upkeep after its sweep, read by the map's /api/activity and the region tally (plan 8H-5).
   const activity = new ActivityRepository(db, {
-    zone: config.settings.timezone,
+    // Each server's buckets and days on its own clock (plan 19A-2).
+    zoneOf: (serverId) => servers.zoneOf(serverId),
     settings: config.settings,
     log,
   });
   // What the map's heatmap and the region tally read of them, each read of a server and window
   // kept a minute for everybody (plan 8Z-2): what a member may see is decided on the rows after.
   const activityReads = new KeptActivity(activity);
+  // A server whose zone changed has its buckets and days rebuilt on its new clock, in the
+  // background (plan 19A-2); the heatmap shows what is there meanwhile.
+  const activityRebuild = new ActivityZoneRebuild({ activity, log });
+  servers.onZoneChange((serverId) => {
+    activityRebuild.zoneChanged(serverId);
+  });
   // Raids per day and big days (plan 8H-8): the history page and the events forum's "On this
   // day" read them through one service, a server's days kept a few minutes.
   const historyDays = new HistoryDays({
     reader: activity,
-    zone: config.settings.timezone,
+    zoneOf: (serverId) => servers.zoneOf(serverId),
     bossName: (key) => gameData.catalogue.byKey(key)?.name,
   });
   // Every party that ends is kept in the party history (plan 8H), with what the store writes;
@@ -1262,7 +1270,7 @@ export async function startApp(
       regions,
       guilds,
       gateway: partyGateway,
-      zone: config.settings.timezone,
+      zoneOf: (serverId) => servers.zoneOf(serverId),
     }),
     members,
     // The names the boards show (plan 8H-6), for Discord and the web alike.
@@ -1278,12 +1286,12 @@ export async function startApp(
       },
       tasks: researchTasks,
       gateway: partyGateway,
-      zone: config.settings.timezone,
+      zoneOf: (serverId) => servers.zoneOf(serverId),
     }),
     memberStats: new MemberStatsService({
       reader: boardReader,
       optIns: history,
-      zone: config.settings.timezone,
+      zoneOf: (serverId) => servers.zoneOf(serverId),
     }),
     selfRoles,
     spawns,
@@ -2093,12 +2101,14 @@ export async function startApp(
       // A legacy fill-in's batch under way (plan 8H-10) shares that second: one cut short is
       // rolled back whole and done again. Its claim is given back within the second, so that the
       // next start takes it up at once; else the claim lapses after ten minutes
-      // (`FILL_IN_LEASE_MS`) and the request waits that long.
+      // (`FILL_IN_LEASE_MS`) and the request waits that long. A server's activity rebuilt in its
+      // new zone stops before its next batch in the same second (fix round 1, N2); the next
+      // change of its zone, or `activity:rebuild`, does it again.
       {
-        name: 'want counts and fill-ins',
+        name: 'want counts, fill-ins and activity',
         timeoutMs: 1_000,
         run: async () => {
-          await Promise.all([wantCounts.idle(), legacyFillIns?.idle()]);
+          await Promise.all([wantCounts.idle(), legacyFillIns?.idle(), activityRebuild.close()]);
         },
       },
       // A write in flight must finish before the pool closes.

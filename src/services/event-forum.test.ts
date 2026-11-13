@@ -1312,7 +1312,7 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
     activity.failing = options.failing;
     const days = new HistoryDays({
       reader: activity,
-      zone: ZONE,
+      zoneOf: () => ZONE,
       bossName: (key) => catalogueFixture().byKey(key)?.name,
     });
     const made = eventForumWith({
@@ -1447,7 +1447,7 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
       const service = made.another({
         days: new HistoryDays({
           reader: activity,
-          zone: ZONE,
+          zoneOf: () => ZONE,
           bossName: (key) => catalogueFixture().byKey(key)?.name,
         }),
       });
@@ -1473,7 +1473,7 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
     const days = () =>
       new HistoryDays({
         reader: activity,
-        zone: ZONE,
+        zoneOf: () => ZONE,
         bossName: (key) => catalogueFixture().byKey(key)?.name,
       });
     const first = another({ days: days(), now: () => at('2026-11-10T10:30') });

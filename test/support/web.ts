@@ -600,7 +600,7 @@ export function activityWebWith(
       regions: deps.regions,
       guilds,
       gateway: new FakePartyGateway(),
-      zone: deps.zone,
+      zoneOf: () => deps.zone,
     }),
     guilds,
     channelName: () => undefined,
@@ -611,7 +611,7 @@ export function activityWebWith(
     // Raids per day (plan 8H-8) over the same reader where it has them (`MemoryActivity`).
     days: new HistoryDays({
       reader: isDayReader(deps.reader) ? deps.reader : new MemoryActivity(),
-      zone: deps.zone,
+      zoneOf: () => deps.zone,
       bossName: (key) => catalogueFixture().byKey(key)?.name,
     }),
     ...deps,

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIVITY_SERVER, activityDay } from '../../test/support/activity-cases.js';
+import {
+  ACTIVITY_SERVER,
+  activityDay,
+  OTHER_ACTIVITY_SERVER,
+} from '../../test/support/activity-cases.js';
 import { MemoryActivity } from '../../test/support/activity.js';
 import { catalogueFixture } from '../../test/support/game-data.js';
 import { zonedAt } from '../../test/support/time.js';
@@ -24,7 +28,7 @@ async function setup(days: readonly ActivityDay[]) {
   await reader.addDays(ACTIVITY_SERVER, days);
   const service = new HistoryDays({
     reader,
-    zone: ZONE,
+    zoneOf: () => ZONE,
     bossName: (key) => catalogueFixture().byKey(key)?.name,
   });
   return { reader, service };
@@ -208,6 +212,33 @@ describe('the raids per day of a server', () => {
       (await service.onThisDay(ACTIVITY_SERVER, new Set(), today + 86_400_000, 3)).years,
     ).toEqual([]);
     expect((await service.onThisDay(ACTIVITY_SERVER, new Set(), today, 0)).years).toEqual([]);
+  });
+
+  it('takes today and this year on each server’s own clock (plan 19A-2)', async () => {
+    const reader = new MemoryActivity();
+    const days = [...stretch('2019-09-20', 40, { '2019-10-08': MEWTWO_DAY })];
+    await reader.addDays(ACTIVITY_SERVER, days);
+    await reader.addDays(OTHER_ACTIVITY_SERVER, days);
+    const service = new HistoryDays({
+      reader,
+      zoneOf: (serverId) => (serverId === OTHER_ACTIVITY_SERVER ? 'Asia/Tokyo' : ZONE),
+      bossName: (key) => catalogueFixture().byKey(key)?.name,
+    });
+    // 20:00 on the 7th in New York is 09:00 on the 8th in Tokyo.
+    const evening = zonedAt('2026-10-07T20:00', ZONE);
+    expect((await service.onThisDay(ACTIVITY_SERVER, new Set(), evening, 3)).years).toEqual([]);
+    const there = await service.onThisDay(OTHER_ACTIVITY_SERVER, new Set(), evening, 3);
+    expect(there.today).toBe('2026-10-08');
+    expect(there.years.map((one) => one.day.day)).toEqual(['2019-10-08']);
+    // 20:00 on New Year's Eve in New York is already the new year in Tokyo.
+    const empty = new HistoryDays({
+      reader: new MemoryActivity(),
+      zoneOf: (serverId) => (serverId === OTHER_ACTIVITY_SERVER ? 'Asia/Tokyo' : ZONE),
+      bossName: () => undefined,
+    });
+    const eve = zonedAt('2026-12-31T20:00', ZONE);
+    expect((await empty.year(ACTIVITY_SERVER, new Set(), undefined, eve)).year).toBe(2026);
+    expect((await empty.year(OTHER_ACTIVITY_SERVER, new Set(), undefined, eve)).year).toBe(2027);
   });
 
   it('says whether the days held the whole history, so that the post can wait (A1)', async () => {

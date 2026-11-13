@@ -291,10 +291,12 @@ export class MemoryBoards implements BoardReader {
  * over `optIns` (a `MemoryHistoryOptIns`, which the boards' button of `/settings` writes), the names of
  * `members` (a `FakeMemberDirectory`: nobody until `add`) through `names`, the fixtures'
  * catalogue and task list, and the region tally's fake gateway (`regionTalliesWith`), which a
- * Share posts through. Pass `context` to `createTestContext`.
+ * Share posts through. Pass `context` to `createTestContext`. `zone`: every server's, or each
+ * server's by a function (plan 19A-2).
  */
-export function boardsWith(zone = 'America/New_York') {
+export function boardsWith(zone: string | ((serverId: string) => string) = 'America/New_York') {
   const made = regionTalliesWith(zone);
+  const zoneOf = typeof zone === 'string' ? () => zone : zone;
   const optIns = new MemoryHistoryOptIns();
   const reader = new MemoryBoards(optIns);
   const members = new FakeMemberDirectory();
@@ -305,9 +307,9 @@ export function boardsWith(zone = 'America/New_York') {
     catalogue: catalogueFixture(),
     tasks: researchTasksFixture(),
     gateway: made.gateway,
-    zone,
+    zoneOf,
   });
-  const memberStats = new MemberStatsService({ reader, optIns, zone });
+  const memberStats = new MemberStatsService({ reader, optIns, zoneOf });
   return {
     ...made,
     reader,
