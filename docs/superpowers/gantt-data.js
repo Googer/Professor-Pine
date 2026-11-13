@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-13T04:43",
+  "updated": "2026-11-13T10:50",
   "items": [
     {
       "id": "0",
@@ -12187,15 +12187,124 @@ window.GANTT = {
       "end": "2026-11-13T04:42"
     },
     {
-      "id": "19B",
+      "id": "19B-1",
       "kind": "plan",
       "parent": "19",
-      "name": "19B Separation and fairness",
-      "size": 6,
+      "name": "19B-1 Operators and alerts",
+      "size": 1,
       "dependsOn": [
         "19A-1"
       ],
-      "scope": "Operators in two tiers and /operator, gyms by link table, Wayspots per server, nicknames and gym search per server, ids checked against their server, fair DM and screenshot queues, Google shares",
+      "scope": "operators and servers settings, two tiers, /operator (boss overrides and sync, event window, image cache, forget), owner told of shared changes, alerts to the owner and to a server’s staff",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T04:43",
+        "end": "2026-11-13T10:49",
+        "review": {
+          "start": "2026-11-13T09:07",
+          "end": "2026-11-13T10:46"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T10:46",
+        "end": "2026-11-13T10:46"
+      }
+    },
+    {
+      "id": "19B-1.1",
+      "kind": "task",
+      "parent": "19B-1",
+      "name": "The operators and servers settings, and the two tiers",
+      "status": "done",
+      "start": "2026-11-13T09:51",
+      "end": "2026-11-13T09:51"
+    },
+    {
+      "id": "19B-1.2",
+      "kind": "task",
+      "parent": "19B-1",
+      "name": "/operator, with what every server shares moved out of /admin",
+      "status": "done",
+      "start": "2026-11-13T09:51",
+      "end": "2026-11-13T09:51"
+    },
+    {
+      "id": "19B-1.3",
+      "kind": "task",
+      "parent": "19B-1",
+      "name": "The owner told of every change of shared data",
+      "status": "done",
+      "start": "2026-11-13T09:51",
+      "end": "2026-11-13T09:52"
+    },
+    {
+      "id": "19B-1.4",
+      "kind": "task",
+      "parent": "19B-1",
+      "name": "Alerts: the instance’s to the owner, a server’s to its staff",
+      "status": "done",
+      "start": "2026-11-13T09:52",
+      "end": "2026-11-13T10:46"
+    },
+    {
+      "id": "19B-1.5",
+      "kind": "task",
+      "parent": "19B-1",
+      "name": "Docs",
+      "status": "done",
+      "start": "2026-11-13T10:46",
+      "end": "2026-11-13T10:46"
+    },
+    {
+      "id": "19B-2",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19B-2 Gyms per server",
+      "size": 2,
+      "dependsOn": [
+        "19B-1"
+      ],
+      "scope": "gym–server link table and the upgrade’s links, a view and search index per server, staff change only their gyms, members see only their server’s",
+      "doneWhen": "Merged into main-dev",
+      "status": "unplanned"
+    },
+    {
+      "id": "19B-3",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19B-3 Wayspots, the import and Google per server",
+      "size": 1,
+      "dependsOn": [
+        "19B-2"
+      ],
+      "scope": "Wayspots keyed by server, the import and review per server, Google’s answers by point, lookup lines by server",
+      "doneWhen": "Merged into main-dev",
+      "status": "unplanned"
+    },
+    {
+      "id": "19B-4",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19B-4 Ids checked against their server",
+      "size": 1,
+      "dependsOn": [
+        "19B-2"
+      ],
+      "scope": "party ids in controls and dialogs, tokens, DM controls, Pokémon nicknames per server, gym requests per server",
+      "doneWhen": "Merged into main-dev",
+      "status": "unplanned"
+    },
+    {
+      "id": "19B-5",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19B-5 Fairness",
+      "size": 1,
+      "dependsOn": [
+        "19B-1"
+      ],
+      "scope": "DMs in turns by server and the first-contact cap, the reader’s queue and kept space, Google’s shares by need, redraws in turns",
       "doneWhen": "Merged into main-dev",
       "status": "unplanned"
     },
@@ -12274,7 +12383,7 @@ window.GANTT = {
       "name": "19C Onboarding and leaving",
       "size": 4,
       "dependsOn": [
-        "19B",
+        "19B-5",
         "19D"
       ],
       "scope": "servers setting and checks at ready, the setup state and checklist, /operator servers and the block list, leaving and the deletion after 30 days, the map’s visitors, legal texts",
@@ -12288,7 +12397,7 @@ window.GANTT = {
       "name": "19E Neighbors",
       "size": 2,
       "dependsOn": [
-        "19B"
+        "19B-5"
       ],
       "scope": "Consent of both servers, the line in a post, copying the curated text",
       "doneWhen": "Merged into main-dev",
