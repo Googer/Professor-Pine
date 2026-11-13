@@ -4,7 +4,13 @@ import type { ComponentHandler, SimpleCommand } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { channelInDialog, deferSubmit, dialog, readInTime } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
-import { raidOf, regionChannelOf, requireGuild, requireRaid } from '../../discord/guards.js';
+import {
+  partyOfServer,
+  raidOf,
+  regionChannelOf,
+  requireGuild,
+  requireRaid,
+} from '../../discord/guards.js';
 import { STALE_COMPONENT, whenCounted } from '../../discord/router.js';
 import { blocksNewRaid } from '../../domain/party/raid.js';
 import { problemText } from '../../render/activity.js';
@@ -181,8 +187,10 @@ export const locationControls: ComponentHandler = {
     if (id.action !== MOVE_FORM || gymId === undefined) throw new UserError(STALE_COMPONENT);
     const partyId = id.id;
     await deferSubmit(interaction);
-    // Only the raid of the post it is submitted in: the custom id could name any party.
-    if (raidOf(interaction, ctx)?.id !== partyId) {
+    // Only a raid of this server (`partyOfServer`), and only the raid of the post it is submitted
+    // in: the custom id could name any party.
+    const named = partyOfServer(interaction, ctx, partyId);
+    if (named === undefined || raidOf(interaction, ctx)?.id !== named.id) {
       await interaction.editReply({ content: partyOver({ type: 'raid' }) });
       return;
     }

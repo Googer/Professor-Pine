@@ -10,7 +10,7 @@ import type { AppContext } from '../../app-context.js';
 import type { ComponentHandler, Guard, SimpleCommand } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf, requireGuild, requireParty } from '../../discord/guards.js';
+import { guildIdOf, partyOfServer, requireGuild, requireParty } from '../../discord/guards.js';
 import { memberInfo } from '../../discord/member-info.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import { REPORT_COMMAND, REPORT_WINDOW } from './report-limit.js';
@@ -146,11 +146,10 @@ export async function submitPartyReport(
   ctx: AppContext,
   partyId: string,
 ): Promise<void> {
-  const party = ctx.parties.get(partyId);
   const serverId = guildIdOf(interaction);
-  if (!party) throw new UserError(partyOver());
   // A custom id can be sent from anywhere: a party of another server is none here.
-  if ((await ctx.guilds.idFor(serverId)) !== party.guildId) throw new UserError(STALE_COMPONENT);
+  const party = partyOfServer(interaction, ctx, partyId);
+  if (!party) throw new UserError(partyOver());
   const reason = interaction.fields.getTextInputValue(REPORT_REASON_INPUT);
   // Acknowledged first: the report is a message to Discord, which can take its time.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });

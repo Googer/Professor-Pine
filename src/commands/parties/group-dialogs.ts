@@ -2,6 +2,7 @@ import type { ButtonInteraction, ModalSubmitInteraction } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import { deferSubmit, withoutOpenToken } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
+import { partyOfServer } from '../../discord/guards.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import type { AttendanceLimits, GroupChoice } from '../../domain/party/attendance.js';
 import {
@@ -76,6 +77,9 @@ export function asksWhichGroup(party: Party | undefined, memberId: string): part
   );
 }
 
+/** What the attendance service answers for a party that is not there. */
+const GONE: AttendanceOutcome = { kind: 'gone' };
+
 /** The dialog "which group?" for this press (`whichGroupDialog`), as the party is now. */
 export async function openWhichGroup(
   interaction: ButtonInteraction,
@@ -127,7 +131,7 @@ export async function openGroupMenu(
   ctx: AppContext,
   partyId: string,
 ): Promise<void> {
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   if (!party) throw new UserError(partyOver(party));
   const memberId = interaction.user.id;
   const menu = groupMenu(party, memberId, ctx.attendance.limits());
@@ -190,9 +194,14 @@ export async function submitGroupMenu(
     ? interaction.fields.getTextInputValue(LABEL_INPUT)
     : '';
   await deferSubmit(interaction);
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   const member = actingMember(interaction);
   const limits = ctx.attendance.limits();
+  // A party of another server is none here: answered as one that has ended, nothing written.
+  if (!party) {
+    await interaction.editReply({ content: outcomeWords(limits, party, GONE).text });
+    return;
+  }
   let text: string;
   if ('new' in way) {
     const outcome = await ctx.attendance.newGroup(partyId, member, label, { signedUp });
@@ -237,7 +246,14 @@ export async function submitWhichGroup(
   const choice = pickedChoice(interaction);
   if (!isJoinAction(action) || choice === undefined) throw new UserError(STALE_COMPONENT);
   await deferSubmit(interaction);
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
+  if (!party) {
+    // A party of another server is none here: answered as one that has ended, nothing written.
+    await interaction.editReply({
+      content: outcomeWords(ctx.attendance.limits(), party, GONE).text,
+    });
+    return;
+  }
   const outcome = await ctx.attendance.joinChosen(
     partyId,
     actingMember(interaction),

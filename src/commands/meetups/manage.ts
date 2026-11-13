@@ -4,7 +4,7 @@ import type { ComponentHandler, Guard } from '../../discord/command.js';
 import { decodeCustomId } from '../../discord/custom-id.js';
 import { deferSubmit, withoutOpenToken } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf, isStaff, requireGuild } from '../../discord/guards.js';
+import { guildIdOf, isStaff, partyOfServer, requireGuild } from '../../discord/guards.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import { mayEditMeetup } from '../../domain/party/meetup.js';
 import { isMeetup, type MeetupParty } from '../../domain/party/party.js';
@@ -51,7 +51,7 @@ export async function openMeetupManage(
   ctx: AppContext,
   partyId: string,
 ): Promise<void> {
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   if (!party) throw new UserError(partyOver(A_MEETUP));
   if (!isMeetup(party)) throw new UserError(STALE_COMPONENT);
   const userId = interaction.user.id;
@@ -91,7 +91,8 @@ const requireTimesChange: Guard = (interaction, ctx) => {
   if (!interaction.isModalSubmit()) return;
   const start = typedTime(interaction, MEETUP_START_INPUT);
   const end = typedTime(interaction, MEETUP_END_INPUT);
-  const party = ctx.parties.get(decodeCustomId(interaction.customId)?.id ?? '');
+  // A meetup of another server is none here: its Submit is answered as one that has ended.
+  const party = partyOfServer(interaction, ctx, decodeCustomId(interaction.customId)?.id ?? '');
   if (start === '' || !party || !isMeetup(party)) return;
   if (end === '') {
     typedTimedTime(ctx, party, 'meet', start, Date.now(), ctx.partyService.zoneOf(party));
@@ -198,7 +199,7 @@ export async function submitMeetupManage(
   if (marks.length !== 4) throw new UserError(STALE_COMPONENT);
   await deferSubmit(interaction);
   const say = (content: string) => interaction.editReply({ content });
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   if (!party) return void (await say(partyOver(A_MEETUP)));
   if (!isMeetup(party)) return void (await say(STALE_COMPONENT));
   const serverId = guildIdOf(interaction);

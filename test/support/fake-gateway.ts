@@ -1731,7 +1731,8 @@ export class FakePartyGateway implements PartyGateway {
       forumId,
       () => {
         if (!this.isGate(forumId)) return undefined;
-        if (this.leftServer.has(memberId)) return undefined;
+        // Not in the server: kept out, as the real gateway says (plan 19B-4).
+        if (this.leftServer.has(memberId)) return 'barred';
         if (fresh) this.memberFetched(memberId);
         // The cache's roles where a look put the member there (plan 8M-20), else as they are.
         return this.accessNow(

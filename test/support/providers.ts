@@ -84,15 +84,28 @@ export function twoServerGyms(): {
     ...testLinks().filter((link) => link.gymId !== THEIR_GYM),
     { gymId: THEIR_GYM, guildId: OTHER_GUILD_ROW },
   ];
-  const rows = new Map([
-    [FAKE_GUILD_ID, TEST_GUILD_ROW],
-    [OTHER_GUILD_ID, OTHER_GUILD_ROW],
-  ]);
   return {
     gyms: gymsFixture([], { links, regions }),
     regions,
-    guilds: { idFor: (snowflake) => Promise.resolve(rows.get(snowflake)) },
+    guilds: { idFor: (snowflake) => Promise.resolve(testGuildRowOf(snowflake)) },
   };
+}
+
+/**
+ * The `Guild` row of a server of the tests (plan 19B-4): the test server's (`FAKE_GUILD_ID`, or
+ * `testServer` where a fake gateway names another) is 1, the second server's (`OTHER_GUILD_ID`)
+ * 2, any other server has none. Both servers of a two-server test have rows, so that a check
+ * against the server must compare the rows: one that asks only whether there is a row fails.
+ */
+export function testGuildRowOf(snowflake: string, testServer = FAKE_GUILD_ID): number | undefined {
+  if (snowflake === testServer) return TEST_GUILD_ROW;
+  return snowflake === OTHER_GUILD_ID ? OTHER_GUILD_ROW : undefined;
+}
+
+/** The server of a `Guild` row of the tests (`testGuildRowOf`'s other way). */
+export function testServerOfRow(row: number, testServer = FAKE_GUILD_ID): string | undefined {
+  if (row === TEST_GUILD_ROW) return testServer;
+  return row === OTHER_GUILD_ROW ? OTHER_GUILD_ID : undefined;
 }
 
 /** The gym of `twoServerGyms` that is the second server's alone: Old Stone Fountain, in West. */

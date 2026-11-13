@@ -8,7 +8,14 @@ import type { AppContext } from '../../app-context.js';
 import { decodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
 import { answer } from '../../discord/late-reply.js';
-import { notAMeetup, notARaid, notATrain, notTimed, partyOf } from '../../discord/guards.js';
+import {
+  notAMeetup,
+  notARaid,
+  notATrain,
+  notTimed,
+  partyOf,
+  partyOfServer,
+} from '../../discord/guards.js';
 import { memberInfo } from '../../discord/member-info.js';
 import type { Throttle } from '../../discord/throttle.js';
 import {
@@ -217,10 +224,11 @@ export async function answerClick<Extra>(
   // A control names its party by id only. A party that refused is still there to be asked its
   // kind; one that has ended is not. What only the post of a raid has (Set time, Screenshot
   // feedback: `isRaidAction`) was a raid's; of anything else the kind is not known (Done and the
-  // completion question's answers are a max battle's too).
+  // completion question's answers are a max battle's too). A party of another server is no party
+  // here: its kind is not told either.
   const action = decodeCustomId(interaction.customId)?.action;
   const party =
-    ctx.parties.get(partyId) ??
+    partyOfServer(interaction, ctx, partyId) ??
     (action !== undefined && isRaidAction(action) ? ({ type: 'raid' } as const) : undefined);
   const content = outcomeContent(ctx, party, outcome, words);
   await ctx.clickAnswers.answer(`${partyId}:${interaction.user.id}`, interaction, content);

@@ -226,7 +226,8 @@ describe('/report', () => {
   it('takes no form for a party of another server, nor one that has ended', async () => {
     const made = await setup();
     const foreign = await made.submit('Elsewhere.', BOB, { guildId: OTHER_GUILD_ID });
-    expect(sent(foreign.reply).content).toBe('This no longer works.');
+    // Answered as one that has ended: nothing tells that it exists.
+    expect(sent(foreign.reply).content).toBe('This has ended.');
     await made.service.end(made.party.id);
     const late = await made.submit('Too late.');
     expect(sent(late.reply).content).toBe('This has ended.');

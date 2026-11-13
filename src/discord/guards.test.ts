@@ -15,7 +15,7 @@ import {
 } from '../../test/support/gyms.js';
 import { partyStoreWith, testMeetup, testRaid, testTrain } from '../../test/support/parties.js';
 import { regionsFixture, twoServerGyms } from '../../test/support/providers.js';
-import { TestRegions } from '../../test/support/party-service.js';
+import { reportedRaid, TestRegions } from '../../test/support/party-service.js';
 import {
   TEST_PVP_CATEGORY,
   TEST_SERVER_CHANNELS,
@@ -37,6 +37,7 @@ import {
   isPvpContext,
   isStaffRoleName,
   partyOf,
+  partyOfServer,
   raidOf,
   regionChannelOf,
   requireBotChannel,
@@ -428,6 +429,21 @@ describe('party posts', () => {
     expect(raidOf(as(fakeChatInput({ channelId: POST, thread: {} })), both)).toBe(raid);
     expect(raidOf(as(fakeChatInput({ channelId: MEETUP_POST, thread: {} })), both)).toBeUndefined();
     expect(raidOf(as(fakeChatInput({ channelId: WEST_CHANNEL })), both)).toBeUndefined();
+  });
+
+  it('partyOfServer takes a party only in its own server, reading its server in memory', async () => {
+    const made = await reportedRaid();
+    const { ctx: here } = createTestContext({
+      parties: made.store,
+      partyService: made.service,
+      // Never asked: the party's server is known in memory, so a guard can ask at once.
+      guilds: { idFor: () => Promise.reject(new Error('a row was asked of the database')) },
+    });
+    const id = made.party.id;
+    expect(partyOfServer({ guildId: FAKE_GUILD_ID }, here, id)).toBe(made.current());
+    expect(partyOfServer({ guildId: OTHER_GUILD_ID }, here, id)).toBeUndefined();
+    expect(partyOfServer({ guildId: null }, here, id)).toBeUndefined();
+    expect(partyOfServer({ guildId: FAKE_GUILD_ID }, here, 'gone')).toBeUndefined();
   });
 
   it('takes a train for a party and a timed party, and for neither a raid nor a meetup', async () => {

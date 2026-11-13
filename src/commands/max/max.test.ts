@@ -6,6 +6,7 @@ import {
   shownDialog,
 } from '../../../test/support/dialogs.js';
 import {
+  asV2,
   fakeAutocomplete,
   FAKE_GUILD_ID,
   FAKE_USER_ID,
@@ -815,7 +816,7 @@ describe('/max at an unlisted power spot', () => {
   });
 
   // Fix review 1: the press reads nothing slow before its dialog; the Submit checks the server.
-  it('closes nothing from a press of another server: its Submit is a stale control', async () => {
+  it('closes nothing from a press of another server: the battle has ended there (plan 19B-4)', async () => {
     const made = await setup({});
     await made.run({ boss: 'Machop', spot: PIN_SPOT });
     const battle = asMax(made.store.active()[0]);
@@ -823,7 +824,12 @@ describe('/max at an unlisted power spot', () => {
     const staff = await made.handle(
       fakeButton({ customId: `maxpin:${battle.id}:delete`, ...elsewhere }),
     );
-    const dialog = shownDialog(staff);
+    expect(staff.showModal).not.toHaveBeenCalled();
+    expect(told(staff)).toBe('This max battle has ended.');
+    // Nor its Submit, sent from there all the same.
+    const dialog = shownDialog(
+      await made.handle(fakeButton({ customId: `maxpin:${battle.id}:delete`, ...asMod })),
+    );
     const submit = await made.handle(
       fakeModal({
         customId: dialog.custom_id,
@@ -832,7 +838,7 @@ describe('/max at an unlisted power spot', () => {
         ...elsewhere,
       }),
     );
-    expect(told(submit)).toBe(STALE_COMPONENT);
+    expect(textDisplays(asV2(sent(submit.editReply)))).toEqual(['This has ended.']);
     expect(made.store.get(battle.id)).toBeDefined();
   });
 });

@@ -3,7 +3,7 @@ import type { AppContext } from '../../app-context.js';
 import { deferSubmit, readInTime, withoutOpenToken } from '../../discord/dialog.js';
 import type { ComponentHandler } from '../../discord/command.js';
 import { NOT_ALLOWED, UserError } from '../../discord/errors.js';
-import { requireGuild } from '../../discord/guards.js';
+import { partyOfServer, requireGuild } from '../../discord/guards.js';
 import { countUse, raidChangeWindow } from '../parties/windows.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import { isRaid, type Party, type RaidParty } from '../../domain/party/party.js';
@@ -37,9 +37,12 @@ const memberAccessOf =
   (forumId: string, memberId: string): ReturnType<AppContext['partyService']['memberAccess']> =>
     ctx.partyService.memberAccess(forumId, memberId);
 
-/** The active raid a control names, refused privately as the map's route refuses it. */
-function activeRaid(ctx: AppContext, partyId: string): RaidParty {
-  const party: Party | undefined = ctx.parties.get(partyId);
+/**
+ * The active raid of this server a control names, refused privately as the map's route refuses it
+ * (one of another server as one that has ended).
+ */
+function activeRaid(interaction: ButtonInteraction, ctx: AppContext, partyId: string): RaidParty {
+  const party: Party | undefined = partyOfServer(interaction, ctx, partyId);
   if (!party) throw new UserError(partyOver(A_RAID));
   if (!isRaid(party)) throw new UserError(STALE_COMPONENT);
   return party;
@@ -56,7 +59,7 @@ export async function openRaidManage(
   ctx: AppContext,
   partyId: string,
 ): Promise<void> {
-  const party = activeRaid(ctx, partyId);
+  const party = activeRaid(interaction, ctx, partyId);
   // The map's access rule (review M10), read within a dialog's time (the slow-read rule).
   const barred = await readInTime(ctx.log, interaction, () =>
     forumBarred(memberAccessOf(ctx), party.forumChannelId, interaction.user.id),
@@ -110,7 +113,7 @@ export async function submitRaidManage(
   const fields = submittedFields(interaction);
   await deferSubmit(interaction);
   const say = (content: string) => interaction.editReply({ content });
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   if (!party) return void (await say(partyOver(A_RAID)));
   if (!isRaid(party)) return void (await say(STALE_COMPONENT));
   const userId = interaction.user.id;

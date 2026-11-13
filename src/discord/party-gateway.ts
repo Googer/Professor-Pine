@@ -485,8 +485,9 @@ export interface PartyGateway {
   /**
    * Whether a member of the server can see a forum (and with it the posts in it), by their
    * roles and the forum's permission overwrites; the same of a text channel, which decides who
-   * sees a region without a forum (`regionGate`, plan 8H-5). Undefined when the channel is gone
-   * (or neither a forum nor a text channel) or the member is not in its server. `fresh`: the
+   * sees a region without a forum (`regionGate`, plan 8H-5). `barred` for somebody who is not in
+   * its server (plan 19B-4: kept out, as by a denial, never taken for unknown). Undefined when
+   * the channel is gone (or neither a forum nor a text channel). `fresh`: the
    * member fetched afresh from Discord (plan 8M-20, W2: their roles just changed), else as the
    * cache has them.
    */
@@ -2130,7 +2131,8 @@ export class DiscordPartyGateway implements PartyGateway {
     // so a grant may be made that was not needed, or one for somebody a new role keeps out;
     // either ends with the party. Whose roles just changed is fetched afresh (`fresh`).
     const member = await fetchGuildMember(forum.guild, memberId, fresh);
-    if (!member) return undefined;
+    // Not in the forum's server: kept out of it, whatever its overwrites (plan 19B-4).
+    if (!member) return 'barred';
     return DiscordPartyGateway.accessOf(forum, member);
   }
 

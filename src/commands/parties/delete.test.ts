@@ -255,10 +255,10 @@ describe('/delete', () => {
     expect(made.gateway.posts.get(made.postId)).toMatchObject({ archived: true, locked: true });
   });
 
-  it('takes no Submit for a party of another server', async () => {
+  it('takes no Submit for a party of another server: it has ended there', async () => {
     const made = await setup();
     const submitted = await made.submit('delete', ['Moderator'], { guildId: OTHER_GUILD_ID });
-    expect(sent(submitted.followUp).content).toBe('This no longer works.');
+    expect(made.shown(submitted)).toBe('This has ended.');
     expect(made.store.get(made.party.id)).toBeDefined();
     expect(made.gateway.deletedPosts).toEqual([]);
   });

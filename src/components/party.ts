@@ -21,7 +21,7 @@ import type { ButtonInteraction } from 'discord.js';
 import type { ComponentHandler } from '../discord/command.js';
 import { readInTime } from '../discord/dialog.js';
 import { UserError } from '../discord/errors.js';
-import { notARaid, requireGuild } from '../discord/guards.js';
+import { notARaid, partyOfServer, requireGuild } from '../discord/guards.js';
 import { STALE_COMPONENT } from '../discord/router.js';
 import { isGroupId, isMeetup, isRaid, partyWord, type Party } from '../domain/party/party.js';
 import { problemText } from '../render/activity.js';
@@ -128,12 +128,17 @@ export const partyButtons: ComponentHandler = {
     // The buttons the live map has too go one way for both (`pressStatus`).
     const click: PressAnswerer<void> = (outcome, words) =>
       answerClick(interaction, ctx, partyId, outcome, words);
+    // The party the id names, if it is this server's: one of another server is answered as one
+    // that has ended, and nothing of it is changed (spec, "The rule").
+    const party = partyOfServer(interaction, ctx, partyId);
+    if (party === undefined && (WRITES.has(id.action) || JOINS.has(id.action))) {
+      return click({ kind: 'gone' });
+    }
     switch (id.action) {
       case 'maybe':
       case 'join':
       case 'here': {
         // A newcomer to a post of several groups is asked which group (plan 8X-1B).
-        const party = ctx.parties.get(partyId);
         if (party && asksFirst(ctx, partyId, member.id)) {
           await refuseNewcomerBeforeDialog(interaction, ctx, party);
           return openWhichGroup(interaction, ctx, party, id.action);
@@ -160,7 +165,6 @@ export const partyButtons: ComponentHandler = {
         return pressStatus(attendance, partyId, member, { action: 'group', group }, click);
       }
       case 'time': {
-        const party = ctx.parties.get(partyId);
         // Only the post of a raid has this button.
         if (!party) throw new UserError(partyOver({ type: 'raid' }));
         if (!isRaid(party)) throw new UserError(notARaid(party));
@@ -173,7 +177,6 @@ export const partyButtons: ComponentHandler = {
       }
       case 'shot': {
         // "Screenshot feedback": the screenshot the raid was reported from, privately.
-        const party = ctx.parties.get(partyId);
         if (!party) throw new UserError(partyOver({ type: 'raid' }));
         const shown = isRaid(party) ? party.raid.screenshot?.id : undefined;
         if (!shown) throw new UserError(STALE_COMPONENT);
@@ -191,7 +194,6 @@ export const partyButtons: ComponentHandler = {
       case 'manage': {
         // Manage… of a train's post (plan 8X-G): its route, mode and kind, in a dialog; of a
         // raid's and a meetup's (plan 8M-21): the map's forms as dialogs.
-        const party = ctx.parties.get(partyId);
         // Which kind it was is not known any more: the words of a control of any kind.
         if (!party) throw new UserError(partyOver());
         if (isRaid(party)) return openRaidManage(interaction, ctx, partyId);
@@ -224,7 +226,6 @@ export const partyButtons: ComponentHandler = {
       case 'regroup': {
         // "Group…" (plan 8X-1B): move to another group or open one, in a dialog; not for a
         // newcomer to a raid or max battle over by the clock, whom its moves would sign up.
-        const party = ctx.parties.get(partyId);
         if (party && attendance.refusesNewcomer(party, member.id)) {
           throw new UserError(partyOver(party));
         }
@@ -273,7 +274,7 @@ export const partyButtons: ComponentHandler = {
     if (id.action !== 'time' || (parameter !== 'hatch' && parameter !== 'end')) {
       throw new UserError(STALE_COMPONENT);
     }
-    const party = ctx.parties.get(id.id);
+    const party = partyOfServer(interaction, ctx, id.id);
     if (!party) throw new UserError(partyOver({ type: 'raid' }));
     if (!isRaid(party)) throw new UserError(notARaid(party));
     // Somebody else set the time while the form was open: theirs stands, corrections are

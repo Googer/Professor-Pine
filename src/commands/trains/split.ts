@@ -10,7 +10,7 @@ import type { SubcommandPart } from '../../discord/command-group.js';
 import { deferSubmit, readInTime, withoutOpenToken } from '../../discord/dialog.js';
 import { MAX_CHOICE_TEXT, type ControlThrottle } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf, isStaff, notATrain } from '../../discord/guards.js';
+import { guildIdOf, isStaff, notATrain, partyOfServer } from '../../discord/guards.js';
 import { commandRefusal, STALE_COMPONENT } from '../../discord/router.js';
 import { waitText } from '../../discord/throttle.js';
 import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
@@ -101,7 +101,7 @@ export async function openSplit(
   ctx: AppContext,
   partyId: string,
 ): Promise<void> {
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   if (!party) throw new UserError(partyOver(A_TRAIN));
   if (!isTrain(party)) throw new UserError(STALE_COMPONENT);
   const staff = isStaff(interaction, ctx);
@@ -157,7 +157,7 @@ export async function submitSplit(
   args: readonly string[],
 ): Promise<void> {
   const { group, mark } = submittedGroup(interaction, withoutOpenToken(args));
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   if (!party) throw new UserError(partyOver(A_TRAIN));
   if (!isTrain(party)) throw new UserError(STALE_COMPONENT);
   const member = actingMember(interaction);

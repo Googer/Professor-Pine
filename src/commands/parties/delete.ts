@@ -13,7 +13,12 @@ import type {
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { channelInDialog, deferSubmit } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf, requireGuild, requireManagement, requireParty } from '../../discord/guards.js';
+import {
+  partyOfServer,
+  requireGuild,
+  requireManagement,
+  requireParty,
+} from '../../discord/guards.js';
 import { v2Answer } from '../../discord/late-reply.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import type { Throttle } from '../../discord/throttle.js';
@@ -276,15 +281,12 @@ export const closeControls: ComponentHandler = {
     const removal = removalOf(interaction, id.args);
     if (removal === undefined) throw new UserError(STALE_COMPONENT);
     await deferSubmit(interaction);
-    const party = ctx.parties.get(id.id);
+    // A custom id can be sent from anywhere: a party of another server is none here.
+    const party = partyOfServer(interaction, ctx, id.id);
     const say = (accent: number, text: string) => v2Answer(textMessage(accent, [text]));
     if (!party) {
       await interaction.editReply(say(EXPIRED_ACCENT, partyOver()));
       return;
-    }
-    // A custom id can be sent from anywhere: a party of another server is none here.
-    if ((await ctx.guilds.idFor(guildIdOf(interaction))) !== party.guildId) {
-      throw new UserError(STALE_COMPONENT);
     }
     // The way the map's Delete… goes too (plan 8M-8B).
     const outcome = await closePartyAs(ctx, party, actingMember(interaction), removal, () =>

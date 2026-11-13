@@ -16,6 +16,7 @@ import {
   isBotManagement,
   isStaff,
   memberRoleNames,
+  partyOfServer,
   regionChannelOf,
   requireTrain,
   trainOf,
@@ -161,7 +162,7 @@ export async function showWholeRoute(
   ctx: AppContext,
   partyId: string,
 ): Promise<void> {
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   if (!party) throw new UserError(partyOver({ type: 'train' }));
   if (!isTrain(party)) throw new UserError(STALE_COMPONENT);
   await showRoute(interaction, ctx, party);

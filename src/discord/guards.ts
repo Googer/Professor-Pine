@@ -326,6 +326,25 @@ export function partyOf(interaction: LocatedInteraction, ctx: AppContext): Party
   return channelId === null ? undefined : ctx.parties.byPost(channelId);
 }
 
+/**
+ * The party a control, a dialog or a guard names by its custom id, only where it is a party of
+ * the server the interaction came from (spec, "The rule": every id checked against the server it
+ * came from). A custom id can be sent from anywhere, so a party of another server, and any party
+ * named from a DM, is undefined, as a party that has ended is: the caller answers it with the
+ * words it has for that, and nothing tells that it exists. The party's server is its `Guild`
+ * row's, read in memory (`PartyService.serverOf`, over every row read at the start, never a
+ * bounded memory), so the check reads nothing slow and a guard can ask it.
+ */
+export function partyOfServer(
+  interaction: { guildId: string | null },
+  ctx: Pick<AppContext, 'parties' | 'partyService'>,
+  partyId: string,
+): Party | undefined {
+  const party = ctx.parties.get(partyId);
+  if (party === undefined || interaction.guildId === null) return undefined;
+  return ctx.partyService.serverOf(party) === interaction.guildId ? party : undefined;
+}
+
 /** What a member is told who uses a command for the post of a party anywhere else. */
 export const IN_A_PARTY_POST =
   'Use this in the post of a raid, max battle, train or meetup that is still active.';

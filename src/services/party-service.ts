@@ -1202,6 +1202,15 @@ export class PartyService {
     return server === undefined ? servers.defaultZone() : servers.zoneOf(server);
   }
 
+  /**
+   * The snowflake of a party's server (its `Guild` row's, as `zoneOf` finds it, in memory):
+   * whether a custom id names a party of the interaction's server (`partyOfServer`, plan 19B-4).
+   * Null for a row not known, which cannot be once every row was read at the start.
+   */
+  serverOf(party: Pick<Party, 'guildId'>): string | null {
+    return this.serverOfRow(party.guildId) ?? null;
+  }
+
   /** The server of a `Guild` row: `serverOfRow`'s, else as the summary learned it. */
   private serverOfRow(row: number | null): string | undefined {
     if (row === null) return undefined;

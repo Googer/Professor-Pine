@@ -11,7 +11,7 @@ import type { ComponentHandler, Guard, SimpleCommand } from '../../discord/comma
 import { decodeCustomId } from '../../discord/custom-id.js';
 import { deferSubmit, pickedOf, selectedOf, withoutOpenToken } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
-import { isStaff, requireGuild, requireTrain } from '../../discord/guards.js';
+import { isStaff, partyOfServer, requireGuild, requireTrain } from '../../discord/guards.js';
 import { isRefusedBody } from '../../discord/party-gateway.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import {
@@ -181,7 +181,7 @@ function movableTrain(
   ctx: AppContext,
   partyId: string,
 ): TrainParty {
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   if (!party) throw new UserError(partyOver(A_TRAIN));
   if (!isTrain(party)) throw new UserError(STALE_COMPONENT);
   const refused = manageRefusal(ctx, party, interaction.user.id, isStaff(interaction, ctx));
@@ -306,7 +306,7 @@ export async function submitMove(
   if (!asked) throw new UserError(STALE_COMPONENT);
   await deferSubmit(interaction);
   const say = (content: string) => interaction.editReply({ content });
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   if (!party) return void (await say(partyOver(A_TRAIN)));
   if (!isTrain(party)) return void (await say(STALE_COMPONENT));
   const answer = await moveTrainAs(
@@ -373,7 +373,8 @@ function typedLine(interaction: ModalSubmitInteraction, id: string): string {
  */
 const requireTimesChange: Guard = (interaction, ctx) => {
   if (!interaction.isModalSubmit()) return;
-  const party = ctx.parties.get(decodeCustomId(interaction.customId)?.id ?? '');
+  // A train of another server is none here: its Submit is answered as one that has ended.
+  const party = partyOfServer(interaction, ctx, decodeCustomId(interaction.customId)?.id ?? '');
   if (!party || !isTrain(party)) return;
   askedTimes(interaction, ctx, party);
 };
@@ -412,9 +413,8 @@ export async function submitManage(
 ): Promise<void> {
   const asked = askedManage(interaction, args);
   if (!asked) throw new UserError(STALE_COMPONENT);
-  const before = ctx.parties.get(partyId);
-  const times = before && isTrain(before) ? askedTimes(interaction, ctx, before) : {};
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
+  const times = party && isTrain(party) ? askedTimes(interaction, ctx, party) : {};
   const say = (content: string) => interaction.editReply({ content });
   if (!party || !isTrain(party)) {
     await deferSubmit(interaction);

@@ -49,8 +49,9 @@ describe('FakePartyGateway: who can see a forum', () => {
     const fake = gateway();
     fake.barred.set(EAST_FORUM, new Set([ALICE]));
     expect(await fake.memberAccess(EAST_FORUM, ALICE)).toBe('barred');
+    // Not in the server: kept out of its forums, as the real gateway says (plan 19B-4).
     fake.leftServer.add(BOB);
-    expect(await fake.memberAccess(EAST_FORUM, BOB)).toBeUndefined();
+    expect(await fake.memberAccess(EAST_FORUM, BOB)).toBe('barred');
     fake.gone.add(WEST_FORUM);
     expect(await fake.memberAccess(WEST_FORUM, ALICE)).toBeUndefined();
     expect(await fake.admitMember(WEST_FORUM, ALICE)).toBe(false);

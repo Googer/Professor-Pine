@@ -2196,6 +2196,8 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       expect(await gateway.memberAccess('text', 'misty')).toBe('hidden');
       expect(await gateway.memberAccess('news', 'misty')).toBe('hidden');
       expect(await gateway.memberAccess('nowhere', 'ash')).toBeUndefined();
+      // Somebody who is not in the channel's server is kept out of it (plan 19B-4).
+      expect(await gateway.memberAccess('text', 'brock')).toBe('barred');
     });
 
     it('says which gates everybody in a server can view, from the cache, and nothing of one it lacks (plan 8Z-2)', () => {

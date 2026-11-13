@@ -32,7 +32,6 @@ import type { TrainService } from '../../src/services/train-service.js';
 import type { WayfarerImportService } from '../../src/services/wayfarer-import-service.js';
 import type { WayfarerReviewService } from '../../src/services/wayfarer-review-service.js';
 import { FakeAttachments } from './attachments.js';
-import { FAKE_GUILD_ID } from './fake-interactions.js';
 import { catalogueFixture } from './game-data.js';
 import { FakeMemberDirectory } from './members.js';
 import { RecordingDms } from './dms.js';
@@ -43,7 +42,13 @@ import { noParties } from './parties.js';
 import { FakeIssues } from './issues.js';
 import { FakePokebattler } from './pokebattler.js';
 import { FakePlaces } from './places.js';
-import { gymsFixture, mapsFixture, pokemonFixture, regionsFixture } from './providers.js';
+import {
+  gymsFixture,
+  mapsFixture,
+  pokemonFixture,
+  regionsFixture,
+  testGuildRowOf,
+} from './providers.js';
 import { MemoryGoogleUse } from '../../src/services/google-use.js';
 import { MapBudget } from '../../src/services/map-budget.js';
 import type { MaxBossAdmin, MaxBossProvider } from '../../src/services/max-boss-service.js';
@@ -175,8 +180,9 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     ),
     // No attachment can be downloaded; a test passes its own with files.
     attachments: new FakeAttachments(),
-    // The invented regions belong to the guild of row 1, the server of the fake interactions.
-    guilds: { idFor: (snowflake) => Promise.resolve(snowflake === FAKE_GUILD_ID ? 1 : undefined) },
+    // The invented regions belong to the guild of row 1, the server of the fake interactions; the
+    // second server of the tests (`OTHER_GUILD_ID`) is row 2, so that both have rows.
+    guilds: { idFor: (snowflake) => Promise.resolve(testGuildRowOf(snowflake)) },
     // What a router over this context counts in, unless a test gives it its own.
     throttles: new Throttles(),
     parties: noParties(),

@@ -11,7 +11,14 @@ import { channelContext } from '../../discord/channel-context.js';
 import type { ComponentHandler, SimpleCommand } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf, isStaff, partyOf, requireGuild, requireMeetup } from '../../discord/guards.js';
+import {
+  guildIdOf,
+  isStaff,
+  partyOf,
+  partyOfServer,
+  requireGuild,
+  requireMeetup,
+} from '../../discord/guards.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import { isMeetup, MAX_MEETUP_DESCRIPTION, type MeetupParty } from '../../domain/party/party.js';
 import { LIMITS, truncate } from '../../render/text.js';
@@ -169,7 +176,9 @@ async function submitted(
     if (!isThread && baseChannelId !== undefined) throw new UserError(STALE_COMPONENT);
     throw refuse(partyOver({ type: 'meetup' }));
   }
-  if (here.id !== partyId || !isMeetup(here)) throw new UserError(STALE_COMPONENT);
+  // Only the meetup of this post, and only of this server (`partyOfServer`).
+  const named = partyOfServer(interaction, ctx, partyId);
+  if (named?.id !== here.id || !isMeetup(here)) throw new UserError(STALE_COMPONENT);
   // Decided again: a form can be sent from anywhere, and a block may have come while it was open.
   const serverId = guildIdOf(interaction);
   const refusal = await meetupChangeRefusal(

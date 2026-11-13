@@ -64,7 +64,7 @@ import {
   WEST_FORUM,
 } from './gyms.js';
 import { at, MemoryPartyStorage, PARTY_NOW, REPORTER, TEST_SPOT } from './parties.js';
-import { gymsFixture } from './providers.js';
+import { gymsFixture, testGuildRowOf, testServerOfRow } from './providers.js';
 import { raidBossesFixture } from './raid-bosses.js';
 import { raidEventsFixture } from './raid-events.js';
 import { MemorySavedRoutes } from './saved-routes.js';
@@ -386,9 +386,7 @@ export async function partyServiceWith(
   const access = new AccessService({
     store,
     gateway,
-    guilds: {
-      idFor: (snowflake) => Promise.resolve(snowflake === gateway.guildId ? 1 : undefined),
-    },
+    guilds: { idFor: (snowflake) => Promise.resolve(testGuildRowOf(snowflake, gateway.guildId)) },
     storage: grants,
     log,
     now,
@@ -423,12 +421,13 @@ export async function partyServiceWith(
     settings,
     servers,
     log,
-    // The fakes' server is the guild of row 1, which the invented regions belong to.
+    // The fakes' server is the guild of row 1, which the invented regions belong to; the second
+    // server of the tests (`OTHER_GUILD_ID`) is row 2, so that both have rows.
     guilds: {
-      idFor: (snowflake) => Promise.resolve(snowflake === gateway.guildId ? 1 : undefined),
-      snowflakeOf: (id) => Promise.resolve(id === 1 ? gateway.guildId : undefined),
+      idFor: (snowflake) => Promise.resolve(testGuildRowOf(snowflake, gateway.guildId)),
+      snowflakeOf: (id) => Promise.resolve(testServerOfRow(id, gateway.guildId)),
     },
-    serverOfRow: (row) => (row === 1 ? gateway.guildId : undefined),
+    serverOfRow: (row) => testServerOfRow(row, gateway.guildId),
     now,
     // Long enough that nothing runs by itself during a test.
     renderDelayMs: 3_600_000,
@@ -464,10 +463,10 @@ export async function partyServiceWith(
     members,
     dms,
     servers,
-    serverOfRow: (row) => (row === 1 ? gateway.guildId : undefined),
+    serverOfRow: (row) => testServerOfRow(row, gateway.guildId),
     guilds: {
-      snowflakeOf: (id) => Promise.resolve(id === 1 ? gateway.guildId : undefined),
-      idFor: (snowflake) => Promise.resolve(snowflake === gateway.guildId ? 1 : undefined),
+      snowflakeOf: (id) => Promise.resolve(testServerOfRow(id, gateway.guildId)),
+      idFor: (snowflake) => Promise.resolve(testGuildRowOf(snowflake, gateway.guildId)),
     },
     regions,
     gyms,
@@ -582,7 +581,7 @@ export async function partyServiceWith(
   const audit = new PartyAudit({
     store,
     storage: auditStore,
-    guilds: { snowflakeOf: (id) => Promise.resolve(id === 1 ? gateway.guildId : undefined) },
+    guilds: { snowflakeOf: (id) => Promise.resolve(testServerOfRow(id, gateway.guildId)) },
     names: auditNamesOf({
       gyms,
       ...(forService.wayspots === undefined ? {} : { wayspots: forService.wayspots }),
