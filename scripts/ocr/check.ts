@@ -36,7 +36,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { pino } from 'pino';
-import { loadSettings } from '../../src/config/settings.js';
+import { instanceZone, loadSettings } from '../../src/config/settings.js';
 import { OCR_DEVICES, type OcrDevice } from '../../src/domain/ocr/assets.js';
 import {
   bossesOfSnapshot,
@@ -327,7 +327,7 @@ for (const file of files) {
       pokemon: catalogue?.all ?? [],
       searchGym: () => [],
       uploadedAt: Date.now(),
-      zone: settings.timezone,
+      zone: instanceZone(settings),
       standardIncubate: settings.standardRaidIncubateDuration,
       standardHatched: settings.standardRaidHatchedDuration,
       maxHatched: settings.maxRaidHatchedDuration,

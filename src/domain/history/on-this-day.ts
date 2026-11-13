@@ -7,7 +7,7 @@ import { topBigDays, type BigDay } from './big-days.js';
  * post and the history page agree.
  */
 
-/** The local hour from which a day's post is due (10:00 in `settings.timezone`). */
+/** The local hour from which a day's post is due (10:00 in the server's zone). */
 export const ON_THIS_DAY_HOUR = 10;
 
 /**

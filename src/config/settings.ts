@@ -445,6 +445,11 @@ export const settingsObject = z.strictObject({
       staffRoles: z.array(z.string().min(1)).default([]),
     })
     .optional(),
+  /**
+   * The instance's default zone (plan 19A-2): a new server's first zone, and the zone of what has
+   * no server. A server's own is in its row (`ServerSettings.zoneOf`); read this one only through
+   * `instanceZone`.
+   */
   timezone: timezoneSchema,
   /**
    * The units every distance Pine says is in, on the map and on Discord alike (Matt,
@@ -548,7 +553,7 @@ export const settingsObject = z.strictObject({
     refreshHours: z.number().int().min(1).max(168),
     /**
      * The Raid Hour of every week, which needs no feed: ISO weekday (1 is Monday, 3 Wednesday),
-     * the hour it starts in `timezone` and how long it lasts. Null when there is none. It is
+     * the hour it starts in each server's zone and how long it lasts. Null when there is none. It is
      * used for a week in which the feed lists no Raid Hour.
      */
     weeklyRaidHour: z
@@ -573,7 +578,7 @@ export const settingsObject = z.strictObject({
    * cached: read every `refreshMinutes`, 6 hours unless set), whose `RAID_LEVEL_1_MAX`
    * to `RAID_LEVEL_5_MAX` are the Dynamax bosses and `RAID_LEVEL_6_MAX` the Gigantamax ones.
    * `firstBattle` and `lastBattle` are the hours of the day max battles can be fought, in
-   * `timezone` (06:00 and 21:00 unless set): a max battle ends at the last one.
+   * each server's zone (06:00 and 21:00 unless set): a max battle ends at the last one.
    */
   maxBattles: z
     .strictObject({

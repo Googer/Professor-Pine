@@ -98,7 +98,7 @@ export interface RaidPostView {
   catalogue: PokemonCatalogue;
   /** Show the moves line also while no move is known (`settings.showUnknownMoves`). */
   showUnknownMoves: boolean;
-  /** IANA zone in which "today" is judged (`settings.timezone`). */
+  /** IANA zone in which "today" is judged (the server's). */
   zone: string;
   /**
    * Set for the last showing of a raid that staff closed (`/delete`): the sentence that says so.

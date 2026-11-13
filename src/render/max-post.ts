@@ -48,7 +48,7 @@ export const MAX_COLOUR = 0xd81b60;
 export interface MaxPostView extends TrainersView {
   party: MaxParty;
   now: number;
-  /** `settings.timezone`. */
+  /** The server's zone. */
   zone: string;
   /** The boss as it is shown: its name, catalogue entry, shiny flag and picture. */
   boss: ShownBoss;

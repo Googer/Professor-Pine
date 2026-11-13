@@ -9,7 +9,8 @@ import { addDays, sameDay, zoned } from './zoned.js';
  * start and end are rotations (what was reported before is gone for good) and inside which the
  * tasks roll over at each local midnight, as on any day (Matt, 2026-10-22); an intra-day event's
  * window, during which the day's reports wait and after which they come back unchanged. Pure:
- * the events are the stored ones, the zone `settings.timezone`.
+ * the events are the stored ones placed in the server's zone (`researchEvents(zone)`), and the
+ * zone is the server's.
  */
 
 /**

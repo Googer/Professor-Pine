@@ -407,7 +407,7 @@ export function clockOrDate(time: number, now: number): string {
 
 /**
  * A time of a train or meetup as a sentence names it: the clock time when it is today in `zone`
- * (`settings.timezone`), and with its date on any other day, however near. Such a party is
+ * (the server's), and with its date on any other day, however near. Such a party is
  * planned for other days than the one a time is typed on, and a time read as tomorrow morning
  * must say so. A raid's sentences keep `clockOrDate`: a raid is over within hours.
  */

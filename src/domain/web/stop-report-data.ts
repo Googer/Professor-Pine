@@ -165,7 +165,7 @@ export interface MapHideout extends MapStopReportBase {
  * (`GET /s/<guild>/api/stop-reports`): the research of the period on now (`event`: the research
  * event whose tasks these are, null on an ordinary day), how many of the day's research reports
  * wait under an intra-day event's window and when they come back (`waiting`, as the post of the stops
- * says it), the grunts standing, the day's hideouts; the posts' zone.
+ * says it), the grunts standing, the day's hideouts; the server's zone.
  */
 export interface StopReportsView {
   zone: string;

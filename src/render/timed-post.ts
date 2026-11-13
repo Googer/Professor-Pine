@@ -13,7 +13,7 @@ export const TIMED_COLOUR = 0x3498db;
 export interface TimedPostView<P extends TimedParty = TimedParty> {
   party: P;
   now: number;
-  /** IANA zone in which "today" is judged (`settings.timezone`). */
+  /** IANA zone in which "today" is judged (the server's). */
   zone: string;
   /**
    * When the clean-up archives a timed party: `graceMinutes` after its last possible moment the

@@ -39,7 +39,8 @@ export interface RaidBossOptions extends Omit<BossFeedOptions<RaidTier>, 'source
   store: RaidBossStore;
   /**
    * Leek Duck's raid manifest (`settings.raidBosses.manifestUrl`, plan 8B-L), read before the
-   * feed, with the zone its local times are read in (`settings.timezone`); none: the feed only.
+   * feed, with the zone the stored list's local times are read in (the instance's default; each
+   * zone in use has its own list, `bosses(zone)`); none: the feed only.
    */
   manifest?: { url: string; zone: string };
 }

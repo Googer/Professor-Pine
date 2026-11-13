@@ -32,7 +32,7 @@ export interface PartyTimeRequest {
   text: string;
   /** Epoch milliseconds. */
   now: number;
-  /** IANA zone that wall-clock times are read in (settings.timezone). */
+  /** IANA zone that wall-clock times are read in (the server's). */
   zone: string;
   parameter: TimeParameter;
   partyType: TimedPartyType;

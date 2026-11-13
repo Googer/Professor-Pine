@@ -100,10 +100,12 @@ function titleOf(title: unknown, slug: string): string {
 /**
  * Reads Leek Duck's `raids/manifest.json`: `regular_raids` and `shadow_raids`, each a list of
  * rotations with a `slug`, a `title`, a `start_date` and `end_date`, and `local_time`. A rotation
- * at local times is read in `zone` (`settings.timezone`); one at a city's own times is an
- * in-person event's and is left out by the rule of everyone's events (`isForEveryone`, plan
- * 8R-7: a time with a zone of its own), counted as `elsewhere`. A rotation that cannot be read is
- * skipped and counted; only a document that is no manifest (no list of regular raids) throws.
+ * at local times is read in `zone` (the instance's default zone, in which the list is stored;
+ * `rotationsIn` places it in each server's) and keeps its wall-clock times; one at a city's own
+ * times is an in-person event's and is left out by the rule of everyone's events
+ * (`isForEveryone`, plan 8R-7: a time with a zone of its own), counted as `elsewhere`. A rotation
+ * that cannot be read is skipped and counted; only a document that is no manifest (no list of
+ * regular raids) throws.
  */
 export function parseRaidManifest(json: unknown, zone: string): ParsedManifest {
   if (typeof json !== 'object' || json === null || Array.isArray(json)) {

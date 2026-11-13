@@ -13,8 +13,8 @@ const ANDROID_NAMES = [
 ];
 
 /**
- * When a screenshot was taken by the name of its file, read in `zone` (`settings.timezone`, the
- * zone of the phone's clock as everywhere else); undefined for any other name, for a date or
+ * When a screenshot was taken by the name of its file, read in `zone` (the server's, the zone
+ * of the phone's clock as everywhere else); undefined for any other name, for a date or
  * time that does not exist, and for one the clocks repeat (the night they fall back). A hint of the time only: the report decides whether it fits.
  */
 export function takenAtFromFileName(name: string, zone: string): number | undefined {

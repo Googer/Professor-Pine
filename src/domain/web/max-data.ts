@@ -54,7 +54,7 @@ export interface MaxTierOption {
 /**
  * The pick lists of a report of a max battle (`GET /s/<guild>/api/max-options`), in `/max`'s
  * order: the current bosses (the featured ones first; the Gigantamax ones first during a big
- * event's hours), the tiers for a boss typed that is on no list, and the posts' zone, in which
+ * event's hours), the tiers for a boss typed that is on no list, and the server's zone, in which
  * typed clock times are read.
  */
 export interface MaxOptionsView {

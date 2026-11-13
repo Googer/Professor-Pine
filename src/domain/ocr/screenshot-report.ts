@@ -55,7 +55,7 @@ export interface ReportContext {
    * moment of the screenshot is told from the upload all the same. Absent: the upload's time.
    */
   now?: number;
-  /** `settings.timezone`: the zone of the phone's clock. */
+  /** The server's zone: the zone of the phone's clock. */
   zone: string;
   /** Minutes an egg of a standard raid incubates and the raid lasts (settings). */
   standardIncubate: number;

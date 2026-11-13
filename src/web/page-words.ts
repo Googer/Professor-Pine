@@ -24,7 +24,7 @@ const LIST_MARK = /^[ \t]*[-*][ \t]+/gmu;
 
 /**
  * The words of a command as the live map shows them, as plain text (plans 8M-4, 8M-5): Discord's
- * timestamps as clock times in the posts' zone (`clockTime`, as the page writes times) and a
+ * timestamps as clock times in the server's zone (`clockTime`, as the page writes times) and a
  * relative one as how long until then or since as Discord's client says it (`relativeStamp`, plan
  * 8M-11A: "in 5 hours", "in a day"; in English, the bot's language), the
  * bot's masked links as their text (the page links nothing of a command's words), the bot's own

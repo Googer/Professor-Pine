@@ -9,7 +9,7 @@ import { activityWhen } from './activity.js';
 
 /**
  * The month of a train (the brief's ruling): when it was made (`createdAt`), as the local month
- * (`yyyy-mm`) in `settings.timezone`, the heatmap's months.
+ * (`yyyy-mm`) in the server's zone, the heatmap's months.
  */
 export function trainMonth(createdAt: number, zone: string): string {
   return activityWhen(createdAt, zone).month;

@@ -6,7 +6,7 @@ import { isDuplicateEntry } from '../errors.js';
 export interface StopLineKey {
   serverId: string;
   regionChannelId: string;
-  /** The local day, `yyyy-mm-dd` in `settings.timezone`. */
+  /** The local day, `yyyy-mm-dd` in the server's zone. */
   day: string;
   /** `research:<task key>`, `rocket:<leader:… | giovanni>`. */
   key: string;

@@ -23,7 +23,10 @@ export interface ToolWebDeps {
   files: ToolSource;
   /** Who may have it: requests, decisions, keys and their fetches. */
   access: ScriptAccessService;
-  /** The posts' zone (`settings.timezone`), for the times of the owner's list. */
+  /**
+   * The instance's default zone (`instanceZone`: the page has no server), for the times of the
+   * owner's list.
+   */
   zone: string;
 }
 

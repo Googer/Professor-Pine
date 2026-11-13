@@ -9,7 +9,7 @@ import type { DB } from '../types.js';
  */
 export interface StopPostRecord {
   channelId: string;
-  /** The local day, `yyyy-mm-dd` in `settings.timezone`. */
+  /** The local day, `yyyy-mm-dd` in the server's zone. */
   day: string;
   serverId: string;
   /**

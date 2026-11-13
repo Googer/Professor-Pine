@@ -106,7 +106,10 @@ export const serverValuesSchema = z.strictObject({
       roles: z.boolean().default(FEATURE_DEFAULTS.roles),
     })
     .default(() => ({ ...FEATURE_DEFAULTS })),
-  /** Stored by the upgrade; read from the file until plan 19A-2 moves its readers. */
+  /**
+   * The server's zone (plan 19A-2; `ServerSettings.zoneOf`): the file's at the fill, then its
+   * staff's in `/admin settings`. Absent: the instance's default.
+   */
   timezone: timezoneSchema.optional(),
   distanceUnits: distanceUnitsSchema,
   eventsForum: eventsForumSchema,

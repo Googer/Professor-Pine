@@ -680,7 +680,8 @@ interface SectionEnd {
  * Reads Leek Duck's research page. Throws when it holds no task at all (another page, a page of
  * another shape), so that a broken read never replaces a good list. A task listed twice (the
  * same folded text) is one task with the rewards of both, and ends only with the last section
- * that lists it (never, where one has no end). `zone` is the server's (`settings.timezone`).
+ * that lists it (never, where one has no end). `zone` is the instance's default: a section's
+ * end is kept as wall-clock time (`endsLocal`) with its moment in that zone.
  */
 export function parseResearchPage(
   html: string,

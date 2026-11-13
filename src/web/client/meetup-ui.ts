@@ -64,7 +64,7 @@ export interface MeetupUiDeps {
   hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'release' | 'fit'>;
   /** The side panel's box, where the forms are drawn. */
   tools: HTMLElement;
-  /** The posts' zone (`PartiesView.zone`), in which the editor shows the times. */
+  /** The server's zone (`PartiesView.zone`), in which the editor shows the times. */
   zone(): string;
   /**
    * The PokéStops of "pick a place" mode on the map: shown (each clicked calls `picked`), and the

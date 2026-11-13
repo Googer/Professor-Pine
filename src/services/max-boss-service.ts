@@ -33,7 +33,10 @@ export interface MaxBossOptions extends BossFeedOptions<MaxTier> {
   /** Address of Pokebattler's raid list (`settings.maxBattles.url`). */
   url: string;
   store: MaxBossStore;
-  /** The zone of `settings.timezone`, in which an upcoming boss's day is read. */
+  /**
+   * The instance's default zone (`instanceZone`), in which the stored list's upcoming bosses'
+   * days are read; a server's list places them in its own (`bosses(zone)`, `maxRowsIn`).
+   */
   zone: string;
 }
 

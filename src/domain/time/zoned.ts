@@ -1,10 +1,11 @@
 /**
  * The one place Pine makes and reads zoned times (plan 8Y: Temporal in place of Luxon). Times
- * are epoch milliseconds in data; while computing they are `Temporal.ZonedDateTime` in
- * `settings.timezone` (or a feed's fixed zone), made here and changed with Temporal's own
- * methods (`add`, `with`, `startOfDay`, `since`). Never `Temporal.Now`: the clock is `Date.now()`
- * or an injected `now`, so tests that fake `Date` keep working. A zone never comes from member
- * text: Temporal throws on a zone it does not know.
+ * are epoch milliseconds in data; while computing they are `Temporal.ZonedDateTime` in the
+ * server's zone (plan 19A-2; the instance's default where there is no server, or a feed's fixed
+ * zone), made here and changed with Temporal's own methods (`add`, `with`, `startOfDay`,
+ * `since`). Never `Temporal.Now`: the clock is `Date.now()` or an injected `now`, so tests that
+ * fake `Date` keep working. A zone typed by staff is taken only through `zoneNamed`, never from
+ * other member text: Temporal throws on a zone it does not know.
  */
 
 /**

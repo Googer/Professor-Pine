@@ -30,7 +30,7 @@ export interface MaxEndInput {
   /** The big events known (`MaxEventProvider.bigEvents`). */
   big: readonly BigEvent[];
   hours: BattleHours;
-  /** `settings.timezone`. */
+  /** The server's zone. */
   zone: string;
 }
 

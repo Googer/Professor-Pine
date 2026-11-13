@@ -109,7 +109,7 @@ export interface PartyViewInput {
    */
   hidden?: ReadonlySet<string>;
   now: number;
-  /** `settings.timezone`, in which the page shows times. */
+  /** The server's zone, in which the page shows times. */
   zone: string;
   /** Discord cannot be reached: nothing may be pressed. */
   readOnly: boolean;

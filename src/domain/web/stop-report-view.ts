@@ -28,7 +28,7 @@ export interface StopReportViewInput {
   /** The research period on now: its reports are shown, those waiting under it counted. */
   period: Pick<ResearchPeriod, 'key' | 'start' | 'event' | 'waiting'>;
   now: number;
-  /** `settings.timezone`, sent with the view. */
+  /** The server's zone, sent with the view. */
   zone: string;
   /** Whether the member may see a report (the regions it lies in: not all kept from them). */
   shown(report: StopReport): boolean;

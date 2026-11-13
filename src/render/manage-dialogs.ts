@@ -198,12 +198,12 @@ export function drawnMark(value: string | number | null): string {
 export interface MeetupManageView {
   party: MeetupParty;
   now: number;
-  /** The posts' zone (`settings.timezone`), in which the times are said and read. */
+  /** The server's zone, in which the times are said and read. */
   zone: string;
 }
 
 /**
- * The map's "Starts now: 6:00 PM", "Ends now: none" (`nowLine`): in the posts' zone, in which typed
+ * The map's "Starts now: 6:00 PM", "Ends now: none" (`nowLine`): in the server's zone, in which typed
  * times are read, by the map's own words (`clockTime`), the zone named (review M3: Discord's reader
  * may be in another, which a dialog cannot know).
  */
