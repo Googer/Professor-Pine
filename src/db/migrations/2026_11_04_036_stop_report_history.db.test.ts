@@ -26,6 +26,8 @@ describe('migration 036: the history of reports at stops', () => {
     return rows.rows.filter((column) => !LATER.has(`${table}.${column.name}`));
   };
 
+  /** The indexes of a table as this migration made them: those of later migrations left out. */
+  const LATER_INDEXES = new Set(['StopReportHistory.stopreporthistory_reporterid_index']);
   const indexesOf = async (table: string) => {
     const rows = await sql<{ name: string; columns: string }>`
       select index_name as name, group_concat(column_name order by seq_in_index) as columns
@@ -33,7 +35,7 @@ describe('migration 036: the history of reports at stops', () => {
       where table_schema = database() and table_name = ${table}
       group by index_name
       order by index_name`.execute(db);
-    return rows.rows;
+    return rows.rows.filter((index) => !LATER_INDEXES.has(`${table}.${index.name}`));
   };
 
   it('adds the place and the confirmations to the live report, null for a row of before', async () => {
@@ -75,6 +77,9 @@ describe('migration 036: the history of reports at stops', () => {
   });
 
   it('runs again after a failure half-way without touching what it made', async () => {
+    // As before this migration: without the column, and so without the index migration 057
+    // puts on it, which a column cannot be dropped from under.
+    await sql`drop index stopreport_confirmedby_index on StopReport`.execute(db);
     await sql`alter table StopReport drop column confirmedBy`.execute(db);
     await stopReportHistory.up(db);
     await stopReportHistory.up(db);

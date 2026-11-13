@@ -26,8 +26,13 @@ import type { StopRef } from './stops.js';
  * it ended. Not: attendance, groups, meeting times, a train's movement.
  */
 
-/** A member as the log names them: by id, and by the name the bot had for them then. */
-const loggedMember = z.object({ id: z.string(), name: z.string().optional() });
+/**
+ * A member as the log names them: by id, and by the name the bot had for them then. The id is a
+ * snowflake of at most 30 characters, as the indexes on a conductor's `$.from.id` and `$.to.id`
+ * hold it (migration 057, cast to `char(30)`): the database refuses an entry with a longer one,
+ * so widening it is a decision of a migration, never of this schema alone.
+ */
+const loggedMember = z.object({ id: z.string().max(30), name: z.string().optional() });
 export type LoggedMember = z.infer<typeof loggedMember>;
 
 const time = z.number().nullable();

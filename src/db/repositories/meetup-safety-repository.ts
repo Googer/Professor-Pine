@@ -826,8 +826,9 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
    * carry their id: those still with the moderators, approvals whose meetup is still to be made
    * (`REQUEST_UNMADE`), approvals whose meetup is still going on (`requestLive`: its party's id
    * is one of `going`, the ids of the parties going on), and those decided and over
-   * (`REQUEST_OVER` but those, `APPEAL_OVER`, `ASK_OVER`). The tables are read whole: their
-   * indexes begin with the server, they are small, and only the owner asks.
+   * (`REQUEST_OVER` but those, `APPEAL_OVER`, `ASK_OVER`). Each table is read along its index
+   * that begins with the member (migration 057: `meetupblock_memberid_index`,
+   * `meetuprequest_makerid_index`, `meetupappeal_memberid_index`, `meetupplaceask_memberid_index`).
    */
   async heldOf(memberId: string, going: readonly string[] = []): Promise<MeetupRecordsHeld> {
     const live = requestLive(going);
@@ -873,9 +874,9 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
    * one of `going`, the ids of the parties going on): the moderators are told of that meetup's
    * changes by the request's maker (`MeetupSafety.tellChange`), and it is over once the meetup
    * has ended. Their blocks and the rulings stay as they are: the moderators' record. The rows
-   * are read first, without a lock, and changed by their ids, each only while it is still theirs
-   * and over: a change by the member alone would lock every row of the tables. One transaction,
-   * the caller's when `db` is one.
+   * are read first, without a lock, along the indexes that begin with the member (migration 057),
+   * and changed by their ids, each only while it is still theirs and over, so that the change
+   * locks those rows alone. One transaction, the caller's when `db` is one.
    */
   forgetMember(memberId: string, going: readonly string[] = []): Promise<number> {
     const over = sql<boolean>`(${REQUEST_OVER} and not ${requestLive(going)})`;

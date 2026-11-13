@@ -37,8 +37,9 @@ describe("migration 053: the staff's log of a server's settings", () => {
       where table_schema = database() and table_name = 'ServerSettingsAudit'
       group by index_name order by index_name`.execute(db);
     // A server's newest entries, the panel's; a member's of a server, `/audit member:`'s; the
-    // 30 days' sweep by `at` (review G7: as migration 045 keys `PartyAudit`).
-    expect(index.rows).toEqual([
+    // 30 days' sweep by `at` (review G7: as migration 045 keys `PartyAudit`). Migration 057's
+    // index on the member alone, for the look of `/operator forget`, is checked by its own test.
+    expect(index.rows.filter((one) => one.name !== 'serversettingsaudit_actorid_index')).toEqual([
       { name: 'PRIMARY', columns: 'id' },
       { name: 'serversettingsaudit_actor_index', columns: 'serverId,actorId,at' },
       { name: 'serversettingsaudit_at_index', columns: 'at' },

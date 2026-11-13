@@ -51,8 +51,9 @@ export class UnownGiftRepository implements UnownGiftStorage {
 
   /**
    * Deletes the member's rows of every server (plan 8G, `/operator forget`); how many. The servers
-   * are read first, without a lock, and the rows deleted by their key (the server, the member),
-   * as `NewTrainRepository.forget` does and for its reason. In the caller's transaction when
+   * are read first, without a lock, along `unownwantgift_memberid_index` (migration 057), and the
+   * rows deleted by their key (the server, the member), as `NewTrainRepository.forget` does and
+   * for its reason. In the caller's transaction when
    * `db` is one. A member who comes back with the old role is given the Unown want once more,
    * as somebody new would be.
    */

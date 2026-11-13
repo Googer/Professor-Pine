@@ -22,12 +22,13 @@ describe("migration 052: a server's settings", () => {
       from information_schema.columns
       where table_schema = database() and table_name = 'ServerSettings'
       order by ordinal_position`.execute(db);
+    // Migration 057 indexes who changed it last (`MUL`), for the look of `/operator forget`.
     expect(columns.rows).toEqual([
       { name: 'serverId', type: 'varchar(20)', nullable: 'NO', key: 'PRI' },
       { name: 'settings', type: 'json', nullable: 'NO', key: '' },
       { name: 'setUpAt', type: 'bigint', nullable: 'YES', key: '' },
       { name: 'updatedAt', type: 'bigint', nullable: 'NO', key: '' },
-      { name: 'updatedBy', type: 'varchar(20)', nullable: 'YES', key: '' },
+      { name: 'updatedBy', type: 'varchar(20)', nullable: 'YES', key: 'MUL' },
     ]);
   });
 

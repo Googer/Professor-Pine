@@ -245,4 +245,16 @@ describe('auditEntryOf', () => {
     expect(auditEntryOf('boss', { from: 3 })).toBeUndefined();
     expect(auditEntryOf('dance', {})).toBeUndefined();
   });
+
+  it('reads a conductor by an id of at most 30 characters, as the log’s index holds it', () => {
+    const conductor = (id: string) => ({ from: null, to: { id, name: 'Alice' } });
+    expect(auditEntryOf('conductor', conductor('1'.repeat(30)))).toEqual({
+      action: 'conductor',
+      ...conductor('1'.repeat(30)),
+    });
+    expect(auditEntryOf('conductor', conductor('1'.repeat(31)))).toBeUndefined();
+    expect(
+      auditEntryOf('conductor', { from: { id: '1'.repeat(31) }, to: { id: ALICE } }),
+    ).toBeUndefined();
+  });
 });

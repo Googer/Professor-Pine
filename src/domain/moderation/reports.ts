@@ -99,6 +99,12 @@ export const MESSAGE_COPY_ROOM = 1500;
 /** As many of a reported message's attachments as are named. */
 export const MAX_ATTACHMENT_NAMES = 10;
 
+/**
+ * An id in the subject: at most 30 characters, checked as the subject is written
+ * (`ReportRepository`) as when it is read. The subject's `makerId` and `authorId` are indexed so
+ * (migration 057, cast to `char(30)`): the database refuses a longer one, so widening it is a
+ * decision of a migration, never of this schema alone.
+ */
 const snowflake = z.string().min(1).max(30);
 const text = (max: number) => z.string().max(max);
 

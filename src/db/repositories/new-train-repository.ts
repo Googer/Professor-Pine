@@ -101,9 +101,9 @@ export class NewTrainRepository implements NewTrainStorage {
 
   /**
    * Deletes the member's rows of every server (plan 8G, `/operator forget`); how many. The servers
-   * are read first, without a lock, and the rows deleted by their key (the server, the member):
-   * the table has no index that begins with the member, and a delete by the member alone would
-   * lock every row of it. In the caller's transaction when `db` is one.
+   * are read first, without a lock, along `newtrainnotification_memberid_index` (migration 057),
+   * and the rows deleted by their key (the server, the member), so that the delete locks those
+   * rows alone. In the caller's transaction when `db` is one.
    */
   async forget(memberId: string): Promise<number> {
     const rows = await this.db

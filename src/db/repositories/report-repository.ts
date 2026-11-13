@@ -350,8 +350,13 @@ export class ReportRepository implements ReportStore {
   /**
    * What the reports of every server hold of a member (plan 8G: the look of `/operator forget`):
    * the reasons they gave (each with their id) and the reports about them (a party they made, a
-   * message they wrote: the subject's `makerId` or `authorId`). The tables are read whole:
-   * neither is indexed by the member, both are small, and only the owner asks.
+   * message they wrote: the subject's `makerId` or `authorId`). The reasons are read along
+   * `moderationreportreason_reporterid_index` (migration 057). The reports about them are two
+   * reads of one statement, added up here: by the maker along `moderationreport_makerid_index`
+   * and by the author along `moderationreport_authorid_index` (migration 057's functional
+   * indexes, which serve `json_unquote(json_extract(subject, …))` written as here), the second
+   * leaving out a report the first counted (`not (… <=> member)`), so that a subject naming
+   * them twice counts once.
    */
   async heldOf(memberId: string): Promise<ReportsHeld> {
     const reasons = await this.db
@@ -359,13 +364,19 @@ export class ReportRepository implements ReportStore {
       .select((eb) => eb.fn.countAll<number | string>().as('reasons'))
       .where('reporterId', '=', memberId)
       .executeTakeFirst();
-    const about = await sql<{ about: number | string }>`
-      select count(*) as about from ModerationReport
-      where json_unquote(json_extract(subject, '$.makerId')) = ${memberId}
-         or json_unquote(json_extract(subject, '$.authorId')) = ${memberId}`.execute(this.db);
+    const about = await sql<{ made: number | string; written: number | string }>`
+      select
+        (select count(*) from ModerationReport
+          where json_unquote(json_extract(subject, '$.makerId')) = ${memberId})
+          as made,
+        (select count(*) from ModerationReport
+          where json_unquote(json_extract(subject, '$.authorId')) = ${memberId}
+            and not (json_unquote(json_extract(subject, '$.makerId'))
+                     <=> ${memberId})) as written`.execute(this.db);
+    const counted = about.rows[0];
     return {
       reasons: Number(reasons?.reasons ?? 0),
-      about: Number(about.rows[0]?.about ?? 0),
+      about: Number(counted?.made ?? 0) + Number(counted?.written ?? 0),
     };
   }
 
@@ -374,9 +385,9 @@ export class ReportRepository implements ReportStore {
    * forget`; migration 051 lets the id be null); from how many. The reasons and their reports
    * stay for the moderators, the reasons' words without who wrote them; a report still open
    * shows "a former member" once its post is drawn again. Reports about the member are not
-   * touched. Their reasons are read first, without a lock, and changed by their row ids: a change
-   * by the reporter alone would lock every reason of the table. In the caller's transaction when
-   * `db` is one.
+   * touched. Their reasons are read first, without a lock, along
+   * `moderationreportreason_reporterid_index` (migration 057), and changed by their row ids, so
+   * that the change locks those rows alone. In the caller's transaction when `db` is one.
    */
   async forgetReporter(memberId: string): Promise<number> {
     const rows = await this.db

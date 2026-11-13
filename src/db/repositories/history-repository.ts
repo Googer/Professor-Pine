@@ -1104,9 +1104,10 @@ export class HistoryRepository
  * The servers whose history holds anything of a member (plan 8G), by their snowflakes in
  * ascending order: where their history is on, where they are on the boards or asked for their
  * old-bot history, and where a party (maker, conductor, attendee) or a record of a report at a
- * stop names them. Plain reads: the parties by the indexes that begin with the member; the
- * three switches and the reports read whole, their keys beginning with the server (only the
- * operators' `/operator forget` asks, seldom).
+ * stop names them. Plain reads, each by an index that begins with the member: the parties by
+ * those of 018, the three switches and the reports by those of migration 057
+ * (`historyoptin_memberid_index`, `leaderboardoptin_memberid_index`,
+ * `legacyfillin_memberid_index`, `stopreporthistory_reporterid_index`).
  */
 async function serversNaming(db: Kysely<DB>, memberId: string): Promise<string[]> {
   const found = await sql<{ serverId: string }>`

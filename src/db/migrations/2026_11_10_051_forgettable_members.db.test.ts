@@ -40,6 +40,8 @@ describe('migration 051: the ids a removal on request clears take a null', () =>
     }
     return found;
   };
+  /** The keys of a later migration (057's index on the reporter), left out. */
+  const LATER_KEYS = new Set(['moderationreportreason_reporterid_index']);
   const keysOfReasons = async () => {
     const rows = await sql<{ name: string; column: string; unique: number | string }>`
       select index_name as name, column_name as \`column\`, non_unique = 0 as \`unique\`
@@ -47,7 +49,7 @@ describe('migration 051: the ids a removal on request clears take a null', () =>
       where table_schema = database() and table_name = 'ModerationReportReason'
       order by index_name, seq_in_index`.execute(db);
     const keys: Record<string, { columns: string[]; unique: boolean }> = {};
-    for (const row of rows.rows) {
+    for (const row of rows.rows.filter((one) => !LATER_KEYS.has(one.name))) {
       const key = (keys[row.name] ??= { columns: [], unique: Number(row.unique) === 1 });
       key.columns.push(row.column);
     }

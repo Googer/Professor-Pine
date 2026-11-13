@@ -551,7 +551,11 @@ export class StopReportRepository implements StopReportStorage {
 
   /**
    * Adds a member to who confirmed the standing version (review H6), each once, never its own
-   * reporter; its `madeAt` stays, so the version is the same.
+   * reporter; its `madeAt` stays, so the version is the same. `confirmedBy` holds only a JSON
+   * array of member ids of at most 30 characters (or is SQL null), never a JSON `null`, an object
+   * or a longer id among them: its multi-valued index (migration 057, `char(30) array`, which the
+   * look's count by `member of` reads) refuses such a row, so widening it is a decision of a
+   * migration.
    */
   private async confirm(
     trx: Kysely<DB>,
