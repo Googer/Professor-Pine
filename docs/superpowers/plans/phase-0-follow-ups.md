@@ -3608,6 +3608,13 @@ Plan `2026-11-12-phase-19d-sharding.md`, merged on main-dev; check 13,747, datab
 - `onEveryShardReady` and `ShardStart.gone` are built for plan 19C, which marks a gone server left; nothing acts on them yet.
 - Beyond about 90,000 servers (36 shards and more at a `max_concurrency` of 1) the login's identify slots are long; the health rule gives each shard its slot, but nothing has been tried at that size.
 
+## From the index fixes since 2.0.0 (2026-11-13)
+
+Plan `2026-11-13-index-fixes-since-2-0-0.md`, merged on main-dev; full check, database suite and build pass. **Staging:** one step (migration 057 applied on the dev stack).
+
+- `PartyAuditRepository.insert` writes entries without parsing them: a conductor id over 30 characters is refused by the database (the whole insert of that change), not by the schema first. No writer makes one; a parse on write would land a failure inside a party's change.
+- A row edited by hand into the JSON the indexes read (`PartyAudit.detail`'s conductor ids, `ModerationReport.subject`'s ids, `StopReport.confirmedBy`) with an id over 30 characters, a JSON `null` or an object in `confirmedBy`, is refused by MySQL, and would make migration 057 fail on a database that held one.
+
 ## From Phase 19B-2 (gyms per server, 2026-11-13)
 
 Plan `2026-11-13-phase-19b-2-gyms-per-server.md`, merged on main-dev; full check, database suite and build pass. **Staging not run** (its plan's five steps; needs `./pine update` for migration 056).
