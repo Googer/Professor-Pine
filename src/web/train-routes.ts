@@ -111,6 +111,7 @@ import { timesCountedOnTheMap } from './times-on-map.js';
 import { postGuard } from './csrf.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 
@@ -274,8 +275,9 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
     meetupSafety: ctx.meetupSafety,
   });
 
-  /** The words of a command as text of the page, in the posts' zone. */
-  const words = (text: string): string => pageWords(text, parties.zone, deps.now());
+  /** The words of a command as text of the page, in the zone of the request's server. */
+  const words = (text: string, request: FastifyRequest): string =>
+    pageWords(text, requestZone(request), deps.now());
 
   /** A region in a sentence: `#west` as its channel reads, else `Region 5`. */
   const regionInWords = (region: Pick<Region, 'id' | 'channelId'>): string => {
@@ -303,6 +305,8 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
     party: TrainParty,
     userId: string,
     standing: MemberStanding,
+    /** The request whose server's zone the view is in (`requestZone`). */
+    request: FastifyRequest,
   ): MapTrain | undefined => {
     const shown = mapParty(party, {
       guildId,
@@ -311,7 +315,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       memberId: userId,
       barred: new Set(),
       now: deps.now(),
-      zone: parties.zone,
+      zone: requestZone(request),
       readOnly: false,
       staff: isMapStaff(standing, userId, parties.ownerId),
       botStaff: isMapBotStaff(standing, userId, parties.ownerId),
@@ -320,10 +324,10 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       ...(parties.spotOf === undefined ? {} : { spotOf: parties.spotOf }),
       pictureOrigins: deps.pictureOrigins,
       // Why Move… and Manage… do not open, in Discord's words (review C1).
-      trainRefusal: (reason) => refusalOnTheMap(parties, reason, words),
+      trainRefusal: (reason) => refusalOnTheMap(parties, reason, (said) => words(said, request)),
       // Move… as the post's dialog draws it (plan 8M-8C).
-      trainMoves: (train) => movesOnTheMap(parties.stops, train, words),
-      trainAhead: (train) => aheadOnTheMap(parties.stops, train, words),
+      trainMoves: (train) => movesOnTheMap(parties.stops, train, (said) => words(said, request)),
+      trainAhead: (train) => aheadOnTheMap(parties.stops, train, (said) => words(said, request)),
     });
     return shown?.kind === 'train' ? shown : undefined;
   };
@@ -333,7 +337,11 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
    * when they may see it (a refusal of who may: the page draws it again without the controls).
    */
   const refuse = (reply: FastifyReply, status: number, text: string, train?: MapTrain) => {
-    const answer: TrainAnswer = { ok: false, text: words(text), ...(train ? { train } : {}) };
+    const answer: TrainAnswer = {
+      ok: false,
+      text: words(text, reply.request),
+      ...(train ? { train } : {}),
+    };
     return reply.code(status).send(answer);
   };
 
@@ -409,11 +417,11 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
     const party = answer.kind === 'gone' ? undefined : parties.store.get(partyId);
     const train =
       party?.status === 'active' && isTrain(party)
-        ? viewOf(guild, row, party, userId, standing)
+        ? viewOf(guild, row, party, userId, standing, reply.request)
         : undefined;
     const sent: TrainAnswer = {
       ok: answer.kind === 'ok',
-      text: words(answer.text),
+      text: words(answer.text, reply.request),
       ...(train ? { train } : {}),
     };
     return reply.code(status).send(sent);
@@ -473,7 +481,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
           'meet',
           typed,
           now,
-          ctx.servers.zoneOf(guild),
+          requestZone(request),
         );
         // A word that removes a time, of a train that has none yet: refused as `/train` does.
         if (read === 'unset') return refuse(reply, 422, NO_START_TO_REMOVE);
@@ -528,7 +536,9 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
     }
     const party = parties.store.get(made.party.id);
     const train =
-      party?.type === 'train' ? viewOf(guild, row, party, userId, acting.standing) : undefined;
+      party?.type === 'train'
+        ? viewOf(guild, row, party, userId, acting.standing, request)
+        : undefined;
     const { startTime } = made.party.timed;
     const when = startTime === null ? '' : ` It starts at ${timestamp(startTime)}.`;
     // Who made it may lay its route without being signed up, as after `/train`.
@@ -538,7 +548,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
         : '';
     const answer: TrainAnswer = {
       ok: true,
-      text: words(`${made.text}${when} ${ADD_STOPS}${signUp}`),
+      text: words(`${made.text}${when} ${ADD_STOPS}${signUp}`, request),
       ...(train ? { train } : {}),
     };
     return reply.send(answer);
@@ -620,7 +630,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
               ? mayNotLoad(party, userId, staff)
               : undefined;
       if (forbidden) {
-        const train = viewOf(guild, row, party, userId, standing);
+        const train = viewOf(guild, row, party, userId, standing, request);
         return refuse(reply, 403, trainRefusal(ctx, forbidden), train);
       }
       // A stop of no region of this server is none here, as for the list of `/route add`.
@@ -704,7 +714,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const staff = isMapStaff(standing, userId, parties.ownerId);
       const forbidden = mayNotMove(party, userId, staff);
       if (forbidden) {
-        const train = viewOf(guild, row, party, userId, standing);
+        const train = viewOf(guild, row, party, userId, standing, request);
         return refuse(reply, 403, trainRefusal(ctx, forbidden), train);
       }
       const counted = { control: PARTY_KIND };
@@ -770,19 +780,19 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if ('sent' in opened) return opened.sent;
       const { userId, staff, party } = opened;
       const refused = manageRefusal(ctx, party, userId, staff);
-      if (refused !== undefined) return reply.code(422).send({ error: words(refused) });
+      if (refused !== undefined) return reply.code(422).send({ error: words(refused, request) });
       // The times are the page's lines (`times`), not the dialog's sentence and field.
       const form = manageForm(trainPlaces(ctx, party));
       const view: MapManage = {
         title: form.title,
-        text: words(form.text),
+        text: words(form.text, request),
         ...(form.route === undefined ? {} : { route: formChoice(form.route) }),
         ...(form.atEnd === undefined ? {} : { atEnd: formChoice(form.atEnd) }),
         kind: formChoice(form.kind),
         ...(mayArrange(party, userId)
           ? {
               times: {
-                zone: ctx.config.settings.timezone,
+                zone: requestZone(request),
                 startTime: party.timed.startTime,
                 endTime: party.endTime,
               },
@@ -809,7 +819,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const staff = isMapStaff(standing, userId, parties.ownerId);
       const refused = manageRefusal(ctx, party, userId, staff);
       if (refused !== undefined) {
-        return refuse(reply, 403, refused, viewOf(guild, row, party, userId, standing));
+        return refuse(reply, 403, refused, viewOf(guild, row, party, userId, standing, request));
       }
       const { shown, picked: chosen } = body.data;
       const { start: typed, end: typedEnd, ...picked } = chosen;
@@ -821,7 +831,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const asksEnd = typedEnd !== undefined && typedEnd.trim() !== '';
       if (asksStart || asksEnd) {
         if (!mayArrange(party, userId)) {
-          const train = viewOf(guild, row, party, userId, standing);
+          const train = viewOf(guild, row, party, userId, standing, request);
           return refuse(reply, 403, trainRefusal(ctx, 'not-attending'), train);
         }
         try {
@@ -837,7 +847,11 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
         } catch (err) {
           if (!(err instanceof UserError)) throw err;
           // What was typed alone is refused: the form stays, with what was picked.
-          const kept: TrainAnswer = { ok: false, text: words(err.message), keepsForm: true };
+          const kept: TrainAnswer = {
+            ok: false,
+            text: words(err.message, request),
+            keepsForm: true,
+          };
           return reply.code(422).send(kept);
         }
       }
@@ -896,7 +910,9 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const { userId, staff, party } = opened;
       const [first, ...rest] = splittableGroups(party, userId, staff);
       if (first === undefined) {
-        return reply.code(422).send({ error: words(splitRefusalFor(ctx, party, userId, staff)) });
+        return reply
+          .code(422)
+          .send({ error: words(splitRefusalFor(ctx, party, userId, staff), request) });
       }
       // A split counts in `/train`'s window and against the cap of open parties (plan 8Z): asked
       // here, counted at the Submit.
@@ -910,7 +926,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       );
       if (windowFull) return windowFull;
       if (await openPartiesFull(openParties(), request.params.guild, userId, staff)) {
-        return reply.code(422).send({ error: words(OPEN_PARTIES_FULL) });
+        return reply.code(422).send({ error: words(OPEN_PARTIES_FULL, request) });
       }
       const settings = await ctx.users.get(userId);
       const form = splitForm(
@@ -925,7 +941,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       );
       const view: MapSplit = {
         title: form.title,
-        text: words(form.text),
+        text: words(form.text, request),
         ...(form.only === undefined ? {} : { only: form.only }),
         ...(form.choice === undefined
           ? {}
@@ -957,12 +973,12 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if (groupMark(party, group) === mark) {
         const problem = mayNotSplit(party, userId, staff, group);
         if (problem === 'not-in-group' || problem === 'conductor-in-group') {
-          const train = viewOf(guild, row, party, userId, standing);
+          const train = viewOf(guild, row, party, userId, standing, request);
           return refuse(reply, 403, splitRefusal(ctx, party, problem, group), train);
         }
       }
       if (await openPartiesFull(openParties(), guild, userId, staff)) {
-        const train = viewOf(guild, row, party, userId, standing);
+        const train = viewOf(guild, row, party, userId, standing, request);
         return refuse(reply, 422, OPEN_PARTIES_FULL, train);
       }
       const counted = { control: PARTY_KIND };
@@ -1044,7 +1060,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       // Checked here, uncounted, and again inside the store, for a change on its way meanwhile.
       const changed = conductorDrawn(party, userId, body.data.who);
       if (changed) {
-        const train = viewOf(guild, row, party, userId, standing);
+        const train = viewOf(guild, row, party, userId, standing, request);
         const stale: TrainAnswer = {
           ok: false,
           text: trainRefusal(ctx, changed),
@@ -1062,7 +1078,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
             ? undefined
             : mayNotClear(party, userId, staff);
       if (forbidden) {
-        const train = viewOf(guild, row, party, userId, standing);
+        const train = viewOf(guild, row, party, userId, standing, request);
         return refuse(reply, 403, trainRefusal(ctx, forbidden), train);
       }
       const counted = { command: change === 'take' ? 'conductor set' : 'conductor clear' };

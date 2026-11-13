@@ -67,7 +67,6 @@ async function setup(days: readonly ActivityDay[]) {
       gyms: gymsFixture(),
       regions: regionsFixture(),
       wayspots,
-      zone: ZONE,
     }),
   });
   web.clock.now = NOW;

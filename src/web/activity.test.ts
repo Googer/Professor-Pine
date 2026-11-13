@@ -48,7 +48,6 @@ async function setup(options: { kept?: boolean } = {}) {
       gyms: gymsFixture(),
       regions: regionsFixture(),
       wayspots,
-      zone: ZONE,
     }),
   });
   web.clock.now = THURSDAY;

@@ -67,16 +67,16 @@ export interface ResearchTask {
 
 /**
  * Whether a task is offered at `now`: not past its event's end, in `zone` (plan 19A-2: a server's;
- * an end the page gave as local time is on its clock there), without one the end kept.
+ * an end the page gave as local time is on its clock there).
  */
 export function taskOffered(
   task: Pick<ResearchTask, 'endsAt' | 'endsLocal'>,
   now: number,
-  zone?: string,
+  zone: string,
 ): boolean {
   if (task.endsAt === undefined) return true;
   const end =
-    zone === undefined || task.endsLocal === undefined
+    task.endsLocal === undefined
       ? task.endsAt
       : momentIn({ local: task.endsLocal }, zone).epochMilliseconds;
   return now < end;

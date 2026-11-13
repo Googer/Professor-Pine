@@ -1840,7 +1840,6 @@ export async function startApp(
             : undefined;
         },
         forums: partyGateway,
-        zone: config.settings.timezone,
         attendance,
         acting: new DiscordWebMembers(client),
         throttles,
@@ -1890,7 +1889,6 @@ export async function startApp(
         regions,
         gyms,
         wayspots,
-        zone: config.settings.timezone,
         durations: config.settings,
         tallies: ctx.regionTallies,
         channelName: (channelId) => partyGateway.channelName(channelId),
@@ -1919,7 +1917,8 @@ export async function startApp(
       tool: {
         files: new WayspotToolFiles({ log }),
         access: scriptAccess,
-        zone: config.settings.timezone,
+        // The tool page has no server (plan 19A-2): the instance's default zone.
+        zone: instanceZone(config.settings),
       },
       pictures: stopPictures,
       // The application's emoji for the map's posts (plan 8M-8A), fetched once from Discord's CDN.

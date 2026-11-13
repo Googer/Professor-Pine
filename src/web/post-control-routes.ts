@@ -50,6 +50,7 @@ import { sendFailure } from './answers.js';
 import { shownAfter } from './post-drawn.js';
 import { postGuard } from './csrf.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import { forumOnTheMap } from './party-routes.js';
 import { limitedPerAddress, limitedPerMember, RateLimiter, readLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
@@ -238,8 +239,9 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
     return 'sent' in found ? found : { userId, ...found };
   };
 
-  /** The words of a command as text of the page, in the posts' zone. */
-  const words = (text: string): string => pageWords(text, parties.zone, deps.now());
+  /** The words of a command as text of the page, in the zone of the request's server. */
+  const words = (text: string, request: FastifyRequest): string =>
+    pageWords(text, requestZone(request), deps.now());
 
   /** Logged as a press of the post is: who, where, which party, what; never a text. */
   const noted = (request: ControlRequest, userId: string, action: string, outcome: string) => {
@@ -332,9 +334,15 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if (full) return full;
       const now = deps.now();
       const battle = meetRefusalOf(parties.attendance.limits(), party, userId, now);
-      if (typeof battle === 'string') return reply.code(422).send({ error: words(battle) });
+      if (typeof battle === 'string')
+        return reply.code(422).send({ error: words(battle, request) });
       const groupId = attendeeOf(battle, userId)?.group ?? battle.defaultGroupId;
-      const view: MapMeet = meetOnTheMap({ party: battle, groupId, zone: parties.zone, now });
+      const view: MapMeet = meetOnTheMap({
+        party: battle,
+        groupId,
+        zone: requestZone(request),
+        now,
+      });
       return view;
     },
   );
@@ -398,7 +406,7 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       );
       noted(request, userId, 'meet', kind);
       await shownAfter(parties.drawn, found.party.id, kind === 'ok');
-      const answer: PressAnswer = { ok: said.ok, text: words(said.text) };
+      const answer: PressAnswer = { ok: said.ok, text: words(said.text, request) };
       return reply.code(OUTCOME_STATUS[kind]).send(answer);
     },
   );

@@ -255,7 +255,7 @@ export function listedRewards(ctx: Pick<AppContext, 'researchTasks'>): {
 } {
   const items = new Map<string, string>();
   const energies = new Map<number, string>();
-  for (const task of ctx.researchTasks.tasks()) {
+  for (const task of ctx.researchTasks.storedTasks()) {
     for (const reward of task.rewards) {
       if (reward.kind === 'item') items.set(reward.item, reward.name);
       if (reward.kind === 'energy' && reward.dex !== null) energies.set(reward.dex, reward.name);
@@ -361,14 +361,13 @@ export const PICK_THE_REWARD =
  * that is the list's task of the same folded text (`listedVersion`: its version by `reward`),
  * else a task typed in full (at most `MAX_TYPED_TASK` characters), whose `reward` is the only
  * reward that makes wants fire: `typed:<text key>`, with the reward's hash after it (R11).
- * Whether a task is still offered is decided in `zone` (the server's, plan 19A-2; the instance's
- * default without one).
+ * Whether a task is still offered is decided in `zone` (the server's, plan 19A-2).
  */
 export function readTask(
   ctx: Pick<AppContext, 'researchTasks' | 'pokemon' | 'gameData'>,
   value: string,
   reward: string | null,
-  zone?: string,
+  zone: string,
 ): ResearchSubject {
   const text = tidyLine(value);
   const subject = researchSubjectOf(text);

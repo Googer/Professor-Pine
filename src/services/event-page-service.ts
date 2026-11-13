@@ -83,7 +83,7 @@ export interface EventSpawnProvider {
    * or not (`costumedSpawn` says whether a report is costumed). Empty for an event whose page was
    * never read.
    */
-  sightingsAt(at: number, zone?: string): SpawnSightingOf;
+  sightingsAt(at: number, zone: string): SpawnSightingOf;
 }
 
 /**
@@ -203,14 +203,13 @@ export class EventPageService implements EventSpawnProvider {
     this.timeoutMs = options.timeoutMs ?? 30_000;
   }
 
-  sightingsAt(at: number, zone?: string): SpawnSightingOf {
+  sightingsAt(at: number, zone: string): SpawnSightingOf {
     const { catalogue } = this.options.gameData;
-    return spawnEventsAt(this.options.events.spawnEvents(zone ?? this.options.zone), at).flatMap(
-      (event) =>
-        (event.spawns ?? this.pages.get(event.id)?.spawns ?? []).flatMap((spawn) => {
-          const sighting = costumedSighting(catalogue, spawn.name, spawn.image);
-          return sighting === undefined ? [] : [sighting];
-        }),
+    return spawnEventsAt(this.options.events.spawnEvents(zone), at).flatMap((event) =>
+      (event.spawns ?? this.pages.get(event.id)?.spawns ?? []).flatMap((spawn) => {
+        const sighting = costumedSighting(catalogue, spawn.name, spawn.image);
+        return sighting === undefined ? [] : [sighting];
+      }),
     );
   }
 

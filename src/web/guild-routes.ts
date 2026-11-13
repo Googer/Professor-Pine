@@ -23,6 +23,7 @@ import type { CostOf } from './public-costs.js';
 import { limitedRead } from './rate-limit.js';
 import { mayEditRegions } from './region-staff.js';
 import { spawnRoutes } from './spawn-routes.js';
+import { takeZone } from './request-zone.js';
 import { stopRoutes } from './stop-routes.js';
 import type { WebDeps } from './server.js';
 import { trainRoutes } from './train-routes.js';
@@ -65,6 +66,8 @@ export function guildRoutes(
   scope.addHook('onRequest', async (request: GuildRequest, reply) => {
     const { guild } = request.params;
     if (!isSnowflake(guild) || !deps.servers.has(guild)) return sendFailure(request, reply, 404);
+    // The server's zone, once for the whole answer (plan 19A-2, `requestZone`).
+    takeZone(request, deps.serverSettings.zoneOf(guild));
   });
 
   // The map page (spec 3.1): the static template, told the server, the tiles and how to log in.

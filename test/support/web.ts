@@ -66,6 +66,7 @@ import { LiveSignals } from '../../src/web/live-signals.js';
 import { MEMBER_LOOKUPS_PER_SECOND } from '../../src/web/paced-members.js';
 import { Tally } from './tally.js';
 import { TEST_MAP_ROLE, TestServers } from './server-values.js';
+import type { ServerSettingsLookup } from '../../src/services/server-settings.js';
 
 /** The bot's owner in the tests' environment (`TEST_ENV.OWNER_ID`), staff in every server. */
 export const TEST_OWNER_ID = TEST_ENV.OWNER_ID ?? '';
@@ -339,7 +340,6 @@ export const NO_PARTIES: PartyWebDeps = {
   titleOf: () => '',
   places: NO_PLACES,
   forums: { memberAccess: () => Promise.resolve(undefined) },
-  zone: 'America/New_York',
   attendance: {
     signUp: noAttendance,
     joinInto: noAttendance,
@@ -398,7 +398,6 @@ export function partyWebWith(
     titleOf: (party) => made.service.postTitle(party),
     places: options.places ?? NO_PLACES,
     forums: made.gateway,
-    zone: made.settings.timezone,
     attendance: made.attendance,
     acting: options.acting ?? new FakeActingMembers(),
     throttles: options.throttles ?? new Throttles(),
@@ -578,8 +577,18 @@ export function activityWebWith(
     | 'days'
     | 'durations'
   > &
-    Partial<ActivityWebDeps>,
+    Partial<ActivityWebDeps> & {
+      /**
+       * The servers' zones of the region tally and the raids per day made here: the same lookup
+       * as the web server's `serverSettings`, so that they read the zone the routes read
+       * (`requestZone`, plan 19A-2; fix round 1, N7). Every server in the test settings' zone by
+       * default.
+       */
+      servers?: Pick<ServerSettingsLookup, 'zoneOf'>;
+    },
 ): ActivityWebDeps {
+  const { servers = new TestServers(), ...given } = deps;
+  const zoneOf = (serverId: string) => servers.zoneOf(serverId);
   // The fakes' server is row 1, as the regions of the fixtures say.
   const guilds = {
     idFor: (snowflake: string) => Promise.resolve(snowflake === FAKE_GUILD_ID ? 1 : undefined),
@@ -600,7 +609,7 @@ export function activityWebWith(
       regions: deps.regions,
       guilds,
       gateway: new FakePartyGateway(),
-      zoneOf: () => deps.zone,
+      zoneOf,
     }),
     guilds,
     channelName: () => undefined,
@@ -611,10 +620,10 @@ export function activityWebWith(
     // Raids per day (plan 8H-8) over the same reader where it has them (`MemoryActivity`).
     days: new HistoryDays({
       reader: isDayReader(deps.reader) ? deps.reader : new MemoryActivity(),
-      zoneOf: () => deps.zone,
+      zoneOf,
       bossName: (key) => catalogueFixture().byKey(key)?.name,
     }),
-    ...deps,
+    ...given,
   };
 }
 

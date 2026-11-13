@@ -74,6 +74,7 @@ import { timesCountedOnTheMap } from './times-on-map.js';
 import { postGuard } from './csrf.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import { placesFor, placesQuerySchema } from './wayspot-box.js';
 import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
@@ -174,8 +175,9 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
   const { sessions, parties, meetups } = deps;
   const { ctx } = meetups;
 
-  /** The words of a command as text of the page, in the posts' zone. */
-  const words = (text: string): string => pageWords(text, parties.zone, deps.now());
+  /** The words of a command as text of the page, in the zone of the request's server. */
+  const words = (text: string, request: FastifyRequest): string =>
+    pageWords(text, requestZone(request), deps.now());
 
   /** A region in a sentence: `#west` as its channel reads, else `Region 5`. */
   const regionInWords = (region: Pick<Region, 'id' | 'channelId'>): string => {
@@ -203,6 +205,8 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     party: MeetupParty,
     userId: string,
     standing: MemberStanding,
+    /** The request whose server's zone the view is in (`requestZone`). */
+    request: FastifyRequest,
   ): MapMeetup | undefined => {
     const shown = mapParty(party, {
       guildId,
@@ -211,7 +215,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       memberId: userId,
       barred: new Set(),
       now: deps.now(),
-      zone: parties.zone,
+      zone: requestZone(request),
       readOnly: false,
       staff: isMapStaff(standing, userId, parties.ownerId),
       botStaff: isMapBotStaff(standing, userId, parties.ownerId),
@@ -224,7 +228,11 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
 
   /** A refusal in the command's words, as text of the page. */
   const refuse = (reply: FastifyReply, status: number, text: string, meetup?: MapMeetup) => {
-    const answer: MeetupAnswer = { ok: false, text: words(text), ...(meetup ? { meetup } : {}) };
+    const answer: MeetupAnswer = {
+      ok: false,
+      text: words(text, reply.request),
+      ...(meetup ? { meetup } : {}),
+    };
     return reply.code(status).send(answer);
   };
 
@@ -323,7 +331,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     let endTime: number | undefined;
     try {
       // The server's zone (plan 19A-2), as `/meetup` reads them there.
-      const zone = ctx.servers.zoneOf(guild);
+      const zone = requestZone(request);
       const typed = typedTimedTime(
         ctx,
         newPartyTimes('meetup', now),
@@ -415,17 +423,19 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
         }
         return refuse(reply, 422, answer.text);
       case 'held': {
-        const held: MeetupAnswer = { ok: true, outcome: 'held', text: words(answer.text) };
+        const held: MeetupAnswer = { ok: true, outcome: 'held', text: words(answer.text, request) };
         return reply.send(held);
       }
       case 'posted': {
         const party = parties.store.get(answer.party.id);
         const meetup =
-          party?.type === 'meetup' ? viewOf(guild, row, party, userId, acting.standing) : undefined;
+          party?.type === 'meetup'
+            ? viewOf(guild, row, party, userId, acting.standing, request)
+            : undefined;
         const posted: MeetupAnswer = {
           ok: true,
           outcome: 'posted',
-          text: words(`${answer.text} ${MANAGE_IN_POPUP}`),
+          text: words(`${answer.text} ${MANAGE_IN_POPUP}`, request),
           ...(meetup ? { meetup } : {}),
         };
         return reply.send(posted);
@@ -468,11 +478,11 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     const party = answer.kind === 'gone' ? undefined : parties.store.get(partyId);
     const meetup =
       party?.status === 'active' && isMeetup(party)
-        ? viewOf(guild, row, party, userId, standing)
+        ? viewOf(guild, row, party, userId, standing, reply.request)
         : undefined;
     const sent: MeetupAnswer = {
       ok: answer.kind === 'ok',
-      text: words(answer.text),
+      text: words(answer.text, reply.request),
       ...(meetup ? { meetup } : {}),
       ...(answer.kind === 'refused' && answer.went?.length ? { went: answer.went } : {}),
     };
@@ -516,7 +526,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       return { sent: unreachableOnTheMap(deps, reply, err, guild, userId, doing) };
     }
     const { member, standing } = acting;
-    const meetupNow = () => viewOf(guild, row, party, userId, standing);
+    const meetupNow = () => viewOf(guild, row, party, userId, standing, request);
     return { row, party, member, standing, meetupNow };
   };
 

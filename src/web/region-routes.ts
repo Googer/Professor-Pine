@@ -28,6 +28,7 @@ import { sendFailure } from './answers.js';
 import { postGuard } from './csrf.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import { UNCONFIRMED } from './party-routes.js';
 import type { PartyViewers } from './party-viewers.js';
 import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
@@ -106,6 +107,8 @@ async function regionsNow(
   guild: string,
   userId: string,
   fresh: boolean,
+  /** The server's zone, the request's (`requestZone`): the words of the view. */
+  zone: string,
   member?: { held: readonly string[]; seenAt: number },
 ): Promise<RegionsNow | undefined> {
   const { regions: regionDeps } = deps;
@@ -134,7 +137,7 @@ async function regionsNow(
       : (member?.held ?? look.held),
   );
   const now = deps.now();
-  const words = (text: string): string => pageWords(text, deps.parties.zone, now);
+  const words = (text: string): string => pageWords(text, zone, now);
   const choices = regionChoices(regions, look, roster, held);
   const view: RegionsMineView = {
     readOnly: false,
@@ -216,7 +219,7 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
       if (member.readOnly) return readOnly;
       try {
         // As the member directory's look (paced, kept a minute) left the member in the cache (A1).
-        const now = await regionsNow(deps, guild, session.userId, false);
+        const now = await regionsNow(deps, guild, session.userId, false, requestZone(request));
         return now?.view ?? sendFailure(request, reply, 403);
       } catch (err) {
         deps.log.warn(
@@ -278,7 +281,7 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
       try {
         // As the forced fetch of `actingOnTheMap` left the member in the cache, planned over
         // the roles of that fetch, as the change is (A3).
-        before = await regionsNow(deps, guild, userId, false, {
+        before = await regionsNow(deps, guild, userId, false, requestZone(request), {
           held: acting.roleIds,
           seenAt: acting.fetchedAt,
         });
@@ -326,7 +329,7 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
       }
       const name = roleText(entry.name);
       const said = joining ? gaveWords(name, entry.group?.name, outcome) : tookWords(name, outcome);
-      const text = pageWords(said.text, deps.parties.zone, deps.now());
+      const text = pageWords(said.text, requestZone(request), deps.now());
       if (said.refused) {
         const answer: RegionChangeAnswer = { ok: false, outcome: 'refused', text };
         return noted('skipped', reply.code(422).send(answer));
@@ -334,7 +337,9 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
       const changed = outcome.given.length + outcome.taken.length > 0;
       let view: RegionsMineView | undefined;
       try {
-        view = changed ? (await regionsNow(deps, guild, userId, true))?.view : before.view;
+        view = changed
+          ? (await regionsNow(deps, guild, userId, true, requestZone(request)))?.view
+          : before.view;
       } catch (err) {
         deps.log.warn(
           { err, guild, user: userId },

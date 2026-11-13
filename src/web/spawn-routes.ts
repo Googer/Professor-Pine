@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../app-context.js';
 import { chosenPlace, NOT_HERE, PIN_NOT_HERE, PLACE_GONE } from '../commands/place-option.js';
@@ -39,6 +39,7 @@ import { postGuard } from './csrf.js';
 import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import { UNCONFIRMED } from './party-routes.js';
 import type { PartyViewers } from './party-viewers.js';
 import { gatesOf, seenBy } from './spawn-seen.js';
@@ -156,8 +157,9 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
   const { sessions, spawns, parties } = deps;
   const { ctx } = spawns;
 
-  /** The words of a command as text of the page, in the posts' zone. */
-  const words = (text: string): string => pageWords(text, parties.zone, deps.now());
+  /** The words of a command as text of the page, in the zone of the request's server. */
+  const words = (text: string, request: FastifyRequest): string =>
+    pageWords(text, requestZone(request), deps.now());
 
   /** A region as an answer names it: its channel's name, or its number where the bot sees none. */
   const regionName = (region: Pick<Region, 'id' | 'channelId'>): string =>
@@ -278,7 +280,7 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     const acting = await actingOnTheMap(deps, request, reply, guild, userId, doing);
     if ('sent' in acting) return acting.sent;
     const refusal = (text: string) => {
-      const refused: SpawnAnswer = { ok: false, text: words(text) };
+      const refused: SpawnAnswer = { ok: false, text: words(text, reply.request) };
       return reply.code(422).send(refused);
     };
     /**
@@ -364,7 +366,7 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     // its limit.
     const staff = isMapStaff(acting.standing, userId, parties.ownerId);
     if (await blockedAtPin(ctx, guild, userId, staff, near)) {
-      const blocked: SpawnAnswer = { ok: false, text: words(MAP_SPAWN_BLOCKED) };
+      const blocked: SpawnAnswer = { ok: false, text: words(MAP_SPAWN_BLOCKED, request) };
       return noted('blocked', reply.code(403).send(blocked), picked.id);
     }
     const counted = { command: WILD_COMMAND };
@@ -396,13 +398,13 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
           reply
             .code(503)
             .header('retry-after', String(RESTART_RETRY_SECONDS))
-            .send({ error: words(err.message) }),
+            .send({ error: words(err.message, request) }),
           picked.id,
         );
       }
       return noted('not-made', refusal(err.message), picked.id);
     }
-    const answer: SpawnAnswer = { ok: true, text: words(text) };
+    const answer: SpawnAnswer = { ok: true, text: words(text, reply.request) };
     return noted('posted', answer, picked.id);
   });
 }

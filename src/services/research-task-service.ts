@@ -78,10 +78,15 @@ export interface ResearchTaskProvider {
   /**
    * The tasks of the last good read as they are offered now, an event's first (plan 8R-8), each
    * part in the page's order, none past its event's end (Leek Duck's page may still list them)
-   * in `zone` (a server's, plan 19A-2: the end on its clock; the instance's default without one);
-   * empty while none was ever read.
+   * in `zone` (a server's, plan 19A-2: the end on its clock; required, fix round 1, M7); empty
+   * while none was ever read.
    */
-  tasks(zone?: string): readonly ResearchTask[];
+  tasks(zone: string): readonly ResearchTask[];
+  /**
+   * The tasks of the last good read as kept, past their event's end or not: what is the same in
+   * every zone (the rewards' names, `listedRewards`).
+   */
+  storedTasks(): readonly ResearchTask[];
   /** A task by its key, if the list has it, its event over or not: what was picked or reported. */
   byKey(key: string): ResearchTask | undefined;
   /** When the list in use was read, epoch milliseconds; undefined while none was. */
@@ -150,7 +155,11 @@ export class ResearchTaskService implements ResearchTaskProvider {
     this.now = options.now ?? (() => Date.now());
   }
 
-  tasks(zone?: string): readonly ResearchTask[] {
+  storedTasks(): readonly ResearchTask[] {
+    return this.current;
+  }
+
+  tasks(zone: string): readonly ResearchTask[] {
     const now = this.now();
     return this.current.every((task) => taskOffered(task, now, zone))
       ? this.current

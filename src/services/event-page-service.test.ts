@@ -66,7 +66,7 @@ function serviceWith(
 
 const costumedKeys = (service: EventPageService, moment: number) =>
   service
-    .sightingsAt(moment)
+    .sightingsAt(moment, ZONE)
     .filter((sighting) => sighting.costumed)
     .map((sighting) => sighting.key);
 
@@ -74,7 +74,7 @@ describe('EventPageService (plan 8R-4)', () => {
   it('reads the page of an event on now with Pine’s User-Agent, and places its spawns', async () => {
     const halloween = readEventPage('leekduck-event-halloween-2026-part-1.html');
     const { service, clock, asked } = serviceWith(() => page(halloween));
-    expect(service.sightingsAt(clock.now)).toEqual([]);
+    expect(service.sightingsAt(clock.now, ZONE)).toEqual([]);
     await service.refresh();
     expect(asked).toEqual([
       {
@@ -85,7 +85,7 @@ describe('EventPageService (plan 8R-4)', () => {
     ]);
     // Zubat with a hand-named picture, Piplup by its picture's costume; Duskull plain; Drifblim
     // by its name in the sentence under the list (B-D2).
-    expect(service.sightingsAt(clock.now)).toEqual(
+    expect(service.sightingsAt(clock.now, ZONE)).toEqual(
       expect.arrayContaining([
         { key: 'zubat', dex: 41, costumed: true },
         { key: 'duskull', dex: 355, costumed: false },
@@ -94,8 +94,8 @@ describe('EventPageService (plan 8R-4)', () => {
       ]),
     );
     // Not on before it starts, nor after it ends.
-    expect(service.sightingsAt(at('2026-10-27T09:59'))).toEqual([]);
-    expect(service.sightingsAt(at('2026-11-01T10:00'))).toEqual([]);
+    expect(service.sightingsAt(at('2026-10-27T09:59'), ZONE)).toEqual([]);
+    expect(service.sightingsAt(at('2026-11-01T10:00'), ZONE)).toEqual([]);
   });
 
   // Plan 19A-2: an event at local times is on first in the zones east of the default; its page
@@ -130,7 +130,7 @@ describe('EventPageService (plan 8R-4)', () => {
         .map((one) => one.key),
     ).toContain('zubat');
     expect(service.sightingsAt(clock.now, ZONE)).toEqual([]);
-    expect(service.sightingsAt(clock.now)).toEqual([]);
+    expect(service.sightingsAt(clock.now, ZONE)).toEqual([]);
     // Read since it began in Berlin: not read again at the next look (fix round 1, M5), nor
     // as it begins in New York.
     clock.now = zonedAt('2026-10-27T10:30', BERLIN);
@@ -158,7 +158,7 @@ describe('EventPageService (plan 8R-4)', () => {
   it('gives no spawns of an event whose page was never read', async () => {
     const { service, clock, said } = serviceWith(() => Promise.reject(new Error('down')));
     await service.refresh();
-    expect(service.sightingsAt(clock.now)).toEqual([]);
+    expect(service.sightingsAt(clock.now, ZONE)).toEqual([]);
     expect(said('could not read an event page')).toBe(1);
   });
 
@@ -166,7 +166,7 @@ describe('EventPageService (plan 8R-4)', () => {
     const huge = 'x'.repeat(MAX_EVENT_PAGE_BYTES + 1);
     const { service, clock, said } = serviceWith(() => page(huge));
     await service.refresh();
-    expect(service.sightingsAt(clock.now)).toEqual([]);
+    expect(service.sightingsAt(clock.now, ZONE)).toEqual([]);
     expect(said('could not read an event page')).toBe(1);
   });
 
@@ -180,9 +180,9 @@ describe('EventPageService (plan 8R-4)', () => {
     ]);
     expect(costumedKeys(service, clock.now)).toEqual(['teddiursa']);
     expect(costumedKeys(service, at('2026-11-21T15:00'))).toEqual([]);
-    expect(service.sightingsAt(at('2026-11-21T15:00')).map((sighting) => sighting.key)).toEqual([
-      'pawniard',
-    ]);
+    expect(
+      service.sightingsAt(at('2026-11-21T15:00'), ZONE).map((sighting) => sighting.key),
+    ).toEqual(['pawniard']);
   });
 
   it('reads no address but Leek Duck’s events pages, and says so once (F11)', async () => {
@@ -207,7 +207,7 @@ describe('EventPageService (plan 8R-4)', () => {
       page(halloween).then((response) => ({ ...response, url: 'https://example.test/x' })),
     );
     await service.refresh();
-    expect(service.sightingsAt(clock.now)).toEqual([]);
+    expect(service.sightingsAt(clock.now, ZONE)).toEqual([]);
     expect(said('could not read an event page')).toBe(1);
   });
 
@@ -307,7 +307,7 @@ describe('EventPageService: the Raid Hours of the events’ pages', () => {
     clock.now = at('2026-11-09T12:00');
     await service.refresh();
     expect(asked.map((one) => one.url)).toEqual([INTO_THE_WILD]);
-    expect(service.sightingsAt(clock.now).length).toBeGreaterThan(0);
+    expect(service.sightingsAt(clock.now, ZONE).length).toBeGreaterThan(0);
     expect(sorted(service)).toEqual(BOTH);
   });
 

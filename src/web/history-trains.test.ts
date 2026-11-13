@@ -93,7 +93,6 @@ async function setup(records: readonly HistoryRecord[]) {
       gyms: gymsFixture(),
       regions: regionsFixture(),
       wayspots: noWayspots(),
-      zone: ZONE,
       channelName: (channelId) => names.get(channelId),
       trains: history,
     }),

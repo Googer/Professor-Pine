@@ -70,6 +70,7 @@ import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import type { StopLookup } from '../render/train-stops.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import type { PartyViewers } from './party-viewers.js';
 import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
@@ -134,8 +135,6 @@ export interface PartyWebDeps {
   places: Pick<PlacePictures, 'keyOf' | 'urlOf' | 'read'>;
   /** How a member stands to a forum (`PartyGateway.memberAccess`). */
   forums: { memberAccess(forumId: string, memberId: string): Promise<MemberAccess | undefined> };
-  /** `settings.timezone`: the posts' times, which the page shows. */
-  zone: string;
   /** What a press does: what the post's buttons call (`pressStatus`). */
   attendance: Pick<
     AttendanceService,
@@ -367,6 +366,8 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       hidden?: Set<string>;
       standing: MemberStanding | undefined;
     },
+    /** The server's zone, the request's (`requestZone`): the view's times and words. */
+    zone: string,
   ): PartyViewInput => ({
     guildId,
     guildRow: own.row,
@@ -376,7 +377,7 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     // Report… only from a forum the member sees on Discord (review W-7).
     ...(viewer.hidden === undefined ? {} : { hidden: viewer.hidden }),
     now: deps.now(),
-    zone: parties.zone,
+    zone,
     readOnly: viewer.readOnly,
     lobbySize: (party) => parties.attendance.lobbyOf(party),
     staff: isMapStaff(viewer.standing, memberId, parties.ownerId),
@@ -399,7 +400,7 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
             party,
             memberId,
             lobbySize: parties.attendance.lobbyOf(party),
-            zone: parties.zone,
+            zone,
             now: deps.now(),
           },
           parties.attendance.limits(),
@@ -418,13 +419,16 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     },
     // Why Move… and Manage… do not open, in Discord's words (review C1); Move… of a train as the
     // post's dialog draws it, and what lies ahead (plan 8M-8C).
-    trainRefusal: (reason) => refusalOnTheMap(parties, reason, words),
-    trainMoves: (train) => movesOnTheMap(parties.stops, train, words),
-    trainAhead: (train) => aheadOnTheMap(parties.stops, train, words),
+    trainRefusal: (reason) => refusalOnTheMap(parties, reason, wordsIn(zone)),
+    trainMoves: (train) => movesOnTheMap(parties.stops, train, wordsIn(zone)),
+    trainAhead: (train) => aheadOnTheMap(parties.stops, train, wordsIn(zone)),
   });
 
-  /** The bot's words as text of the page, in the posts' zone. */
-  const words = (text: string): string => pageWords(text, parties.zone, deps.now());
+  /** The bot's words as text of the page, in a server's zone. */
+  const wordsIn =
+    (zone: string) =>
+    (text: string): string =>
+      pageWords(text, zone, deps.now());
 
   /**
    * How a post is drawn for a member (plan 8M-8A, `postView`): its picture only from the hosts the
@@ -479,7 +483,9 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       const viewer = await viewers.viewer(guild, session.userId, forums, member);
       if (viewer.kind === 'not-member') return sendFailure(request, reply, 403);
       if (viewer.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
-      const body = JSON.stringify(partyView(inputFor(guild, own, session.userId, viewer)));
+      const body = JSON.stringify(
+        partyView(inputFor(guild, own, session.userId, viewer, requestZone(request))),
+      );
       const etag = etagOf(body);
       void reply.header('etag', etag);
       if (etagMatches(request.headers['if-none-match'], etag)) return reply.code(304).send();
@@ -520,7 +526,7 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       void reply.header('cache-control', 'private, no-cache');
       if (viewer.kind === 'not-member') return sendFailure(request, reply, 403);
       if (viewer.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
-      const input = inputFor(guild, own, session.userId, viewer);
+      const input = inputFor(guild, own, session.userId, viewer, requestZone(request));
       const shown = ours !== undefined && mapParty(ours, input) !== null;
       const layout = shown ? kept : undefined;
       if (layout === undefined) return sendFailure(request, reply, 404);
@@ -555,7 +561,7 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       if (viewer.kind === 'not-member') return sendFailure(request, reply, 403);
       if (viewer.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
       if (kind !== 'gym' && kind !== 'wayspot') return sendFailure(request, reply, 404);
-      const input = inputFor(guild, own, session.userId, viewer);
+      const input = inputFor(guild, own, session.userId, viewer, requestZone(request));
       const url = parties.places.urlOf(kind, id);
       // The posts that show the picture first, then whether the member sees one of them on the
       // map: `mapParty` makes a party's whole map line, and runs for those few only (review W-2).

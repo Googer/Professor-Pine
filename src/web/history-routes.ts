@@ -47,6 +47,7 @@ import type { HistoryDays } from '../services/history-days.js';
 import { HISTORY_FIRST_YEAR } from '../domain/web/history-days-data.js';
 import { bigDaysView, bossListView, bossTrendView, historyDaysView } from './history-days.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import type { RegionTallies } from '../services/region-tallies.js';
 import { sendFailure } from './answers.js';
 import { etagMatches, etagOf } from './geo-cache.js';
@@ -78,8 +79,6 @@ export interface ActivityWebDeps {
   guilds: { idFor(snowflake: string): Promise<number | undefined> };
   /** The kept Wayspots (`WayspotDirectory`): a Power Spot no longer kept is left out. */
   wayspots: { byId(id: string): { lat: number; lon: number } | undefined };
-  /** `settings.timezone`: the buckets' months, weekdays and hours. */
-  zone: string;
   /** The settings' raid times: how long a raid without an end time stood, on a train's card (W5). */
   durations: RaidStandSettings;
   /** The region tally (plan 8H-5): `/stats regions`' own path (`RegionTallies.tally`). */
@@ -266,7 +265,8 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
       if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
       const mode = query.data;
       const now = deps.now();
-      const { zone } = activity;
+      // The server's zone, the request's (plan 19A-2): its buckets' months, weekdays and hours.
+      const zone = requestZone(request);
       const [buckets, months] = await Promise.all([
         activity.reader.buckets(guild, activityWindow(mode, now, zone)),
         activity.reader.months(guild),
@@ -418,7 +418,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         deps.log.warn({ err, guild }, 'could not name the members of the boards');
         return reply.code(503).send({ error: UNCONFIRMED });
       }
-      const words = (text: string) => pageWords(text, activity.zone, now);
+      const words = (text: string) => pageWords(text, requestZone(request), now);
       const view: BoardsView = { period, boards: shown.map((one) => boardView(one, words)) };
       return sendJson(request, reply, view);
     },
@@ -446,7 +446,11 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         year === undefined ? {} : { year },
       );
       if (!shown.optedIn) {
-        const text = pageWords(notOptedIn(IN_SETTINGS_ON_DISCORD), activity.zone, deps.now());
+        const text = pageWords(
+          notOptedIn(IN_SETTINGS_ON_DISCORD),
+          requestZone(request),
+          deps.now(),
+        );
         return sendJson(request, reply, { optedIn: false, text });
       }
       // A year without anything of theirs: what /stats me says of it (B3).
@@ -578,7 +582,10 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
         ? sendFailure(request, reply, 403)
         : reply.code(503).send({ error: UNCONFIRMED });
     }
-    const ids = await activity.trains.trainsMade(guild, trainMonthRange(month, activity.zone));
+    const ids = await activity.trains.trainsMade(
+      guild,
+      trainMonthRange(month, requestZone(request)),
+    );
     // The cards are read `TRAINS_READ_CHUNKS` trains at a time, newest first, until the list is
     // full (plan 8Z-2, audit L-S2), never every card of the month for a list of fifty. Filtered
     // before the cap, so that "more" counts only what the member may see (G5); the trains not
@@ -605,7 +612,7 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
       month,
       trains: shown
         .slice(0, TRAINS_LISTED)
-        .map((one) => trainItem(one.id, one.rows, activity.zone)),
+        .map((one) => trainItem(one.id, one.rows, requestZone(request))),
       // With trains left unread the heading says "50+": no count beside it (review F-E1).
       more: read < ids.length ? 0 : Math.max(0, shown.length - TRAINS_LISTED),
       older: read < ids.length,
@@ -647,10 +654,10 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
       return name === undefined ? `Region ${String(regionId)}` : `#${name}`;
     };
     const view: TrainRouteView = {
-      ...trainItem(id, rows, activity.zone),
-      month: trainMonth(rows.listing.createdAt, activity.zone),
+      ...trainItem(id, rows, requestZone(request)),
+      month: trainMonth(rows.listing.createdAt, requestZone(request)),
       ...trainLine(rows, places),
-      card: trainCardLines(rows, raids, activity.durations, regionWords, activity.zone, now),
+      card: trainCardLines(rows, raids, activity.durations, regionWords, requestZone(request), now),
     };
     return sendJson(request, reply, view);
 
