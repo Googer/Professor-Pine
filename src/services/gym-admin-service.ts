@@ -33,7 +33,13 @@ import { mapPicture } from '../render/v2.js';
 import { mapOrNothing, type MapProvider } from './static-maps.js';
 import type { Member } from './attendance-service.js';
 import type { GeoGateway } from './geo-gateway.js';
-import type { GoogleLineSnapshot, GymRefresh, GymsInMemory, GymUpkeep } from './gym-upkeep.js';
+import {
+  sharesServer,
+  type GoogleLineSnapshot,
+  type GymRefresh,
+  type GymsInMemory,
+  type GymUpkeep,
+} from './gym-upkeep.js';
 import { AdminLock } from './admin-lock.js';
 import type { PartyStore } from './party-store.js';
 import type { GymDirectory } from './gym-directory.js';
@@ -114,15 +120,25 @@ export type MoveOutcome =
   | { kind: 'near'; near: NearbyGym[] }
   | { kind: 'elsewhere'; gym: Gym };
 
-/** What a batch writes of a gym beside its place (`GymBatch.update`): what a Wayfarer import changes. */
-export type BatchPatch = Pick<GymPatch, 'name' | 'pogoId' | 'imageUrl' | 'geodata'>;
+/**
+ * A gym a Wayfarer import or its review adds: with Wayfarer's address of its place
+ * (`wayfarerAddress`, address parts as JSON), which Matt prefers to Google's (2026-10-16). The
+ * address is the gym's own (plan 19B-3), never its point's answer, which holds Google's alone.
+ */
+export type AddedGym = NewGym;
+
+/**
+ * What a batch writes of a gym beside its place (`GymBatch.update`): what a Wayfarer import
+ * changes, Wayfarer's address of the place (`wayfarerAddress`) among it.
+ */
+export type BatchPatch = Pick<GymPatch, 'name' | 'pogoId' | 'imageUrl' | 'wayfarerAddress'>;
 
 /** What came of a move in a batch: as `move`, without the questions a batch does not ask. */
 export type BatchMoveOutcome = Extract<MoveOutcome, { kind: 'moved' }>;
 
 /** A gym of a block (`GymBatch.addBlock`): the gym, the gyms near it it may stand beside. */
 export interface BlockGym {
-  gym: NewGym;
+  gym: AddedGym;
   knownNearIds?: readonly number[];
   /** It was a PokéStop, which the summary counts. */
   promoted?: boolean;
@@ -146,7 +162,7 @@ export interface GymBatch {
    * end (`gymListSummary`); `promoted`: the gym was a PokéStop, which the summary counts.
    */
   add(
-    gym: NewGym,
+    gym: AddedGym,
     knownNearIds?: readonly number[],
     options?: { promoted?: boolean },
   ): Promise<AddOutcome>;
@@ -239,7 +255,15 @@ export interface GymAdminOptions {
   targets: Pick<GymTargetUpkeep, 'membersTargeting'>;
   upkeep: Pick<
     GymUpkeep,
-    'gymChanged' | 'placed' | 'placedBlock' | 'removed' | 'refresh' | 'fetches' | 'snapshot'
+    | 'gymChanged'
+    | 'placed'
+    | 'placedBlock'
+    | 'removed'
+    | 'unlinked'
+    | 'refresh'
+    | 'fetches'
+    | 'snapshot'
+    | 'hasOwnAddress'
   >;
   geo: Pick<GeoGateway, 'followShortLink'>;
   /** To announce a new gym and a deletion in the server's channel for bot updates. */
@@ -442,7 +466,7 @@ export class GymAdminService {
    * updates is told. Once the row exists the gym is added, whatever fails after it: that is
    * logged, and the gym is answered as it was stored.
    */
-  add(gym: NewGym, place: StaffPlace, knownNearIds: readonly number[] = []): Promise<AddOutcome> {
+  add(gym: AddedGym, place: StaffPlace, knownNearIds: readonly number[] = []): Promise<AddOutcome> {
     return this.lock.run(async () => {
       const outcome = await this.addLocked(gym, place, new Set(knownNearIds));
       if (outcome.kind === 'added') {
@@ -474,7 +498,7 @@ export class GymAdminService {
    * (a batch) puts the new gym's lookups in the slow line of `GymUpkeep`.
    */
   private async addLocked(
-    gym: NewGym,
+    gym: AddedGym,
     place: StaffPlace,
     known: ReadonlySet<number>,
     places: true | 'later' = true,
@@ -489,9 +513,13 @@ export class GymAdminService {
       'a gym was added',
     );
     try {
-      await upkeep.gymChanged(created.id);
-      // A gym that came with its address waits for its places only.
-      await upkeep.placed(created.id, { places, address: created.geodata === null });
+      const shown = await upkeep.gymChanged(created.id);
+      // A gym that has an address of its own place (its Wayfarer address, or one Google gave for
+      // its point; a neighbor's shown meanwhile is not) waits for its places only.
+      await upkeep.placed(created.id, {
+        places,
+        address: !upkeep.hasOwnAddress(shown ?? created),
+      });
     } catch (err) {
       log.error({ err, gym: created.id }, 'a gym was added, but not everything after it worked');
     }
@@ -506,7 +534,8 @@ export class GymAdminService {
     const { gyms, upkeep, directory, log } = this.options;
     const guildId = serverOf(place);
     // Decided first, against the gyms as they are: each as `add` decides, the block's gyms
-    // known to each other, near only the server's own. Every gym's nearest gym is of all gyms.
+    // known to each other, near only the server's own. Every gym's nearest gym is of the gyms
+    // that share a server with it.
     const all = directory.all();
     const ours = directory.of(guildId).all();
     // The gyms of a block share one list of the gyms they may stand beside: one set of it.
@@ -537,7 +566,13 @@ export class GymAdminService {
               guildId,
               (made) => {
                 const added = new Set(made.map((gym) => gym.id));
-                const writes = nearestBlockChanges([...all, ...made], added);
+                // A gym's nearest is of the gyms that share a server with it (plan 19B-3); the
+                // block's are this server's.
+                const serversOf = (id: number) =>
+                  added.has(id) ? [guildId] : directory.serversOf(id);
+                const writes = nearestBlockChanges([...all, ...made], added, (a, b) =>
+                  sharesServer(serversOf(a), serversOf(b)),
+                );
                 changed = writes.map((write) => write.id).filter((id) => !added.has(id));
                 return writes;
               },
@@ -743,7 +778,8 @@ export class GymAdminService {
       { staff: place.staffId, gym: id, from, to: point, ...(fields.length > 0 ? { fields } : {}) },
       'a gym was moved',
     );
-    const gym = await this.afterMove(id, written, places && 'later', address);
+    // A move asked nothing of Google: the answers about the place it left are its new place's.
+    const gym = await this.afterMove(id, written, places && 'later', address, from);
     return gym && { kind: 'moved', gym, from, metres: metresBetween(from, point) };
   }
 
@@ -758,12 +794,13 @@ export class GymAdminService {
     written: Gym,
     places: boolean | 'later',
     address = true,
+    from?: LatLon,
   ): Promise<Gym | undefined> {
     const { upkeep, directory, log } = this.options;
     try {
       const moved = await upkeep.gymChanged(id);
       if (!moved) return undefined;
-      await upkeep.placed(id, { places, address });
+      await upkeep.placed(id, { places, address, ...(from === undefined ? {} : { from }) });
       return directory.stored(id) ?? moved;
     } catch (err) {
       log.error({ err, gym: id }, 'a gym was changed, but not everything after it worked');
@@ -876,12 +913,25 @@ export class GymAdminService {
       const near = this.near(point, staff.guildId, id);
       if (near.some((found) => !asked.nearIds.includes(found.gym.id)))
         return { kind: 'near', near };
-      const written = await gyms.update(id, { lat: point.lat, lon: point.lon });
+      // Wayfarer's address was of the place it left: Google is asked about the new one.
+      const written = await gyms.update(id, {
+        lat: point.lat,
+        lon: point.lon,
+        wayfarerAddress: null,
+      });
       if (!written) return undefined;
       log.info({ staff: staffId, gym: id, from, to: point }, 'a gym was moved');
       const gym = await this.afterMove(id, written, true);
       return gym && { kind: 'moved', gym, from, metres: metresBetween(from, point) };
     });
+  }
+
+  /**
+   * Whether a gym has an address of its own place (`GymUpkeep.hasOwnAddress`): the one rule the
+   * Wayfarer import gives a gym Wayfarer's address by.
+   */
+  hasOwnAddress(gym: Pick<Gym, 'lat' | 'lon' | 'wayfarerAddress'>): boolean {
+    return this.options.upkeep.hasOwnAddress(gym);
   }
 
   /** Asks Google about a gym again, now (`GymUpkeep.refresh`). */
@@ -1008,7 +1058,9 @@ export class GymAdminService {
     } catch (err) {
       log.warn({ err, gym: id }, 'could not bring the directory up to date after a deletion');
     }
+    // Unlinked: its nearest gyms and theirs are of the servers that keep it now.
     if (deleted) await upkeep.removed(id);
+    else await upkeep.unlinked(id);
     return { kind: 'deleted', gym, trains: mended, routes, targets, unmended };
   }
 

@@ -33,25 +33,31 @@ export interface ServerShare {
 }
 
 /**
- * This server's part of the instance's line (`/gym google`): its gyms are those in a region of
- * the server; its PokéStops and Power Spots those in its regions.
+ * This server's part of the instance's line (`/gym google`): its own rows (plan 19B-3: a gym or
+ * Wayspot waits once per server that has it, by its `Guild` row; a server without a row has
+ * none). How far into the line its last ones are counts every server's rows before them.
  */
 export function serverShare(
   line: Pick<GoogleLineSnapshot, 'gyms' | 'wayspots'>,
-  isOwnGym: (gymId: number) => boolean,
-  isOwnWayspot: (wayspotId: string) => boolean,
+  guildId: number | undefined,
 ): ServerShare {
   const share: ServerShare = { gyms: 0, wayspots: 0, gymsTo: 0, wayspotsTo: 0 };
-  line.gyms.forEach((gym, index) => {
-    if (!isOwnGym(gym.gymId)) return;
+  if (guildId === undefined) return share;
+  // How far in counts the questions before: a gym or Wayfarer id of two servers is asked once.
+  const gymsSeen = new Set<number>();
+  for (const gym of line.gyms) {
+    gymsSeen.add(gym.gymId);
+    if (gym.guildId !== guildId) continue;
     share.gyms++;
-    share.gymsTo = index + 1;
-  });
-  line.wayspots.forEach((wayspot, index) => {
-    if (!isOwnWayspot(wayspot.wayspotId)) return;
+    share.gymsTo = gymsSeen.size;
+  }
+  const spotsSeen = new Set<string>();
+  for (const wayspot of line.wayspots) {
+    spotsSeen.add(wayspot.wayspotId);
+    if (wayspot.guildId !== guildId) continue;
     share.wayspots++;
-    share.wayspotsTo = index + 1;
-  });
+    share.wayspotsTo = spotsSeen.size;
+  }
   return share;
 }
 
@@ -119,7 +125,7 @@ export function googleLineTexts(
     budget,
     everyMs: line.everyMs,
     gyms: share.gymsTo,
-    allGyms: line.gyms.length,
+    allGyms: questionsOf(line).gyms,
     wayspots: share.wayspotsTo,
   });
   const gymsWhen = estimate.gyms === undefined ? undefined : when(estimate.gyms, now);
@@ -150,14 +156,24 @@ export function googleLineTexts(
   ];
 }
 
+/**
+ * How many questions the line holds: its gyms and Wayspots by their ids, a gym or Wayfarer id
+ * that waits for two servers asked once (plan 19B-3).
+ */
+export function questionsOf(line: Pick<GoogleLineSnapshot, 'gyms' | 'wayspots'>): {
+  gyms: number;
+  wayspots: number;
+} {
+  return {
+    gyms: new Set(line.gyms.map((gym) => gym.gymId)).size,
+    wayspots: new Set(line.wayspots.map((wayspot) => wayspot.wayspotId)).size,
+  };
+}
+
 /** `/gym google` for the staff member's server. */
 async function googleLineMessage(ctx: AppContext, guildId: number | undefined) {
   const line = await ctx.gymAdmin.googleLine();
-  const share = serverShare(
-    line,
-    (gymId) => ctx.gyms.of(guildId).regionsOf(gymId).length > 0,
-    (wayspotId) => ctx.wayspots.of(guildId).regionsOf(wayspotId).length > 0,
-  );
+  const share = serverShare(line, guildId);
   // The maps of `/find-region`, where it is offered and Google is asked at all.
   const used =
     line.fetches && ctx.config.settings.findRegion !== undefined

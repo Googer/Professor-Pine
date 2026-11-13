@@ -5,7 +5,11 @@ import type { TestDatabase } from '../../../test/support/mysql.js';
 import { DEPRECATED_SYNTAX, lastWarnings } from '../../../test/support/mysql-warnings.js';
 import { planOf, scanned } from '../../../test/support/query-plan.js';
 import { googleUseCases } from '../../../test/support/google-use-cases.js';
-import { wayspotLookupCases } from '../../../test/support/wayspot-lookup-cases.js';
+import {
+  SPOT_AWAY,
+  SPOT_HOME,
+  wayspotLookupCases,
+} from '../../../test/support/wayspot-lookup-cases.js';
 import type { DB } from '../types.js';
 import { GoogleUseRepository } from './google-use-repository.js';
 import { HistoryRepository } from './history-repository.js';
@@ -25,28 +29,67 @@ describe('the storage of the Google line', () => {
   });
 
   describe('WayspotLookupRepository', () => {
+    /** An empty line of two servers (`SPOT_HOME`, `SPOT_AWAY`). */
     const fresh = async () => {
-      await db.deleteFrom('WayspotLookup').execute();
-      await db.deleteFrom('WayspotPlaces').execute();
+      await db.deleteFrom('ServerWayspotLookup').execute();
+      await db.deleteFrom('Guild').where('id', 'in', [SPOT_HOME, SPOT_AWAY]).execute();
+      await db
+        .insertInto('Guild')
+        .values([
+          { id: SPOT_HOME, snowflake: '412345678901234567' },
+          { id: SPOT_AWAY, snowflake: '412345678901234568' },
+        ])
+        .execute();
       return new WayspotLookupRepository(db);
     };
 
     wayspotLookupCases(fresh);
 
-    it('queues and keeps places again without the VALUES() function MySQL deprecates', async () => {
+    it('queues again without the VALUES() function MySQL deprecates', async () => {
       await fresh();
       const warnings = await lastWarnings(db, async (trx) => {
         const lookups = new WayspotLookupRepository(trx);
-        await lookups.add([{ wayspotId: 'aa.16', kind: 'stop', rank: 0 }], 1_000);
-        await lookups.add([{ wayspotId: 'aa.16', kind: 'powerspot', rank: 1 }], 2_000);
-        const asked = { wayspotId: 'aa.16', kind: 'stop' as const, lat: 40, lon: -80 };
-        await lookups.saveAsked({ ...asked, places: 'One', askedAt: 1 });
-        await lookups.saveAsked({ ...asked, places: 'Two', askedAt: 2 });
+        await lookups.add(
+          [{ guildId: SPOT_HOME, wayspotId: 'aa.16', kind: 'stop', rank: 0 }],
+          1_000,
+        );
+        await lookups.add(
+          [{ guildId: SPOT_HOME, wayspotId: 'aa.16', kind: 'powerspot', rank: 1 }],
+          2_000,
+        );
       });
       expect(warnings.filter((warning) => warning.Code === DEPRECATED_SYNTAX)).toEqual([]);
       const lookups = new WayspotLookupRepository(db);
       expect(await lookups.next()).toMatchObject({ kind: 'powerspot', queuedAt: 1_000 });
-      expect((await lookups.asked())[0]?.places).toBe('Two');
+    });
+
+    it('reads the line in the order of its index, and takes a row out by its key', async () => {
+      const lookups = await fresh();
+      await lookups.add(
+        Array.from({ length: 300 }, (_, n) => ({
+          guildId: n % 2 === 0 ? SPOT_HOME : SPOT_AWAY,
+          wayspotId: `${String(n)}.16`,
+          kind: n % 3 === 0 ? ('powerspot' as const) : ('stop' as const),
+          rank: n / 300,
+        })),
+        1_000,
+      );
+      await sql`analyze table ServerWayspotLookup`.execute(db);
+      const next = await planOf(database, (logged) =>
+        new WayspotLookupRepository(logged).next({ except: new Set(['1.16']) }),
+      );
+      expect(next[0]?.key).toBe('serverwayspotlookup_order_index');
+      const remove = await planOf(database, (logged) =>
+        new WayspotLookupRepository(logged).remove([{ guildId: SPOT_HOME, wayspotId: '2.16' }]),
+      );
+      expect(remove[0]?.key).toBe('PRIMARY');
+    });
+
+    it('goes with its server', async () => {
+      const lookups = await fresh();
+      await lookups.add([{ guildId: SPOT_AWAY, wayspotId: 'aa.16', kind: 'stop', rank: 0 }], 1);
+      await db.deleteFrom('Guild').where('id', '=', SPOT_AWAY).execute();
+      expect(await lookups.count()).toBe(0);
     });
   });
 

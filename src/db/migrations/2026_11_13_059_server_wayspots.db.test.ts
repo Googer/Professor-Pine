@@ -204,3 +204,170 @@ describe('migration 059: the Wayspots of each server', () => {
     expect(await copies()).toEqual([]);
   });
 });
+
+describe('migration 059: Google’s answers by the point, the lines per server', () => {
+  let stop: () => Promise<void>;
+  let db: Kysely<DB>;
+
+  beforeAll(async () => {
+    ({ db, stop } = await startMigratedDatabase());
+  });
+  afterAll(async () => {
+    await stop();
+  });
+  beforeEach(async () => {
+    await sql`delete from GoogleAnswer`.execute(db);
+    await sql`delete from ServerGymLookup`.execute(db);
+    await sql`delete from GymLookup`.execute(db);
+    await sql`delete from GymGoogleAsked`.execute(db);
+    await sql`delete from WayspotPlaces`.execute(db);
+    await sql`delete from WayspotAddress`.execute(db);
+    await sql`delete from GymServer`.execute(db);
+    await sql`delete from GymMeta`.execute(db);
+    await sql`delete from Gym`.execute(db);
+    await sql`delete from Guild`.execute(db);
+  });
+
+  /**
+   * Two servers. Gym 1 (Home's and Away's) has an address and places; gym 2 (Home's) places
+   * Google found none for, and Wayfarer's address; gym 3 an address only; gym 4 nothing, never
+   * asked. A PokéStop's places at gym 1's point a little off (the newer answer), a Power Spot's
+   * address somewhere else, found none.
+   */
+  const seed = async () => {
+    await sql`insert into Guild (id, snowflake) values (1, ${HOME}), (2, ${AWAY})`.execute(db);
+    await sql`insert into Gym (id, name, lat, lon) values
+      (1, 'One', 40.0512344, -80.0512344), (2, 'Two', 40.06, -80.06),
+      (3, 'Three', 40.07, -80.07), (4, 'Four', 40.08, -80.08)`.execute(db);
+    await sql`insert into GymMeta (gymId, geodata, places) values
+      (1, '{"addressComponents":{"route":"Old St"}}', 'Old Cafe'),
+      (2, '{"addressComponents":{"route":"Wayfarer Way"}}', null),
+      (3, '{"addressComponents":{"route":"Third Ave"}}', null),
+      (4, null, null)`.execute(db);
+    await sql`insert into GymGoogleAsked (gymId, askedAt) values (1, 50), (2, 60)`.execute(db);
+    await sql`insert into GymServer (gymId, guildId) values (1, 1), (1, 2), (2, 1), (3, 1), (4, 1)`.execute(
+      db,
+    );
+    await sql`insert into WayspotPlaces (wayspotId, kind, lat, lon, places, askedAt) values
+      (${wayspotId(1)}, 'stop', 40.05123441, -80.05123439, 'New Cafe', 70)`.execute(db);
+    await sql`insert into WayspotAddress (wayspotId, lat, lon, geodata, askedAt) values
+      (${wayspotId(2)}, 40.09, -80.09, null, 80)`.execute(db);
+    await sql`insert into GymLookup (gymId, address, regionRank, queuedAt) values
+      (1, 0, 0.5, 100), (4, 1, 0, 200)`.execute(db);
+  };
+
+  const answers = async () =>
+    (
+      await sql<{
+        kind: string;
+        lat: number;
+        lon: number;
+        answer: string | null;
+        askedAt: string;
+      }>`select kind, lat, lon, answer, askedAt from GoogleAnswer order by kind, lat`.execute(db)
+    ).rows;
+
+  it('keeps every answer there is at its rounded point, the newer of two at one point', async () => {
+    await seed();
+    await serverWayspots.up(db);
+    expect(await answers()).toEqual([
+      {
+        kind: 'address',
+        lat: 40.051234,
+        lon: -80.051234,
+        answer: '{"addressComponents":{"route":"Old St"}}',
+        askedAt: '50',
+      },
+      {
+        kind: 'address',
+        lat: 40.06,
+        lon: -80.06,
+        answer: '{"addressComponents":{"route":"Wayfarer Way"}}',
+        askedAt: '60',
+      },
+      {
+        kind: 'address',
+        lat: 40.07,
+        lon: -80.07,
+        answer: '{"addressComponents":{"route":"Third Ave"}}',
+        askedAt: '0',
+      },
+      { kind: 'address', lat: 40.09, lon: -80.09, answer: null, askedAt: '80' },
+      // The PokéStop's answer at gym 1's place is the newer.
+      { kind: 'places', lat: 40.051234, lon: -80.051234, answer: 'New Cafe', askedAt: '70' },
+      // Asked, and found none.
+      { kind: 'places', lat: 40.06, lon: -80.06, answer: null, askedAt: '60' },
+    ]);
+  });
+
+  it('keeps at one point an answer that found something over a newer null, and a gym’s address over a Power Spot’s', async () => {
+    await sql`insert into Guild (id, snowflake) values (1, ${HOME})`.execute(db);
+    await sql`insert into Gym (id, name, lat, lon) values (1, 'One', 40.05, -80.05)`.execute(db);
+    await sql`insert into GymMeta (gymId, geodata, places) values
+      (1, '{"addressComponents":{"route":"Gym St"}}', 'Gym Cafe')`.execute(db);
+    await sql`insert into GymGoogleAsked (gymId, askedAt) values (1, 50)`.execute(db);
+    await sql`insert into GymServer (gymId, guildId) values (1, 1)`.execute(db);
+    // A PokéStop there asked later and found none; a Power Spot's address there asked later.
+    await sql`insert into WayspotPlaces (wayspotId, kind, lat, lon, places, askedAt) values
+      (${wayspotId(1)}, 'stop', 40.05, -80.05, null, 90)`.execute(db);
+    await sql`insert into WayspotAddress (wayspotId, lat, lon, geodata, askedAt) values
+      (${wayspotId(2)}, 40.05, -80.05, '{"addressComponents":{"route":"Spot St"}}', 95)`.execute(
+      db,
+    );
+    await serverWayspots.up(db);
+    expect((await answers()).map(({ kind, answer }) => [kind, answer])).toEqual([
+      ['address', '{"addressComponents":{"route":"Gym St"}}'],
+      ['places', 'Gym Cafe'],
+    ]);
+  });
+
+  it('copies the gyms’ line to each server of each gym, which goes with the gym’s link', async () => {
+    await seed();
+    await serverWayspots.up(db);
+    const line = async () =>
+      (
+        await sql<{
+          gymId: number;
+          guildId: number;
+          address: number;
+          regionRank: number;
+          queuedAt: string;
+        }>`select gymId, guildId, address, regionRank, queuedAt from ServerGymLookup
+          order by gymId, guildId`.execute(db)
+      ).rows;
+    expect(await line()).toEqual([
+      { gymId: 1, guildId: 1, address: 0, regionRank: 0.5, queuedAt: '100' },
+      { gymId: 1, guildId: 2, address: 0, regionRank: 0.5, queuedAt: '100' },
+      { gymId: 4, guildId: 1, address: 1, regionRank: 0, queuedAt: '200' },
+    ]);
+    await sql`delete from GymServer where gymId = 1 and guildId = 2`.execute(db);
+    await sql`delete from Gym where id = 4`.execute(db);
+    expect((await line()).map((row) => [row.gymId, row.guildId])).toEqual([[1, 1]]);
+  });
+
+  it('gives the same answers when it runs again, and leaves the old tables as they were', async () => {
+    await seed();
+    await serverWayspots.up(db);
+    await sql`delete from GoogleAnswer where kind = 'places'`.execute(db);
+    await serverWayspots.up(db);
+    expect(await answers()).toHaveLength(6);
+    const meta = await sql<{
+      geodata: string | null;
+    }>`select geodata from GymMeta where gymId = 1`.execute(db);
+    expect(meta.rows[0]?.geodata).toBe('{"addressComponents":{"route":"Old St"}}');
+    const asked = await sql<{ n: number }>`select count(*) as n from WayspotPlaces`.execute(db);
+    expect(Number(asked.rows[0]?.n)).toBe(1);
+  });
+
+  it('a server’s Wayspot line goes with its server', async () => {
+    await seed();
+    await serverWayspots.up(db);
+    await sql`insert into ServerWayspotLookup (guildId, wayspotId, kind, regionRank, queuedAt)
+      values (1, ${wayspotId(1)}, 'stop', 0, 1), (2, ${wayspotId(1)}, 'stop', 0, 1)`.execute(db);
+    await sql`delete from Guild where id = 2`.execute(db);
+    const rows = await sql<{
+      guildId: number;
+    }>`select guildId from ServerWayspotLookup`.execute(db);
+    expect(rows.rows).toEqual([{ guildId: 1 }]);
+  });
+});

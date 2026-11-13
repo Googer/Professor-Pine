@@ -6,6 +6,7 @@ import type {
   NewGym,
 } from '../../src/db/repositories/gym-repository.js';
 import { loadSettings } from '../../src/config/settings.js';
+import { GoogleAnswers, MemoryGoogleAnswerStorage } from '../../src/services/google-answers.js';
 import { GymDirectory } from '../../src/services/gym-directory.js';
 import type { Region } from '../../src/db/repositories/region-repository.js';
 import { nearestTo } from '@pine/wayspot-core/distance';
@@ -194,8 +195,9 @@ export class MemoryGyms implements GymStorage {
       confirmedEx: false,
       imageUrl: gym.imageUrl ?? null,
       sponsor: null,
-      geodata: gym.geodata ?? null,
+      geodata: null,
       places: null,
+      wayfarerAddress: gym.wayfarerAddress ?? null,
       nearestGym: null,
     };
   }
@@ -220,8 +222,9 @@ export class MemoryGyms implements GymStorage {
         confirmedEx: false,
         imageUrl: gym.imageUrl ?? null,
         sponsor: null,
-        geodata: gym.geodata ?? null,
+        geodata: null,
         places: null,
+        wayfarerAddress: gym.wayfarerAddress ?? null,
         nearestGym: null,
       };
       this.rows.set(id, created);
@@ -258,21 +261,59 @@ export class MemoryGyms implements GymStorage {
 }
 
 /**
+ * Google's answers by the point (plan 19B-3) over memory, loaded, holding the address and places
+ * the gyms given have (the invented gyms', as a database upgraded by migration 059 holds them).
+ */
+export async function answersOf(
+  gyms: readonly Gym[] = [],
+  storage: MemoryGoogleAnswerStorage = new MemoryGoogleAnswerStorage(),
+): Promise<GoogleAnswers> {
+  await storage.save(
+    gyms.flatMap((gym) => [
+      ...(gym.geodata === null
+        ? []
+        : [
+            {
+              kind: 'address' as const,
+              lat: gym.lat,
+              lon: gym.lon,
+              answer: gym.geodata,
+              askedAt: 0,
+            },
+          ]),
+      ...(gym.places === null
+        ? []
+        : [
+            { kind: 'places' as const, lat: gym.lat, lon: gym.lon, answer: gym.places, askedAt: 0 },
+          ]),
+    ]),
+  );
+  const answers = new GoogleAnswers({ storage, log: createTestLogger().log });
+  await answers.load();
+  return answers;
+}
+
+/**
  * A real `GymDirectory` over gyms in memory and the invented regions, loaded: what gym
  * administration changes shows in it after `refreshGym`, as in the bot. `regions` are the rows
- * the directory sorts the gyms by (a test that changes them calls `directory.load()`).
+ * the directory sorts the gyms by (a test that changes them calls `directory.load()`). Each gym's
+ * address and places are its point's (`answers`, plan 19B-3), at first those the gyms given have;
+ * `answerStorage` is where they are kept (set `failing` for a write that fails).
  */
 export async function gymDirectoryWith(
   gyms: MemoryGyms = new MemoryGyms(),
   regions: { rows: Region[] } = { rows: testRegions() },
 ) {
   const { log } = createTestLogger();
+  const answerStorage = new MemoryGoogleAnswerStorage();
+  const answers = await answersOf(await gyms.listAll(), answerStorage);
   const directory = new GymDirectory({
     gyms,
     regions: { listAll: () => Promise.resolve(regions.rows) },
     wordsOf: () => loadSettings(TEST_SETTINGS_PATH).blacklistWords,
+    answers,
     log,
   });
   await directory.load();
-  return { gyms, directory, regions };
+  return { gyms, directory, regions, answers, answerStorage };
 }

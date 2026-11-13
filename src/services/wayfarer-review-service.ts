@@ -499,7 +499,7 @@ export class WayfarerReviewService {
             lon: candidate.lon,
             pogoId: candidate.id,
             imageUrl: kept?.image ?? null,
-            geodata: wayfarerGeodata(addressOf(candidate, kept)),
+            wayfarerAddress: wayfarerGeodata(addressOf(candidate, kept)),
           },
           [gym.id],
           { promoted: wasStop(kept) },

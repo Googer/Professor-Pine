@@ -67,23 +67,6 @@ export function stopRegionsInGuild<R extends { guildId: number | null }>(
   });
 }
 
-/**
- * The channels of the regions a gym lies in, in each server it belongs to (plan 19B-2: each
- * server's view, never another server's region that happens to hold it), each once, in the order
- * of its servers: what the instance's own upkeep goes by (the line that waits for Google ranks a
- * gym by its best region, `GoogleRanks`). None for a gym of no server or in none of their regions.
- * Asked of every gym, it builds no server's view (`regionsIn`: the one rule for this gym alone).
- */
-export function gymRegionsOfItsServers(
-  gyms: {
-    serversOf(gymId: number): readonly number[];
-    regionsIn(guildId: number, gymId: number): readonly string[];
-  },
-  gymId: number,
-): string[] {
-  return [...new Set(gyms.serversOf(gymId).flatMap((guildId) => gyms.regionsIn(guildId, gymId)))];
-}
-
 /** Whether a gym lies in a region of a server (`gymRegionsInGuild`). */
 export function gymInGuild(
   gyms: ServerGymRegions,
@@ -128,14 +111,25 @@ export function regionsAtPoints<
 }
 
 /**
- * Where the regions are, as one text: each region's id, server, channel and outline, by id.
- * Two loads with the same text put every place in the same regions.
+ * Where each server's regions are, as one text per server (its `Guild` row): each region's id,
+ * channel and outline, by id. Two loads that give a server the same text put every place in the
+ * same regions of that server; a region without a server is no server's.
  */
-export function outlineSignature(regions: readonly Region[]): string {
-  return JSON.stringify(
-    [...regions]
-      .sort((a, b) => a.id - b.id)
-      .map((region) => [region.id, region.guildId, region.channelId, region.bounds]),
+export function outlineSignatures(regions: readonly Region[]): Map<number, string> {
+  const byServer = new Map<number, Region[]>();
+  for (const region of regions) {
+    if (region.guildId === null) continue;
+    byServer.set(region.guildId, [...(byServer.get(region.guildId) ?? []), region]);
+  }
+  return new Map(
+    [...byServer].map(([guildId, ofServer]) => [
+      guildId,
+      JSON.stringify(
+        [...ofServer]
+          .sort((a, b) => a.id - b.id)
+          .map((region) => [region.id, region.channelId, region.bounds]),
+      ),
+    ]),
   );
 }
 
@@ -162,20 +156,22 @@ export class RegionDirectory implements RegionProvider {
   private regions: readonly Region[] | undefined;
   private queue: Promise<unknown> = Promise.resolve();
   private loads = 0;
-  private readonly listeners: (() => void)[] = [];
-  /** The outlines of the last load (`outlineSignature`); undefined before the first. */
-  private outlines: string | undefined;
+  private readonly listeners: ((servers: readonly number[]) => void)[] = [];
+  /** Each server's outlines at the last load (`outlineSignatures`); none before the first. */
+  private outlines = new Map<number, string>();
 
   constructor(private readonly options: { regions: RegionListing; log: Logger }) {}
 
   /**
-   * Calls `listener` after a load that changed where the regions are (a region added or removed,
-   * an outline saved, a region of another server or channel; the first load too), not after one
-   * that changed only a forum, a board or a description (`/admin setup-forums` loads many
-   * times): what follows the regions' outlines without asking (the line for Google's PokéStops
-   * and Power Spots, plan 8W-6). A listener that throws is logged; the others are still called.
+   * Calls `listener` after a load that changed where a server's regions are (a region added or
+   * removed, an outline saved, a region of another server or channel; the first load too), with
+   * those servers (their `Guild` rows, in order), not after one that changed only a forum, a
+   * board or a description (`/admin setup-forums` loads many times): what follows the regions'
+   * outlines without asking (the line for Google's PokéStops and Power Spots, plan 8W-6), for
+   * those servers alone (plan 19B-3). A listener that throws is logged; the others are still
+   * called.
    */
-  whenOutlinesChanged(listener: () => void): void {
+  whenOutlinesChanged(listener: (servers: readonly number[]) => void): void {
     this.listeners.push(listener);
   }
 
@@ -199,12 +195,15 @@ export class RegionDirectory implements RegionProvider {
       this.loads += 1;
       const forums = this.regions.filter((region) => region.forumChannelId !== null).length;
       this.options.log.info({ regions: this.regions.length, forums }, 'regions loaded');
-      const outlines = outlineSignature(this.regions);
-      if (outlines === this.outlines) return;
+      const outlines = outlineSignatures(this.regions);
+      const changed = [...new Set([...this.outlines.keys(), ...outlines.keys()])]
+        .filter((guildId) => outlines.get(guildId) !== this.outlines.get(guildId))
+        .sort((a, b) => a - b);
       this.outlines = outlines;
+      if (changed.length === 0) return;
       for (const listener of this.listeners) {
         try {
-          listener();
+          listener(changed);
         } catch (err) {
           this.options.log.warn({ err }, 'could not follow a change of the regions');
         }

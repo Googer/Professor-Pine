@@ -22,7 +22,7 @@ import { geodataJson } from '../domain/geo/google.js';
 import { MAX_SEARCH_WORDS } from '../domain/search/text.js';
 import type { WayspotRow } from '../domain/wayspots/kept.js';
 import { clearOf, PlaceFinder, placeValue, readPlaceValue } from './place-finder.js';
-import { MemoryWayspotLookups } from './wayspot-lookups.js';
+import { GoogleAnswers, MemoryGoogleAnswerStorage } from './google-answers.js';
 import { WayspotPlaces } from './wayspot-places.js';
 
 /**
@@ -295,8 +295,10 @@ describe('PlaceFinder', () => {
     });
     const geodata = geodataJson({ formatted_address: '600 Grant St, Pittsburgh, PA 15219, USA' });
     const { wayspots } = await wayspotsWith([spot], regionsFixture(), {
-      lookedUp: (id) =>
-        id === spot.id ? { lat: spot.lat, lon: spot.lon, geodata, askedAt: 1 } : undefined,
+      lookedUp: (point) =>
+        point.lat === spot.lat && point.lon === spot.lon
+          ? { lat: spot.lat, lon: spot.lon, geodata, askedAt: 1 }
+          : undefined,
     });
     const finder = new PlaceFinder({
       gyms: gymsFixture(),
@@ -650,8 +652,11 @@ describe('PlaceFinder', () => {
     const { wayspots } = await wayspotsWith([
       keptRow(1, { title: 'Fountain', lat: 40.0601, lon: -80.0601, address: null }),
     ]);
-    const storage = new MemoryWayspotLookups();
-    const places = new WayspotPlaces({ storage, log: createTestLogger().log });
+    const answers = new GoogleAnswers({
+      storage: new MemoryGoogleAnswerStorage(),
+      log: createTestLogger().log,
+    });
+    const places = new WayspotPlaces({ answers, log: createTestLogger().log });
     const finder = new PlaceFinder({
       gyms: gymsFixture(),
       wayspots,
@@ -666,14 +671,11 @@ describe('PlaceFinder', () => {
         .filter((one) => one.kind === 'stop')
         .map((one) => one.title);
     expect(stops()).toEqual([]);
-    await places.save({
-      wayspotId: wayspotId(1),
-      kind: 'stop',
-      lat: 40.0601,
-      lon: -80.0601,
-      places: 'Zeppelin Bakery',
-      askedAt: 1,
-    });
+    // The point's answer, and the upkeep's word that the server's stop got it.
+    await answers.save([
+      { kind: 'places', lat: 40.0601, lon: -80.0601, answer: 'Zeppelin Bakery', askedAt: 1 },
+    ]);
+    places.changed(1);
     await finder.built();
     expect(stops()).toEqual(['Fountain']);
   });

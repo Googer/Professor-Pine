@@ -343,7 +343,7 @@ describe('/gym add', () => {
     );
     await made.settle();
     expect(made.gateway.messagesIn(UPDATES_CHANNEL)).toHaveLength(1);
-    expect(made.gymStore.row(13)?.places).toBe('Corner Bakery Maple Dental');
+    expect(made.directory.stored(13)?.places).toBe('Corner Bakery Maple Dental');
     // Answered once: a second press (a double click) is only acknowledged, and writes nothing
     // over the answer of the first.
     const again = await made.press(buttonId(question, 'Add'));

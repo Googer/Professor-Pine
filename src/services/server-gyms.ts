@@ -1,4 +1,6 @@
+import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { gymsByRegion } from '@pine/wayspot-core/region-membership';
+import { answerCell } from '../domain/geo/answer-point.js';
 import { BoundedMap } from '../bounded-map.js';
 import type { Gym } from '../db/repositories/gym-repository.js';
 import type { GymLink } from '../domain/gyms/gym-server.js';
@@ -60,6 +62,10 @@ interface BuiltView {
   words: readonly string[];
 }
 
+function cellKey(lat: number, lon: number): string {
+  return `${String(lat)}:${String(lon)}`;
+}
+
 function sameWords(a: readonly string[], b: readonly string[]): boolean {
   return a === b || (a.length === b.length && a.every((word, index) => word === b[index]));
 }
@@ -77,6 +83,11 @@ function sameWords(a: readonly string[], b: readonly string[]): boolean {
  */
 export class ServerGyms {
   private readonly gyms = new Map<number, Gym>();
+  /**
+   * The gyms of each cell of a thousandth of a degree (`answerCell`, plan 19B-3), by the cell's
+   * key: what lies near a point Google answered about, without measuring every gym.
+   */
+  private readonly cells = new Map<string, Set<number>>();
   /** The servers of each gym, by gym. */
   private readonly links = new Map<number, Set<number>>();
   /** The gyms of each server, by server: a view is built from its server's gyms alone. */
@@ -93,7 +104,10 @@ export class ServerGyms {
     private readonly wordsOf: (guildId: number) => readonly string[],
     options: { maxViews?: number } = {},
   ) {
-    for (const gym of gyms) this.gyms.set(gym.id, gym);
+    for (const gym of gyms) {
+      this.gyms.set(gym.id, gym);
+      this.placeInCell(gym);
+    }
     for (const { gymId, guildId } of links) {
       if (this.gyms.has(gymId)) this.link(gymId, guildId);
     }
@@ -153,15 +167,48 @@ export class ServerGyms {
       .map(([channelId]) => channelId);
   }
 
+  /**
+   * A server's gyms as held, without building or touching its view: for the instance's upkeep
+   * (the circle of a PokéStop's or Power Spot's places, of its own server's gyms). Read at once,
+   * never kept.
+   */
+  *gymsOf(guildId: number): Iterable<Gym> {
+    for (const id of this.linked.get(guildId) ?? []) {
+      const gym = this.gyms.get(id);
+      if (gym) yield gym;
+    }
+  }
+
   /** Every gym of every server, in no particular order (a new list): the instance's upkeep. */
   all(): Gym[] {
     return [...this.gyms.values()];
   }
 
+  /**
+   * The gyms in the cell of a point (`answerCell`) and the eight around it, whichever server's:
+   * every gym within about 85 m of it (more north to south), and a few beyond, unmeasured.
+   */
+  near(point: LatLon): Gym[] {
+    const cell = answerCell(point);
+    const found: Gym[] = [];
+    for (let lat = cell.lat - 1; lat <= cell.lat + 1; lat++) {
+      for (let lon = cell.lon - 1; lon <= cell.lon + 1; lon++) {
+        for (const id of this.cells.get(cellKey(lat, lon)) ?? []) {
+          const gym = this.gyms.get(id);
+          if (gym) found.push(gym);
+        }
+      }
+    }
+    return found;
+  }
+
   /** Adds or replaces a gym with the servers it belongs to now, in every view built. */
   put(gym: Gym, servers: Iterable<number>): void {
     const linked = new Set(servers);
+    const before = this.gyms.get(gym.id);
+    if (before) this.takeFromCell(before);
     this.gyms.set(gym.id, gym);
+    this.placeInCell(gym);
     for (const guildId of this.links.get(gym.id) ?? []) {
       if (!linked.has(guildId)) this.linked.get(guildId)?.delete(gym.id);
     }
@@ -187,11 +234,29 @@ export class ServerGyms {
 
   /** Takes a gym out of every view. False when there was no such gym. */
   remove(id: number): boolean {
+    const before = this.gyms.get(id);
+    if (before) this.takeFromCell(before);
     const known = this.gyms.delete(id);
     for (const guildId of this.links.get(id) ?? []) this.linked.get(guildId)?.delete(id);
     this.links.delete(id);
     for (const guildId of this.views.keys()) this.views.get(guildId)?.lookup.remove(id);
     return known;
+  }
+
+  private placeInCell(gym: Gym): void {
+    const cell = answerCell(gym);
+    const key = cellKey(cell.lat, cell.lon);
+    const ids = this.cells.get(key) ?? new Set<number>();
+    ids.add(gym.id);
+    this.cells.set(key, ids);
+  }
+
+  private takeFromCell(gym: Gym): void {
+    const cell = answerCell(gym);
+    const key = cellKey(cell.lat, cell.lon);
+    const ids = this.cells.get(key);
+    ids?.delete(gym.id);
+    if (ids?.size === 0) this.cells.delete(key);
   }
 
   /** Records that a server has a gym, both ways. */

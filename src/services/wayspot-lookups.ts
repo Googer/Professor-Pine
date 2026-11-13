@@ -1,20 +1,26 @@
 import { lineOrder } from '../domain/geo/google-line.js';
 
 /**
- * The PokéStops and Power Spots that wait for Google, and the places it gave around them (plan
- * 8W-6): they join the gyms' line after every gym (`GymUpkeep`), PokéStops before Power Spots,
- * each by the rank of its best region, then by the time it was queued. Their places are kept
- * apart from the Wayfarer import's writes, with the point and kind they were asked for, so that a
- * Wayspot moved or of another kind waits again. `WayspotLookupRepository` keeps them in the
- * database; `MemoryWayspotLookups` is its twin (both run `wayspotLookupCases`).
+ * The PokéStops and Power Spots that wait for Google (plan 8W-6): they join the gyms' line after
+ * every gym (`GymUpkeep`), PokéStops before Power Spots, each by the rank of its best region,
+ * then by the time it was queued. A Wayspot waits per server that keeps it (plan 19B-3), by that
+ * server's regions; the places Google gives are the point's (`GoogleAnswers`), so the second
+ * server's row finds them and leaves the line unasked. `WayspotLookupRepository` keeps the line in
+ * the database; `MemoryWayspotLookups` is its twin (both run `wayspotLookupCases`).
  */
 
 /** The kinds of Wayspot the line asks about. */
 export type WayspotLineKind = 'stop' | 'powerspot';
 
-/** A Wayspot put in the line: its id (a Wayfarer id or `pine-<id>`), kind and rank. */
-export interface QueuedWayspot {
+/** A server's Wayspot in the line, without its order: its server's `Guild` row and its id. */
+export interface ServerSpot {
+  guildId: number;
+  /** A Wayfarer id or `pine-<id>`. */
   wayspotId: string;
+}
+
+/** A Wayspot put in the line: its server, id, kind and rank. */
+export interface QueuedWayspot extends ServerSpot {
   kind: WayspotLineKind;
   rank: number;
 }
@@ -24,52 +30,50 @@ export interface WaitingWayspot extends QueuedWayspot {
   queuedAt: number;
 }
 
-/** What Google gave around a Wayspot, and for which point and kind it was asked. */
-export interface AskedPlaces {
-  wayspotId: string;
-  kind: WayspotLineKind;
-  lat: number;
-  lon: number;
-  /** The names joined by spaces (`placesText`); null when Google found none. */
-  places: string | null;
-  askedAt: number;
-}
-
 export interface WayspotLookups {
-  /** Puts Wayspots in the line; one already in it keeps its time, and takes the kind and rank given. */
+  /**
+   * Puts Wayspots in the line, each for its server; one already in it for that server keeps its
+   * time, and takes the kind and rank given.
+   */
   add(wayspots: readonly QueuedWayspot[], now: number): Promise<void>;
   /**
    * The first of the line: stops before Power Spots, then the highest rank, the oldest, the
-   * lower id; never one of `except` (set aside after a failure).
+   * lower id, the lower server; never a Wayspot of `except`, of any server (set aside after a
+   * failure).
    */
   next(options?: { except?: ReadonlySet<string> }): Promise<WaitingWayspot | undefined>;
-  /** Takes Wayspots out of the line. */
-  remove(ids: readonly string[]): Promise<void>;
+  /** Takes these servers' rows out of the line. */
+  remove(spots: readonly ServerSpot[]): Promise<void>;
   count(): Promise<number>;
-  /** Every Wayspot that waits, in the order of the line. */
+  /** Whether any row waits (one row read, never a count of the line). */
+  any(): Promise<boolean>;
+  /** Every row that waits, in the order of the line. */
   list(): Promise<WaitingWayspot[]>;
-  /** Every Wayspot's places as asked. */
-  asked(): Promise<AskedPlaces[]>;
-  /** Keeps what Google gave around a Wayspot, over what it gave before. */
-  saveAsked(row: AskedPlaces): Promise<void>;
-  /** Forgets the places of these Wayspots (they became gyms, or are gone). */
-  dropAsked(ids: readonly string[]): Promise<void>;
+  /**
+   * The rows of one server that wait, in no particular order: what a change of that server's
+   * Wayspots brings up to date (`GymUpkeep`), without reading another server's.
+   */
+  ofServer(guildId: number): Promise<WaitingWayspot[]>;
 }
 
-/** The order of the line (`lineOrder`): kind, rank (higher first), time queued, id. */
+/** The order of the line (`lineOrder`): kind, rank (higher first), time queued, id, server. */
 function wayspotLineOrder(a: WaitingWayspot, b: WaitingWayspot): number {
-  return lineOrder({ ...a, key: a.wayspotId }, { ...b, key: b.wayspotId });
+  return lineOrder({ ...a, key: a.wayspotId }, { ...b, key: b.wayspotId }) || a.guildId - b.guildId;
 }
 
-/** The line and the places in memory: the database's twin. */
+/** A row's key in memory: `<guildId>:<wayspotId>`. */
+export function spotKey(spot: ServerSpot): string {
+  return `${String(spot.guildId)}:${spot.wayspotId}`;
+}
+
+/** The line in memory: the database's twin. */
 export class MemoryWayspotLookups implements WayspotLookups {
   readonly rows = new Map<string, WaitingWayspot>();
-  readonly places = new Map<string, AskedPlaces>();
 
   add(wayspots: readonly QueuedWayspot[], now: number): Promise<void> {
     for (const wayspot of wayspots) {
-      const kept = this.rows.get(wayspot.wayspotId);
-      this.rows.set(wayspot.wayspotId, { ...wayspot, queuedAt: kept?.queuedAt ?? now });
+      const kept = this.rows.get(spotKey(wayspot));
+      this.rows.set(spotKey(wayspot), { ...wayspot, queuedAt: kept?.queuedAt ?? now });
     }
     return Promise.resolve();
   }
@@ -78,8 +82,8 @@ export class MemoryWayspotLookups implements WayspotLookups {
     return (await this.list()).find((row) => options.except?.has(row.wayspotId) !== true);
   }
 
-  remove(ids: readonly string[]): Promise<void> {
-    for (const id of ids) this.rows.delete(id);
+  remove(spots: readonly ServerSpot[]): Promise<void> {
+    for (const spot of spots) this.rows.delete(spotKey(spot));
     return Promise.resolve();
   }
 
@@ -87,23 +91,19 @@ export class MemoryWayspotLookups implements WayspotLookups {
     return Promise.resolve(this.rows.size);
   }
 
+  any(): Promise<boolean> {
+    return Promise.resolve(this.rows.size > 0);
+  }
+
+  ofServer(guildId: number): Promise<WaitingWayspot[]> {
+    return Promise.resolve(
+      [...this.rows.values()].filter((row) => row.guildId === guildId).map((row) => ({ ...row })),
+    );
+  }
+
   list(): Promise<WaitingWayspot[]> {
     return Promise.resolve(
       [...this.rows.values()].map((row) => ({ ...row })).sort(wayspotLineOrder),
     );
-  }
-
-  asked(): Promise<AskedPlaces[]> {
-    return Promise.resolve([...this.places.values()].map((row) => ({ ...row })));
-  }
-
-  saveAsked(row: AskedPlaces): Promise<void> {
-    this.places.set(row.wayspotId, { ...row });
-    return Promise.resolve();
-  }
-
-  dropAsked(ids: readonly string[]): Promise<void> {
-    for (const id of ids) this.places.delete(id);
-    return Promise.resolve();
   }
 }

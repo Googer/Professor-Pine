@@ -137,6 +137,14 @@ export interface EventWindow {
   startsLocal: string | null;
 }
 
+export interface GoogleAnswer {
+  answer: string | null;
+  askedAt: string;
+  kind: string;
+  lat: number;
+  lon: number;
+}
+
 export interface GoogleUseDay {
   day: string;
   kind: string;
@@ -194,6 +202,7 @@ export interface GymMeta {
   places: string | null;
   sponsor: number | null;
   taggedEx: number | null;
+  wayfarerAddress: string | null;
 }
 
 export interface GymNotification {
@@ -708,6 +717,14 @@ export interface ScriptAccess {
   userId: string;
 }
 
+export interface ServerGymLookup {
+  address: Generated<number>;
+  guildId: number;
+  gymId: number;
+  queuedAt: string;
+  regionRank: Generated<number>;
+}
+
 export interface ServerSettings {
   serverId: string;
   settings: Json;
@@ -739,6 +756,14 @@ export interface ServerWayspot {
   lat: number;
   lon: number;
   title: string;
+}
+
+export interface ServerWayspotLookup {
+  guildId: number;
+  kind: string;
+  queuedAt: string;
+  regionRank: Generated<number>;
+  wayspotId: string;
 }
 
 export interface SpawnReport {
@@ -929,6 +954,7 @@ export interface DB {
   EventForum: EventForum;
   EventPost: EventPost;
   EventWindow: EventWindow;
+  GoogleAnswer: GoogleAnswer;
   GoogleUseDay: GoogleUseDay;
   GruntMessage: GruntMessage;
   Guild: Guild;
@@ -977,9 +1003,11 @@ export interface DB {
   SavedRouteGym: SavedRouteGym;
   SavedRoutes: SavedRoutes;
   ScriptAccess: ScriptAccess;
+  ServerGymLookup: ServerGymLookup;
   ServerSettings: ServerSettings;
   ServerSettingsAudit: ServerSettingsAudit;
   ServerWayspot: ServerWayspot;
+  ServerWayspotLookup: ServerWayspotLookup;
   SpawnReport: SpawnReport;
   StopLine: StopLine;
   StopPost: StopPost;

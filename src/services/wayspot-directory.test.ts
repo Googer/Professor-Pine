@@ -1,3 +1,4 @@
+import { metresBetween } from '@pine/wayspot-core/distance';
 import { describe, expect, it, vi } from 'vitest';
 import {
   EAST_CHANNEL,
@@ -131,7 +132,10 @@ describe('WayspotDirectory', () => {
       wayspots: storage,
       regions: regionsFixture(),
       log: createTestLogger().log,
-      addresses: { lookedUp: (id) => looked.get(id) },
+      // By the point, as the answers are kept (plan 19B-3).
+      addresses: {
+        lookedUp: (point) => [...looked.values()].find((one) => metresBetween(one, point) <= 10),
+      },
     });
     await directory.load();
     const home = directory.of(HOME);
@@ -227,6 +231,80 @@ describe('WayspotDirectory', () => {
     storage.everyServer = every;
     await directory.load();
     expect(directory.of(HOME).byId(wayspotId(1))).toBeDefined();
+  });
+
+  it('does not bring back a Wayspot forgotten while a load keeps the answers of one that moved', async () => {
+    const { storage, regionDirectory } = await directoryWith();
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let carrying = (): void => undefined;
+    const carried = new Promise<void>((resolve) => (carrying = resolve));
+    const directory = new WayspotDirectory({
+      wayspots: storage,
+      regions: regionDirectory,
+      log: createTestLogger().log,
+      // The write of the moved Wayspot's answers waits until the test lets it through.
+      answers: {
+        carry: async () => {
+          carrying();
+          await held;
+        },
+      },
+    });
+    await directory.load();
+    // The server's import moves stop 1 a few meters and keeps the Power Spot 2.
+    await storage.saveFromImport(
+      HOME,
+      { upsert: [keptRow(1, { lat: 40.05003, lon: -80.05 })], remove: [] },
+      2_000,
+    );
+    const loading = directory.load(HOME);
+    await carried;
+    // The Power Spot became the server's gym meanwhile.
+    directory.forget(HOME, [wayspotId(2)]);
+    release();
+    await loading;
+    expect(directory.of(HOME).byId(wayspotId(2))).toBeUndefined();
+    expect(directory.of(HOME).byId(wayspotId(1))).toMatchObject({ lat: 40.05003 });
+  });
+
+  it('says whether any server keeps a Wayspot within ten meters of a point, in an index of the sweep’s own', async () => {
+    const { storage, directory } = await directoryWith();
+    await directory.load();
+    const meter = 1 / 111_000;
+    const kept = directory.keptPlaces();
+    // Stop 5 lies in no region: it counts all the same.
+    expect(kept.anyNear({ lat: 40.5 + 9 * meter, lon: -80.05 })).toBe(true);
+    expect(kept.anyNear({ lat: 40.5 + 11 * meter, lon: -80.05 })).toBe(false);
+    // Stop 6 is the second server's alone (the test server's 2 lies 20 m from the point).
+    const nearSix = { lat: 40.0502 + 9 * meter, lon: -80.05 };
+    expect(kept.anyNear(nearSix)).toBe(true);
+    directory.forget(AWAY, [wayspotId(6)]);
+    // The index is the sweep's, as the Wayspots were when it was built; the next is built anew.
+    expect(kept.anyNear(nearSix)).toBe(true);
+    expect(directory.keptPlaces().anyNear(nearSix)).toBe(false);
+    // A server's load that no longer has a Wayspot; a stop of Pine's own.
+    await storage.saveFromImport(HOME, { upsert: [], remove: [wayspotId(5)] }, 2_000);
+    await directory.load(HOME);
+    expect(directory.keptPlaces().anyNear({ lat: 40.5, lon: -80.05 })).toBe(false);
+    directory.setPineStops([
+      {
+        stop: {
+          id: 7,
+          serverId: '1',
+          name: 'Sponsored Cafe',
+          lat: 40.5,
+          lon: -80.05,
+          address: null,
+          createdBy: '1',
+          createdAt: 1,
+          updatedBy: '1',
+          updatedAt: 1,
+        },
+        guildRow: HOME,
+      },
+    ]);
+    expect(directory.keptPlaces().anyNear({ lat: 40.5, lon: -80.05 })).toBe(true);
   });
 
   it('counts changes of what the Wayspots are, apart from the regions, and says when they changed', async () => {

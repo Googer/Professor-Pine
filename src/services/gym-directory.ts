@@ -1,7 +1,11 @@
+import { metresBetween } from '@pine/wayspot-core/distance';
+import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { Gym } from '../db/repositories/gym-repository.js';
+import { WAYSPOT_MOVED_METRES } from '../domain/geo/spot-address.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import type { GymLink } from '../domain/gyms/gym-server.js';
 import type { Logger } from '../log.js';
+import type { GoogleAnswer, GoogleAnswers, KeptPlaces, PlaceKeeper } from './google-answers.js';
 import { ServerGyms, type GymView } from './server-gyms.js';
 
 export type { GymView } from './server-gyms.js';
@@ -47,6 +51,13 @@ export interface GymDirectoryOptions {
    * every ask of its view: a change rebuilds its index.
    */
   wordsOf: (guildId: number) => readonly string[];
+  /**
+   * Google's answers by the point (plan 19B-3): each gym's places are those of its point
+   * (`GoogleAnswers.at`), the one source, and so is its address unless it has Wayfarer's of its
+   * own (`Gym.wayfarerAddress`, which comes first); what the storage gives of them is not read.
+   * An answer saved shows at once on the gyms within `WAYSPOT_MOVED_METRES` of its point.
+   */
+  answers: Pick<GoogleAnswers, 'at' | 'whenSaved'>;
   log: Logger;
 }
 
@@ -56,12 +67,60 @@ export interface GymDirectoryOptions {
  * `refreshGym`, and after regions changed call `load` again. Reads never wait: they use the last
  * complete state.
  */
-export class GymDirectory implements GymProvider {
+export class GymDirectory implements GymProvider, PlaceKeeper {
   private servers: ServerGyms | undefined;
   private queue: Promise<unknown> = Promise.resolve();
   private changes = 0;
 
-  constructor(private readonly options: GymDirectoryOptions) {}
+  /** How many gyms the answers saved had looked at (`reanswer`): for tests. */
+  gymsLookedAt = 0;
+
+  constructor(private readonly options: GymDirectoryOptions) {
+    options.answers.whenSaved((saved) => {
+      this.reanswer(saved);
+    });
+  }
+
+  /**
+   * A gym as read, with its point's answers (`answers`): its own Wayfarer address first, which
+   * is the gym's and no other server's.
+   */
+  private answered(gym: Gym): Gym {
+    const { answers } = this.options;
+    return {
+      ...gym,
+      geodata: gym.wayfarerAddress ?? answers.at('address', gym)?.answer ?? null,
+      places: answers.at('places', gym)?.answer ?? null,
+    };
+  }
+
+  /**
+   * After answers were saved: the gyms near their points take them, in memory, at once (the
+   * gyms of every server that has them; nothing is read). Also during a load or a re-read on its
+   * way: those take the answers when they are put in (`answered`), after this.
+   */
+  private reanswer(saved: readonly GoogleAnswer[]): void {
+    const servers = this.servers;
+    if (!servers) return;
+    // The gyms of the cells around each answer (`ServerGyms.near`), never every gym: a save is
+    // one gym's or one import's few, and the instance's gyms are thousands.
+    const near = new Map<number, Gym>();
+    for (const answer of saved) {
+      for (const gym of servers.near(answer)) {
+        if (near.has(gym.id)) continue;
+        this.gymsLookedAt += 1;
+        if (metresBetween(answer, gym) <= WAYSPOT_MOVED_METRES) near.set(gym.id, gym);
+      }
+    }
+    let changed = false;
+    for (const gym of near.values()) {
+      const now = this.answered(gym);
+      if (now.geodata === gym.geodata && now.places === gym.places) continue;
+      servers.put(now, servers.serversOf(gym.id));
+      changed = true;
+    }
+    if (changed) this.changes += 1;
+  }
 
   private get perServer(): ServerGyms {
     if (!this.servers) throw new Error('Gyms have not been loaded yet');
@@ -89,6 +148,29 @@ export class GymDirectory implements GymProvider {
   }
 
   /**
+   * Whether a gym of any server lies within `WAYSPOT_MOVED_METRES` of a point (an answer of
+   * Google's it shows: `GoogleAnswers.sweep`), from the cells around it (`ServerGyms.near`).
+   */
+  anyNear(point: LatLon): boolean {
+    return this.perServer
+      .near(point)
+      .some((gym) => metresBetween(point, gym) <= WAYSPOT_MOVED_METRES);
+  }
+
+  /**
+   * The gyms as the sweep of Google's answers looks them up: the directory itself, whose cell
+   * index (`ServerGyms`) is kept for its gyms anyway; nothing is built for the sweep.
+   */
+  keptPlaces(): KeptPlaces {
+    return this;
+  }
+
+  /** A server's gyms as held, without building its view (`ServerGyms.gymsOf`): the upkeep's. */
+  gymsOf(guildId: number): Iterable<Gym> {
+    return this.perServer.gymsOf(guildId);
+  }
+
+  /**
    * A number that changes with every load and every gym re-read or forgotten: what is built
    * from the gyms (the web map's view) is built anew when it differs from the one it was built
    * at.
@@ -113,7 +195,12 @@ export class GymDirectory implements GymProvider {
         this.options.regions.listAll(),
       ]);
       const started = performance.now();
-      this.servers = new ServerGyms(gyms, links, regions, this.options.wordsOf);
+      this.servers = new ServerGyms(
+        gyms.map((gym) => this.answered(gym)),
+        links,
+        regions,
+        this.options.wordsOf,
+      );
       this.changes += 1;
       this.options.log.info(
         { gyms: gyms.length, regions: regions.length, ms: Math.round(performance.now() - started) },
@@ -133,9 +220,10 @@ export class GymDirectory implements GymProvider {
         this.options.gyms.get(id),
         this.options.gyms.linksOf(id),
       ]);
-      take(servers, id, gym, linked);
+      const answered = gym && this.answered(gym);
+      take(servers, id, answered, linked);
       this.changes += 1;
-      return gym;
+      return answered;
     });
   }
 
@@ -152,8 +240,9 @@ export class GymDirectory implements GymProvider {
           this.options.gyms.get(id),
           this.options.gyms.linksOf(id),
         ]);
-        take(servers, id, gym, linked);
-        if (gym) read.push(gym);
+        const answered = gym && this.answered(gym);
+        take(servers, id, answered, linked);
+        if (answered) read.push(answered);
       }
       this.changes += 1;
       return read;

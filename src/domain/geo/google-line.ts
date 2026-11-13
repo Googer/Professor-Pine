@@ -17,8 +17,8 @@ export type LineKind = 'gym' | 'stop' | 'powerspot';
 const KIND_ORDER: Readonly<Record<LineKind, number>> = { gym: 0, stop: 1, powerspot: 2 };
 
 /**
- * The rank of a gym in none of the regions of its own servers (`gymRegionsOfItsServers`, plan
- * 19B-2), and of a place given no region: after every gym that is in one.
+ * The rank of a server's row of a gym in none of that server's regions (`GoogleRanks.ofGym`,
+ * plans 19B-2 and 19B-3), and of a place given no region: after every gym that is in one.
  */
 export const NO_REGION_RANK = -1;
 

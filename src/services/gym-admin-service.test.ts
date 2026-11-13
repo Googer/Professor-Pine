@@ -287,10 +287,11 @@ describe('GymAdminService.add', () => {
       13,
     );
     expect(made.directory.of(TEST_GUILD_ROW).regionsOf(13)).toEqual([WEST_CHANNEL]);
-    expect(made.gymStore.row(13)?.geodata).toBeNull();
+    expect(made.directory.stored(13)?.geodata).toBeNull();
 
     await settle(made);
-    expect(made.gymStore.row(13)).toMatchObject({
+    // Its place's answers (plan 19B-3).
+    expect(made.directory.stored(13)).toMatchObject({
       geodata: '{"addressComponents":{"route":"Test Road","locality":"Pinewood"}}',
       places: 'Corner Bakery Maple Dental',
     });
@@ -779,6 +780,28 @@ describe('GymAdminService: each server administers its own gyms (plan 19B-2)', (
     ).resolves.toMatchObject({ kind: 'deleted' });
     expect(made.store.get(raid.party.id)?.gymId).toBe(6);
     expect(made.directory.of(1).get(6)).toBeDefined();
+  });
+
+  it('settles the nearest gyms anew when a server unlinks a shared gym: its gyms and the gym’s own (plan 19B-3)', async () => {
+    const made = await gymAdminWith();
+    const north = await withOtherServer(made);
+    await share(made, 12);
+    const pointing = made.directory
+      .all()
+      .filter((gym) => gym.id !== 12 && gym.nearestGym === 12)
+      .map((gym) => gym.id);
+    expect(pointing.length).toBeGreaterThan(0);
+    await expect(made.admin.delete(12, staff, STAFF_PLACE)).resolves.toMatchObject({
+      kind: 'deleted',
+    });
+    await settle(made);
+    // The test server's gyms look for theirs among their own; the gym, among the other server's.
+    for (const id of pointing) {
+      const gym = made.directory.stored(id);
+      expect(gym?.nearestGym).not.toBe(12);
+      expect(gym?.nearestGym).not.toBeNull();
+    }
+    expect(made.directory.stored(12)?.nearestGym).toBe(north.id);
   });
 
   it('deletes no gym of another server: it answers gone, and the gym stays', async () => {
@@ -1477,6 +1500,22 @@ describe('GymAdminService.batch', () => {
     ]);
   });
 
+  it('has a gym it adds asked for its address beside a place with one: a neighbor’s is not its own (plan 19B-3)', async () => {
+    const made = await gymAdminWith();
+    await made.answers.save([
+      { kind: 'address', ...ELSEWHERE, answer: '{"addressComponents":{}}', askedAt: 1 },
+    ]);
+    // 8 m north of the place Google answered about: its address is shown meanwhile.
+    const point = { lat: ELSEWHERE.lat + 0.000072, lon: ELSEWHERE.lon };
+    const gym = await made.admin.batch(STAFF_PLACE, 'review', async (ops) =>
+      added(await ops.add({ name: 'Bell Tower', ...point })),
+    );
+    expect(made.directory.stored(gym.id)?.geodata).toBe('{"addressComponents":{}}');
+    made.geo.asked.length = 0;
+    await settle(made);
+    expect(made.geo.questions('geocode').map((asked) => asked.point)).toEqual([point]);
+  });
+
   it('counts renames but names only tidied, and moves, and says nothing of nothing', async () => {
     const made = await gymAdminWith();
     await made.admin.batch(STAFF_PLACE, 'import', async (ops) => {
@@ -1586,7 +1625,7 @@ describe('GymAdminService.batch', () => {
     const twin = { lat: FREE.lat + 0.00003, lon: FREE.lon };
     const outcomes = await made.admin.batch(STAFF_PLACE, 'import', (ops) =>
       ops.addBlock([
-        { gym: { name: 'Clock Tower', ...FREE, geodata: '{"addressComponents":{}}' } },
+        { gym: { name: 'Clock Tower', ...FREE, wayfarerAddress: '{"addressComponents":{}}' } },
         // Within ten metres of a gym it was not told of: not added.
         { gym: { name: 'Mural', ...beside } },
         { gym: { name: 'Mural Too', ...beside }, knownNearIds: [1] },

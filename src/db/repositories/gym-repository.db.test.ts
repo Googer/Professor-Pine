@@ -56,9 +56,42 @@ describe('GymRepository', () => {
       sponsor: null,
       geodata: null,
       places: null,
+      wayfarerAddress: null,
       nearestGym: null,
     });
     expect(await gyms.get(created.id)).toEqual(created);
+  });
+
+  it('keeps a gym’s own Wayfarer address, written as it is made and changed (plan 19B-3)', async () => {
+    const created = await gyms.create(
+      {
+        name: 'Big Fountain',
+        lat: 40.4417,
+        lon: -80.0128,
+        wayfarerAddress: '{"addressComponents":{"route":"Liberty Ave"}}',
+      },
+      1,
+    );
+    expect((await gyms.get(created.id))?.wayfarerAddress).toBe(
+      '{"addressComponents":{"route":"Liberty Ave"}}',
+    );
+    await gyms.update(created.id, { wayfarerAddress: null });
+    expect((await gyms.get(created.id))?.wayfarerAddress).toBeNull();
+  });
+
+  it('reads no address or places of a gym: they are its point’s answers (plan 19B-3)', async () => {
+    const created = await gyms.create({ name: 'Big Fountain', lat: 40.4417, lon: -80.0128 }, 1);
+    // What 2.0 wrote stays in its columns, and is not read.
+    await db
+      .updateTable('GymMeta')
+      .set({ geodata: '{"addressComponents":{"route":"Old St"}}', places: 'Old Cafe' })
+      .where('gymId', '=', created.id)
+      .execute();
+    expect(await gyms.get(created.id)).toMatchObject({ geodata: null, places: null });
+    expect((await gyms.listAll()).find((gym) => gym.id === created.id)).toMatchObject({
+      geodata: null,
+      places: null,
+    });
   });
 
   it('creates a gym with everything a moderator may give it at once', async () => {
@@ -112,7 +145,7 @@ describe('GymRepository', () => {
     const old = await gyms.create({ name: 'Old Gym', lat: 40.45, lon: -80 }, 1);
     const created = await gyms.createBlock(
       [
-        { name: 'Café & Co', lat: 40.4501, lon: -80, pogoId: 'aa.16', geodata: '{"a":1}' },
+        { name: 'Café & Co', lat: 40.4501, lon: -80, pogoId: 'aa.16' },
         { name: 'Second', lat: 40.46, lon: -80 },
       ],
       1,
@@ -125,9 +158,9 @@ describe('GymRepository', () => {
         ];
       },
     );
-    expect(created.map((gym) => [gym.name, gym.pogoId, gym.geodata])).toEqual([
-      ['Café & Co', 'aa.16', '{"a":1}'],
-      ['Second', null, null],
+    expect(created.map((gym) => [gym.name, gym.pogoId])).toEqual([
+      ['Café & Co', 'aa.16'],
+      ['Second', null],
     ]);
     const [first, second] = created;
     expect(created.map((gym) => gym.nearestGym)).toEqual([old.id, first!.id]);

@@ -40,6 +40,9 @@ const ADDED_TABLES = [
   'GymServer',
   'SavedRouteGym',
   'ServerWayspot',
+  'GoogleAnswer',
+  'ServerGymLookup',
+  'ServerWayspotLookup',
   'GymLookup',
   'GymLookupDay',
   'WebSession',
@@ -101,6 +104,7 @@ const ADDED_COLUMNS = [
   'Role.roleSnowflake',
   'Role.groupId',
   'SavedRoutes.atEnd',
+  'GymMeta.wayfarerAddress',
 ];
 /** The indexes it adds to tables of the legacy bot, as `Table.index`. */
 const ADDED_INDEXES = [

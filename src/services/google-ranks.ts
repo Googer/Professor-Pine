@@ -9,10 +9,10 @@ import {
 export interface GoogleRanksOptions {
   /** The regions (`RegionDirectory`): their rows and channels. */
   regions: { all(): readonly (RankedRegion & { channelId: string })[] };
-  /** The channels of the regions of its own servers a gym lies in (`gymRegionsOfItsServers`). */
-  gymRegions(gymId: number): readonly string[];
-  /** The channels of the regions a Wayspot lies in (`WayspotDirectory.regionsOf`). */
-  wayspotRegions(wayspotId: string): readonly string[];
+  /** The channels of a server's regions one of its gyms lies in (`GymDirectory.regionsIn`). */
+  gymRegions(guildId: number, gymId: number): readonly string[];
+  /** The channels of a server's regions its copy of a Wayspot lies in (`WayspotDirectory.regionsIn`). */
+  wayspotRegions(guildId: number, wayspotId: string): readonly string[];
   /**
    * The servers the bot is in, by their snowflakes, asked at each reading (the `Guild` rows,
    * `GuildRepository.snowflakes`: the first reading comes before the login, when the client knows
@@ -35,8 +35,9 @@ export interface GoogleRanksOptions {
  * the region's raids over the last `RANK_DAYS` days as a part of its server's busiest region
  * (`regionRanks`). The raids are read at `refresh` (at start and once a day: the line ranks by
  * them, not per question); until the first reading, and while there is no history, every region
- * ranks the same. A gym in none of the regions of its own servers (plan 19B-2) ranks last; a
- * Wayspot in no region of any server has no rank and does not wait for Google.
+ * ranks the same. A place waits once per server that has it (plan 19B-3), ranked by that
+ * server's regions: a gym in none of them ranks last there; a Wayspot in none has no rank there
+ * and does not wait for Google for that server.
  */
 export class GoogleRanks {
   /** The raids of each region at the last reading; before the first, none (all alike). */
@@ -78,14 +79,14 @@ export class GoogleRanks {
     return bestRank(ids, ranks);
   }
 
-  /** The rank of a gym; `NO_REGION_RANK` for one in none of its servers' regions. */
-  ofGym(gymId: number): number {
-    return this.rankOf(this.options.gymRegions(gymId));
+  /** The rank of a server's gym; `NO_REGION_RANK` for one in none of the server's regions. */
+  ofGym(guildId: number, gymId: number): number {
+    return this.rankOf(this.options.gymRegions(guildId, gymId));
   }
 
-  /** The rank of a PokéStop or Power Spot; undefined for one in no region of any server. */
-  ofWayspot(wayspotId: string): number | undefined {
-    const rank = this.rankOf(this.options.wayspotRegions(wayspotId));
+  /** The rank of a server's PokéStop or Power Spot; undefined for one in none of its regions. */
+  ofWayspot(guildId: number, wayspotId: string): number | undefined {
+    const rank = this.rankOf(this.options.wayspotRegions(guildId, wayspotId));
     return rank === NO_REGION_RANK ? undefined : rank;
   }
 }

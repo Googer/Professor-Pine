@@ -16,6 +16,8 @@ import { GymRepository } from '../db/repositories/gym-repository.js';
 import { PokemonNicknameRepository } from '../db/repositories/pokemon-nickname-repository.js';
 import { RegionRepository } from '../db/repositories/region-repository.js';
 import type { DB } from '../db/types.js';
+import { GoogleAnswerRepository } from '../db/repositories/google-answer-repository.js';
+import { GoogleAnswers } from './google-answers.js';
 import { GymDirectory } from './gym-directory.js';
 import { PokemonSearchService } from './pokemon-search-service.js';
 
@@ -39,18 +41,30 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
     await db.insertInto('Region').values({ guildId, channelId: UNBOUNDED_CHANNEL }).execute();
     for (const gym of testGyms()) {
       const created = await gyms.create(gym, 1);
-      await gyms.update(created.id, {
-        keywords: gym.keywords,
-        notice: gym.notice,
-        geodata: gym.geodata,
-        places: gym.places,
-      });
+      await gyms.update(created.id, { keywords: gym.keywords, notice: gym.notice });
       stored.set(gym.id, created.id);
     }
+    // The gyms' addresses and places are their points' answers (plan 19B-3).
+    const answers = new GoogleAnswers({
+      storage: new GoogleAnswerRepository(db),
+      log: createTestLogger().log,
+    });
+    await answers.save(
+      testGyms().flatMap((gym) => [
+        ...(gym.geodata === null
+          ? []
+          : [{ kind: 'address' as const, ...gym, answer: gym.geodata, askedAt: 1 }]),
+        ...(gym.places === null
+          ? []
+          : [{ kind: 'places' as const, ...gym, answer: gym.places, askedAt: 1 }]),
+      ]),
+    );
+    await answers.load();
     directory = new GymDirectory({
       gyms,
       regions,
       wordsOf: () => ['gym', 'raid'],
+      answers,
       log: createTestLogger().log,
     });
     await directory.load();

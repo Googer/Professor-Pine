@@ -119,7 +119,8 @@ import { PineStopRepository } from './db/repositories/pine-stop-repository.js';
 import { GymUpkeep } from './services/gym-upkeep.js';
 import { GymLookupRepository } from './db/repositories/gym-lookup-repository.js';
 import { GoogleUseRepository } from './db/repositories/google-use-repository.js';
-import { WayspotAddressRepository } from './db/repositories/wayspot-address-repository.js';
+import { GoogleAnswerRepository } from './db/repositories/google-answer-repository.js';
+import { GoogleAnswers } from './services/google-answers.js';
 import { WayspotAddresses } from './services/wayspot-addresses.js';
 import { GoogleRanks } from './services/google-ranks.js';
 import { KeptActivity } from './services/kept-activity.js';
@@ -171,11 +172,7 @@ import { MemberNames } from './services/member-names.js';
 import { Boards } from './services/boards.js';
 import { MemberStatsService } from './services/member-stats.js';
 import { BoardRepository } from './db/repositories/board-repository.js';
-import {
-  gymRegionsOfItsServers,
-  RegionDirectory,
-  stopRegionsInGuild,
-} from './services/region-directory.js';
+import { RegionDirectory, stopRegionsInGuild } from './services/region-directory.js';
 import { SelfRoleService } from './services/self-role-service.js';
 import { SpawnService } from './services/spawn-service.js';
 import { MeetupSafety } from './services/meetup-safety.js';
@@ -477,6 +474,8 @@ export async function startApp(
   // A typed task's reward, on no list, made square once reported (plan 8M-9B).
   stopReports.listen(reportPictures(stopPictures));
   const gymRepository = new GymRepository(db);
+  // Google's answers by the point (plan 19B-3): every gym's and Wayspot's address and places.
+  const googleAnswers = new GoogleAnswers({ storage: new GoogleAnswerRepository(db), log });
   const gyms = new GymDirectory({
     gyms: gymRepository,
     regions: new RegionRepository(db),
@@ -486,6 +485,8 @@ export async function startApp(
       const server = rowIds.serverOfRow(row);
       return (server === undefined ? servers.defaults() : servers.of(server)).blacklistWords;
     },
+    // A gym's address and places are its point's.
+    answers: googleAnswers,
     log,
   });
   // The kept Wayspots of the Wayfarer imports, placed in the regions by their outlines.
@@ -506,7 +507,7 @@ export async function startApp(
   };
   // The addresses of Power Spots the map asked for, which every reader of the kept Wayspots shows.
   const wayspotAddresses = new WayspotAddresses({
-    storage: new WayspotAddressRepository(db),
+    answers: googleAnswers,
     geo,
     use: googleUse,
     budget: googleBudget,
@@ -517,6 +518,7 @@ export async function startApp(
     regions,
     log,
     addresses: wayspotAddresses,
+    answers: googleAnswers,
   });
   const history = new HistoryRepository(db);
   // The activity heatmap's buckets (plan 8H-4): derived from the history, added hourly by the
@@ -895,7 +897,7 @@ export async function startApp(
   // The PokéStops and Power Spots that wait for Google, and the places it gave around them
   // (plan 8W-6), which the search reads.
   const wayspotLookups = new WayspotLookupRepository(db);
-  const wayspotPlaces = new WayspotPlaces({ storage: wayspotLookups, log });
+  const wayspotPlaces = new WayspotPlaces({ answers: googleAnswers, log });
   const gymUpkeep = new GymUpkeep({
     gyms: gymRepository,
     directory: gyms,
@@ -910,11 +912,9 @@ export async function startApp(
     // The line goes by the raids of each place's best region (plan 8W-6), from the history.
     ranks: new GoogleRanks({
       regions,
-      // Each gym by the regions of its own servers (plan 19B-2).
-      gymRegions: (id) => gymRegionsOfItsServers(gyms, id),
-      // A Wayspot by the regions of each server that keeps it, each its own (plan 19B-3).
-      wayspotRegions: (id) =>
-        wayspots.servers().flatMap((guildId) => wayspots.regionsIn(guildId, id)),
+      // Each server's row by that server's regions (plan 19B-3).
+      gymRegions: (guildId, id) => gyms.regionsIn(guildId, id),
+      wayspotRegions: (guildId, id) => wayspots.regionsIn(guildId, id),
       // The servers by their rows: the first reading comes before the login (plan 8Z-2).
       servers: () => guilds.snowflakes(),
       activity: history,
@@ -923,6 +923,7 @@ export async function startApp(
     // A region added or saved queues the PokéStops and Power Spots it newly covers at once.
     outlineChanges: regions,
     wayspotLookups,
+    answers: googleAnswers,
     places: wayspotPlaces,
   });
   // Map pictures from Google Static Maps, through the image cache (also for gym announcements).
@@ -1116,6 +1117,9 @@ export async function startApp(
     pictures: maps,
     // The places' pictures of the web map's posts, in the same folder of pictures (plan 8Z-2).
     placePictures: { prune: () => prunePlacePictures(mapCache) },
+    // Google's answers no gym or Wayspot of any server shows, once a day (plan 19B-3): the
+    // scheduler starts after both are loaded.
+    googleAnswers: { sweep: () => googleAnswers.sweep([gyms, wayspots]) },
     screenshots: screenshotStore,
     emoji: appEmoji,
     webSessions,
@@ -1182,15 +1186,15 @@ export async function startApp(
     await servers.load();
     // Before the first read too: the events forum's listing survives a restart (plan 8V-1).
     await raidEvents.loadListed();
+    // Before the gyms and the Wayspots, whose addresses and places they are (plan 19B-3).
+    await googleAnswers.load();
     await gyms.load();
     await regions.load();
-    await wayspotAddresses.load();
     await wayspots.load();
     await pineStops.load();
-    await wayspotPlaces.load();
     // The gyms that waited for Google before a restart, and those that lack what it gives;
-    // after the regions and the Wayspots, which its ranks read, and the Wayspots' places,
-    // which say which were asked (plan 8W-6).
+    // after the regions and the Wayspots, which its ranks read, and Google's answers, which
+    // say which were asked (plans 8W-6, 19B-3).
     await gymUpkeep.resume();
     // Every party's server, so its zone, known from its first moment (fix round 1, K1).
     await guilds.loadRows();

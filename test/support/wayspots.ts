@@ -32,13 +32,15 @@ export function noWayspots(): WayspotDirectory {
  * their rows. `regions`: other regions (a `RegionDirectory` whose loads change them).
  * `addresses`: the Power Spots' looked-up addresses (`wayspotAddressesWith`'s; none by default).
  * `others`: other servers' Wayspots (plan 19B-3: a server's own rows, by its `Guild` row), which
- * the test server's view must never show.
+ * the test server's view must never show. `answers`: Google's answers, which a load carries for
+ * a Wayspot moved a few meters (none by default).
  */
 export async function wayspotsWith(
   rows: readonly WayspotRow[],
   regions: WayspotDirectoryOptions['regions'] = regionsFixture(),
   addresses?: WayspotDirectoryOptions['addresses'],
   others: readonly { guildId: number; rows: readonly WayspotRow[] }[] = [],
+  answers?: WayspotDirectoryOptions['answers'],
 ) {
   const storage = new MemoryWayspots();
   await storage.saveFromImport(TEST_GUILD_ROW, { upsert: rows, remove: [] }, 1_000);
@@ -50,6 +52,7 @@ export async function wayspotsWith(
     regions,
     log: createTestLogger().log,
     ...(addresses === undefined ? {} : { addresses }),
+    ...(answers === undefined ? {} : { answers }),
   });
   await wayspots.load();
   return { storage, wayspots };

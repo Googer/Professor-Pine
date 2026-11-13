@@ -14,13 +14,21 @@ import {
   type GoogleBudget,
   type GoogleUsed,
 } from '../domain/geo/google-line.js';
+import type { LatLon } from '@pine/wayspot-core/lat-lon';
+import type { GoogleAnswers } from './google-answers.js';
 import { MemoryGoogleUse, usedThisMonth, type GoogleCount, type GoogleUse } from './google-use.js';
 import type { GoogleRanks } from './google-ranks.js';
-import { MemoryGymLookups, type GymLookups, type WaitingGym } from './gym-lookups.js';
-import type { Wayspot } from '../domain/wayspots/kept.js';
+import {
+  MemoryGymLookups,
+  type GymLookups,
+  type GymRank,
+  type QueuedGym,
+  type WaitingGym,
+} from './gym-lookups.js';
 import type { WayspotProvider } from './wayspot-directory.js';
 import {
   MemoryWayspotLookups,
+  spotKey,
   type QueuedWayspot,
   type WaitingWayspot,
   type WayspotLookups,
@@ -94,6 +102,11 @@ const SAME_RANK: LineRanks = {
   ofWayspot: () => 0,
 };
 
+/** Whether two gyms' servers (sorted or not) have one in common. */
+export function sharesServer(a: readonly number[], b: readonly number[]): boolean {
+  return a.some((server) => b.includes(server));
+}
+
 /** What `refresh` got for a gym, which is given as it is afterwards. */
 export interface GymRefresh {
   gym: Gym;
@@ -123,6 +136,10 @@ export interface GymsInMemory {
   all(): Gym[];
   /** A gym by its id, whichever server's (`GymDirectory.stored`): the upkeep is the instance's. */
   stored(id: number): Gym | undefined;
+  /** The servers a gym belongs to (`Guild` rows): it waits in the line once for each. */
+  serversOf(gymId: number): number[];
+  /** A server's gyms (`GymDirectory.gymsOf`): the circle of its Wayspots' places. */
+  gymsOf(guildId: number): Iterable<Gym>;
   refreshGym(id: number): Promise<Gym | undefined>;
   /** Re-reads the gyms of a block in one turn (`GymDirectory.refreshGyms`). */
   refreshGyms(ids: readonly number[]): Promise<Gym[]>;
@@ -170,14 +187,23 @@ export interface GymUpkeepOptions {
     'servers' | 'of' | 'stored' | 'contentGeneration' | 'whenChanged'
   >;
   /**
-   * The regions (`RegionDirectory`): after each load that changed their outlines the Wayspots' part
-   * of the line follows them, so that a region added or saved queues the PokéStops and Power Spots it
-   * newly covers at once (and lets go of those it no longer does), whatever else waits.
+   * The regions (`RegionDirectory`): after each load that changed a server's outlines that
+   * server's part of the Wayspots' line follows them (plan 19B-3: the others' neither read nor
+   * touched), so that a region added or saved queues the PokéStops and Power Spots it newly
+   * covers at once (and lets go of those it no longer does), whatever else waits.
    */
-  outlineChanges?: { whenOutlinesChanged(listener: () => void): void };
+  outlineChanges?: {
+    whenOutlinesChanged(listener: (servers: readonly number[]) => void): void;
+  };
   /** The Wayspots' line (`WayspotLookupRepository` in the bot); default one in memory. */
   wayspotLookups?: WayspotLookups;
-  /** The places Google gave around them (`WayspotPlaces`); default one over `wayspotLookups`. */
+  /**
+   * Google's answers by the point (`GoogleAnswers`, plan 19B-3), where every address and list of
+   * places the line asks for is kept, and where it looks first: a point answered is not asked
+   * again, whichever server's gym or Wayspot waits there. The one the directory reads.
+   */
+  answers: GoogleAnswers;
+  /** The places around PokéStops and Power Spots (`WayspotPlaces`); default one over `answers`. */
   places?: WayspotPlaces;
   /** Default `Date.now`. */
   now?: () => number;
@@ -202,6 +228,14 @@ export interface GymUpkeepOptions {
  * shutdown wait for it (`flush`, `stop`). While Google refuses the key for places, the line
  * keeps its gyms and looks again when the refusal is over.
  *
+ * Per server (plan 19B-3): a gym or Wayspot waits once for each server that has it, ranked by
+ * that server's regions, and its place is asked once: what Google says is the point's
+ * (`GoogleAnswers`), shown by every gym and Wayspot within ten meters of it in every server
+ * meanwhile, and a row whose own point was answered meanwhile (`ownAt`: another server's copy
+ * of the place asked, never a neighbor a few meters off) asks nothing (a gym its address; a
+ * PokéStop or Power Spot its places). A gym's question answers every server's row of it. The
+ * budget is the instance's.
+ *
  * An answer is written only when nothing about its question has changed since it was asked: every
  * question about a gym has a number (`generation`), which goes up with each new question of its
  * kind for that gym and whenever the gym is put somewhere or gets another nearest gym. An answer
@@ -224,6 +258,7 @@ export class GymUpkeep {
   private readonly ranks: LineRanks;
   /** The PokéStops and Power Spots that wait for Google. */
   private readonly wayspotLookups: WayspotLookups;
+  private readonly answers: GoogleAnswers;
   private readonly places: WayspotPlaces;
   /** Whether the line was taken up (`resume`): only then a change of the Wayspots queues them. */
   private resumed = false;
@@ -253,9 +288,12 @@ export class GymUpkeep {
   /** Whether a turn of the timer runs now; then `hurry` only notes new work (`newWork`). */
   private turning = false;
   private newWork = false;
-  /** The run of `queueWayspots` under way, and whether another was asked for meanwhile. */
+  /**
+   * The run of `queueWayspots` under way, and the servers another run was asked for meanwhile
+   * (`all`: every server's part).
+   */
   private wayspotsRun: Promise<void> | undefined;
-  private wayspotsAgain = false;
+  private wayspotsWanted: 'all' | Set<number> | undefined;
   /**
    * Until when Google refuses the key for Geocoding (epoch ms; 0: not refused): meanwhile the
    * line asks only about the gyms that wait for their places alone.
@@ -282,16 +320,19 @@ export class GymUpkeep {
     this.byHandPerMonth = options.byHandPerMonth ?? DEFAULT_BY_HAND_PER_MONTH;
     this.ranks = options.ranks ?? SAME_RANK;
     this.wayspotLookups = options.wayspotLookups ?? new MemoryWayspotLookups();
-    this.places =
-      options.places ?? new WayspotPlaces({ storage: this.wayspotLookups, log: options.log });
+    this.answers = options.answers;
+    this.places = options.places ?? new WayspotPlaces({ answers: this.answers, log: options.log });
     this.now = options.now ?? Date.now;
-    // What the Wayspots are changed (an import, a stop of Pine's own): the line follows.
-    options.wayspots?.whenChanged(() => {
-      if (this.resumed) this.aside(() => this.queueWayspots());
+    // What a server's Wayspots are changed (its import, a stop of Pine's own): that server's part
+    // of the line follows, the others' left as they are.
+    options.wayspots?.whenChanged((guildId) => {
+      if (this.resumed) this.aside(() => this.queueWayspots(guildId));
     });
-    // And what the regions are: a change of them is not a change of the Wayspots.
-    options.outlineChanges?.whenOutlinesChanged(() => {
-      if (this.resumed) this.aside(() => this.queueWayspots());
+    // And where a server's regions are: a change of them is not a change of the Wayspots. Each
+    // server whose outlines changed, its part alone (one run for them all).
+    options.outlineChanges?.whenOutlinesChanged((servers) => {
+      if (!this.resumed) return;
+      for (const guildId of servers) this.aside(() => this.queueWayspots(guildId));
     });
     this.setTimer =
       options.setTimer ??
@@ -339,31 +380,38 @@ export class GymUpkeep {
 
   /**
    * Brings the Wayspots' part of the line up to date with the Wayspots (after `resume`, at every
-   * change of what they are, at every load of the regions that changed an outline, and with the
-   * daily ranking, which runs only while something waits): a PokéStop or Power Spot in a region
-   * of a server whose places were never asked, or asked at a point more than
-   * `WAYSPOT_MOVED_METRES` away or for another kind, is queued (by its kind and rank); one no
-   * longer in a region of any server leaves the line; one that is no PokéStop or Power Spot any
-   * more (it became a gym, was found gone, is a Wayfarer gym) leaves it and its places are
-   * dropped. Never rejects.
+   * change of what they are, at every load of the regions that changed a server's outlines, and
+   * with the daily ranking, which runs only while something waits): each server's PokéStop or
+   * Power Spot in a region of that server (plan 19B-3: a row per server, ranked by its regions)
+   * whose own point has no answer about its places (`GoogleAnswers.ownAt`, whichever server's
+   * question it was) is queued (by its kind and rank); one no longer in a region of its server
+   * leaves the line, and so does one that is no PokéStop or Power Spot any more (it became a gym,
+   * was found gone, is a Wayfarer gym). The answers are the places', and stay. Never rejects.
+   *
+   * With a server (`guildId`: its import, a change of its stops of Pine's own, of its outlines),
+   * that server's part alone: its rows of the line are read by its key, the others' neither read
+   * nor touched.
    *
    * One run at a time, so that an older run's writes never land after a newer run's (a region
    * removed while the run that queued its stops still writes): what asks while a run is under way
-   * gets one more run after it, shared by every such request, and waits for that.
+   * gets one more run after it, shared by every such request (of every server they named, or of
+   * every server when one named none), and waits for that.
    */
-  private queueWayspots(): Promise<void> {
-    if (this.wayspotsRun) {
-      this.wayspotsAgain = true;
-      return this.wayspotsRun;
-    }
+  private queueWayspots(guildId?: number): Promise<void> {
+    this.wayspotsWanted =
+      guildId === undefined || this.wayspotsWanted === 'all'
+        ? 'all'
+        : new Set([...(this.wayspotsWanted ?? []), guildId]);
+    if (this.wayspotsRun) return this.wayspotsRun;
     const run = (async () => {
       // Not before `wayspotsRun` is set: a run that ends at once must not outlive its own end.
       await Promise.resolve();
       try {
-        do {
-          this.wayspotsAgain = false;
-          await this.queueWayspotsNow();
-        } while (this.wayspotsAgain);
+        while (this.wayspotsWanted !== undefined) {
+          const servers = this.wayspotsWanted;
+          this.wayspotsWanted = undefined;
+          await this.queueWayspotsNow(servers);
+        }
       } finally {
         this.wayspotsRun = undefined;
       }
@@ -372,44 +420,40 @@ export class GymUpkeep {
     return run;
   }
 
-  private async queueWayspotsNow(): Promise<void> {
+  private async queueWayspotsNow(servers: 'all' | ReadonlySet<number>): Promise<void> {
     const { wayspots, log } = this.options;
     // Before the first load of the Wayspots nothing is known of them: nothing is dropped.
     if (!wayspots || wayspots.contentGeneration === 0 || !this.fetches || this.stopped) return;
     try {
-      const waiting = new Map(
-        (await this.wayspotLookups.list()).map((row): [string, WaitingWayspot] => [
-          row.wayspotId,
-          row,
-        ]),
-      );
+      const rows =
+        servers === 'all'
+          ? await this.wayspotLookups.list()
+          : (
+              await Promise.all(
+                [...servers].map((guildId) => this.wayspotLookups.ofServer(guildId)),
+              )
+            ).flat();
+      const waiting = new Map(rows.map((row): [string, WaitingWayspot] => [spotKey(row), row]));
       const add: QueuedWayspot[] = [];
       const kept = new Set<string>();
-      for (const wayspot of this.everyWayspot()) {
-        if (wayspot.kind !== 'stop' && wayspot.kind !== 'powerspot') continue;
-        const rank = this.ranks.ofWayspot(wayspot.id);
-        if (rank === undefined) continue;
-        kept.add(wayspot.id);
-        const asked = this.places.get(wayspot.id);
-        if (
-          asked &&
-          asked.kind === wayspot.kind &&
-          metresBetween(asked, wayspot) <= WAYSPOT_MOVED_METRES
-        ) {
-          continue;
+      // Each server's own rows, once each (plan 19B-3): its copy, ranked by its regions.
+      for (const guildId of servers === 'all' ? wayspots.servers() : servers) {
+        for (const wayspot of wayspots.of(guildId).all()) {
+          if (wayspot.kind !== 'stop' && wayspot.kind !== 'powerspot') continue;
+          const rank = this.ranks.ofWayspot(guildId, wayspot.id);
+          if (rank === undefined) continue;
+          const key = spotKey({ guildId, wayspotId: wayspot.id });
+          kept.add(key);
+          // Its own point answered, whichever server's question it was (`ownAt`).
+          if (this.placesAsked(wayspot)) continue;
+          const queued = waiting.get(key);
+          if (queued?.kind === wayspot.kind && queued.rank === rank) continue;
+          add.push({ guildId, wayspotId: wayspot.id, kind: wayspot.kind, rank });
         }
-        const queued = waiting.get(wayspot.id);
-        if (queued?.kind === wayspot.kind && queued.rank === rank) continue;
-        add.push({ wayspotId: wayspot.id, kind: wayspot.kind, rank });
       }
-      const leave = [...waiting.keys()].filter((id) => !kept.has(id));
-      const drop = this.places.ids().filter((id) => {
-        const kind = this.copyOf(id)?.wayspot.kind;
-        return kind !== 'stop' && kind !== 'powerspot';
-      });
+      const leave = [...waiting].flatMap(([key, row]) => (kept.has(key) ? [] : [row]));
       await this.wayspotLookups.add(add, this.now());
       await this.wayspotLookups.remove(leave);
-      await this.places.drop(drop);
       if (add.length > 0) this.hurry();
     } catch (err) {
       log.warn(
@@ -421,34 +465,26 @@ export class GymUpkeep {
 
   /**
    * Takes up the line kept from before a restart (at start), and puts in it the gyms that have
-   * no places and were never asked about where they are (`GymLookups.asked`; Matt, 2026-10-16:
-   * "the upkeep finds them"): gyms added while there was no key, or whose place in the line
-   * could not be written; those without an address for it too. A gym Google found nothing for
-   * was asked, and is not asked again at every start; a gym of before with places counts as
-   * asked. The ranks are read first, and the line ranked anew by them (`rerank`).
+   * no places and were never asked about where they are (no answer about the places of their own
+   * point, `GoogleAnswers.ownAt`, plan 19B-3; Matt, 2026-10-16: "the upkeep finds them"): gyms
+   * added while there was no key, or whose place in the line could not be written;
+   * those without an address for it too. A gym Google found nothing for was asked (its answer
+   * is a null), and is not asked again at every start. The ranks are read first, and the line
+   * ranked anew by them (`rerank`).
    */
   async resume(): Promise<void> {
     if (this.fetches && !this.stopped) {
       await this.rerank();
-      let asked: Set<number> | undefined;
-      try {
-        asked = await this.lookups.asked();
-      } catch (err) {
-        this.options.log.warn({ err }, 'could not read which gyms Google was asked about');
-      }
-      if (asked) {
-        const never = this.options.directory
-          .all()
-          .filter((gym) => gym.places === null && !asked.has(gym.id));
-        await this.queueGyms(
-          never.filter((gym) => gym.geodata === null).map((gym) => gym.id),
-          true,
-        );
-        await this.queueGyms(
-          never.filter((gym) => gym.geodata !== null).map((gym) => gym.id),
-          false,
-        );
-      }
+      const never = this.options.directory.all().filter((gym) => !this.placesAsked(gym));
+      const unaddressed = (gym: Gym) => !this.hasOwnAddress(gym);
+      await this.queueGyms(
+        never.filter(unaddressed).map((gym) => gym.id),
+        true,
+      );
+      await this.queueGyms(
+        never.filter((gym) => !unaddressed(gym)).map((gym) => gym.id),
+        false,
+      );
     }
     this.resumed = true;
     if (this.fetches && !this.stopped) await this.queueWayspots();
@@ -493,9 +529,11 @@ export class GymUpkeep {
    * Never rejects: what fails is logged, and the gym stays as it is.
    *
    * `places: false` (a Wayfarer import's move of a few metres, `GymAdminService.batch`): only
-   * the nearest gyms are written. Google is asked about nothing, neither this gym nor the gyms
-   * around it: a few metres change neither an address nor a circle of places, and every
-   * question costs money (an import corrects thousands of gyms).
+   * the nearest gyms are written, and what was answered about the place it left (`from`) is its
+   * new place's (plan 19B-3: the answers are kept by the point, `carry`). Google is asked about
+   * nothing, neither this gym nor the gyms around it, then or at a later start: a few metres
+   * change neither an address nor a circle of places, and every question costs money (an import
+   * corrects thousands of gyms).
    *
    * `places: 'later'` (what a Wayfarer import adds or moves further): as without, but the gym
    * waits in the line for its address and its places, and the gyms around it for theirs, so
@@ -504,19 +542,20 @@ export class GymUpkeep {
    */
   async placed(
     id: number,
-    { places = true, address = true }: { places?: boolean | 'later'; address?: boolean } = {},
+    {
+      places = true,
+      address = true,
+      from,
+    }: { places?: boolean | 'later'; address?: boolean; from?: LatLon } = {},
   ): Promise<void> {
     if (!places) {
+      if (from !== undefined) await this.carry(id, from);
       await this.settle({ placed: id });
       return;
     }
     // Whatever is on its way about this gym was asked about another place.
     this.outdate('address', id);
     this.outdate('places', id);
-    // Its new place was never asked: a start puts it in the line if its place there is lost.
-    await this.lookups.forgetAsked(id).catch((err: unknown) => {
-      this.options.log.warn({ err, gym: id }, 'could not forget that Google was asked about a gym');
-    });
     const changed = await this.settle({ placed: id });
     // The gyms that have this one as their nearest: their circle follows it, also when a move
     // left it their nearest.
@@ -560,15 +599,14 @@ export class GymUpkeep {
     const others = nearestChanged.filter((id) => !added.has(id));
     // Their circle follows the distance to their new nearest gym.
     for (const id of others) this.outdate('places', id);
+    // An address of its own place (its Wayfarer address, an answer there): its places alone.
+    const gyms = ids.flatMap((id) => directory.stored(id) ?? []);
     await this.queueGyms(
-      ids.filter((id) => directory.stored(id)?.geodata === null),
+      gyms.filter((gym) => !this.hasOwnAddress(gym)).map((gym) => gym.id),
       true,
     );
     await this.queueGyms(
-      ids.filter((id) => {
-        const gym = directory.stored(id);
-        return gym !== undefined && gym.geodata !== null;
-      }),
+      gyms.filter((gym) => this.hasOwnAddress(gym)).map((gym) => gym.id),
       false,
     );
     await this.queuePlaces(others);
@@ -588,12 +626,26 @@ export class GymUpkeep {
     await this.queuePlaces(await this.settle({ removed: id }));
   }
 
+  /**
+   * After a server unlinked a gym others keep (the directory has it with its servers now): its
+   * nearest gyms are no longer the same (plan 19B-3: a gym's nearest is of the gyms that share a
+   * server with it), so the gyms that pointed at it and the gym itself look for theirs anew, as
+   * after a move where it is (`settle` of `placed`), and wait in the line for their places.
+   * Never rejects.
+   */
+  async unlinked(id: number): Promise<void> {
+    await this.queuePlaces(await this.settle({ placed: id }));
+  }
+
   /** Writes the nearest gyms an event changed; gives the gyms that were written. */
   private async settle(event: NearestEvent): Promise<number[]> {
     const { gyms, directory, log } = this.options;
     const done: number[] = [];
     try {
-      for (const change of nearestGymChanges(directory.all(), event)) {
+      // Per server (plan 19B-3): a gym's nearest is of the gyms that share a server with it.
+      for (const change of nearestGymChanges(directory.all(), event, (a, b) =>
+        sharesServer(directory.serversOf(a), directory.serversOf(b)),
+      )) {
         await gyms.update(change.id, { nearestGym: change.nearestGym });
         await directory.refreshGym(change.id);
         // Another nearest gym is another circle to look for places in.
@@ -715,12 +767,45 @@ export class GymUpkeep {
     return () => this.generation.get(key) === asked;
   }
 
-  /** The address of a gym's place; undefined when the gym is gone. */
+  /**
+   * Whether a gym's address is known for its own place: its own Wayfarer address, or Google's
+   * answer at its own point (`GoogleAnswers.ownAt`; plan 19B-3), not a neighbor's within ten
+   * meters, which is only shown meanwhile. The one rule of "has an address": the line's, gym
+   * administration's (a gym it adds) and the Wayfarer import's (a gym it gives Wayfarer's).
+   */
+  hasOwnAddress(gym: Pick<Gym, 'lat' | 'lon' | 'wayfarerAddress'>): boolean {
+    return gym.wayfarerAddress !== null || this.answers.ownAt('address', gym) !== undefined;
+  }
+
+  /** Whether the places around a gym's or Wayspot's own point were asked (`ownAt`). */
+  private placesAsked(point: LatLon): boolean {
+    return this.answers.ownAt('places', point) !== undefined;
+  }
+
+  /**
+   * After a gym moved a few meters without a new question (`placed(…, { places: false })`): what
+   * was answered about its old place is its new place's too (`GoogleAnswers.carry`). Never
+   * rejects: what cannot be written is logged, and the gym waits in the line as one never asked.
+   */
+  private async carry(id: number, from: LatLon): Promise<void> {
+    const gym = this.options.directory.stored(id);
+    if (!gym) return;
+    try {
+      await this.answers.carry([{ from, to: gym }]);
+    } catch (err) {
+      this.options.log.warn({ err, gym: id }, 'could not keep the answers of a gym that moved');
+    }
+  }
+
+  /**
+   * The address of a gym's place, kept as its point's answer (`GoogleAnswers`) for every gym and
+   * Wayspot there; undefined when the gym is gone.
+   */
   private async fetchGeodata(
     id: number,
     onReached?: () => void,
   ): Promise<FetchOutcome | undefined> {
-    const { gyms, directory, geo } = this.options;
+    const { directory, geo } = this.options;
     const asked = directory.stored(id);
     if (!asked) return undefined;
     const wanted = this.question('address', id);
@@ -740,15 +825,28 @@ export class GymUpkeep {
     // Moved, or asked about again, while Google was asked: a newer answer is the one to write.
     if (!wanted()) return 'unchanged';
     const geodata = geodataJson(answer.value);
-    if (geodata === gym.geodata) return 'unchanged';
-    await gyms.update(id, { geodata });
-    await directory.refreshGym(id);
-    return 'updated';
+    // The point's answer, over what was kept there, for every server (the directory shows it).
+    await this.answers.save([
+      { kind: 'address', lat: asked.lat, lon: asked.lon, answer: geodata, askedAt: this.now() },
+    ]);
+    // Asked by hand of a gym that showed Wayfarer's address (the line never asks one that has
+    // it, a gym added or moved by hand has none): Google's is shown from now on, the gym's own
+    // given up, as staff asked Google about the place. Only the one it showed when Google was
+    // asked: one an import wrote meanwhile is newer than the question, and stays.
+    if (asked.wayfarerAddress !== null && gym.wayfarerAddress === asked.wayfarerAddress) {
+      await this.options.gyms.update(id, { wayfarerAddress: null });
+      await directory.refreshGym(id);
+    }
+    // Compared with what the gym showed: its own Wayfarer address, else its point's answer.
+    return geodata === gym.geodata ? 'unchanged' : 'updated';
   }
 
-  /** The places around a gym, within half the way to its nearest gym; undefined when it is gone. */
+  /**
+   * The places around a gym, within half the way to its nearest gym, kept as its point's answer
+   * (a null when Google found none: the point was asked); undefined when the gym is gone.
+   */
   private async fetchPlaces(id: number, onReached?: () => void): Promise<FetchOutcome | undefined> {
-    const { gyms, directory, geo } = this.options;
+    const { directory, geo } = this.options;
     const asked = directory.stored(id);
     if (!asked) return undefined;
     const nearest = asked.nearestGym === null ? undefined : directory.stored(asked.nearestGym);
@@ -767,17 +865,11 @@ export class GymUpkeep {
     }
     if (!wanted()) return 'unchanged';
     const places = placesText(answer.value);
-    let outcome: FetchOutcome = 'unchanged';
-    if (places !== gym.places) {
-      await gyms.update(id, { places });
-      await directory.refreshGym(id);
-      outcome = 'updated';
-    }
-    // Asked at this place, whatever Google found: a start does not put it in the line again.
-    await this.lookups.markAsked(id, this.now()).catch((err: unknown) => {
-      this.options.log.warn({ err, gym: id }, 'could not note that Google was asked about a gym');
-    });
-    return outcome;
+    // Kept whatever Google found: a start does not put it in the line again.
+    await this.answers.save([
+      { kind: 'places', lat: asked.lat, lon: asked.lon, answer: places, askedAt: this.now() },
+    ]);
+    return places === gym.places ? 'unchanged' : 'updated';
   }
 
   private queuePlaces(ids: readonly number[]): Promise<void> {
@@ -800,7 +892,7 @@ export class GymUpkeep {
     }
     try {
       await this.lookups.add(
-        ids.map((gymId) => this.queued(gymId, address)),
+        ids.flatMap((gymId) => this.queued(gymId, address)),
         this.now(),
       );
     } catch (err) {
@@ -835,12 +927,18 @@ export class GymUpkeep {
     this.schedule();
   }
 
-  /** A gym as the line takes it, with the rank of its best region. */
-  private queued(
-    gymId: number,
-    address: boolean,
-  ): { gymId: number; address: boolean; rank: number } {
-    return { gymId, address, rank: this.ranks.ofGym(gymId) };
+  /**
+   * A gym as the line takes it: a row for each of its servers (plan 19B-3), each with the rank of
+   * its best region of that server (`rank`: this rank for every row). A gym of no server waits
+   * for none.
+   */
+  private queued(gymId: number, address: boolean, rank?: number): QueuedGym[] {
+    return this.options.directory.serversOf(gymId).map((guildId) => ({
+      guildId,
+      gymId,
+      address,
+      rank: rank ?? this.ranks.ofGym(guildId, gymId),
+    }));
   }
 
   /** Counts a question or a lookup by hand that reached Google, on its Pacific day. Never rejects. */
@@ -870,10 +968,10 @@ export class GymUpkeep {
       return;
     }
     try {
-      const changed = new Map<number, number>();
-      for (const gym of await this.lookups.list()) {
-        const rank = this.ranks.ofGym(gym.gymId);
-        if (rank !== gym.rank) changed.set(gym.gymId, rank);
+      const changed: GymRank[] = [];
+      for (const row of await this.lookups.list()) {
+        const rank = this.ranks.ofGym(row.guildId, row.gymId);
+        if (rank !== row.rank) changed.push({ guildId: row.guildId, gymId: row.gymId, rank });
       }
       await this.lookups.setRanks(changed);
     } catch (err) {
@@ -960,16 +1058,17 @@ export class GymUpkeep {
           ? await this.wayspotLookups.next({ except: this.asideSpots })
           : undefined;
         if (!spot) {
-          const gyms = await this.lookups.count();
-          const spots = await this.wayspotLookups.count();
-          if (gyms + spots === 0) return 'empty';
+          // Whether anything waits: one row read of each line, never a count.
+          const gyms = await this.lookups.any();
+          const spots = await this.wayspotLookups.any();
+          if (!gyms && !spots) return 'empty';
           if (!allowance.gyms) return allowance.waitMs;
           const month = googleMonth(now);
           return Math.min(
             // Only gyms that wait for their address are left.
-            gyms > 0 && refusedFor > 0 && allowance.geocode ? refusedFor : month.nextReset - now,
+            gyms && refusedFor > 0 && allowance.geocode ? refusedFor : month.nextReset - now,
             // The day's share of stops and Power Spots is used.
-            spots > 0 ? month.tomorrow - now : Number.POSITIVE_INFINITY,
+            spots ? month.tomorrow - now : Number.POSITIVE_INFINITY,
             // What failed today is asked again tomorrow.
             this.asideGyms.size + this.asideSpots.size > 0
               ? month.tomorrow - now
@@ -992,7 +1091,13 @@ export class GymUpkeep {
       let places: FetchOutcome | undefined;
       let thrown = false;
       try {
-        if (address) geodata = await this.fetchGeodata(gymId);
+        // An address its own point has meanwhile (another server's row of it asked, a Wayspot
+        // there), or its own Wayfarer address, is not asked again; its places are (they may be
+        // wanted for another circle).
+        const gym = this.options.directory.stored(gymId);
+        if (address) {
+          geodata = gym && this.hasOwnAddress(gym) ? 'unchanged' : await this.fetchGeodata(gymId);
+        }
         // Geocoding refused: its places are not asked (and billed) without its address; the
         // gym waits, first of the line, as long as the refusal lasts.
         if (geodata !== 'denied' && (!address || geodata !== undefined)) {
@@ -1026,12 +1131,12 @@ export class GymUpkeep {
         // meanwhile (moved) is neither set aside nor put behind: its row stays as it was put
         // in the line, and waits for the address that did not come too.
         if (asking.requeued) {
-          await this.lookups.add([this.queued(gymId, wantsAddress)], this.now());
+          await this.lookups.add(this.queued(gymId, wantsAddress), this.now());
         } else {
           this.asideGyms.add(gymId);
           await this.lookups.remove(gymId);
           await this.lookups.add(
-            [{ gymId, address: wantsAddress || asking.address, rank: RETRY_RANK }],
+            this.queued(gymId, wantsAddress || asking.address, RETRY_RANK),
             this.now(),
           );
         }
@@ -1041,12 +1146,12 @@ export class GymUpkeep {
         await this.lookups.remove(gymId);
         // Put in the line again while it was being taken out: the newer request stays.
         if (asking.requeued) {
-          await this.lookups.add([this.queued(gymId, asking.address)], this.now());
+          await this.lookups.add(this.queued(gymId, asking.address), this.now());
         }
       }
       this.misses = 0;
       // The last one: no timer is left for an empty line.
-      if ((await this.lookups.count()) + (await this.wayspotLookups.count()) === 0) return 'empty';
+      if (!(await this.lookups.any()) && !(await this.wayspotLookups.any())) return 'empty';
     } catch (err) {
       log.warn({ err, gym: gymId }, 'could not take a gym out of the line for Google');
     } finally {
@@ -1057,25 +1162,32 @@ export class GymUpkeep {
   }
 
   /**
-   * The turn of a PokéStop or Power Spot: its places, within half the way to the nearest gym,
-   * PokéStop or Power Spot (`placesRadius`), never its address. Kept with the point and kind
-   * asked (`WayspotPlaces`); one no longer a PokéStop or Power Spot leaves the line unasked; one
-   * whose question failed waits after the others of its kind, and the line waits longer (as for
-   * gyms); while Google refuses the key for places it stays first. Answers as `next`.
+   * The turn of a server's PokéStop or Power Spot: its places, within half the way to the nearest
+   * gym, PokéStop or Power Spot (`placesRadius`), never its address, kept as its point's answer
+   * (`GoogleAnswers`, plan 19B-3). Its server's search is told (`WayspotPlaces.changed`). One whose
+   * place was answered meanwhile (another server's row of it, a gym there) leaves the line unasked,
+   * its server told; one no longer a PokéStop or Power Spot leaves it unasked; one whose question
+   * failed waits after the others of its kind, and the line waits longer (as for gyms); while
+   * Google refuses the key for places it stays first. Answers as `next`.
    */
   private async askWayspot(item: WaitingWayspot): Promise<number | 'empty' | undefined> {
-    const { geo, log } = this.options;
-    const id = item.wayspotId;
+    const { geo, log, wayspots } = this.options;
+    const { guildId, wayspotId: id } = item;
     /** Its places are kept: what fails after is no failed question, and is not asked again. */
     let saved = false;
     try {
-      const wayspot = this.copyOf(id)?.wayspot;
+      const wayspot = wayspots?.stored(guildId, id);
       if (!wayspot || (wayspot.kind !== 'stop' && wayspot.kind !== 'powerspot')) {
-        await this.wayspotLookups.remove([id]);
+        await this.wayspotLookups.remove([item]);
+        return undefined;
+      }
+      if (this.placesAsked(wayspot)) {
+        await this.wayspotLookups.remove([item]);
+        this.places.changed(guildId);
         return undefined;
       }
       const point = { lat: wayspot.lat, lon: wayspot.lon };
-      const answer = await geo.placesNear(point, placesRadius(this.nearestPlace(wayspot)));
+      const answer = await geo.placesNear(point, placesRadius(this.nearestPlace(guildId, wayspot)));
       if (answer.ok || reachedGoogle(answer.reason)) await this.count('places');
       if (!answer.ok) {
         if (answer.reason === 'denied') {
@@ -1086,22 +1198,24 @@ export class GymUpkeep {
         if (answer.reason === 'no-key') return 'empty';
         return this.wayspotFailed(item);
       }
-      await this.places.save({
-        wayspotId: id,
-        kind: wayspot.kind,
-        ...point,
-        places: placesText(answer.value),
-        askedAt: this.now(),
-      });
+      await this.answers.save([
+        {
+          kind: 'places',
+          ...point,
+          answer: placesText(answer.value),
+          askedAt: this.now(),
+        },
+      ]);
       saved = true;
+      this.places.changed(guildId);
       // Moved or of another kind while Google was asked: it waits again, as it is now.
-      const now = this.copyOf(id)?.wayspot;
+      const now = wayspots?.stored(guildId, id);
       const changed =
         now !== undefined &&
         (now.kind !== wayspot.kind || metresBetween(now, wayspot) > WAYSPOT_MOVED_METRES);
-      if (!changed) await this.wayspotLookups.remove([id]);
+      if (!changed) await this.wayspotLookups.remove([item]);
       this.misses = 0;
-      if ((await this.lookups.count()) + (await this.wayspotLookups.count()) === 0) return 'empty';
+      if (!(await this.lookups.any()) && !(await this.wayspotLookups.any())) return 'empty';
     } catch (err) {
       log.warn({ err, wayspot: id }, 'could not bring the places of a Wayspot up to date');
       // Answered and kept: no failed question, neither set aside nor put back in the line; the
@@ -1115,9 +1229,9 @@ export class GymUpkeep {
 
   /**
    * A PokéStop or Power Spot whose turn did not answer: set aside until the next day
-   * (`asideSpots`, also when it is queued again meanwhile), its row after the others of its kind
-   * until it is queued anew (`RETRY_RANK`), and the line waits longer, as after a gym's. Never
-   * rejects.
+   * (`asideSpots`, by its id: every server's row of it, also when it is queued again meanwhile),
+   * its row after the others of its kind until it is queued anew (`RETRY_RANK`), and the line
+   * waits longer, as after a gym's. Never rejects.
    */
   private async wayspotFailed(item: WaitingWayspot): Promise<number> {
     this.asideSpots.add(item.wayspotId);
@@ -1133,50 +1247,29 @@ export class GymUpkeep {
     return Math.min(MAX_RETRY_WAIT_MS, this.placesEveryMs * 2 ** this.misses);
   }
 
-  /** How far the nearest gym, PokéStop or Power Spot is from a Wayspot; undefined beyond 1 km. */
-  private nearestPlace(wayspot: { id: string; lat: number; lon: number }): number | undefined {
+  /**
+   * How far the nearest gym, PokéStop or Power Spot of the server whose row asks (its own gyms
+   * and rows: another server's copy of a place nearby never makes the circle tiny, as for a
+   * gym's nearest gym) is from a Wayspot; undefined beyond 1 km.
+   */
+  private nearestPlace(
+    guildId: number,
+    wayspot: { id: string; lat: number; lon: number },
+  ): number | undefined {
     let nearest: number | undefined;
-    for (const gym of this.options.directory.all()) {
+    for (const gym of this.options.directory.gymsOf(guildId)) {
       if (Math.abs(gym.lat - wayspot.lat) > 0.01) continue;
       const metres = metresBetween(gym, wayspot);
       if (metres <= NEAREST_PLACE_METRES && (nearest === undefined || metres < nearest)) {
         nearest = metres;
       }
     }
-    // Its server's other Wayspots (plan 19B-3), of the server whose copy is asked about.
-    const copy = this.copyOf(wayspot.id);
     const other = this.options.wayspots
-      ?.of(copy?.guildId)
+      ?.of(guildId)
       .near(wayspot, NEAREST_PLACE_METRES, ['stop', 'powerspot', 'gym'])
       .find((near) => near.wayspot.id !== wayspot.id);
     if (other && (nearest === undefined || other.metres < nearest)) nearest = other.metres;
     return nearest;
-  }
-
-  /**
-   * Every server's kept Wayspots and stops of Pine's own, each Wayfarer id once (the first
-   * server's copy): the line waits by Wayfarer id until plan 19B-3's task 4 keys it by server.
-   */
-  private *everyWayspot(): Iterable<Wayspot> {
-    const { wayspots } = this.options;
-    const seen = new Set<string>();
-    for (const guildId of wayspots?.servers() ?? []) {
-      for (const wayspot of wayspots?.of(guildId).all() ?? []) {
-        if (seen.has(wayspot.id)) continue;
-        seen.add(wayspot.id);
-        yield wayspot;
-      }
-    }
-  }
-
-  /** The first server's copy of a Wayspot, with that server: the line's by Wayfarer id. */
-  private copyOf(id: string): { guildId: number; wayspot: Wayspot } | undefined {
-    const { wayspots } = this.options;
-    for (const guildId of wayspots?.servers() ?? []) {
-      const wayspot = wayspots?.stored(guildId, id);
-      if (wayspot) return { guildId, wayspot };
-    }
-    return undefined;
   }
 
   /** Runs work nobody waits for; what it throws is logged. Nothing is started after `stop`. */

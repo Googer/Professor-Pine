@@ -785,6 +785,34 @@ describe('PartyScheduler: running', () => {
     expect(pruned).toBe(1);
   });
 
+  // Plan 19B-3: Google's answers no gym or Wayspot uses (the sweep itself runs once a day).
+  it('has the answers of Google no place uses swept with the upkeep', async () => {
+    const made = await reportedRaid();
+    let swept = 0;
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      googleAnswers: {
+        sweep: () => {
+          swept += 1;
+          return Promise.resolve(0);
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    expect(swept).toBe(1);
+  });
+
   // Plan 8V-1: the events forum is drawn hourly (a post still open three days after its end).
   it('has the events forum drawn with the upkeep', async () => {
     const made = await reportedRaid();

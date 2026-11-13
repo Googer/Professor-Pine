@@ -27,9 +27,20 @@ export interface Gym {
   confirmedEx: boolean;
   imageUrl: string | null;
   sponsor: number | null;
-  /** Cached geocoding result, a JSON string. */
+  /**
+   * The address shown, a JSON string of its parts: the gym's own Wayfarer address
+   * (`wayfarerAddress`) where it has one, else Google's answer about its point (`GoogleAnswers`,
+   * plan 19B-3), which `GymDirectory` puts on its gyms; null from the storage (2.0's
+   * `GymMeta.geodata` is no longer read or written).
+   */
   geodata: string | null;
-  /** Cached nearby place names. */
+  /**
+   * Wayfarer's address of its place as a Wayfarer import or review gave it (address parts as JSON;
+   * Matt prefers it to Google's, 2026-10-16): the gym's own (`GymMeta.wayfarerAddress`, migration
+   * 059), never its point's answer, so that another server's gym there keeps Google's.
+   */
+  wayfarerAddress: string | null;
+  /** The names of the places around its point Google gave, as `geodata`: from the answers. */
   places: string | null;
   nearestGym: number | null;
 }
@@ -45,8 +56,8 @@ export interface NewGym {
   keywords?: string[];
   /** The address of the gym's picture (`GymMeta.imageUrl`; a Wayfarer import writes it). */
   imageUrl?: string | null;
-  /** Its address parts (`GymMeta.geodata`): a Wayfarer import writes the Wayspot's address. */
-  geodata?: string | null;
+  /** Wayfarer's address of its place (`Gym.wayfarerAddress`; a Wayfarer import writes it). */
+  wayfarerAddress?: string | null;
 }
 
 export interface GymPatch {
@@ -62,8 +73,7 @@ export interface GymPatch {
   confirmedEx?: boolean;
   imageUrl?: string | null;
   sponsor?: number | null;
-  geodata?: string | null;
-  places?: string | null;
+  wayfarerAddress?: string | null;
   nearestGym?: number | null;
 }
 
@@ -81,8 +91,7 @@ interface GymRow {
   confirmedEx: number | null;
   imageUrl: string | null;
   sponsor: number | null;
-  geodata: string | null;
-  places: string | null;
+  wayfarerAddress: string | null;
   nearestGym: number | null;
 }
 
@@ -138,8 +147,10 @@ function toGym(row: GymRow): Gym | undefined {
     confirmedEx: row.confirmedEx === 1,
     imageUrl: row.imageUrl,
     sponsor: row.sponsor,
-    geodata: row.geodata,
-    places: row.places,
+    // The point's answers, which the directory puts on the gym (plan 19B-3).
+    geodata: null,
+    places: null,
+    wayfarerAddress: row.wayfarerAddress,
     nearestGym: row.nearestGym,
   };
 }
@@ -167,8 +178,7 @@ function metaColumns(patch: GymPatch): Updateable<DB['GymMeta']> {
   if (patch.confirmedEx !== undefined) columns.confirmedEx = exFlag(patch.confirmedEx);
   if (patch.imageUrl !== undefined) columns.imageUrl = patch.imageUrl;
   if (patch.sponsor !== undefined) columns.sponsor = patch.sponsor;
-  if (patch.geodata !== undefined) columns.geodata = patch.geodata;
-  if (patch.places !== undefined) columns.places = patch.places;
+  if (patch.wayfarerAddress !== undefined) columns.wayfarerAddress = patch.wayfarerAddress;
   if (patch.nearestGym !== undefined) columns.nearestGym = patch.nearestGym;
   return columns;
 }
@@ -203,7 +213,7 @@ async function insertGym(trx: Kysely<DB>, gym: NewGym, guildId: number): Promise
       notice: encode(gym.notice ?? null),
       keywords: formatKeywords(gym.keywords ?? []),
       imageUrl: gym.imageUrl ?? null,
-      geodata: gym.geodata ?? null,
+      wayfarerAddress: gym.wayfarerAddress ?? null,
     })
     .execute();
   await trx.insertInto('GymServer').values({ gymId, guildId }).execute();
@@ -259,8 +269,7 @@ export class GymRepository implements GymStorage {
         'GymMeta.confirmedEx',
         'GymMeta.imageUrl',
         'GymMeta.sponsor',
-        'GymMeta.geodata',
-        'GymMeta.places',
+        'GymMeta.wayfarerAddress',
         'GymMeta.nearestGym',
       ]);
   }

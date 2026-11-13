@@ -1,12 +1,13 @@
+import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { Logger } from '../log.js';
-import type { AskedPlaces, WayspotLookups } from './wayspot-lookups.js';
+import type { GoogleAnswers } from './google-answers.js';
 
-/** How often at most the search is told of new places while answers arrive. */
+/** How often at most a server's search is told of new places while answers arrive. */
 export const PLACES_TOLD_EVERY_MS = 3_600_000;
 
 export interface WayspotPlacesOptions {
-  /** Where the places are kept (`WayspotLookupRepository` in the bot). */
-  storage: Pick<WayspotLookups, 'asked' | 'saveAsked' | 'dropAsked'>;
+  /** Google's answers by the point (plan 19B-3), where the places are kept. */
+  answers: Pick<GoogleAnswers, 'at'>;
   log: Logger;
   /** Default `PLACES_TOLD_EVERY_MS`. */
   toldEveryMs?: number;
@@ -16,19 +17,26 @@ export interface WayspotPlacesOptions {
   now?: () => number;
 }
 
+/** What is told of one server: when last, how often, and the timer of the next while one is set. */
+interface Told {
+  at: number;
+  generation: number;
+  cancelTimer: (() => void) | undefined;
+}
+
 /**
- * The places Google gave around each PokéStop and Power Spot (plan 8W-6), in memory: read at
- * start, written by `GymUpkeep` as the line's answers arrive, read by the search
- * (`PlaceFinder`, `WayspotIndex`'s `places`). The search builds its indexes anew when told
- * (`whenChanged`): at the load, and at most once an hour while answers arrive (a build takes
- * about half a second for a city), never once per answer.
+ * The places Google gave around each PokéStop and Power Spot (plan 8W-6): the point's answer
+ * (`GoogleAnswers`, plan 19B-3), read by the search (`PlaceFinder`, `WayspotIndex`'s `places`),
+ * the same for every server's copy of the place. A server's search builds its indexes anew when
+ * told (`whenChanged`, with the server): `GymUpkeep` says which server's Wayspot got its places
+ * (`changed`), and that server is told at once, then at most once an hour while answers arrive
+ * (a build takes about half a second for a city), never once per answer; another server is not
+ * told of them.
  */
 export class WayspotPlaces {
-  private rows = new Map<string, AskedPlaces>();
+  private readonly servers = new Map<number, Told>();
   private changes = 0;
-  private toldAt = Number.NEGATIVE_INFINITY;
-  private cancelTimer: (() => void) | undefined;
-  private readonly listeners: (() => void)[] = [];
+  private readonly listeners: ((guildId: number) => void)[] = [];
   private readonly toldEveryMs: number;
   private readonly now: () => number;
   private readonly setTimer: (run: () => void, ms: number) => () => void;
@@ -47,76 +55,61 @@ export class WayspotPlaces {
       });
   }
 
-  /** A number that changes whenever the search is told: what it built at it is current. */
+  /** A number that changes whenever any server is told. */
   get generation(): number {
     return this.changes;
   }
 
-  whenChanged(listener: () => void): void {
+  /** A number that changes whenever this server is told: what it built at it is current. */
+  generationOf(guildId: number): number {
+    return this.servers.get(guildId)?.generation ?? 0;
+  }
+
+  /** Told with the server whose Wayspots' places changed. */
+  whenChanged(listener: (guildId: number) => void): void {
     this.listeners.push(listener);
   }
 
-  /** Reads every Wayspot's places, and tells the search at once. */
-  async load(): Promise<void> {
-    const rows = await this.options.storage.asked();
-    this.rows = new Map(rows.map((row) => [row.wayspotId, row]));
-    this.tell();
+  /** The names of the places around a point, as the search reads them; null for none. */
+  placesAt(point: LatLon): string | null {
+    return this.options.answers.at('places', point)?.answer ?? null;
   }
 
-  get(id: string): AskedPlaces | undefined {
-    return this.rows.get(id);
-  }
-
-  /** The names of the places around a Wayspot, as the search reads them; null for none. */
-  placesOf(id: string): string | null {
-    return this.rows.get(id)?.places ?? null;
-  }
-
-  /** The Wayspots whose places are kept. */
-  ids(): string[] {
-    return [...this.rows.keys()];
-  }
-
-  /** Keeps what Google gave around a Wayspot; the search is told within the hour. */
-  async save(row: AskedPlaces): Promise<void> {
-    await this.options.storage.saveAsked(row);
-    this.rows.set(row.wayspotId, row);
-    this.changed();
-  }
-
-  /** Forgets the places of these Wayspots (they became gyms, are gone, or are gyms). */
-  async drop(ids: readonly string[]): Promise<void> {
-    if (ids.length === 0) return;
-    await this.options.storage.dropAsked(ids);
-    for (const id of ids) this.rows.delete(id);
-    this.changed();
+  /** A Wayspot of this server got its places (asked, or found asked): its search is told. */
+  changed(guildId: number): void {
+    const told = this.servers.get(guildId) ?? {
+      at: Number.NEGATIVE_INFINITY,
+      generation: 0,
+      cancelTimer: undefined,
+    };
+    this.servers.set(guildId, told);
+    if (told.cancelTimer) return;
+    const wait = told.at + this.toldEveryMs - this.now();
+    if (wait <= 0) {
+      this.tell(guildId, told);
+      return;
+    }
+    told.cancelTimer = this.setTimer(() => {
+      told.cancelTimer = undefined;
+      this.tell(guildId, told);
+    }, wait);
   }
 
   /** For shutdown: no timer is left. */
   stop(): void {
-    this.cancelTimer?.();
-    this.cancelTimer = undefined;
-  }
-
-  private changed(): void {
-    if (this.cancelTimer) return;
-    const wait = this.toldAt + this.toldEveryMs - this.now();
-    if (wait <= 0) {
-      this.tell();
-      return;
+    for (const told of this.servers.values()) {
+      told.cancelTimer?.();
+      told.cancelTimer = undefined;
     }
-    this.cancelTimer = this.setTimer(() => {
-      this.cancelTimer = undefined;
-      this.tell();
-    }, wait);
   }
 
-  private tell(): void {
-    this.toldAt = this.now();
+  private tell(guildId: number, told: Told): void {
+    told.at = this.now();
+    told.generation += 1;
     this.changes += 1;
     for (const listener of this.listeners) {
       try {
-        listener();
+        listener(guildId);
       } catch (err) {
         this.options.log.warn({ err }, 'could not tell of the places around the Wayspots');
       }

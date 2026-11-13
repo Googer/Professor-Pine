@@ -1,9 +1,10 @@
 import { gymStop } from '../domain/party/stops.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { MemoryWayspotLookups } from './wayspot-lookups.js';
 import { watchEachTest } from '../../test/support/timers.js';
 import { FAKE_ADDRESS, FakeGeoGateway } from '../../test/support/geo.js';
 import { gymDirectoryWith, MemoryGyms } from '../../test/support/gym-store.js';
-import { TEST_GUILD_ROW, testGyms } from '../../test/support/gyms.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW, testGyms } from '../../test/support/gyms.js';
 import { testMeetup, testRaid, testTrain } from '../../test/support/parties.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
@@ -12,16 +13,27 @@ import { nearestBlockChanges } from '../domain/gyms/nearest.js';
 import type { Party, TrainParty } from '../domain/party/party.js';
 import { MemoryGoogleUse } from './google-use.js';
 import { MemoryGymLookups } from './gym-lookups.js';
+import type { GoogleAnswer } from './google-answers.js';
 import { GymUpkeep, MAX_TIMER_MS, type GymUpkeepOptions } from './gym-upkeep.js';
 
 /** Gym 10 (Lakeview Trailhead) lies far from every other gym: what is put beside it is its nearest. */
 const LONELY = 10;
 const BESIDE_LONELY = { lat: 40.5009, lon: -80.05 };
 
+/** The test server's row of a gym in the line (plan 19B-3: a row per server). */
+const rowOf = (lookups: MemoryGymLookups, gymId: number) =>
+  lookups.rows.get(`${String(TEST_GUILD_ROW)}:${String(gymId)}`);
+/** Whether any server's row of a gym waits in the line. */
+const hasRow = (lookups: MemoryGymLookups, gymId: number) =>
+  [...lookups.rows.values()].some((row) => row.gymId === gymId);
+
 async function upkeepWith(
   options: Partial<Omit<GymUpkeepOptions, 'parties'>> & { parties?: Party[] } = {},
 ) {
-  const { gyms, directory } = await gymDirectoryWith();
+  const { gyms, directory, answers, answerStorage } = await gymDirectoryWith();
+  /** What was saved of Google's answers, in order. */
+  const saved: GoogleAnswer[] = [];
+  answers.whenSaved((rows) => saved.push(...rows));
   const geo = new FakeGeoGateway();
   const { log, entries } = createTestLogger();
   const changed: string[] = [];
@@ -45,15 +57,35 @@ async function upkeepWith(
         if (index >= 0) timers.splice(index, 1);
       };
     },
+    answers,
     ...rest,
   });
+  /** Whether Google answered about the places where a gym is (`GoogleAnswers`). */
+  const asked = (gymId: number) => {
+    const gym = directory.stored(gymId);
+    return gym !== undefined && answers.at('places', gym) !== undefined;
+  };
   /** A gym as gym administration adds one: the row, then the directory. */
   const add = async (lat: number, lon: number, name = 'New Gym') => {
     const created = await gyms.create({ name, lat, lon }, 1);
     await directory.refreshGym(created.id);
     return created.id;
   };
-  return { upkeep, gyms, directory, geo, entries, changed, timers, waits, add };
+  return {
+    upkeep,
+    gyms,
+    directory,
+    answers,
+    answerStorage,
+    saved,
+    asked,
+    geo,
+    entries,
+    changed,
+    timers,
+    waits,
+    add,
+  };
 }
 
 const onRoute = (train: TrainParty, route: number[]): TrainParty => ({
@@ -152,7 +184,7 @@ describe('GymUpkeep.placed', () => {
   });
 
   it('asks about the new gym on the side and lets the gym beside it wait for its places', async () => {
-    const { upkeep, gyms, directory, geo, add } = await upkeepWith();
+    const { upkeep, directory, geo, add } = await upkeepWith();
     const id = await add(BESIDE_LONELY.lat, BESIDE_LONELY.lon);
 
     await upkeep.placed(id);
@@ -175,7 +207,7 @@ describe('GymUpkeep.placed', () => {
         { what: 'places', point: { lat: lonely.lat, lon: lonely.lon }, radius: half },
       ]),
     );
-    expect(gyms.row(id)).toMatchObject({
+    expect(directory.stored(id)).toMatchObject({
       geodata: JSON.stringify({ addressComponents: FAKE_ADDRESS }),
       places: 'Corner Bakery Maple Dental',
     });
@@ -270,7 +302,8 @@ describe('GymUpkeep.placed', () => {
     await upkeep.flush();
     geo.asked.length = 0;
 
-    await gyms.update(id, { lat: 40.5009 });
+    // Moved farther than ten meters: its new place was never asked about (plan 19B-3).
+    await gyms.update(id, { lat: 40.5012 });
     await directory.refreshGym(id);
     await upkeep.placed(id, { places: 'later' });
     // Nothing is asked on the side: the gym waits in the line, one every few seconds.
@@ -279,19 +312,19 @@ describe('GymUpkeep.placed', () => {
     expect(await upkeep.waiting()).toBeGreaterThanOrEqual(1);
 
     await upkeep.flush();
-    expect(geo.questions('geocode').map((question) => question.point.lat)).toEqual([40.5009]);
-    expect(geo.questions('places').map((question) => question.point.lat)).toContain(40.5009);
+    expect(geo.questions('geocode').map((question) => question.point.lat)).toEqual([40.5012]);
+    expect(geo.questions('places').map((question) => question.point.lat)).toContain(40.5012);
   });
 
   it('writes the nearest gyms without an API key, and asks nothing', async () => {
-    const { upkeep, gyms, geo, add } = await upkeepWith();
+    const { upkeep, geo, add, directory } = await upkeepWith();
     geo.enabled = false;
     const id = await add(BESIDE_LONELY.lat, BESIDE_LONELY.lon);
     await upkeep.placed(id);
     expect(upkeep.fetches).toBe(false);
     expect(await upkeep.waiting()).toBe(0);
     await upkeep.flush();
-    expect(gyms.row(id)).toMatchObject({ nearestGym: LONELY, geodata: null, places: null });
+    expect(directory.stored(id)).toMatchObject({ nearestGym: LONELY, geodata: null, places: null });
     expect(geo.asked).toEqual([]);
   });
 
@@ -335,7 +368,11 @@ describe('GymUpkeep.placedBlock', () => {
     const block = await gyms.createBlock(
       [
         // Beside the lonely gym, with Wayfarer's address: it waits for its places only.
-        { name: 'Beside', ...BESIDE_LONELY, geodata: '{"addressComponents":{"route":"Lake"}}' },
+        {
+          name: 'Beside',
+          ...BESIDE_LONELY,
+          wayfarerAddress: '{"addressComponents":{"route":"Lake"}}',
+        },
         { name: 'Elsewhere', lat: 40.08, lon: -80.02 },
       ],
       1,
@@ -349,14 +386,14 @@ describe('GymUpkeep.placedBlock', () => {
     expect(changed).toContain(LONELY);
     await directory.refreshGyms([...ids, ...changed]);
     await upkeep.placedBlock(ids, changed);
-    expect(lookups.rows.get(ids[0]!)?.address).toBe(false);
-    expect(lookups.rows.get(ids[1]!)?.address).toBe(true);
+    expect(rowOf(lookups, ids[0]!)?.address).toBe(false);
+    expect(rowOf(lookups, ids[1]!)?.address).toBe(true);
     // The lonely gym's circle follows its new nearest gym.
-    expect(lookups.rows.get(LONELY)?.address).toBe(false);
+    expect(rowOf(lookups, LONELY)?.address).toBe(false);
     // Nothing is asked at once: the line asks one every few seconds.
     expect(geo.asked).toEqual([]);
     await upkeep.flush();
-    expect(gyms.row(ids[0]!)?.places).not.toBeNull();
+    expect(directory.stored(ids[0]!)?.places).not.toBeNull();
     const lonely = geo.questions('places').find((question) => question.point.lat === 40.5);
     expect(lonely?.radius).toBeCloseTo(
       metresBetween(directory.stored(LONELY)!, BESIDE_LONELY) / 2,
@@ -448,14 +485,14 @@ describe('the cap of lookups by hand (plan 8Z)', () => {
 
   it('leaves a gym in the line when a refresh is capped: nobody asked about it', async () => {
     const { upkeep, lookups } = await capped(3, 3);
-    await lookups.add([{ gymId: 2, address: false, rank: 1 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: 2, address: false, rank: 1 }], 1);
     await upkeep.refresh(2);
     expect((await lookups.list()).map((one) => one.gymId)).toEqual([2]);
   });
 
   it('takes a gym out of the line when a refresh below the cap answers', async () => {
     const { upkeep, lookups } = await capped(3, 2);
-    await lookups.add([{ gymId: 2, address: false, rank: 1 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: 2, address: false, rank: 1 }], 1);
     await upkeep.refresh(2);
     expect(await lookups.list()).toEqual([]);
   });
@@ -470,7 +507,7 @@ describe('the cap of lookups by hand (plan 8Z)', () => {
 
   it('asks nothing when it cannot read the count, and says that apart from the cap; logged', async () => {
     const { upkeep, use, geo, entries, lookups } = await capped(500);
-    await lookups.add([{ gymId: 2, address: false, rank: 1 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: 2, address: false, rank: 1 }], 1);
     use.usedOn = () => Promise.reject(new Error('the database is away'));
     await expect(upkeep.refresh(2)).resolves.toMatchObject({
       geodata: 'count-unread',
@@ -496,9 +533,9 @@ describe('the cap of lookups by hand (plan 8Z)', () => {
   });
 
   it('counts a lookup whose answer could not be written: Google was asked', async () => {
-    const { upkeep, use, gyms } = await capped(500);
-    gyms.failingOn.update = new Error('the database is away');
-    await expect(upkeep.refresh(2)).rejects.toThrow('the database is away');
+    const { upkeep, use, answerStorage } = await capped(500);
+    answerStorage.failing = true;
+    await expect(upkeep.refresh(2)).rejects.toThrow('the answers cannot be written');
     expect(byHand(use)).toBe(1);
   });
 
@@ -522,7 +559,7 @@ describe('the cap of lookups by hand (plan 8Z)', () => {
   it("leaves the line's own questions out of the cap", async () => {
     const { upkeep, geo, use, lookups, add } = await capped(0);
     const id = await add(40.5, -80.5);
-    await lookups.add([{ gymId: id, address: false, rank: 1 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: id, address: false, rank: 1 }], 1);
     await upkeep.resume();
     await upkeep.flush();
     expect(geo.asked.some((one) => one.what === 'places')).toBe(true);
@@ -530,9 +567,160 @@ describe('the cap of lookups by hand (plan 8Z)', () => {
   });
 });
 
+describe('Google per server (plan 19B-3)', () => {
+  /** A gym of both servers beside the lonely gym, its place never asked about. */
+  async function sharedGym(lookups: MemoryGymLookups) {
+    const made = await upkeepWith({
+      lookups,
+      ranks: {
+        refresh: () => Promise.resolve(),
+        // Each server's row by its own regions: the second server's are busier.
+        ofGym: (guildId) => (guildId === OTHER_GUILD_ROW ? 1 : 0.5),
+        ofWayspot: () => undefined,
+      },
+    });
+    const id = await made.add(BESIDE_LONELY.lat, BESIDE_LONELY.lon, 'Shared');
+    made.gyms.link(id, OTHER_GUILD_ROW);
+    await made.directory.refreshGym(id);
+    return { ...made, id };
+  }
+
+  it('puts a gym of two servers in the line once per server, by each one’s rank, and asks its place once for both', async () => {
+    const lookups = new MemoryGymLookups();
+    const { upkeep, geo, id, directory } = await sharedGym(lookups);
+    await upkeep.placed(id, { places: 'later' });
+    expect(
+      (await lookups.list())
+        .filter((row) => row.gymId === id)
+        .map((row) => [row.guildId, row.rank, row.address]),
+    ).toEqual([
+      [OTHER_GUILD_ROW, 1, true],
+      [TEST_GUILD_ROW, 0.5, true],
+    ]);
+    await upkeep.flush();
+    const here = (question: { point: { lat: number } }) => question.point.lat === BESIDE_LONELY.lat;
+    expect(geo.questions('geocode').filter(here)).toHaveLength(1);
+    expect(geo.questions('places').filter(here)).toHaveLength(1);
+    expect(hasRow(lookups, id)).toBe(false);
+    // Both servers show what came.
+    for (const guildId of [TEST_GUILD_ROW, OTHER_GUILD_ROW]) {
+      expect(directory.of(guildId).get(id)).toMatchObject({
+        geodata: '{"addressComponents":{"route":"Test Road","locality":"Pinewood"}}',
+        places: 'Corner Bakery Maple Dental',
+      });
+    }
+  });
+
+  it('asks no address of a gym whose place got one meanwhile, whichever server’s it was', async () => {
+    const lookups = new MemoryGymLookups();
+    const { upkeep, geo, id, answers } = await sharedGym(lookups);
+    await upkeep.placed(id, { places: 'later' });
+    // A Power Spot's address asked for the map at the same place, before the line's turn.
+    await answers.save([
+      {
+        kind: 'address',
+        ...BESIDE_LONELY,
+        answer: '{"addressComponents":{"route":"Lake"}}',
+        askedAt: 1,
+      },
+    ]);
+    await upkeep.flush();
+    expect(geo.questions('geocode')).toEqual([]);
+    expect(geo.questions('places').length).toBeGreaterThan(0);
+    expect(hasRow(lookups, id)).toBe(false);
+  });
+
+  it('asks a gym’s places in the circle of its own servers’ nearest gym, never another server’s row of its place', async () => {
+    const { upkeep, geo, gyms, directory, add } = await upkeepWith();
+    await upkeep.flush();
+    // The test server's gym by the lonely gym (300 m north of it), and the second server's own
+    // gym at the same place, 2 m off.
+    const ours = await add(BESIDE_LONELY.lat + 0.0027, BESIDE_LONELY.lon, 'Ours');
+    const theirs = await gyms.create(
+      { name: 'Theirs', lat: BESIDE_LONELY.lat + 0.0027 + 0.000018, lon: BESIDE_LONELY.lon },
+      OTHER_GUILD_ROW,
+    );
+    await directory.refreshGym(theirs.id);
+    await upkeep.placed(theirs.id, { places: false });
+    geo.asked.length = 0;
+    await upkeep.placed(ours);
+    await upkeep.flush();
+    // Its nearest is of its own server: the lonely gym, 300 m off; the other server's is its own.
+    expect(directory.stored(ours)?.nearestGym).toBe(LONELY);
+    expect(directory.stored(theirs.id)?.nearestGym).not.toBe(ours);
+    const asked = geo
+      .questions('places')
+      .find((question) => question.point.lat === directory.stored(ours)?.lat);
+    expect(asked?.radius).toBeCloseTo(
+      metresBetween(directory.stored(ours)!, directory.stored(LONELY)!) / 2,
+      5,
+    );
+  });
+
+  it('asks about each of two gyms 8 m apart: a neighbor’s answer is shown meanwhile, never taken as its own', async () => {
+    const { upkeep, geo, directory, answers, add } = await upkeepWith();
+    await upkeep.flush();
+    const first = await add(BESIDE_LONELY.lat, BESIDE_LONELY.lon, 'First');
+    await answers.save([
+      { kind: 'address', ...BESIDE_LONELY, answer: '{"addressComponents":{}}', askedAt: 1 },
+      { kind: 'places', ...BESIDE_LONELY, answer: 'Lake Cafe', askedAt: 1 },
+    ]);
+    const second = await add(BESIDE_LONELY.lat + 0.000072, BESIDE_LONELY.lon, 'Second');
+    expect(metresBetween(directory.stored(first)!, directory.stored(second)!)).toBeCloseTo(8, 0);
+    // Shown meanwhile.
+    expect(directory.stored(second)?.places).toBe('Lake Cafe');
+    geo.asked.length = 0;
+    await upkeep.resume();
+    await upkeep.flush();
+    const at = (gymId: number) => (question: { point: { lat: number } }) =>
+      question.point.lat === directory.stored(gymId)?.lat;
+    expect(geo.questions('places').filter(at(second))).toHaveLength(1);
+    expect(geo.questions('geocode').filter(at(second))).toHaveLength(1);
+    expect(geo.questions('places').filter(at(first))).toEqual([]);
+  });
+
+  it('carries a moved gym’s own answers alone: one never asked, 8 m from one asked and moved 15 m, is still asked', async () => {
+    const { upkeep, geo, gyms, directory, answers, add } = await upkeepWith();
+    await upkeep.flush();
+    await add(BESIDE_LONELY.lat, BESIDE_LONELY.lon, 'Asked');
+    await answers.save([
+      { kind: 'address', ...BESIDE_LONELY, answer: '{"addressComponents":{}}', askedAt: 1 },
+      { kind: 'places', ...BESIDE_LONELY, answer: 'Lake Cafe', askedAt: 1 },
+    ]);
+    const never = await add(BESIDE_LONELY.lat + 0.000072, BESIDE_LONELY.lon, 'Never');
+    // An import moves it 15 m on, away from the gym asked, without a new question.
+    const from = directory.stored(never)!;
+    await gyms.update(never, { lat: from.lat + 0.000135 });
+    await directory.refreshGym(never);
+    await upkeep.placed(never, { places: false, from });
+    geo.asked.length = 0;
+    await upkeep.resume();
+    await upkeep.flush();
+    const there = (question: { point: { lat: number } }) =>
+      question.point.lat === directory.stored(never)?.lat;
+    expect(geo.questions('places').filter(there)).toHaveLength(1);
+    expect(geo.questions('geocode').filter(there)).toHaveLength(1);
+  });
+
+  it('asks again by hand and replaces the place’s answer for every server, a Wayspot there too', async () => {
+    const { upkeep, geo, id, directory, answers } = await sharedGym(new MemoryGymLookups());
+    await answers.save([{ kind: 'places', ...BESIDE_LONELY, answer: 'Old Cafe', askedAt: 1 }]);
+    expect(directory.of(OTHER_GUILD_ROW).get(id)?.places).toBe('Old Cafe');
+    geo.placesAt.set(`${String(BESIDE_LONELY.lat)},${String(BESIDE_LONELY.lon)}`, ['New Cafe']);
+    await expect(upkeep.refresh(id)).resolves.toMatchObject({ places: 'updated' });
+    for (const guildId of [TEST_GUILD_ROW, OTHER_GUILD_ROW]) {
+      expect(directory.of(guildId).get(id)?.places).toBe('New Cafe');
+    }
+    // What a PokéStop a few meters off reads of its place.
+    expect(
+      answers.at('places', { lat: BESIDE_LONELY.lat + 0.00003, lon: BESIDE_LONELY.lon })?.answer,
+    ).toBe('New Cafe');
+  });
+});
+
 describe('GymUpkeep.refresh', () => {
   it('asks about a gym now and says what it got', async () => {
-    const { upkeep, gyms, geo } = await upkeepWith();
+    const { upkeep, gyms, geo, directory } = await upkeepWith();
     geo.addresses.set('40.06,-80.06', { route: 'Market St', locality: 'Pinewood' });
     geo.placesAt.set('40.06,-80.06', ['Riverside Plaza', 'Cafe Luna']);
 
@@ -543,7 +731,7 @@ describe('GymUpkeep.refresh', () => {
       geodata: '{"addressComponents":{"route":"Market St","locality":"Pinewood"}}',
       places: 'Riverside Plaza Cafe Luna',
     });
-    expect(gyms.row(2)?.places).toBe('Riverside Plaza Cafe Luna');
+    expect(directory.stored(2)?.places).toBe('Riverside Plaza Cafe Luna');
 
     gyms.writes.length = 0;
     await expect(upkeep.refresh(2)).resolves.toMatchObject({
@@ -553,27 +741,61 @@ describe('GymUpkeep.refresh', () => {
     expect(gyms.writes).toEqual([]);
   });
 
+  it('shows Google’s address after a refresh of a gym that had Wayfarer’s', async () => {
+    const { upkeep, gyms, geo, directory } = await upkeepWith();
+    const wayfarer = '{"addressComponents":{"route":"Wayfarer Way"}}';
+    await gyms.update(2, { wayfarerAddress: wayfarer });
+    await directory.refreshGym(2);
+    expect(directory.stored(2)?.geodata).toBe(wayfarer);
+    geo.addresses.set('40.06,-80.06', { route: 'Market St', locality: 'Pinewood' });
+    const google = '{"addressComponents":{"route":"Market St","locality":"Pinewood"}}';
+    await expect(upkeep.refresh(2)).resolves.toMatchObject({
+      geodata: 'updated',
+      gym: { geodata: google, wayfarerAddress: null },
+    });
+    expect(directory.stored(2)).toMatchObject({ geodata: google, wayfarerAddress: null });
+    expect((await gyms.get(2))?.wayfarerAddress).toBeNull();
+  });
+
+  it('keeps a Wayfarer address written while Google was asked: the refresh gives up only what the gym showed', async () => {
+    const { upkeep, gyms, geo, directory } = await upkeepWith();
+    geo.addresses.set('40.06,-80.06', { route: 'Market St', locality: 'Pinewood' });
+    let release: () => void = () => undefined;
+    geo.hold = new Promise((resolve) => {
+      release = resolve;
+    });
+    // Asked while the gym had no Wayfarer address; an import gives it one before the answer.
+    const refreshing = upkeep.refresh(2);
+    const wayfarer = '{"addressComponents":{"route":"Wayfarer Way"}}';
+    await gyms.update(2, { wayfarerAddress: wayfarer });
+    await directory.refreshGym(2);
+    release();
+    await refreshing;
+    expect((await gyms.get(2))?.wayfarerAddress).toBe(wayfarer);
+    expect(directory.stored(2)).toMatchObject({ geodata: wayfarer, wayfarerAddress: wayfarer });
+  });
+
   it('writes nothing for a place Google knows nothing of', async () => {
-    const { upkeep, gyms, geo } = await upkeepWith();
+    const { upkeep, geo, directory } = await upkeepWith();
     geo.addresses.set('40.06,-80.06', {});
     geo.placesAt.set('40.06,-80.06', []);
     await expect(upkeep.refresh(2)).resolves.toMatchObject({
       geodata: 'updated',
       places: 'updated',
     });
-    expect(gyms.row(2)).toMatchObject({ geodata: null, places: null });
+    expect(directory.stored(2)).toMatchObject({ geodata: null, places: null });
   });
 
   it.each(['no-key', 'denied', 'failed'] as const)(
     'keeps what the gym had when Google answers %s',
     async (reason) => {
-      const { upkeep, gyms, geo } = await upkeepWith();
-      const before = gyms.row(2);
+      const { upkeep, gyms, geo, directory } = await upkeepWith();
+      const before = directory.stored(2);
       geo.failing = { geocode: reason, places: reason };
       gyms.writes.length = 0;
       await expect(upkeep.refresh(2)).resolves.toMatchObject({ geodata: reason, places: reason });
       expect(gyms.writes).toEqual([]);
-      expect(gyms.row(2)).toEqual(before);
+      expect(directory.stored(2)).toEqual(before);
     },
   );
 
@@ -587,7 +809,7 @@ describe('GymUpkeep.refresh', () => {
   });
 
   it('answers undefined for a gym that is not there, or goes while Google is asked', async () => {
-    const { upkeep, gyms, directory, geo } = await upkeepWith();
+    const { upkeep, gyms, directory, geo, saved } = await upkeepWith();
     await expect(upkeep.refresh(999)).resolves.toBeUndefined();
     let release: () => void = () => undefined;
     geo.hold = new Promise((resolve) => {
@@ -598,11 +820,11 @@ describe('GymUpkeep.refresh', () => {
     await directory.refreshGym(2);
     release();
     await expect(refreshing).resolves.toBeUndefined();
-    expect(gyms.written('geodata')).toEqual([]);
+    expect(saved).toEqual([]);
   });
 
   it('does not write the address of the place a gym has left meanwhile', async () => {
-    const { upkeep, gyms, directory, geo } = await upkeepWith();
+    const { upkeep, gyms, directory, geo, saved } = await upkeepWith();
     geo.addresses.set('40.06,-80.06', { route: 'Old St' });
     geo.addresses.set('40.061,-80.06', { route: 'New St' });
     let release: () => void = () => undefined;
@@ -618,19 +840,22 @@ describe('GymUpkeep.refresh', () => {
     geo.hold = undefined;
     await expect(refreshing).resolves.toMatchObject({ geodata: 'unchanged' });
     await upkeep.flush();
-    expect(gyms.written('geodata')).toEqual([[2, '{"addressComponents":{"route":"New St"}}']]);
+    // Kept at the place it was asked about, where the gym is now.
+    expect(
+      saved.filter((one) => one.kind === 'address').map((one) => [one.lat, one.answer]),
+    ).toEqual([[40.061, '{"addressComponents":{"route":"New St"}}']]);
   });
 
   it('rejects when what it got cannot be written', async () => {
-    const { upkeep, gyms } = await upkeepWith();
-    gyms.failing = new Error('database is down');
-    await expect(upkeep.refresh(2)).rejects.toThrow('database is down');
+    const { upkeep, answerStorage } = await upkeepWith();
+    answerStorage.failing = true;
+    await expect(upkeep.refresh(2)).rejects.toThrow('the answers cannot be written');
   });
 });
 
 describe('GymUpkeep: answers that come late, and an API that is denied', () => {
   it('does not let an older answer about places overwrite a newer one', async () => {
-    const { upkeep, gyms, geo } = await upkeepWith();
+    const { upkeep, geo, directory, saved } = await upkeepWith();
     geo.placesAt.set('40.06,-80.06', ['Old Cafe']);
     let release: () => void = () => undefined;
     geo.holdPlaces.push(
@@ -644,16 +869,18 @@ describe('GymUpkeep: answers that come late, and an API that is denied', () => {
     expect(geo.questions('places').length).toBe(1);
     geo.placesAt.set('40.06,-80.06', ['New Cafe']);
     await expect(upkeep.refresh(2)).resolves.toMatchObject({ places: 'updated' });
-    expect(gyms.row(2)?.places).toBe('New Cafe');
+    expect(directory.stored(2)?.places).toBe('New Cafe');
 
     release();
     await expect(older).resolves.toMatchObject({ places: 'unchanged' });
-    expect(gyms.row(2)?.places).toBe('New Cafe');
-    expect(gyms.written('places')).toEqual([[2, 'New Cafe']]);
+    expect(directory.stored(2)?.places).toBe('New Cafe');
+    expect(saved.filter((one) => one.kind === 'places').map((one) => one.answer)).toEqual([
+      'New Cafe',
+    ]);
   });
 
   it('drops an answer about places that was asked for before the nearest gym changed', async () => {
-    const { upkeep, gyms, geo, add } = await upkeepWith();
+    const { upkeep, geo, add, directory } = await upkeepWith();
     let release: () => void = () => undefined;
     geo.holdPlaces.push(
       new Promise((resolve) => {
@@ -671,15 +898,17 @@ describe('GymUpkeep: answers that come late, and an API that is denied', () => {
     // The gym is asked about again, in its new circle, and that answer comes first.
     const flushing = upkeep.flush();
     await background.settle();
-    expect(gyms.row(LONELY)?.places).toBe('Small Circle Cafe');
+    expect(directory.stored(LONELY)?.places).toBe('Small Circle Cafe');
     release();
     await flushing;
     await expect(early).resolves.toMatchObject({ places: 'unchanged' });
-    expect(gyms.row(LONELY)?.places).toBe('Small Circle Cafe');
+    expect(directory.stored(LONELY)?.places).toBe('Small Circle Cafe');
   });
 
   it('keeps the line while the API is denied, and waits until it may be asked again', async () => {
-    const { upkeep, gyms, geo, timers, waits, add } = await upkeepWith({ placesEveryMs: 5_000 });
+    const { upkeep, geo, timers, waits, add, directory } = await upkeepWith({
+      placesEveryMs: 5_000,
+    });
     const id = await add(BESIDE_LONELY.lat, BESIDE_LONELY.lon);
     await upkeep.placed(id);
     await background.settle();
@@ -694,14 +923,14 @@ describe('GymUpkeep: answers that come late, and an API that is denied', () => {
     // The gym still waits, and the next look is when the denial is over.
     expect(await upkeep.waiting()).toBe(1);
     expect(waits).toEqual([5_000, 1_800_000]);
-    expect(gyms.row(LONELY)?.places).toBeNull();
+    expect(directory.stored(LONELY)?.places).toBeNull();
 
     geo.failing = {};
     timers.shift()?.();
     await background.settle();
     expect(await upkeep.waiting()).toBe(0);
     await upkeep.flush();
-    expect(gyms.row(LONELY)?.places).toBe('Corner Bakery Maple Dental');
+    expect(directory.stored(LONELY)?.places).toBe('Corner Bakery Maple Dental');
   });
 
   it('keeps the wait of a denied API when more gyms come into the line', async () => {
@@ -750,20 +979,20 @@ describe('GymUpkeep: answers that come late, and an API that is denied', () => {
   });
 
   it('lets the new gym itself wait for its places when the API is denied', async () => {
-    const { upkeep, gyms, geo, add } = await upkeepWith();
+    const { upkeep, geo, add, directory } = await upkeepWith();
     geo.failing = { places: 'denied' };
     const id = await add(BESIDE_LONELY.lat, BESIDE_LONELY.lon);
     await upkeep.placed(id);
     await upkeep.flush();
     // Its address came; its places wait in the line with those of the gym beside it.
-    expect(gyms.row(id)?.geodata).not.toBeNull();
-    expect(gyms.row(id)?.places).toBeNull();
+    expect(directory.stored(id)?.geodata).not.toBeNull();
+    expect(directory.stored(id)?.places).toBeNull();
     expect(await upkeep.waiting()).toBe(2);
     geo.failing = {};
     await upkeep.flush();
     expect(await upkeep.waiting()).toBe(0);
-    expect(gyms.row(id)?.places).toBe('Corner Bakery Maple Dental');
-    expect(gyms.row(LONELY)?.places).toBe('Corner Bakery Maple Dental');
+    expect(directory.stored(id)?.places).toBe('Corner Bakery Maple Dental');
+    expect(directory.stored(LONELY)?.places).toBe('Corner Bakery Maple Dental');
   });
 });
 
@@ -863,7 +1092,7 @@ describe('the line of gyms that wait for Google', () => {
       budget: { places: 1, reserve: 1, geocodes: 100, geocodesReserve: 0 },
     });
     const id = await add(40.01, -80.09, 'One');
-    await lookups.add([{ gymId: id, address: true, rank: 0 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: id, address: true, rank: 0 }], 1);
     // Only the reserve is left: the line asks nothing.
     await upkeep.flush();
     expect(geo.asked).toEqual([]);
@@ -880,20 +1109,20 @@ describe('the line of gyms that wait for Google', () => {
 
   it('asks no address once the month’s geocodes are used, and goes on with gyms for their places', async () => {
     const lookups = new MemoryGymLookups();
-    const { upkeep, geo, gyms, add } = await upkeepWith({
+    const { upkeep, geo, add, directory } = await upkeepWith({
       lookups,
       budget: { places: 100, reserve: 0, geocodes: 0, geocodesReserve: 0 },
     });
     const one = await add(40.01, -80.09, 'One');
     const two = await add(40.03, -80.09, 'Two');
-    await lookups.add([{ gymId: one, address: true, rank: 1 }], 1);
-    await lookups.add([{ gymId: two, address: false, rank: 0 }], 2);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: one, address: true, rank: 1 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: two, address: false, rank: 0 }], 2);
     await upkeep.flush();
     expect(geo.questions('geocode')).toEqual([]);
-    expect(gyms.row(two)?.places).not.toBeNull();
+    expect(directory.stored(two)?.places).not.toBeNull();
     // The gym that waits for its address keeps waiting, its places not asked without it.
-    expect(gyms.row(one)?.places).toBeNull();
-    expect(lookups.rows.get(one)?.address).toBe(true);
+    expect(directory.stored(one)?.places).toBeNull();
+    expect(rowOf(lookups, one)?.address).toBe(true);
   });
 
   it('waits longer after each question in a row that did not answer, and asks those gyms the next day', async () => {
@@ -937,12 +1166,12 @@ describe('the line of gyms that wait for Google', () => {
   it('sets a gym whose question keeps failing aside until the next day, and goes on with the others', async () => {
     let now = new Date('2026-10-16T12:00:00-07:00').getTime();
     const lookups = new MemoryGymLookups();
-    const { upkeep, geo, add } = await upkeepWith({ lookups, now: () => now });
+    const { upkeep, geo, add, asked } = await upkeepWith({ lookups, now: () => now });
     const stuck = await add(40.01, -80.09, 'Stuck');
     const fine = await add(40.03, -80.09, 'Fine');
     const later = await add(40.05, -80.09, 'Later');
-    await lookups.add([{ gymId: stuck, address: false, rank: 1 }], 1);
-    await lookups.add([{ gymId: fine, address: false, rank: 0 }], 2);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: stuck, address: false, rank: 1 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: fine, address: false, rank: 0 }], 2);
     let stuckAsked = 0;
     const placesNear = geo.placesNear.bind(geo);
     geo.placesNear = (point, radius) => {
@@ -952,29 +1181,29 @@ describe('the line of gyms that wait for Google', () => {
     };
     for (let turn = 0; turn < 4; turn++) await upkeep.flush();
     expect(stuckAsked).toBe(1);
-    expect(lookups.rows.has(fine)).toBe(false);
-    expect(lookups.rows.has(stuck)).toBe(true);
+    expect(hasRow(lookups, fine)).toBe(false);
+    expect(hasRow(lookups, stuck)).toBe(true);
     // Only an answer notes a gym as asked: a start puts the stuck one in the line again.
-    expect(lookups.askedAt.has(stuck)).toBe(false);
-    expect(lookups.askedAt.has(fine)).toBe(true);
+    expect(asked(stuck)).toBe(false);
+    expect(asked(fine)).toBe(true);
     // A gym queued later that day is asked; the stuck one still waits.
-    await lookups.add([{ gymId: later, address: false, rank: 1 }], 3);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: later, address: false, rank: 1 }], 3);
     await upkeep.flush();
-    expect(lookups.rows.has(later)).toBe(false);
+    expect(hasRow(lookups, later)).toBe(false);
     expect(stuckAsked).toBe(1);
     // The next day it is asked once more.
     now += 24 * 3_600_000;
     for (let turn = 0; turn < 4; turn++) await upkeep.flush();
     expect(stuckAsked).toBe(2);
-    expect(lookups.rows.has(stuck)).toBe(true);
+    expect(hasRow(lookups, stuck)).toBe(true);
   });
 
   it('leaves a gym moved during a turn that failed in its place in the line, and asks it again', async () => {
     const lookups = new MemoryGymLookups();
-    const { upkeep, geo, add } = await upkeepWith({ lookups });
+    const { upkeep, geo, add, asked } = await upkeepWith({ lookups });
     await upkeep.flush();
     const id = await add(40.01, -80.09, 'One');
-    await lookups.add([{ gymId: id, address: false, rank: 0 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: id, address: false, rank: 0 }], 1);
     geo.failing = { places: 'failed' };
     let release: () => void = () => undefined;
     geo.holdPlaces.push(
@@ -990,11 +1219,17 @@ describe('the line of gyms that wait for Google', () => {
     geo.failing = {};
     release();
     await flushing;
-    expect(lookups.rows.get(id)).toEqual({ address: true, rank: 0, queuedAt: 1 });
+    expect(rowOf(lookups, id)).toEqual({
+      guildId: TEST_GUILD_ROW,
+      gymId: id,
+      address: true,
+      rank: 0,
+      queuedAt: 1,
+    });
     // Not set aside: its new place is asked about.
     await upkeep.flush();
-    expect(lookups.rows.has(id)).toBe(false);
-    expect(lookups.askedAt.has(id)).toBe(true);
+    expect(hasRow(lookups, id)).toBe(false);
+    expect(asked(id)).toBe(true);
   });
 
   it('asks about the gyms of the best-ranked region first, the ranks worked out at the start', async () => {
@@ -1008,7 +1243,7 @@ describe('the line of gyms that wait for Google', () => {
           refreshed++;
           return Promise.resolve();
         },
-        ofGym: (id) => (busy.has(id) ? 1 : 0),
+        ofGym: (_guildId, id) => (busy.has(id) ? 1 : 0),
         ofWayspot: () => undefined,
       },
     });
@@ -1023,8 +1258,8 @@ describe('the line of gyms that wait for Google', () => {
     busy.add(quiet);
     await upkeep.resume();
     expect(refreshed).toBe(1);
-    expect(lookups.rows.get(quiet)?.rank).toBe(1);
-    expect(lookups.rows.get(lively)?.rank).toBe(0);
+    expect(rowOf(lookups, quiet)?.rank).toBe(1);
+    expect(rowOf(lookups, lively)?.rank).toBe(0);
     await upkeep.flush();
     const asked = geo.questions('geocode').map((question) => question.point.lat);
     expect(asked.indexOf(40.01)).toBeLessThan(asked.indexOf(40.03));
@@ -1039,7 +1274,7 @@ describe('the line of gyms that wait for Google', () => {
     await upkeep.flush();
     lookups.rows.clear();
     geo.asked.length = 0;
-    await lookups.add([{ gymId: id, address: false, rank: 0 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: id, address: false, rank: 0 }], 1);
     let release: () => void = () => undefined;
     geo.holdPlaces.push(
       new Promise((resolve) => {
@@ -1060,7 +1295,7 @@ describe('the line of gyms that wait for Google', () => {
       .questions('places')
       .filter((question) => question.point.lat === at.lat && question.point.lon === at.lon);
     expect(asked).toHaveLength(2);
-    expect(lookups.rows.has(id)).toBe(false);
+    expect(hasRow(lookups, id)).toBe(false);
   });
 
   it('counts only the gyms Google was asked about, and puts one whose question failed at the end', async () => {
@@ -1080,26 +1315,26 @@ describe('the line of gyms that wait for Google', () => {
     await upkeep.flush();
     // Failed questions are counted (Google was asked) and their gyms wait at the end, not gone.
     expect(counted(use)).toBeGreaterThan(0);
-    expect(lookups.rows.has(first!.gymId)).toBe(true);
+    expect(hasRow(lookups, first!.gymId)).toBe(true);
     expect(ids).toHaveLength(3);
   });
 
   it('keeps a gym in the line for its address when only its places came', async () => {
     const lookups = new MemoryGymLookups();
     const use = new MemoryGoogleUse();
-    const { upkeep, geo, gyms, add } = await upkeepWith({
+    const { upkeep, geo, add, directory } = await upkeepWith({
       lookups,
       use,
       // One gym's worth: the gym is not asked again and again for the address that fails.
       budget: { places: 1, reserve: 0, geocodes: 100, geocodesReserve: 0 },
     });
     const id = await add(40.01, -80.09, 'One');
-    await lookups.add([{ gymId: id, address: true, rank: 0 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: id, address: true, rank: 0 }], 1);
     geo.failing = { geocode: 'failed' };
     await upkeep.flush();
-    expect(gyms.row(id)?.places).not.toBeNull();
-    expect(gyms.row(id)?.geodata).toBeNull();
-    expect(lookups.rows.get(id)?.address).toBe(true);
+    expect(directory.stored(id)?.places).not.toBeNull();
+    expect(directory.stored(id)?.geodata).toBeNull();
+    expect(rowOf(lookups, id)?.address).toBe(true);
     // Each question counts by itself: the failed geocode reached Google too.
     expect(use.total('places')).toBe(1);
     expect(use.total('geocode')).toBe(1);
@@ -1108,49 +1343,49 @@ describe('the line of gyms that wait for Google', () => {
   it('counts a gym whose address was asked about though its places were refused', async () => {
     const lookups = new MemoryGymLookups();
     const use = new MemoryGoogleUse();
-    const { upkeep, geo, gyms, add } = await upkeepWith({ lookups, use });
+    const { upkeep, geo, add, directory } = await upkeepWith({ lookups, use });
     const id = await add(40.01, -80.09, 'One');
-    await lookups.add([{ gymId: id, address: true, rank: 0 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: id, address: true, rank: 0 }], 1);
     geo.failing = { places: 'denied' };
     await upkeep.flush();
-    expect(gyms.row(id)?.geodata).not.toBeNull();
-    expect(lookups.rows.get(id)?.address).toBe(false);
+    expect(directory.stored(id)?.geodata).not.toBeNull();
+    expect(rowOf(lookups, id)?.address).toBe(false);
     expect(counted(use)).toBe(1);
     // Neither came: the gym still waits for its address.
     const other = await add(40.02, -80.09, 'Two');
-    await lookups.add([{ gymId: other, address: true, rank: 0 }], 2);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: other, address: true, rank: 0 }], 2);
     geo.failing = { geocode: 'failed', places: 'denied' };
     await upkeep.flush();
-    expect(lookups.rows.get(other)?.address).toBe(true);
+    expect(rowOf(lookups, other)?.address).toBe(true);
   });
 
   it('asks no places of a gym that waits for its address while Geocoding is refused, and goes on with the others', async () => {
     const lookups = new MemoryGymLookups();
     const use = new MemoryGoogleUse();
     let clock = 1_000_000;
-    const { upkeep, geo, gyms, add } = await upkeepWith({
+    const { upkeep, geo, add, directory } = await upkeepWith({
       use,
       lookups,
       placesEveryMs: 5_000,
       now: () => clock,
     });
     const id = await add(40.01, -80.09, 'One');
-    await lookups.add([{ gymId: id, address: true, rank: 0 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: id, address: true, rank: 0 }], 1);
     geo.failing = { geocode: 'denied' };
     geo.retryInMs = 1_800_000;
     await upkeep.flush();
     // Places are billed: none is asked while the address cannot come.
     expect(geo.questions('places')).toEqual([]);
-    expect(gyms.row(id)?.places).toBeNull();
-    expect(lookups.rows.get(id)?.address).toBe(true);
+    expect(directory.stored(id)?.places).toBeNull();
+    expect(rowOf(lookups, id)?.address).toBe(true);
     expect(counted(use)).toBe(0);
     // A gym behind it that waits for its places alone gets them meanwhile.
     const two = await add(40.03, -80.09, 'Two');
-    await lookups.add([{ gymId: two, address: false, rank: 0 }], 2);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: two, address: false, rank: 0 }], 2);
     await upkeep.flush();
-    expect(gyms.row(two)?.places).not.toBeNull();
+    expect(directory.stored(two)?.places).not.toBeNull();
     expect(geo.questions('places').map((question) => question.point.lat)).toEqual([40.03]);
-    expect(lookups.rows.get(id)?.address).toBe(true);
+    expect(rowOf(lookups, id)?.address).toBe(true);
     // With only gyms that wait for their address left, the line waits out the refusal: Google
     // is not asked again until it is over.
     let geocodes = 0;
@@ -1163,18 +1398,18 @@ describe('the line of gyms that wait for Google', () => {
     clock += 1_799_000;
     await upkeep.flush();
     expect(geocodes).toBe(0);
-    expect(gyms.row(id)?.geodata).toBeNull();
+    expect(directory.stored(id)?.geodata).toBeNull();
     clock += 1_000;
     await upkeep.flush();
-    expect(gyms.row(id)?.geodata).not.toBeNull();
-    expect(gyms.row(id)?.places).not.toBeNull();
+    expect(directory.stored(id)?.geodata).not.toBeNull();
+    expect(directory.stored(id)?.places).not.toBeNull();
   });
 
   it('keeps the address a gym was put in the line for while its places were refused', async () => {
     const lookups = new MemoryGymLookups();
     const { upkeep, geo, add } = await upkeepWith({ lookups });
     const id = await add(40.01, -80.09, 'One');
-    await lookups.add([{ gymId: id, address: true, rank: 0 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: id, address: true, rank: 0 }], 1);
     geo.failing = { places: 'denied' };
     let release: () => void = () => undefined;
     geo.holdPlaces.push(
@@ -1189,18 +1424,18 @@ describe('the line of gyms that wait for Google', () => {
     await upkeep.placed(id, { places: 'later' });
     release();
     await flushing;
-    expect(lookups.rows.get(id)?.address).toBe(true);
+    expect(rowOf(lookups, id)?.address).toBe(true);
   });
 
   it('does not count a gym that was gone before Google was asked', async () => {
     const lookups = new MemoryGymLookups();
     const use = new MemoryGoogleUse();
     const { upkeep, geo } = await upkeepWith({ lookups, use });
-    await lookups.add([{ gymId: 999, address: true, rank: 0 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: 999, address: true, rank: 0 }], 1);
     await upkeep.flush();
     expect(geo.asked).toEqual([]);
     expect(counted(use)).toBe(0);
-    expect(lookups.rows.has(999)).toBe(false);
+    expect(hasRow(lookups, 999)).toBe(false);
   });
 
   it('keeps a gym put in the line again while its turn is being written down', async () => {
@@ -1208,7 +1443,7 @@ describe('the line of gyms that wait for Google', () => {
     const { upkeep, geo, add, directory } = await upkeepWith({ lookups });
     await upkeep.flush();
     const id = await add(40.01, -80.09, 'One');
-    await lookups.add([{ gymId: id, address: false, rank: 0 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: id, address: false, rank: 0 }], 1);
     geo.asked.length = 0;
     // Taking it out of the line waits until the gym was put in the line again.
     let release: () => void = () => undefined;
@@ -1238,22 +1473,25 @@ describe('the line of gyms that wait for Google', () => {
 
   it('puts in the line, when it is taken up, the gyms that lack places', async () => {
     const lookups = new MemoryGymLookups();
-    const { upkeep, gyms, directory } = await upkeepWith({
+    const { upkeep, gyms, directory, answers } = await upkeepWith({
       lookups,
       setTimer: () => () => undefined,
     });
     const lacking = directory.all().filter((gym) => gym.places === null);
     await upkeep.resume();
     expect(await upkeep.waiting()).toBe(lacking.length);
-    const bare = await gyms.create({ name: 'Bare', lat: 40.05, lon: -80.05 }, 1);
+    // Away from every gym's place, whose answers it would share (plan 19B-3).
+    const bare = await gyms.create({ name: 'Bare', lat: 40.052, lon: -80.05 }, 1);
     await directory.refreshGym(bare.id);
-    // A gym of before with places counts as asked, though it has no address.
+    // A gym whose place has places counts as asked, though it has no address.
     const placed = await gyms.create({ name: 'Placed', lat: 40.051, lon: -80.05 }, 1);
-    await gyms.update(placed.id, { places: 'Corner Bakery' });
+    await answers.save([
+      { kind: 'places', lat: 40.051, lon: -80.05, answer: 'Corner Bakery', askedAt: 1 },
+    ]);
     await directory.refreshGym(placed.id);
     await upkeep.resume();
-    expect(lookups.rows.get(bare.id)?.address).toBe(true);
-    expect(lookups.rows.has(placed.id)).toBe(false);
+    expect(rowOf(lookups, bare.id)?.address).toBe(true);
+    expect(hasRow(lookups, placed.id)).toBe(false);
   });
 
   it('puts in the line at a start no gym Google found nothing for, until it moves', async () => {
@@ -1268,26 +1506,38 @@ describe('the line of gyms that wait for Google', () => {
     await upkeep.placed(id, { places: 'later' });
     await upkeep.flush();
     // Asked, and nothing found: the gym looks as one never asked.
-    expect(gyms.row(id)).toMatchObject({ geodata: null, places: null });
-    expect(lookups.rows.has(id)).toBe(false);
+    expect(directory.stored(id)).toMatchObject({ geodata: null, places: null });
+    expect(hasRow(lookups, id)).toBe(false);
     await upkeep.resume();
-    expect(lookups.rows.has(id)).toBe(false);
+    expect(hasRow(lookups, id)).toBe(false);
     // Moved, and its place in the line lost: the next start puts it in again.
     await gyms.update(id, { lat: 40.011 });
     await directory.refreshGym(id);
     await upkeep.placed(id, { places: 'later' });
-    lookups.rows.delete(id);
+    lookups.rows.delete(`${String(TEST_GUILD_ROW)}:${String(id)}`);
     await upkeep.resume();
-    expect(lookups.rows.get(id)?.address).toBe(true);
+    expect(rowOf(lookups, id)?.address).toBe(true);
+  });
+
+  it('tells an empty line by a read of one row, never by counting the line', async () => {
+    const lookups = new MemoryGymLookups();
+    const wayspotLookups = new MemoryWayspotLookups();
+    const { upkeep, add } = await upkeepWith({ lookups, wayspotLookups });
+    const id = await add(40.01, -80.09, 'One');
+    await upkeep.placed(id, { places: 'later' });
+    const counted = [vi.spyOn(lookups, 'count'), vi.spyOn(wayspotLookups, 'count')];
+    await upkeep.flush();
+    expect(hasRow(lookups, id)).toBe(false);
+    for (const count of counted) expect(count).not.toHaveBeenCalled();
   });
 
   it('takes a gym asked about by hand out of the line', async () => {
     const lookups = new MemoryGymLookups();
     const { upkeep, add } = await upkeepWith({ lookups });
     const id = await add(40.01, -80.09, 'One');
-    await lookups.add([{ gymId: id, address: true, rank: 0 }], 1);
+    await lookups.add([{ guildId: TEST_GUILD_ROW, gymId: id, address: true, rank: 0 }], 1);
     await upkeep.refresh(id);
-    expect(lookups.rows.has(id)).toBe(false);
+    expect(hasRow(lookups, id)).toBe(false);
   });
 
   it('takes up after a restart the gyms that waited, which a deletion takes out', async () => {
@@ -1296,7 +1546,7 @@ describe('the line of gyms that wait for Google', () => {
     await first.upkeep.stop();
     expect(first.geo.questions('geocode')).toEqual([]);
     await first.upkeep.removed(first.ids[2]!);
-    // Another upkeep over the same line, as after a restart.
+    // Another upkeep over the same line and the same answers, as after a restart.
     const again = new GymUpkeep({
       gyms: first.gyms,
       directory: first.directory,
@@ -1306,6 +1556,7 @@ describe('the line of gyms that wait for Google', () => {
       log: createTestLogger().log,
       setTimer: () => () => undefined,
       lookups,
+      answers: first.answers,
     });
     expect(await again.waiting()).toBeGreaterThanOrEqual(2);
     await again.flush();
@@ -1317,7 +1568,7 @@ describe('the line of gyms that wait for Google', () => {
 
 describe('GymUpkeep.stop', () => {
   it('keeps the line for the next start and waits for what is on its way', async () => {
-    const { upkeep, gyms, geo, timers, add } = await upkeepWith();
+    const { upkeep, geo, timers, add, directory } = await upkeepWith();
     const id = await add(BESIDE_LONELY.lat, BESIDE_LONELY.lon);
     let release: () => void = () => undefined;
     geo.hold = new Promise((resolve) => {
@@ -1337,7 +1588,7 @@ describe('GymUpkeep.stop', () => {
     release();
     await stopping;
     // The gym that was being asked about got its answer; the one in the line was not asked.
-    expect(gyms.row(id)?.places).toBe('Corner Bakery Maple Dental');
+    expect(directory.stored(id)?.places).toBe('Corner Bakery Maple Dental');
     expect(geo.questions('places')).toHaveLength(1);
 
     // And nothing is queued or asked from now on.

@@ -1,13 +1,43 @@
-import { TEST_GUILD_ROW } from '../../../test/support/gyms.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW } from '../../../test/support/gyms.js';
 import { MessageFlags } from 'discord.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withOtherServer } from '../../../test/support/gym-admin.js';
 import { answerOf, gymCommandsWith, said } from '../../../test/support/gym-commands.js';
 import { keptRow } from '../../../test/support/wayspot-cases.js';
+import { questionsOf, serverShare } from './google.js';
 
 /** Noon in California on October 11: 21 days of the month are left. */
 const NOW = new Date('2026-10-11T12:00:00-07:00').getTime();
 const stamp = (ms: number, style: string) => `<t:${Math.floor(ms / 1000)}:${style}>`;
+
+describe('serverShare (plan 19B-3)', () => {
+  it('counts how far into the line by the places asked: a gym or Wayspot of two servers once', () => {
+    const gym = (guildId: number, gymId: number) => ({
+      guildId,
+      gymId,
+      address: false,
+      rank: 0,
+      queuedAt: 1,
+    });
+    const spot = (guildId: number, wayspotId: string) => ({
+      guildId,
+      wayspotId,
+      kind: 'stop' as const,
+      rank: 0,
+      queuedAt: 1,
+    });
+    // Gym 7 of both servers first, then the other server's 8, then this server's 9.
+    const share = serverShare(
+      {
+        gyms: [gym(OTHER_GUILD_ROW, 7), gym(TEST_GUILD_ROW, 7), gym(OTHER_GUILD_ROW, 8), gym(1, 9)],
+        wayspots: [spot(OTHER_GUILD_ROW, 'a.16'), spot(TEST_GUILD_ROW, 'a.16')],
+      },
+      TEST_GUILD_ROW,
+    );
+    expect(share).toEqual({ gyms: 2, wayspots: 1, gymsTo: 3, wayspotsTo: 1 });
+    expect(questionsOf({ gyms: [gym(2, 7), gym(1, 7), gym(2, 8)], wayspots: [] }).gyms).toBe(2);
+  });
+});
 
 describe('/gym google', () => {
   beforeEach(() => {
@@ -22,13 +52,14 @@ describe('/gym google', () => {
   async function lineWith(options: { places?: number; geocodes?: number } = {}) {
     const made = await gymCommandsWith();
     const north = await withOtherServer(made);
-    // Gyms 1 and 2 lie in West (this server), Lakeview (10) in no region.
+    // Gyms 1 and 2 lie in West (this server), Lakeview (10) in no region of it; the other
+    // server's gym waits for that server (plan 19B-3: a row per server).
     await made.lookups.add(
       [
-        { gymId: 1, address: false, rank: 1 },
-        { gymId: north.id, address: false, rank: 1 },
-        { gymId: 2, address: true, rank: 0.5 },
-        { gymId: 10, address: true, rank: -1 },
+        { guildId: TEST_GUILD_ROW, gymId: 1, address: false, rank: 1 },
+        { guildId: OTHER_GUILD_ROW, gymId: north.id, address: false, rank: 1 },
+        { guildId: TEST_GUILD_ROW, gymId: 2, address: true, rank: 0.5 },
+        { guildId: TEST_GUILD_ROW, gymId: 10, address: true, rank: -1 },
       ],
       1,
     );
@@ -41,11 +72,12 @@ describe('/gym google', () => {
       1,
     );
     await made.wayspots.load();
+    // The other server's copy of a stop waits for that server.
     await made.wayspotLookups.add(
       [
-        { wayspotId: stop.id, kind: 'stop', rank: 1 },
-        { wayspotId: away.id, kind: 'stop', rank: 1 },
-        { wayspotId: spot.id, kind: 'powerspot', rank: 1 },
+        { guildId: TEST_GUILD_ROW, wayspotId: stop.id, kind: 'stop', rank: 1 },
+        { guildId: OTHER_GUILD_ROW, wayspotId: away.id, kind: 'stop', rank: 1 },
+        { guildId: TEST_GUILD_ROW, wayspotId: spot.id, kind: 'powerspot', rank: 1 },
       ],
       1,
     );
@@ -64,7 +96,7 @@ describe('/gym google', () => {
     expect(said(answer)).toBe(
       [
         '### The line for Google',
-        '2 gyms and 2 PokéStops or Power Spots of this server wait for Google.',
+        '3 gyms and 2 PokéStops or Power Spots of this server wait for Google.',
         'This month 3 of 4,500 places searches are used; the line stops when 500 are left, for ' +
           'gyms added or moved by hand and `/gym refresh`. 1 of 9,000 addresses is used; ' +
           'Power Spots’ addresses on the map stop when 500 are left, for gyms. The ' +

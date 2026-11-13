@@ -16,6 +16,7 @@ import type { Gym } from '../db/repositories/gym-repository.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import type { GymLink } from '../domain/gyms/gym-server.js';
 import { GymDirectory } from './gym-directory.js';
+import { GoogleAnswers, MemoryGoogleAnswerStorage } from './google-answers.js';
 
 /** Gyms and regions in memory, with counters and a switch to make reading fail. */
 function sources() {
@@ -56,7 +57,7 @@ function sources() {
   };
 }
 
-function directory() {
+function directory(answers?: GoogleAnswers) {
   const source = sources();
   const { log, entries } = createTestLogger();
   const service = new GymDirectory({
@@ -64,6 +65,8 @@ function directory() {
     regions: source.regions,
     wordsOf: () => ['gym', 'raid'],
     log,
+    // None asked yet, unless the test gives some.
+    answers: answers ?? new GoogleAnswers({ storage: new MemoryGoogleAnswerStorage(), log }),
   });
   return { service, state: source.state, entries };
 }
@@ -315,5 +318,108 @@ describe('GymDirectory', () => {
     await expect(service.load()).rejects.toThrow();
     await expect(service.refreshGym(2)).rejects.toThrow();
     expect(service.generation).toBe(seen.at(-1));
+  });
+
+  describe('the answers of Google (plan 19B-3)', () => {
+    async function answered() {
+      const answers = new GoogleAnswers({
+        storage: new MemoryGoogleAnswerStorage(),
+        log: createTestLogger().log,
+      });
+      await answers.load();
+      // Gym 1's place has an address and places; gym 2's nothing yet.
+      const one = testGyms()[0]!;
+      await answers.save([
+        { kind: 'address', lat: one.lat, lon: one.lon, answer: '{"a":"Point St"}', askedAt: 1 },
+        { kind: 'places', lat: one.lat, lon: one.lon, answer: 'Point Cafe', askedAt: 1 },
+      ]);
+      const made = directory(answers);
+      // Gym 1 is both servers'.
+      made.state.links.push({ gymId: 1, guildId: OTHER_GUILD_ROW });
+      await made.service.load();
+      return { ...made, answers, one };
+    }
+
+    it('gives each gym its point’s address and places, the same in every server, never what the gym row holds', async () => {
+      const { service } = await answered();
+      for (const guildId of [TEST_GUILD_ROW, OTHER_GUILD_ROW]) {
+        expect(service.of(guildId).get(1)).toMatchObject({
+          geodata: '{"a":"Point St"}',
+          places: 'Point Cafe',
+        });
+      }
+      // Gym 2's row has an address of before, which no longer counts.
+      expect(testGyms()[1]?.geodata).not.toBeNull();
+      expect(service.stored(2)).toMatchObject({ geodata: null, places: null });
+      // The places are searched.
+      expect(ids(service, null, 'point cafe')).toEqual([1]);
+    });
+
+    it('shows an answer saved at once, for the gyms within ten meters of its point', async () => {
+      const { service, answers } = await answered();
+      const two = testGyms()[1]!;
+      const before = service.generation;
+      await answers.save([
+        {
+          kind: 'places',
+          lat: two.lat + 0.00003,
+          lon: two.lon,
+          answer: 'Fountain Deli',
+          askedAt: 2,
+        },
+      ]);
+      expect(service.stored(2)?.places).toBe('Fountain Deli');
+      expect(service.generation).not.toBe(before);
+      expect(ids(service, null, 'fountain deli')).toEqual([2]);
+      expect(service.stored(3)?.places).toBeNull();
+    });
+
+    it('looks at the gyms near a saved answer alone, never every gym', async () => {
+      const { service, answers, state } = await answered();
+      const two = testGyms()[1]!;
+      const looked = service.gymsLookedAt;
+      await answers.save([
+        { kind: 'places', lat: two.lat, lon: two.lon, answer: 'Fountain Deli', askedAt: 2 },
+      ]);
+      expect(service.stored(2)?.places).toBe('Fountain Deli');
+      // Gym 2 alone lies within a hundred meters or so of its point.
+      expect(service.gymsLookedAt - looked).toBe(1);
+      expect(service.all().length).toBeGreaterThan(5);
+      // A gym moved beside it is looked at there after its move.
+      state.gyms = state.gyms.map((gym) =>
+        gym.id === 3 ? { ...gym, lat: two.lat + 0.0002, lon: two.lon } : gym,
+      );
+      await service.refreshGym(3);
+      await answers.save([
+        { kind: 'places', lat: two.lat + 0.0002, lon: two.lon, answer: 'Corner Deli', askedAt: 3 },
+      ]);
+      expect(service.stored(3)?.places).toBe('Corner Deli');
+      expect(service.stored(2)?.places).toBe('Fountain Deli');
+    });
+
+    it('says whether a gym of any server lies within ten meters of a point (the sweep of the answers)', async () => {
+      const { service, state, one } = await answered();
+      const meter = 1 / 111_000;
+      expect(service.anyNear({ lat: one.lat + 9 * meter, lon: one.lon })).toBe(true);
+      expect(service.anyNear({ lat: one.lat + 11 * meter, lon: one.lon })).toBe(false);
+      // Gym 2 is the second server's alone: it counts all the same.
+      const two = testGyms()[1]!;
+      state.links = [
+        ...state.links.filter((link) => link.gymId !== 2),
+        { gymId: 2, guildId: OTHER_GUILD_ROW },
+      ];
+      await service.load();
+      expect(service.anyNear(two)).toBe(true);
+      // A deleted gym is none.
+      service.forget(2);
+      expect(service.anyNear(two)).toBe(false);
+    });
+
+    it('takes the answers of where a gym is now, when it is read again', async () => {
+      const { service, state, one } = await answered();
+      state.gyms = state.gyms.map((gym) => (gym.id === 1 ? { ...gym, lat: one.lat + 0.001 } : gym));
+      await service.refreshGym(1);
+      expect(service.stored(1)).toMatchObject({ geodata: null, places: null });
+    });
   });
 });

@@ -44,13 +44,13 @@ describe('WayspotIndex', () => {
       ['s5', 'Corner Bakery Maple Dental'],
       ['s3', 'Pinewood Bakery'],
     ]);
-    const index = new WayspotIndex(stops, (id) => places.get(id) ?? null);
+    const index = new WayspotIndex(stops, (stop) => places.get(stop.id) ?? null);
     expect(ids(index.search('corner bakery'))).toEqual(['s5']);
     expect(ids(index.search('bakery')).sort()).toEqual(['s3', 's5']);
     // A place's name counts less than a title's word.
     const withTitle = new WayspotIndex(
       [...stops, { id: 's7', title: 'Bakery Square Fountain', address: null }],
-      (id) => places.get(id) ?? null,
+      (stop) => places.get(stop.id) ?? null,
     );
     expect(ids(withTitle.search('bakery'))[0]).toBe('s7');
     // Without places nothing is found by them.

@@ -20,7 +20,7 @@ import { testRaid } from '../../test/support/parties.js';
 import { wayfarerImportWith } from '../../test/support/wayfarer-import.js';
 import type { Gym } from '../db/repositories/gym-repository.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
-import { addressLine } from '../domain/geo/google.js';
+import { addressLine, geodataJson } from '../domain/geo/google.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { wayfarerCellAt } from '@pine/wayspot-core/s2';
 import type { ExportedWayspot, WayspotExport, WayspotKind } from '@pine/wayspot-core/export-file';
@@ -819,10 +819,10 @@ describe('WayfarerImportService.apply', () => {
     await made.wayfarer.apply(STAFF_PLACE, file);
     await settle(made);
 
-    expect(addressLine(made.gymStore.row(13)?.geodata ?? null)).toBe(
+    expect(addressLine(made.directory.stored(13)?.geodata ?? null)).toBe(
       '1 Clock Tower Way, Pinewood, PA 15000, USA',
     );
-    expect(addressLine(made.gymStore.row(1)?.geodata ?? null)).toBe(
+    expect(addressLine(made.directory.stored(1)?.geodata ?? null)).toBe(
       '30 Library Lane, Pinewood, PA 15000, USA',
     );
     // Only the Bell Tower, whose address names no street, is geocoded; every gym gets its places.
@@ -1121,6 +1121,76 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     // The second server's own import keeps none of it: it is that server's gym (positive control).
     await made.wayfarer.apply(OTHER_STAFF_PLACE, file);
     expect(await made.wayspotStore.all(OTHER_GUILD_ROW)).toEqual([]);
+  });
+
+  it('keeps the address and places of a gym it moves a few meters, asking Google nothing then or after (plan 19B-3)', async () => {
+    const made = await wayfarerImportWith();
+    const fountain = gymOf(made, 2);
+    const before = { geodata: fountain.geodata, places: fountain.places };
+    expect(before.geodata).not.toBeNull();
+    expect(before.places).not.toBeNull();
+    const moved = wayspot(2, 'Old Stone Fountain', at(fountain, 15));
+    expect(metresBetween(fountain, moved)).toBeLessThan(REFETCH_METRES);
+    // The questions about the fountain, where it was or is (the invented gyms without places
+    // are asked about at the first start, as ever).
+    const aboutIt = () =>
+      made.geo.asked.filter(
+        (question) => 'point' in question && metresBetween(question.point, fountain) < 50,
+      );
+    await made.wayfarer.apply(STAFF_PLACE, exportOf([moved]));
+    await settle(made);
+    expect(made.directory.stored(2)).toMatchObject({ lat: moved.lat, ...before });
+    expect(aboutIt()).toEqual([]);
+    // Nor at the next start.
+    await made.upkeep.resume();
+    await made.upkeep.flush();
+    expect(aboutIt()).toEqual([]);
+    expect(made.directory.stored(2)).toMatchObject(before);
+  });
+
+  it('gives Wayfarer’s address to the importing server’s gym alone, never to the place’s answers (plan 19B-3)', async () => {
+    const made = await wayfarerImportWith();
+    await withOtherServer(made);
+    made.regions.rows.push(wideRegion());
+    // The second server's gym at the clock tower, with the address Google gave for the place.
+    const google = geodataJson({ formatted_address: '1 Google Way, Pinewood' })!;
+    const theirs = await made.gymStore.create(
+      { name: 'Old Clock', ...CLOCK_TOWER },
+      OTHER_GUILD_ROW,
+    );
+    await made.answers.save([{ kind: 'address', ...CLOCK_TOWER, answer: google, askedAt: 1 }]);
+    await made.directory.load();
+    // The test server's import adds its own gym there, with Wayfarer's address.
+    const tower = wayspot(6, 'Clock Tower', CLOCK_TOWER, {
+      address: '5 Clock Street, Pinewood, PA 15000, USA',
+    });
+    await made.wayfarer.apply(STAFF_PLACE, exportOf([tower]));
+    const ours = made.directory
+      .of(TEST_GUILD_ROW)
+      .all()
+      .find((gym) => gym.pogoId === tower.id);
+    expect(addressLine(ours?.geodata ?? null)).toMatch(/^5 Clock Street/u);
+    // The other server's gym shows Google's answer, which is the place's still.
+    expect(made.directory.of(OTHER_GUILD_ROW).get(theirs.id)?.geodata).toBe(google);
+    expect(made.answers.at('address', CLOCK_TOWER)?.answer).toBe(google);
+  });
+
+  it('gives Wayfarer’s address to a matched gym whose own place has none, a neighbor’s shown meanwhile (plan 19B-3)', async () => {
+    const made = await wayfarerImportWith();
+    const google = geodataJson({ formatted_address: '1 Google Way, Pinewood' })!;
+    await made.answers.save([{ kind: 'address', ...CLOCK_TOWER, answer: google, askedAt: 1 }]);
+    // The server's gym 8 m from the place Google answered about, never asked itself.
+    const point = at(CLOCK_TOWER, 8);
+    const bench = await made.gymStore.create({ name: 'Quiet Bench', ...point }, TEST_GUILD_ROW);
+    await made.directory.load();
+    expect(made.directory.stored(bench.id)?.geodata).toBe(google);
+    const file = exportOf([
+      wayspot(6, 'Quiet Bench', point, { address: '5 Bench Street, Pinewood, PA 15000, USA' }),
+    ]);
+    await made.wayfarer.apply(STAFF_PLACE, file);
+    expect(addressLine(made.directory.stored(bench.id)?.geodata ?? null)).toMatch(
+      /^5 Bench Street/u,
+    );
   });
 
   it('keeps only the Wayspots of the server’s regions grown by the file’s margin (plan 19B-3)', async () => {

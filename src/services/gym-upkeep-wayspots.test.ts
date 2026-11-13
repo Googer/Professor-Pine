@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { FakeGeoGateway } from '../../test/support/geo.js';
 import { gymDirectoryWith, MemoryGyms } from '../../test/support/gym-store.js';
-import { TEST_GUILD_ROW, testRegions, WEST_CHANNEL } from '../../test/support/gyms.js';
+import {
+  northRegion,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
+  testRegions,
+  WEST_CHANNEL,
+} from '../../test/support/gyms.js';
 import { regionsFixture } from '../../test/support/providers.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { watchEachTest } from '../../test/support/timers.js';
-import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
+import { keptRow } from '../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
 import type { WayspotRow } from '../domain/wayspots/kept.js';
+import { GoogleAnswers, MemoryGoogleAnswerStorage } from './google-answers.js';
 import { MemoryGoogleUse } from './google-use.js';
 import { GoogleRanks } from './google-ranks.js';
 import { MemoryGymLookups } from './gym-lookups.js';
@@ -35,19 +42,27 @@ async function lineWith(
   rows: readonly WayspotRow[],
   options: Partial<Omit<GymUpkeepOptions, 'parties'>> = {},
   regions: RegionDirectory | RegionProvider = regionsFixture(),
+  others: readonly { guildId: number; rows: readonly WayspotRow[] }[] = [],
 ) {
   const { gyms, directory } = await gymDirectoryWith(new MemoryGyms([]));
-  const { storage, wayspots } = await wayspotsWith(rows, regions);
-  const geo = new FakeGeoGateway();
   const { log } = createTestLogger();
+  // Google's answers by the point (plan 19B-3).
+  const answerStorage = new MemoryGoogleAnswerStorage();
+  const answers = new GoogleAnswers({ storage: answerStorage, log });
+  const { storage, wayspots } = await wayspotsWith(rows, regions, undefined, others, answers);
+  const geo = new FakeGeoGateway();
   const spots = new MemoryWayspotLookups();
   const use = new MemoryGoogleUse();
-  const places = new WayspotPlaces({ storage: spots, log, setTimer: () => () => undefined });
-  await places.load();
+  const places = new WayspotPlaces({ answers, log, setTimer: () => () => undefined });
+  /** The servers whose search was told of new places, in order. */
+  const told: number[] = [];
+  places.whenChanged((guildId) => told.push(guildId));
+  /** The answer about the places where a Wayspot is. */
+  const placesAt = (wayspot: { lat: number; lon: number }) => answers.at('places', wayspot);
   const ranks = new GoogleRanks({
     regions,
-    gymRegions: (id) => directory.of(TEST_GUILD_ROW).regionsOf(id),
-    wayspotRegions: (id) => wayspots.of(TEST_GUILD_ROW).regionsOf(id),
+    gymRegions: (guildId, id) => directory.regionsIn(guildId, id),
+    wayspotRegions: (guildId, id) => wayspots.regionsIn(guildId, id),
     servers: () => Promise.resolve([]),
     activity: { raidsByRegion: () => Promise.resolve(new Map()) },
   });
@@ -73,16 +88,31 @@ async function lineWith(
     ranks,
     wayspots,
     wayspotLookups: spots,
+    answers,
     places,
     ...(regions instanceof RegionDirectory ? { outlineChanges: regions } : {}),
     ...options,
   });
-  return { upkeep, geo, storage, wayspots, spots, use, places, timers, waits };
+  return {
+    upkeep,
+    geo,
+    storage,
+    wayspots,
+    spots,
+    use,
+    places,
+    answers,
+    answerStorage,
+    placesAt,
+    told,
+    timers,
+    waits,
+  };
 }
 
 describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
   it('queues the stops and Power Spots of the regions, stops first, and keeps their places', async () => {
-    const { upkeep, geo, spots, places } = await lineWith([STOP, SPOT, AWAY, WAYFARER_GYM]);
+    const { upkeep, geo, spots, placesAt, told } = await lineWith([STOP, SPOT, AWAY, WAYFARER_GYM]);
     await upkeep.resume();
     expect((await spots.list()).map((row) => [row.wayspotId, row.kind])).toEqual([
       [STOP.id, 'stop'],
@@ -96,16 +126,37 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     expect(asked[0]?.radius).toBeCloseTo(metresBetween(STOP, SPOT) / 2, 5);
     // No address is ever asked for a Wayspot.
     expect(geo.questions('geocode')).toEqual([]);
-    expect(places.get(STOP.id)).toMatchObject({
-      kind: 'stop',
+    // Kept as the point's answer, and the server's search told (once within the hour).
+    expect(placesAt(STOP)).toMatchObject({
+      kind: 'places',
       lat: STOP.lat,
       lon: STOP.lon,
-      places: 'Corner Bakery Maple Dental',
+      answer: 'Corner Bakery Maple Dental',
     });
+    expect(told).toEqual([TEST_GUILD_ROW]);
     expect(await spots.count()).toBe(0);
     // Asked once: not queued again at the next start.
     await upkeep.resume();
     expect(await spots.count()).toBe(0);
+  });
+
+  it('asks a stop’s places in the circle of its own server’s gyms, never another server’s', async () => {
+    const { gyms, directory } = await gymDirectoryWith(new MemoryGyms([]));
+    // The second server's gym 30 m from the stop, the test server's own 80 m off.
+    const theirs = await gyms.create(
+      { name: 'Theirs', lat: STOP.lat + 0.00027, lon: STOP.lon },
+      OTHER_GUILD_ROW,
+    );
+    const ours = await gyms.create(
+      { name: 'Ours', lat: STOP.lat - 0.00072, lon: STOP.lon },
+      TEST_GUILD_ROW,
+    );
+    await directory.refreshGyms([theirs.id, ours.id]);
+    const made = await lineWith([STOP, SPOT], { gyms, directory });
+    await made.upkeep.resume();
+    await made.upkeep.flush();
+    const asked = made.geo.questions('places').find((one) => one.point.lat === STOP.lat);
+    expect(asked?.radius).toBeCloseTo(metresBetween(STOP, directory.stored(ours.id)!) / 2, 5);
   });
 
   it('comes after every gym', async () => {
@@ -174,11 +225,12 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     expect(await made.upkeep.waiting()).toBe(0);
   });
 
-  it('asks again a Wayspot that moved or became a Power Spot, and forgets one that became a gym', async () => {
+  it('asks again a Wayspot that moved farther than ten meters, and keeps the places of a place', async () => {
     const made = await lineWith([STOP, SPOT]);
     await made.upkeep.resume();
     await made.upkeep.flush();
-    expect(made.places.ids().sort()).toEqual([STOP.id, SPOT.id].sort());
+    expect(made.placesAt(STOP)).toBeDefined();
+    expect(made.placesAt(SPOT)).toBeDefined();
     // A later import: the stop moved 50 m and is a Power Spot now; the spot a few meters only;
     // a new stop came.
     const fresh = keptRow(5, { title: 'Fresh', lat: 40.06, lon: -80.06 });
@@ -187,7 +239,7 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
       {
         upsert: [
           { ...STOP, kind: 'powerspot', lat: STOP.lat + 0.00045 },
-          { ...SPOT, lat: SPOT.lat + 0.00001 },
+          { ...SPOT, kind: 'stop', lat: SPOT.lat + 0.00001 },
           fresh,
         ],
         remove: [],
@@ -196,19 +248,90 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     );
     await made.wayspots.load();
     await made.upkeep.flush();
+    // The places around a place are its point's, whatever stands there (plan 19B-3): another
+    // kind a few meters off is not asked again.
     expect(made.geo.questions('places').map((question) => question.point.lat)).toEqual([
       STOP.lat,
       SPOT.lat,
       fresh.lat,
       STOP.lat + 0.00045,
     ]);
-    expect(made.places.get(STOP.id)?.kind).toBe('powerspot');
-    // The spot becomes a gym: its places go, and it is not queued.
+    // The spot becomes a gym: it is not queued, and its place keeps its answer.
     await made.storage.saveFromImport(TEST_GUILD_ROW, { upsert: [], remove: [SPOT.id] }, 3_000);
     await made.wayspots.load();
     await made.upkeep.flush();
-    expect(made.places.get(SPOT.id)).toBeUndefined();
-    expect(made.places.get(wayspotId(5))).toBeDefined();
+    expect(made.geo.questions('places')).toHaveLength(4);
+    expect(made.placesAt(SPOT)).toBeDefined();
+    expect(made.placesAt(fresh)).toBeDefined();
+  });
+
+  it('keeps a stop of two servers waiting once per server, by each one’s regions, and asks its place once', async () => {
+    // North (the second server's) over West: both servers keep the stop, each its own copy (at
+    // one place, as two imports of one Wayspot put it, under another title).
+    const regions = regionsFixture([
+      ...testRegions(),
+      { ...northRegion(), bounds: testRegions()[0]!.bounds },
+    ]);
+    const away = { ...STOP, title: 'Away’s Mural' };
+    const made = await lineWith([STOP], {}, regions, [{ guildId: OTHER_GUILD_ROW, rows: [away] }]);
+    await made.upkeep.resume();
+    expect((await made.spots.list()).map((row) => [row.guildId, row.wayspotId])).toEqual([
+      [TEST_GUILD_ROW, STOP.id],
+      [OTHER_GUILD_ROW, STOP.id],
+    ]);
+    await made.upkeep.flush();
+    // One question, for both: the second row found its place answered, and left unasked.
+    expect(made.geo.questions('places')).toHaveLength(1);
+    expect(await made.spots.count()).toBe(0);
+    // Each server's search is told of its own.
+    expect([...made.told].sort()).toEqual([TEST_GUILD_ROW, OTHER_GUILD_ROW]);
+    expect(made.placesAt(away)?.answer).toBe(made.placesAt(STOP)?.answer);
+    // Asked once: neither server's copy waits again.
+    await made.upkeep.resume();
+    expect(await made.spots.count()).toBe(0);
+  });
+
+  it('brings only the changed server’s part of the line up to date after its import', async () => {
+    const regions = regionsFixture([
+      ...testRegions(),
+      { ...northRegion(), bounds: testRegions()[0]!.bounds },
+    ]);
+    const away = { ...SPOT, title: 'Away’s Bench' };
+    const made = await lineWith([STOP], {}, regions, [{ guildId: OTHER_GUILD_ROW, rows: [away] }]);
+    await made.upkeep.resume();
+    const read: (number | 'all')[] = [];
+    const list = made.spots.list.bind(made.spots);
+    made.spots.list = () => {
+      read.push('all');
+      return list();
+    };
+    const ofServer = made.spots.ofServer.bind(made.spots);
+    made.spots.ofServer = (guildId) => {
+      read.push(guildId);
+      return ofServer(guildId);
+    };
+    // The test server's import adds a stop; the other server's is as it was.
+    const fresh = keptRow(5, { title: 'Fresh', lat: 40.06, lon: -80.06 });
+    await made.storage.saveFromImport(TEST_GUILD_ROW, { upsert: [STOP, fresh], remove: [] }, 2_000);
+    await made.wayspots.load(TEST_GUILD_ROW);
+    await background.settle();
+    expect(read).toEqual([TEST_GUILD_ROW]);
+    expect((await made.spots.list()).map((row) => [row.guildId, row.wayspotId])).toEqual([
+      [TEST_GUILD_ROW, STOP.id],
+      [TEST_GUILD_ROW, fresh.id],
+      [OTHER_GUILD_ROW, away.id],
+    ]);
+  });
+
+  it('queues a server’s copy in a region of its own alone', async () => {
+    // The second server keeps the stop too, but has no region over it.
+    const made = await lineWith([STOP], {}, regionsFixture(), [
+      { guildId: OTHER_GUILD_ROW, rows: [STOP] },
+    ]);
+    await made.upkeep.resume();
+    expect((await made.spots.list()).map((row) => [row.guildId, row.wayspotId])).toEqual([
+      [TEST_GUILD_ROW, STOP.id],
+    ]);
   });
 
   it('queues the stops a region newly covers when the regions change, with nothing else waiting', async () => {
@@ -266,6 +389,36 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     await background.settle();
     // The stops of a region that is gone do not wait.
     expect(await made.spots.count()).toBe(0);
+  });
+
+  it('brings only the line of the server whose outlines changed up to date', async () => {
+    // North (the second server's) over West, where both servers keep a stop.
+    const north = { ...northRegion(), bounds: testRegions()[0]!.bounds };
+    let listed = [...testRegions(), north];
+    const regions = new RegionDirectory({
+      regions: { listAll: () => Promise.resolve(listed) },
+      log: createTestLogger().log,
+    });
+    await regions.load();
+    const away = { ...SPOT, title: 'Away’s Bench' };
+    const made = await lineWith([STOP], {}, regions, [{ guildId: OTHER_GUILD_ROW, rows: [away] }]);
+    await made.upkeep.resume();
+    const read: (number | 'all')[] = [];
+    const list = made.spots.list.bind(made.spots);
+    made.spots.list = () => {
+      read.push('all');
+      return list();
+    };
+    const ofServer = made.spots.ofServer.bind(made.spots);
+    made.spots.ofServer = (guildId) => {
+      read.push(guildId);
+      return ofServer(guildId);
+    };
+    // The second server saves its outline anew (its corners in another order).
+    listed = [...testRegions(), { ...north, bounds: north.bounds?.slice().reverse() ?? null }];
+    await regions.load();
+    await background.settle();
+    expect(read).toEqual([OTHER_GUILD_ROW]);
   });
 
   it('leaves the line alone at a load of the regions that changes no outline', async () => {
@@ -333,7 +486,7 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     expect(await made.upkeep.waiting()).toBe(1);
     for (let turn = 0; turn < 4; turn++) await made.upkeep.flush();
     expect(stuckAsked).toBe(1);
-    expect(made.places.get(STOP.id)).toBeDefined();
+    expect(made.placesAt(STOP)).toBeDefined();
     expect(await made.upkeep.waiting()).toBe(1);
     now += 24 * 3_600_000;
     for (let turn = 0; turn < 4; turn++) await made.upkeep.flush();
@@ -354,7 +507,7 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     await made.upkeep.resume();
     for (let turn = 0; turn < 4; turn++) await made.upkeep.flush();
     expect(stuckAsked).toBe(1);
-    expect(made.places.get(other.id)).toBeDefined();
+    expect(made.placesAt(other)).toBeDefined();
     expect((await made.spots.list()).map((row) => row.wayspotId)).toEqual([STOP.id]);
     now += 24 * 3_600_000;
     for (let turn = 0; turn < 4; turn++) await made.upkeep.flush();
@@ -365,15 +518,17 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     let now = new Date('2026-10-16T12:00:00-07:00').getTime();
     const other = keptRow(6, { title: 'Other Mural', lat: 40.032, lon: -80.0801 });
     const made = await lineWith([STOP, other], { now: () => now });
-    const saveAsked = made.spots.saveAsked.bind(made.spots);
-    made.spots.saveAsked = (row) =>
-      row.wayspotId === STOP.id ? Promise.reject(new Error('database is down')) : saveAsked(row);
+    const save = made.answerStorage.save.bind(made.answerStorage);
+    made.answerStorage.save = (rows) =>
+      rows.some((row) => row.lat === STOP.lat)
+        ? Promise.reject(new Error('database is down'))
+        : save(rows);
     await made.upkeep.resume();
     for (let turn = 0; turn < 4; turn++) await made.upkeep.flush();
     const atStop = () =>
       made.geo.questions('places').filter((question) => question.point.lat === STOP.lat).length;
     expect(atStop()).toBe(1);
-    expect(made.places.get(other.id)).toBeDefined();
+    expect(made.placesAt(other)).toBeDefined();
     expect(await made.spots.count()).toBe(1);
     now += 24 * 3_600_000;
     for (let turn = 0; turn < 4; turn++) await made.upkeep.flush();
@@ -384,11 +539,11 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     let now = new Date('2026-10-16T12:00:00-07:00').getTime();
     const made = await lineWith([STOP], { now: () => now });
     await made.upkeep.resume();
-    // The places are kept and the stop leaves the line; the count after it fails once.
-    const count = made.spots.count.bind(made.spots);
+    // The places are kept and the stop leaves the line; the read of the line after it fails once.
+    const any = made.spots.any.bind(made.spots);
     let failing = true;
-    made.spots.count = () => {
-      if (!failing) return count();
+    made.spots.any = () => {
+      if (!failing) return any();
       failing = false;
       return Promise.reject(new Error('database is down'));
     };
@@ -396,7 +551,7 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     now += 24 * 3_600_000;
     for (let turn = 0; turn < 4; turn++) await made.upkeep.flush();
     expect(made.geo.questions('places')).toHaveLength(1);
-    expect(made.places.get(STOP.id)).toBeDefined();
+    expect(made.placesAt(STOP)).toBeDefined();
     expect(await made.spots.count()).toBe(0);
   });
 

@@ -23,6 +23,53 @@ function applied(gyms: readonly NearGym[], changes: ReturnType<typeof nearestGym
   });
 }
 
+describe('nearest gyms per server (plan 19B-3)', () => {
+  // Gyms 1 and 3 are one server's, 2 (beside 1) the other's.
+  const servers = new Map([
+    [1, 'a'],
+    [2, 'b'],
+    [3, 'a'],
+    [5, 'a'],
+  ]);
+  const together = (a: number, b: number) => servers.get(a) === servers.get(b);
+
+  it('takes a gym’s nearest among the gyms that share a server with it', () => {
+    // Gym 2 pointed at 1 (as it would have before): the other server's gym is none of its.
+    const gyms = [gym(1, 0, 3), gym(2, 0.01, 1), gym(3, 2, 1)];
+    expect(nearestGymChanges(gyms, { placed: 2 }, together)).toEqual([{ id: 2, nearestGym: null }]);
+    expect(
+      nearestGymChanges([gym(1, 0), gym(2, 0.01), gym(3, 2)], { placed: 1 }, together),
+    ).toEqual([
+      { id: 1, nearestGym: 3 },
+      { id: 3, nearestGym: 1 },
+    ]);
+  });
+
+  it('looks again only at the gyms without a nearest that share a server with the gym placed', () => {
+    // Gym 4 is alone in its server: placing the first server's gym 1 is nothing to it.
+    const measured: number[][] = [];
+    const counted = (a: number, b: number) => {
+      measured.push([a, b]);
+      return (servers.get(a) ?? 'c') === (servers.get(b) ?? 'c');
+    };
+    const gyms = [gym(1, 0, 3), gym(3, 2, 1), gym(4, 1)];
+    expect(nearestGymChanges(gyms, { placed: 1 }, counted)).toEqual([]);
+    expect(measured.filter(([a]) => a === 4)).toEqual([[4, 1]]);
+  });
+
+  it('gives a block’s gyms their nearest of their own servers', () => {
+    // Gym 2 (the other server's) beside 1 is nobody's nearest but its own server's; 5 is 1's and
+    // 3's.
+    const gyms = [gym(1, 0, 3), gym(2, 0.01, 1), gym(3, 2, 1), gym(5, 1.9)];
+    expect(nearestBlockChanges(gyms, new Set([2, 5]), together)).toEqual([
+      { id: 1, nearestGym: 5 },
+      { id: 2, nearestGym: null },
+      { id: 3, nearestGym: 5 },
+      { id: 5, nearestGym: 3 },
+    ]);
+  });
+});
+
 describe('nearestGymChanges', () => {
   // 1 at 0, 2 at 1, 3 at 5, 4 at 6: pairs (1, 2) and (3, 4).
   const before = settled([gym(1, 0), gym(2, 1), gym(3, 5), gym(4, 6)]);

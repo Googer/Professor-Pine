@@ -81,7 +81,7 @@ export interface PlaceFinderOptions {
    * as their gyms' places are; the indexes are built anew when it tells of new ones. Without it
    * a Wayspot has none.
    */
-  places?: Pick<WayspotPlaces, 'placesOf' | 'generation'>;
+  places?: Pick<WayspotPlaces, 'placesAt' | 'generationOf'>;
   regions: { all(): readonly Region[] };
   log: Logger;
   /** How many servers' indexes are kept built (`MAX_SERVER_VIEWS`). */
@@ -129,7 +129,7 @@ const NO_INDEXES: Indexes = {
  *
  * Each server's indexes are its own (plan 19B-3), built from its Wayspots on its first search
  * after they changed (its `contentGenerationOf`, a load of its rows or its stops of Pine's own)
- * or after the places did (`WayspotPlaces.generation`), in a turn of their own (about a second
+ * or after its places did (`WayspotPlaces.generationOf`), in a turn of their own (about a second
  * for a city), never inside a search: until then a search answers from what was built (at first
  * nothing: the gyms alone). One server's change builds no other server's index; one server is
  * built per turn; at most `maxServers` servers' indexes are kept, the one searched longest ago
@@ -182,7 +182,7 @@ export class PlaceFinder {
     return (
       kept !== undefined &&
       kept.contentAt === this.options.wayspots.contentGenerationOf(guildId) &&
-      kept.placesAt === (this.options.places?.generation ?? 0)
+      kept.placesAt === (this.options.places?.generationOf(guildId) ?? 0)
     );
   }
 
@@ -524,10 +524,10 @@ export class PlaceFinder {
   private build(guildId: number): void {
     const { wayspots, places, log } = this.options;
     const contentAt = wayspots.contentGenerationOf(guildId);
-    const placesAt = places?.generation ?? 0;
+    const placesAt = places?.generationOf(guildId) ?? 0;
     if (this.current(guildId, this.indexes.get(guildId))) return;
     const started = performance.now();
-    const placesOf = (id: string): string | null => places?.placesOf(id) ?? null;
+    const placesOf = (wayspot: Wayspot): string | null => places?.placesAt(wayspot) ?? null;
     const all = wayspots.of(guildId).all();
     const stops = all.filter((wayspot) => wayspot.kind === 'stop');
     const spots = all.filter((wayspot) => wayspot.kind === 'powerspot');

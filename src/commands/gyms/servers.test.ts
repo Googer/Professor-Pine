@@ -235,9 +235,10 @@ describe('/gym add and /gym move: anywhere, also in another server’s regions',
     );
     const added = answerOf(await made.use('add', place));
     await made.press(buttonId(added, 'Add'));
-    expect(made.gymStore.row(14)).toMatchObject({ name: 'Border Bench', nearestGym: 13 });
+    // Its nearest gym is of its own server's (plan 19B-3), not the other server's 9 m off.
+    expect(made.gymStore.row(14)).toMatchObject({ name: 'Border Bench', nearestGym: 11 });
     await made.directory.refreshGym(14);
-    // Its nearest gym of all is the other server's: this server is shown its own nearest.
+    // This server is shown its own nearest.
     expect(
       gymViewOf(answerOf(await made.use('show', { gym: '#14' }))).facts['Nearest gym'],
     ).toMatch(/^\*\*Riverside Park Gazebo\*\* \(#11\), /);

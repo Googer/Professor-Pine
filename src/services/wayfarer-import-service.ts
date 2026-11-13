@@ -240,7 +240,8 @@ export interface WayfarerImportOptions {
   wayspots: WayspotStorage;
   /** The kept Wayspots in memory: read again after an import, a matched one forgotten. */
   kept: Pick<WayspotDirectory, 'load' | 'forget'>;
-  admin: Pick<GymAdminService, 'batch' | 'mayTouch' | 'inRegionOf'>;
+  /** `hasOwnAddress`: whether a matched gym takes Wayfarer's address (the one rule, plan 19B-3). */
+  admin: Pick<GymAdminService, 'batch' | 'mayTouch' | 'inRegionOf' | 'hasOwnAddress'>;
   /**
    * The gyms in memory (`GymDirectory`): the server's view (`of`), whose gyms its import reads
    * and changes (plan 19B-2), and whose Wayfarer ids live in `Gym` rather than among the
@@ -672,7 +673,7 @@ export class WayfarerImportService {
             imageUrl: pictureOf(wayspot.image),
             // Wayfarer's address, not Google's (Matt, 2026-10-16): Google is asked for the
             // places around it only, and for the address of a Wayspot without a street.
-            geodata: wayfarerGeodata(wayspot.address),
+            wayfarerAddress: wayfarerGeodata(wayspot.address),
           },
           // A stop found gone by an earlier import was a stop all the same.
           promoted: wasStop(before.get(wayspot.id) ?? wentAs(gone?.get(wayspot.id))),
@@ -816,16 +817,24 @@ export class WayfarerImportService {
   ): Promise<Written> {
     const { log } = this.options;
     const { gymId, wayspot } = match;
-    // Wayfarer's address for a gym that has none, or that moves far enough to be looked up
-    // again: Google is then asked for its places only.
+    // Wayfarer's address for a gym that has none of its own place (a neighbor's shown meanwhile
+    // is none), or that moves far enough to be looked up again: Google is then asked for its
+    // places only.
     const refetch = match.metres > REFETCH_METRES;
     const geodata = wayfarerGeodata(wayspot.address);
-    const address = geodata !== null && (gym.geodata === null || (match.move && refetch));
+    const address =
+      geodata !== null && (!this.options.admin.hasOwnAddress(gym) || (match.move && refetch));
     const patch: BatchPatch = {
       ...(gym.pogoId === wayspot.id ? {} : { pogoId: wayspot.id }),
       ...(match.rename === null ? {} : { name: match.rename }),
       ...(match.picture === null ? {} : { imageUrl: match.picture }),
-      ...(address ? { geodata } : {}),
+      // The gym's own (plan 19B-3); one moved far without Wayfarer's address of its new place
+      // loses that of the old one, and Google is asked.
+      ...(address
+        ? { wayfarerAddress: geodata }
+        : match.move && refetch && gym.wayfarerAddress !== null
+          ? { wayfarerAddress: null }
+          : {}),
     };
     try {
       if (match.move) {

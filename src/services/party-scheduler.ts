@@ -95,6 +95,11 @@ export interface PartySchedulerOptions {
   pictures?: { prunePlaces(): Promise<unknown> };
   /** The pictures of places beside a post's Where: those nobody asked for in a month go too. */
   placePictures?: { prune(): Promise<unknown> };
+  /**
+   * Google's answers by the point (plan 19B-3, `GoogleAnswers.sweep`): those no gym or Wayspot of
+   * any server shows go with the upkeep, at most once a day (the sweep keeps its own day).
+   */
+  googleAnswers?: { sweep(): Promise<unknown> };
   /** The screenshots kept on disk, of which those that are due go with the upkeep. */
   screenshots?: { sweep(): Promise<unknown> };
   /** The emoji of the bot's application, read anew with the upkeep (`ApplicationEmoji`). */
@@ -345,7 +350,8 @@ export class PartyScheduler {
    * forums that nothing calls for any more, takes stops off the routes of trains whose gym is
    * gone, has the spawn reports and grunts' messages deleted that no process deleted at their
    * time, forgets the reports at stops that ended, and the kept
-   * screenshots that are due, and the expired sessions of the web pages, settles the new trains
+   * screenshots that are due, Google's answers no place uses (once a day), and the expired
+   * sessions of the web pages, settles the new trains
    * of splits left pending, records the parties the party history was left without and adds the
    * history's new records to the activity heatmap, and reads the application's emoji anew: at
    * start and hourly.
@@ -356,7 +362,7 @@ export class PartyScheduler {
     const { history, activity, splits, stops, grunts, eventForum, legacyFillIns, audit } =
       this.options;
     const { settingsAudit } = this.options;
-    const { placePictures } = this.options;
+    const { placePictures, googleAnswers } = this.options;
     this.lastUpkeep = this.now();
     // Each by itself: one that fails does not keep the others from running. Once the clock has
     // stopped none starts: the shutdown waits for the upkeep (review r1 C3).
@@ -385,6 +391,7 @@ export class PartyScheduler {
       if (grunts) await step(() => grunts.sweep());
       if (pictures) await step(() => pictures.prunePlaces());
       if (placePictures) await step(() => placePictures.prune());
+      if (googleAnswers) await step(() => googleAnswers.sweep());
       if (screenshots) await step(() => screenshots.sweep());
       if (emoji) await step(() => emoji.refresh());
       if (webSessions) await step(() => webSessions.sweep());

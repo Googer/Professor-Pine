@@ -167,6 +167,7 @@ function gym(id: number, name: string, lat: number, lon: number, more: Partial<G
     sponsor: null,
     geodata: null,
     places: null,
+    wayfarerAddress: null,
     nearestGym: null,
     ...more,
   };

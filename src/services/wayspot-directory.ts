@@ -1,16 +1,19 @@
 import type { Region } from '../db/repositories/region-repository.js';
 import type { WayspotStorage } from '../db/repositories/wayspot-repository.js';
 import { BoundedMap } from '../bounded-map.js';
+import { answerCell } from '../domain/geo/answer-point.js';
 import { placingRegions } from '../domain/gyms/gym-server.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { containment } from '@pine/wayspot-core/region-membership';
 import type { WayspotKind } from '@pine/wayspot-core/export-file';
 import {
+  WAYSPOT_MOVED_METRES,
   wayspotAddress,
   type AddressedWayspot,
   type LookedUpAddress,
 } from '../domain/geo/spot-address.js';
+import type { GoogleAnswers, KeptPlaces, PlaceKeeper } from './google-answers.js';
 import type { PineStop } from '../domain/stops/pine-stop.js';
 import { pineStopKey } from '../domain/stops/report.js';
 import type { Wayspot } from '../domain/wayspots/kept.js';
@@ -120,12 +123,20 @@ export interface WayspotDirectoryOptions {
   regions: { all(): readonly Region[]; readonly generation?: number };
   log: Logger;
   /**
-   * The addresses Google gave for Power Spots the map asked about (`WayspotAddresses`), by
-   * Wayfarer id; without it a Wayspot has Wayfarer's address alone.
+   * The addresses Google gave for Power Spots the map asked about (`WayspotAddresses`), by the
+   * place (plan 19B-3: the point's answer, every server's copy alike); without it a Wayspot has
+   * Wayfarer's address alone.
    */
-  addresses?: { lookedUp(id: string): LookedUpAddress | undefined };
+  addresses?: { lookedUp(point: LatLon): LookedUpAddress | undefined };
   /** How many servers' placements are kept worked out (`MAX_SERVER_VIEWS`). */
   maxPlacements?: number;
+  /**
+   * Google's answers by the point (plan 19B-3): a load of a server that finds one of its Wayspots
+   * moved no farther than `WAYSPOT_MOVED_METRES` (an import's correction) keeps what was answered
+   * about its old place at its new one (`GoogleAnswers.carry`) before anyone is told, so that it is
+   * not asked about again. Without it (tests), nothing is carried.
+   */
+  answers?: Pick<GoogleAnswers, 'carry'>;
 }
 
 const METRES_PER_DEGREE = (6_371_000 * Math.PI) / 180;
@@ -189,7 +200,7 @@ const NONE: WayspotView = {
  * servers, the one asked for longest ago going first. One server's change touches no other
  * server's placement, generation or listeners.
  */
-export class WayspotDirectory implements WayspotProvider {
+export class WayspotDirectory implements WayspotProvider, PlaceKeeper {
   /** The kept Wayspots of each server, by server and id. */
   private rows = new Map<number, Map<string, Wayspot>>();
   /** The stops of Pine's own (plan 8R-1), by server and key. */
@@ -205,8 +216,11 @@ export class WayspotDirectory implements WayspotProvider {
   private readonly contentsOf = new Map<number, number>();
   private kept = 0;
   private readonly listeners: ((guildId: number) => void)[] = [];
-  /** The `<server> <id>` keys forgotten while the load under way reads, if one does. */
-  private forgottenMeanwhile: Set<string> | undefined;
+  /**
+   * The ids forgotten, by server, while the load under way reads and keeps the answers of the
+   * moved (until its swap), if one does.
+   */
+  private forgottenMeanwhile: Map<number, Set<string>> | undefined;
   /** How many placements were worked out: for tests. */
   placementsBuilt = 0;
 
@@ -242,26 +256,31 @@ export class WayspotDirectory implements WayspotProvider {
    */
   load(guildId?: number): Promise<void> {
     const result = this.queue.then(async () => {
-      const forgotten = new Set<string>();
+      // What is forgotten from the read until the swap (the read and the answers of the moved
+      // ones are written meanwhile) is left out of what is swapped in.
+      const forgotten = new Map<number, Set<string>>();
       this.forgottenMeanwhile = forgotten;
       let read: { guildId: number; wayspot: Wayspot }[];
+      const rows = new Map<number, Map<string, Wayspot>>();
       try {
         read =
           guildId === undefined
             ? await this.options.wayspots.everyServer()
             : (await this.options.wayspots.all(guildId)).map((wayspot) => ({ guildId, wayspot }));
+        // A server's load: that server has its rows read, none when it has none left.
+        if (guildId !== undefined) rows.set(guildId, new Map());
+        for (const row of read) {
+          let ofServer = rows.get(row.guildId);
+          if (!ofServer) rows.set(row.guildId, (ofServer = new Map<string, Wayspot>()));
+          ofServer.set(row.wayspot.id, row.wayspot);
+        }
+        await this.carryMoved(rows);
       } finally {
         this.forgottenMeanwhile = undefined;
       }
       const started = performance.now();
-      const rows = new Map<number, Map<string, Wayspot>>();
-      // A server's load: that server has its rows read, none when it has none left.
-      if (guildId !== undefined) rows.set(guildId, new Map());
-      for (const row of read) {
-        if (forgotten.has(keyOf(row.guildId, row.wayspot.id))) continue;
-        let ofServer = rows.get(row.guildId);
-        if (!ofServer) rows.set(row.guildId, (ofServer = new Map<string, Wayspot>()));
-        ofServer.set(row.wayspot.id, row.wayspot);
+      for (const [server, ids] of forgotten) {
+        for (const id of ids) rows.get(server)?.delete(id);
       }
       // Every server's: the servers that had rows and have none now are changed too.
       const changed = new Set(guildId === undefined ? this.rows.keys() : []);
@@ -287,13 +306,44 @@ export class WayspotDirectory implements WayspotProvider {
     return result;
   }
 
+  /**
+   * Keeps what was answered about the old place of each Wayspot a load found moved a few meters
+   * at its new one (`answers`). Never rejects: what cannot be written is logged, and the Wayspot
+   * is asked about as one never asked.
+   */
+  private async carryMoved(read: ReadonlyMap<number, ReadonlyMap<string, Wayspot>>): Promise<void> {
+    const { answers, log } = this.options;
+    if (!answers) return;
+    const moves: { from: LatLon; to: LatLon }[] = [];
+    for (const [guildId, ofServer] of read) {
+      const before = this.rows.get(guildId);
+      if (!before) continue;
+      for (const [id, now] of ofServer) {
+        const was = before.get(id);
+        if (!was || (was.lat === now.lat && was.lon === now.lon)) continue;
+        if (metresBetween(was, now) <= WAYSPOT_MOVED_METRES) moves.push({ from: was, to: now });
+      }
+    }
+    if (moves.length === 0) return;
+    try {
+      await answers.carry(moves);
+    } catch (err) {
+      log.warn(
+        { err, wayspots: moves.length },
+        'could not keep the answers of Wayspots that moved',
+      );
+    }
+  }
+
   /** Takes these Wayspots of a server out of memory at once (they became its gyms; its rows are deleted). */
   forget(guildId: number, ids: readonly string[]): void {
     const ofServer = this.rows.get(guildId);
     const placement = this.placements.get(guildId);
     let forgot = false;
+    const meanwhile = this.forgottenMeanwhile;
+    if (meanwhile && !meanwhile.has(guildId)) meanwhile.set(guildId, new Set());
     for (const id of ids) {
-      this.forgottenMeanwhile?.add(keyOf(guildId, id));
+      meanwhile?.get(guildId)?.add(id);
       if (!ofServer?.delete(id)) continue;
       forgot = true;
       this.kept -= 1;
@@ -303,6 +353,41 @@ export class WayspotDirectory implements WayspotProvider {
       placement?.ofWayspot.delete(id);
     }
     if (forgot) this.changes += 1;
+  }
+
+  /**
+   * Every server's Wayspots and stops of Pine's own as the daily sweep of Google's answers looks
+   * them up (`GoogleAnswers.sweep`): whether one lies within `WAYSPOT_MOVED_METRES` of a point,
+   * wherever it lies, from the cells around it (`answerCell`). The index is built for the caller
+   * alone, as the Wayspots are now, and never kept here: the sweep lets it go when it ends, so
+   * that no copy of an instance's Wayspots by cell stays in memory between sweeps.
+   */
+  keptPlaces(): KeptPlaces {
+    const cells = new Map<string, Wayspot[]>();
+    for (const held of [this.rows, this.pine]) {
+      for (const ofServer of held.values()) {
+        for (const wayspot of ofServer.values()) {
+          const cell = answerCell(wayspot);
+          const key = `${String(cell.lat)}:${String(cell.lon)}`;
+          const inCell = cells.get(key);
+          if (inCell) inCell.push(wayspot);
+          else cells.set(key, [wayspot]);
+        }
+      }
+    }
+    return {
+      anyNear: (point) => {
+        const cell = answerCell(point);
+        for (let lat = cell.lat - 1; lat <= cell.lat + 1; lat++) {
+          for (let lon = cell.lon - 1; lon <= cell.lon + 1; lon++) {
+            for (const wayspot of cells.get(`${String(lat)}:${String(lon)}`) ?? []) {
+              if (metresBetween(point, wayspot) <= WAYSPOT_MOVED_METRES) return true;
+            }
+          }
+        }
+        return false;
+      },
+    };
   }
 
   /**
@@ -368,7 +453,7 @@ export class WayspotDirectory implements WayspotProvider {
   }
 
   addressOf(wayspot: AddressedWayspot & { id: string }): string {
-    return wayspotAddress(wayspot, this.options.addresses?.lookedUp(wayspot.id));
+    return wayspotAddress(wayspot, this.options.addresses?.lookedUp(wayspot));
   }
 
   servers(): number[] {
@@ -499,9 +584,4 @@ function sameStops(
     }
   }
   return true;
-}
-
-/** A server's Wayspot as one key. */
-function keyOf(guildId: number, id: string): string {
-  return `${String(guildId)} ${id}`;
 }

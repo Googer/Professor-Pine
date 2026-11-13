@@ -17,8 +17,13 @@ describe('GoogleRanks', () => {
     const now = 100 * 86_400_000;
     const ranks = new GoogleRanks({
       regions: { all: () => REGIONS },
-      gymRegions: (id) => (id === 7 ? ['north', 'south'] : id === 8 ? ['south'] : []),
-      wayspotRegions: (id) => (id === 'aa.16' ? ['nobody'] : id === 'bb.16' ? ['other'] : []),
+      // Gym 7 lies in North and South, which are server 10's, and is server 20's too, where
+      // it lies in no region.
+      gymRegions: (guildId, id) =>
+        guildId !== 10 ? [] : id === 7 ? ['north', 'south'] : id === 8 ? ['south'] : [],
+      // Each server's copy by that server's regions.
+      wayspotRegions: (guildId, id) =>
+        id === 'aa.16' ? ['nobody'] : id === 'bb.16' && guildId === 20 ? ['other'] : [],
       servers: () => Promise.resolve(SERVERS),
       activity: {
         raidsByRegion: (since, servers) => {
@@ -35,17 +40,20 @@ describe('GoogleRanks', () => {
       now: () => now,
     });
     // Before the first reading every region ranks the same.
-    expect(ranks.ofGym(8)).toBe(1);
+    expect(ranks.ofGym(10, 8)).toBe(1);
     await ranks.refresh();
     // Of the servers the bot is in only (plan 8Z-2, audit X3): the read goes by server.
     expect(asked).toEqual([[10 * 86_400_000, SERVERS]]);
-    expect(ranks.ofGym(7)).toBe(1);
-    expect(ranks.ofGym(8)).toBe(0.5);
-    expect(ranks.ofGym(9)).toBe(NO_REGION_RANK);
-    expect(ranks.ofWayspot('bb.16')).toBe(1);
-    // A Wayspot in no region of any server is not ranked: it does not wait for Google.
-    expect(ranks.ofWayspot('aa.16')).toBeUndefined();
-    expect(ranks.ofWayspot('cc.16')).toBeUndefined();
+    expect(ranks.ofGym(10, 7)).toBe(1);
+    expect(ranks.ofGym(20, 7)).toBe(NO_REGION_RANK);
+    expect(ranks.ofGym(10, 8)).toBe(0.5);
+    expect(ranks.ofGym(10, 9)).toBe(NO_REGION_RANK);
+    expect(ranks.ofWayspot(20, 'bb.16')).toBe(1);
+    // Server 10's copy of it lies in no region of server 10's: it does not wait for Google.
+    expect(ranks.ofWayspot(10, 'bb.16')).toBeUndefined();
+    // A Wayspot in no region of its server is not ranked either.
+    expect(ranks.ofWayspot(10, 'aa.16')).toBeUndefined();
+    expect(ranks.ofWayspot(10, 'cc.16')).toBeUndefined();
   });
 
   it('keeps the ranks it had when the history or the servers cannot be read', async () => {
@@ -71,11 +79,11 @@ describe('GoogleRanks', () => {
     await ranks.refresh();
     failing = true;
     await expect(ranks.refresh()).rejects.toThrow('no database');
-    expect(ranks.ofGym(1)).toBe(0.25);
+    expect(ranks.ofGym(10, 1)).toBe(0.25);
     failing = false;
     lost = true;
     await expect(ranks.refresh()).rejects.toThrow('no servers');
-    expect(ranks.ofGym(1)).toBe(0.25);
+    expect(ranks.ofGym(10, 1)).toBe(0.25);
   });
 
   it('ranks a new list of regions at once by the raids last read, without reading them again', async () => {
@@ -100,12 +108,12 @@ describe('GoogleRanks', () => {
     });
     await ranks.refresh();
     // No region has the channel yet.
-    expect(ranks.ofGym(1)).toBe(NO_REGION_RANK);
-    expect(ranks.ofWayspot('aa.16')).toBeUndefined();
+    expect(ranks.ofGym(10, 1)).toBe(NO_REGION_RANK);
+    expect(ranks.ofWayspot(10, 'aa.16')).toBeUndefined();
     // A region saved (a new list, as a load gives): ranked against its server's busiest at once.
     regions = [...REGIONS, { id: 5, guildId: 10, channelId: 'east' }];
-    expect(ranks.ofGym(1)).toBe(0.5);
-    expect(ranks.ofWayspot('aa.16')).toBe(0.5);
+    expect(ranks.ofGym(10, 1)).toBe(0.5);
+    expect(ranks.ofWayspot(10, 'aa.16')).toBe(0.5);
     expect(reads).toBe(1);
   });
 });

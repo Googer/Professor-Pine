@@ -118,7 +118,7 @@ export async function gymAdminWith(
   options: { maps?: Pick<MapProvider, 'gym'>; servers?: TestServers } = {},
 ) {
   const regions = kept?.regions ?? new TestRegions();
-  const { gyms: gymStore, directory } = await gymDirectoryWith(new MemoryGyms(), regions);
+  const { gyms: gymStore, directory, answers } = await gymDirectoryWith(new MemoryGyms(), regions);
   const made = await partyServiceWith(
     parties,
     { gyms: directory, ...(options.servers === undefined ? {} : { servers: options.servers }) },
@@ -142,6 +142,7 @@ export async function gymAdminWith(
     lookups,
     wayspotLookups,
     use,
+    answers,
   });
   const removal = new MemoryGymRemoval(gymStore, made.routes, made.gymTargets);
   // The one lock of gym and region administration, as in the bot.
@@ -176,5 +177,6 @@ export async function gymAdminWith(
     lookups,
     wayspotLookups,
     googleUse: use,
+    answers,
   };
 }

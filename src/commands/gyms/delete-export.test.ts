@@ -353,7 +353,7 @@ describe('/gym refresh', () => {
         .split('\n')
         .slice(1),
     ).toEqual(['No Google API key is configured, so there is nothing to fetch.']);
-    expect(made.gymStore.row(2)?.places).toBe('Riverside Plaza, Cafe Luna');
+    expect(made.directory.stored(2)?.places).toBe('Riverside Plaza, Cafe Luna');
   });
 });
 
