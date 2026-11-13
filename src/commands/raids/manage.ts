@@ -65,7 +65,10 @@ export async function openRaidManage(
   await interaction.showModal(
     raidManageDialog({
       party,
-      options: raidOptions(ctx.raidBosses.bosses(), ctx.partyService.zoneOf(party)),
+      options: raidOptions(
+        ctx.raidBosses.bosses(ctx.partyService.zoneOf(party)),
+        ctx.partyService.zoneOf(party),
+      ),
       moves: bossMoves(ctx, party),
       now: Date.now(),
     }),

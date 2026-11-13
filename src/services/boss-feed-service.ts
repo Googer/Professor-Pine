@@ -1,3 +1,4 @@
+import { BoundedMap } from '../bounded-map.js';
 import type { BossStore, StoredBoss } from '../db/repositories/raid-boss-repository.js';
 import type { PokemonCatalogue } from '../domain/pogo/catalogue.js';
 import { diffBossesIn, type SeenChange } from '../domain/pogo/boss-diff.js';
@@ -28,6 +29,8 @@ const QUICK_RETRIES = 3;
 export const SHRINK_FLOOR = 4;
 /** How long after a source's next change the list is read again. */
 export const AFTER_CHANGE_MS = 5_000;
+/** How many zones' lists are kept worked out (`bosses`): far more than the zones in use. */
+const ZONES_KEPT = 100;
 
 /**
  * What one family of bosses is to the service that keeps its list (plan 8X-2): the raid bosses of
@@ -56,6 +59,11 @@ export interface BossFeedFamily<T> {
   readonly lastsUntilOverridesEnd?: boolean;
   /** What is wrong with an override staff asked for; undefined when it can be stored. */
   overrideProblem(override: NewBossOverride<T>, now: number): string | undefined;
+  /**
+   * The feed's rows as they are in `zone` (plan 19A-2: an upcoming max boss from the start of its
+   * day there); none: the rows are the same in every zone.
+   */
+  inZone?(feed: readonly StoredBoss<T>[], zone: string): readonly StoredBoss<T>[];
 }
 
 /**
@@ -67,6 +75,13 @@ type FeedRead<T> =
   | {
       notModified: false;
       bosses: FeedBoss<T>[];
+      /** The bosses of the other zones whose list differs (`SourceRead.byZone`), parsed. */
+      byZone?: ReadonlyMap<string, FeedBoss<T>[]>;
+      /**
+       * The other zones whose own list could not be read (`SourceRead.unreadZones`), or whose
+       * document does not parse (fix round 3, Q3).
+       */
+      unreadZones?: ReadonlySet<string>;
       validators: { etag?: string; lastModified?: string };
       catalogue: PokemonCatalogue;
     };
@@ -129,6 +144,21 @@ export type SourceRead =
       nextChange?: number;
       /** What the log line that names the source says beside it. */
       detail?: Record<string, unknown>;
+      /**
+       * Plan 19A-2: the document of each other zone in use whose list is not `json`'s (a raid
+       * rotation starts at 10:00 on each zone's clock); a zone not here has `json`'s.
+       */
+      byZone?: ReadonlyMap<string, unknown>;
+      /**
+       * The other zones whose own document could not be made, and why (fix round 1, L2): each is
+       * warned of, keeps the list it had (the stored one as it was before the read when it had
+       * none of its own; fix round 2, P2, fix round 3, Q2) and is told no change, and the read is
+       * made again as after a failed one (`retryMs` for the first three in a row, then
+       * `refreshMs`; fix round 2, P5). A zone of `byZone` whose document does not parse is
+       * unread as well (fix round 3, Q3). While the feed's own reads fail, their count decides
+       * when the next is made (fix round 3, Q1).
+       */
+      unreadZones?: ReadonlyMap<string, string>;
     }
   | {
       fallback: string;
@@ -170,6 +200,18 @@ export interface BossFeedOptions<T> {
   /** How long one download may take before it is abandoned. Default 30 seconds. */
   timeoutMs?: number;
   /**
+   * The zones in use (plan 19A-2, `ServerSettings.zonesInUse`, the instance's default among
+   * them): a change of the list is worked out and told per zone (`FeedChange.zone`). Without it
+   * one list, told once without a zone.
+   */
+  zones?: () => readonly string[];
+  /**
+   * The zone whose list is the stored one (the instance's default; with a source that gives the
+   * other zones' own, `SourceRead.byZone`). Until the first read after a start only its change
+   * is told: what the other zones had before is not known (fix round 1, L1).
+   */
+  defaultZone?: string;
+  /**
    * How long to wait after a failed attempt before the next, for the first three failures in a
    * row; from the fourth on the next attempt comes after `refreshMs`, so a feed that stays down is
    * not tried (and logged) every few minutes for ever. Default: 5 minutes, or `refreshMs` if shorter.
@@ -198,6 +240,11 @@ export interface FeedRemarks {
  */
 export interface FeedChange<T = RaidTier> extends BossListChange<T> {
   seen: SeenChange<Boss<T>>;
+  /**
+   * The zone whose list changed (plan 19A-2, with `BossFeedOptions.zones`): told to the servers in
+   * it. None: the one list of every server.
+   */
+  zone?: string;
 }
 
 export type SyncResult<T = RaidTier> =
@@ -213,8 +260,11 @@ export type SyncResult<T = RaidTier> =
 
 /** What staff need of a boss list beyond what handlers read (`/admin boss`). */
 export interface BossAdmin<T> {
-  /** The bosses the feed listed at the last successful read, as stored. */
-  feedBosses(): StoredBoss<T>[];
+  /**
+   * The bosses the feed listed at the last successful read, as stored; with a zone, as they are
+   * in that zone (plan 19A-2: its rotations in force, an upcoming max boss's day there).
+   */
+  feedBosses(zone?: string): StoredBoss<T>[];
   /** The overrides in force, oldest first. */
   overrides(): BossOverride<T>[];
   addOverride(override: NewBossOverride<T>): Promise<BossOverride<T>>;
@@ -242,21 +292,36 @@ type Listener<T> = (event: T) => void | Promise<void>;
  */
 export class BossFeedService<T> implements BossAdmin<T> {
   private feed: StoredBoss<T>[] = [];
+  /**
+   * The feed of each other zone in use whose list the last read found differs from the stored one
+   * (plan 19A-2: `SourceRead.byZone`); in memory only. A zone not here has the stored feed.
+   */
+  private zoneFeeds: ReadonlyMap<string, StoredBoss<T>[]> = new Map();
+  /**
+   * Whether `zoneFeeds` holds what a read of this process found (fix round 1, L1): false after
+   * `load` (only the default zone's list is stored), true after the first successful read.
+   * While false a change is told for the default zone only.
+   */
+  private zoneFeedsKnown = false;
+  /** The zones in use changed during a sync: one more is made once it ends (fix round 1, L3). */
+  private zonesAgain = false;
   private overrideList: BossOverride<T>[] = [];
   /**
-   * The list as last worked out (a raid's post asked for it three times, the map once per raid per
-   * ask): the very same list until the feed or the overrides change or an override runs out, so
-   * that whoever keeps what follows from it may compare it by identity.
+   * The list as last worked out, per zone asked (a raid's post asked for
+   * it three times, the map once per raid per ask): the very same list until the feed or the
+   * overrides change or an override runs out, so that whoever keeps what follows from it may
+   * compare it by identity.
    */
-  private effective:
-    | {
-        feed: unknown;
-        overrides: unknown;
-        catalogue: unknown;
-        list: Boss<T>[];
-        until: number;
-      }
-    | undefined;
+  private readonly effective = new BoundedMap<
+    string,
+    {
+      feed: unknown;
+      overrides: unknown;
+      catalogue: unknown;
+      list: Boss<T>[];
+      until: number;
+    }
+  >(ZONES_KEPT);
   private loaded = false;
   private syncedAt: number | undefined;
   private attemptedAt: number | undefined;
@@ -264,6 +329,12 @@ export class BossFeedService<T> implements BossAdmin<T> {
   private readonly timeoutMs: number;
   private readonly retryMs: number;
   private failures = 0;
+  /**
+   * Reads in a row that left another zone's own list unread (`SourceRead.unreadZones`; fix round
+   * 2, P5): the next read is `retryMs` after the attempt for the first three, as after the feed's
+   * own failures, then the refresh decides.
+   */
+  private zoneFailures = 0;
   /** Whether `startAutoSync` runs the reads (until `stop`): a catch-up schedules the next. */
   private autoSyncing = false;
   private overrideReads = 0;
@@ -329,24 +400,30 @@ export class BossFeedService<T> implements BossAdmin<T> {
     }
   }
 
-  /** Every boss: the feed's list with the moderators' overrides applied, by tier, then name. */
-  bosses(): readonly Readonly<Boss<T>>[] {
+  /**
+   * Every boss in `zone` (plan 19A-2: a server's zone; the list of the rotations in force on its
+   * clock, `feedIn`): the feed's list with the moderators' overrides applied, by tier, then name.
+   * The zone is required (fix round 1, L7): the stored list is the instance's default zone's, and
+   * only `feedBosses` reads it without one.
+   */
+  bosses(zone: string): readonly Readonly<Boss<T>>[] {
     if (!this.loaded) throw new Error(this.notLoaded);
     const { catalogue } = this.options.gameData;
     const now = this.now();
-    const kept = this.effective;
+    const feed = this.feedIn(zone);
+    const kept = this.effective.get(zone);
     if (
-      kept?.feed === this.feed &&
+      kept?.feed === feed &&
       kept.overrides === this.overrideList &&
       kept.catalogue === catalogue &&
       now < kept.until
     ) {
       return kept.list;
     }
-    const list = this.family.effective(this.feed, this.overrideList, catalogue, now);
+    const list = this.family.effective(feed, this.overrideList, catalogue, now);
     if (this.family.lastsUntilOverridesEnd !== true) return list;
-    this.effective = {
-      feed: this.feed,
+    this.effective.set(zone, {
+      feed,
       overrides: this.overrideList,
       catalogue,
       list,
@@ -356,8 +433,55 @@ export class BossFeedService<T> implements BossAdmin<T> {
           one.expiresAt !== null && one.expiresAt > now ? [one.expiresAt] : [],
         ),
       ),
-    };
+    });
     return list;
+  }
+
+  /**
+   * The feed's rows in `zone` (plan 19A-2): the zone's own where the last read found its list
+   * differs (`zoneFeeds`), else the stored feed, as the family has them there (`inZone`). The
+   * stored feed itself without a zone.
+   */
+  protected feedIn(
+    zone: string | undefined,
+    feed: readonly StoredBoss<T>[] = this.feed,
+    zoneFeeds: ReadonlyMap<string, StoredBoss<T>[]> = this.zoneFeeds,
+  ): readonly StoredBoss<T>[] {
+    if (zone === undefined) return feed;
+    const own = zoneFeeds.get(zone) ?? feed;
+    return this.family.inZone?.(own, zone) ?? own;
+  }
+
+  /**
+   * The changes of each zone in use (`BossFeedOptions.zones`) between the feeds before a read and
+   * now, as members of a server there see them; none for a zone whose feed is the same.
+   */
+  private zoneChanges(
+    feedBefore: readonly StoredBoss<T>[],
+    zoneFeedsBefore: ReadonlyMap<string, StoredBoss<T>[]>,
+    unread: ReadonlySet<string>,
+    now: number,
+  ): FeedChange<T>[] {
+    const { catalogue } = this.options.gameData;
+    const { ops } = this.family;
+    const { defaultZone } = this.options;
+    // After a start, what another zone had before is not known (fix round 1, L1); a zone whose
+    // own list this read could not make is told nothing (fix round 2, P2).
+    const known = (zone: string) =>
+      !unread.has(zone) &&
+      (this.zoneFeedsKnown || defaultZone === undefined || zone === defaultZone);
+    return (this.options.zones?.() ?? []).filter(known).flatMap((zone) => {
+      const before = this.feedIn(zone, feedBefore, zoneFeedsBefore);
+      const after = this.feedIn(zone);
+      const change = diffFeedIn(ops, before, after);
+      if (change.added.length === 0 && change.removed.length === 0) return [];
+      const seen = diffBossesIn(
+        ops,
+        this.family.effective(before, this.overrideList, catalogue, now),
+        this.family.effective(after, this.overrideList, catalogue, now),
+      );
+      return [{ ...change, seen, zone }];
+    });
   }
 
   /** When the feed was last read successfully (epoch ms); undefined if it never was. */
@@ -370,10 +494,13 @@ export class BossFeedService<T> implements BossAdmin<T> {
     return this.lastUnknownLevels;
   }
 
-  /** The bosses the feed listed at the last successful read, as stored. */
-  feedBosses(): StoredBoss<T>[] {
+  /**
+   * The bosses the feed listed at the last successful read, as stored; with a zone, as they are
+   * there (`feedIn`, plan 19A-2).
+   */
+  feedBosses(zone?: string): StoredBoss<T>[] {
     if (!this.loaded) throw new Error(this.notLoaded);
-    return this.feed.map((boss) => structuredClone(boss));
+    return this.feedIn(zone).map((boss) => structuredClone(boss));
   }
 
   /** The overrides in force, oldest first. */
@@ -479,6 +606,11 @@ export class BossFeedService<T> implements BossAdmin<T> {
     }
     this.inFlight ??= this.syncOnce().finally(() => {
       this.inFlight = undefined;
+      // The zones in use changed while it ran: one more read, for them (fix round 1, L3).
+      if (this.zonesAgain) {
+        this.zonesAgain = false;
+        this.zonesChanged();
+      }
     });
     return this.inFlight;
   }
@@ -523,6 +655,24 @@ export class BossFeedService<T> implements BossAdmin<T> {
   }
 
   /**
+   * The zones in use changed (plan 19A-2: a server's zone; a server that joins or leaves): with a
+   * source, the list is read again in the background, so that a new zone has its own list and
+   * the next change among the zones now in use is known; the timer is set again from that read.
+   * During a sync, one more once it ends, never the one in flight, which began with the zones
+   * before (fix round 1, L3). Nothing while the service does not read by itself.
+   */
+  zonesChanged(): void {
+    if (!this.autoSyncing || this.stopped || !this.options.source) return;
+    if (this.inFlight) {
+      this.zonesAgain = true;
+      return;
+    }
+    void this.sync().finally(() => {
+      if (this.autoSyncing && !this.stopped) this.schedule();
+    });
+  }
+
+  /**
    * Cancels the scheduled sync and ends a download in flight (that sync reports `stopped`).
    * Writes to the database are not interrupted.
    */
@@ -549,6 +699,8 @@ export class BossFeedService<T> implements BossAdmin<T> {
     if (this.nextChange !== undefined) {
       due = Math.min(due, this.nextChange + AFTER_CHANGE_MS - now);
     }
+    const zoneRetry = this.zoneRetryAt();
+    if (zoneRetry !== undefined) due = Math.min(due, zoneRetry - now);
     // Never longer than the interval: a stored time in the future must not postpone syncing.
     const delay = Math.min(Math.max(due, 0), interval, MAX_TIMER_MS);
     this.dueAt = now + delay;
@@ -566,10 +718,25 @@ export class BossFeedService<T> implements BossAdmin<T> {
    * again when that read learned a change that comes before it (review R3 of 8B-L).
    */
   private followChange(): void {
-    if (!this.autoSyncing || this.stopped || !this.timer || this.nextChange === undefined) return;
-    if (this.dueAt === undefined || this.nextChange + AFTER_CHANGE_MS < this.dueAt) {
-      this.schedule();
-    }
+    if (!this.autoSyncing || this.stopped || !this.timer) return;
+    const soonest = Math.min(
+      this.nextChange === undefined ? Infinity : this.nextChange + AFTER_CHANGE_MS,
+      this.zoneRetryAt() ?? Infinity,
+    );
+    if (soonest === Infinity) return;
+    if (this.dueAt === undefined || soonest < this.dueAt) this.schedule();
+  }
+
+  /**
+   * When another zone's list that the last read could not make is read again (fix round 2, P5):
+   * `retryMs` after that attempt for the first three reads in a row, as after the feed's own
+   * failures; after that none of its own, the refresh decides. None while the feed's own reads
+   * fail (fix round 3, Q1): its own count of failures decides then (`retryMs`, then `refreshMs`).
+   */
+  private zoneRetryAt(): number | undefined {
+    if (this.failures > 0) return undefined;
+    if (this.zoneFailures === 0 || this.zoneFailures > QUICK_RETRIES) return undefined;
+    return this.attemptedAt === undefined ? undefined : this.attemptedAt + this.retryMs;
   }
 
   private async syncOnce(): Promise<SyncResult<T>> {
@@ -578,9 +745,11 @@ export class BossFeedService<T> implements BossAdmin<T> {
     this.attemptedAt = now;
     const before = this.feed.length;
     const feedBefore = this.feed;
+    const zoneFeedsBefore = this.zoneFeeds;
     const { noun, ops } = this.family;
     let change: BossListChange<T>;
     let seen: SeenChange<Boss<T>> | undefined;
+    let zoneChanges: FeedChange<T>[] = [];
     try {
       const read = await this.readFeed(now);
       // No override is written from storing the feed until what members see is worked out.
@@ -589,6 +758,15 @@ export class BossFeedService<T> implements BossAdmin<T> {
         seen?: SeenChange<Boss<T>>;
       }>(async () => {
         const stored = await this.storeFeed(read, now);
+        const unread: ReadonlySet<string> = read.notModified
+          ? new Set()
+          : (read.unreadZones ?? new Set());
+        this.zoneFailures = unread.size === 0 ? 0 : this.zoneFailures + 1;
+        // Each zone in use its own change (plan 19A-2), worked out under the same exclusion.
+        if (this.options.zones) {
+          zoneChanges = this.zoneChanges(feedBefore, zoneFeedsBefore, unread, now);
+        }
+        this.zoneFeedsKnown = true;
         if (stored.added.length === 0 && stored.removed.length === 0) return { change: stored };
         // What members see: the lists in effect before and after, with the same overrides.
         const { catalogue } = this.options.gameData;
@@ -635,6 +813,8 @@ export class BossFeedService<T> implements BossAdmin<T> {
     this.staleReported = false;
     this.followChange();
     const remarks = this.remarks(before, this.feed.length);
+    // With zones in use, each zone's change is told to the servers in it (plan 19A-2).
+    if (!first) for (const one of zoneChanges) this.emit(this.changeListeners, one);
     if (!seen) {
       // So that a read can be seen to have run (plan 8X-H: after an outage).
       this.safely(() =>
@@ -652,7 +832,7 @@ export class BossFeedService<T> implements BossAdmin<T> {
       ),
     );
     const feedChange: FeedChange<T> = { ...change, seen };
-    if (!first) this.emit(this.changeListeners, feedChange);
+    if (!first && !this.options.zones) this.emit(this.changeListeners, feedChange);
     return { status: 'updated', change: feedChange, ...remarks };
   }
 
@@ -799,7 +979,55 @@ export class BossFeedService<T> implements BossAdmin<T> {
       read.detail ?? {},
       `${this.family.noun}es read from ${source.name}`,
     );
-    return { notModified: false, bosses: this.accepted(parsed), validators: {}, catalogue };
+    const bosses = this.accepted(parsed);
+    const { byZone, unparsed } = this.zoneBosses(read, catalogue, now);
+    const unreadZones = new Set([...(read.unreadZones?.keys() ?? []), ...unparsed]);
+    return {
+      notModified: false,
+      bosses,
+      byZone,
+      ...(unreadZones.size === 0 ? {} : { unreadZones }),
+      validators: {},
+      catalogue,
+    };
+  }
+
+  /**
+   * The bosses of the documents a source gave the other zones (plan 19A-2, `SourceRead.byZone`),
+   * and the zones whose document does not parse (`unparsed`): those are unread as the source's
+   * own (fix round 3, Q3: each keeps its list, and the read is made again soon), and the log
+   * says so.
+   */
+  private zoneBosses(
+    read: { byZone?: ReadonlyMap<string, unknown>; unreadZones?: ReadonlyMap<string, string> },
+    catalogue: PokemonCatalogue,
+    now: number,
+  ): { byZone: ReadonlyMap<string, FeedBoss<T>[]>; unparsed: ReadonlySet<string> } {
+    const parsed = new Map<string, FeedBoss<T>[]>();
+    const unparsed = new Set<string>();
+    // A zone whose own document the source could not make (fix round 1, L2).
+    for (const [zone, reason] of read.unreadZones ?? []) {
+      this.safely(() =>
+        this.options.log.warn(
+          { zone, reason },
+          `a zone's ${this.family.noun} list could not be read`,
+        ),
+      );
+    }
+    for (const [zone, json] of read.byZone ?? []) {
+      try {
+        parsed.set(zone, this.family.parse(json, catalogue, now).bosses);
+      } catch (err) {
+        unparsed.add(zone);
+        this.safely(() =>
+          this.options.log.warn(
+            { err, zone },
+            `a zone's ${this.family.noun} list could not be read`,
+          ),
+        );
+      }
+    }
+    return { byZone: parsed, unparsed };
   }
 
   /** Logs which source a read took its list from, once each time that changes (information). */
@@ -900,6 +1128,7 @@ export class BossFeedService<T> implements BossAdmin<T> {
     if (read.notModified) {
       await store.touchActive(now);
       this.feed = await store.listActive();
+      this.zoneFeeds = new Map();
       await this.housekeeping(now);
       return { added: [], removed: [] };
     }
@@ -907,13 +1136,56 @@ export class BossFeedService<T> implements BossAdmin<T> {
     // Forgotten before the list is replaced: if anything after that fails, the next request is
     // unconditional and repairs the list, instead of a 304 vouching for one the feed does not have.
     this.validators = {};
+    const feedBefore = this.feed;
     await store.replaceFeed(read.bosses, now);
     this.feed = await store.listActive();
+    this.zoneFeeds = this.storedIn(read.byZone, read.unreadZones, feedBefore, now);
     await this.housekeeping(now);
     // Remembered only for a feed that was accepted: a 304 must never vouch for a rejected one.
     this.validators = read.validators;
     this.validatorsCatalogue = read.catalogue;
     return change;
+  }
+
+  /**
+   * The other zones' bosses as rows of the stored feed (`zoneFeeds`): a boss that zone listed at
+   * the read before keeps its times there (fix round 1, L5), else one the stored feed has keeps
+   * those; one new to both is first seen now (plan 19A-2). A zone whose own list the read could
+   * not make (`unread`) keeps what it had (fix round 2, P2: a page failing once does not flip its
+   * list to the default's and back): its own where it had one, else the stored feed as it was
+   * before this read (`feedBefore`; fix round 3, Q2), never the new one, unless there was none
+   * (a new database: a feed's list is never empty, and nothing serves nobody).
+   */
+  private storedIn(
+    byZone: ReadonlyMap<string, FeedBoss<T>[]> | undefined,
+    unread: ReadonlySet<string> | undefined,
+    feedBefore: StoredBoss<T>[],
+    now: number,
+  ): ReadonlyMap<string, StoredBoss<T>[]> {
+    const { ops } = this.family;
+    const identity = (boss: FeedBoss<T>): string =>
+      `${boss.pokemonId}|${boss.form ?? ''}|${ops.slot(boss.tier)}`;
+    const stored = new Map(this.feed.map((boss) => [identity(boss), boss]));
+    const before = this.zoneFeeds;
+    const zones = new Map<string, StoredBoss<T>[]>();
+    const had = feedBefore.length > 0 ? feedBefore : this.feed;
+    for (const zone of unread ?? []) zones.set(zone, before.get(zone) ?? had);
+    for (const [zone, bosses] of byZone ?? []) {
+      zones.set(
+        zone,
+        bosses.map((boss) => {
+          const known =
+            before.get(zone)?.find((one) => identity(one) === identity(boss)) ??
+            stored.get(identity(boss));
+          return {
+            ...boss,
+            firstSeen: known?.firstSeen ?? Math.max(now, boss.startsAt ?? now),
+            lastSeen: now,
+          };
+        }),
+      );
+    }
+    return zones;
   }
 
   /** Deletes expired overrides and re-reads the rest; a failure is logged, never fails the sync. */

@@ -170,7 +170,9 @@ describe('/max', () => {
         ),
       );
     await made.bosses.service.sync();
-    const offered = maxBossOptions(made.ctx, 'eternatus', Date.now()).map((one) => one.name);
+    const offered = maxBossOptions(made.ctx, 'eternatus', Date.now(), MAX_ZONE).map(
+      (one) => one.name,
+    );
     expect(offered).toEqual(['Eternamax Eternatus']);
     const used = await made.run({ boss: 'Eternamax Eternatus', spot: `powerspot:${TEST_SPOT.id}` });
     expect(told(used)).toMatch(/^Reported: Eternamax Eternatus at /);

@@ -59,17 +59,19 @@ export function maxChoiceValue(boss: Pick<MaxBoss, 'tier' | 'key'>): string {
 
 /**
  * The choices of `/max`'s `boss`: the list in its order (`currentMaxBossChoices`), narrowed; of
- * one kind only for `/boss` in a battle (`kind`: a battle never changes kind, review B, B7).
+ * one kind only for `/boss` in a battle (`kind`: a battle never changes kind, review B, B7). The
+ * list and its week are the server's `zone`'s (plan 19A-2).
  */
 export function maxBossOptions(
   ctx: MaxReading,
   typed: string,
   now: number,
+  zone: string,
   kind?: BattleKind,
 ): Choice[] {
   const words = typed.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const fits = (name: string): boolean => words.every((word) => name.toLowerCase().includes(word));
-  return currentMaxBossChoices(maxDeps(ctx), now)
+  return currentMaxBossChoices(maxDeps(ctx, zone), now)
     .filter((choice) => kind === undefined || battleKindOf(choice.boss.tier) === kind)
     .filter((choice) => fits(choice.name))
     .map((choice) => ({
@@ -80,14 +82,14 @@ export function maxBossOptions(
     .slice(0, MAX_CHOICES);
 }
 
-/** What `currentMaxBossChoices` reads, from the bot's context. */
-function maxDeps(ctx: MaxReading) {
+/** What `currentMaxBossChoices` reads, from the bot's context, in the server's zone. */
+function maxDeps(ctx: MaxReading, zone: string) {
   return {
     maxBosses: ctx.maxBosses,
     maxEvents: ctx.raidEvents,
     pokemon: ctx.pokemon,
     gameData: ctx.gameData,
-    zone: ctx.config.settings.timezone,
+    zone,
   };
 }
 
@@ -159,21 +161,22 @@ export function readMaxBoss(
   text: string,
   tierText: string | null,
   now: number,
+  zone: string,
   fallback?: MaxTier,
 ): ReadMaxBoss {
   const tier = tierText === null ? undefined : tierText.trim().toUpperCase();
   if (tier !== undefined && !isMaxTier(tier)) {
     throw new UserError('That is no max battle tier: pick one from the list.');
   }
-  const bosses = ctx.maxBosses.bosses();
+  const bosses = ctx.maxBosses.bosses(zone);
   const picked = /^m:(D[1-5]|G):(.{1,95})$/.exec(text.trim());
   if (picked) {
     const pickedTier = picked[1] as MaxTier;
     const key = picked[2];
-    const listed = [...bosses, ...ctx.maxBosses.coming()].find(
+    const listed = [...bosses, ...ctx.maxBosses.coming(zone)].find(
       (boss) => boss.key === key && boss.tier === pickedTier,
     );
-    const offered = currentMaxBossChoices(maxDeps(ctx), now).find(
+    const offered = currentMaxBossChoices(maxDeps(ctx, zone), now).find(
       (choice) => choice.boss.key === key && choice.boss.tier === pickedTier,
     );
     const boss = offered?.boss ?? listed;

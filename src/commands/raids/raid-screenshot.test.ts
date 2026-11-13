@@ -40,6 +40,9 @@ import { reportedBoss } from './raid-input.js';
 import { buttonsOf, customIdsOf } from '../../../test/support/messages.js';
 import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
 
+/** The zone of the test settings, every server's here. */
+const ZONE = 'America/New_York';
+
 /** PARTY_NOW is 14:00 in New York: the phone's clock a minute before. */
 const CLOCK = { hour: 13, minute: 59 };
 
@@ -271,7 +274,7 @@ describe('/raid with a screenshot', () => {
     await service.flush();
     const [party] = store.active();
     if (!party || !isRaid(party)) throw new Error('no raid');
-    const typed = reportedBoss(ctx, 't5 azelf');
+    const typed = reportedBoss(ctx, 't5 azelf', ZONE);
     expect(party.raid).toMatchObject({ tier: typed.tier, boss: typed.boss });
     expect(sent(used.editReply).content).toMatch(
       new RegExp(`^Reported: ${typed.label.replace(/[()]/g, '\\$&')} at Old Stone Fountain\\.`),

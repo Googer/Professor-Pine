@@ -199,10 +199,11 @@ export class SpawnService {
    * now, otherwise the icon of its catalogue entry; none when neither is known. A report goes
    * out without its picture rather than not at all.
    */
-  private pictureOf(key: string): string | undefined {
-    const { raidBosses, gameData, log } = this.options;
+  private pictureOf(key: string, guildId: string): string | undefined {
+    const { raidBosses, gameData, log, servers } = this.options;
     try {
-      const feed = raidBosses.bosses().find((boss) => boss.entry?.key === key)?.image;
+      const bosses = raidBosses.bosses(servers.zoneOf(guildId));
+      const feed = bosses.find((boss) => boss.entry?.key === key)?.image;
       return pokemonPicture(feed, gameData.catalogue.byKey(key), gameData);
     } catch (err) {
       log.warn({ err, pokemon: key }, 'could not find the picture of a Pokémon');
@@ -247,7 +248,7 @@ export class SpawnService {
       iv: report.iv,
       details: report.details,
       reporter: report.reporter,
-      image: this.pictureOf(report.pokemon.key),
+      image: this.pictureOf(report.pokemon.key, report.guildId),
       near: report.near,
       ...(costumed ? { costumed: true } : {}),
     };

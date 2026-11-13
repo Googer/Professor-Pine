@@ -5,6 +5,9 @@ import { testMax } from '../../../test/support/parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
 import { admin } from './index.js';
 
+/** The zone of the test settings, every server's here. */
+const ZONE = 'America/New_York';
+
 // Plan 8X-2: `/admin boss` with the max tiers beside the raid tiers.
 const NOW = local('2026-10-21T12:00');
 // Plan 8X-J: running battles, on the party fixtures' own clock (their day, before their end).
@@ -92,7 +95,7 @@ describe('/admin boss with a max tier', () => {
     expect(now).toMatch(/^\*\*Dynamax 2★\*\* now: .*Sneasel/);
     expect(
       made.max.service
-        .bosses()
+        .bosses(ZONE)
         .filter((boss) => boss.key === 'sneasel')
         .map((boss) => boss.tier),
     ).toEqual(['D2']);
@@ -134,16 +137,16 @@ describe('/admin boss with a max tier', () => {
     expect(textsOf(used)[0]).toMatch(
       /^Sneasel is hidden from Dynamax 1★ \(override #1, for good\)\./,
     );
-    expect(made.max.service.bosses().some((boss) => boss.key === 'sneasel')).toBe(false);
+    expect(made.max.service.bosses(ZONE).some((boss) => boss.key === 'sneasel')).toBe(false);
   });
 
   it('sets a max boss shiny in its tier, and a shiny override without a tier is a raid one', async () => {
     const made = await withMax();
     await made.use('boss', 'shiny', { pokemon: 'Machop', 'can-be-shiny': false, tier: 'D2' });
-    expect(made.max.service.bosses().find((boss) => boss.key === 'machop')?.shiny).toBe(false);
+    expect(made.max.service.bosses(ZONE).find((boss) => boss.key === 'machop')?.shiny).toBe(false);
     const every = await made.use('boss', 'shiny', { pokemon: 'Machop', 'can-be-shiny': true });
     expect(made.bosses.service.overrides()).toMatchObject([{ action: 'shiny', tier: null }]);
-    expect(made.max.service.bosses().find((boss) => boss.key === 'machop')?.shiny).toBe(false);
+    expect(made.max.service.bosses(ZONE).find((boss) => boss.key === 'machop')?.shiny).toBe(false);
     expect(textsOf(every)[0]).toMatch(/can be shiny, in any raid tier/);
   });
 

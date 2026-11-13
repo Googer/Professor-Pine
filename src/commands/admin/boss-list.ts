@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   MessageFlags,
   SlashCommandSubcommandBuilder,
@@ -131,14 +132,22 @@ function overrideLine(reported: ReportedOverride<BossTier>): string {
  * on it, then what is hidden and what acts on nothing. With `tier`, that tier only; a max tier
  * shows the max boss list (`maxListLines`), and without a tier it follows the raid bosses.
  */
-export function bossListLines(ctx: AppContext, now: number, tier?: BossTier): string[] {
-  if (tier !== undefined && isMaxBossTier(tier)) return maxListLines(ctx, now, tier);
-  return [...raidListLines(ctx, now, tier), ...(tier === undefined ? maxListLines(ctx, now) : [])];
+export function bossListLines(
+  ctx: AppContext,
+  now: number,
+  zone: string,
+  tier?: BossTier,
+): string[] {
+  if (tier !== undefined && isMaxBossTier(tier)) return maxListLines(ctx, now, zone, tier);
+  return [
+    ...raidListLines(ctx, now, zone, tier),
+    ...(tier === undefined ? maxListLines(ctx, now, zone) : []),
+  ];
 }
 
-function raidListLines(ctx: AppContext, now: number, tier?: RaidTier): string[] {
+function raidListLines(ctx: AppContext, now: number, zone: string, tier?: RaidTier): string[] {
   const admin = ctx.raidBossAdmin;
-  const report = bossReport(admin.feedBosses(), admin.overrides(), ctx.gameData.catalogue, now);
+  const report = bossReport(admin.feedBosses(zone), admin.overrides(), ctx.gameData.catalogue, now);
   const inTier = (other: RaidTier | null): boolean =>
     tier === undefined || other === null || sameRaidTier(other, tier);
   const read = admin.lastSyncedAt;
@@ -188,9 +197,9 @@ function raidListLines(ctx: AppContext, now: number, tier?: RaidTier): string[] 
  * lists ahead of their start (`Coming`, with when they start), then what is hidden and what acts
  * on nothing. With `tier`, that tier only.
  */
-function maxListLines(ctx: AppContext, now: number, tier?: MaxTier): string[] {
+function maxListLines(ctx: AppContext, now: number, zone: string, tier?: MaxTier): string[] {
   const admin = ctx.maxBossAdmin;
-  const feed = admin.feedBosses();
+  const feed = admin.feedBosses(zone);
   const report = familyReport(
     MAX_OPS,
     maxBossesAt,
@@ -233,7 +242,7 @@ function maxListLines(ctx: AppContext, now: number, tier?: MaxTier): string[] {
   }
   // The upcoming bosses as `/max` offers them (`coming`: an add's move and a hide apply), each
   // with the start its feed row holds.
-  const coming = ctx.maxBosses.coming().flatMap((boss) => {
+  const coming = ctx.maxBosses.coming(zone).flatMap((boss) => {
     const row = feed.find(
       (one) =>
         one.firstSeen > now &&
@@ -318,7 +327,7 @@ export const listBosses: SubcommandPart = {
   async execute(interaction, ctx) {
     const value = interaction.options.getString('tier');
     const tier = value === null ? undefined : readTier(value);
-    await sendLines(interaction, bossListLines(ctx, Date.now(), tier));
+    await sendLines(interaction, bossListLines(ctx, Date.now(), zoneOf(interaction, ctx), tier));
   },
 };
 

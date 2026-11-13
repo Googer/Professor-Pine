@@ -592,6 +592,7 @@ export interface RaidBoss {
   pokemonId: string;
   shadow: Generated<number>;
   shiny: Generated<number>;
+  startsFrom: string | null;
 }
 
 export interface RaidBossOverride {

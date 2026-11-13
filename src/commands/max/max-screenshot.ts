@@ -209,7 +209,7 @@ async function answerMaxScreenshot(
   let bossWithoutTier = false;
   if (bossText !== '') {
     try {
-      typed.boss = readMaxBoss(ctx, bossText, tierText, now);
+      typed.boss = readMaxBoss(ctx, bossText, tierText, now, zoneOf(interaction, ctx));
     } catch (err) {
       if (!(err instanceof UserError && err.message === WHICH_TIER)) throw err;
       bossWithoutTier = true;
@@ -229,7 +229,7 @@ async function answerMaxScreenshot(
     const tier = bossWithoutTier && read ? tierOfScreen(read) : undefined;
     if (tier !== undefined) {
       try {
-        typed.boss = readMaxBoss(ctx, bossText, tier, now);
+        typed.boss = readMaxBoss(ctx, bossText, tier, now, zoneOf(interaction, ctx));
       } catch (err) {
         if (!(err instanceof Error)) throw err;
         bossRefused = err;

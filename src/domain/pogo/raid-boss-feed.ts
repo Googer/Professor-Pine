@@ -32,6 +32,12 @@ export interface FeedBoss<T = RaidTier> {
    * effect leaves it out until then. Undefined: from the read that lists it.
    */
   startsAt?: number;
+  /**
+   * The moment the feed gives an upcoming boss's start (plan 19A-2: Pokebattler's `startDate`,
+   * while it is ahead): `startsAt` is the start of its day in the instance's default zone, and in
+   * each server's zone that day's start there (`maxRowsIn`). Stored (`RaidBoss.startsFrom`).
+   */
+  startsFrom?: number;
 }
 
 export interface ParsedFeed<T = RaidTier> {

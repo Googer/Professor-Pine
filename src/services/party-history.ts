@@ -34,6 +34,11 @@ export interface PartyHistoryOptions {
   raidBosses: RaidBossProvider;
   /** The max bosses, for whether a max battle's boss could be shiny (as its post says). */
   maxBosses: Pick<MaxBossProvider, 'bosses'>;
+  /**
+   * The zone of a party's server (`PartyService.zoneOf`, plan 19A-2): whose boss lists say
+   * whether its boss could be shiny.
+   */
+  zoneOf: (party: Party) => string;
   log: Logger;
   retryDelaysMs?: readonly number[];
   setTimer?: (run: () => void, ms: number) => () => void;
@@ -149,12 +154,19 @@ export class PartyHistory {
       const { boss, tier } = party.max;
       const { catalogue } = this.options.gameData;
       return (
-        listedMaxBoss(boss, tier, catalogue, this.options.maxBosses.bosses()).listed?.shiny ?? null
+        listedMaxBoss(
+          boss,
+          tier,
+          catalogue,
+          this.options.maxBosses.bosses(this.options.zoneOf(party)),
+        ).listed?.shiny ?? null
       );
     }
     if (!isRaid(party) || party.raid.boss === null || !('key' in party.raid.boss)) return null;
     const { key } = party.raid.boss;
-    const boss = this.options.raidBosses.bossesOf(party.raid.tier).find((b) => b.key === key);
+    const boss = this.options.raidBosses
+      .bossesOf(party.raid.tier, this.options.zoneOf(party))
+      .find((b) => b.key === key);
     return boss?.shiny ?? null;
   }
 

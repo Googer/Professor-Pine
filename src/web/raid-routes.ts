@@ -266,7 +266,8 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if (!session) return sendFailure(request, reply, 401);
       const refused = await memberOrFailure(request, reply, request.params.guild, session.userId);
       if (refused) return refused;
-      const body = JSON.stringify(raidOptions(ctx.raidBosses.bosses(), parties.zone));
+      const zone = ctx.servers.zoneOf(request.params.guild);
+      const body = JSON.stringify(raidOptions(ctx.raidBosses.bosses(zone), zone));
       const etag = etagOf(body);
       void reply.header('etag', etag);
       if (etagMatches(request.headers['if-none-match'], etag)) return reply.code(304).send();
@@ -349,7 +350,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
     let reported: ReportedBoss;
     let time: ReturnType<typeof reportedTime>;
     try {
-      reported = reportedBoss(ctx, body.data.boss);
+      reported = reportedBoss(ctx, body.data.boss, ctx.servers.zoneOf(guild));
       time = reportedTime(
         ctx,
         reported,

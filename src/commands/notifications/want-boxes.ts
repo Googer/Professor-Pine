@@ -264,9 +264,9 @@ function rewardedToday(ctx: AppContext, dex: number): boolean {
  * rewards) unless today's task list rewards it (the member's own Research box is added by
  * `dialogBoxes`). Decided from the lists alone, so `/want` knows at once whether it asks.
  */
-export function shownBoxes(ctx: AppContext, subject: BoxSubject): WantBox[] {
+export function shownBoxes(ctx: AppContext, subject: BoxSubject, zone: string): WantBox[] {
   if (subject.kind === 'tier') return tierBoxes(subject.level);
-  const boxes = pokemonShownBoxes(ctx, subject);
+  const boxes = pokemonShownBoxes(ctx, subject, zone);
   const special = entriesOf(ctx, subject).every((entry) => entry.class !== null);
   return special && !rewardedToday(ctx, subject.dex)
     ? boxes.filter((box) => box !== 'research')
@@ -281,8 +281,9 @@ export function dialogBoxes(
   ctx: AppContext,
   subject: BoxSubject,
   held: readonly HeldRow[],
+  zone: string,
 ): WantBox[] {
-  const shown = shownBoxes(ctx, subject);
+  const shown = shownBoxes(ctx, subject, zone);
   if (shown.includes('research') || !boxesOf(held).has('research')) return shown;
   return POKEMON_BOXES.filter((box) => box === 'research' || shown.includes(box));
 }
@@ -304,11 +305,13 @@ export function whichHashOf(ctx: AppContext, subject: BoxSubject): string {
  * costume of any of its forms, or the raid boss list, today's task list or the spawns of an
  * event on (`eventSpawns`) has it costumed now.
  */
-export function costumesShown(ctx: AppContext, subject: BoxSubject): boolean {
+export function costumesShown(ctx: AppContext, subject: BoxSubject, zone: string): boolean {
   if (subject.kind !== 'pokemon') return false;
   const { catalogue } = ctx.gameData;
   if (catalogue.hasCostume(subject.dex)) return true;
-  if (ctx.raidBosses.bosses().some((boss) => boss.costumed && boss.entry?.dex === subject.dex)) {
+  if (
+    ctx.raidBosses.bosses(zone).some((boss) => boss.costumed && boss.entry?.dex === subject.dex)
+  ) {
     return true;
   }
   if (
@@ -380,13 +383,17 @@ export function isMegaForm(ctx: AppContext): (form: string) => boolean {
 }
 
 /** `shownBoxes` of a Pokémon as the game data and the lists have it, Research of any. */
-function pokemonShownBoxes(ctx: AppContext, subject: BoxSubject & { kind: 'pokemon' }): WantBox[] {
+function pokemonShownBoxes(
+  ctx: AppContext,
+  subject: BoxSubject & { kind: 'pokemon' },
+  zone: string,
+): WantBox[] {
   const entries = entriesOf(ctx, subject);
   const keys = new Set(entries.map((entry) => entry.key));
   const fits = (entry: PokemonEntry | undefined): boolean =>
     entry !== undefined &&
     (subject.form === undefined ? entry.dex === subject.dex : keys.has(entry.key));
-  const maxBosses = ctx.maxBosses.bosses();
+  const maxBosses = ctx.maxBosses.bosses(zone);
   const { species } = wildExceptionsOf(ctx);
   const { catalogue } = ctx.gameData;
   return pokemonBoxes({
@@ -405,7 +412,7 @@ function pokemonShownBoxes(ctx: AppContext, subject: BoxSubject & { kind: 'pokem
     },
     dynamaxListed: maxBosses.some((boss) => boss.tier !== 'G' && fits(boss.entry)),
     gigantamaxListed: maxBosses.some((boss) => boss.tier === 'G' && fits(boss.entry)),
-    shadowBoss: ctx.raidBosses.bosses().some((boss) => boss.tier.shadow && fits(boss.entry)),
+    shadowBoss: ctx.raidBosses.bosses(zone).some((boss) => boss.tier.shadow && fits(boss.entry)),
     // A catch of today's Rocket lineups (plan 8R-2): its shadow can be caught now.
     rocketCatch: ctx.rocketLineups
       .choices()

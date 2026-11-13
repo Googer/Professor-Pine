@@ -12,6 +12,7 @@ import {
   maxBossesAt,
   maxBossOf,
   maxOverrideProblem,
+  maxRowsIn,
   parseMaxBossFeed,
   type MaxBoss,
   type MaxFeedBoss,
@@ -60,6 +61,18 @@ describe('parseMaxBossFeed: the recorded feed', () => {
     // 14:00 to 17:00 is over: the day is what is meant.
     for (const boss of lake) expect(boss.startsAt).toBe(at('2026-10-24T00:00'));
     expect(parsed.bosses.filter((boss) => boss.startsAt !== undefined)).toHaveLength(3);
+  });
+
+  it('keeps Pokebattler’s moment, a boss from the start of its day in each zone (plan 19A-2)', () => {
+    const [azelf] = ofTier('D5');
+    expect(azelf?.startsFrom).toBe(Date.UTC(2026, 9, 24, 21));
+    const row = { ...(azelf as MaxFeedBoss), firstSeen: at('2026-10-24T00:00'), lastSeen: 0 };
+    // 21:00Z is 06:00 on the 25th in Tokyo, 23:00 on the 24th in Berlin.
+    expect(maxRowsIn([row], 'Asia/Tokyo')[0]?.firstSeen).toBe(Date.UTC(2026, 9, 24, 15));
+    expect(maxRowsIn([row], 'Europe/Berlin')[0]?.firstSeen).toBe(Date.UTC(2026, 9, 23, 22));
+    expect(maxRowsIn([row], MAX_ZONE)[0]?.firstSeen).toBe(at('2026-10-24T00:00'));
+    const plain = { ...row, startsFrom: undefined };
+    expect(maxRowsIn([plain], 'Asia/Tokyo')[0]).toBe(plain);
   });
 
   it('keeps no start once it has passed', () => {

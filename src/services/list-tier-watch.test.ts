@@ -95,6 +95,45 @@ describe('ListTierWatch (plan 8X-J)', () => {
     expect(told).toMatchObject([{ bossKey: 'machamp', overrideId: added.id }]);
   });
 
+  it('reads the list as the sighting’s server sees it, in its zone (fix round 1, L6)', async () => {
+    const max = await maxBossServiceWith();
+    await max.service.sync();
+    const raid = await raidBossServiceWith();
+    const asked: Array<string | undefined> = [];
+    const told: ListTierNotice[] = [];
+    const watch = new ListTierWatch({
+      raidBossAdmin: raid.service,
+      maxBossAdmin: {
+        feedBosses: (zone) => {
+          asked.push(zone);
+          return max.service.feedBosses(zone);
+        },
+        overrides: () => max.service.overrides(),
+      },
+      gameData: { catalogue: catalogueFixture() },
+      reports: {
+        listTier: (notice) => {
+          told.push(notice);
+          return true;
+        },
+      },
+      zoneOf: (serverId) => (serverId === SERVER ? 'Asia/Tokyo' : 'America/New_York'),
+      now: () => max.state.now,
+    });
+    for (const [memberId, place] of [
+      ['100000000000000001', 'w1'],
+      ['100000000000000001', 'w2'],
+      ['100000000000000002', 'w1'],
+    ] as const) {
+      watch.observe(
+        { serverId: SERVER, channelId: CHANNEL, memberId, place, at: max.state.now },
+        SNEASEL,
+      );
+    }
+    expect(told).toHaveLength(1);
+    expect(asked).toEqual(['Asia/Tokyo']);
+  });
+
   it('tells nothing outside a channel of a region, nor of a boss the list no longer has there', async () => {
     const { watch, told, where } = await watchWith();
     for (const place of ['w1', 'w2', 'w3']) {

@@ -288,7 +288,6 @@ export class PartyScheduler {
   private async run(): Promise<void> {
     const { store, posts, raidBosses, settings, log } = this.options;
     const now = this.now();
-    const autoset = tickAutoset(raidBosses);
     // One input per zone in use, not per party (plan 19A-2): each party ticks by the rules of
     // its server's zone, whose days it is shown anew at.
     const inputs = new Map<string, TickInput>();
@@ -296,6 +295,7 @@ export class PartyScheduler {
       const zone = posts.zoneOf(party);
       let input = inputs.get(zone);
       if (input === undefined) {
+        const autoset = tickAutoset({ autoset: (tier) => raidBosses.autoset(tier, zone) });
         input = { now, previous: this.previous, settings, rules: posts.rulesIn(zone), autoset };
         inputs.set(zone, input);
       }

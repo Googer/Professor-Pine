@@ -1,8 +1,10 @@
 import type { ShardStart } from './discord/shard-readiness.js';
 import { taskPictureSources } from './domain/stops/pictures.js';
+import type { Logger } from './log.js';
 import type { PartyService } from './services/party-service.js';
 import type { PartyStore } from './services/party-store.js';
 import type { PictureMaking } from './services/research-task-service.js';
+import type { ServerSettingsLookup } from './services/server-settings.js';
 import type { SpawnService } from './services/spawn-service.js';
 import type { StopReportListener } from './services/stop-reports.js';
 import type { ShutdownStep } from './shutdown.js';
@@ -195,4 +197,39 @@ export function stopReportSteps(parts: {
       },
     },
   ];
+}
+
+/**
+ * What follows the servers' zones (plan 19A-2; fix round 1, N5): a change of a server's zone
+ * reaches each of `server` with the server, then each of `zones`; a change of the zones in use
+ * that no change of a zone made (a server joining or leaving with a zone of its own) reaches each
+ * of `zones`. Every hook runs, one that throws is logged.
+ */
+export function followZones(
+  servers: Pick<ServerSettingsLookup, 'onZoneChange' | 'onZonesInUseChange'>,
+  hooks: {
+    server?: ReadonlyArray<(serverId: string) => void>;
+    zones?: ReadonlyArray<() => void>;
+  },
+  log: Logger,
+): void {
+  const run = (hook: () => void): void => {
+    try {
+      hook();
+    } catch (err) {
+      log.error({ err }, 'a listener of a change of time zone failed');
+    }
+  };
+  const zones = (): void => {
+    for (const hook of hooks.zones ?? []) run(hook);
+  };
+  servers.onZoneChange((serverId) => {
+    for (const hook of hooks.server ?? []) {
+      run(() => {
+        hook(serverId);
+      });
+    }
+    zones();
+  });
+  servers.onZonesInUseChange(zones);
 }

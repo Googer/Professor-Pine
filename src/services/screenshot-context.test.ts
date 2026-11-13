@@ -26,7 +26,7 @@ describe('reportContext', () => {
       { channelId: WEST_CHANNEL, guildId: FAKE_GUILD_ID, guildRow: GUILD_ROW },
       1_000,
     );
-    expect(context.bosses).toEqual(ctx.raidBosses.bosses());
+    expect(context.bosses).toEqual(ctx.raidBosses.bosses(ctx.servers.zoneOf(FAKE_GUILD_ID)));
     expect(context.searchGym('Old Stone Fountain')[0]?.gym.id).toBe(2);
     // A gym's nickname and description are not on a raid screen: names only.
     expect(context.searchGym('readers beside the front doors')).toEqual([]);

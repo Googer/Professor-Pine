@@ -316,7 +316,8 @@ async function answerScreenshot(
   const typedBoss = interaction.options.getString('boss')?.trim() ?? '';
   const typedGymText = interaction.options.getString('gym')?.trim() ?? '';
   const typedTime = interaction.options.getString('time');
-  const reported = typedBoss === '' ? undefined : reportedBoss(ctx, typedBoss);
+  const reported =
+    typedBoss === '' ? undefined : reportedBoss(ctx, typedBoss, zoneOf(interaction, ctx));
   const gymAnswer =
     typedGymText === '' ? undefined : reportedGym(ctx, regionChannelId, typedGymText);
   if (gymAnswer?.kind === 'none') {
@@ -643,7 +644,11 @@ function raidCommand(screenshots: boolean): SimpleCommand {
         await reportFromScreenshot(interaction, ctx, regionChannelId, attachment);
         return;
       }
-      const reported = reportedBoss(ctx, interaction.options.getString('boss', true));
+      const reported = reportedBoss(
+        ctx,
+        interaction.options.getString('boss', true),
+        zoneOf(interaction, ctx),
+      );
       const time = reportedTime(
         ctx,
         reported,
@@ -682,7 +687,7 @@ function raidCommand(screenshots: boolean): SimpleCommand {
     async autocomplete(interaction, ctx) {
       const focused = interaction.options.getFocused(true);
       if (focused.name === 'boss') {
-        await interaction.respond(bossChoices(ctx, focused.value));
+        await interaction.respond(bossChoices(ctx, focused.value, zoneOf(interaction, ctx)));
         return;
       }
       const regionName = (channelId: string): string | undefined =>

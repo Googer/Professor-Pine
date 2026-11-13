@@ -6,6 +6,7 @@ import {
 import type { AppContext } from '../../app-context.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
+import { zoneOf } from '../../discord/server-values.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
 import {
   NICKNAME_MAX,
@@ -40,8 +41,8 @@ const MAX_STORED = 255;
 const shown = (nickname: string): string => `**${plain(nickname)}**`;
 
 /** The Pokémon the `pokemon` option names; one the game data does not know has no nicknames. */
-function chosenEntry(ctx: AppContext, value: string): PokemonEntry {
-  const { entry, label } = chosenPokemon(ctx, value);
+function chosenEntry(ctx: AppContext, value: string, zone: string): PokemonEntry {
+  const { entry, label } = chosenPokemon(ctx, value, zone);
   if (!entry) throw new UserError(`${label} is not in the game data, so it has no nicknames yet.`);
   return entry;
 }
@@ -160,7 +161,11 @@ export const addNickname: SubcommandPart = {
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
-    const entry = chosenEntry(ctx, interaction.options.getString('pokemon', true));
+    const entry = chosenEntry(
+      ctx,
+      interaction.options.getString('pokemon', true),
+      zoneOf(interaction, ctx),
+    );
     const added = await ctx.nicknames.add(entry, interaction.options.getString('nickname', true));
     ctx.log.info(
       { by: interaction.user.id, pokemon: entry.key, outcome: added.kind },
@@ -195,7 +200,11 @@ export const removeNickname: SubcommandPart = {
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
-    const entry = chosenEntry(ctx, interaction.options.getString('pokemon', true));
+    const entry = chosenEntry(
+      ctx,
+      interaction.options.getString('pokemon', true),
+      zoneOf(interaction, ctx),
+    );
     // As it is stored and compared: what was typed, tidied.
     const nickname = tidyNickname(interaction.options.getString('nickname', true));
     const removed = await ctx.nicknames.remove(entry, nickname);
@@ -239,7 +248,7 @@ export const listNicknames: SubcommandPart = {
   async execute(interaction, ctx) {
     const value = interaction.options.getString('pokemon');
     if (value !== null) {
-      const entry = chosenEntry(ctx, value);
+      const entry = chosenEntry(ctx, value, zoneOf(interaction, ctx));
       await interaction.editReply({ content: nicknamesLine(ctx, entry) });
       return;
     }

@@ -151,7 +151,7 @@ function namesBeforeLabelWords(typed: readonly string[]): string[] {
  *
  * Nothing twice, 25 at most. A choice's value is the target's token.
  */
-export function wantChoices(ctx: AppContext, typed: string): Choice[] {
+export function wantChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
   const { catalogue } = ctx.gameData;
   const words = searchTokens(typed);
   const targets: NotificationTarget[] = [];
@@ -187,7 +187,7 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
     // Pokémon, after the tiers. Nor does one found by a word of its form: `for` is
     // Forretress, not every boss that is a Forme. The bosses are asked for by themselves,
     // without a limit: among everything `s` finds, Starmie may stand beyond the hundredth.
-    const bosses = ctx.raidBosses.bosses();
+    const bosses = ctx.raidBosses.bosses(zone);
     const bossKeys = new Set(bosses.flatMap((boss) => (boss.entry ? [boss.entry.key] : [])));
     const shadowBosses = new Set(
       bosses.flatMap((boss) => (boss.entry && boss.tier.shadow ? [boss.entry.dex] : [])),

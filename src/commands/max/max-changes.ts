@@ -75,7 +75,14 @@ export async function changeMaxBoss(
 ): Promise<void> {
   let read: ReadMaxBoss;
   try {
-    read = readMaxBoss(ctx, text, tierText, Date.now(), party.max.tier);
+    read = readMaxBoss(
+      ctx,
+      text,
+      tierText,
+      Date.now(),
+      ctx.partyService.zoneOf(party),
+      party.max.tier,
+    );
   } catch (err) {
     // Asked for the tier, nothing was changed: the use is given back (final review of 8X-F, F6).
     if (err instanceof UserError && err.message === WHICH_TIER) {

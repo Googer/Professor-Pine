@@ -48,7 +48,7 @@ describe('reporting a raid, as /raid and the map share it', () => {
     const made = await setup(
       new Map([[ALICE, { raidPrivacy: RaidPrivacy.Anonymous, autoStatus: PartyStatus.Coming }]]),
     );
-    const reported = reportedBoss(made.ctx, 'e:T5:0');
+    const reported = reportedBoss(made.ctx, 'e:T5:0', PARTY_ZONE);
     const result = await reportRaidAs(made.ctx, ALICE_MEMBER, libraryGym(), {
       reported,
       time: reportedTime(made.ctx, reported, '30', PARTY_NOW, PARTY_ZONE),
@@ -68,7 +68,7 @@ describe('reporting a raid, as /raid and the map share it', () => {
   it('words each outcome as /raid does, naming the post and the region as the surface can', async () => {
     const made = await setup();
     const gym = libraryGym();
-    const reported = reportedBoss(made.ctx, 'e:T5:0');
+    const reported = reportedBoss(made.ctx, 'e:T5:0', PARTY_ZONE);
     const request = { reported, time: undefined, regionChannelId: WEST_CHANNEL };
     const first = await reportRaidAs(made.ctx, ALICE_MEMBER, gym, request);
     const post = first.outcome.kind === 'created' ? first.outcome.party.forumPostId : null;

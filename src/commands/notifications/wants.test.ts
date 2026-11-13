@@ -78,6 +78,7 @@ import type { RocketChoice } from '../../domain/rocket/lineups.js';
 import { rocketChoicesOfFeed, rocketLineupsFixture } from '../../../test/support/rocket.js';
 import { testServerValues } from '../../../test/support/server-values.js';
 
+const ZONE = 'America/New_York';
 const OTHER_GUILD = '499999999999999999';
 
 /**
@@ -1831,7 +1832,7 @@ describe('/want: the list of choices', () => {
     };
     const list = [hoOh, ...fixture.bosses()];
     const { ctx } = createTestContext({ raidBosses: { ...fixture, bosses: () => list } });
-    const names = (typed: string) => wantChoices(ctx, typed).map((choice) => choice.name);
+    const names = (typed: string) => wantChoices(ctx, typed, ZONE).map((choice) => choice.name);
     // `santa` is a nickname of Ho-Oh: the boss is no reason to put it before Sawk.
     const sa = names('sa');
     expect(sa.indexOf('Sawk')).toBeGreaterThanOrEqual(0);
@@ -1933,7 +1934,7 @@ describe('/want: the list of choices', () => {
     // Mewtwo is a boss, and so is Venusaur, whose Pokédex number is 3.
     const list = [boss('mewtwo', 'T5'), boss('venusaur', 'T3'), ...fixture.bosses()];
     const { ctx } = createTestContext({ raidBosses: { ...fixture, bosses: () => list } });
-    const names = (typed: string) => wantChoices(ctx, typed).map((choice) => choice.name);
+    const names = (typed: string) => wantChoices(ctx, typed, ZONE).map((choice) => choice.name);
     // Mew is what `mew` names: before the choices of the boss Mewtwo.
     expect(names('mew').slice(0, 3)).toEqual(['Mew', 'Mewtwo (base form)', 'Mewtwo (every form)']);
     expect(names('mewt')[0]).toBe('Mewtwo (base form)');
@@ -1947,11 +1948,11 @@ describe('/want: the list of choices', () => {
     const withTtar = createTestContext({
       raidBosses: { ...fixture, bosses: () => tyranitar },
     }).ctx;
-    expect(wantChoices(withTtar, 'tta').map((choice) => choice.name)).toEqual([
+    expect(wantChoices(withTtar, 'tta', ZONE).map((choice) => choice.name)).toEqual([
       'Tyranitar (base form)',
       'Tyranitar (every form)',
     ]);
-    expect(wantChoices(withTtar, 't').map((choice) => choice.name)[0]).toBe(
+    expect(wantChoices(withTtar, 't', ZONE).map((choice) => choice.name)[0]).toBe(
       'Tyranitar (base form)',
     );
   });

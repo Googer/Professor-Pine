@@ -82,10 +82,12 @@ export class MemoryBossStore<T> implements BossStore<T> {
         const row = this.rows.find((candidate) => this.identity(candidate) === this.identity(boss));
         if (row) {
           delete row.image;
+          delete row.startsFrom;
           Object.assign(row, {
             shiny: boss.shiny,
             name: boss.name,
             ...(boss.image === undefined ? {} : { image: boss.image }),
+            ...(boss.startsFrom === undefined ? {} : { startsFrom: boss.startsFrom }),
             lastSeen: now,
             firstSeen: row.active && row.firstSeen <= now ? row.firstSeen : from(boss),
             active: true,
@@ -164,8 +166,18 @@ export class MemoryRaidBossStore extends MemoryBossStore<RaidTier> {
   }
 }
 
+/**
+ * A boss list the same in every zone (plan 19A-2: a test of one zone may leave the zone out; one
+ * of several gives each server's list of its own, as `RaidBossService` does).
+ */
+export interface FixtureRaidBosses extends RaidBossProvider {
+  bosses(zone?: string): readonly Readonly<RaidBoss>[];
+  bossesOf(tier: RaidTier, zone?: string): RaidBoss[];
+  autoset(tier: RaidTier, zone?: string): RaidBoss | undefined;
+}
+
 /** The boss list of the downloaded feed against the game-data fixture, with these overrides. */
-export function raidBossesFixture(overrides: readonly BossOverride[] = []): RaidBossProvider {
+export function raidBossesFixture(overrides: readonly BossOverride[] = []): FixtureRaidBosses {
   const feed = parseRaidBossFeed(readRaidBossFeed(), feedLookup(catalogueFixture())).bosses;
   // As `BossFeedService`: the very same list until an override runs out.
   const lasting = overrides.every((override) => override.expiresAt === null);

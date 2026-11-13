@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { between, htmlText, partsFrom } from '../research/leekduck.js';
 import { isForEveryone } from '../time/event-reach.js';
-import { localsOf } from '../time/feed-times.js';
+import { allIn, localsOf } from '../time/feed-times.js';
 import { momentIn, readFeedTime } from '../time/zoned.js';
 import { readHeading } from './raid-boss-feed.js';
 
@@ -214,6 +214,37 @@ export function nextRotationChange(
       .join(' ');
   const current = slugs(now);
   return times.find((time) => slugs(time) !== current);
+}
+
+/**
+ * The rotations in force at `now` in `zone` (plan 19A-2; `rotationsAt` with each rotation at local
+ * times on `zone`'s clock, `timedIn`): the game starts a rotation at 10:00 in every zone, so a
+ * server in Berlin has the new bosses six hours before one in New York. The one path for which
+ * rotations a server's raid boss list is made of.
+ */
+export function rotationsIn(
+  rotations: readonly RaidRotation[],
+  zone: string,
+  now: number,
+): RaidRotation[] {
+  return rotationsAt(allIn(rotations, zone), now);
+}
+
+/**
+ * The first moment after `now` at which the rotations in force change in any of `zones` (the
+ * zones in use, `nextRotationChange` in each): the list is read again just after it. Undefined
+ * when nothing later changes them anywhere.
+ */
+export function nextRotationChangeIn(
+  rotations: readonly RaidRotation[],
+  zones: readonly string[],
+  now: number,
+): number | undefined {
+  const times = zones.flatMap((zone) => {
+    const next = nextRotationChange(allIn(rotations, zone), now);
+    return next === undefined ? [] : [next];
+  });
+  return times.length === 0 ? undefined : Math.min(...times);
 }
 
 /** A rotation's page, beside the manifest, as Leek Duck's own script asks for it (`<slug>.html`). */

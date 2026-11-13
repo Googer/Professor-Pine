@@ -90,13 +90,13 @@ export const eggChoiceValue = (tier: RaidTier): string => `e:${tierCode(tier)}`;
  * `t5`: `spellTiers`). A choice's value says exactly what was picked, so that the report does not
  * depend on the name being typed back.
  */
-export function bossChoices(ctx: AppContext, typed: string): Choice[] {
+export function bossChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
   const words = spellTiers(typed).trim().split(/\s+/).filter(Boolean);
   const fits = (name: string): boolean => {
     const lower = name.toLowerCase();
     return words.every((word) => lower.includes(word));
   };
-  const current = ctx.raidBosses.bosses();
+  const current = ctx.raidBosses.bosses(zone);
   const asChoice = (boss: RaidBoss): Choice => ({
     name: choiceName(boss),
     value: bossChoiceValue(boss),
@@ -316,11 +316,12 @@ function reportedWithTier(
  * alone is an egg. A tier followed by a name is a boss of that tier, or any Pokémon in it.
  * Otherwise a partial fit of one boss, or the error that names the several it could be. A
  * Pokémon (nicknames included) that is a current boss is that boss; one that is not is
- * explained. Throws a `UserError` that says what would work.
+ * explained. Throws a `UserError` that says what would work. The bosses are those of the server's
+ * `zone` (plan 19A-2; every command and route gives it, a test may leave the instance's default).
  */
-export function reportedBoss(ctx: RaidReading, value: string): ReportedBoss {
+export function reportedBoss(ctx: RaidReading, value: string, zone: string): ReportedBoss {
   const text = value.trim();
-  const bosses = ctx.raidBosses.bosses();
+  const bosses = ctx.raidBosses.bosses(zone);
   const [kind, ...parts] = text.split(':');
   if (kind === 'e' && parts.length === 2) {
     const tier = tierFromCode(parts[0], parts[1]);
@@ -398,9 +399,9 @@ function onePerPokemon(bosses: readonly RaidBoss[]): RaidBoss[] {
  * for a boss that is coming); a guess only when its name shows the word that was guessed, as
  * in the list of `/want` (`showsGuessed`). No eggs: a train has no tier.
  */
-export function trainBossChoices(ctx: AppContext, typed: string): Choice[] {
+export function trainBossChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
   const words = searchTokens(typed);
-  const bosses = onePerPokemon(ctx.raidBosses.bosses());
+  const bosses = onePerPokemon(ctx.raidBosses.bosses(zone));
   const choice = (boss: RaidBoss): Choice => ({
     name: boss.entry?.name ?? boss.name,
     // A boss the game master does not know is found on the list again by its own key.
@@ -456,9 +457,9 @@ export function trainBossChoices(ctx: AppContext, typed: string): Choice[] {
  * outright (`ctx.pokemon.exact`), also when it is no boss right now. Throws a `UserError` that
  * says what would work, and never speaks of a raid, a tier to put first or a report.
  */
-export function trainBoss(ctx: AppContext, value: string, noTier: string): TrainBoss {
+export function trainBoss(ctx: AppContext, value: string, noTier: string, zone: string): TrainBoss {
   const text = value.trim();
-  const bosses = ctx.raidBosses.bosses();
+  const bosses = ctx.raidBosses.bosses(zone);
   const [kind, ...parts] = text.split(':');
   if (kind === 'e' && parts.length === 2 && tierFromCode(parts[0], parts[1])) {
     throw new UserError(noTier);

@@ -7,8 +7,10 @@ import {
   researchReport,
 } from '../test/support/stop-report-cases.js';
 import { reportedRaid } from '../test/support/party-service.js';
+import { TestServers, testServerValues, withZones } from '../test/support/server-values.js';
 import {
   eventsFeedStep,
+  followZones,
   liveSources,
   picturesServed,
   reportPictures,
@@ -343,5 +345,63 @@ describe('the start-up work of a shard (plan 19D)', () => {
     done.length = 0;
     await startWork.clientReady([SERVER_A]);
     expect(done).toEqual([]);
+  });
+});
+
+describe('what follows the servers’ zones (plan 19A-2; fix round 1, N5, N7)', () => {
+  const SERVER = '412345678901234567';
+  const STAFF = { id: '200000000000000001' };
+
+  /** The hooks, each recording what reached it. */
+  function hooked(servers: TestServers) {
+    const heard: string[] = [];
+    const { log, entries } = createTestLogger();
+    followZones(
+      servers,
+      {
+        server: [
+          (serverId) => heard.push(`posts ${serverId}`),
+          () => {
+            throw new Error('a hook broke');
+          },
+          (serverId) => heard.push(`activity ${serverId}`),
+        ],
+        zones: [() => heard.push('bosses'), () => heard.push('midnights')],
+      },
+      log,
+    );
+    return { heard, entries };
+  }
+
+  it('brings a change of a server’s zone to every hook, a hook that throws logged', async () => {
+    const servers = new TestServers();
+    const { heard, entries } = hooked(servers);
+    await servers.set(SERVER, (values) => ({ ...values, timezone: 'Europe/Berlin' }), STAFF);
+    expect(heard).toEqual([`posts ${SERVER}`, `activity ${SERVER}`, 'bosses', 'midnights']);
+    expect(entries).toContainEqual(
+      expect.objectContaining({ level: 50, msg: 'a listener of a change of time zone failed' }),
+    );
+  });
+
+  it('brings a server joining in a zone of its own to the hooks of the zones only', () => {
+    const OTHER = '412345678901234599';
+    const servers = withZones({ [OTHER]: 'Asia/Kolkata' });
+    servers.present = [SERVER];
+    const { heard } = hooked(servers);
+    servers.presenceChanged([SERVER, OTHER]);
+    expect(heard).toEqual(['bosses', 'midnights']);
+    // Another in a zone already in use changes nothing.
+    servers.presenceChanged([SERVER, OTHER, '412345678901234598']);
+    expect(heard).toHaveLength(2);
+  });
+
+  it('brings a server taking another name of the default’s zone to the hooks of the zones only (fix round 3, Q4)', async () => {
+    // A server whose values have no zone: the default's (America/New_York).
+    const { timezone: _default, ...withoutZone } = testServerValues();
+    const servers = new TestServers(withoutZone);
+    servers.present = [SERVER];
+    const { heard } = hooked(servers);
+    await servers.set(SERVER, (values) => ({ ...values, timezone: 'US/Eastern' }), STAFF);
+    expect(heard).toEqual(['bosses', 'midnights']);
   });
 });

@@ -150,7 +150,10 @@ async function openChange(
     );
   }
   const server = { id: guildId, name: serverNameOf(interaction, guildId) };
-  await interaction.showModal(wantDialogFor(ctx, subject, held, { server, openedAt: Date.now() }));
+  const zone = ctx.servers.zoneOf(guildId);
+  await interaction.showModal(
+    wantDialogFor(ctx, subject, held, { server, openedAt: Date.now(), zone }),
+  );
 }
 
 /**

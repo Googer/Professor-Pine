@@ -158,6 +158,7 @@ const requireMaxReport: Guard = async (interaction, ctx) => {
     interaction.options.getString('boss', true),
     interaction.options.getString('tier'),
     now,
+    zoneOf(interaction, ctx),
   );
   const spot = await readSpot(interaction, ctx, interaction.options.getString('spot', true));
   const endText = interaction.options.getString('end');
@@ -328,7 +329,9 @@ function maxCommand(screenshots: boolean): SimpleCommand {
     async autocomplete(interaction, ctx) {
       const focused = interaction.options.getFocused(true);
       if (focused.name === 'boss') {
-        await interaction.respond(maxBossOptions(ctx, focused.value, Date.now()));
+        await interaction.respond(
+          maxBossOptions(ctx, focused.value, Date.now(), zoneOf(interaction, ctx)),
+        );
         return;
       }
       if (focused.name === 'spot' && focused.value.trim() === '') {

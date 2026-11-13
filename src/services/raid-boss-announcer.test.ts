@@ -15,7 +15,7 @@ import { diffFeed, effectiveBosses, type NewBossOverride } from '../domain/pogo/
 import type { RaidTier } from '../domain/pogo/raid-tier.js';
 import { RaidBossAnnouncer } from './raid-boss-announcer.js';
 import type { FeedChange } from './raid-boss-service.js';
-import { TestServers, testServerValues } from '../../test/support/server-values.js';
+import { TestServers, testServerValues, withZones } from '../../test/support/server-values.js';
 
 const HOUR = 60 * 60_000;
 const OTHER_GUILD = '412345678901234599';
@@ -85,7 +85,7 @@ function setup(options: { announceChanges?: boolean; servers?: string[] } = {}) 
     gateway.messages
       .filter((message) => message.channelId === channelId)
       .map((message) => message.message.content);
-  return { gateway, announcer, entries, sentTo };
+  return { gateway, announcer, entries, sentTo, servers };
 }
 
 /** The feed as downloaded, without Yveltal and with Zekrom. */
@@ -115,6 +115,24 @@ describe('RaidBossAnnouncer', () => {
     expect(sentTo('700000000000000003')).toEqual([text]);
     expect(gateway.messages).toHaveLength(2);
     expect(gateway.messages[0]?.message.mention).toBeUndefined();
+  });
+
+  it('tells a zone’s change to the servers in that zone only, once each (plan 19A-2)', async () => {
+    const { gateway, announcer, sentTo, servers } = setup({
+      servers: ['412345678901234567', OTHER_GUILD],
+    });
+    withZones({ [OTHER_GUILD]: 'Europe/Berlin' }, servers);
+    gateway.addChannel(UPDATES, 'bot-updates');
+    gateway.addChannel(OTHER_UPDATES, 'bot-updates', { guildId: OTHER_GUILD });
+    announcer.ready();
+    announcer.changed({ ...change([], [zekrom]), zone: 'Europe/Berlin' });
+    await announcer.flush();
+    expect(sentTo(OTHER_UPDATES)).toHaveLength(1);
+    expect(sentTo(UPDATES)).toEqual([]);
+    announcer.changed({ ...change([], [zekrom]), zone: 'America/New_York' });
+    await announcer.flush();
+    expect(sentTo(OTHER_UPDATES)).toHaveLength(1);
+    expect(sentTo(UPDATES)).toHaveLength(1);
   });
 
   it('waits for the client to be ready', async () => {

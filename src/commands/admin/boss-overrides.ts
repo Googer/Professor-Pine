@@ -43,8 +43,8 @@ const OVERRIDE_CHOICE = /^(?:id:|#)?(\d{1,10})$/;
 /**
  * The bosses in effect of both lists (plan 8X-2): the raid bosses, then the max bosses.
  */
-function allBosses(ctx: AppContext): Boss<BossTier>[] {
-  return [...ctx.raidBosses.bosses(), ...ctx.maxBosses.bosses()];
+function allBosses(ctx: AppContext, zone: string): Boss<BossTier>[] {
+  return [...ctx.raidBosses.bosses(zone), ...ctx.maxBosses.bosses(zone)];
 }
 
 /** The overrides in force of both lists; an id names one of either (one table). */
@@ -56,11 +56,11 @@ function allOverrides(ctx: AppContext): BossOverride<BossTier>[] {
  * A tier's bosses after a change, on one line: `T5 now: Yveltal, Zekrom · eggs hatch as …`,
  * `Gigantamax now: Machamp`.
  */
-export function tierNow(ctx: AppContext, tier: BossTier): string {
+export function tierNow(ctx: AppContext, tier: BossTier, zone: string): string {
   const label = `**${bossTierLabel(tier)}**`;
-  const bosses = allBosses(ctx).filter((boss) => sameBossTier(boss.tier, tier));
+  const bosses = allBosses(ctx, zone).filter((boss) => sameBossTier(boss.tier, tier));
   if (bosses.length === 0) return `${label} now has no bosses.`;
-  const hatches = isMaxBossTier(tier) ? undefined : autosetBoss(ctx.raidBosses.bosses(), tier);
+  const hatches = isMaxBossTier(tier) ? undefined : autosetBoss(ctx.raidBosses.bosses(zone), tier);
   const names = bosses.map((boss) => `${plain(boss.name)}${boss.shiny ? ' (shiny)' : ''}`);
   return (
     `${label} now: ${names.join(', ')}` + (hatches ? ` · eggs hatch as ${plain(hatches.name)}` : '')
@@ -210,8 +210,8 @@ function sameBoss(chosen: ChosenPokemon, boss: Boss<BossTier>): boolean {
 }
 
 /** Whether the feed lists this Pokémon in this tier. */
-function feedLists(ctx: AppContext, chosen: ChosenPokemon, tier: BossTier): boolean {
-  return allBosses(ctx).some(
+function feedLists(ctx: AppContext, chosen: ChosenPokemon, tier: BossTier, zone: string): boolean {
+  return allBosses(ctx, zone).some(
     (boss) => boss.source === 'feed' && sameBoss(chosen, boss) && sameBossTier(boss.tier, tier),
   );
 }
@@ -233,9 +233,14 @@ function hiddenBy(
 }
 
 /** The tiers this Pokémon is a boss of now; with `raidOnly`, its raid tiers. */
-function tiersOf(ctx: AppContext, chosen: ChosenPokemon, raidOnly = false): BossTier[] {
+function tiersOf(
+  ctx: AppContext,
+  chosen: ChosenPokemon,
+  zone: string,
+  raidOnly = false,
+): BossTier[] {
   const tiers: BossTier[] = [];
-  const bosses = raidOnly ? ctx.raidBosses.bosses() : allBosses(ctx);
+  const bosses = raidOnly ? ctx.raidBosses.bosses(zone) : allBosses(ctx, zone);
   for (const boss of bosses) {
     if (sameBoss(chosen, boss) && !tiers.some((tier) => sameBossTier(tier, boss.tier))) {
       tiers.push(boss.tier);
@@ -245,8 +250,8 @@ function tiersOf(ctx: AppContext, chosen: ChosenPokemon, raidOnly = false): Boss
 }
 
 /** Whether the Pokémon is a boss of the tier now. */
-function isBoss(ctx: AppContext, chosen: ChosenPokemon, tier: BossTier): boolean {
-  return tiersOf(ctx, chosen).some((one) => sameBossTier(one, tier));
+function isBoss(ctx: AppContext, chosen: ChosenPokemon, tier: BossTier, zone: string): boolean {
+  return tiersOf(ctx, chosen, zone).some((one) => sameBossTier(one, tier));
 }
 
 /**
@@ -322,7 +327,9 @@ async function respondWithPokemon(
 ): Promise<void> {
   const focused = interaction.options.getFocused(true);
   await interaction.respond(
-    focused.name === 'pokemon' ? bossPokemonChoices(ctx, String(focused.value)) : [],
+    focused.name === 'pokemon'
+      ? bossPokemonChoices(ctx, String(focused.value), zoneOf(interaction, ctx))
+      : [],
   );
 }
 
@@ -362,10 +369,11 @@ export const addBoss: SubcommandPart = {
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
-    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true));
+    const zone = zoneOf(interaction, ctx);
+    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true), zone);
     const tier = readTier(interaction.options.getString('tier', true));
     checkTier(chosen, tier);
-    const listed = feedLists(ctx, chosen, tier);
+    const listed = feedLists(ctx, chosen, tier, zone);
     const { days, defaulted } = daysOf(interaction);
     const shiny = interaction.options.getBoolean('shiny');
     const saved = await store(interaction, ctx, chosen, {
@@ -395,7 +403,7 @@ export const addBoss: SubcommandPart = {
               'that is removed.',
           ]
         : []),
-      tierNow(ctx, tier),
+      tierNow(ctx, tier, zone),
     ]);
   },
   autocomplete: respondWithPokemon,
@@ -421,9 +429,10 @@ export const hideBoss: SubcommandPart = {
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
-    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true));
+    const zone = zoneOf(interaction, ctx);
+    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true), zone);
     const tier = readTier(interaction.options.getString('tier', true));
-    const was = isBoss(ctx, chosen, tier);
+    const was = isBoss(ctx, chosen, tier, zone);
     const saved = await store(interaction, ctx, chosen, {
       action: 'hide',
       tier,
@@ -439,7 +448,7 @@ export const hideBoss: SubcommandPart = {
             `It was no boss of ${bossTierLabel(tier)}; it stays off the list if the feed lists ` +
               'it there.',
           ]),
-      tierNow(ctx, tier),
+      tierNow(ctx, tier, zone),
     ]);
   },
   autocomplete: respondWithPokemon,
@@ -468,7 +477,8 @@ export const autosetBossPart: SubcommandPart = {
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
-    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true));
+    const zone = zoneOf(interaction, ctx);
+    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true), zone);
     const tier = readRaidTier(interaction.options.getString('tier', true));
     checkTier(chosen, tier);
     const { days, defaulted } = daysOf(interaction);
@@ -506,7 +516,7 @@ export const autosetBossPart: SubcommandPart = {
               'is removed.',
           ]
         : []),
-      tierNow(ctx, tier),
+      tierNow(ctx, tier, zone),
     ]);
   },
   autocomplete: respondWithPokemon,
@@ -535,7 +545,8 @@ export const shinyBoss: SubcommandPart = {
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
-    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true));
+    const zone = zoneOf(interaction, ctx);
+    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true), zone);
     const value = interaction.options.getString('tier');
     const tier = value === null ? null : readTier(value);
     const shiny = interaction.options.getBoolean('can-be-shiny', true);
@@ -547,13 +558,17 @@ export const shinyBoss: SubcommandPart = {
     });
     const where = tier === null ? ', in any raid tier' : ` in ${bossTierLabel(tier)}`;
     const tiers =
-      tier === null ? tiersOf(ctx, chosen, true) : isBoss(ctx, chosen, tier) ? [tier] : [];
+      tier === null
+        ? tiersOf(ctx, chosen, zone, true)
+        : isBoss(ctx, chosen, tier, zone)
+          ? [tier]
+          : [];
     await answer(interaction, [
       `${chosen.label} ${shiny ? 'can be shiny' : 'is never shiny'}${where} (${numbered(saved)}).`,
       ...(tier === null ? [] : maxKindWarning(ctx, chosen, tier)),
       ...(tiers.length === 0
         ? [tier === null ? 'It is no boss now.' : `It is no boss of ${bossTierLabel(tier)} now.`]
-        : tiers.map((one) => tierNow(ctx, one))),
+        : tiers.map((one) => tierNow(ctx, one, zone))),
     ]);
   },
   autocomplete: respondWithPokemon,
@@ -582,6 +597,7 @@ export const removeOverride: SubcommandPart = {
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
+    const zone = zoneOf(interaction, ctx);
     const typed = interaction.options.getString('override', true).trim();
     const id = OVERRIDE_CHOICE.exec(typed)?.[1];
     if (id === undefined) {
@@ -608,11 +624,16 @@ export const removeOverride: SubcommandPart = {
     // An override for every raid tier (shiny) shows each raid tier its Pokémon is a boss of now.
     const tiers =
       override.tier === null
-        ? tiersOf(ctx, { ids: override, entry: reported.entry, label: plain(reported.name) }, true)
+        ? tiersOf(
+            ctx,
+            { ids: override, entry: reported.entry, label: plain(reported.name) },
+            zone,
+            true,
+          )
         : [override.tier];
     await answer(interaction, [
       `Removed override #${id}: ${describeOverride(override, plain(reported.name))}.`,
-      ...tiers.map((tier) => tierNow(ctx, tier)),
+      ...tiers.map((tier) => tierNow(ctx, tier, zone)),
     ]);
   },
   async autocomplete(interaction, ctx) {

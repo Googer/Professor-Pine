@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import type { SimpleCommand } from '../../discord/command.js';
@@ -135,10 +136,10 @@ export function bossListText(bosses: readonly RaidBoss[]): string[] {
  * The choices of the `pokemon` option: the bosses while nothing is typed (one the game data
  * does not know yet by its name, which `execute` reads), else any Pokémon.
  */
-function bossTierChoices(ctx: AppContext, typed: string): Choice[] {
+function bossTierChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
   if (typed.trim() !== '') return pokemonChoices(ctx, typed);
   const choices = new Map<string, Choice>();
-  for (const boss of ctx.raidBosses.bosses()) {
+  for (const boss of ctx.raidBosses.bosses(zone)) {
     if (boss.entry) choices.set(boss.entry.key, entryChoice(boss.entry));
     else if (boss.name.length <= 100) {
       choices.set(boss.name, { name: truncate(boss.name, CHOICE_NAME), value: boss.name });
@@ -168,7 +169,7 @@ export const bossTier: SimpleCommand = {
   throttle: MEMBER_READ_THROTTLE,
   async execute(interaction, ctx) {
     const typed = interaction.options.getString('pokemon');
-    const bosses = ctx.raidBosses.bosses();
+    const bosses = ctx.raidBosses.bosses(zoneOf(interaction, ctx));
     if (typed !== null) {
       // A boss the game data does not know yet is named by the feed's name only, and is what
       // the text means only when the text names no Pokémon outright.
@@ -192,7 +193,9 @@ export const bossTier: SimpleCommand = {
   async autocomplete(interaction, ctx) {
     const focused = interaction.options.getFocused(true);
     await interaction.respond(
-      focused.name === 'pokemon' ? bossTierChoices(ctx, String(focused.value)) : [],
+      focused.name === 'pokemon'
+        ? bossTierChoices(ctx, String(focused.value), zoneOf(interaction, ctx))
+        : [],
     );
   },
 };

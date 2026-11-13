@@ -365,20 +365,21 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
       );
       if (refused) return refused;
       const { catalogue, icons } = ctx.gameData;
+      const zone = ctx.servers.zoneOf(request.params.guild);
       const choices = currentMaxBossChoices(
         {
           maxBosses: ctx.maxBosses,
           maxEvents: ctx.raidEvents,
           pokemon: ctx.pokemon,
           gameData: ctx.gameData,
-          zone: parties.zone,
+          zone,
         },
         deps.now(),
       );
       // The picture a post of the boss would show (`shownMaxBoss`): the game's icon, else the list's.
       const picture = (boss: (typeof choices)[number]['boss']) =>
         maxBossPicture(boss.entry, boss.tier, { catalogue, icons }) ?? boss.image;
-      const body = JSON.stringify(maxOptions(choices, parties.zone, picture, deps.pictureOrigins));
+      const body = JSON.stringify(maxOptions(choices, zone, picture, deps.pictureOrigins));
       const etag = etagOf(body);
       void reply.header('etag', etag);
       if (etagMatches(request.headers['if-none-match'], etag)) return reply.code(304).send();
@@ -461,7 +462,13 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
     let end: number;
     const typed = (body.data.end ?? '').trim();
     try {
-      boss = readMaxBoss(ctx, body.data.boss, body.data.tier ?? null, now);
+      boss = readMaxBoss(
+        ctx,
+        body.data.boss,
+        body.data.tier ?? null,
+        now,
+        ctx.servers.zoneOf(guild),
+      );
       end = reportedEnd(
         ctx,
         boss.tier,

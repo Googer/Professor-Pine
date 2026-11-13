@@ -7,6 +7,7 @@ import {
   type NewBossOverride,
 } from '../../domain/pogo/raid-bosses.js';
 import { isRaidLevel, raidTier, type RaidTier } from '../../domain/pogo/raid-tier.js';
+import { zoned } from '../../domain/time/zoned.js';
 import { inTransaction } from '../transaction.js';
 import type { DB } from '../types.js';
 
@@ -88,6 +89,11 @@ class BossRepository<T> implements BossStore<T> {
     private readonly db: Kysely<DB>,
     private readonly family: BossFamily<T>,
     private readonly unreadable: (override: { id: number; level: string }) => void,
+    /**
+     * The instance's default, in which `firstSeen` is written: a `startsFrom` that no longer
+     * agrees with it is left out on read (`startsFromAgrees`; fix round 1, L8).
+     */
+    private readonly zone?: string,
   ) {}
 
   /** The boss rows of the family: a level of `MAX_TIERS` or not. */
@@ -124,6 +130,11 @@ class BossRepository<T> implements BossStore<T> {
         shiny: row.shiny === 1,
         name: row.name,
         ...(row.image === null ? {} : { image: row.image }),
+        ...(row.startsFrom === null ||
+        (this.zone !== undefined &&
+          !startsFromAgrees(Number(row.startsFrom), Number(row.firstSeen), this.zone))
+          ? {}
+          : { startsFrom: Number(row.startsFrom) }),
         firstSeen: Number(row.firstSeen),
         lastSeen: Number(row.lastSeen),
       });
@@ -165,6 +176,7 @@ class BossRepository<T> implements BossStore<T> {
               shiny: boss.shiny ? 1 : 0,
               name: boss.name,
               image: boss.image ?? null,
+              startsFrom: boss.startsFrom === undefined ? null : String(boss.startsFrom),
               lastSeen: String(now),
               active: 1,
               ...(row.active === 1 && Number(row.firstSeen) <= now ? {} : { firstSeen: from }),
@@ -182,6 +194,7 @@ class BossRepository<T> implements BossStore<T> {
               shiny: boss.shiny ? 1 : 0,
               name: boss.name,
               image: boss.image ?? null,
+              startsFrom: boss.startsFrom === undefined ? null : String(boss.startsFrom),
               firstSeen: from,
               lastSeen: String(now),
               active: 1,
@@ -347,10 +360,23 @@ export class RaidBossRepository extends BossRepository<RaidTier> {
 
 /** The max bosses of the boss tables (plan 8X-2): the levels of `MAX_TIERS`. */
 export class MaxBossRepository extends BossRepository<MaxTier> {
+  /** `zone`: the instance's default, in which `firstSeen` is written (fix round 1, L8). */
   constructor(
     db: Kysely<DB>,
     unreadable: (override: { id: number; level: string }) => void = () => undefined,
+    zone?: string,
   ) {
-    super(db, MAX_FAMILY, unreadable);
+    super(db, MAX_FAMILY, unreadable, zone);
   }
+}
+
+/**
+ * Whether an upcoming boss's start (`startsFrom`, plan 19A-2) agrees with when it is a boss in
+ * `zone` (`firstSeen`: the start of its day there, or the read on that day before its start).
+ * One that does not was left behind by a write that knew nothing of it (2.0, going back, moved
+ * the boss: fix round 1, L8), and `firstSeen` is the truth.
+ */
+export function startsFromAgrees(startsFrom: number, firstSeen: number, zone: string): boolean {
+  const dayStart = zoned(startsFrom, zone).startOfDay().epochMilliseconds;
+  return firstSeen >= dayStart && firstSeen <= startsFrom;
 }

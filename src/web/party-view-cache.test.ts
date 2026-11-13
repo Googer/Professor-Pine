@@ -5,7 +5,7 @@ import { FakeMemberDirectory } from '../../test/support/members.js';
 import { reportedRaid } from '../../test/support/party-service.js';
 import { at, ALICE, BOB, PARTY_NOW, stops, testTrain } from '../../test/support/parties.js';
 import { gymsFixture } from '../../test/support/providers.js';
-import { raidBossesFixture } from '../../test/support/raid-bosses.js';
+import { raidBossesFixture, type FixtureRaidBosses } from '../../test/support/raid-bosses.js';
 import { TestServers } from '../../test/support/server-values.js';
 import {
   partyWebWith,
@@ -52,11 +52,11 @@ async function bothAnswers() {
     if (!kept.has(id)) kept.set(id, { ...gym, name, nickname: name });
     return kept.get(id);
   };
-  let bossesNow: RaidBossProvider = raidBossesFixture();
+  let bossesNow: FixtureRaidBosses = raidBossesFixture();
   const raidBosses: RaidBossProvider = {
-    bosses: () => bossesNow.bosses(),
-    bossesOf: (tier) => bossesNow.bossesOf(tier),
-    autoset: (tier) => bossesNow.autoset(tier),
+    bosses: (zone) => bossesNow.bosses(zone),
+    bossesOf: (tier, zone) => bossesNow.bossesOf(tier, zone),
+    autoset: (tier, zone) => bossesNow.autoset(tier, zone),
   };
   const eggPictures = new EggPictures({
     web: { publicUrl: 'https://map.example.test' },

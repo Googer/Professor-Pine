@@ -1209,11 +1209,12 @@ export class PartyService {
   view(party: RaidParty): RaidPostView {
     const { gyms, raidBosses, gameData, settings } = this.options;
     const catalogue = gameData.catalogue;
-    const boss = shownBoss(party, catalogue, raidBosses.bosses(), gameData.icons);
+    const zone = this.zoneOf(party);
+    const boss = shownBoss(party, catalogue, raidBosses.bosses(zone), gameData.icons);
     const hatchesAs = boss
       ? undefined
-      : shownAutoset(party.raid.tier, raidBosses.autoset(party.raid.tier), gameData);
-    const eggName = raidEggName(party.raid.tier, raidBosses.bossesOf(party.raid.tier));
+      : shownAutoset(party.raid.tier, raidBosses.autoset(party.raid.tier, zone), gameData);
+    const eggName = raidEggName(party.raid.tier, raidBosses.bossesOf(party.raid.tier, zone));
     const egg = eggName === undefined ? undefined : this.eggPictures.picture(eggName);
     return {
       party,
@@ -1245,7 +1246,7 @@ export class PartyService {
     const { catalogue, icons } = gameData;
     const stage = raidStage(party, this.now());
     const gym = party.gymId === null ? undefined : gyms.get(party.gymId);
-    const bosses = raidBosses.bosses();
+    const bosses = raidBosses.bosses(this.zoneOf(party));
     const served = this.eggPictures.isServed;
     const kept = this.looks.get(party);
     if (
@@ -1372,7 +1373,7 @@ export class PartyService {
     return {
       ...this.timedView(party),
       stop: this.stops,
-      boss: shownBoss(party, catalogue, raidBosses.bosses(), gameData.icons),
+      boss: shownBoss(party, catalogue, raidBosses.bosses(this.zoneOf(party)), gameData.icons),
       catalogue,
     };
   }
@@ -1418,7 +1419,7 @@ export class PartyService {
       party,
       now: this.now(),
       zone: this.zoneOf(party),
-      boss: shownMaxBoss(party, catalogue, maxBosses.bosses(), gameData.icons),
+      boss: shownMaxBoss(party, catalogue, maxBosses.bosses(this.zoneOf(party)), gameData.icons),
       catalogue,
       emoji: this.emoji(party),
       ...(wayspots === undefined

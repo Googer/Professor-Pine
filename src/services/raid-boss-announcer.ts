@@ -25,11 +25,17 @@ interface Announcement {
   content: string;
   /** For the log. */
   what: 'change' | 'stale';
+  /**
+   * The zone whose list changed (`FeedChange.zone`, plan 19A-2): only the servers in it are told.
+   * None: every server.
+   */
+  zone?: string;
 }
 
 /**
  * Tells the servers of the bot about the raid boss list: a change of the list as members see it
- * (the feed's list with the overrides in force) in the channel for bot updates (where
+ * (the feed's list with the overrides in force; plan 19A-2: each zone's change to the servers in
+ * that zone, `FeedChange.zone`, so that each server is told of its own once) in the channel for bot updates (where
  * `settings.raidBosses.announceChanges` is on), and a list that is out of date in the
  * moderators' bot channel: in each server the text channel its staff set (plan 19A-1, by id),
  * where the bot may post embeds; a message pings nobody.
@@ -78,6 +84,7 @@ export class RaidBossAnnouncer {
       channel: 'bot-updates',
       content,
       what: 'change',
+      ...(change.zone === undefined ? {} : { zone: change.zone }),
     });
   }
 
@@ -117,6 +124,8 @@ export class RaidBossAnnouncer {
   private send(announcement: Announcement): void {
     const { gateway, serverIds, servers, log } = this.options;
     for (const guildId of serverIds()) {
+      if (announcement.zone !== undefined && servers.zoneOf(guildId) !== announcement.zone)
+        continue;
       const id = servers.of(guildId).channels[announcement.channel];
       if (id === undefined) continue;
       const channel = (gateway.serverChannels(guildId) ?? []).find(

@@ -115,15 +115,41 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * of the instant is later than the game's, is offered a day late: the rest of the cases.
  */
 function startOf(raid: Record<string, unknown>, now: number, zone: string): number | undefined {
+  const start = upcomingStart(raid, now);
+  if (start === undefined) return undefined;
+  const day = zoned(start, zone).startOfDay().epochMilliseconds;
+  return day > now ? day : undefined;
+}
+
+/**
+ * The moment Pokebattler gives an upcoming boss's start, while it is after `now` (plan 19A-2,
+ * `FeedBoss.startsFrom`): kept so that each server's zone has the start of its own day of it. A
+ * start that is no moment `zoned` takes (`isMoment`: not finite, beyond its range) is none: the
+ * boss is a boss from now.
+ */
+function upcomingStart(raid: Record<string, unknown>, now: number): number | undefined {
   const start = raid['startDate'];
-  // A start that is no moment `zoned` takes (`isMoment`: not finite, beyond its range) is none:
-  // the boss is a boss from now.
   if (raid['upcoming'] !== true || typeof start !== 'number' || !isMoment(start)) {
     return undefined;
   }
-  if (start <= now) return undefined;
-  const day = zoned(start, zone).startOfDay().epochMilliseconds;
-  return day > now ? day : undefined;
+  return start > now ? start : undefined;
+}
+
+/**
+ * The stored max feed's rows in `zone` (plan 19A-2): an upcoming boss whose start Pokebattler gave
+ * (`startsFrom`) is a boss from the start of that moment's day in `zone` (`firstSeen`), as `startOf`
+ * has it in the instance's default zone; every other row as it is. The one path for every
+ * server's max boss list (`maxBossesAt`, `comingMaxBosses`, `withoutEndedUpcoming` read it).
+ */
+export function maxRowsIn<R extends { startsFrom?: number; firstSeen: number }>(
+  feed: readonly R[],
+  zone: string,
+): R[] {
+  return feed.map((row) =>
+    row.startsFrom === undefined
+      ? row
+      : { ...row, firstSeen: zoned(row.startsFrom, zone).startOfDay().epochMilliseconds },
+  );
 }
 
 /**
@@ -196,6 +222,7 @@ export function parseMaxBossFeed(
         continue;
       }
       const startsAt = startOf(raid, options.now, options.zone);
+      const startsFrom = upcomingStart(raid, options.now);
       const boss: MaxFeedBoss = {
         pokemonId: ids.pokemonId,
         form: ids.form,
@@ -203,6 +230,7 @@ export function parseMaxBossFeed(
         shiny,
         name: entry?.name ?? titleCase(ids.pokemonId),
         ...(startsAt === undefined ? {} : { startsAt }),
+        ...(startsFrom === undefined ? {} : { startsFrom }),
       };
       seen.set(identity, boss);
       bosses.push(boss);

@@ -160,9 +160,9 @@ export interface ChosenPokemon {
  * master does not know is offered under the feed's name with its ids (`ids:<id>[:<form>]`);
  * every other choice's value is a catalogue key.
  */
-export function bossPokemonChoices(ctx: AppContext, typed: string): Choice[] {
+export function bossPokemonChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
   const words = searchTokens(typed);
-  const bosses = [...ctx.raidBosses.bosses(), ...ctx.maxBosses.bosses()];
+  const bosses = [...ctx.raidBosses.bosses(zone), ...ctx.maxBosses.bosses(zone)];
   const unknown = bosses
     .filter((boss) => !boss.entry)
     .map((boss) => ({
@@ -209,9 +209,10 @@ export function bossPokemonChoices(ctx: AppContext, typed: string): Choice[] {
 /**
  * The Pokémon the `pokemon` option names: a choice of the list, or typed text that names one
  * outright (its name, key or a nickname no other Pokémon has). Anything else is refused with
- * what the text could be.
+ * what the text could be. A choice of the list is looked for in the feed as the server sees it,
+ * in its `zone`, where the list offered it (fix round 1, L6).
  */
-export function chosenPokemon(ctx: AppContext, value: string): ChosenPokemon {
+export function chosenPokemon(ctx: AppContext, value: string, zone: string): ChosenPokemon {
   const text = value.trim();
   const ids = IDS_CHOICE.exec(text);
   if (ids?.[1]) {
@@ -220,7 +221,7 @@ export function chosenPokemon(ctx: AppContext, value: string): ChosenPokemon {
     const same = (one: BossIds): boolean => one.pokemonId === pokemonId && one.form === form;
     const max = ctx.maxBossAdmin;
     const feed: { name: string } | undefined =
-      ctx.raidBossAdmin.feedBosses().find(same) ?? max.feedBosses().find(same);
+      ctx.raidBossAdmin.feedBosses(zone).find(same) ?? max.feedBosses(zone).find(same);
     const override = ctx.raidBossAdmin.overrides().find(same) ?? max.overrides().find(same);
     if (!feed && !override) {
       throw new UserError('That boss is no longer in the feed. Pick again from the list.');

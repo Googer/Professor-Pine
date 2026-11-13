@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   ButtonStyle,
   MessageFlags,
@@ -230,11 +231,13 @@ export function wantDialogFor(
     postBox?: WantBox;
     server?: { id: string; name: string };
     page?: number;
+    /** The zone of the server the dialog is for (plan 19A-2): which bosses are on its lists. */
+    zone: string;
   },
 ): APIModalInteractionResponseCallbackData {
   const which = whichEntries(ctx, subject);
   const keys = which.map((entry) => entry.key);
-  const shown = dialogBoxes(ctx, subject, held);
+  const shown = dialogBoxes(ctx, subject, held, options.zone);
   const isMega = isMegaForm(ctx);
   const post =
     options.postBox !== undefined && shown.includes(options.postBox) ? [options.postBox] : [];
@@ -273,7 +276,7 @@ export function wantDialogFor(
     shown,
     which: which.map((entry) => ({ key: entry.key, name: entry.name })),
     whichHash: whichHash(keys),
-    costumes: costumesShown(ctx, subject) || held.some((row) => row.costumed),
+    costumes: costumesShown(ctx, subject, options.zone) || held.some((row) => row.costumed),
     remove: held.length > 0,
     ticks,
     differ,
@@ -413,7 +416,7 @@ function useOf(interaction: ChatInputCommandInteraction, ctx: AppContext): WantU
       subject,
       ...(picked === undefined ? {} : { picked }),
       ...(postBox === undefined ? {} : { postBox }),
-      asks: asksAbout(ctx, subject),
+      asks: asksAbout(ctx, subject, zoneOf(interaction, ctx)),
     };
   }
   usesRead.set(interaction, use);
@@ -424,11 +427,11 @@ function useOf(interaction: ChatInputCommandInteraction, ctx: AppContext): WantU
  * Whether a subject's dialog opens (S1), from the game data and the lists alone: when it would
  * show Tell me about (two boxes or more), Which or Costumes. Else it writes at once (Mew).
  */
-function asksAbout(ctx: AppContext, subject: BoxSubject): boolean {
+function asksAbout(ctx: AppContext, subject: BoxSubject, zone: string): boolean {
   return (
-    shownBoxes(ctx, subject).length > 1 ||
+    shownBoxes(ctx, subject, zone).length > 1 ||
     whichEntries(ctx, subject).length > 0 ||
-    costumesShown(ctx, subject)
+    costumesShown(ctx, subject, zone)
   );
 }
 
@@ -552,7 +555,7 @@ export const want: SimpleCommand = {
     const scope = scopeOf(ctx, subject);
     if (!use.asks) {
       // One box and nothing else to ask (S1: Mew, a tier without shadow raids): written at once.
-      const shown = shownBoxes(ctx, subject);
+      const shown = shownBoxes(ctx, subject, zoneOf(interaction, ctx));
       const given: BoxAnswer = {
         scope,
         forms: [undefined],
@@ -576,6 +579,7 @@ export const want: SimpleCommand = {
     await interaction.showModal(
       wantDialogFor(ctx, subject, held, {
         openedAt: Date.now(),
+        zone: zoneOf(interaction, ctx),
         ...(picked === undefined ? {} : { picked }),
         ...(postBox === undefined ? {} : { postBox }),
       }),
@@ -588,7 +592,7 @@ export const want: SimpleCommand = {
     // and Mega Energy of the task list fill what is left, at most `REWARD_ROOM` places where the
     // Pokémon would fill the list (B5).
     const rewards = [...rocketWantChoices(typed), ...rewardWantChoices(ctx, typed)];
-    const others = wantChoices(ctx, typed).slice(
+    const others = wantChoices(ctx, typed, zoneOf(interaction, ctx)).slice(
       0,
       MAX_CHOICES - Math.min(rewards.length, REWARD_ROOM),
     );
@@ -1224,7 +1228,10 @@ async function changeLine(
       `**${plain(dialogName(ctx, subject))}** is not on your list; \`/want\` adds it.`,
     );
   }
-  await interaction.showModal(wantDialogFor(ctx, subject, held, { page, openedAt: Date.now() }));
+  const zone = zoneOf(interaction, ctx);
+  await interaction.showModal(
+    wantDialogFor(ctx, subject, held, { page, openedAt: Date.now(), zone }),
+  );
 }
 
 /** `/wants` (spec 4.2): the member's list in this server, for the member alone. */

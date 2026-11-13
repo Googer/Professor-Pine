@@ -1763,7 +1763,11 @@ export class NotifyService implements PartyNotifier {
    */
   private sighting(party: RaidParty): RaidSighting {
     const { gameData, raidBosses } = this.options;
-    const shown = shownBoss(party, gameData.catalogue, raidBosses.bosses());
+    const shown = shownBoss(
+      party,
+      gameData.catalogue,
+      raidBosses.bosses(this.options.posts.zoneOf(party)),
+    );
     const entry = shown?.entry;
     return {
       tier: party.raid.tier,
@@ -1855,7 +1859,8 @@ export class NotifyService implements PartyNotifier {
         // The post as it is when the first message is made, for all of them.
         brief ??= { made: this.briefOf(posts, party) };
         const region = party.regionId === null ? undefined : regions.byId(party.regionId);
-        const boss = shownBoss(party, gameData.catalogue, raidBosses.bosses())?.name;
+        const zone = this.options.posts.zoneOf(party);
+        const boss = shownBoss(party, gameData.catalogue, raidBosses.bosses(zone))?.name;
         const gym = gymName(gymId === null ? undefined : gyms.get(gymId));
         const map = brief.made?.map;
         // Who is signed up is told what became of their egg, whatever else fires for them.

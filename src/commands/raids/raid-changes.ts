@@ -133,7 +133,7 @@ export async function changeRaidBoss(
   text: string,
   post?: PostNamer,
 ): Promise<RaidChangeAnswer> {
-  const reported = reportedBoss(ctx, text);
+  const reported = reportedBoss(ctx, text, ctx.partyService.zoneOf(party));
   const outcome = await ctx.raids.setBoss(party.id, member, reported);
   return raidChangeAnswer(
     ctx.attendance.limits(),

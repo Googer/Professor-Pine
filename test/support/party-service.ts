@@ -346,6 +346,8 @@ export async function partyServiceWith(
     gameData: overrides.gameData ?? { catalogue: catalogueFixture() },
     raidBosses: overrides.raidBosses ?? raidBossesFixture(),
     maxBosses: overrides.maxBosses ?? NO_MAX_BOSSES,
+    // Late: the service is made below, and asked only when a party ends.
+    zoneOf: (party: Party): string => service.zoneOf(party),
     log,
     setTimer: () => () => undefined,
     // The rows of the storage it uses (over a database, its own repository's).

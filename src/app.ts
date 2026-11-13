@@ -71,7 +71,7 @@ import { ServerSettingsRepository } from './db/repositories/server-settings-repo
 import { ServerSettingsAuditRepository } from './db/repositories/server-settings-audit-repository.js';
 import { InteractionRouter } from './discord/router.js';
 import { lobbySize } from './domain/party/lobby.js';
-import { screenshotIdOf } from './domain/party/party.js';
+import { screenshotIdOf, type Party } from './domain/party/party.js';
 import { formReader } from './domain/pogo/wants.js';
 import { trainMapLinkOf } from './domain/web/train-history-data.js';
 import { createLogger, type Logger } from './log.js';
@@ -189,6 +189,7 @@ import { GatewayProbe, Heartbeat } from './ops/heartbeat.js';
 import { startCheckpoint } from './ops/start-stop.js';
 import {
   eventsFeedStep,
+  followZones,
   liveSources,
   picturesServed,
   reportPictures,
@@ -292,8 +293,11 @@ export async function startApp(
   });
   const raidBosses = new RaidBossService({
     url: config.settings.raidBosses.url,
-    // Leek Duck's rotations first, ScrapedDuck's feed as the fallback (plan 8B-L).
-    manifest: { url: config.settings.raidBosses.manifestUrl, zone: config.settings.timezone },
+    // Leek Duck's rotations first, ScrapedDuck's feed as the fallback (plan 8B-L), in the
+    // instance's default zone and every zone in use (plan 19A-2: each its own rotations).
+    manifest: { url: config.settings.raidBosses.manifestUrl, zone: instanceZone(config.settings) },
+    // Late: the servers' settings are made below, and asked at the first read.
+    zones: () => servers.zonesInUse(),
     refreshMs: config.settings.raidBosses.refreshMinutes * MINUTE_MS,
     staleAfterMs: config.settings.raidBosses.staleAfterHours * HOUR_MS,
     store: new RaidBossRepository(db, (override) => {
@@ -314,8 +318,8 @@ export async function startApp(
     url: maxSettings.url,
     refreshMs: maxSettings.refreshMinutes * MINUTE_MS,
     staleAfterMs: MAX_BOSSES_STALE_AFTER_HOURS * HOUR_MS,
-    zone: config.settings.timezone,
-    store: new MaxBossRepository(db),
+    zone: instanceZone(config.settings),
+    store: new MaxBossRepository(db, undefined, instanceZone(config.settings)),
     gameData,
     fetch: (url, init) => fetch(url, init),
     log,
@@ -405,6 +409,10 @@ export async function startApp(
     settings: config.settings,
     log,
   });
+  // A zone in use came or went (plan 19A-2): the raid bosses are read again for the zones now
+  // in use, their own rotations and the soonest change among them; also when a server joins or
+  // leaves with a zone of its own (fix round 1, N5).
+  followZones(servers, { zones: [() => raidBosses.zonesChanged()] }, log);
   // The fill (plan 19A-1): a row for a server without one, at ready and when the bot joins one;
   // the names it cannot find are told in the server's moderators' bot lab. The events forum is
   // the one its record names (review F3), whether the events forum is drawn here or not.
@@ -507,6 +515,8 @@ export async function startApp(
     gameData,
     raidBosses,
     maxBosses,
+    // Late: the party service is made below, and asked only when a party ends.
+    zoneOf: (party: Party): string => partyService.zoneOf(party),
     log,
     // Where a train's stops lie when it ends (plan 8H-7A), as its copies find their regions.
     stopRegions: (guildId, stop) =>
@@ -1312,6 +1322,8 @@ export async function startApp(
         maxBossAdmin: maxBosses,
         gameData,
         reports,
+        // The list as the screenshot's server sees it (fix round 1, L6).
+        zoneOf: (serverId) => servers.zoneOf(serverId),
       }),
     }),
     // A message read because a member asked: by the one trigger that reads the mentions. (No

@@ -375,7 +375,7 @@ export class ScreenshotService implements Screenshots {
           typed: typed ? storedTyped(typed) : null,
           ...(maxTyped ? { maxTyped: storedMaxTyped(maxTyped) } : {}),
           decision: { kind: 'refuse', reason: 'two-screens' },
-          bosses: this.bossSnapshot(),
+          bosses: this.bossSnapshot(where.guildId),
         });
       }
       return { kind: 'two-screens' };
@@ -414,10 +414,11 @@ export class ScreenshotService implements Screenshots {
     return { kind: 'panes', panes, held };
   }
 
-  /** The raid bosses of the moment, as a record keeps them. */
-  private bossSnapshot(): { key: string; name: string; tier: RaidTier }[] {
-    return this.options.context.raidBosses
-      .bosses()
+  /** The raid bosses of the moment in the server's zone (plan 19A-2), as a record keeps them. */
+  private bossSnapshot(guildId: string): { key: string; name: string; tier: RaidTier }[] {
+    const { context } = this.options;
+    return context.raidBosses
+      .bosses(context.servers.zoneOf(guildId))
       .map((boss) => ({ key: boss.key, name: boss.name, tier: boss.tier }));
   }
 
@@ -487,7 +488,8 @@ export class ScreenshotService implements Screenshots {
             context.servers.zoneOf(where.guildId),
           ),
         ).hatched,
-      autoset: (tier: RaidTier) => context.raidBosses.autoset(tier),
+      autoset: (tier: RaidTier) =>
+        context.raidBosses.autoset(tier, context.servers.zoneOf(where.guildId)),
     };
     const decision = decide(report, deciding);
     const withGym = (gymId: number) => decide(withTyped(report, { gymId }), deciding);
@@ -511,7 +513,7 @@ export class ScreenshotService implements Screenshots {
               report: image ? storedReport(read) : withoutText(storedReport(read)),
               typed: typed ? storedTyped(typed) : null,
               decision: decision.kind === 'report' ? { kind: 'report' } : storedDecision(decision),
-              bosses: this.bossSnapshot(),
+              bosses: this.bossSnapshot(where.guildId),
             },
             image,
           );
@@ -595,7 +597,7 @@ export class ScreenshotService implements Screenshots {
             typed: null,
             ...(typed ? { maxTyped: storedMaxTyped(typed) } : {}),
             decision: stored,
-            bosses: this.bossSnapshot(),
+            bosses: this.bossSnapshot(where.guildId),
             maxBosses: maxFrom.bosses.map((boss) => ({
               key: boss.key,
               name: boss.name,

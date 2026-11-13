@@ -27,7 +27,7 @@ export function reportContext(
   const zone = ctx.servers.zoneOf(where.guildId);
   const fileTakenAt = fileName === undefined ? undefined : takenAtFromFileName(fileName, zone);
   return {
-    bosses: ctx.raidBosses.bosses(),
+    bosses: ctx.raidBosses.bosses(zone),
     pokemon: ctx.gameData.catalogue.all,
     searchGym: (text) =>
       ctx.gyms
@@ -87,7 +87,7 @@ export function maxReportContext(
     }
   }
   return {
-    bosses: ctx.maxBosses.bosses(),
+    bosses: ctx.maxBosses.bosses(ctx.servers.zoneOf(where.guildId)),
     pokemon: (read, among) =>
       ctx.pokemon.find(read, { limit: 1, ...(among ? { filter: among } : {}) })[0]?.entry,
     catalogue,

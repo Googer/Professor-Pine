@@ -12,10 +12,12 @@ import { effectiveBosses } from './raid-bosses.js';
 import {
   mergeRotations,
   nextRotationChange,
+  nextRotationChangeIn,
   parseRaidManifest,
   parseRotationFragment,
   rotationAddress,
   rotationsAt,
+  rotationsIn,
   type RaidRotation,
   type RotationEntry,
 } from './raid-manifest.js';
@@ -226,6 +228,32 @@ describe('the rotations in force', () => {
     expect(next('2026-11-05T00:00')).toBe(at('2026-11-14T10:00'));
     expect(next('2026-11-15T18:00')).toBe(at('2026-11-16T18:00'));
     expect(next('2026-11-16T18:00')).toBeUndefined();
+  });
+});
+
+describe('the rotations in force in each zone (plan 19A-2)', () => {
+  const BERLIN = 'Europe/Berlin';
+  const slugsIn = (zone: string, time: number) =>
+    rotationsIn(manifest.rotations, zone, time).map((rotation) => rotation.slug);
+
+  it('starts Halloween Part I at 10:00 on each zone’s clock', () => {
+    // 10:00 in Berlin is 05:00 in New York: Berlin has Halloween, New York the Palkia week.
+    const berlinTen = at('2026-10-27T10:00', BERLIN);
+    expect(slugsIn(BERLIN, berlinTen)).toContain('halloween-2026-part-1-palkia');
+    expect(slugsIn(ZONE, berlinTen)).toContain('palkia-mega-charizard-x-mega-charizard-y');
+    expect(slugsIn(ZONE, at('2026-10-27T10:00'))).toContain('halloween-2026-part-1-palkia');
+    expect(slugsIn('Asia/Kolkata', at('2026-10-27T10:00', 'Asia/Kolkata'))).toContain(
+      'halloween-2026-part-1-palkia',
+    );
+  });
+
+  it('reads the list again at the soonest change across the zones in use', () => {
+    const before = at('2026-10-27T01:00', BERLIN);
+    expect(nextRotationChangeIn(manifest.rotations, [ZONE, BERLIN], before)).toBe(
+      at('2026-10-27T10:00', BERLIN),
+    );
+    expect(nextRotationChangeIn(manifest.rotations, [ZONE], before)).toBe(at('2026-10-27T10:00'));
+    expect(nextRotationChangeIn(manifest.rotations, [], before)).toBeUndefined();
   });
 });
 

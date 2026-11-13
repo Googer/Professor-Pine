@@ -24,6 +24,9 @@ import { partyServiceWith } from '../../../test/support/party-service.js';
 import { FEED_READ_AT, feedReply, readRaidBossFeed } from '../../../test/support/raid-bosses.js';
 import { admin } from './index.js';
 
+/** The zone of the test settings, every server's here. */
+const ZONE = 'America/New_York';
+
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = FEED_READ_AT + DAY;
 const at = (ms: number) => String(Math.floor(ms / 1000));
@@ -163,9 +166,9 @@ describe('/admin boss add', () => {
     const text = textOf(used);
     expect(text).toContain('The feed lists it at T3: that one is left out while this lasts.');
     expect(text).not.toContain('changes nothing');
-    expect(made.bosses.service.bosses().filter((boss) => boss.key === 'starmie')).toMatchObject([
-      { tier: { level: 'T1', shadow: false } },
-    ]);
+    expect(made.bosses.service.bosses(ZONE).filter((boss) => boss.key === 'starmie')).toMatchObject(
+      [{ tier: { level: 'T1', shadow: false } }],
+    );
     const shadow = await made.use('boss', 'add', { pokemon: 'Drapion', tier: 'T5:shadow' });
     expect(textOf(shadow)).toContain(
       'The feed lists it at Shadow T3: that one is left out while this lasts.',
@@ -450,7 +453,7 @@ describe('/admin boss: the pokemon option', () => {
     ]);
     const used = await made.use('boss', 'hide', { pokemon: 'ids:BRANDNEWMON', tier: 'T5' });
     expect(textOf(used)).toContain('Brandnewmon is hidden from T5 (override #1, for good).');
-    expect(made.bosses.service.bosses().some((boss) => boss.pokemonId === 'BRANDNEWMON')).toBe(
+    expect(made.bosses.service.bosses(ZONE).some((boss) => boss.pokemonId === 'BRANDNEWMON')).toBe(
       false,
     );
     expect(textOf(await made.use('boss', 'hide', { pokemon: 'ids:GONEMON', tier: 'T5' }))).toBe(

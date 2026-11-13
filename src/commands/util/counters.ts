@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import { TRAIN_KIND_WORDS } from '../../render/train-words.js';
 import { randomBytes } from 'node:crypto';
 import {
@@ -134,11 +135,12 @@ export function bossParty(interaction: LocatedInteraction, ctx: AppContext): Par
 export function currentMaxBoss(
   ctx: AppContext,
   entry: PokemonEntry,
+  zone: string,
   dynamaxOnly = false,
 ): { entry: PokemonEntry; tier: MaxTier } | undefined {
   const rank = (tier: MaxTier): number => (tier === 'G' ? -1 : MAX_TIERS.indexOf(tier));
   const found = ctx.maxBosses
-    .bosses()
+    .bosses(zone)
     .flatMap((boss) => {
       const listed = boss.entry;
       if (!listed || (dynamaxOnly && boss.tier === 'G')) return [];
@@ -175,9 +177,13 @@ const listsBoss = (boss: Readonly<Boss>, entry: PokemonEntry): boolean =>
  * (the most stamina), an ordinary raid before a shadow raid of the same level. Undefined when it
  * is no boss now.
  */
-export function currentTier(ctx: AppContext, entry: PokemonEntry): RaidTier | undefined {
+export function currentTier(
+  ctx: AppContext,
+  entry: PokemonEntry,
+  zone: string,
+): RaidTier | undefined {
   const tiers = ctx.raidBosses
-    .bosses()
+    .bosses(zone)
     .filter((boss) => listsBoss(boss, entry))
     .map((boss) => boss.tier)
     .sort((a, b) => bossStamina(b) - bossStamina(a) || Number(a.shadow) - Number(b.shadow));
@@ -193,6 +199,7 @@ function bossAndTier(
   interaction: ChatInputCommandInteraction,
   ctx: AppContext,
 ): { entry: PokemonEntry; tier: RaidTier | MaxTier; fromPost: boolean; ownBattle: boolean } {
+  const zone = zoneOf(interaction, ctx);
   const typedBoss = interaction.options.getString('boss')?.trim() ?? '';
   const typedTier = interaction.options.getString('tier');
   const party = bossParty(interaction, ctx);
@@ -208,20 +215,20 @@ function bossAndTier(
     if (fallback !== undefined) return { entry, tier: fallback };
     if (trainKind === 'gigantamax') return { entry, tier: 'G' };
     if (trainKind === 'dynamax') {
-      const listed = currentMaxBoss(ctx, entry, true);
+      const listed = currentMaxBoss(ctx, entry, zone, true);
       if (listed) return listed;
       throw new UserError(
         `${plain(entry.name)} is not a Dynamax boss now. Say which tier to simulate with \`tier\`.`,
       );
     }
-    const raid = currentTier(ctx, entry);
+    const raid = currentTier(ctx, entry, zone);
     if (raid) return { entry, tier: raid };
     if (inTrain) {
       throw new UserError(
         `${plain(entry.name)} is not a raid boss now. Say which tier to simulate with \`tier\`.`,
       );
     }
-    const max = currentMaxBoss(ctx, entry);
+    const max = currentMaxBoss(ctx, entry, zone);
     if (!max) {
       throw new UserError(
         `${plain(entry.name)} is not a raid or max battle boss now. Say which tier to simulate ` +
@@ -263,7 +270,7 @@ function bossAndTier(
       const dynamaxOf = (tier: RaidTier | MaxTier | undefined): MaxTier | undefined =>
         typeof tier === 'string' && tier !== 'G' ? tier : undefined;
       // As without the word: the listed boss, a species' listed form among them.
-      const current = typedTier === null ? currentMaxBoss(ctx, entry, true) : undefined;
+      const current = typedTier === null ? currentMaxBoss(ctx, entry, zone, true) : undefined;
       const tier =
         typedTier === null
           ? (dynamaxOf(postTier) ?? current?.tier)
@@ -415,7 +422,9 @@ async function readPlan(
     // The post of a battle stands for the list only for its own boss (another named there is not).
     const listed =
       ownBattle ||
-      ctx.maxBosses.bosses().some((boss) => boss.tier === tier && boss.entry?.key === entry.key);
+      ctx.maxBosses
+        .bosses(zoneOf(interaction, ctx))
+        .some((boss) => boss.tier === tier && boss.entry?.key === entry.key);
     return readMaxPlan(interaction, entry, tier, fromPost, ctx.gameData.catalogue, listed);
   }
   if (interaction.options.getString('role') !== null) {
@@ -591,11 +600,11 @@ function bossWhileTyping(
 }
 
 /** The bosses of the list the game master lacks but a mega's name tells, that fit what is typed. */
-function unlistedMegaChoices(ctx: AppContext, typed: string): Choice[] {
+function unlistedMegaChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
   const words = typed.toLowerCase().split(/\s+/u).filter(Boolean);
   if (words.length === 0) return [];
   const names = ctx.raidBosses
-    .bosses()
+    .bosses(zone)
     .filter(
       (boss) =>
         !boss.entry &&
@@ -624,10 +633,11 @@ function forMaxBattle(interaction: AutocompleteInteraction, ctx: AppContext): bo
   if (party && (isMax(party) || isTrain(party))) return true;
   // A boss that is no raid boss now and is a max boss is asked about as a max battle.
   const entry = bossWhileTyping(interaction, ctx);
+  const zone = zoneOf(interaction, ctx);
   return (
     entry !== undefined &&
-    currentTier(ctx, entry) === undefined &&
-    currentMaxBoss(ctx, entry) !== undefined
+    currentTier(ctx, entry, zone) === undefined &&
+    currentMaxBoss(ctx, entry, zone) !== undefined
   );
 }
 
@@ -784,7 +794,9 @@ export function countersMessage(
   });
   const { guildId } = place;
   const catalogue = ctx.gameData.catalogue;
-  const feedImage = ctx.raidBosses.bosses().find((boss) => listsBoss(boss, plan.entry))?.image;
+  const feedImage = ctx.raidBosses
+    .bosses(zoneOf(place, ctx))
+    .find((boss) => listsBoss(boss, plan.entry))?.image;
   return renderCounters({
     bossName: plan.entry.name,
     tier: plan.tier,
@@ -1014,7 +1026,10 @@ export const counters: SimpleCommand = {
     const typed = String(focused.value);
     await interaction.respond(
       focused.name === 'boss'
-        ? [...unlistedMegaChoices(ctx, typed), ...pokemonChoices(ctx, typed)].slice(0, MAX_CHOICES)
+        ? [
+            ...unlistedMegaChoices(ctx, typed, zoneOf(interaction, ctx)),
+            ...pokemonChoices(ctx, typed),
+          ].slice(0, MAX_CHOICES)
         : focused.name === 'moveset' && !forMaxBattle(interaction, ctx)
           ? movesetChoices(ctx, bossWhileTyping(interaction, ctx), typed)
           : [],

@@ -38,6 +38,9 @@ import { where } from '../parties/status.js';
 import { boss } from '../raids/boss.js';
 import { CHANGE_THROTTLE, end, hatch } from '../raids/change.js';
 
+/** The zone of the test settings, every server's here. */
+const ZONE = 'America/New_York';
+
 const all: CommandModule[] = [join, done, meet, end, hatch, boss, where, deleteParty];
 const stamp = (time: number, style = 't') => `<t:${time / 1000}:${style}>`;
 
@@ -117,7 +120,7 @@ describe('the commands in the post of a max battle (plan 8X-3)', () => {
 
   it('/boss asks the tier of a boss on no list, as /max does, and takes `tier:` (plan 8X-F)', async () => {
     const made = await setup();
-    expect(made.bosses.bosses().some((listed) => listed.entry?.key === 'alakazam')).toBe(false);
+    expect(made.bosses.bosses(ZONE).some((listed) => listed.entry?.key === 'alakazam')).toBe(false);
     // Never the battle's own tier in silence (staging of 8X: Machamp became "(2★)").
     expect(await made.answer('boss', { pokemon: 'Alakazam' })).toBe('Which tier? Add `tier:`.');
     expect(made.current().max).toMatchObject({ boss: { key: 'machamp' }, tier: 'D2' });

@@ -237,6 +237,7 @@ describe('runMigrations', () => {
       '2026_11_12_052_server_settings',
       '2026_11_12_053_server_settings_audit',
       '2026_11_13_054_feed_local_times',
+      '2026_11_13_055_max_boss_start',
     ]);
     expect(
       await describeSchema(

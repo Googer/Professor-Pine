@@ -58,6 +58,7 @@ import {
 } from '../../../test/support/messages.js';
 
 /** A message a control is on that is components v2, as posts and panels are. */
+const ZONE = 'America/New_York';
 const V2_ROWS: readonly FakeRow[] = [{ type: ComponentType.Container, components: [] }];
 
 const all: CommandModule[] = [
@@ -476,9 +477,9 @@ describe('/boss in the post of a train', () => {
 
   it('takes a Pokémon that is not on the current boss list: a train may be planned ahead', async () => {
     const made = await setup();
-    expect(made.ctx.raidBosses.bosses().some((listed) => listed.entry?.key === 'bulbasaur')).toBe(
-      false,
-    );
+    expect(
+      made.ctx.raidBosses.bosses(ZONE).some((listed) => listed.entry?.key === 'bulbasaur'),
+    ).toBe(false);
     expect(await made.answer('boss', { pokemon: 'bulbasaur' })).toBe(
       'This train is now after Bulbasaur.',
     );
@@ -558,7 +559,7 @@ describe('/boss in the post of a train', () => {
   it('takes "shadow" alone for no Pokémon: it is no name of a boss', async () => {
     const made = await setup();
     // The list has shadow bosses, which a raid finds by `shadow <name>`.
-    expect(made.ctx.raidBosses.bosses().some((listed) => listed.tier.shadow)).toBe(true);
+    expect(made.ctx.raidBosses.bosses(ZONE).some((listed) => listed.tier.shadow)).toBe(true);
     expect(await made.answer('boss', { pokemon: 'shadow' })).toBe(
       'I do not know a Pokémon called "shadow". Pick one from the list.',
     );
