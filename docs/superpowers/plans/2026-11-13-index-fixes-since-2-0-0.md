@@ -14,9 +14,9 @@
 
 | Task | Commit | Title |
 |---|---|---|
-| 1 | `f925bcc90` | Index fixes 1: indexes that begin with the member for the removal and its look |
-| 2 | `382e2b345` | Index fixes 2: a zone's want count reads only its servers' wants |
-| 3 | `419b27c6d` | Index fixes 3: the settings log's reads checked by explain, whole reads said |
+| 1 | `e2aa4942f` | Index fixes 1: indexes that begin with the member for the removal and its look |
+| 2 | `1798c9014` | Index fixes 2: a zone's want count reads only its servers' wants |
+| 3 | `527ef6525` | Index fixes 3: the settings log's reads checked by explain, whole reads said |
 
 On the tip: `npm run check`, `npm run build`, `npm run test:db`, one at a time, each judged by its exit status.
 

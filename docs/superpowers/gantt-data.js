@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-13T14:48",
+  "updated": "2026-11-13T15:03",
   "items": [
     {
       "id": "0",
@@ -12349,15 +12349,15 @@ window.GANTT = {
       "status": "done",
       "planning": {
         "start": "2026-11-13T12:04",
-        "end": "2026-11-13T14:47",
+        "end": "2026-11-13T15:02",
         "review": {
           "start": "2026-11-13T14:02",
-          "end": "2026-11-13T14:47"
+          "end": "2026-11-13T15:02"
         }
       },
       "review": {
-        "start": "2026-11-13T14:47",
-        "end": "2026-11-13T14:47"
+        "start": "2026-11-13T15:02",
+        "end": "2026-11-13T15:02"
       }
     },
     {
@@ -12367,7 +12367,7 @@ window.GANTT = {
       "name": "Indexes that begin with the member for the removal and its look",
       "status": "done",
       "start": "2026-11-13T14:47",
-      "end": "2026-11-13T14:47"
+      "end": "2026-11-13T15:02"
     },
     {
       "id": "19I.2",
@@ -12375,8 +12375,8 @@ window.GANTT = {
       "parent": "19I",
       "name": "A zone's want count reads only its servers' wants",
       "status": "done",
-      "start": "2026-11-13T14:47",
-      "end": "2026-11-13T14:47"
+      "start": "2026-11-13T15:02",
+      "end": "2026-11-13T15:02"
     },
     {
       "id": "19I.3",
@@ -12384,8 +12384,8 @@ window.GANTT = {
       "parent": "19I",
       "name": "The settings log's reads checked by explain",
       "status": "done",
-      "start": "2026-11-13T14:47",
-      "end": "2026-11-13T14:47"
+      "start": "2026-11-13T15:02",
+      "end": "2026-11-13T15:02"
     },
     {
       "id": "19B-3",
