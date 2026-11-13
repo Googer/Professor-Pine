@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-13T14:19",
+  "updated": "2026-11-13T14:48",
   "items": [
     {
       "id": "0",
@@ -12334,6 +12334,58 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-13T14:14",
       "end": "2026-11-13T14:14"
+    },
+    {
+      "id": "19I",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19I Index fixes of the queries since 2.0.0",
+      "size": 1,
+      "dependsOn": [
+        "19B-2"
+      ],
+      "scope": "Matt's rule that every query is served by an index: member-leading and staff-act indexes for /operator forget and its look (migration 057), a zone's want count by its servers, explain tests",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T12:04",
+        "end": "2026-11-13T14:47",
+        "review": {
+          "start": "2026-11-13T14:02",
+          "end": "2026-11-13T14:47"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T14:47",
+        "end": "2026-11-13T14:47"
+      }
+    },
+    {
+      "id": "19I.1",
+      "kind": "task",
+      "parent": "19I",
+      "name": "Indexes that begin with the member for the removal and its look",
+      "status": "done",
+      "start": "2026-11-13T14:47",
+      "end": "2026-11-13T14:47"
+    },
+    {
+      "id": "19I.2",
+      "kind": "task",
+      "parent": "19I",
+      "name": "A zone's want count reads only its servers' wants",
+      "status": "done",
+      "start": "2026-11-13T14:47",
+      "end": "2026-11-13T14:47"
+    },
+    {
+      "id": "19I.3",
+      "kind": "task",
+      "parent": "19I",
+      "name": "The settings log's reads checked by explain",
+      "status": "done",
+      "start": "2026-11-13T14:47",
+      "end": "2026-11-13T14:47"
     },
     {
       "id": "19B-3",
