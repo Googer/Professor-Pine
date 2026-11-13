@@ -3608,6 +3608,18 @@ Plan `2026-11-12-phase-19d-sharding.md`, merged on main-dev; check 13,747, datab
 - `onEveryShardReady` and `ShardStart.gone` are built for plan 19C, which marks a gone server left; nothing acts on them yet.
 - Beyond about 90,000 servers (36 shards and more at a `max_concurrency` of 1) the login's identify slots are long; the health rule gives each shard its slot, but nothing has been tried at that size.
 
+## From Phase 19A-2 (a time zone per server, 2026-11-13)
+
+Plan `2026-11-13-phase-19a-2-time-zones.md`, merged on main-dev; full check, database suite and build pass. **Staging not run** (its plan’s seven steps; needs `./pine update` for migrations 054 and 055 and a global deploy).
+
+- Three readers still take the instance’s default zone: `RaidEventService.tellOfHours` logs “today” on the default’s clock; `droppedIds` judges an event dropped by its start in the default zone; the map’s list of research rewards (`listedRewards`) reads the stored task list (labels only). None changes what a member sees in a one-zone installation.
+- `/admin boss sync` answers with the stored (default zone’s) list’s change only; another zone’s change is announced to its servers but not said to the staff member who synced.
+- A hideout reported again after a zone change: `rocketToldKey` is keyed by the local day alone, so members told of the old day’s hideout may not be told of the new one (research has the report’s end in its key since fix round 3, Q5).
+- The research test “that report again tells nobody twice” (`notify-service.research.test.ts`) reports the same task at the same stop, which is never saved, so it passes whatever the key is (last re-review, R1): report it at a further stop and expect one DM naming only that stop.
+- Two research reports of one period can carry different ends if the events feed moves an event mid-period (R2): a narrowing then gets the full “Field research has been reported…” DM instead of the confirmation. Rare; a fix keeps the end as the value of `researchTold` and lets `confirms` accept a key of the same period whose end is still ahead.
+- `RaidEventService`’s private helpers still accept `string | undefined` for the zone; the public lists require it.
+- Two spellings of one zone (`America/Chicago`, `US/Central`) are two zones in use: two timers, two reads, two announcements. Correct; a cost only on an instance with many servers.
+
 ## From Phase 19A-1 (a server’s settings, 2026-11-12)
 
 Plan `2026-11-12-phase-19a-1-server-settings.md`, merged on main-dev; full check, database suite and build pass. **Staging not run** (its plan’s six steps; needs a global deploy for `/admin settings`).
