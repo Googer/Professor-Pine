@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-13T10:50",
+  "updated": "2026-11-13T14:19",
   "items": [
     {
       "id": "0",
@@ -12267,7 +12267,73 @@ window.GANTT = {
       ],
       "scope": "gym–server link table and the upgrade’s links, a view and search index per server, staff change only their gyms, members see only their server’s",
       "doneWhen": "Merged into main-dev",
-      "status": "unplanned"
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T04:43",
+        "end": "2026-11-13T14:19",
+        "review": {
+          "start": "2026-11-13T10:04",
+          "end": "2026-11-13T14:14"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T14:14",
+        "end": "2026-11-13T14:14"
+      }
+    },
+    {
+      "id": "19B-2.1",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "The link table and the upgrade's links",
+      "status": "done",
+      "start": "2026-11-13T13:38",
+      "end": "2026-11-13T13:38"
+    },
+    {
+      "id": "19B-2.2",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "The gyms per server, with a server's own search",
+      "status": "done",
+      "start": "2026-11-13T13:38",
+      "end": "2026-11-13T13:38"
+    },
+    {
+      "id": "19B-2.3",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "Each server administers exactly its own gyms",
+      "status": "done",
+      "start": "2026-11-13T13:38",
+      "end": "2026-11-13T14:14"
+    },
+    {
+      "id": "19B-2.4",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "Members find, pick and name only their server's gyms",
+      "status": "done",
+      "start": "2026-11-13T14:14",
+      "end": "2026-11-13T14:14"
+    },
+    {
+      "id": "19B-2.5",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "Every other reader of gyms takes its server",
+      "status": "done",
+      "start": "2026-11-13T14:14",
+      "end": "2026-11-13T14:14"
+    },
+    {
+      "id": "19B-2.6",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "Docs",
+      "status": "done",
+      "start": "2026-11-13T14:14",
+      "end": "2026-11-13T14:14"
     },
     {
       "id": "19B-3",
