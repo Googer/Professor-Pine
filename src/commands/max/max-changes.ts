@@ -77,6 +77,7 @@ export async function changeMaxBoss(
   try {
     read = readMaxBoss(
       ctx,
+      ctx.partyService.serverOf(party),
       text,
       tierText,
       Date.now(),

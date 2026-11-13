@@ -141,21 +141,27 @@ function andList(names: readonly string[]): string {
  * that names one entry outright (`ctx.pokemon.exact`). Any Pokémon that appears in the wild can
  * be reported, a form as that form; one that does not is refused with a sentence, picked or
  * typed. Text that names nothing outright is never guessed at: what it may have meant is only
- * suggested. One letter is too little to act on, as for `/raid`: it names a form of Unown.
+ * suggested. One letter is too little to act on, as for `/raid`: it names a form of Unown. The
+ * search is the server's (`serverId`, its nicknames too: plan 19B-4).
  */
-export function wildPokemon(ctx: WildReading, value: string): PokemonEntry {
+export function wildPokemon(
+  ctx: WildReading,
+  serverId: string | null,
+  value: string,
+): PokemonEntry {
   const text = value.trim();
   const wild = wildIn(ctx);
+  const pokemon = ctx.pokemon.of(serverId);
   const picked = /^[a-z0-9_]+$/i.test(text)
     ? ctx.gameData.catalogue.byKey(text.toLowerCase())
     : undefined;
   const tooShort = searchTokens(text).join('').length < 2;
-  const entry = picked ?? (tooShort ? undefined : ctx.pokemon.exact(text));
+  const entry = picked ?? (tooShort ? undefined : pokemon.exact(text));
   if (entry && !wild(entry)) throw new UserError(notWild(entry));
   if (entry) return entry;
   const names = tooShort
     ? []
-    : ctx.pokemon
+    : pokemon
         .search(text, { filter: wild, limit: SUGGESTIONS, plain: true })
         .map((found) => plain(found.name));
   throw new UserError(
@@ -168,14 +174,16 @@ export function wildPokemon(ctx: WildReading, value: string): PokemonEntry {
 /**
  * A report's Pokémon and details as `/wild` and the live map read them, before anything is
  * posted or counted: the Pokémon (`wildPokemon`), then the details, which must say something
- * (`SAY_WHERE`; trimmed, cut to `MAX_DETAILS`). A refusal is thrown as a `UserError`.
+ * (`SAY_WHERE`; trimmed, cut to `MAX_DETAILS`). A refusal is thrown as a `UserError`. The server's
+ * search reads the Pokémon (`serverId`: the command's, or the map's route's).
  */
 export function readSpawn(
   ctx: WildReading,
+  serverId: string | null,
   pokemon: string,
   details: string | null,
 ): { entry: PokemonEntry; details: string } {
-  const entry = wildPokemon(ctx, pokemon);
+  const entry = wildPokemon(ctx, serverId, pokemon);
   const said = (details ?? '').trim();
   if (said === '') throw new UserError(SAY_WHERE);
   return { entry, details: truncate(said, MAX_DETAILS) };
@@ -187,13 +195,15 @@ export function readSpawn(
  * not what its typist meant, and sending it says why it is refused. In the order of the search
  * without its preference for legendaries (`plain`), here and in the suggestions of a refusal:
  * of those only the exceptions of the settings are left, and they are not what is likelier met.
+ * The search is the server's (`serverId`).
  */
-export function wildChoices(ctx: WildReading, typed: string): Choice[] {
+export function wildChoices(ctx: WildReading, serverId: string | null, typed: string): Choice[] {
   if (typed.trim() === '') return [];
   const wild = wildIn(ctx);
-  const named = ctx.pokemon.exact(typed);
+  const pokemon = ctx.pokemon.of(serverId);
+  const named = pokemon.exact(typed);
   if (named && !wild(named)) return [];
-  return ctx.pokemon
+  return pokemon
     .search(typed, { filter: wild, limit: MAX_CHOICES, plain: true })
     .map((entry) => ({ name: truncate(entry.name, CHOICE_NAME), value: entry.key }));
 }
@@ -221,6 +231,7 @@ const requireSpawnReport: Guard = async (interaction, ctx) => {
     // other.
     readSpawn(
       ctx,
+      interaction.guildId,
       interaction.options.getString('pokemon', true),
       interaction.options.getString('details'),
     );
@@ -341,6 +352,7 @@ export const wildCommand: SimpleCommand = {
     if (regionChannelId === undefined) throw new UserError(WILD_FROM_A_REGION);
     const read = readSpawn(
       ctx,
+      interaction.guildId,
       interaction.options.getString('pokemon', true),
       interaction.options.getString('details'),
     );
@@ -373,7 +385,7 @@ export const wildCommand: SimpleCommand = {
     await interaction.respond(
       focused.name === 'near'
         ? await nearChoices(interaction, ctx, focused.value)
-        : wildChoices(ctx, focused.value),
+        : wildChoices(ctx, interaction.guildId, focused.value),
     );
   },
 };

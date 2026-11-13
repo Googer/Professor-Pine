@@ -1,6 +1,7 @@
 import type { AppContext } from '../../app-context.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
 import { namedFirst, type PokemonHit } from '../../domain/pogo/pokemon-search.js';
+import type { PokemonFinder } from '../../services/pokemon-search-service.js';
 import { UserError } from '../../discord/errors.js';
 import {
   notificationTiers,
@@ -149,10 +150,17 @@ function namesBeforeLabelWords(typed: readonly string[]): string[] {
  * shadow tiers its label finds then stand after the Pokémon of 3 that it leads to by name
  * (the audit of 2026-11-07); the bosses it finds by name stay first.
  *
- * Nothing twice, 25 at most. A choice's value is the target's token.
+ * Nothing twice, 25 at most. A choice's value is the target's token. The search is the server's
+ * (`serverId`, its nicknames too: plan 19B-4).
  */
-export function wantChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
+export function wantChoices(
+  ctx: AppContext,
+  serverId: string | null,
+  typed: string,
+  zone: string,
+): Choice[] {
   const { catalogue } = ctx.gameData;
+  const pokemon = ctx.pokemon.of(serverId);
   const words = searchTokens(typed);
   const targets: NotificationTarget[] = [];
   const add = (target: NotificationTarget): void => {
@@ -164,9 +172,9 @@ export function wantChoices(ctx: AppContext, typed: string, zone: string): Choic
   } else {
     const begins = (target: NotificationTarget): boolean =>
       beginsWords(wantLabel(ctx, target), words);
-    const hits = ctx.pokemon.find(typed, { limit: MAX_CHOICES * 4 });
+    const hits = pokemon.find(typed, { limit: MAX_CHOICES * 4 });
     const rest = SHADOW_OF.exec(typed.trim())?.[1];
-    const shadowHits = rest === undefined ? [] : shadowFinds(ctx, rest);
+    const shadowHits = rest === undefined ? [] : shadowFinds(ctx, pokemon, rest);
     // `s`, `sh` … `shado` begin `shadow` in the label of every shadow boss and shadow tier, but
     // they begin names as well: those shadow raids stand after the Pokémon the text leads to by
     // name (the audit of 2026-11-07), and lead only when nothing else begins with the text.
@@ -193,7 +201,7 @@ export function wantChoices(ctx: AppContext, typed: string, zone: string): Choic
       bosses.flatMap((boss) => (boss.entry && boss.tier.shadow ? [boss.entry.dex] : [])),
     );
     const named = new Set(
-      ctx.pokemon
+      pokemon
         .find(typed, { filter: (entry) => bossKeys.has(entry.key) })
         .filter(namedFirst(hits))
         .map((hit) => hit.entry.key),
@@ -201,14 +209,14 @@ export function wantChoices(ctx: AppContext, typed: string, zone: string): Choic
     const namedShadow = new Set(
       rest === undefined
         ? []
-        : shadowFinds(ctx, rest, (entry) => shadowBosses.has(entry.dex))
+        : shadowFinds(ctx, pokemon, rest, (entry) => shadowBosses.has(entry.dex))
             .filter((hit) => hit.named)
             .filter(namedFirst(shadowHits))
             .map((hit) => hit.entry.dex),
     );
 
     // 0. The Pokémon the text names in full.
-    const read = readWantText(typed, wantSpeciesFinder(catalogue, ctx.pokemon));
+    const read = readWantText(typed, wantSpeciesFinder(catalogue, pokemon));
     if (read.kind === 'target' && read.target.kind === 'pokemon') add(read.target);
 
     // 1. The current raid bosses.
@@ -246,7 +254,7 @@ export function wantChoices(ctx: AppContext, typed: string, zone: string): Choic
     );
     if (catchKeys.size > 0) {
       const first = namedFirst(hits);
-      for (const hit of ctx.pokemon.find(typed, { filter: (entry) => catchKeys.has(entry.key) })) {
+      for (const hit of pokemon.find(typed, { filter: (entry) => catchKeys.has(entry.key) })) {
         if (!first(hit)) continue;
         if (hasForms(catalogue, hit.entry.dex)) add(entryWant(catalogue, hit.entry));
         add(pokemonTarget(hit.entry.dex));
@@ -274,7 +282,7 @@ export function wantChoices(ctx: AppContext, typed: string, zone: string): Choic
     }
     afterNames.splice(0).forEach(add);
     for (const name of namesBeforeLabelWords(words)) {
-      for (const hit of ctx.pokemon.find(name, { limit: MAX_CHOICES })) {
+      for (const hit of pokemon.find(name, { limit: MAX_CHOICES })) {
         if (hit.match === 'guess') continue;
         for (const target of [pokemonTarget(hit.entry.dex), entryWant(catalogue, hit.entry)]) {
           if (begins(target)) add(target);
@@ -318,11 +326,12 @@ export function wantChoices(ctx: AppContext, typed: string, zone: string): Choic
  */
 function shadowFinds(
   ctx: AppContext,
+  pokemon: PokemonFinder,
   rest: string,
   among?: (entry: PokemonEntry) => boolean,
 ): PokemonHit[] {
   const oneLetter = searchTokens(rest).join('').length < 2;
-  const hits = ctx.pokemon
+  const hits = pokemon
     .find(rest, {
       plain: true,
       filter: (entry) => entry.kind !== 'mega' && (among?.(entry) ?? true),
@@ -432,10 +441,16 @@ function orList(names: readonly string[]): string {
  * The target the `target` option names: a choice of the list, or typed text (see
  * `readWantText`). Throws a `UserError` that says what would work; a text that names nothing
  * outright is never guessed at: what it may have meant is only suggested. `own` is for a want
- * the member has (`/unwant`): see `readWantText`.
+ * the member has (`/unwant`): see `readWantText`. A Pokémon is read by the server's search
+ * (`serverId`, its nicknames too: plan 19B-4).
  */
-export function typedWant(ctx: AppContext, value: string, own = false): NotificationTarget {
-  const finder = wantSpeciesFinder(ctx.gameData.catalogue, ctx.pokemon);
+export function typedWant(
+  ctx: AppContext,
+  serverId: string | null,
+  value: string,
+  own = false,
+): NotificationTarget {
+  const finder = wantSpeciesFinder(ctx.gameData.catalogue, ctx.pokemon.of(serverId));
   const read = readWantText(value, finder, { own });
   if (read.kind === 'target') return read.target;
   if (read.kind === 'gone') {

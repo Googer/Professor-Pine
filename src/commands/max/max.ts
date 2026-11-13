@@ -155,6 +155,7 @@ const requireMaxReport: Guard = async (interaction, ctx) => {
   if (regionChannelId === undefined) return;
   const boss = readMaxBoss(
     ctx,
+    interaction.guildId,
     interaction.options.getString('boss', true),
     interaction.options.getString('tier'),
     now,

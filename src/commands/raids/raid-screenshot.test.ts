@@ -274,7 +274,7 @@ describe('/raid with a screenshot', () => {
     await service.flush();
     const [party] = store.active();
     if (!party || !isRaid(party)) throw new Error('no raid');
-    const typed = reportedBoss(ctx, 't5 azelf', ZONE);
+    const typed = reportedBoss(ctx, null, 't5 azelf', ZONE);
     expect(party.raid).toMatchObject({ tier: typed.tier, boss: typed.boss });
     expect(sent(used.editReply).content).toMatch(
       new RegExp(`^Reported: ${typed.label.replace(/[()]/g, '\\$&')} at Old Stone Fountain\\.`),

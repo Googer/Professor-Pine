@@ -21,8 +21,8 @@ function ctxWithBerlinBoss(): AppContext {
 describe('chosenPokemon (fix round 1, L6)', () => {
   it('finds a boss the list offered by its ids in the feed as the server sees it', () => {
     const ctx = ctxWithBerlinBoss();
-    expect(chosenPokemon(ctx, 'ids:BRANDNEWMON', BERLIN).label).toBe('Brandnewmon');
-    expect(() => chosenPokemon(ctx, 'ids:BRANDNEWMON', 'America/New_York')).toThrow(
+    expect(chosenPokemon(ctx, null, 'ids:BRANDNEWMON', BERLIN).label).toBe('Brandnewmon');
+    expect(() => chosenPokemon(ctx, null, 'ids:BRANDNEWMON', 'America/New_York')).toThrow(
       'That boss is no longer in the feed. Pick again from the list.',
     );
   });

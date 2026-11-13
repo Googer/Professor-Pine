@@ -273,6 +273,7 @@ export type RewardValue = `pokemon:${string}` | `item:${string}` | `energy:${num
  */
 export function rewardChoices(
   ctx: Pick<AppContext, 'researchTasks' | 'pokemon'>,
+  serverId: string | null,
   typed: string,
 ): Choice[] {
   const words = searchTokens(typed);
@@ -285,7 +286,7 @@ export function rewardChoices(
   for (const [dex, name] of energies) {
     if (hasWords(name, words)) choices.push({ name, value: `energy:${String(dex)}` });
   }
-  for (const entry of ctx.pokemon.search(typed, { limit: MAX_CHOICES })) {
+  for (const entry of ctx.pokemon.of(serverId).search(typed, { limit: MAX_CHOICES })) {
     choices.push({ name: truncate(entry.name, CHOICE_NAME), value: `pokemon:${entry.key}` });
   }
   return choices.slice(0, MAX_CHOICES);
@@ -293,11 +294,12 @@ export function rewardChoices(
 
 /**
  * The reward `reward:` names: a choice (`RewardValue`), or text that names one in full (an
- * item of today's list, `<species> Mega Energy` of one, or a Pokémon `ctx.pokemon.exact` knows).
- * A typed reward's quantity is not said (0).
+ * item of today's list, `<species> Mega Energy` of one, or a Pokémon the server's search knows:
+ * `serverId`, plan 19B-4). A typed reward's quantity is not said (0).
  */
 export function readReward(
   ctx: Pick<AppContext, 'researchTasks' | 'pokemon' | 'gameData'>,
+  serverId: string | null,
   value: string,
 ): TaskReward {
   const text = value.trim();
@@ -326,9 +328,9 @@ export function readReward(
     if (foldTaskText(name) === folded)
       return { kind: 'energy', dex, name, quantity: 0, image: null };
   }
-  const entry = ctx.pokemon.exact(text);
+  const entry = ctx.pokemon.of(serverId).exact(text);
   if (entry) return encounterOf(entry);
-  const suggested = rewardChoices(ctx, text)
+  const suggested = rewardChoices(ctx, serverId, text)
     .slice(0, 5)
     .map((choice) => plain(choice.name));
   throw new UserError(
@@ -361,10 +363,12 @@ export const PICK_THE_REWARD =
  * that is the list's task of the same folded text (`listedVersion`: its version by `reward`),
  * else a task typed in full (at most `MAX_TYPED_TASK` characters), whose `reward` is the only
  * reward that makes wants fire: `typed:<text key>`, with the reward's hash after it (R11).
- * Whether a task is still offered is decided in `zone` (the server's, plan 19A-2).
+ * Whether a task is still offered is decided in `zone` (the server's, plan 19A-2); a reward named
+ * by the server's search (`serverId`, plan 19B-4).
  */
 export function readTask(
   ctx: Pick<AppContext, 'researchTasks' | 'pokemon' | 'gameData'>,
+  serverId: string | null,
   value: string,
   reward: string | null,
   zone: string,
@@ -379,21 +383,24 @@ export function readTask(
   if (isTaskKey(text)) {
     const task = ctx.researchTasks.byKey(text);
     if (!task) throw new ListChanged(TASK_LIST_CHANGED);
-    return listedVersion(ctx, task, reward);
+    return listedVersion(ctx, serverId, task, reward);
   }
   if (text === '')
     throw new UserError('Say which task: pick one from the list that appears while you type.');
   const key = taskKeyOf(text);
   const known = ctx.researchTasks.byKey(key);
   // Past its event's end the list no longer has it: "pick it from the list" would be a dead end.
-  if (known && taskOffered(known, Date.now(), zone)) return listedVersion(ctx, known, reward);
+  if (known && taskOffered(known, Date.now(), zone)) {
+    return listedVersion(ctx, serverId, known, reward);
+  }
   if (text.length > MAX_TYPED_TASK) {
     throw new UserError(
       `A task you type may have ${String(MAX_TYPED_TASK)} characters: pick it from the list ` +
         'that appears while you type, or shorten it.',
     );
   }
-  const rewards = reward === null || reward.trim() === '' ? [] : [readReward(ctx, reward)];
+  const rewards =
+    reward === null || reward.trim() === '' ? [] : [readReward(ctx, serverId, reward)];
   const [only] = rewards;
   return {
     subjectKey: versionValue(
@@ -412,6 +419,7 @@ export function readTask(
  */
 function listedVersion(
   ctx: Pick<AppContext, 'researchTasks' | 'pokemon' | 'gameData'>,
+  serverId: string | null,
   task: ResearchTask,
   reward: string | null,
 ): ResearchSubject {
@@ -423,7 +431,7 @@ function listedVersion(
     if (!chosen) throw new UserError(PICK_THE_REWARD);
     return versionSubject(task, chosen);
   }
-  const named = readReward(ctx, reward);
+  const named = readReward(ctx, serverId, reward);
   const matching = versions.filter(
     (one) => !one.oneOf && one.rewards.length === 1 && sameReward(one.rewards[0], named),
   );

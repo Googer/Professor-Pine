@@ -405,7 +405,7 @@ function useOf(interaction: ChatInputCommandInteraction, ctx: AppContext): WantU
     const subject = postSubject(ctx, party);
     wanted = { kind: 'subject', subject, target: baseTarget(subject) };
   } else {
-    wanted = readWanted(ctx, typed);
+    wanted = readWanted(ctx, interaction.guildId, typed);
   }
   let use: WantUse = { wanted, asks: wanted.kind === 'rocket' };
   if (wanted.kind === 'subject') {
@@ -592,7 +592,7 @@ export const want: SimpleCommand = {
     // and Mega Energy of the task list fill what is left, at most `REWARD_ROOM` places where the
     // Pokémon would fill the list (B5).
     const rewards = [...rocketWantChoices(typed), ...rewardWantChoices(ctx, typed)];
-    const others = wantChoices(ctx, typed, zoneOf(interaction, ctx)).slice(
+    const others = wantChoices(ctx, interaction.guildId, typed, zoneOf(interaction, ctx)).slice(
       0,
       MAX_CHOICES - Math.min(rewards.length, REWARD_ROOM),
     );
@@ -1042,7 +1042,8 @@ export const unwant: SimpleCommand = {
       (entry) => searchText(entry.label) === folded || searchText(entryText(entry)) === folded,
     );
     const [only] = named;
-    const wanted = only && named.length === 1 ? undefined : readWanted(ctx, typed, true);
+    const wanted =
+      only && named.length === 1 ? undefined : readWanted(ctx, interaction.guildId, typed, true);
     const covered = wanted && (await coveringSpecies(ctx, memberId, guildId, wanted));
     if (covered !== undefined) {
       await answer(interaction, { content: covered });
@@ -1051,7 +1052,7 @@ export const unwant: SimpleCommand = {
     const { what, name } =
       only && named.length === 1
         ? { what: only.remove, name: only.label }
-        : removalOf(ctx, wanted ?? readWanted(ctx, typed, true));
+        : removalOf(ctx, wanted ?? readWanted(ctx, interaction.guildId, typed, true));
     const removed = await removeEntry(ctx, memberId, guildId, what);
     await answer(interaction, {
       content: removed

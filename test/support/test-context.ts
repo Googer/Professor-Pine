@@ -45,7 +45,7 @@ import { FakePlaces } from './places.js';
 import {
   gymsFixture,
   mapsFixture,
-  pokemonFixture,
+  pokemonFindersFixture,
   regionsFixture,
   testGuildRowOf,
 } from './providers.js';
@@ -258,7 +258,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     // Every click is answered by itself; a test of bursts passes its own with a window.
     clickAnswers: new ClickAnswers({ log, windowMs: 0 }),
     // Searches the catalogue of the context's own game data, built when first used.
-    pokemon: pokemonFixture(gameData),
+    pokemon: pokemonFindersFixture(gameData),
     nicknames: unavailable<PokemonNicknames>(
       'nicknames',
       'pass { pokemon: search, nicknames: search } from nicknameSearchWith()',

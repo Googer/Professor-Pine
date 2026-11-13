@@ -328,7 +328,12 @@ async function respondWithPokemon(
   const focused = interaction.options.getFocused(true);
   await interaction.respond(
     focused.name === 'pokemon'
-      ? bossPokemonChoices(ctx, String(focused.value), zoneOf(interaction, ctx))
+      ? bossPokemonChoices(
+          ctx,
+          interaction.guildId,
+          String(focused.value),
+          zoneOf(interaction, ctx),
+        )
       : [],
   );
 }
@@ -371,7 +376,12 @@ export const addBoss: SubcommandPart = {
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const zone = zoneOf(interaction, ctx);
-    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true), zone);
+    const chosen = chosenPokemon(
+      ctx,
+      interaction.guildId,
+      interaction.options.getString('pokemon', true),
+      zone,
+    );
     const tier = readTier(interaction.options.getString('tier', true));
     checkTier(chosen, tier);
     const listed = feedLists(ctx, chosen, tier, zone);
@@ -431,7 +441,12 @@ export const hideBoss: SubcommandPart = {
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const zone = zoneOf(interaction, ctx);
-    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true), zone);
+    const chosen = chosenPokemon(
+      ctx,
+      interaction.guildId,
+      interaction.options.getString('pokemon', true),
+      zone,
+    );
     const tier = readTier(interaction.options.getString('tier', true));
     const was = isBoss(ctx, chosen, tier, zone);
     const saved = await store(interaction, ctx, chosen, {
@@ -479,7 +494,12 @@ export const autosetBossPart: SubcommandPart = {
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const zone = zoneOf(interaction, ctx);
-    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true), zone);
+    const chosen = chosenPokemon(
+      ctx,
+      interaction.guildId,
+      interaction.options.getString('pokemon', true),
+      zone,
+    );
     const tier = readRaidTier(interaction.options.getString('tier', true));
     checkTier(chosen, tier);
     const { days, defaulted } = daysOf(interaction);
@@ -547,7 +567,12 @@ export const shinyBoss: SubcommandPart = {
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const zone = zoneOf(interaction, ctx);
-    const chosen = chosenPokemon(ctx, interaction.options.getString('pokemon', true), zone);
+    const chosen = chosenPokemon(
+      ctx,
+      interaction.guildId,
+      interaction.options.getString('pokemon', true),
+      zone,
+    );
     const value = interaction.options.getString('tier');
     const tier = value === null ? null : readTier(value);
     const shiny = interaction.options.getBoolean('can-be-shiny', true);

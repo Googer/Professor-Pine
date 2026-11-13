@@ -52,6 +52,7 @@ export const PINE_TABLES: readonly string[] = [
   'PartyHistoryStep',
   'PartyHistoryStop',
   'PineStop',
+  'PokemonNickname',
   'RaidBoss',
   'RaidBossOverride',
   'ResearchEvent',

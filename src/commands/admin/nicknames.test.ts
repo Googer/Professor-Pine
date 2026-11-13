@@ -7,8 +7,8 @@ import {
 } from '../../../test/support/boss-commands.js';
 import { instanceConfig } from '../../../test/support/operators.js';
 import { createTestContext } from '../../../test/support/test-context.js';
-import { TEST_ENV } from '../../../test/support/test-env.js';
-import { ONLY_OPERATORS } from '../../discord/guards.js';
+import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
+import { OTHER_GUILD_ID } from '../../../test/support/gyms.js';
 import { admin } from './index.js';
 
 const textOf = (interaction: Parameters<typeof textsOf>[0]) => textsOf(interaction).join('\n');
@@ -32,33 +32,48 @@ describe('/admin nickname', () => {
       { userId: MEMBER, roleNames: [] },
     );
     expect(textOf(used)).toBe('Only admins, moderators and bot developers can do that.');
-    expect(made.search.rows.rows.size).toBe(0);
+    expect(made.search.rows.rows.get(FAKE_GUILD_ID)).toEqual(new Map());
   });
 
-  // Plan 19B-1: the nicknames are every server's until they become a server's own (19B-4).
-  it('adds and removes only for the operators on an open instance; lists for staff', async () => {
+  // Plan 19B-4: the nicknames are a server's own: its staff change them, also on an open
+  // instance, and another server neither finds a Pokémon by them nor changes them.
+  it('changes and lists the nicknames of the server it is used in, for that server’s staff', async () => {
     const config = instanceConfig(createTestContext().ctx, { servers: 'open' });
     const made = await bossCommandsWith({
       nicknames: { dratini: ['danger noodle'] },
       context: { config },
     });
     const add = await made.use('nickname', 'add', { pokemon: 'dratini', nickname: 'wiggle' });
-    expect(textOf(add)).toBe(ONLY_OPERATORS);
-    const remove = await made.use('nickname', 'remove', {
-      pokemon: 'dratini',
-      nickname: 'danger noodle',
-    });
-    expect(textOf(remove)).toBe(ONLY_OPERATORS);
-    expect(made.search.rows.rows.get('dratini')).toEqual(['danger noodle']);
-    expect(textOf(await made.use('nickname', 'list', {}))).toContain('danger noodle');
-    // The owner is an operator.
-    const owner = await made.use(
+    expect(textOf(add)).toBe(
+      'Members find Dratini by **wiggle** now. Its nicknames: danger noodle, wiggle.',
+    );
+    expect(made.ctx.pokemon.of(FAKE_GUILD_ID).exact('wiggle')?.key).toBe('dratini');
+    expect(made.ctx.pokemon.of(OTHER_GUILD_ID).exact('wiggle')).toBeUndefined();
+    // In another server its staff see and change their own.
+    const abroad = { guildId: OTHER_GUILD_ID };
+    expect(textOf(await made.use('nickname', 'list', {}, abroad))).toBe(
+      'Staff have added no nicknames. `/admin nickname add` adds one.',
+    );
+    const theirs = await made.use(
       'nickname',
       'add',
-      { pokemon: 'dratini', nickname: 'wiggle' },
-      { userId: TEST_ENV.OWNER_ID ?? '', roleNames: [] },
+      { pokemon: 'magikarp', nickname: 'wiggle' },
+      abroad,
     );
-    expect(textOf(owner)).toContain('Members find Dratini by **wiggle** now.');
+    expect(textOf(theirs)).toBe('Members find Magikarp by **wiggle** now. Its nicknames: wiggle.');
+    expect(made.ctx.pokemon.of(OTHER_GUILD_ID).exact('wiggle')?.key).toBe('magikarp');
+    expect(made.ctx.pokemon.of(FAKE_GUILD_ID).exact('wiggle')?.key).toBe('dratini');
+    const removed = await made.use(
+      'nickname',
+      'remove',
+      { pokemon: 'dratini', nickname: 'danger noodle' },
+      abroad,
+    );
+    expect(textOf(removed)).toMatch(/^Dratini has no nickname \*\*danger noodle\*\*\./);
+    expect(made.search.rows.rows.get(FAKE_GUILD_ID)?.get('dratini')).toEqual([
+      'danger noodle',
+      'wiggle',
+    ]);
   });
 });
 
@@ -72,8 +87,11 @@ describe('/admin nickname add', () => {
     expect(textOf(used)).toBe(
       'Members find Dratini by **wiggle worm** now. Its nicknames: danger noodle, wiggle worm.',
     );
-    expect(made.search.rows.rows.get('dratini')).toEqual(['danger noodle', 'wiggle worm']);
-    expect(made.ctx.pokemon.exact('wiggle worm')?.key).toBe('dratini');
+    expect(made.search.rows.rows.get(FAKE_GUILD_ID)?.get('dratini')).toEqual([
+      'danger noodle',
+      'wiggle worm',
+    ]);
+    expect(made.ctx.pokemon.of(FAKE_GUILD_ID).exact('wiggle worm')?.key).toBe('dratini');
     expect(
       made.logged.filter((e) => e['msg'] === 'a Pokémon nickname was asked for'),
     ).toMatchObject([{ pokemon: 'dratini', outcome: 'added' }]);
@@ -101,7 +119,7 @@ describe('/admin nickname add', () => {
     expect(
       textOf(await made.use('nickname', 'add', { pokemon: 'dratini', nickname: 'noodle' })),
     ).toBe('**noodle** finds Dratini already.');
-    expect(made.search.rows.rows.size).toBe(0);
+    expect(made.search.rows.rows.get(FAKE_GUILD_ID)).toEqual(new Map());
   });
 
   it('says how long the stored list of nicknames may be when it is full', async () => {
@@ -139,7 +157,25 @@ describe('/admin nickname remove', () => {
     expect(textOf(used)).toBe(
       "Members no longer find Dratini by **wiggle**. Dratini: danger noodle (and the bot's own: noodle)",
     );
-    expect(made.ctx.pokemon.exact('wiggle')).toBeUndefined();
+    expect(made.ctx.pokemon.of(FAKE_GUILD_ID).exact('wiggle')).toBeUndefined();
+  });
+
+  it('starts reading, with nothing typed, the nicknames of a server not read since the start', async () => {
+    const made = await bossCommandsWith();
+    // Rows of a server that joined after the start: none of its nicknames are in memory yet.
+    await made.search.rows.addNickname(OTHER_GUILD_ID, 'magikarp', 'splashy');
+    await made.search.rows.addNickname(OTHER_GUILD_ID, 'dratini', 'danger noodle');
+    const abroad = { guildId: OTHER_GUILD_ID };
+    const before = await made.typing('nickname', 'remove', 'pokemon', '', {}, abroad);
+    // Until its read is back the list has none of them, as a search has the instance's names.
+    expect(choicesOf(before)).toEqual([]);
+    expect(made.search.rows.asked.at(-1)).toEqual([OTHER_GUILD_ID]);
+    await made.search.search.flush();
+    const after = await made.typing('nickname', 'remove', 'pokemon', '', {}, abroad);
+    expect(choicesOf(after)).toEqual([
+      { name: 'Dratini', value: 'dratini' },
+      { name: 'Magikarp', value: 'magikarp' },
+    ]);
   });
 
   it('does not offer a stored nickname too long for the value of a choice', async () => {
@@ -177,6 +213,31 @@ describe('/admin nickname list', () => {
     );
     expect(textOf(await made.use('nickname', 'list', { pokemon: 'tyranitar' }))).toBe(
       "Tyranitar: none added (and the bot's own: ttar)",
+    );
+  });
+
+  it('reads first the nicknames of a server not read since the start', async () => {
+    const made = await bossCommandsWith();
+    // Rows of a server that joined after the start: none of its nicknames are in memory yet.
+    await made.search.rows.addNickname(OTHER_GUILD_ID, 'magikarp', 'splashy');
+    await made.search.rows.addNickname(OTHER_GUILD_ID, 'dratini', 'danger noodle');
+    const abroad = { guildId: OTHER_GUILD_ID };
+    expect(textOf(await made.use('nickname', 'list', {}, abroad))).toBe(
+      '**Nicknames staff added** (2 Pokémon)\n- Dratini: danger noodle\n- Magikarp: splashy',
+    );
+  });
+
+  it('names the stored nicknames of a server not read since the start in a refusal', async () => {
+    const made = await bossCommandsWith();
+    await made.search.rows.addNickname(OTHER_GUILD_ID, 'dratini', 'danger noodle');
+    const refused = await made.use(
+      'nickname',
+      'remove',
+      { pokemon: 'dratini', nickname: 'splashy' },
+      { guildId: OTHER_GUILD_ID },
+    );
+    expect(textOf(refused)).toBe(
+      "Dratini has no nickname **splashy**. Dratini: danger noodle (and the bot's own: noodle)",
     );
   });
 

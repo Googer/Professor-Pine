@@ -197,7 +197,7 @@ describe('maxReportContext', () => {
       catalogue,
       MAX_FEED_READ_AT,
     );
-    const kingdra = ctx.pokemon.exact('Kingdra');
+    const kingdra = ctx.pokemon.of(null).exact('Kingdra');
     if (!kingdra) throw new Error('kingdra');
     expect(catalogue.canDynamax(kingdra)).toBe(false);
     expect(typedMaxBoss(kingdra, listed, catalogue).listed).toHaveLength(1);

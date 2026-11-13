@@ -389,6 +389,7 @@ const requireResearchReport: Guard = async (interaction, ctx) => {
   if (interaction.isChatInputCommand()) {
     const subject = readTask(
       ctx,
+      interaction.guildId,
       interaction.options.getString('task', true),
       interaction.options.getString('reward'),
       zoneOf(interaction, ctx),
@@ -426,7 +427,7 @@ const stopOption = (name: string, required: boolean) => (option: SlashCommandStr
 async function researchChoices(interaction: AutocompleteInteraction, ctx: AppContext) {
   const focused = interaction.options.getFocused(true);
   if (focused.name === 'task') return taskChoices(ctx, focused.value, zoneOf(interaction, ctx));
-  if (focused.name === 'reward') return rewardChoices(ctx, focused.value);
+  if (focused.name === 'reward') return rewardChoices(ctx, interaction.guildId, focused.value);
   const others = STOP_OPTIONS.filter((name) => name !== focused.name).map((name) =>
     interaction.options.getString(name),
   );

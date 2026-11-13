@@ -25,6 +25,7 @@ import { longestRaidDurations, raidDurationRules } from '../../domain/time/raid-
 import { UserError } from '../../discord/errors.js';
 import { isFarOff, plain, timestamp, truncate } from '../../render/text.js';
 import type { GymView } from '../../services/gym-directory.js';
+import type { PokemonFinder } from '../../services/pokemon-search-service.js';
 import { byName, CHOICE_NAME, MAX_CHOICES, showsGuessed, type Choice } from '../choices.js';
 
 const MINUTE = 60_000;
@@ -88,9 +89,14 @@ export const eggChoiceValue = (tier: RaidTier): string => `e:${tierCode(tier)}`;
  * The choices for the `boss` option: the current bosses first, then an egg for every tier,
  * narrowed to what was typed, a tier spelled as a report reads it (`tier 1`, `level 5` are `t1`,
  * `t5`: `spellTiers`). A choice's value says exactly what was picked, so that the report does not
- * depend on the name being typed back.
+ * depend on the name being typed back. A nickname is the server's (`serverId`, plan 19B-4).
  */
-export function bossChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
+export function bossChoices(
+  ctx: AppContext,
+  serverId: string | null,
+  typed: string,
+  zone: string,
+): Choice[] {
   const words = spellTiers(typed).trim().split(/\s+/).filter(Boolean);
   const fits = (name: string): boolean => {
     const lower = name.toLowerCase();
@@ -113,6 +119,7 @@ export function bossChoices(ctx: AppContext, typed: string, zone: string): Choic
     const keys = new Set(current.flatMap((boss) => (boss.entry ? [boss.entry.key] : [])));
     const named = new Set(
       ctx.pokemon
+        .of(serverId)
         .find(typed, { filter: (entry) => keys.has(entry.key) })
         .filter((hit) => hit.named || hit.match === 'exact')
         .map((hit) => hit.entry.key),
@@ -199,8 +206,8 @@ function couldBeEntries(text: string, entries: readonly PokemonEntry[]): UserErr
 }
 
 /** The mega forms of the Pokémon a text names (`mega charizard` or `charizard`). */
-function megaForms(ctx: RaidReading, text: string): PokemonEntry[] {
-  const species = ctx.pokemon.exact(text.replace(/^mega\b\s*/i, ''));
+function megaForms(ctx: RaidReading, pokemon: PokemonFinder, text: string): PokemonEntry[] {
+  const species = pokemon.exact(text.replace(/^mega\b\s*/i, ''));
   if (!species) return [];
   return ctx.gameData.catalogue.byDex(species.dex).filter((entry) => entry.kind === 'mega');
 }
@@ -239,12 +246,11 @@ function partialBosses(
  * never the plain Pokémon. Throws a `UserError` that names the forms when there are several, or
  * says there is no such Mega Pokémon. A raid's boss and a train's boss read it alike.
  */
-function megaEntry(ctx: RaidReading, rest: string): PokemonEntry {
+function megaEntry(ctx: RaidReading, pokemon: PokemonFinder, rest: string): PokemonEntry {
   const entry =
-    ctx.pokemon.exact(`mega ${rest}`) ??
-    (/^mega\b/i.test(rest) ? ctx.pokemon.exact(rest) : undefined);
+    pokemon.exact(`mega ${rest}`) ?? (/^mega\b/i.test(rest) ? pokemon.exact(rest) : undefined);
   if (entry) return entry;
-  const megas = megaForms(ctx, rest);
+  const megas = megaForms(ctx, pokemon, rest);
   if (megas.length > 1) {
     throw couldBeEntries(/^mega\b/i.test(rest) ? rest : `mega ${rest}`, megas);
   }
@@ -256,6 +262,7 @@ function megaEntry(ctx: RaidReading, rest: string): PokemonEntry {
 /** A tier typed in front of a name: the boss of that tier, or any Pokémon in that tier. */
 function reportedWithTier(
   ctx: RaidReading,
+  pokemon: PokemonFinder,
   bosses: readonly RaidBoss[],
   typedTier: { tier: RaidTier; rest: string },
 ): ReportedBoss {
@@ -270,9 +277,9 @@ function reportedWithTier(
 
   let entry;
   if (MEGA_LEVELS.includes(tier.level)) {
-    entry = megaEntry(ctx, rest);
+    entry = megaEntry(ctx, pokemon, rest);
   } else {
-    entry = compact(rest).length > 1 ? ctx.pokemon.exact(rest) : undefined;
+    entry = compact(rest).length > 1 ? pokemon.exact(rest) : undefined;
   }
   if (!entry) throw unknownText(rest);
   // The rule the screenshot reader decides by too (`bossAtTier`).
@@ -317,10 +324,17 @@ function reportedWithTier(
  * Otherwise a partial fit of one boss, or the error that names the several it could be. A
  * Pokémon (nicknames included) that is a current boss is that boss; one that is not is
  * explained. Throws a `UserError` that says what would work. The bosses are those of the server's
- * `zone` (plan 19A-2; every command and route gives it, a test may leave the instance's default).
+ * `zone` (plan 19A-2; every command and route gives it, a test may leave the instance's default),
+ * the nicknames that server's (`serverId`, plan 19B-4).
  */
-export function reportedBoss(ctx: RaidReading, value: string, zone: string): ReportedBoss {
+export function reportedBoss(
+  ctx: RaidReading,
+  serverId: string | null,
+  value: string,
+  zone: string,
+): ReportedBoss {
   const text = value.trim();
+  const pokemon = ctx.pokemon.of(serverId);
   const bosses = ctx.raidBosses.bosses(zone);
   const [kind, ...parts] = text.split(':');
   if (kind === 'e' && parts.length === 2) {
@@ -343,14 +357,14 @@ export function reportedBoss(ctx: RaidReading, value: string, zone: string): Rep
   // One letter names an Unown form: too little to act on. Judged on the letters, not the text.
   if (compact(text).length < 2) throw unknownText(text);
   if (exact.length > 1) throw couldBe(text, exact);
-  if (typedTier) return reportedWithTier(ctx, bosses, typedTier);
+  if (typedTier) return reportedWithTier(ctx, pokemon, bosses, typedTier);
 
   const fits = partialBosses(bosses, text, bossNames);
   const [first] = fits;
   if (first && fits.length === 1) return chosenBoss(first);
   if (fits.length > 1) throw couldBe(text, fits);
 
-  const entry = ctx.pokemon.exact(text);
+  const entry = pokemon.exact(text);
   if (!entry) throw unknownText(text);
   const named = bosses.filter((boss) => boss.key === entry.key);
   const [one] = named;
@@ -397,9 +411,15 @@ function onePerPokemon(bosses: readonly RaidBoss[]): RaidBoss[] {
  * has them; asked for by themselves, so that a boss far down among everything `s` finds is
  * still first), and then any Pokémon the search finds, in its order (a train may be planned
  * for a boss that is coming); a guess only when its name shows the word that was guessed, as
- * in the list of `/want` (`showsGuessed`). No eggs: a train has no tier.
+ * in the list of `/want` (`showsGuessed`). No eggs: a train has no tier. The search is the
+ * server's (`serverId`, plan 19B-4).
  */
-export function trainBossChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
+export function trainBossChoices(
+  ctx: AppContext,
+  serverId: string | null,
+  typed: string,
+  zone: string,
+): Choice[] {
   const words = searchTokens(typed);
   const bosses = onePerPokemon(ctx.raidBosses.bosses(zone));
   const choice = (boss: RaidBoss): Choice => ({
@@ -411,10 +431,11 @@ export function trainBossChoices(ctx: AppContext, typed: string, zone: string): 
   if (words.length === 0) {
     choices = bosses.map(choice);
   } else {
-    const hits = ctx.pokemon.find(typed, { limit: MAX_CHOICES * 4 });
+    const pokemon = ctx.pokemon.of(serverId);
+    const hits = pokemon.find(typed, { limit: MAX_CHOICES * 4 });
     const byKey = new Map(bosses.flatMap((boss) => (boss.entry ? [[boss.entry.key, boss]] : [])));
     // By its name: not by a word of its form, a key or a number, and not as a guess.
-    const named = ctx.pokemon
+    const named = pokemon
       .find(typed, { filter: (entry) => byKey.has(entry.key) })
       .filter(namedFirst(hits));
     // What the text names in full, boss or not: `mew` is Mew, also while Mewtwo is a boss.
@@ -454,11 +475,19 @@ export function trainBossChoices(ctx: AppContext, typed: string, zone: string): 
  * tier typed before a name is ignored, and a tier alone is refused with `noTier`; only a mega
  * tier word still names the Mega form, as in a raid (`megaEntry`). A current
  * boss is found by its name as in a raid; any other Pokémon is taken when the text names it
- * outright (`ctx.pokemon.exact`), also when it is no boss right now. Throws a `UserError` that
- * says what would work, and never speaks of a raid, a tier to put first or a report.
+ * outright (the server's search, `serverId`: plan 19B-4), also when it is no boss right now.
+ * Throws a `UserError` that says what would work, and never speaks of a raid, a tier to put first
+ * or a report.
  */
-export function trainBoss(ctx: AppContext, value: string, noTier: string, zone: string): TrainBoss {
+export function trainBoss(
+  ctx: AppContext,
+  serverId: string | null,
+  value: string,
+  noTier: string,
+  zone: string,
+): TrainBoss {
   const text = value.trim();
+  const pokemon = ctx.pokemon.of(serverId);
   const bosses = ctx.raidBosses.bosses(zone);
   const [kind, ...parts] = text.split(':');
   if (kind === 'e' && parts.length === 2 && tierFromCode(parts[0], parts[1])) {
@@ -479,7 +508,7 @@ export function trainBoss(ctx: AppContext, value: string, noTier: string, zone: 
   const named = (name: string): TrainBoss | undefined => {
     const [boss, ...more] = onePerPokemon(exactBosses(bosses, name, bossFullNames));
     if (boss && more.length === 0) return afterBoss(boss);
-    const entry = compact(name).length > 1 ? ctx.pokemon.exact(name) : undefined;
+    const entry = compact(name).length > 1 ? pokemon.exact(name) : undefined;
     return entry && afterEntry(entry);
   };
   const whole = named(text);
@@ -489,7 +518,7 @@ export function trainBoss(ctx: AppContext, value: string, noTier: string, zone: 
   // A mega tier word names the Mega form, as in a raid: `mega pikachu` is no Pikachu, and
   // `mega charizard` asks which of two (follow-ups, From Phase 3B).
   if (typedTier && MEGA_LEVELS.includes(typedTier.tier.level)) {
-    return afterEntry(megaEntry(ctx, typedTier.rest));
+    return afterEntry(megaEntry(ctx, pokemon, typedTier.rest));
   }
   // What is left once the words of a tier are gone, also a lone `shadow`.
   const rest = (typedTier ? typedTier.rest : text).replace(/^shadow\s+/i, '');

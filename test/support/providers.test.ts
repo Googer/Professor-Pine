@@ -15,8 +15,10 @@ describe('the test context', () => {
 
   it('finds Pokémon of the game-data fixture', () => {
     const { ctx } = createTestContext();
-    expect(ctx.pokemon.search('ttar')[0]?.key).toBe('tyranitar');
-    expect(ctx.pokemon.search('giratina')[0]).toBe(ctx.gameData.catalogue.byKey('giratina'));
+    expect(ctx.pokemon.of(null).search('ttar')[0]?.key).toBe('tyranitar');
+    expect(ctx.pokemon.of(null).search('giratina')[0]).toBe(
+      ctx.gameData.catalogue.byKey('giratina'),
+    );
   });
 
   it('searches the catalogue of the game data it was given', () => {
@@ -28,8 +30,8 @@ describe('the test context', () => {
       ),
     });
     const { ctx } = createTestContext({ gameData: { catalogue } });
-    expect(ctx.pokemon.search('renamed clone')[0]).toBe(catalogue.byKey('mewtwo'));
-    expect(ctx.pokemon.exact('renamed clone')).toBe(catalogue.byKey('mewtwo'));
+    expect(ctx.pokemon.of(null).search('renamed clone')[0]).toBe(catalogue.byKey('mewtwo'));
+    expect(ctx.pokemon.of(null).exact('renamed clone')).toBe(catalogue.byKey('mewtwo'));
   });
 
   it('has no maps', async () => {

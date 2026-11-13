@@ -36,7 +36,7 @@ const ELITE_EGG_WORDS =
 
 describe('bossChoices', () => {
   it('offers the current bosses first, then an egg for every tier', () => {
-    const choices = bossChoices(ctx, '', PARTY_ZONE);
+    const choices = bossChoices(ctx, null, '', PARTY_ZONE);
     // Fourteen bosses, and an egg for each of the seven levels and the three shadow tiers.
     expect(choices).toHaveLength(24);
     expect(choices[0]).toEqual({ name: 'Pikachu (T1)', value: 'b:pikachu:T1:0' });
@@ -51,27 +51,27 @@ describe('bossChoices', () => {
   });
 
   it('narrows to what was typed, by name or by tier, whatever the case', () => {
-    expect(bossChoices(ctx, 'yve', PARTY_ZONE)).toEqual([
+    expect(bossChoices(ctx, null, 'yve', PARTY_ZONE)).toEqual([
       { name: 'Yveltal (T5)', value: 'b:yveltal:T5:0' },
     ]);
-    expect(bossChoices(ctx, 'T5', PARTY_ZONE).map((choice) => choice.name)).toEqual([
+    expect(bossChoices(ctx, null, 'T5', PARTY_ZONE).map((choice) => choice.name)).toEqual([
       'Yveltal (T5)',
       'Landorus (Incarnate Forme) (Shadow T5)',
       'T5 egg',
       'Shadow T5 egg',
     ]);
-    expect(bossChoices(ctx, 'shadow egg', PARTY_ZONE).map((choice) => choice.name)).toEqual([
+    expect(bossChoices(ctx, null, 'shadow egg', PARTY_ZONE).map((choice) => choice.name)).toEqual([
       'Shadow T1 egg',
       'Shadow T3 egg',
       'Shadow T5 egg',
     ]);
-    expect(bossChoices(ctx, 'zzz', PARTY_ZONE)).toEqual([]);
+    expect(bossChoices(ctx, null, 'zzz', PARTY_ZONE)).toEqual([]);
   });
 
   // Staging of 2026-11-07: "tier 1" found nothing, though `/raid` reads it as a T1 egg.
   it('reads a tier spelled as a report reads it: tier 1, level 5, tier1, 5 star, as T1, T5', () => {
     const names = (typed: string) =>
-      bossChoices(ctx, typed, PARTY_ZONE).map((choice) => choice.name);
+      bossChoices(ctx, null, typed, PARTY_ZONE).map((choice) => choice.name);
     const t5 = names('t5');
     for (const typed of ['tier 5', 'level 5', 'tier5', 'Level5', '5 star', '5-star']) {
       expect(names(typed)).toEqual(t5);
@@ -99,34 +99,36 @@ describe('bossChoices', () => {
     );
     const { ctx: nicknamed } = createTestContext({
       pokemon: {
-        search: (text, options) => search.search(text, options),
-        find: (text, options) => search.find(text, options),
-        exact: (text) => search.exact(text),
+        of: () => ({
+          search: (text, options) => search.search(text, options),
+          find: (text, options) => search.find(text, options),
+          exact: (text) => search.exact(text),
+        }),
       },
     });
-    expect(bossChoices(nicknamed, 'genie', PARTY_ZONE)).toEqual([
+    expect(bossChoices(nicknamed, null, 'genie', PARTY_ZONE)).toEqual([
       { name: 'Landorus (Incarnate Forme) (Shadow T5)', value: 'b:landorus_incarnate:T5:1' },
     ]);
     // The beginning of a nickname, as of a name.
-    expect(bossChoices(nicknamed, 'death', PARTY_ZONE).map((choice) => choice.name)).toEqual([
+    expect(bossChoices(nicknamed, null, 'death', PARTY_ZONE).map((choice) => choice.name)).toEqual([
       'Yveltal (T5)',
     ]);
     // A nickname of a Pokémon that is no boss offers nothing.
-    expect(bossChoices(nicknamed, 'noodle', PARTY_ZONE)).toEqual([]);
+    expect(bossChoices(nicknamed, null, 'noodle', PARTY_ZONE)).toEqual([]);
   });
 });
 
 describe('reportedBoss', () => {
   it('reads every value the choices offer back as what was picked', () => {
-    for (const choice of bossChoices(ctx, '', PARTY_ZONE)) {
-      expect(reportedBoss(ctx, choice.value, PARTY_ZONE).label).toBe(choice.name);
+    for (const choice of bossChoices(ctx, null, '', PARTY_ZONE)) {
+      expect(reportedBoss(ctx, null, choice.value, PARTY_ZONE).label).toBe(choice.name);
     }
-    expect(reportedBoss(ctx, 'e:T5:0', PARTY_ZONE)).toEqual({
+    expect(reportedBoss(ctx, null, 'e:T5:0', PARTY_ZONE)).toEqual({
       tier: T5,
       boss: null,
       label: 'T5 egg',
     });
-    expect(reportedBoss(ctx, 'b:yveltal:T5:0', PARTY_ZONE)).toEqual({
+    expect(reportedBoss(ctx, null, 'b:yveltal:T5:0', PARTY_ZONE)).toEqual({
       tier: T5,
       boss: { key: 'yveltal' },
       label: 'Yveltal (T5)',
@@ -134,7 +136,7 @@ describe('reportedBoss', () => {
   });
 
   it('reads a typed tier as an egg', () => {
-    const egg = (text: string) => reportedBoss(ctx, text, PARTY_ZONE);
+    const egg = (text: string) => reportedBoss(ctx, null, text, PARTY_ZONE);
     expect(egg('t5')).toMatchObject({ tier: T5, boss: null });
     expect(egg('5')).toMatchObject({ tier: T5, boss: null });
     expect(egg('Tier 5 egg')).toMatchObject({ tier: T5, boss: null });
@@ -149,55 +151,61 @@ describe('reportedBoss', () => {
 
   it('knows no EX tier any more: the word names no egg', () => {
     for (const text of ['ex', 'EX raid', 'exclusive']) {
-      expect(() => reportedBoss(ctx, text, PARTY_ZONE), text).toThrow(UserError);
+      expect(() => reportedBoss(ctx, null, text, PARTY_ZONE), text).toThrow(UserError);
     }
   });
 
   it('reads a typed name of a current boss, also half typed, with its tier from the list', () => {
-    expect(reportedBoss(ctx, 'Yveltal', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(ctx, null, 'Yveltal', PARTY_ZONE)).toMatchObject({
       tier: T5,
       boss: { key: 'yveltal' },
     });
-    expect(reportedBoss(ctx, 'yvel', PARTY_ZONE)).toMatchObject({ boss: { key: 'yveltal' } });
-    expect(reportedBoss(ctx, 'mega blastoise', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(ctx, null, 'yvel', PARTY_ZONE)).toMatchObject({ boss: { key: 'yveltal' } });
+    expect(reportedBoss(ctx, null, 'mega blastoise', PARTY_ZONE)).toMatchObject({
       tier: { level: 'Mega', shadow: false },
       boss: { key: 'blastoise_mega' },
     });
-    expect(reportedBoss(ctx, 'landorus', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(ctx, null, 'landorus', PARTY_ZONE)).toMatchObject({
       tier: { level: 'T5', shadow: true },
       boss: { key: 'landorus_incarnate' },
     });
   });
 
   it('takes any Pokémon as a boss when its tier comes first', () => {
-    expect(reportedBoss(ctx, 't5 mewtwo', PARTY_ZONE)).toEqual({
+    expect(reportedBoss(ctx, null, 't5 mewtwo', PARTY_ZONE)).toEqual({
       tier: T5,
       boss: { key: 'mewtwo' },
       label: 'Mewtwo (T5)',
     });
-    expect(reportedBoss(ctx, 't3 mewtwo', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(ctx, null, 't3 mewtwo', PARTY_ZONE)).toMatchObject({
       tier: { level: 'T3', shadow: false },
       boss: { key: 'mewtwo' },
     });
   });
 
   it('says what would work for a Pokémon that is no current boss, and for text it cannot read', () => {
-    expect(() => reportedBoss(ctx, 'mewtwo', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(ctx, null, 'mewtwo', PARTY_ZONE)).toThrow(
       'Mewtwo is not on the current boss list. To report it anyway, put its tier first, for example `t3 mewtwo` or `t5 mewtwo`.',
     );
-    expect(() => reportedBoss(ctx, 'qwertyuiop', PARTY_ZONE)).toThrow(UserError);
-    expect(() => reportedBoss(ctx, 'a', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(ctx, null, 'qwertyuiop', PARTY_ZONE)).toThrow(UserError);
+    expect(() => reportedBoss(ctx, null, 'a', PARTY_ZONE)).toThrow(
       'I do not know a raid boss or tier called "a"',
     );
-    expect(() => reportedBoss(ctx, 'shadow mega', PARTY_ZONE)).toThrow(UserError);
-    expect(() => reportedBoss(ctx, '**@everyone**', PARTY_ZONE)).toThrow(/\\\*\\\*@\u200beveryone/);
+    expect(() => reportedBoss(ctx, null, 'shadow mega', PARTY_ZONE)).toThrow(UserError);
+    expect(() => reportedBoss(ctx, null, '**@everyone**', PARTY_ZONE)).toThrow(
+      /\\\*\\\*@\u200beveryone/,
+    );
   });
 
   it('refuses a choice whose boss has left the list, and a damaged value', () => {
-    expect(() => reportedBoss(ctx, 'b:zekrom:T5:0', PARTY_ZONE)).toThrow('no longer on the list');
-    expect(() => reportedBoss(ctx, 'b:yveltal:T3:0', PARTY_ZONE)).toThrow('no longer on the list');
-    expect(() => reportedBoss(ctx, 'e:T9:0', PARTY_ZONE)).toThrow(UserError);
-    expect(() => reportedBoss(ctx, 'e:Mega:1', PARTY_ZONE)).toThrow(UserError);
+    expect(() => reportedBoss(ctx, null, 'b:zekrom:T5:0', PARTY_ZONE)).toThrow(
+      'no longer on the list',
+    );
+    expect(() => reportedBoss(ctx, null, 'b:yveltal:T3:0', PARTY_ZONE)).toThrow(
+      'no longer on the list',
+    );
+    expect(() => reportedBoss(ctx, null, 'e:T9:0', PARTY_ZONE)).toThrow(UserError);
+    expect(() => reportedBoss(ctx, null, 'e:Mega:1', PARTY_ZONE)).toThrow(UserError);
   });
 });
 
@@ -471,7 +479,7 @@ function contextWith(list: RaidBoss[]) {
 
 describe('trainBossChoices', () => {
   const names = (list: RaidBoss[], typed: string) =>
-    trainBossChoices(contextWith(list), typed, PARTY_ZONE).map((choice) => choice.name);
+    trainBossChoices(contextWith(list), null, typed, PARTY_ZONE).map((choice) => choice.name);
 
   it('offers the current bosses, each Pokémon once, while nothing is typed', () => {
     const list = [listed('yveltal', 'T5'), listed('gastly', 'T1'), listed('gastly', 'T1', true)];
@@ -508,7 +516,7 @@ describe('trainBossChoices', () => {
     // hundreds of Pokémon. The Unown of that letter, which it names in full, no longer leads
     // (the audit of 2026-11-07): the names it begins come first.
     const fixture = (typed: string) =>
-      trainBossChoices(ctx, typed, PARTY_ZONE).map((choice) => choice.name);
+      trainBossChoices(ctx, null, typed, PARTY_ZONE).map((choice) => choice.name);
     const s = fixture('s');
     expect(s.slice(0, 2)).toEqual(['Shieldon', 'Starmie']);
     expect(s.slice(0, 25)).not.toContain('Unown (S)');
@@ -526,7 +534,7 @@ describe('trainBossChoices', () => {
 
   it('offers a guess only when the name shows the word that was guessed', () => {
     const fixture = (typed: string) =>
-      trainBossChoices(ctx, typed, PARTY_ZONE).map((choice) => choice.name);
+      trainBossChoices(ctx, null, typed, PARTY_ZONE).map((choice) => choice.name);
     // `percent` (a word of Zygarde's keys) is a guess for `perfect` that no name shows.
     expect(fixture('perfect')).toEqual([]);
     // A guess whose name shows the word stays, as in the list of `/want`: `meadow` for
@@ -560,7 +568,7 @@ describe('trainBossChoices', () => {
 describe('reportedBoss against a list of bosses', () => {
   it('reads a Mega boss by the name of its Pokémon', () => {
     const list = contextWith([listed('rayquaza_mega', 'MegaLegendary'), listed('yveltal', 'T5')]);
-    expect(reportedBoss(list, 'mega rayquaza', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(list, null, 'mega rayquaza', PARTY_ZONE)).toMatchObject({
       tier: { level: 'MegaLegendary', shadow: false },
       boss: { key: 'rayquaza_mega' },
     });
@@ -568,15 +576,15 @@ describe('reportedBoss against a list of bosses', () => {
 
   it('lets an exact name win over the longer names it begins', () => {
     const mew = contextWith([listed('mewtwo', 'T5'), listed('mew', 'T3')]);
-    expect(reportedBoss(mew, 'mew', PARTY_ZONE)).toMatchObject({ boss: { key: 'mew' } });
-    expect(reportedBoss(mew, 'MEW', PARTY_ZONE)).toMatchObject({ boss: { key: 'mew' } });
-    expect(reportedBoss(mew, 'mewtw', PARTY_ZONE)).toMatchObject({ boss: { key: 'mewtwo' } });
+    expect(reportedBoss(mew, null, 'mew', PARTY_ZONE)).toMatchObject({ boss: { key: 'mew' } });
+    expect(reportedBoss(mew, null, 'MEW', PARTY_ZONE)).toMatchObject({ boss: { key: 'mew' } });
+    expect(reportedBoss(mew, null, 'mewtw', PARTY_ZONE)).toMatchObject({ boss: { key: 'mewtwo' } });
     const charizard = contextWith([listed('charizard_mega_x', 'Mega'), listed('charizard', 'T5')]);
-    expect(reportedBoss(charizard, 'charizard', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(charizard, null, 'charizard', PARTY_ZONE)).toMatchObject({
       tier: { level: 'T5', shadow: false },
       boss: { key: 'charizard' },
     });
-    expect(reportedBoss(charizard, 'mega charizard x', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(charizard, null, 'mega charizard x', PARTY_ZONE)).toMatchObject({
       boss: { key: 'charizard_mega_x' },
     });
   });
@@ -587,7 +595,7 @@ describe('reportedBoss against a list of bosses', () => {
       listed('machop', 'T1', true),
       listed('machamp', 'T3'),
     ]);
-    expect(() => reportedBoss(several, 'mach', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(several, null, 'mach', PARTY_ZONE)).toThrow(
       '"mach" could be Machop (T1), Machop (Shadow T1) or Machamp (T3). Pick one from the list.',
     );
     const four = contextWith([
@@ -596,7 +604,7 @@ describe('reportedBoss against a list of bosses', () => {
       listed('machamp', 'T5'),
       listed('machop', 'T3'),
     ]);
-    expect(() => reportedBoss(four, 'mach', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(four, null, 'mach', PARTY_ZONE)).toThrow(
       '"mach" could be Machop (T1), Machoke (T3) or Machamp (T5). Pick one from the list.',
     );
   });
@@ -614,9 +622,9 @@ describe('reportedBoss against a list of bosses', () => {
       listed('landorus_incarnate', 'T5', true),
     ];
     for (const context of [contextWith(list), ctx]) {
-      for (const choice of bossChoices(context, '', PARTY_ZONE)) {
-        expect(reportedBoss(context, choice.name, PARTY_ZONE), choice.name).toEqual(
-          reportedBoss(context, choice.value, PARTY_ZONE),
+      for (const choice of bossChoices(context, null, '', PARTY_ZONE)) {
+        expect(reportedBoss(context, null, choice.name, PARTY_ZONE), choice.name).toEqual(
+          reportedBoss(context, null, choice.value, PARTY_ZONE),
         );
       }
     }
@@ -624,32 +632,32 @@ describe('reportedBoss against a list of bosses', () => {
 
   it('reads a nickname of a Pokémon that is a current boss, in the tier it is listed in', () => {
     const list = contextWith([listed('tyranitar', 'T3'), listed('yveltal', 'T5')]);
-    expect(reportedBoss(list, 'ttar', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(list, null, 'ttar', PARTY_ZONE)).toMatchObject({
       tier: { level: 'T3', shadow: false },
       boss: { key: 'tyranitar' },
     });
   });
 
   it('reads shadow before a name as the shadow boss', () => {
-    expect(reportedBoss(ctx, 'shadow landorus', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(ctx, null, 'shadow landorus', PARTY_ZONE)).toMatchObject({
       tier: { level: 'T5', shadow: true },
       boss: { key: 'landorus_incarnate' },
     });
   });
 
   it('says that a listed boss is a shadow raid when a plain tier was typed with its name', () => {
-    expect(() => reportedBoss(ctx, 't5 landorus', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(ctx, null, 't5 landorus', PARTY_ZONE)).toThrow(
       /shadow raid, not a plain T5 raid/,
     );
     const plainOnly = contextWith([listed('landorus_incarnate', 'T5')]);
-    expect(() => reportedBoss(plainOnly, 'shadow t5 landorus', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(plainOnly, null, 'shadow t5 landorus', PARTY_ZONE)).toThrow(
       /plain raid, not a Shadow T5 raid/,
     );
   });
 
   it('takes any Pokémon after a tier that does not clash with the list', () => {
     const list = contextWith([listed('yveltal', 'T5')]);
-    expect(reportedBoss(list, 't3 mewtwo', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(list, null, 't3 mewtwo', PARTY_ZONE)).toMatchObject({
       tier: { level: 'T3', shadow: false },
       boss: { key: 'mewtwo' },
     });
@@ -657,48 +665,48 @@ describe('reportedBoss against a list of bosses', () => {
 
   it('refuses a tier that contradicts the list for a boss that is listed in another tier', () => {
     const list = contextWith([listed('yveltal', 'T5'), listed('mewtwo', 'T5')]);
-    expect(() => reportedBoss(list, 't3 yveltal', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(list, null, 't3 yveltal', PARTY_ZONE)).toThrow(
       new UserError(
         'Yveltal is a T5 raid right now. Pick it from the list, or leave the tier out.',
       ),
     );
-    expect(() => reportedBoss(list, 'tier 1 mewtwo', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(list, null, 'tier 1 mewtwo', PARTY_ZONE)).toThrow(
       /Mewtwo is a T5 raid right now/,
     );
     // The tier the list has is fine.
-    expect(reportedBoss(list, 't5 yveltal', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(list, null, 't5 yveltal', PARTY_ZONE)).toMatchObject({
       boss: { key: 'yveltal' },
     });
   });
 
   it('reads a nickname after a tier as the boss listed in that tier', () => {
     const list = contextWith([listed('cresselia', 'T5'), listed('yveltal', 'T5')]);
-    expect(reportedBoss(list, 't5 regiduck', PARTY_ZONE)).toEqual({
+    expect(reportedBoss(list, null, 't5 regiduck', PARTY_ZONE)).toEqual({
       tier: T5,
       boss: { key: 'cresselia' },
       label: 'Cresselia (T5)',
     });
-    expect(() => reportedBoss(list, 't3 regiduck', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(list, null, 't3 regiduck', PARTY_ZONE)).toThrow(
       'Cresselia is a T5 raid right now. Pick it from the list, or leave the tier out.',
     );
   });
 
   it('words the article of a tier by its first sound', () => {
     const list = contextWith([listed('yveltal', 'T5'), listed('mewtwo', 'Elite')]);
-    expect(() => reportedBoss(list, 't3 mewtwo', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(list, null, 't3 mewtwo', PARTY_ZONE)).toThrow(
       'Mewtwo is an Elite raid right now. Pick it from the list, or leave the tier out.',
     );
   });
 
   it('names the mega forms of a Pokémon that has several, instead of not knowing it', () => {
     const list = contextWith([listed('yveltal', 'T5')]);
-    expect(() => reportedBoss(list, 'mega charizard', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(list, null, 'mega charizard', PARTY_ZONE)).toThrow(
       new UserError(
         '"mega charizard" could be Mega Charizard X or Mega Charizard Y: type the full name.',
       ),
     );
     // One form is enough to name it.
-    expect(reportedBoss(list, 'mega charizard x', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(list, null, 'mega charizard x', PARTY_ZONE)).toMatchObject({
       tier: { level: 'Mega', shadow: false },
       boss: { key: 'charizard_mega_x' },
     });
@@ -714,12 +722,12 @@ describe('reportedBoss against a list of bosses', () => {
       ['1 stars', 'T1'],
       ['3-star egg', 'T3'],
     ] as const) {
-      expect(reportedBoss(list, text, PARTY_ZONE), text).toMatchObject({
+      expect(reportedBoss(list, null, text, PARTY_ZONE), text).toMatchObject({
         tier: { level, shadow: false },
         boss: null,
       });
     }
-    expect(reportedBoss(list, '5-star mewtwo', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(list, null, '5-star mewtwo', PARTY_ZONE)).toMatchObject({
       tier: { level: 'T5' },
       boss: { key: 'mewtwo' },
     });
@@ -727,24 +735,24 @@ describe('reportedBoss against a list of bosses', () => {
 
   it('never turns mega and a name into the plain Pokémon', () => {
     const list = contextWith([listed('mewtwo', 'T5')]);
-    expect(() => reportedBoss(list, 'mega mewtwo', PARTY_ZONE)).toThrow(UserError);
-    expect(() => reportedBoss(list, 'mega yveltal', PARTY_ZONE)).toThrow(UserError);
+    expect(() => reportedBoss(list, null, 'mega mewtwo', PARTY_ZONE)).toThrow(UserError);
+    expect(() => reportedBoss(list, null, 'mega yveltal', PARTY_ZONE)).toThrow(UserError);
     const megas = contextWith([listed('charizard_mega_x', 'Mega')]);
-    expect(reportedBoss(megas, 'mega charizard x', PARTY_ZONE)).toMatchObject({
+    expect(reportedBoss(megas, null, 'mega charizard x', PARTY_ZONE)).toMatchObject({
       boss: { key: 'charizard_mega_x' },
     });
   });
 
   it('names the tiers a listed Pokémon has when its tier was not typed', () => {
     const both = contextWith([listed('tyranitar', 'T3'), listed('tyranitar', 'T5')]);
-    expect(() => reportedBoss(both, 'ttar', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(both, null, 'ttar', PARTY_ZONE)).toThrow(
       '"ttar" could be Tyranitar (T3) or Tyranitar (T5). Pick one from the list.',
     );
   });
 
   it('refuses damaged values and texts with less than two letters', () => {
     for (const text of ['b:', 'e:::', 'e:T5:2', 'e:T5:', 'a', ' x ', '::', '!!']) {
-      expect(() => reportedBoss(ctx, text, PARTY_ZONE), text).toThrow(UserError);
+      expect(() => reportedBoss(ctx, null, text, PARTY_ZONE), text).toThrow(UserError);
     }
   });
 
@@ -753,15 +761,17 @@ describe('reportedBoss against a list of bosses', () => {
       unknownBoss('*Odd* Boss', 'T5'),
       unknownBoss('*Odd* Other', 'T3'),
     ]);
-    expect(reportedBoss(context, 'b:newmon:T5:0', PARTY_ZONE).label).toBe('\\*Odd\\* Boss (T5)');
-    expect(() => reportedBoss(context, 'odd', PARTY_ZONE)).toThrow(
+    expect(reportedBoss(context, null, 'b:newmon:T5:0', PARTY_ZONE).label).toBe(
+      '\\*Odd\\* Boss (T5)',
+    );
+    expect(() => reportedBoss(context, null, 'odd', PARTY_ZONE)).toThrow(
       '"odd" could be \\*Odd\\* Boss (T5) or \\*Odd\\* Other (T3). Pick one from the list.',
     );
-    expect(bossChoices(context, '', PARTY_ZONE)[0]?.name).toBe('*Odd* Boss (T5)');
+    expect(bossChoices(context, null, '', PARTY_ZONE)[0]?.name).toBe('*Odd* Boss (T5)');
   });
 
   it('suggests no particular tier for a Pokémon that is no boss', () => {
-    expect(() => reportedBoss(ctx, 'mewtwo', PARTY_ZONE)).toThrow(
+    expect(() => reportedBoss(ctx, null, 'mewtwo', PARTY_ZONE)).toThrow(
       'Mewtwo is not on the current boss list. To report it anyway, put its tier first, for example `t3 mewtwo` or `t5 mewtwo`.',
     );
   });
@@ -777,10 +787,10 @@ describe('bossChoices with a long list', () => {
   }
 
   it('keeps room for every egg when nothing is typed', () => {
-    const choices = bossChoices(contextWith(many(30)), '', PARTY_ZONE);
+    const choices = bossChoices(contextWith(many(30)), null, '', PARTY_ZONE);
     expect(choices).toHaveLength(25);
     const eggs = choices.filter((choice) => choice.value.startsWith('e:'));
-    const everyEgg = bossChoices(contextWith([]), '', PARTY_ZONE).filter((c) =>
+    const everyEgg = bossChoices(contextWith([]), null, '', PARTY_ZONE).filter((c) =>
       c.value.startsWith('e:'),
     );
     expect(eggs).toEqual(everyEgg);
@@ -788,23 +798,26 @@ describe('bossChoices with a long list', () => {
   });
 
   it('fills the list with bosses when something is typed', () => {
-    const choices = bossChoices(contextWith(many(60)), 'c', PARTY_ZONE);
+    const choices = bossChoices(contextWith(many(60)), null, 'c', PARTY_ZONE);
     expect(choices).toHaveLength(25);
     expect(choices.every((choice) => choice.value.startsWith('b:'))).toBe(true);
   });
 
   it('leaves out a boss whose value would not fit Discord', () => {
     const long = { ...listed('mew', 'T3'), key: 'x'.repeat(95) };
-    const names = bossChoices(contextWith([long, listed('mewtwo', 'T5')]), '', PARTY_ZONE).map(
-      (c) => c.name,
-    );
+    const names = bossChoices(
+      contextWith([long, listed('mewtwo', 'T5')]),
+      null,
+      '',
+      PARTY_ZONE,
+    ).map((c) => c.name);
     expect(names).toContain('Mewtwo (T5)');
     expect(names).not.toContain('Mew (T3)');
   });
 
   it('cuts a name longer than Discord allows', () => {
     const longName = { ...listed('mew', 'T3'), name: 'M'.repeat(150) };
-    const [first] = bossChoices(contextWith([longName]), '', PARTY_ZONE);
+    const [first] = bossChoices(contextWith([longName]), null, '', PARTY_ZONE);
     expect(first?.name).toHaveLength(100);
     expect(first?.name.endsWith('…')).toBe(true);
   });

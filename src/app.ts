@@ -29,7 +29,7 @@ import { PartyRepository } from './db/repositories/party-repository.js';
 import { PokemonNotificationRepository } from './db/repositories/pokemon-notification-repository.js';
 import { TargetWantRepository } from './db/repositories/target-want-repository.js';
 import { WantBoxRepository } from './db/repositories/want-box-repository.js';
-import { PokemonRepository } from './db/repositories/pokemon-repository.js';
+import { PokemonNicknameRepository } from './db/repositories/pokemon-nickname-repository.js';
 import { MaxBossRepository, RaidBossRepository } from './db/repositories/raid-boss-repository.js';
 import { RegionRepository } from './db/repositories/region-repository.js';
 import { RowIds } from './db/repositories/row-ids.js';
@@ -1160,7 +1160,7 @@ export async function startApp(
     settingsChannelNames: channelNamesOf(config.settings),
     log,
   });
-  const pokemon = new PokemonSearchService(gameData, new PokemonRepository(db), log);
+  const pokemon = new PokemonSearchService(gameData, new PokemonNicknameRepository(db), log);
   const checkpoint = startCheckpoint(options.stopRequested);
   try {
     await runMigrations(db, log);
@@ -1196,7 +1196,9 @@ export async function startApp(
     // What a stop between storing a raid and creating its post left behind: only the store is
     // needed, and reports can arrive as soon as the bot has logged in.
     await partyService.endPartiesWithoutPost();
-    await pokemon.reloadNicknames();
+    // The nicknames of every server recorded, in one read (plan 19B-4); a server that joins
+    // later is read when it is first asked about.
+    await pokemon.load(await guilds.snowflakes());
     checkpoint();
   } catch (err) {
     await heartbeat.stop();

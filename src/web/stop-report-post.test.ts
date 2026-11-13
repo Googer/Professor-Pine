@@ -526,7 +526,7 @@ describe('reports at stops from the map', () => {
     it('refuses sameAs of a report ended, another server’s or a Rocket one, uncounted', async () => {
       const made = await setup();
       web = made.web;
-      const subject = readTask(made.ctx, DRAGON.key, null, PARTY_ZONE);
+      const subject = readTask(made.ctx, null, DRAGON.key, null, PARTY_ZONE);
       const reporter = { id: ALICE, name: 'Alice' };
       const taken = await made.ctx.stopReports.reportResearch({
         serverId: FAKE_GUILD_ID,
@@ -583,7 +583,7 @@ describe('reports at stops from the map', () => {
       const stale = await made.ctx.stopReports.reportResearch({
         serverId: FAKE_GUILD_ID,
         stops: await stopsByKey(made.ctx, FAKE_GUILD_ID, [wayspotId(1)]),
-        subject: readTask(made.ctx, DRAGON.key, null, PARTY_ZONE),
+        subject: readTask(made.ctx, null, DRAGON.key, null, PARTY_ZONE),
         reporter: { id: BOB, name: 'Bob' },
       });
       // The server moves to New York: at 00:30 on its own 23rd, that report is not of the day.
@@ -1019,7 +1019,7 @@ describe('reports at stops from the map', () => {
       const elsewhere = await made.ctx.stopReports.reportResearch({
         serverId: OTHER_GUILD_ID,
         stops: await stopsByKey(made.ctx, FAKE_GUILD_ID, [wayspotId(2)]),
-        subject: readTask(made.ctx, DRAGON.key, null, PARTY_ZONE),
+        subject: readTask(made.ctx, null, DRAGON.key, null, PARTY_ZONE),
         reporter: { id: ALICE, name: 'Alice' },
       });
       const other = elsewhere.saved[0]?.report.id ?? 0;

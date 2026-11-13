@@ -39,7 +39,7 @@ import type { PlaceFinder } from './services/place-finder.js';
 import type { PlaceSearch } from './services/place-search.js';
 import type { PokebattlerGateway } from './services/pokebattler-gateway.js';
 import type { PartyProvider } from './services/party-store.js';
-import type { PokemonFinder, PokemonNicknames } from './services/pokemon-search-service.js';
+import type { PokemonFinders, PokemonNicknames } from './services/pokemon-search-service.js';
 import type { MaxBossAdmin, MaxBossProvider } from './services/max-boss-service.js';
 import type { RaidBossAdmin, RaidBossProvider } from './services/raid-boss-service.js';
 import type { RaidChangeService } from './services/raid-change-service.js';
@@ -248,9 +248,12 @@ export interface AppContext {
   readonly spawns: SpawnService;
   /** Direct messages: put in line, and sent at a fixed rate. */
   readonly dms: DmSender;
-  /** Pokémon by what members type: names, nicknames, forms. */
-  readonly pokemon: PokemonFinder;
-  /** The nicknames staff add for searching (`/admin nickname`); `pokemon` finds by them. */
+  /**
+   * Pokémon by what members type: names, nicknames, forms; a server's search (`of(serverId)`)
+   * with that server's nicknames, `of(null)` the instance's names alone (plan 19B-4).
+   */
+  readonly pokemon: PokemonFinders;
+  /** The nicknames a server's staff add (`/admin nickname`); `pokemon.of` that server finds by them. */
   readonly nicknames: PokemonNicknames;
   /** Map pictures of gyms and regions, as files to attach. */
   readonly maps: MapProvider;

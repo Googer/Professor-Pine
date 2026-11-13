@@ -136,8 +136,13 @@ export function bossListText(bosses: readonly RaidBoss[]): string[] {
  * The choices of the `pokemon` option: the bosses while nothing is typed (one the game data
  * does not know yet by its name, which `execute` reads), else any Pokémon.
  */
-function bossTierChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
-  if (typed.trim() !== '') return pokemonChoices(ctx, typed);
+function bossTierChoices(
+  ctx: AppContext,
+  serverId: string | null,
+  typed: string,
+  zone: string,
+): Choice[] {
+  if (typed.trim() !== '') return pokemonChoices(ctx, serverId, typed);
   const choices = new Map<string, Choice>();
   for (const boss of ctx.raidBosses.bosses(zone)) {
     if (boss.entry) choices.set(boss.entry.key, entryChoice(boss.entry));
@@ -173,13 +178,15 @@ export const bossTier: SimpleCommand = {
     if (typed !== null) {
       // A boss the game data does not know yet is named by the feed's name only, and is what
       // the text means only when the text names no Pokémon outright.
-      const own = ctx.pokemon.exact(typed) ? [] : unknownBossesNamed(bosses, typed);
+      const own = ctx.pokemon.of(interaction.guildId).exact(typed)
+        ? []
+        : unknownBossesNamed(bosses, typed);
       const [unknown] = own;
       if (unknown) {
         await answer(interaction, { content: bossSentence(plain(unknown.name), own, []) });
         return;
       }
-      const entry = namedPokemon(ctx, typed);
+      const entry = namedPokemon(ctx, interaction.guildId, typed);
       const species = ctx.gameData.catalogue.species(entry.dex)?.name ?? entry.name;
       await answer(interaction, { content: bossTierText(bosses, entry, species) });
       return;
@@ -194,7 +201,7 @@ export const bossTier: SimpleCommand = {
     const focused = interaction.options.getFocused(true);
     await interaction.respond(
       focused.name === 'pokemon'
-        ? bossTierChoices(ctx, String(focused.value), zoneOf(interaction, ctx))
+        ? bossTierChoices(ctx, interaction.guildId, String(focused.value), zoneOf(interaction, ctx))
         : [],
     );
   },

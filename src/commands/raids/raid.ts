@@ -340,7 +340,9 @@ async function answerScreenshot(
   const typedGymText = interaction.options.getString('gym')?.trim() ?? '';
   const typedTime = interaction.options.getString('time');
   const reported =
-    typedBoss === '' ? undefined : reportedBoss(ctx, typedBoss, zoneOf(interaction, ctx));
+    typedBoss === ''
+      ? undefined
+      : reportedBoss(ctx, interaction.guildId, typedBoss, zoneOf(interaction, ctx));
   const gymAnswer =
     typedGymText === ''
       ? undefined
@@ -671,6 +673,7 @@ function raidCommand(screenshots: boolean): SimpleCommand {
       }
       const reported = reportedBoss(
         ctx,
+        interaction.guildId,
         interaction.options.getString('boss', true),
         zoneOf(interaction, ctx),
       );
@@ -712,7 +715,9 @@ function raidCommand(screenshots: boolean): SimpleCommand {
     async autocomplete(interaction, ctx) {
       const focused = interaction.options.getFocused(true);
       if (focused.name === 'boss') {
-        await interaction.respond(bossChoices(ctx, focused.value, zoneOf(interaction, ctx)));
+        await interaction.respond(
+          bossChoices(ctx, interaction.guildId, focused.value, zoneOf(interaction, ctx)),
+        );
         return;
       }
       const regionName = (channelId: string): string | undefined =>

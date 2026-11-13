@@ -1204,8 +1204,9 @@ export class PartyService {
 
   /**
    * The snowflake of a party's server (its `Guild` row's, as `zoneOf` finds it, in memory):
-   * whether a custom id names a party of the interaction's server (`partyOfServer`, plan 19B-4).
-   * Null for a row not known, which cannot be once every row was read at the start.
+   * whether a custom id names a party of the interaction's server (`partyOfServer`, plan 19B-4),
+   * and what is the server's own, such as its Pokémon nicknames. Null for a row not known, which
+   * cannot be once every row was read at the start: the instance's names alone then.
    */
   serverOf(party: Pick<Party, 'guildId'>): string | null {
     return this.serverOfRow(party.guildId) ?? null;

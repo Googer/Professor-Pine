@@ -4,7 +4,7 @@ import type { Gym } from '../../src/db/repositories/gym-repository.js';
 import type { Region } from '../../src/db/repositories/region-repository.js';
 import type { GymProvider, GymView } from '../../src/services/gym-directory.js';
 import type { RegionProvider } from '../../src/services/region-directory.js';
-import type { PokemonFinder } from '../../src/services/pokemon-search-service.js';
+import type { PokemonFinder, PokemonFinders } from '../../src/services/pokemon-search-service.js';
 import type { MapProvider } from '../../src/services/static-maps.js';
 import { loadSettings } from '../../src/config/settings.js';
 import type { PokemonCatalogue } from '../../src/domain/pogo/catalogue.js';
@@ -200,6 +200,17 @@ export interface TestGyms extends GymProvider {
   remove(id: number): boolean;
   /** Takes the gym out of one server's gyms at once, as a deletion of a shared gym does. */
   unlink(id: number, guildId: number): boolean;
+}
+
+/**
+ * The Pokémon search of every server alike (no server's nicknames: the instance's names), for a
+ * context's `pokemon` (plan 19B-4); a test of a server's nicknames passes `nicknameSearchWith`'s.
+ */
+export function pokemonFindersFixture(
+  gameData: GameDataProvider = { catalogue: catalogueFixture() },
+): PokemonFinders {
+  const finder = pokemonFixture(gameData);
+  return { of: () => finder };
 }
 
 /**

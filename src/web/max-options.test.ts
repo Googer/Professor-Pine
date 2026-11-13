@@ -32,7 +32,7 @@ function offered(made: Awaited<ReturnType<typeof maxReportingWith>>): MaxBossCho
     {
       maxBosses: ctx.maxBosses,
       maxEvents: ctx.raidEvents,
-      pokemon: ctx.pokemon,
+      pokemon: ctx.pokemon.of(null),
       gameData: ctx.gameData,
       zone: ctx.config.settings.timezone,
     },

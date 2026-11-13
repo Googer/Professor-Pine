@@ -355,7 +355,7 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     }
     let read: ReturnType<typeof readSpawn>;
     try {
-      read = readSpawn(ctx, body.data.pokemon, body.data.details);
+      read = readSpawn(ctx, guild, body.data.pokemon, body.data.details);
     } catch (err) {
       if (!(err instanceof UserError)) throw err;
       return noted('refused', refusal(err.message), picked.id);

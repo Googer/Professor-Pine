@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { missingPermissions } from '../../test/support/fake-gateway.js';
 import { FAKE_GUILD_ID, fakeChatInput, sent } from '../../test/support/fake-interactions.js';
-import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { EAST_CHANNEL, OTHER_GUILD_ID, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { nicknameSearchWith } from '../../test/support/nicknames.js';
+import type { PokemonFinders } from '../services/pokemon-search-service.js';
 import { dmSummary, textDisplays } from '../../test/support/messages.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, BOB, PARTY_NOW } from '../../test/support/parties.js';
@@ -64,6 +66,8 @@ async function reporting(
     places?: PartyWebDeps['places'];
     /** The gyms (`twoServerGyms`); the invented ones, the test server's, without it. */
     gyms?: TestGyms;
+    /** Each server's Pokémon search (`nicknameSearchWith`); the instance's names without it. */
+    pokemon?: PokemonFinders;
   } = {},
 ) {
   const throttles = options.throttles ?? new Throttles();
@@ -73,6 +77,7 @@ async function reporting(
     ...(options.meetupSafety ? { meetupSafety: options.meetupSafety } : {}),
     ...(options.wayspots ? { wayspots: options.wayspots } : {}),
     ...(options.gyms ? { gyms: options.gyms } : {}),
+    ...(options.pokemon ? { pokemon: options.pokemon } : {}),
     partyService: made.service,
     parties: made.store,
     regions: made.regions,
@@ -189,6 +194,25 @@ describe('reporting a wild Pokémon on the map', () => {
         'Dratini · Spawns',
       ],
     ]);
+  });
+
+  // Plan 19B-4: the Pokémon is read with the nicknames of the server of the route.
+  it('reads the Pokémon with the nicknames of the server the map is of', async () => {
+    const { search } = await nicknameSearchWith(
+      { dratini: ['wiggly'] },
+      { [OTHER_GUILD_ID]: { magikarp: ['wiggly'], dragonite: ['big noodle'] } },
+    );
+    const map = await reporting({ pokemon: search });
+    web = map.web;
+    const ours = await map.report({ pokemon: 'wiggly', details: 'by the bench', ...IN_WEST });
+    expect(ours.json).toMatchObject({
+      ok: true,
+      text: expect.stringMatching(/^Reported: a wild Dratini/) as unknown,
+    });
+    // Another server's nickname finds nothing here.
+    const theirs = await map.report({ pokemon: 'big noodle', details: 'by the bench', ...IN_WEST });
+    expect(theirs).toMatchObject({ status: 422, json: { ok: false } });
+    expect(map.reports()).toHaveLength(1);
   });
 
   it('gives the use back when the report fails for no fault of the member, as /wild does', async () => {

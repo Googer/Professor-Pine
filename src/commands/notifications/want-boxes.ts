@@ -476,9 +476,14 @@ export function rewardWantChoices(ctx: AppContext, typed: string): Choice[] {
  * What the `target` option of `/want` or `/unwant` names: a research reward (a choice's token,
  * or an item or Mega Energy of the task list named in full), else what `typedWant` reads (a
  * Pokémon, a form, a tier, IVs; shadow raids are the Shadow box of their Pokémon's dialog, and
- * the shadow raids of a tier its tier's).
+ * the shadow raids of a tier its tier's). A Pokémon is read by the server's search (`serverId`).
  */
-export function readWanted(ctx: AppContext, value: string, own = false): Wanted {
+export function readWanted(
+  ctx: AppContext,
+  serverId: string | null,
+  value: string,
+  own = false,
+): Wanted {
   const token = parseTargetWantToken(value.trim());
   if (token?.kind === 'research-item' || token?.kind === 'research-energy') {
     return { kind: 'reward', want: token };
@@ -503,7 +508,7 @@ export function readWanted(ctx: AppContext, value: string, own = false): Wanted 
       return { kind: 'reward', want: { kind: 'research-energy', dex } };
     }
   }
-  const target = typedWant(ctx, value, own);
+  const target = typedWant(ctx, serverId, value, own);
   const subject = subjectOf(target);
   return subject ? { kind: 'subject', subject, target } : { kind: 'iv', target };
 }

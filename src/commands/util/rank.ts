@@ -267,7 +267,11 @@ async function answerRank(
   ctx: AppContext,
   league?: League,
 ): Promise<void> {
-  const entry = namedPokemon(ctx, interaction.options.getString('pokemon', true));
+  const entry = namedPokemon(
+    ctx,
+    interaction.guildId,
+    interaction.options.getString('pokemon', true),
+  );
   const ivs: Ivs = {
     attack: interaction.options.getInteger('attack', true),
     defense: interaction.options.getInteger('defense', true),
@@ -399,7 +403,9 @@ async function pokemonAutocomplete(
 ): Promise<void> {
   const focused = interaction.options.getFocused(true);
   await interaction.respond(
-    focused.name === 'pokemon' ? pokemonChoices(ctx, String(focused.value)) : [],
+    focused.name === 'pokemon'
+      ? pokemonChoices(ctx, interaction.guildId, String(focused.value))
+      : [],
   );
 }
 

@@ -154,13 +154,18 @@ export function currentMaxBoss(
 }
 
 /**
- * The Pokémon a name stands for: a catalogue key or a name, or a mega the game master does not
- * have yet (`unlistedMega`). Undefined for anything else.
+ * The Pokémon a name stands for: a catalogue key or a name (by the server's search, its nicknames
+ * too), or a mega the game master does not have yet (`unlistedMega`). Undefined for anything
+ * else.
  */
-export function bossNamed(ctx: AppContext, name: string): PokemonEntry | undefined {
+export function bossNamed(
+  ctx: AppContext,
+  serverId: string | null,
+  name: string,
+): PokemonEntry | undefined {
   return (
     ctx.gameData.catalogue.byKey(name) ??
-    ctx.pokemon.exact(name) ??
+    ctx.pokemon.of(serverId).exact(name) ??
     ctx.gameData.catalogue.unlistedMega(name)
   );
 }
@@ -254,8 +259,9 @@ function bossAndTier(
   if (typedBoss !== '') {
     const kind = kindOfText(typedBoss);
     const entry =
-      (kind.gigantamax === undefined ? bossNamed(ctx, kind.rest) : undefined) ??
-      namedPokemon(ctx, kind.rest);
+      (kind.gigantamax === undefined
+        ? bossNamed(ctx, interaction.guildId, kind.rest)
+        : undefined) ?? namedPokemon(ctx, interaction.guildId, kind.rest);
     if (kind.gigantamax === true) {
       // `Gigantamax Machamp` names its tier, as in `/max`.
       if (typedTier !== null && typedTier !== 'G') {
@@ -302,7 +308,10 @@ function bossAndTier(
         : 'This train has no boss. Name one with `boss`.',
     );
   }
-  const entry = 'key' in ref ? ctx.gameData.catalogue.byKey(ref.key) : bossNamed(ctx, ref.name);
+  const entry =
+    'key' in ref
+      ? ctx.gameData.catalogue.byKey(ref.key)
+      : bossNamed(ctx, interaction.guildId, ref.name);
   if (!entry) {
     throw new UserError(
       `I cannot ask Pokebattler about ${'name' in ref ? plain(ref.name) : 'this boss'} yet: ` +
@@ -592,15 +601,22 @@ function bossWhileTyping(
   ctx: AppContext,
 ): PokemonEntry | undefined {
   const typed = interaction.options.getString('boss')?.trim() ?? '';
-  if (typed !== '') return bossNamed(ctx, typed);
+  if (typed !== '') return bossNamed(ctx, interaction.guildId, typed);
   const party = bossParty(interaction, ctx);
   const ref = party && bossOf(party);
   if (!ref) return undefined;
-  return 'key' in ref ? ctx.gameData.catalogue.byKey(ref.key) : bossNamed(ctx, ref.name);
+  return 'key' in ref
+    ? ctx.gameData.catalogue.byKey(ref.key)
+    : bossNamed(ctx, interaction.guildId, ref.name);
 }
 
 /** The bosses of the list the game master lacks but a mega's name tells, that fit what is typed. */
-function unlistedMegaChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
+function unlistedMegaChoices(
+  ctx: AppContext,
+  serverId: string | null,
+  typed: string,
+  zone: string,
+): Choice[] {
   const words = typed.toLowerCase().split(/\s+/u).filter(Boolean);
   if (words.length === 0) return [];
   const names = ctx.raidBosses
@@ -609,7 +625,7 @@ function unlistedMegaChoices(ctx: AppContext, typed: string, zone: string): Choi
       (boss) =>
         !boss.entry &&
         words.every((word) => boss.name.toLowerCase().includes(word)) &&
-        bossNamed(ctx, boss.name) !== undefined,
+        bossNamed(ctx, serverId, boss.name) !== undefined,
     )
     .map((boss) => boss.name);
   return [...new Set(names)].map((name) => ({ name, value: name }));
@@ -1054,8 +1070,8 @@ export const counters: SimpleCommand = {
     await interaction.respond(
       focused.name === 'boss'
         ? [
-            ...unlistedMegaChoices(ctx, typed, zoneOf(interaction, ctx)),
-            ...pokemonChoices(ctx, typed),
+            ...unlistedMegaChoices(ctx, interaction.guildId, typed, zoneOf(interaction, ctx)),
+            ...pokemonChoices(ctx, interaction.guildId, typed),
           ].slice(0, MAX_CHOICES)
         : focused.name === 'moveset' && !forMaxBattle(interaction, ctx)
           ? movesetChoices(ctx, bossWhileTyping(interaction, ctx), typed)

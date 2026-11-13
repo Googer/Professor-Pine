@@ -376,7 +376,8 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
         {
           maxBosses: ctx.maxBosses,
           maxEvents: ctx.raidEvents,
-          pokemon: ctx.pokemon,
+          // An event's featured bosses by the instance's names alone, as on Discord (`maxDeps`).
+          pokemon: ctx.pokemon.of(null),
           gameData: ctx.gameData,
           zone,
         },
@@ -468,7 +469,14 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
     let end: number;
     const typed = (body.data.end ?? '').trim();
     try {
-      boss = readMaxBoss(ctx, body.data.boss, body.data.tier ?? null, now, requestZone(request));
+      boss = readMaxBoss(
+        ctx,
+        guild,
+        body.data.boss,
+        body.data.tier ?? null,
+        now,
+        requestZone(request),
+      );
       end = reportedEnd(ctx, boss.tier, typed === '' ? null : typed, now, requestZone(request));
     } catch (err) {
       if (!(err instanceof UserError)) throw err;

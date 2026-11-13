@@ -82,12 +82,16 @@ export function maxBossOptions(
     .slice(0, MAX_CHOICES);
 }
 
-/** What `currentMaxBossChoices` reads, from the bot's context, in the server's zone. */
+/**
+ * What `currentMaxBossChoices` reads, from the bot's context, in the server's zone. The bosses an
+ * event features are read from its name by the instance's names alone (`of(null)`), never a
+ * server's nicknames: one event features the same bosses in every server (plan 19B-4).
+ */
 function maxDeps(ctx: MaxReading, zone: string) {
   return {
     maxBosses: ctx.maxBosses,
     maxEvents: ctx.raidEvents,
-    pokemon: ctx.pokemon,
+    pokemon: ctx.pokemon.of(null),
     gameData: ctx.gameData,
     zone,
   };
@@ -154,10 +158,12 @@ export function kindOfText(text: string): {
  * named so (it has no stars to ask). `fallback` is the tier of the battle `/boss` changes: a
  * name that says no kind takes the listed boss of the battle's kind first, and in a Gigantamax
  * battle a Pokémon the game lets battle so; a Dynamax boss on no list needs `tier:` there too
- * (plan 8X-F). Refused with a sentence for anything else.
+ * (plan 8X-F). Refused with a sentence for anything else. A Pokémon typed is read by the server's
+ * search (`serverId`, its nicknames too: plan 19B-4).
  */
 export function readMaxBoss(
   ctx: MaxReading,
+  serverId: string | null,
   text: string,
   tierText: string | null,
   now: number,
@@ -184,7 +190,7 @@ export function readMaxBoss(
     return read(refOf(boss), boss.name, boss.tier);
   }
   const { gigantamax, eternamax, rest } = kindOfText(text);
-  const named = ctx.pokemon.exact(rest);
+  const named = ctx.pokemon.of(serverId).exact(rest);
   const shown = plain(truncate(text.trim(), 80));
   if (!named) throw new UnknownMaxBoss(shown);
   // `Eternamax Eternatus` names the species; the list has its Eternamax form.

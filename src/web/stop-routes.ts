@@ -514,7 +514,13 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
         return noted('refused', refuse(reply, 422, TYPED_TASK_KEY));
       }
       try {
-        subject = readTask(ctx, body.data.task, body.data.reward ?? null, requestZone(request));
+        subject = readTask(
+          ctx,
+          guild,
+          body.data.task,
+          body.data.reward ?? null,
+          requestZone(request),
+        );
       } catch (err) {
         if (!(err instanceof UserError)) throw err;
         return noted('refused', refuse(reply, 422, err.message, listChanged(err)));

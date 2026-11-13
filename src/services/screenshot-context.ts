@@ -90,8 +90,10 @@ export function maxReportContext(
   }
   return {
     bosses: ctx.maxBosses.bosses(ctx.servers.zoneOf(where.guildId)),
+    // A name read off the screen by the search of the report's server (plan 19B-4).
     pokemon: (read, among) =>
-      ctx.pokemon.find(read, { limit: 1, ...(among ? { filter: among } : {}) })[0]?.entry,
+      ctx.pokemon.of(where.guildId).find(read, { limit: 1, ...(among ? { filter: among } : {}) })[0]
+        ?.entry,
     catalogue,
     spots: [...spots.values()],
     hours: settings.maxBattles,

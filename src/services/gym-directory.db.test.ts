@@ -13,7 +13,7 @@ import { startMigratedDatabase } from '../../test/support/migrated-db.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { GuildRepository } from '../db/repositories/guild-repository.js';
 import { GymRepository } from '../db/repositories/gym-repository.js';
-import { PokemonRepository } from '../db/repositories/pokemon-repository.js';
+import { PokemonNicknameRepository } from '../db/repositories/pokemon-nickname-repository.js';
 import { RegionRepository } from '../db/repositories/region-repository.js';
 import type { DB } from '../db/types.js';
 import { GymDirectory } from './gym-directory.js';
@@ -104,19 +104,23 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
     expect(ids(null, 'clock')).toEqual([]);
   });
 
-  it('finds Pokémon by nicknames stored in the legacy table', async () => {
-    const pokemon = new PokemonRepository(db);
+  it('finds Pokémon by the nicknames of a server stored in the database (plan 19B-4)', async () => {
+    const server = '412345678901234567';
+    const other = '412345678901234568';
+    const pokemon = new PokemonNicknameRepository(db);
     const search = new PokemonSearchService({ catalogue: catalogueFixture() }, pokemon);
-    await pokemon.addNickname('dratini', 'Danger Noodle');
-    await pokemon.addNickname('giratina_altered', 'tina');
-    await db.insertInto('Pokemon').values({ name: 'ex', nickname: 'exclusive' }).execute();
-    await search.reloadNicknames();
-    expect(search.search('danger noodle')[0]?.key).toBe('dratini');
-    expect(search.search('tina')[0]?.key).toBe('giratina_altered');
-    expect(search.search('exclusive')).toEqual([]);
+    await pokemon.addNickname(server, 'dratini', 'danger noodle');
+    await pokemon.addNickname(server, 'giratina_altered', 'tina');
+    await pokemon.addNickname(server, 'ex', 'exclusive');
+    await search.load([server, other]);
+    expect(search.of(server).search('danger noodle')[0]?.key).toBe('dratini');
+    expect(search.of(server).search('tina')[0]?.key).toBe('giratina_altered');
+    expect(search.of(server).search('exclusive')).toEqual([]);
+    expect(search.of(other).exact('danger noodle')).toBeUndefined();
 
-    await pokemon.removeNickname('dratini', 'danger noodle');
-    await search.reloadNicknames();
-    expect(search.search('danger noodle')).toEqual([]);
+    const dratini = search.of(null).exact('dratini');
+    if (!dratini) throw new Error('no dratini');
+    expect(await search.remove(server, dratini, 'danger noodle')).toBe(true);
+    expect(search.of(server).search('danger noodle')).toEqual([]);
   });
 });

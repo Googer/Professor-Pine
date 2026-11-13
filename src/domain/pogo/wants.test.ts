@@ -837,7 +837,7 @@ describe('entryWant, typedEntryWant', () => {
 
 describe('readWantText with a nickname of a species known by a named form', () => {
   const catalogue = catalogueFixture();
-  // Moderators' nicknames, as `PokemonRepository.nicknames()` gives them.
+  // A server's nicknames, as `PokemonNicknameRepository.nicknamesOf` gives them.
   const nicknames = mergeNicknames(catalogue, CURATED_NICKNAMES, {
     giratina_altered: ['tina'],
     landorus_incarnate: ['lando'],

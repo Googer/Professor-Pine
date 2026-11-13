@@ -574,6 +574,12 @@ export interface Pokemon {
   tier: Generated<number | null>;
 }
 
+export interface PokemonNickname {
+  nickname: string;
+  pokemonKey: string;
+  serverId: string;
+}
+
 export interface PokemonNotification {
   costumed: Generated<number>;
   form: string | null;
@@ -944,6 +950,7 @@ export interface DB {
   PartyHistoryStop: PartyHistoryStop;
   PineStop: PineStop;
   Pokemon: Pokemon;
+  PokemonNickname: PokemonNickname;
   PokemonNotification: PokemonNotification;
   RaidBoss: RaidBoss;
   RaidBossOverride: RaidBossOverride;

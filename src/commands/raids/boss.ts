@@ -62,7 +62,13 @@ async function setTrainBoss(
   if (NO_BOSS.has(text.trim().toLowerCase())) {
     change = { boss: null, label: '' };
   } else {
-    change = trainBoss(ctx, text, NO_TIER, ctx.partyService.zoneOf(party));
+    change = trainBoss(
+      ctx,
+      ctx.partyService.serverOf(party),
+      text,
+      NO_TIER,
+      ctx.partyService.zoneOf(party),
+    );
   }
   const outcome = await ctx.trains.setBoss(party.id, member, change);
   if (outcome.kind === 'gone') throw new UserError(partyOver(party));
@@ -143,10 +149,10 @@ export const boss: SimpleCommand = {
     const zone = zoneOf(interaction, ctx);
     await interaction.respond(
       here && isTrain(here)
-        ? trainBossChoices(ctx, typed, zone)
+        ? trainBossChoices(ctx, interaction.guildId, typed, zone)
         : here && isMax(here)
           ? maxBossOptions(ctx, typed, Date.now(), zone, battleKindOf(here.max.tier))
-          : bossChoices(ctx, typed, zone),
+          : bossChoices(ctx, interaction.guildId, typed, zone),
     );
   },
 };

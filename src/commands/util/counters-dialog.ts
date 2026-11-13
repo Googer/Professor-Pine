@@ -179,11 +179,11 @@ export function countersDialog(
   };
 }
 
-/** The boss of kept options, as the game data has it now. */
-function keptBoss(ctx: AppContext, kept: KeptAnswer): PokemonEntry {
+/** The boss of kept options, as the game data and the server's search have it now. */
+function keptBoss(ctx: AppContext, serverId: string | null, kept: KeptAnswer): PokemonEntry {
   const entry =
     ctx.gameData.catalogue.byKey(kept.bossKey) ??
-    (isKeptMax(kept) ? undefined : bossNamed(ctx, kept.bossName));
+    (isKeptMax(kept) ? undefined : bossNamed(ctx, serverId, kept.bossName));
   if (!entry) throw new UserError(NOT_KEPT);
   return entry;
 }
@@ -213,7 +213,7 @@ async function dialogPlan(
   ctx: AppContext,
   kept: KeptCounters,
 ): Promise<CounterPlan> {
-  const entry = keptBoss(ctx, kept);
+  const entry = keptBoss(ctx, interaction.guildId, kept);
   const { raidLevel, bosses } = pokebattlerTarget(entry, kept.tier);
   const weather = picked(interaction, INPUTS.weather) ?? '';
   const friendship = picked(interaction, INPUTS.friendship) ?? '';
@@ -301,7 +301,12 @@ async function anyDialogPlan(
   kept: KeptAnswer,
 ): Promise<AnyCounterPlan> {
   if (isKeptMax(kept)) {
-    return maxDialogPlan(interaction, keptBoss(ctx, kept), kept, ctx.gameData.catalogue);
+    return maxDialogPlan(
+      interaction,
+      keptBoss(ctx, interaction.guildId, kept),
+      kept,
+      ctx.gameData.catalogue,
+    );
   }
   return dialogPlan(interaction, ctx, kept);
 }
@@ -334,7 +339,7 @@ export const countersControls: ComponentHandler = {
   async button(interaction, id, ctx) {
     if (id.action !== COUNTERS_ACTIONS.options) throw new UserError(STALE_COMPONENT);
     const kept = keptFor(interaction, id.id);
-    const entry = keptBoss(ctx, kept);
+    const entry = keptBoss(ctx, interaction.guildId, kept);
     // The dialog is the presser's: it names them beside the answer's token.
     const dialogId = dialogIdOf(id.id, interaction.user.id);
     if (isKeptMax(kept)) {

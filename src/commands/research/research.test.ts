@@ -569,7 +569,7 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
   it('reads the version a choice, a key or a text with its reward names (R2)', () => {
     const { ctx } = createTestContext();
     const subject = (task: string, reward: string | null = null) =>
-      readTask(ctx, task, reward, PARTY_ZONE).subjectKey;
+      readTask(ctx, null, task, reward, PARTY_ZONE).subjectKey;
     expect(subject(GIBLE)).toBe(GIBLE);
     expect(subject(THROWS.key, 'gible')).toBe(GIBLE);
     expect(subject('make 3 excellent throws in a row', 'Gible')).toBe(GIBLE);
@@ -879,7 +879,7 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
       await stopReports.reportResearch({
         serverId: FAKE_GUILD_ID,
         stops: there,
-        subject: readTask(made.ctx, GIBLE, null, PARTY_ZONE),
+        subject: readTask(made.ctx, null, GIBLE, null, PARTY_ZONE),
         reporter: { id: MISTY, name: 'Misty' },
       });
       return [];
@@ -1154,11 +1154,11 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
     Object.assign(ctx, {
       researchTasks: researchTasksFixture([{ ...task, endsAt: Date.now() + 60_000 }]),
     });
-    expect(() => readTask(ctx, task.text, null, PARTY_ZONE)).toThrow(PICK_THE_REWARD);
+    expect(() => readTask(ctx, null, task.text, null, PARTY_ZONE)).toThrow(PICK_THE_REWARD);
     Object.assign(ctx, {
       researchTasks: researchTasksFixture([{ ...task, endsAt: Date.now() - 1 }]),
     });
-    const typed = readTask(ctx, task.text, null, PARTY_ZONE);
+    const typed = readTask(ctx, null, task.text, null, PARTY_ZONE);
     expect(typed.research).toMatchObject({ text: task.text, typed: true });
     expect(typed.subjectKey).toMatch(/^typed:/);
   });
@@ -1195,9 +1195,11 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
       rewards: [pikachu('pm25.fPXP_2026.icon.png'), pikachu('pm25.icon.png')],
     };
     Object.assign(ctx, { researchTasks: researchTasksFixture([candies, electric]) });
-    expect(() => readTask(ctx, candies.key, 'rare candy', PARTY_ZONE)).toThrow(PICK_THE_REWARD);
+    expect(() => readTask(ctx, null, candies.key, 'rare candy', PARTY_ZONE)).toThrow(
+      PICK_THE_REWARD,
+    );
     const plain = ctx.researchTasks.versions(electric).find((one) => !one.costumed);
-    expect(readTask(ctx, electric.key, 'pikachu', PARTY_ZONE).subjectKey).toBe(plain?.value);
+    expect(readTask(ctx, null, electric.key, 'pikachu', PARTY_ZONE).subjectKey).toBe(plain?.value);
   });
 });
 

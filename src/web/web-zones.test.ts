@@ -226,7 +226,13 @@ describe('the web in its server’s zone (plan 19A-2)', () => {
     vi.setSystemTime(zonedAt('2026-10-22T17:00', 'America/New_York'));
     await reportResearchAs(made.ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(made.ctx, FAKE_GUILD_ID, [wayspotId(1)]),
-      subject: readTask(made.ctx, pageTask('Catch a Dragon-type Pokémon').key, null, BERLIN),
+      subject: readTask(
+        made.ctx,
+        FAKE_GUILD_ID,
+        pageTask('Catch a Dragon-type Pokémon').key,
+        null,
+        BERLIN,
+      ),
       reporter: { id: ALICE, name: 'Alice' },
     });
     const shown = async (time: number) => {

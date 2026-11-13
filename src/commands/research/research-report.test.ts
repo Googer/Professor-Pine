@@ -111,7 +111,7 @@ describe('reportResearchAs', () => {
     const stops = await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1), 'pine-1']);
     const reported = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops,
-      subject: readTask(ctx, DRAGON.key, null, PARTY_ZONE),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     expect(reported.outcome.saved.map(({ report }) => report.stop.name)).toEqual([
@@ -133,7 +133,7 @@ describe('reportResearchAs', () => {
     const { ctx } = await setup();
     const reported = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1)]),
-      subject: readTask(ctx, DRAGON.key, null, PARTY_ZONE),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     expect(reported.view).toMatchObject({ channels: [WEST_CHANNEL], boards: [] });
@@ -147,7 +147,7 @@ describe('reportResearchAs', () => {
     });
     const reported = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1)]),
-      subject: readTask(ctx, DRAGON.key, null, PARTY_ZONE),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     expect(researchWords(reported.view, () => '#west').where).toBe('It lasts until midnight.');
@@ -159,7 +159,7 @@ describe('takeBackAs', () => {
     const { ctx, store } = await setup();
     const { outcome } = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1)]),
-      subject: readTask(ctx, DRAGON.key, null, PARTY_ZONE),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     const id = outcome.saved[0]?.report.id ?? 0;
@@ -180,7 +180,7 @@ describe('takeBackAs', () => {
     const { ctx, store } = await setup();
     const { outcome } = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1), wayspotId(2)]),
-      subject: readTask(ctx, DRAGON.key, null, PARTY_ZONE),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     const [mural, inti] = outcome.saved.map(({ report }) => report.id);
@@ -197,7 +197,7 @@ describe('takeBackAs', () => {
     const { ctx } = await setup();
     const { outcome } = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(6)]),
-      subject: readTask(ctx, DRAGON.key, null, PARTY_ZONE),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     const id = outcome.saved[0]?.report.id ?? 0;

@@ -356,7 +356,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
     let reported: ReportedBoss;
     let time: ReturnType<typeof reportedTime>;
     try {
-      reported = reportedBoss(ctx, body.data.boss, requestZone(request));
+      reported = reportedBoss(ctx, guild, body.data.boss, requestZone(request));
       time = reportedTime(ctx, reported, body.data.time ?? null, deps.now(), requestZone(request));
     } catch (err) {
       if (!(err instanceof UserError)) throw err;

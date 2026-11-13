@@ -158,9 +158,15 @@ export interface ChosenPokemon {
  * what the text names in full, then the bosses it finds by their name, then any Pokémon the
  * search finds (a guess only where the name shows the guessed word). A boss of the feed the game
  * master does not know is offered under the feed's name with its ids (`ids:<id>[:<form>]`);
- * every other choice's value is a catalogue key.
+ * every other choice's value is a catalogue key. The search is the server's (`serverId`, null in a
+ * DM: the instance's names alone; plan 19B-4).
  */
-export function bossPokemonChoices(ctx: AppContext, typed: string, zone: string): Choice[] {
+export function bossPokemonChoices(
+  ctx: AppContext,
+  serverId: string | null,
+  typed: string,
+  zone: string,
+): Choice[] {
   const words = searchTokens(typed);
   const bosses = [...ctx.raidBosses.bosses(zone), ...ctx.maxBosses.bosses(zone)];
   const unknown = bosses
@@ -177,8 +183,9 @@ export function bossPokemonChoices(ctx: AppContext, typed: string, zone: string)
   if (words.length === 0) {
     choices = [...[...known.values()].map(entryChoice), ...unknown];
   } else {
-    const hits = ctx.pokemon.find(typed, { limit: MAX_CHOICES * 4 });
-    const named = ctx.pokemon
+    const pokemon = ctx.pokemon.of(serverId);
+    const hits = pokemon.find(typed, { limit: MAX_CHOICES * 4 });
+    const named = pokemon
       .find(typed, { filter: (entry) => known.has(entry.key) })
       .filter(namedFirst(hits));
     const [first] = hits;
@@ -209,10 +216,15 @@ export function bossPokemonChoices(ctx: AppContext, typed: string, zone: string)
 /**
  * The Pokémon the `pokemon` option names: a choice of the list, or typed text that names one
  * outright (its name, key or a nickname no other Pokémon has). Anything else is refused with
- * what the text could be. A choice of the list is looked for in the feed as the server sees it,
- * in its `zone`, where the list offered it (fix round 1, L6).
+ * what the text could be, by the server's search (`serverId`). A choice of the list is looked for
+ * in the feed as the server sees it, in its `zone`, where the list offered it (fix round 1, L6).
  */
-export function chosenPokemon(ctx: AppContext, value: string, zone: string): ChosenPokemon {
+export function chosenPokemon(
+  ctx: AppContext,
+  serverId: string | null,
+  value: string,
+  zone: string,
+): ChosenPokemon {
   const text = value.trim();
   const ids = IDS_CHOICE.exec(text);
   if (ids?.[1]) {
@@ -233,6 +245,6 @@ export function chosenPokemon(ctx: AppContext, value: string, zone: string): Cho
       label: plain(entry?.name ?? feed?.name ?? form ?? pokemonId),
     };
   }
-  const entry = namedPokemon(ctx, text);
+  const entry = namedPokemon(ctx, serverId, text);
   return { ids: bossIdsOf(entry), entry, label: plain(entry.name) };
 }
