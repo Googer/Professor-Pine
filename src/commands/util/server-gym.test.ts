@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+  fakeAutocomplete,
   fakeChatInput,
   sent,
   type FakeInteraction,
 } from '../../../test/support/fake-interactions.js';
 import { gymViewOf } from '../../../test/support/gym-commands.js';
-import { testGyms, WEST_CHANNEL } from '../../../test/support/gyms.js';
-import { gymsOf } from '../../../test/support/providers.js';
+import {
+  OTHER_GUILD_ID,
+  testGyms,
+  WEST_CHANNEL,
+  WIDE_CHANNEL,
+} from '../../../test/support/gyms.js';
+import { gymsOf, regionsFixture, twoServerGyms } from '../../../test/support/providers.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { findGym } from './find-gym.js';
@@ -75,5 +81,51 @@ describe('the gym option of the member commands', () => {
         '(#12), **Pier 12 Starbucks** (#5). Pick one from the list, or write the number as `#12`.',
     );
     expect(title(await run('#12'))).toBe('Pinewood Post Office Gym');
+  });
+});
+
+describe('the gym option in two servers whose regions overlap (plan 19B-2)', () => {
+  it('neither offers, accepts nor names the other server’s gym in a region of both', async () => {
+    // Gym 2 lies in West, which is this server's, but is the other server's alone.
+    const { gyms, regions, guilds } = twoServerGyms();
+    const { ctx } = createTestContext({ gyms, regions: regionsFixture(regions), guilds });
+    const router = new InteractionRouter(ctx, [findGym], []);
+    /** From this server's West, or from the other server's Wide. */
+    const where = (other: boolean) =>
+      other ? { guildId: OTHER_GUILD_ID, channelId: WIDE_CHANNEL } : { channelId: WEST_CHANNEL };
+    const run = async (gym: string, other = false): Promise<FakeInteraction> => {
+      const interaction = fakeChatInput({
+        commandName: 'find-gym',
+        ...where(other),
+        options: { gym },
+      });
+      await router.handle(interaction as never);
+      return interaction;
+    };
+    const offered = async (typed: string, other = false): Promise<string> => {
+      const typing = fakeAutocomplete({
+        commandName: 'find-gym',
+        ...where(other),
+        focusedName: 'gym',
+        focused: typed,
+      });
+      await router.handle(typing as never);
+      return JSON.stringify(typing.respond.mock.calls);
+    };
+    expect(refusal(await run('#2'))).toBe('This server has no gym #2.');
+    expect(refusal(await run('2'))).toBe('This server has no gym #2.');
+    // At most a guess among this server's gyms: never the other's.
+    const typed = refusal(await run('old stone fountain')) ?? '';
+    expect(typed).not.toContain('Old Stone Fountain');
+    expect(typed).not.toContain('#2');
+    expect(await offered('fountain')).not.toContain('Stone Fountain');
+    // Its own gym is offered and taken.
+    expect(await offered('library')).toContain('Pinewood Public Library');
+    expect(title(await run('#1'))).toBe('Pinewood Public Library (The Stacks)');
+    // From the other server: its gym, and not this server's.
+    expect(await offered('fountain', true)).toContain('Old Stone Fountain');
+    expect(title(await run('#2', true))).toBe('Old Stone Fountain');
+    expect(await offered('library', true)).not.toContain('Pinewood Public Library');
+    expect(refusal(await run('#1', true))).toBe('This server has no gym #1.');
   });
 });

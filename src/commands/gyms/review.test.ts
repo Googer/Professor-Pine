@@ -8,7 +8,7 @@ import {
   MEMBER,
   MODERATOR,
 } from '../../../test/support/gym-commands.js';
-import { WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { REPORTER } from '../../../test/support/parties.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
@@ -110,6 +110,7 @@ const labels = (interaction: Awaited<ReturnType<Made['use']>>): string[] =>
 async function raidAt(made: Made, gymId: number) {
   const raid = await made.service.reportRaid({
     gym: gymOf(made, gymId),
+    guildRow: TEST_GUILD_ROW,
     reporterId: REPORTER,
     anonymous: false,
     autoStatus: PartyStatus.Interested,

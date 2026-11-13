@@ -16,7 +16,7 @@ import { renderMirror, type MirrorPlace } from '../render/mirrors.js';
 import type { RenderedPost } from '../render/party-post.js';
 import { Coalescer } from './coalescer.js';
 import type { PartyStore } from './party-store.js';
-import { stopRegionsInGuild } from './region-directory.js';
+import { stopRegionsInGuild, type ServerGymRegions } from './region-directory.js';
 import { refusalSaid, sendInForms, type MessageForms, type RefusedFiles } from './refused-files.js';
 
 const MINUTE = 60_000;
@@ -48,7 +48,7 @@ export interface PartyMirrorsOptions {
     byId(id: number): { channelId: string } | undefined;
     byChannel(channelId: string): { channelId: string; guildId: number | null } | undefined;
   };
-  gyms: {
+  gyms: ServerGymRegions & {
     get(id: number): { taggedEx: boolean; confirmedEx: boolean } | undefined;
     /** The region channels a gym lies in. */
     regionsOf(gymId: number): string[];

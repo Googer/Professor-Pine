@@ -3,7 +3,7 @@ import { MessageFlags } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import { asV2, sent } from '../../../test/support/fake-interactions.js';
 import { STAFF_PLACE, withOtherServer } from '../../../test/support/gym-admin.js';
-import { NORTH_PLACE } from '../../../test/support/gyms.js';
+import { NORTH_PLACE, TEST_GUILD_ROW } from '../../../test/support/gyms.js';
 import {
   answerOf,
   buttonId,
@@ -227,6 +227,7 @@ describe('the buttons of the view of /gym show', () => {
     if (!gym) throw new Error('no gym 6');
     const raid = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

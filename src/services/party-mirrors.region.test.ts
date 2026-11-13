@@ -1,3 +1,4 @@
+import { asTestServerGyms } from '../../test/support/providers.js';
 import { DiscordAPIError, RESTJSONErrorCodes } from 'discord.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakePartyGateway } from '../../test/support/fake-gateway.js';
@@ -44,10 +45,10 @@ const copiesIn = (made: Pick<Made, 'gateway'>, channelId: string) =>
 /** The invented gyms, with the Library (gym 1) lying in these region channels. */
 function gymsWithLibraryIn(...channels: string[]): PartyServiceOptions['gyms'] {
   const gyms = gymsFixture();
-  return {
+  return asTestServerGyms({
     get: (id) => gyms.get(id),
     regionsOf: (id) => (id === 1 ? channels : gyms.regionsOf(id)),
-  };
+  });
 }
 
 function missingPermissions(): DiscordAPIError {

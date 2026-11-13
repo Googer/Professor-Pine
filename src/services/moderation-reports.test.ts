@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WEST_CHANNEL } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL } from '../../test/support/gyms.js';
 import { MOD_CHANNEL } from '../../test/support/meetup-safety-service.js';
 import { buttonsOf, textOf } from '../../test/support/messages.js';
 import {
@@ -128,6 +128,7 @@ describe('ModerationReports: a party reported', () => {
       autoStatus: PartyStatus.Interested,
       tier: { level: 'T5', shadow: false },
       boss: null,
+      guildRow: TEST_GUILD_ROW,
     });
     if (raid.kind !== 'created') throw new Error(raid.kind);
     await made.reports.reportParty({

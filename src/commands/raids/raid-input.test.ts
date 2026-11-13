@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { EAST_CHANNEL, testGyms, testRegions, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  TEST_GUILD_ROW,
+  testGyms,
+  testRegions,
+  WEST_CHANNEL,
+} from '../../../test/support/gyms.js';
+import { gymsFixture } from '../../../test/support/providers.js';
 import { at, PARTY_NOW, PARTY_ZONE } from '../../../test/support/parties.js';
 import { catalogueFixture } from '../../../test/support/game-data.js';
 import { createTestContext } from '../../../test/support/test-context.js';
@@ -198,7 +205,7 @@ describe('gymChoices and reportedGym', () => {
   const regionName = (channelId: string) => (channelId === EAST_CHANNEL ? 'east' : 'west');
 
   it("offers the region's own gyms by name until something is typed", () => {
-    const offered = gymChoices(ctx, WEST_CHANNEL, '  ', regionName);
+    const offered = gymChoices(ctx.gyms.of(1), WEST_CHANNEL, '  ', regionName);
     expect(offered.map((choice) => choice.value)).toEqual(
       testGyms()
         .filter((gym) => ctx.gyms.regionsOf(gym.id).includes(WEST_CHANNEL))
@@ -207,73 +214,83 @@ describe('gymChoices and reportedGym', () => {
     );
     expect(offered).toContainEqual({ name: 'Pinewood Public Library · The Stacks', value: 'g:1' });
     // Outside a region there is no telling which gyms to offer.
-    expect(gymChoices(ctx, undefined, '', regionName)).toEqual([]);
+    expect(gymChoices(ctx.gyms.of(1), undefined, '', regionName)).toEqual([]);
   });
 
   it('offers the gyms that fit, with nickname, and the region of one that lies elsewhere', () => {
-    expect(gymChoices(ctx, WEST_CHANNEL, 'library', regionName)).toEqual([
+    expect(gymChoices(ctx.gyms.of(1), WEST_CHANNEL, 'library', regionName)).toEqual([
       { name: 'Pinewood Public Library · The Stacks', value: 'g:1' },
     ]);
     // Gym 7 lies in East, just over the border of West.
-    expect(gymChoices(ctx, WEST_CHANNEL, 'lighthouse', regionName)).toEqual([
+    expect(gymChoices(ctx.gyms.of(1), WEST_CHANNEL, 'lighthouse', regionName)).toEqual([
       { name: 'Harbor Lighthouse Mural · east', value: 'g:7' },
     ]);
-    const starbucks = gymChoices(ctx, undefined, 'starbucks', regionName);
+    const starbucks = gymChoices(ctx.gyms.of(1), undefined, 'starbucks', regionName);
     expect(starbucks.map((choice) => choice.value).sort()).toEqual(['g:5', 'g:9']);
   });
 
   it('takes a picked gym by its id', () => {
-    expect(reportedGym(ctx, WEST_CHANNEL, 'g:7')).toMatchObject({ kind: 'gym', gym: { id: 7 } });
-    expect(reportedGym(ctx, WEST_CHANNEL, 'g:999')).toEqual({ kind: 'none' });
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'g:7')).toMatchObject({
+      kind: 'gym',
+      gym: { id: 7 },
+    });
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'g:999')).toEqual({ kind: 'none' });
   });
 
   it('acts on typed text only when exactly one gym has every word as typed', () => {
-    expect(reportedGym(ctx, WEST_CHANNEL, 'stone fountain')).toMatchObject({
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'stone fountain')).toMatchObject({
       kind: 'gym',
       gym: { id: 2 },
     });
     // Misspelt: found, but offered, not acted on.
-    expect(reportedGym(ctx, WEST_CHANNEL, 'fountian')).toMatchObject({
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'fountian')).toMatchObject({
       kind: 'several',
       gyms: [{ id: 2 }],
     });
     // Two gyms have the word.
-    const pinewood = reportedGym(ctx, WEST_CHANNEL, 'pinewood');
+    const pinewood = reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'pinewood');
     expect(pinewood.kind).toBe('several');
-    expect(reportedGym(ctx, WEST_CHANNEL, 'zzzzzz')).toEqual({ kind: 'none' });
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'zzzzzz')).toEqual({ kind: 'none' });
   });
 
   it("looks in the server's other regions when no gym here or next door has every word", () => {
     // Gym 8 lies deep in East, not next to West (Matt, 2026-10-11).
-    expect(gymChoices(ctx, WEST_CHANNEL, 'fresco', regionName)).toEqual([
+    expect(gymChoices(ctx.gyms.of(1), WEST_CHANNEL, 'fresco', regionName)).toEqual([
       { name: 'Café Élan Fresco · east', value: 'g:8' },
     ]);
-    expect(reportedGym(ctx, WEST_CHANNEL, 'fresco')).toMatchObject({ kind: 'gym', gym: { id: 8 } });
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'fresco')).toMatchObject({
+      kind: 'gym',
+      gym: { id: 8 },
+    });
     // A good match here keeps the search here: West has its own Starbucks.
-    expect(gymChoices(ctx, WEST_CHANNEL, 'starbucks', regionName)).toEqual([
+    expect(gymChoices(ctx.gyms.of(1), WEST_CHANNEL, 'starbucks', regionName)).toEqual([
       { name: 'Starbucks', value: 'g:5' },
     ]);
-    expect(reportedGym(ctx, WEST_CHANNEL, 'starbucks')).toMatchObject({ gym: { id: 5 } });
-    // Gym 10 lies in no region: it belongs to no server and is not offered.
-    expect(gymChoices(ctx, WEST_CHANNEL, 'trailhead', regionName)).toEqual([]);
-    expect(reportedGym(ctx, WEST_CHANNEL, 'trailhead')).toEqual({ kind: 'none' });
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'starbucks')).toMatchObject({
+      gym: { id: 5 },
+    });
+    // Gym 10 lies in no region: from a region it is not offered.
+    expect(gymChoices(ctx.gyms.of(1), WEST_CHANNEL, 'trailhead', regionName)).toEqual([]);
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'trailhead')).toEqual({ kind: 'none' });
   });
 
-  it('does not go on to other regions from a region whose row names no server', () => {
-    // Two regions without a server are not regions of one server.
+  it('searches the server’s gyms from a channel whose region row is of no server, as from no region (plan 19B-2)', () => {
+    // Two regions without a server are no regions of this one.
     const unowned = testRegions().map((region) => ({ ...region, guildId: null }));
-    const { ctx: nowhere } = createTestContext({
-      regions: {
-        byId: (id) => unowned.find((region) => region.id === id),
-        byChannel: (channelId) => unowned.find((region) => region.channelId === channelId),
-        byForum: (forumId) => unowned.find((region) => region.forumChannelId === forumId),
-        all: () => unowned,
-      },
+    const gyms = gymsFixture([], { regions: unowned }).of(TEST_GUILD_ROW);
+    expect(gyms.isRegion(WEST_CHANNEL)).toBe(false);
+    // Not West's gyms first: every gym of the server, by name.
+    expect(reportedGym(gyms, WEST_CHANNEL, 'fresco')).toMatchObject({
+      kind: 'gym',
+      gym: { id: 8 },
     });
-    expect(gymChoices(nowhere, WEST_CHANNEL, 'fresco', regionName)).toEqual([]);
-    expect(reportedGym(nowhere, WEST_CHANNEL, 'fresco')).toEqual({ kind: 'none' });
-    // The region's own gyms are found as ever.
-    expect(reportedGym(nowhere, WEST_CHANNEL, 'starbucks')).toMatchObject({ gym: { id: 5 } });
+    expect(reportedGym(gyms, WEST_CHANNEL, 'starbucks')).toMatchObject({
+      kind: 'several',
+      everyWord: [5, 9],
+    });
+    expect(gymChoices(gyms, WEST_CHANNEL, 'trailhead', regionName)).toEqual([
+      { name: 'Lakeview Trailhead', value: 'g:10' },
+    ]);
   });
 });
 
@@ -283,30 +300,36 @@ describe('gymChoices and reportedGym among the gyms a caller accepts', () => {
   const accepts = (gym: { id: number }) => mine.has(gym.id);
 
   it('never answers with a gym that is not accepted, picked or typed', () => {
-    expect(reportedGym(ctx, WEST_CHANNEL, 'g:1', accepts)).toEqual({ kind: 'none' });
-    expect(reportedGym(ctx, WEST_CHANNEL, 'g:2', accepts)).toMatchObject({ gym: { id: 2 } });
-    expect(reportedGym(ctx, WEST_CHANNEL, 'library', accepts)).toEqual({ kind: 'none' });
-    expect(reportedGym(ctx, undefined, 'library', accepts)).toEqual({ kind: 'none' });
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'g:1', accepts)).toEqual({ kind: 'none' });
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'g:2', accepts)).toMatchObject({
+      gym: { id: 2 },
+    });
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'library', accepts)).toEqual({ kind: 'none' });
+    expect(reportedGym(ctx.gyms.of(1), undefined, 'library', accepts)).toEqual({ kind: 'none' });
   });
 
   it('acts on a text that one accepted gym has every word of, though others have them too', () => {
     // West has its own Starbucks (gym 5), which is not accepted: the one in East is meant.
-    expect(reportedGym(ctx, WEST_CHANNEL, 'starbucks', accepts)).toMatchObject({
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'starbucks', accepts)).toMatchObject({
       kind: 'gym',
       gym: { id: 9 },
     });
-    expect(reportedGym(ctx, undefined, 'starbucks', accepts)).toMatchObject({ gym: { id: 9 } });
-    expect(reportedGym(ctx, WEST_CHANNEL, 'fresco', accepts)).toMatchObject({ gym: { id: 8 } });
+    expect(reportedGym(ctx.gyms.of(1), undefined, 'starbucks', accepts)).toMatchObject({
+      gym: { id: 9 },
+    });
+    expect(reportedGym(ctx.gyms.of(1), WEST_CHANNEL, 'fresco', accepts)).toMatchObject({
+      gym: { id: 8 },
+    });
   });
 
   it('offers only accepted gyms', () => {
-    expect(gymChoices(ctx, WEST_CHANNEL, '', regionName, accepts)).toEqual([
+    expect(gymChoices(ctx.gyms.of(1), WEST_CHANNEL, '', regionName, accepts)).toEqual([
       { name: 'Old Stone Fountain', value: 'g:2' },
     ]);
-    expect(gymChoices(ctx, undefined, 'starbucks', regionName, accepts)).toEqual([
+    expect(gymChoices(ctx.gyms.of(1), undefined, 'starbucks', regionName, accepts)).toEqual([
       { name: 'Starbucks · east', value: 'g:9' },
     ]);
-    expect(gymChoices(ctx, WEST_CHANNEL, 'library', regionName, accepts)).toEqual([]);
+    expect(gymChoices(ctx.gyms.of(1), WEST_CHANNEL, 'library', regionName, accepts)).toEqual([]);
   });
 });
 

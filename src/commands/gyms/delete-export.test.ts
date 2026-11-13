@@ -16,7 +16,7 @@ import {
   OTHER_SERVER,
   said,
 } from '../../../test/support/gym-commands.js';
-import { WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { ALICE, asTrain, BOB, REPORTER, inGyms, stops } from '../../../test/support/parties.js';
 import { googleMonth } from '../../domain/geo/google-line.js';
 import { PartyStatus } from '../../domain/party/status.js';
@@ -31,6 +31,7 @@ async function raidAt(made: Made, gymId: number) {
   if (!gym) throw new Error('no gym');
   const raid = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: REPORTER,
     anonymous: false,
     autoStatus: PartyStatus.Interested,

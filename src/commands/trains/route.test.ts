@@ -1,3 +1,4 @@
+import { asTestServerGyms } from '../../../test/support/providers.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
 import { distanceWords } from '../../render/distance-words.js';
 import { gymStop, spotStop, type StopRef } from '../../domain/party/stops.js';
@@ -34,7 +35,6 @@ import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
 import { MAX_ROUTE_STOPS } from '../../domain/party/party.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { currentStop } from '../../domain/party/train.js';
-import type { PostGym } from '../../render/raid-post.js';
 import { LIMITS } from '../../render/text.js';
 import { TrainService } from '../../services/train-service.js';
 import { route } from './route.js';
@@ -1199,10 +1199,10 @@ describe('/route: what was found in review', () => {
       splits: made.service,
       lines: made.partyLines,
       users: made.users,
-      gyms: {
-        get: (id) => ({ ...testGyms()[0], id, name: `Gym ${id}` }) as PostGym,
+      gyms: asTestServerGyms({
+        get: (id) => ({ ...testGyms()[0], id, name: `Gym ${id}` }),
         regionsOf: () => [WEST_CHANNEL],
-      },
+      }),
       regions: made.regions,
       routes: made.routes,
       log: made.log,

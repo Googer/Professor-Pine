@@ -16,7 +16,12 @@ import {
   MODERATOR,
   said,
 } from '../../../test/support/gym-commands.js';
-import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../../test/support/gyms.js';
 import { REPORTER } from '../../../test/support/parties.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { ANSWERED_BELOW } from '../../discord/late-reply.js';
@@ -135,6 +140,7 @@ describe('/gym edit', () => {
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,
@@ -581,6 +587,7 @@ describe('/gym move', () => {
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,
@@ -639,6 +646,7 @@ describe('/gym move', () => {
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

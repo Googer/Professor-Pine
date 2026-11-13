@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WEST_CHANNEL } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL } from '../../test/support/gyms.js';
 import { textOf } from '../../test/support/messages.js';
 import { at, REPORTER, testMeetup } from '../../test/support/parties.js';
 import { partyServiceWith, reportedRaid } from '../../test/support/party-service.js';
@@ -277,6 +277,7 @@ describe('PartyScheduler in each server’s zone (plan 19A-2)', () => {
     if (!gym) throw new Error('the invented gyms have no gym 2');
     const second = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

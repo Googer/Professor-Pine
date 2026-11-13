@@ -1,7 +1,7 @@
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { Tally } from '../../test/support/tally.js';
 import { watchImmediates } from '../../test/support/timers.js';
-import { EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
+import { EAST_FORUM, TEST_GUILD_ROW, WEST_FORUM } from '../../test/support/gyms.js';
 import { REPORTER, testRaid } from '../../test/support/parties.js';
 import {
   kmlArea,
@@ -19,6 +19,7 @@ async function reported(made: Made, gymId: number) {
   if (!gym) throw new Error(`no gym ${gymId}`);
   const outcome = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: REPORTER,
     anonymous: false,
     autoStatus: PartyStatus.Interested,
@@ -162,6 +163,7 @@ describe('RegionAdminService: what review A asked for', () => {
     if (!gym) throw new Error('no gym 1');
     const reporting = made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

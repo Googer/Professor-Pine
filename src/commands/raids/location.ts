@@ -1,3 +1,4 @@
+import { serverGyms } from '../util/server-gym.js';
 import { SlashCommandBuilder } from 'discord.js';
 import type { ComponentHandler, SimpleCommand } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
@@ -59,7 +60,11 @@ export const location: SimpleCommand = {
   async execute(interaction, ctx) {
     const party = commandRaid(interaction, ctx);
     const typed = interaction.options.getString('gym', true);
-    const answer = reportedGym(ctx, regionChannelOf(interaction, ctx), typed);
+    const answer = reportedGym(
+      await serverGyms(interaction, ctx),
+      regionChannelOf(interaction, ctx),
+      typed,
+    );
     if (answer.kind === 'none') {
       throw new UserError(
         `I found no gym for "${plain(truncate(typed, 80))}". Type part of its name and pick it from the list.`,
@@ -130,8 +135,9 @@ export const location: SimpleCommand = {
   async autocomplete(interaction, ctx) {
     const regionName = (channelId: string): string | undefined =>
       interaction.guild?.channels.cache.get(channelId)?.name;
+    const gyms = await serverGyms(interaction, ctx);
     const choices = gymChoices(
-      ctx,
+      gyms,
       regionChannelOf(interaction, ctx),
       interaction.options.getFocused(),
       regionName,
@@ -139,7 +145,7 @@ export const location: SimpleCommand = {
     // Not the gyms the raid cannot move to (in no region of this server that has a forum).
     const party = raidOf(interaction, ctx);
     const reachable = (value: string): boolean => {
-      const gym = ctx.gyms.get(Number(value.slice(2)));
+      const gym = gyms.get(Number(value.slice(2)));
       return !party || (gym !== undefined && ctx.raids.gymMove(party, gym).kind !== 'nowhere');
     };
     await interaction.respond(choices.filter((choice) => reachable(choice.value)));
@@ -180,7 +186,7 @@ export const locationControls: ComponentHandler = {
       await interaction.editReply({ content: partyOver({ type: 'raid' }) });
       return;
     }
-    const gym = ctx.gyms.get(gymId);
+    const gym = (await serverGyms(interaction, ctx)).get(gymId);
     let answered = false;
     const say = async (content: string): Promise<void> => {
       answered = true;

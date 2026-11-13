@@ -332,7 +332,8 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       return noted('several-regions', reply.code(422).send(ask));
     }
     const regionChannelId = picked.channelId;
-    const forum = ctx.partyService.regionFor(gym, regionChannelId).region?.forumChannelId ?? null;
+    const forum =
+      ctx.partyService.regionFor(gym, row, regionChannelId).region?.forumChannelId ?? null;
     // The forum the raid would go to, and that of a raid already at the gym, which the report
     // would join and which may stand in another forum of the server: `/raid`'s own check.
     try {
@@ -370,6 +371,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
         reported,
         time,
         regionChannelId,
+        guildRow: row,
         mayJoin: joining.mayJoin,
       });
     } catch (err) {

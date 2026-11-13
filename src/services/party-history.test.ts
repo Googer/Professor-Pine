@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ALICE, at, BOB, MINUTE, REPORTER, testRaid } from '../../test/support/parties.js';
-import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { endParty, isTrain } from '../domain/party/party.js';
 import { splitOffGroup } from '../domain/party/train.js';
 import { HISTORY_SERVER } from '../../test/support/history.js';
@@ -138,6 +138,7 @@ describe('the party history of live parties', () => {
     await expect(
       made.service.reportRaid({
         gym,
+        guildRow: TEST_GUILD_ROW,
         reporterId: ALICE,
         anonymous: false,
         autoStatus: PartyStatus.Interested,
@@ -562,6 +563,7 @@ describe('the party history of live parties', () => {
     if (!gym) throw new Error('no gym 1');
     const reported = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

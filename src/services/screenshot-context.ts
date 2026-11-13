@@ -29,8 +29,10 @@ export function reportContext(
   return {
     bosses: ctx.raidBosses.bosses(zone),
     pokemon: ctx.gameData.catalogue.all,
+    // The server's gyms in its regions (plan 19B-2): another server's is never read.
     searchGym: (text) =>
       ctx.gyms
+        .of(where.guildRow)
         .search(where.channelId, text, { nameOnly: true })
         .filter((hit) => gymInGuild(ctx.gyms, ctx.regions, hit.gym.id, where.guildRow))
         .slice(0, GYM_HITS),

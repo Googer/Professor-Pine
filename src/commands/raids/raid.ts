@@ -1,3 +1,4 @@
+import { serverGyms } from '../util/server-gym.js';
 import { zoneOf } from '../../discord/server-values.js';
 import {
   ActionRowBuilder,
@@ -116,6 +117,16 @@ type Answerable = ChatInputCommandInteraction | ButtonInteraction | StringSelect
 
 const gymName = (gym: Gym): string => plain(gym.nickname ?? gym.name);
 
+/**
+ * The row of the server a report is made in (plan 19B-2). A server without one has no gyms
+ * (`serverGyms`), so no gym of a report comes from it: one that does is no fault of the member's.
+ */
+async function reportServer(interaction: Answerable, ctx: AppContext): Promise<number> {
+  const row = await ctx.guilds.idFor(guildIdOf(interaction));
+  if (row === undefined) throw new Error('a raid was reported in a server without a row');
+  return row;
+}
+
 /** Reports the raid and tells the member what came of it. The interaction is acknowledged. */
 async function finish(
   interaction: Answerable,
@@ -129,6 +140,7 @@ async function finish(
     reported: request.reported,
     time: request.time,
     regionChannelId: request.regionChannelId,
+    guildRow: await reportServer(interaction, ctx),
     ...(request.hatched ? { hatched: true } : {}),
     // The screenshot's id when it was kept, and whether the time is a guess either way.
     ...(shot ? { screenshot: { id: shot.id ?? null, timeUncertain: shot.timeUncertain } } : {}),
@@ -201,7 +213,11 @@ async function withGym(
   const here = request.regionChannelId;
   // The service knows which region of this server the raid would go to; no such region at all is
   // answered by the report itself, at once.
-  const { region, any } = ctx.partyService.regionFor(gym, here);
+  const { region, any } = ctx.partyService.regionFor(
+    gym,
+    await reportServer(interaction, ctx),
+    here,
+  );
   const target = region ?? any;
   if (here === undefined || target === undefined || target.channelId === here) {
     await finish(interaction, ctx, request, gym);
@@ -214,7 +230,7 @@ async function withGym(
       .setLabel(label)
       .setStyle(style);
   // A gym that lies in this region goes to another forum only because this region has none.
-  const content = ctx.gyms.regionsOf(gym.id).includes(here)
+  const content = (await serverGyms(interaction, ctx)).regionsOf(gym.id).includes(here)
     ? `${gymName(gym)} will be posted in <#${target.channelId}> (this region has no raid forum). Report it there?`
     : `${gymName(gym)} is in <#${target.channelId}>, not in this region. Report the raid there?`;
   await interaction.editReply({
@@ -253,7 +269,14 @@ async function askGym(
   const menu = new StringSelectMenuBuilder()
     .setCustomId(encodeCustomId({ kind: KIND, id: token, action: 'gym' }))
     .setPlaceholder('Choose the gym')
-    .addOptions(gymMenuOptions(ctx, request.regionChannelId, gyms, regionNameOf(interaction)));
+    .addOptions(
+      gymMenuOptions(
+        await serverGyms(interaction, ctx),
+        request.regionChannelId,
+        gyms,
+        regionNameOf(interaction),
+      ),
+    );
   const rows: (ActionRowBuilder<StringSelectMenuBuilder> | ActionRowBuilder<ButtonBuilder>)[] = [
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu),
   ];
@@ -319,7 +342,9 @@ async function answerScreenshot(
   const reported =
     typedBoss === '' ? undefined : reportedBoss(ctx, typedBoss, zoneOf(interaction, ctx));
   const gymAnswer =
-    typedGymText === '' ? undefined : reportedGym(ctx, regionChannelId, typedGymText);
+    typedGymText === ''
+      ? undefined
+      : reportedGym(await serverGyms(interaction, ctx), regionChannelId, typedGymText);
   if (gymAnswer?.kind === 'none') {
     throw new UserError(
       `I found no gym for "${plain(truncate(typedGymText, 80))}". Type part of its name and pick it from the list.`,
@@ -489,7 +514,7 @@ async function answerScreenshot(
     countedAt,
   );
   if (decision.kind === 'report' && !mustAsk) {
-    const gym = ctx.gyms.get(decision.raid.gymId);
+    const gym = (await serverGyms(interaction, ctx)).get(decision.raid.gymId);
     if (!gym) throw new UserError('That gym no longer exists. Use `/raid` again.');
     await withGym(interaction, ctx, request, gym);
     return;
@@ -558,7 +583,7 @@ const requireForumAccess: Guard = async (interaction, ctx) => {
   const typed = interaction.options.getString('gym')?.trim() ?? '';
   if (typed === '') return;
   const regionChannelId = regionChannelOf(interaction, ctx);
-  const answer = reportedGym(ctx, regionChannelId, typed);
+  const answer = reportedGym(await serverGyms(interaction, ctx), regionChannelId, typed);
   if (answer.kind !== 'gym') return;
   await refuseBarred(ctx, guildIdOf(interaction), interaction.user.id, answer.gym, regionChannelId);
 };
@@ -657,7 +682,7 @@ function raidCommand(screenshots: boolean): SimpleCommand {
         zoneOf(interaction, ctx),
       );
       const typedGym = interaction.options.getString('gym', true);
-      const answer = reportedGym(ctx, regionChannelId, typedGym);
+      const answer = reportedGym(await serverGyms(interaction, ctx), regionChannelId, typedGym);
       const request: PendingReport = {
         reported,
         time,
@@ -693,7 +718,12 @@ function raidCommand(screenshots: boolean): SimpleCommand {
       const regionName = (channelId: string): string | undefined =>
         interaction.guild?.channels.cache.get(channelId)?.name;
       await interaction.respond(
-        gymChoices(ctx, regionChannelOf(interaction, ctx), focused.value, regionName),
+        gymChoices(
+          await serverGyms(interaction, ctx),
+          regionChannelOf(interaction, ctx),
+          focused.value,
+          regionName,
+        ),
       );
     },
   };
@@ -773,7 +803,9 @@ export const raidControls: ComponentHandler = {
     const request = await claimed(interaction, id.id);
     if (!request) return;
     const gymId = Number(interaction.values[0]);
-    const gym = request.gymIds.includes(gymId) ? ctx.gyms.get(gymId) : undefined;
+    const gym = request.gymIds.includes(gymId)
+      ? (await serverGyms(interaction, ctx)).get(gymId)
+      : undefined;
     if (!gym) throw new UserError('That gym no longer exists. Use `/raid` again.');
     acknowledging(id.id);
     await interaction.deferUpdate();
@@ -793,7 +825,7 @@ export const raidControls: ComponentHandler = {
       await interaction.update({ content: 'Nothing was reported.', components: [] });
       return;
     }
-    const gym = ctx.gyms.get(request.gymIds[0] ?? -1);
+    const gym = (await serverGyms(interaction, ctx)).get(request.gymIds[0] ?? -1);
     if (!gym) throw new UserError('That gym no longer exists. Use `/raid` again.');
     acknowledging(id.id);
     await interaction.deferUpdate();

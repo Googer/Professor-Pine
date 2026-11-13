@@ -10,18 +10,21 @@ import {
 import {
   EAST_CHANNEL,
   EAST_FORUM,
+  OTHER_GUILD_ID,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
   testRegions,
   WEST_CHANNEL,
   WEST_FORUM,
+  WIDE_CHANNEL,
 } from '../../../test/support/gyms.js';
-import { gymsFixture, type TestGyms } from '../../../test/support/providers.js';
+import { gymsLyingIn, twoServerGyms, type TestGyms } from '../../../test/support/providers.js';
 import { ALICE, at, BOB, PARTY_NOW, testRaid } from '../../../test/support/parties.js';
-import { partyServiceWith } from '../../../test/support/party-service.js';
+import { partyServiceWith, TestRegions } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { MemoryUsers } from '../../../test/support/users.js';
 import { InteractionRouter, type RouterOptions } from '../../discord/router.js';
 import { Throttles } from '../../discord/throttle.js';
-import type { GymProvider } from '../../services/gym-directory.js';
 import { PartyStatus, RaidPrivacy } from '../../domain/party/status.js';
 import { NO_POST_MADE } from '../../render/activity.js';
 import { FORUM_TAGS } from '../../render/party-post.js';
@@ -206,11 +209,7 @@ describe('/raid', () => {
 
   it('refuses a report that would put the member in a forum they are kept out of, before counting it', async () => {
     // The Bridge (gym 4) lies in West and East.
-    const base = gymsFixture();
-    const gyms = Object.assign(Object.create(base) as GymProvider, {
-      regionsOf: (gymId: number) =>
-        gymId === 4 ? [WEST_CHANNEL, EAST_CHANNEL] : base.regionsOf(gymId),
-    });
+    const gyms = gymsLyingIn({ 4: [WEST_CHANNEL, EAST_CHANNEL] });
     const made = await partyServiceWith([], { gyms });
     const { ctx } = createTestContext({
       partyService: made.service,
@@ -251,11 +250,7 @@ describe('/raid', () => {
   // Review 8E-2 of plan 8E: the forum asked about is that of the raid that stands at the gym.
   it('lets a report through past a raid in a barred forum that is over by the clock', async () => {
     // The Bridge (gym 4) lies in West and East.
-    const base = gymsFixture();
-    const gyms = Object.assign(Object.create(base) as GymProvider, {
-      regionsOf: (gymId: number) =>
-        gymId === 4 ? [WEST_CHANNEL, EAST_CHANNEL] : base.regionsOf(gymId),
-    });
+    const gyms = gymsLyingIn({ 4: [WEST_CHANNEL, EAST_CHANNEL] });
     const made = await partyServiceWith([], { gyms });
     const { ctx } = createTestContext({
       partyService: made.service,
@@ -289,11 +284,7 @@ describe('/raid', () => {
 
   it('refuses to join a raid reported in a forum the member is kept out of after the check', async () => {
     // The Bridge (gym 4) lies in West and East; Alice is kept out of East's forum.
-    const base = gymsFixture();
-    const gyms = Object.assign(Object.create(base) as GymProvider, {
-      regionsOf: (gymId: number) =>
-        gymId === 4 ? [WEST_CHANNEL, EAST_CHANNEL] : base.regionsOf(gymId),
-    });
+    const gyms = gymsLyingIn({ 4: [WEST_CHANNEL, EAST_CHANNEL] });
     const made = await partyServiceWith([], { gyms });
     made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
     const users = new MemoryUsers();
@@ -309,7 +300,8 @@ describe('/raid', () => {
     users.get = async (userId) => {
       if (userId === ALICE && made.store.active().length === 0) {
         await made.service.reportRaid({
-          gym: base.get(4)!,
+          gym: gyms.stored(4)!,
+          guildRow: TEST_GUILD_ROW,
           reporterId: BOB,
           anonymous: false,
           autoStatus: PartyStatus.Interested,
@@ -670,15 +662,7 @@ describe('/raid confirmation names the region the raid would go to', () => {
   const OTHER_FORUM = '100000000000000032';
 
   async function overlapping(regionsOf: string[], noForumInWest = false) {
-    const real = gymsFixture();
-    const gyms = new Proxy(real, {
-      get(target, property) {
-        if (property === 'regionsOf')
-          return (id: number) => (id === 7 ? regionsOf : target.regionsOf(id));
-        const value: unknown = Reflect.get(target, property);
-        return typeof value === 'function' ? (value as () => unknown).bind(target) : value;
-      },
-    });
+    const gyms = gymsLyingIn({ 7: regionsOf });
     const made = await partyServiceWith([], { gyms });
     made.gateway.addForum(OTHER_FORUM, FORUM_TAGS);
     const [west] = testRegions();
@@ -766,5 +750,97 @@ describe('/raid autocomplete', () => {
     expect(interaction.respond).toHaveBeenCalledWith([
       { name: 'Pinewood Public Library · The Stacks', value: 'g:1' },
     ]);
+  });
+});
+
+describe('/raid in two servers whose regions overlap (plan 19B-2)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: PARTY_NOW });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const WIDE_FORUM = '100000000000000061';
+
+  /**
+   * `/raid` in West of the test server, where gym 2 lies but is the second server's alone, and in
+   * Wide of the second server (given a forum here), which lies over West and East.
+   */
+  async function twoServers() {
+    const { gyms, regions, guilds } = twoServerGyms();
+    const rows = new TestRegions();
+    rows.rows = regions.map((region) =>
+      region.channelId === WIDE_CHANNEL ? { ...region, forumChannelId: WIDE_FORUM } : region,
+    );
+    // The party service reads the same gyms and regions as the command.
+    const served = await partyServiceWith([], { gyms }, { regions: rows });
+    served.gateway.addForum(WIDE_FORUM, FORUM_TAGS);
+    const { ctx } = createTestContext({
+      partyService: served.service,
+      parties: served.store,
+      regions: rows,
+      gyms,
+      guilds,
+    });
+    return { served, router: new InteractionRouter(ctx, [raid], [raidControls]) };
+  }
+
+  /** From this server's West, or from the other server's Wide. */
+  const where = (other: boolean) =>
+    other ? { guildId: OTHER_GUILD_ID, channelId: WIDE_CHANNEL } : { channelId: WEST_CHANNEL };
+
+  it('neither offers, accepts nor names a gym of the other server in a region of both', async () => {
+    const { router, served } = await twoServers();
+    const offered = async (focused: string, other = false): Promise<string> => {
+      const typing = fakeAutocomplete({
+        commandName: 'raid',
+        ...where(other),
+        focusedName: 'gym',
+        focused,
+      });
+      await router.handle(typing as never);
+      const choices = (typing.respond.mock.calls[0]?.[0] ?? []) as unknown as { name: string }[];
+      return choices.map((choice) => choice.name).join();
+    };
+    expect(await offered('fountain')).not.toContain('Stone Fountain');
+
+    const use = async (gym: string, other = false) => {
+      const interaction = fakeChatInput({
+        commandName: 'raid',
+        ...where(other),
+        options: { boss: 'e:T5:0', gym },
+      });
+      await router.handle(interaction as never);
+      return told(interaction) ?? '';
+    };
+    // Picked from an old list, by its number, and typed: as a gym there is not.
+    expect(await use('g:2')).toBe(
+      'I found no gym for "g:2". Type part of its name and pick it from the list.',
+    );
+    const typed = await use('old stone fountain');
+    expect(typed).not.toContain('Old Stone Fountain');
+    expect(typed).not.toContain('#2');
+    expect(served.store.active()).toEqual([]);
+
+    // Its own gym is offered and taken.
+    expect(await offered('library')).toContain('Pinewood Public Library');
+    expect(await use('g:1')).toMatch(/^Reported: T5 egg at The Stacks\./);
+    // From the other server: its gym is offered and taken there, and this server's is not.
+    expect(await offered('fountain', true)).toContain('Old Stone Fountain');
+    expect(await offered('library', true)).not.toContain('Pinewood Public Library');
+    expect(await use('g:1', true)).toBe(
+      'I found no gym for "g:1". Type part of its name and pick it from the list.',
+    );
+    expect(await use('g:2', true)).toMatch(/^Reported: T5 egg at Old Stone Fountain\./);
+    // Each server's raid, in its own forum (both made in the same moment: in no fixed order).
+    const ofServer = (row: number) =>
+      served.store
+        .active()
+        .filter((party) => party.guildId === row)
+        .map((party) => [party.gymId, party.forumChannelId]);
+    expect(ofServer(TEST_GUILD_ROW)).toEqual([[1, WEST_FORUM]]);
+    expect(ofServer(OTHER_GUILD_ROW)).toEqual([[2, WIDE_FORUM]]);
+    expect(served.store.active()).toHaveLength(2);
   });
 });

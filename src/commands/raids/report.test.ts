@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { ALICE, PARTY_NOW, PARTY_ZONE } from '../../../test/support/parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
 import { gymsFixture } from '../../../test/support/providers.js';
@@ -53,6 +53,7 @@ describe('reporting a raid, as /raid and the map share it', () => {
       reported,
       time: reportedTime(made.ctx, reported, '30', PARTY_NOW, PARTY_ZONE),
       regionChannelId: WEST_CHANNEL,
+      guildRow: TEST_GUILD_ROW,
     });
     expect(result.outcome.kind).toBe('created');
     expect(result.autoStatus).toBe(PartyStatus.Coming);
@@ -69,7 +70,12 @@ describe('reporting a raid, as /raid and the map share it', () => {
     const made = await setup();
     const gym = libraryGym();
     const reported = reportedBoss(made.ctx, 'e:T5:0', PARTY_ZONE);
-    const request = { reported, time: undefined, regionChannelId: WEST_CHANNEL };
+    const request = {
+      reported,
+      time: undefined,
+      regionChannelId: WEST_CHANNEL,
+      guildRow: TEST_GUILD_ROW,
+    };
     const first = await reportRaidAs(made.ctx, ALICE_MEMBER, gym, request);
     const post = first.outcome.kind === 'created' ? first.outcome.party.forumPostId : null;
     expect(reportWords(first, gym, reported.label, DISCORD_NAMES)).toBe(

@@ -182,6 +182,7 @@ import {
   stopRegionsInGuild,
   type RegionProvider,
 } from './region-directory.js';
+import type { ServerGymProvider } from './gym-directory.js';
 import type { ServerSettingsLookup } from './server-settings.js';
 import { DEFAULT_REGION_FORUM_SUFFIX } from '../config/settings.js';
 
@@ -318,7 +319,15 @@ export interface RaidReport {
   /** Left out, a move is set when the boss has only that one (`certainMoves`). */
   fastMove?: string | null;
   chargedMove?: string | null;
-  /** The region channel the report was made in; the raid goes to a region of that server. */
+  /**
+   * The server the report was made in (its `Guild` row): the raid goes to a region of this server,
+   * and only while the server has the gym (plan 19B-2).
+   */
+  guildRow: number;
+  /**
+   * The region channel the report was made in: the raid goes to that region when it is one of the
+   * server's, the gym lies in it and it has a forum.
+   */
   regionChannelId?: string;
   /** A time the caller has checked (`resolvePartyTime`): when the egg hatches, or the raid ends. */
   time?: { hatch: number } | { end: number };
@@ -733,7 +742,10 @@ export interface PartyServiceOptions {
     idFor(snowflake: string): Promise<number | undefined>;
     snowflakeOf?(id: number): Promise<string | undefined>;
   };
-  gyms: { get(id: number): Gym | undefined; regionsOf(gymId: number): string[] };
+  gyms: { get(id: number): Gym | undefined; regionsOf(gymId: number): string[] } & Pick<
+    ServerGymProvider,
+    'of' | 'stored' | 'serversOf'
+  >;
   raidBosses: RaidBossProvider;
   /**
    * The max bosses (plan 8X-3): whether a max battle's boss is shiny, its picture. Max battles
@@ -1601,28 +1613,29 @@ export class PartyService {
   }
 
   /**
-   * The region whose forum takes a raid at this gym, among the regions the gym lies in: the
-   * region the report was made in; else a region of the same server; else, when the report names
-   * no region, the first with a forum. `any` is the first candidate, for "no forum yet"; neither
-   * is set when the gym lies in no region of this server. What `reportRaid` uses, so a caller can
-   * say beforehand where a raid would go.
+   * The region whose forum takes a raid at this gym, among the regions of the server it was
+   * reported in (`guildRow`, plan 19B-2: a gym the server does not have lies in none of its
+   * regions) that the gym lies in: the region the report was made in, when that channel is a
+   * region of this server (a region row of another server, or of none, is no region here); else
+   * the first with a forum. `any` is the first candidate, for "no forum yet"; neither is set when
+   * the gym lies in no region of this server. What `reportRaid` uses, so a caller can say
+   * beforehand where a raid would go.
    */
-  regionFor(gym: Gym, regionChannelId?: string): { region?: Region; any?: Region } {
+  regionFor(
+    gym: Gym,
+    guildRow: number,
+    regionChannelId?: string,
+  ): { region?: Region; any?: Region } {
     const { gyms, regions } = this.options;
-    const lying = gyms
-      .regionsOf(gym.id)
-      .map((channelId) => regions.byChannel(channelId))
-      .filter((region): region is Region => region !== undefined);
-    const invoking = regionChannelId === undefined ? undefined : regions.byChannel(regionChannelId);
-    let candidates = lying;
-    if (invoking) {
-      const ofServer =
-        invoking.guildId === null ? [] : gymRegionsInGuild(gyms, regions, gym.id, invoking.guildId);
-      candidates = [
-        ...lying.filter((region) => region.id === invoking.id),
-        ...ofServer.filter((region) => region.id !== invoking.id),
-      ];
-    }
+    const channel = regionChannelId === undefined ? undefined : regions.byChannel(regionChannelId);
+    const invoking = channel?.guildId === guildRow ? channel : undefined;
+    const lying = gymRegionsInGuild(gyms, regions, gym.id, guildRow);
+    const candidates = invoking
+      ? [
+          ...lying.filter((region) => region.id === invoking.id),
+          ...lying.filter((region) => region.id !== invoking.id),
+        ]
+      : lying;
     const region = candidates.find((candidate) => candidate.forumChannelId !== null);
     return { ...(region ? { region } : {}), ...(candidates[0] ? { any: candidates[0] } : {}) };
   }
@@ -1664,9 +1677,13 @@ export class PartyService {
     });
   }
 
-  /** Whether the gym list still has a gym: asked under the gym's lock when a raid is stored. */
-  private gymExists(gymId: number): boolean {
-    return this.options.gyms.get(gymId) !== undefined;
+  /**
+   * Whether the server (its `Guild` row) still has a gym (plan 19B-2: one a server deleted is
+   * gone for it, though another server keeps it): asked under the gym's lock when a raid is
+   * stored.
+   */
+  private gymExists(gymId: number, guildRow: number | null | undefined): boolean {
+    return this.options.gyms.of(guildRow ?? undefined).get(gymId) !== undefined;
   }
 
   /**
@@ -1684,8 +1701,9 @@ export class PartyService {
     const { gym } = report;
     // Deleted since the member picked it: it lies in no region any more, but that is not what
     // to tell them. (Asked again under the gym's lock, where it counts.)
-    if (!this.gymExists(gym.id)) return { kind: 'gym-gone' };
-    const { region, any } = this.regionFor(gym, report.regionChannelId);
+    const server = report.guildRow;
+    if (!this.gymExists(gym.id, server)) return { kind: 'gym-gone' };
+    const { region, any } = this.regionFor(gym, server, report.regionChannelId);
     if (!region?.forumChannelId)
       return any ? { kind: 'no-forum', region: any } : { kind: 'no-region' };
     if (region.guildId === null) {
@@ -1730,7 +1748,7 @@ export class PartyService {
 
     let stored: Awaited<ReturnType<PartyStore['addRaidUnlessTaken']>>;
     try {
-      stored = await store.addRaidUnlessTaken(raid, now, () => this.gymExists(gym.id), {
+      stored = await store.addRaidUnlessTaken(raid, now, () => this.gymExists(gym.id, server), {
         ...(report.joinOnly ? { mayAdd: false } : {}),
       });
     } catch (err) {
@@ -1740,7 +1758,7 @@ export class PartyService {
     }
     if (!stored.added) {
       if (!stored.existing) {
-        return report.joinOnly && this.gymExists(gym.id)
+        return report.joinOnly && this.gymExists(gym.id, server)
           ? { kind: 'none-there' }
           : { kind: 'gym-gone' };
       }
@@ -2031,11 +2049,16 @@ export class PartyService {
     const rendered = renderRaidPost(this.view({ ...raid, forumChannelId: forumId }));
     let stored: Awaited<ReturnType<PartyStore['addRaidUnlessTaken']>>;
     try {
-      stored = await store.addRaidUnlessTaken(raid, this.now(), () => this.gymExists(gym.id), {
-        movedFrom: partyId,
-        // The audit log names who moved it (none: Pine).
-        ...(by === undefined ? {} : { by: loggedBy(by) }),
-      });
+      stored = await store.addRaidUnlessTaken(
+        raid,
+        this.now(),
+        () => this.gymExists(gym.id, region.guildId),
+        {
+          movedFrom: partyId,
+          // The audit log names who moved it (none: Pine).
+          ...(by === undefined ? {} : { by: loggedBy(by) }),
+        },
+      );
     } catch (err) {
       // The region it should move to was removed meanwhile: it has no forum to move into.
       if (err instanceof RegionClosedError) return { kind: 'no-forum' };

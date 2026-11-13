@@ -37,6 +37,8 @@ export interface RaidReportRequest {
    * goes to that region when the gym lies in it and it has a forum.
    */
   regionChannelId: string | undefined;
+  /** The server the report was made in (its `Guild` row): the raid goes to one of its regions. */
+  guildRow: number;
   /** Seen hatched without a boss anybody could tell (from a screenshot). */
   hatched?: boolean;
   screenshot?: RaidScreenshot;
@@ -73,6 +75,7 @@ export async function reportRaidAs(
     ...(request.hatched ? { hatched: true } : {}),
     ...(request.screenshot ? { screenshot: request.screenshot } : {}),
     ...(request.regionChannelId === undefined ? {} : { regionChannelId: request.regionChannelId }),
+    guildRow: request.guildRow,
     ...(request.time ? { time: request.time } : {}),
     ...(request.mayJoin ? { mayJoin: request.mayJoin } : {}),
   });
@@ -127,7 +130,8 @@ export async function reportBarred(
   memberId: string,
   now: number,
 ): Promise<boolean> {
-  const forum = access.partyService.regionFor(gym, regionChannelId).region?.forumChannelId ?? null;
+  const forum =
+    access.partyService.regionFor(gym, guildRow, regionChannelId).region?.forumChannelId ?? null;
   const standing = access.parties.raidAt(guildRow, gym.id, now)?.forumChannelId ?? null;
   for (const forumId of new Set([forum, standing])) {
     if (await forumBarred((id, member) => access.memberAccess(id, member), forumId, memberId)) {

@@ -1,3 +1,4 @@
+import { serverGyms } from '../util/server-gym.js';
 import {
   ButtonStyle,
   ComponentType,
@@ -1037,9 +1038,9 @@ export class ScreenshotTrigger {
     // about like a gym that is not clear: a raid is never sent to another region unasked.
     if (
       decision.kind === 'report' &&
-      ctx.gyms.regionsOf(decision.raid.gymId).includes(message.channelId)
+      ctx.gyms.of(guildRow).regionsOf(decision.raid.gymId).includes(message.channelId)
     ) {
-      const gym = ctx.gyms.get(decision.raid.gymId);
+      const gym = ctx.gyms.of(guildRow).get(decision.raid.gymId);
       if (!gym) return refused(refusalWords('no-gym'));
       const reported = await reportShot(ctx, {
         gym,
@@ -1074,8 +1075,8 @@ export class ScreenshotTrigger {
     // by the doubts as the channel words it (review W4).
     if (batch.board) {
       if (decision.kind === 'ask') return refused(unsureInBoard(decision.doubts));
-      const gym = ctx.gyms.get(decision.raid.gymId);
-      const there = gym && ctx.partyService.regionFor(gym, message.channelId).region;
+      const gym = ctx.gyms.of(guildRow).get(decision.raid.gymId);
+      const there = gym && ctx.partyService.regionFor(gym, guildRow, message.channelId).region;
       return refused(
         gym && there
           ? elsewhereInBoard(plain(gym.nickname || gym.name), there.channelId, '/raid screenshot:')
@@ -1113,7 +1114,9 @@ export class ScreenshotTrigger {
           token,
           'gym',
           'Choose the gym',
-          gymMenuOptions(ctx, message.channelId, gyms, (id) => message.channelName(id)),
+          gymMenuOptions(ctx.gyms.of(guildRow), message.channelId, gyms, (id) =>
+            message.channelName(id),
+          ),
         ),
       },
       this.options.questionMs ?? QUESTION_MS,
@@ -1138,7 +1141,7 @@ export class ScreenshotTrigger {
   ): Promise<ImageResult> {
     const { ctx } = this.options;
     const { message } = batch;
-    const gym = ctx.gyms.get(raid.gymId);
+    const gym = ctx.gyms.of(guildRow).get(raid.gymId);
     if (!gym) return refused(refusalWords('no-gym'));
     // Joined only, decided under the gym's lock: a raid reported there meanwhile is joined, and
     // none is made unasked (review A2).
@@ -1160,7 +1163,7 @@ export class ScreenshotTrigger {
       return refused(outcomeWords(reported, gym));
     }
     // Asked only where a raid could be reported: a region of the server with a forum (review A3).
-    const { region: there } = ctx.partyService.regionFor(gym, message.channelId);
+    const { region: there } = ctx.partyService.regionFor(gym, guildRow, message.channelId);
     if (!there) return refused(refusalWords('no-gym'));
     // From the board nothing is asked (R1).
     if (batch.board) {
@@ -1624,6 +1627,7 @@ async function reportShot(
     ...(raid.hatched && !raid.boss ? { hatched: true } : {}),
     screenshot: { id: shot.screenshotId ?? null, timeUncertain: raid.timeUncertain },
     regionChannelId: shot.regionChannelId,
+    guildRow: shot.guildRow,
     ...(raid.time ? { time: raid.time } : {}),
     ...(shot.joinOnly ? { joinOnly: true } : {}),
   });
@@ -1872,7 +1876,9 @@ async function answerShot(
   picked: boolean,
 ): Promise<void> {
   const gym =
-    gymId !== undefined && request.gymIds.includes(gymId) ? ctx.gyms.get(gymId) : undefined;
+    gymId !== undefined && request.gymIds.includes(gymId)
+      ? (await serverGyms(interaction, ctx)).get(gymId)
+      : undefined;
   if (!gym) {
     await interaction.update({ content: 'That gym no longer exists.', components: [] });
     return;

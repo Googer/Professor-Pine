@@ -5,6 +5,7 @@ import type { ScreenshotReport } from '../../domain/ocr/screenshot-report.js';
 import type { GymNamer } from '../../render/screenshot-reading.js';
 import { truncate } from '../../render/text.js';
 import { gymInGuild } from '../../services/region-directory.js';
+import type { GymView } from '../../services/gym-directory.js';
 
 /** A select menu holds this many options. */
 const MENU_SIZE = 25;
@@ -22,14 +23,16 @@ export function gymCandidates(
   gym: ScreenshotReport['gym'],
 ): Gym[] {
   const text = gym.searched ?? gym.read ?? '';
+  // The server's gyms in its regions (plan 19B-2): another server's is never a candidate.
+  const gyms = ctx.gyms.of(guildRow);
   const found =
     text.trim() === ''
       ? []
-      : ctx.gyms
+      : gyms
           .search(regionChannelId ?? null, text, { nameOnly: true })
           .filter((hit) => gymInGuild(ctx.gyms, ctx.regions, hit.gym.id, guildRow))
           .map((hit) => hit.gym);
-  const taken = gym.gymId === null ? undefined : ctx.gyms.get(gym.gymId);
+  const taken = gym.gymId === null ? undefined : gyms.get(gym.gymId);
   const all = taken && !found.some((g) => g.id === taken.id) ? [taken, ...found] : found;
   return all.slice(0, MENU_SIZE);
 }
@@ -40,12 +43,12 @@ export function gymCandidates(
  * region channel), and its own description.
  */
 export function menuDescription(
-  ctx: Pick<AppContext, 'gyms'>,
+  servers: Pick<GymView, 'regionsOf'>,
   regionChannelId: string | undefined,
   gym: Gym,
   regionName: (channelId: string) => string | undefined,
 ): string | undefined {
-  const regions = ctx.gyms.regionsOf(gym.id);
+  const regions = servers.regionsOf(gym.id);
   const [elsewhere] = regions;
   const region =
     regionChannelId !== undefined && elsewhere !== undefined && !regions.includes(regionChannelId)
@@ -59,13 +62,13 @@ export function menuDescription(
 
 /** The options of a gym menu: each gym by its name, told apart by `menuDescription`. */
 export function gymMenuOptions(
-  ctx: Pick<AppContext, 'gyms'>,
+  servers: Pick<GymView, 'regionsOf'>,
   regionChannelId: string | undefined,
   gyms: readonly Gym[],
   regionName: (channelId: string) => string | undefined,
 ): APISelectMenuOption[] {
   return gyms.map((gym) => {
-    const description = menuDescription(ctx, regionChannelId, gym, regionName);
+    const description = menuDescription(servers, regionChannelId, gym, regionName);
     return {
       label: truncate(gym.name, 100),
       value: String(gym.id),

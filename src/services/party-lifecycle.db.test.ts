@@ -2,7 +2,13 @@ import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startMigratedDatabase } from '../../test/support/migrated-db.js';
 import { ALICE, asRaid, at, BOB, MINUTE, REPORTER } from '../../test/support/parties.js';
-import { EAST_FORUM, REMOTE_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  EAST_FORUM,
+  REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../test/support/gyms.js';
 import {
   gatewayWithMirrorChannels,
   partyServiceWith,
@@ -68,6 +74,7 @@ describe('a raid from report to archive, in MySQL, over a restart', () => {
     if (!gym) throw new Error('no gym');
     const outcome = await first.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       reporter: { name: 'Rhea', team: 'valor' },
       anonymous: false,
@@ -181,6 +188,7 @@ describe('a raid from report to archive, in MySQL, over a restart', () => {
     if (!gym || !cafe) throw new Error('no gym');
     const outcome = await first.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

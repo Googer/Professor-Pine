@@ -117,6 +117,25 @@ export function northRegion(): Region {
   };
 }
 
+/** The channel of Wide, the second server's region over West and East (`wideRegion`). */
+export const WIDE_CHANNEL = '100000000000000006';
+
+/**
+ * Wide, a region of the second server over West and East together (plan 19B-2: regions of two
+ * servers overlap freely). Not among `testRegions()`: a test of two servers adds it.
+ */
+export function wideRegion(): Region {
+  return {
+    id: 6,
+    guildId: OTHER_GUILD_ROW,
+    channelId: WIDE_CHANNEL,
+    description: null,
+    bounds: square(40.0, -80.1, 40.1, -79.9),
+    forumChannelId: null,
+    summaryMessageId: null,
+  };
+}
+
 function geodata(route: string, extra: Record<string, string> = {}): string {
   return JSON.stringify({
     addressComponents: {

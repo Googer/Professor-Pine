@@ -214,7 +214,7 @@ function typedStop(
   // A gym by the rule `/raid` and `/route add` always had (`reportedGym`; one of no region of the
   // train's server is none, as before 8X-4), a power spot by the rule of `near` options
   // (`clearOf`), of those the train reaches.
-  const reported = reportedGym(ctx, region, typed);
+  const reported = reportedGym(ctx.gyms.of(party.guildId), region, typed);
   const found = ctx.placeFinder.find(party.guildId, region, typed, STOP_KINDS);
   const spots = found.filter(
     (choice) => choice.kind === 'powerspot' && reached(spotStop(choice.id)),
@@ -339,7 +339,7 @@ function firstStops(
   const region = regionChannelOf(interaction, ctx);
   const regionName = (channelId: string): string | undefined =>
     interaction.guild?.channels.cache.get(channelId)?.name;
-  const gyms = gymChoices(ctx, region, '', regionName);
+  const gyms = gymChoices(ctx.gyms.of(party?.guildId), region, '', regionName);
   if (kindsFirst(party)[0] !== 'powerspot' || region === undefined) {
     return gyms.map((choice) => ({ ...choice, value: `gym:${choice.value.slice(2)}` }));
   }

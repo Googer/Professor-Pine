@@ -71,7 +71,7 @@ export function readPlaceValue(text: string): { kind: PlaceKind; id: string } | 
 
 export interface PlaceFinderOptions {
   /** The gyms (`GymDirectory`): a server's are searched, and named as what a Wayspot is near. */
-  gyms: Pick<GymDirectory, 'search' | 'get' | 'regionsOf' | 'inRegion'>;
+  gyms: Pick<GymDirectory, 'of'>;
   /** The kept Wayspots: their indexes are built anew after every change of what they are. */
   wayspots: WayspotProvider;
   /**
@@ -161,12 +161,14 @@ export class PlaceFinder {
     const { kindsFirst, anchors = [] } = order;
     const channels = this.channelsOf(guildId);
     if (channels.size === 0) return [];
-    const { gyms, wayspots } = this.options;
+    const { wayspots } = this.options;
+    // The server's gyms (plan 19B-2): another server's gym is never found, offered or named.
+    const gyms = this.options.gyms.of(guildId);
     const local = (regions: readonly string[]): boolean =>
       regionChannelId !== undefined && regions.includes(regionChannelId);
     const ours = (regions: readonly string[]): boolean =>
       regions.some((channelId) => channels.has(channelId));
-    const serverGyms = this.gymsOf(channels);
+    const serverGyms = this.gymsOf(guildId, channels);
     const hits: PlaceHit<PlaceChoice>[] = [];
     // Only the server's gyms: a gym elsewhere with every word would leave no room for guesses.
     const gymHits = kinds.includes('gym')
@@ -236,7 +238,7 @@ export class PlaceFinder {
   ): { choice: PlaceChoice; metres: number }[] {
     if (anchors.length === 0) return [];
     const channels = this.channelsOf(guildId);
-    const serverGyms = this.gymsOf(channels);
+    const serverGyms = this.gymsOf(guildId, channels);
     type Raw = { gym: Gym; wayspot?: never } | { wayspot: Wayspot; gym?: never };
     const places = new Map<string, Raw>();
     const add = (value: string, raw: Raw): void => {
@@ -279,9 +281,11 @@ export class PlaceFinder {
     const ours = (regions: readonly string[]): boolean =>
       regions.some((channelId) => channels.has(channelId));
     if (read.kind === 'gym') {
-      const gym = /^\d+$/u.test(read.id) ? this.options.gyms.get(Number(read.id)) : undefined;
-      if (!gym || !ours(this.options.gyms.regionsOf(gym.id))) return undefined;
-      return described(gymChoice(gym, 'exact', false), this.gymsOf(channels));
+      const gym = /^\d+$/u.test(read.id)
+        ? this.options.gyms.of(guildId).get(Number(read.id))
+        : undefined;
+      if (!gym || !ours(this.options.gyms.of(guildId).regionsOf(gym.id))) return undefined;
+      return described(gymChoice(gym, 'exact', false), this.gymsOf(guildId, channels));
     }
     const wayspot = this.options.wayspots.byId(read.id);
     if (
@@ -293,7 +297,7 @@ export class PlaceFinder {
     }
     return described(
       wayspotChoice(this.options.wayspots, wayspot, 'exact', false),
-      this.gymsOf(channels),
+      this.gymsOf(guildId, channels),
     );
   }
 
@@ -317,7 +321,7 @@ export class PlaceFinder {
     }
     const channels = new Set(regions.map((region) => region.channelId));
     let near: { kind: PlaceKind; title: string; metres: number } | undefined;
-    for (const gym of kinds.includes('gym') ? this.gymsOf(channels).values() : []) {
+    for (const gym of kinds.includes('gym') ? this.gymsOf(guildId, channels).values() : []) {
       // As a post names it: by its nickname, when it has one.
       const title = (gym.nickname || gym.name).trim();
       const metres = metresBetween(point, gym);
@@ -391,7 +395,7 @@ export class PlaceFinder {
       spot &&
       described(
         wayspotChoice(this.options.wayspots, spot.wayspot, 'exact', false),
-        this.gymsOf(channels),
+        this.gymsOf(guildId, channels),
       )
     );
   }
@@ -423,11 +427,12 @@ export class PlaceFinder {
     );
   }
 
-  /** The gyms of these regions, by id. */
-  private gymsOf(channels: ReadonlySet<string>): Map<number, Gym> {
+  /** The server's gyms in these regions of it, by id. */
+  private gymsOf(guildId: number, channels: ReadonlySet<string>): Map<number, Gym> {
+    const gyms = this.options.gyms.of(guildId);
     const found = new Map<number, Gym>();
     for (const channelId of channels) {
-      for (const gym of this.options.gyms.inRegion(channelId)) found.set(gym.id, gym);
+      for (const gym of gyms.inRegion(channelId)) found.set(gym.id, gym);
     }
     return found;
   }

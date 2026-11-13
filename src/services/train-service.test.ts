@@ -1,3 +1,4 @@
+import { asTestServerGyms } from '../../test/support/providers.js';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { watchImmediates } from '../../test/support/timers.js';
 import { testGym, testGyms, WEST_CHANNEL } from '../../test/support/gyms.js';
@@ -127,7 +128,7 @@ describe('TrainService: the route', () => {
       regionsOf: (id: number) => list.regionsOf(id),
       size: 12,
     };
-    const made = await createdTrain({ route: stops(4, 1, 7, 2) }, { gyms });
+    const made = await createdTrain({ route: stops(4, 1, 7, 2) }, { gyms: asTestServerGyms(gyms) });
     await made.attendance.signUp(made.party.id, alice, PartyStatus.Present);
     await made.attendance.signUp(made.party.id, bob, PartyStatus.Coming);
     await settled(made);
@@ -154,7 +155,7 @@ describe('TrainService: the route', () => {
 
   it('sweeps nothing while the gym list knows no gym at all', async () => {
     const gyms = { get: () => undefined, regionsOf: () => [], size: 0 };
-    const made = await createdTrain({}, { gyms });
+    const made = await createdTrain({}, { gyms: asTestServerGyms(gyms) });
     // A route from before the list was lost.
     await made.store.update(made.party.id, (party) => ({
       party:

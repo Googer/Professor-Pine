@@ -21,6 +21,7 @@ import {
 import {
   OTHER_GUILD_ID,
   REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
   WEST_CHANNEL,
   WEST_FORUM,
 } from '../../../test/support/gyms.js';
@@ -383,6 +384,7 @@ describe('/delete', () => {
       if (!gym) throw new Error('an invented gym is missing');
       const outcome = await made.service.reportRaid({
         gym,
+        guildRow: TEST_GUILD_ROW,
         reporterId: BOB,
         anonymous: false,
         autoStatus: PartyStatus.Interested,
@@ -406,6 +408,7 @@ describe('/delete', () => {
     if (!gym) throw new Error('no gym 1');
     const again = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: BOB,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

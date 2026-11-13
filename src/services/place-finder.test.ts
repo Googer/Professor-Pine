@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { EAST_CHANNEL, NORTH_PLACE, testGym, WEST_CHANNEL } from '../../test/support/gyms.js';
-import { gymsFixture, regionsFixture } from '../../test/support/providers.js';
+import {
+  EAST_CHANNEL,
+  NORTH_PLACE,
+  OTHER_GUILD_ROW,
+  testGym,
+  WEST_CHANNEL,
+  WIDE_CHANNEL,
+} from '../../test/support/gyms.js';
+import {
+  gymsFixture,
+  regionsFixture,
+  twoServerGyms,
+  viewWith,
+} from '../../test/support/providers.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
@@ -40,6 +52,43 @@ async function finderWith(extra: { rows?: WayspotRow[]; gyms?: Gym[] } = {}) {
   await finder.built();
   return { finder, storage, wayspots };
 }
+
+describe('PlaceFinder in two servers whose regions overlap (plan 19B-2)', () => {
+  it('neither finds, takes nor names the other server’s gym in a region of both', async () => {
+    const { gyms, regions } = twoServerGyms();
+    const { wayspots } = await wayspotsWith([], regionsFixture(regions));
+    const finder = new PlaceFinder({
+      gyms,
+      wayspots,
+      regions: regionsFixture(regions),
+      log: createTestLogger().log,
+    });
+    await finder.built();
+    const ids = (choices: readonly { kind: string; id: string }[]) =>
+      choices.map((choice) => `${choice.kind}:${choice.id}`);
+    const found = finder.find(1, WEST_CHANNEL, 'old stone fountain', ['gym']);
+    expect(ids(found)).not.toContain('gym:2');
+    expect(finder.chosen(1, 'gym:2')).toBeUndefined();
+    // Its own gym: found and taken.
+    expect(ids(finder.find(1, WEST_CHANNEL, 'pinewood public library', ['gym']))).toContain(
+      'gym:1',
+    );
+    expect(finder.chosen(1, 'gym:1')?.title).toBe('Pinewood Public Library');
+    // The other server's own: found and taken there (Wide), and not this server's.
+    expect(
+      ids(finder.find(OTHER_GUILD_ROW, WIDE_CHANNEL, 'old stone fountain', ['gym'])),
+    ).toContain('gym:2');
+    expect(finder.chosen(OTHER_GUILD_ROW, 'gym:2')?.title).toBe('Old Stone Fountain');
+    expect(
+      ids(finder.find(OTHER_GUILD_ROW, WIDE_CHANNEL, 'pinewood public library', ['gym'])),
+    ).not.toContain('gym:1');
+    expect(finder.chosen(OTHER_GUILD_ROW, 'gym:1')).toBeUndefined();
+    // Never named as what a place is near: the Reading Bench's nearest gym is the Fountain's
+    // neighbour the Library, as this server knows its gyms.
+    const pin = finder.pin(1, { lat: 40.0601, lon: -80.0601 }, null);
+    expect(JSON.stringify(pin)).not.toContain('Old Stone Fountain');
+  });
+});
 
 describe('PlaceFinder', () => {
   it("gives a Power Spot's looked-up address, as every reader of the kept Wayspots does", async () => {
@@ -257,11 +306,14 @@ describe('PlaceFinder', () => {
     ]);
     const finder = new PlaceFinder({
       gyms: {
-        search: (...args) => gyms.search(...args),
-        get: (id) => gyms.get(id),
-        regionsOf: (id) => gyms.regionsOf(id),
-        inRegion: (channelId) =>
-          gyms.inRegion(channelId).map((gym) => watched(gym, 'geodata', `gym:${gym.id}`)),
+        of: (guildId) =>
+          viewWith(gyms.of(guildId), {
+            inRegion: (channelId) =>
+              gyms
+                .of(guildId)
+                .inRegion(channelId)
+                .map((gym) => watched(gym, 'geodata', `gym:${gym.id}`)),
+          }),
       },
       wayspots: new Proxy(wayspots, {
         get(target, name) {

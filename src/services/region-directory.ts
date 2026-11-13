@@ -9,23 +9,33 @@ export interface RegionListing {
   listAll(): Promise<Region[]>;
 }
 
+/** The gyms per server, as far as where a gym lies is concerned (`GymDirectory.of`). */
+export interface ServerGymRegions {
+  of(guildId: number | undefined): { regionsOf(gymId: number): string[] };
+}
+
 /**
- * The regions of a server that a gym lies in, in the order `regionsOf` gives their channels:
- * the one rule for "a gym of this server" and for "where in this server". The server is named
- * by its row (`Guild.id`), and a region belongs to the server its own row says
- * (`Region.guildId`), whether or not its text channel still exists or is in any cache; a
- * region without a `guildId` belongs to no server.
+ * The regions of a server that a gym of that server lies in, in the order `regionsOf` gives
+ * their channels: the one rule for "a gym of this server here" and for "where in this server".
+ * The server is named by its row (`Guild.id`); a gym is the server's by its link (plan 19B-2,
+ * the server's view of the gyms: another server's gym lies in none of its regions, whatever
+ * region holds it), and a region belongs to the server its own row says (`Region.guildId`),
+ * whether or not its text channel still exists or is in any cache; a region without a
+ * `guildId` belongs to no server.
  */
 export function gymRegionsInGuild<R extends { guildId: number | null }>(
-  gyms: { regionsOf(gymId: number): string[] },
+  gyms: ServerGymRegions,
   regions: { byChannel(channelId: string): R | undefined },
   gymId: number,
   guildId: number,
 ): R[] {
-  return gyms.regionsOf(gymId).flatMap((channelId) => {
-    const region = regions.byChannel(channelId);
-    return region?.guildId === guildId ? [region] : [];
-  });
+  return gyms
+    .of(guildId)
+    .regionsOf(gymId)
+    .flatMap((channelId) => {
+      const region = regions.byChannel(channelId);
+      return region?.guildId === guildId ? [region] : [];
+    });
 }
 
 /**
@@ -35,7 +45,7 @@ export function gymRegionsInGuild<R extends { guildId: number | null }>(
  */
 export function stopRegionsInGuild<R extends { guildId: number | null }>(
   places: {
-    gyms: { regionsOf(gymId: number): string[] };
+    gyms: ServerGymRegions;
     wayspots?: {
       byId(id: string): { kind: string } | undefined;
       regionsOf(id: string): string[];
@@ -56,7 +66,7 @@ export function stopRegionsInGuild<R extends { guildId: number | null }>(
 
 /** Whether a gym lies in a region of a server (`gymRegionsInGuild`). */
 export function gymInGuild(
-  gyms: { regionsOf(gymId: number): string[] },
+  gyms: ServerGymRegions,
   regions: { byChannel(channelId: string): { guildId: number | null } | undefined },
   gymId: number,
   guildId: number,

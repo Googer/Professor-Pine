@@ -5,6 +5,7 @@ import {
   EAST_CHANNEL,
   EAST_FORUM,
   NORTH_CHANNEL,
+  TEST_GUILD_ROW,
   UNBOUNDED_CHANNEL,
   WEST_CHANNEL,
   WEST_FORUM,
@@ -45,6 +46,7 @@ const report = (made: Made, gymId: number, more: Partial<RaidReport> = {}): Raid
     autoStatus: PartyStatus.Interested,
     tier: { level: 'T5', shadow: false },
     boss: null,
+    guildRow: TEST_GUILD_ROW,
     ...more,
   };
 };

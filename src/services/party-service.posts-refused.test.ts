@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FakePartyGateway } from '../../test/support/fake-gateway.js';
-import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { ALICE, REPORTER } from '../../test/support/parties.js';
 import { partyServiceWith, type ServiceOverrides } from '../../test/support/party-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
@@ -18,6 +18,7 @@ async function refusing(overrides: ServiceOverrides = {}) {
   const report = () =>
     made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

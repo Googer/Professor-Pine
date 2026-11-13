@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PRESS_SHOWN_MS } from './post-drawn.js';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { WEST_FORUM } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_FORUM } from '../../test/support/gyms.js';
 import { MOD, MODERATOR, SAFETY_SERVER } from '../../test/support/meetup-safety-cases.js';
 import { MOD_CHANNEL, meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
@@ -583,6 +583,7 @@ describe('changing a meetup on the map', () => {
     if (!gym) throw new Error('the invented gyms have no gym 1');
     const raid = await map.made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: CAROL,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

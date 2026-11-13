@@ -1,3 +1,4 @@
+import { asTestServerGyms } from '../../test/support/providers.js';
 import { DiscordAPIError, RESTJSONErrorCodes } from 'discord.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ELITE_GYM_CHANNEL, REMOTE_CHANNEL, WEST_CHANNEL } from '../../test/support/gyms.js';
@@ -57,13 +58,13 @@ const ELITE = { level: 'Elite', shadow: false } as const;
 /** The invented gyms, with the Library (gym 1) as an elite raid gym. */
 function gymsWithExLibrary(): PartyServiceOptions['gyms'] {
   const gyms = gymsFixture();
-  return {
+  return asTestServerGyms({
     get: (id) => {
       const gym = gyms.get(id);
       return gym && id === 1 ? { ...gym, taggedEx: true } : gym;
     },
     regionsOf: (id) => gyms.regionsOf(id),
-  };
+  });
 }
 
 /** A raid at the Library in a server that has both channels for copies. */
@@ -312,13 +313,13 @@ describe('the copies of a raid in other channels', () => {
     const made = await reportedRaid(
       { tier: { level: 'SuperMega', shadow: false } },
       {
-        gyms: {
+        gyms: asTestServerGyms({
           get: (id) => {
             const gym = gyms.get(id);
             return gym && id === 1 ? { ...gym, imageUrl: picture } : gym;
           },
           regionsOf: (id) => gyms.regionsOf(id),
-        },
+        }),
       },
     );
     const { gateway, service } = made;

@@ -60,7 +60,11 @@ import { byMember, pingInMessages, settingsOf, storedChange } from './party-chan
 import type { PartyLines } from './party-lines.js';
 import type { PartyService, SplitOutcome } from './party-service.js';
 import type { PartyStore } from './party-store.js';
-import { stopRegionsInGuild, type RegionProvider } from './region-directory.js';
+import {
+  stopRegionsInGuild,
+  type RegionProvider,
+  type ServerGymRegions,
+} from './region-directory.js';
 import type { WayspotProvider } from './wayspot-directory.js';
 
 /**
@@ -125,7 +129,7 @@ export interface TrainServiceOptions {
    * The gyms, to name the stops, and the region channels each lies in; `size`, how many gyms
    * the list knows, for the sweep of stops whose gym is gone (`removeUnknownStops`).
    */
-  gyms: {
+  gyms: ServerGymRegions & {
     get(id: number): PostGym | undefined;
     regionsOf(gymId: number): string[];
     readonly size?: number;

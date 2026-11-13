@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_GUILD_ID, fakeChatInput, sent } from '../../test/support/fake-interactions.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../test/support/gyms.js';
 import { textOf } from '../../test/support/messages.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, at, BOB, PARTY_NOW } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
-import { gymsFixture } from '../../test/support/providers.js';
+import { gymsFixture, gymsLyingIn } from '../../test/support/providers.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import { MemoryUsers } from '../../test/support/users.js';
 import {
@@ -30,11 +36,7 @@ const HATCH = at('2026-10-13T14:30');
 
 /** The invented gyms, with the bridge (gym 4) lying in West and in East as well. */
 function gymsWithBridgeInBoth(): GymProvider {
-  const base = gymsFixture();
-  return Object.assign(Object.create(base) as GymProvider, {
-    regionsOf: (gymId: number) =>
-      gymId === 4 ? [WEST_CHANNEL, EAST_CHANNEL] : base.regionsOf(gymId),
-  });
+  return gymsLyingIn({ 4: [WEST_CHANNEL, EAST_CHANNEL] });
 }
 
 /**
@@ -303,6 +305,7 @@ describe('reporting a raid on the map', () => {
       if (userId === ALICE && map.made.store.active().length === 0) {
         await map.made.service.reportRaid({
           gym: gymsFixture().get(4)!,
+          guildRow: TEST_GUILD_ROW,
           reporterId: BOB,
           anonymous: false,
           autoStatus: PartyStatus.Interested,

@@ -9,7 +9,13 @@ import {
 import { sent, type FakeInteraction } from '../../../test/support/fake-interactions.js';
 import { DIALOG_READ_MS, SLOW_READ } from '../../discord/dialog.js';
 import { answerOf, buttonsOf } from '../../../test/support/gym-commands.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../../test/support/gyms.js';
 import { ALICE, REPORTER } from '../../../test/support/parties.js';
 import {
   MEMBER,
@@ -30,6 +36,7 @@ async function reported(made: Made, gymId: number): Promise<string> {
   if (!gym) throw new Error(`no gym ${gymId}`);
   const outcome = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: REPORTER,
     anonymous: false,
     autoStatus: PartyStatus.Interested,

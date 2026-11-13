@@ -58,6 +58,7 @@ import {
   EAST_FORUM,
   ELITE_GYM_CHANNEL,
   REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
   testRegions,
   WEST_CHANNEL,
   WEST_FORUM,
@@ -677,6 +678,7 @@ export async function reportedRaid(
     autoStatus: PartyStatus.Interested,
     tier: { level: 'T5', shadow: false },
     boss: null,
+    guildRow: TEST_GUILD_ROW,
     ...report,
   });
   if (outcome.kind !== 'created') throw new Error(`the raid was not created: ${outcome.kind}`);

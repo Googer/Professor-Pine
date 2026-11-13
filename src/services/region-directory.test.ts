@@ -35,8 +35,24 @@ describe('gymRegionsInGuild', () => {
     1: [FOREIGN, EAST_CHANNEL, 'gone-channel', UNOWNED, WEST_CHANNEL],
     2: [UNOWNED],
     3: [],
+    4: [FOREIGN, WEST_CHANNEL],
   };
-  const gyms = { regionsOf: (gymId: number) => lying[gymId] ?? [] };
+  /** The servers of the gyms (plan 19B-2): gym 4, in regions of both, is the first's alone. */
+  const servers: Record<number, number[]> = { 1: [1, 2], 2: [1, 2], 3: [1, 2], 4: [1] };
+  const gyms = {
+    of: (guildId: number | undefined) => ({
+      regionsOf: (gymId: number) =>
+        guildId !== undefined && (servers[gymId] ?? []).includes(guildId)
+          ? (lying[gymId] ?? [])
+          : [],
+    }),
+  };
+
+  it('gives a gym of another server no region of this one, though one holds it', () => {
+    expect(gymRegionsInGuild(gyms, regions, 4, 1).map((region) => region.id)).toEqual([1]);
+    expect(gymRegionsInGuild(gyms, regions, 4, 2)).toEqual([]);
+    expect(gymInGuild(gyms, regions, 4, 2)).toBe(false);
+  });
 
   it('gives the regions of that server the gym lies in, in the order of their channels', () => {
     expect(gymRegionsInGuild(gyms, regions, 1, 1).map((region) => region.id)).toEqual([2, 1]);

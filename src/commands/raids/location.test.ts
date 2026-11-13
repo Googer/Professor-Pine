@@ -13,12 +13,24 @@ import {
   EAST_CHANNEL,
   EAST_FORUM,
   OTHER_GUILD_ID,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
   WEST_CHANNEL,
   WEST_FORUM,
+  WIDE_CHANNEL,
+  wideRegion,
 } from '../../../test/support/gyms.js';
 import { ALICE, BOB, PARTY_NOW } from '../../../test/support/parties.js';
 import { reportedRaid } from '../../../test/support/party-service.js';
-import { gymsFixture } from '../../../test/support/providers.js';
+import {
+  gymsFixture,
+  THEIR_GYM,
+  twoServerGyms,
+  type TestGyms,
+} from '../../../test/support/providers.js';
+import type { AppContext } from '../../app-context.js';
+import { FORUM_TAGS } from '../../render/party-post.js';
+import type { GymProvider } from '../../services/gym-directory.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { components } from '../../components/index.js';
 import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
@@ -36,14 +48,20 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function setup(report: Partial<RaidReport> = {}) {
-  const made = await reportedRaid(report);
+async function setup(
+  report: Partial<RaidReport> = {},
+  gyms?: GymProvider,
+  guilds?: AppContext['guilds'],
+) {
+  const made = await reportedRaid(report, gyms ? { gyms } : {});
   const { ctx } = createTestContext({
     partyService: made.service,
     attendance: made.attendance,
     raids: made.raids,
     parties: made.store,
     regions: made.regions,
+    ...(gyms ? { gyms } : {}),
+    ...(guilds ? { guilds } : {}),
   });
   const router = new InteractionRouter(ctx, [location], [locationControls]);
   const handle = async (interaction: FakeInteraction) => {
@@ -112,6 +130,7 @@ async function raidAt(
   if (!gym) throw new Error('no gym');
   const other = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: BOB,
     anonymous: false,
     autoStatus: PartyStatus.Interested,
@@ -121,6 +140,62 @@ async function raidAt(
   if (other.kind !== 'created') throw new Error(other.kind);
   return other.party;
 }
+
+describe('/location in two servers whose regions overlap (plan 19B-2)', () => {
+  it('neither offers, accepts nor names the other server’s gym in a region of both', async () => {
+    const two = twoServerGyms();
+    const made = await setup({}, two.gyms, two.guilds);
+    expect(JSON.stringify(await made.offered('fountain'))).not.toContain('Stone Fountain');
+    const refused = (await made.answer({ gym: 'g:2' })) ?? '';
+    expect(refused).not.toContain('Stone Fountain');
+    expect(made.current().gymId).toBe(1);
+    // Its own gym is offered and taken.
+    expect(JSON.stringify(await made.offered('starbucks'))).toContain('Starbucks');
+    expect(await made.answer({ gym: 'g:5' })).toBe('This raid is now at Starbucks.');
+
+    // A raid of the other server, in its region Wide (given a forum here), at its gym.
+    const WIDE_FORUM = '100000000000000061';
+    made.regions.rows.push({ ...wideRegion(), forumChannelId: WIDE_FORUM });
+    made.gateway.addForum(WIDE_FORUM, FORUM_TAGS);
+    const theirs = await made.service.reportRaid({
+      gym: two.gyms.stored(THEIR_GYM)!,
+      guildRow: OTHER_GUILD_ROW,
+      regionChannelId: WIDE_CHANNEL,
+      reporterId: BOB,
+      anonymous: false,
+      autoStatus: PartyStatus.Interested,
+      tier: { level: 'T5', shadow: false },
+      boss: null,
+    });
+    if (theirs.kind !== 'created') throw new Error(theirs.kind);
+    const inTheirPost = {
+      guildId: OTHER_GUILD_ID,
+      channelId: theirs.party.forumPostId ?? '',
+      thread: { parentId: WIDE_FORUM },
+    };
+    const offeredThere = async (focused: string) =>
+      JSON.stringify(
+        (
+          await made.handle(
+            fakeAutocomplete({
+              commandName: 'location',
+              ...inTheirPost,
+              focusedName: 'gym',
+              focused,
+            }),
+          )
+        ).respond.mock.calls[0]?.[0],
+      );
+    // From the other server: its gym, and not this server's.
+    expect(await offeredThere('fountain')).toContain('Old Stone Fountain');
+    expect(await offeredThere('library')).not.toContain('Pinewood Public Library');
+    const moving = await made.run({ gym: 'g:1' }, inTheirPost);
+    expect(sent(moving.reply).content).toBe(
+      'I found no gym for "g:1". Type part of its name and pick it from the list.',
+    );
+    expect(made.store.get(theirs.party.id)?.gymId).toBe(THEIR_GYM);
+  });
+});
 
 describe('/location', () => {
   it('moves the raid to another gym of the region', async () => {
@@ -296,7 +371,7 @@ describe('/location to a gym of another region', () => {
   it('says so when the gym is gone by Submit', async () => {
     const made = await setup();
     const asked = await made.run({ gym: 'g:7' });
-    vi.spyOn(made.ctx.gyms, 'get').mockReturnValue(undefined);
+    (made.ctx.gyms as TestGyms).remove(7);
     expect(sent((await made.submit(asked)).editReply).content).toBe('That gym no longer exists.');
     expect(made.current().gymId).toBe(1);
   });

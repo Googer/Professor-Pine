@@ -2,7 +2,13 @@ import { PermissionFlagsBits as P } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import { RecordingDms } from '../../test/support/dms.js';
 import { FakePartyGateway } from '../../test/support/fake-gateway.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../test/support/gyms.js';
 import { MOD_CHANNEL } from '../../test/support/meetup-safety-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import { REPORTER } from '../../test/support/parties.js';
@@ -163,6 +169,7 @@ describe('rehearsalGateway', () => {
     if (!gym) throw new Error(`no gym ${gymId}`);
     return {
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

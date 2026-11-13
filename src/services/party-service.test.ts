@@ -1,3 +1,4 @@
+import { asTestServerGyms } from '../../test/support/providers.js';
 import path from 'node:path';
 import { endParty } from '../domain/party/party.js';
 import { OverwriteType, PermissionFlagsBits, RateLimitError } from 'discord.js';
@@ -13,6 +14,7 @@ import {
 import {
   EAST_CHANNEL,
   EAST_FORUM,
+  TEST_GUILD_ROW,
   testGym,
   testGyms,
   testRegions,
@@ -95,6 +97,7 @@ function report(extra: Partial<RaidReport> = {}): RaidReport {
     autoStatus: PartyStatus.Interested,
     tier: T5,
     boss: null,
+    guildRow: TEST_GUILD_ROW,
     ...extra,
   };
 }
@@ -1526,11 +1529,11 @@ describe('PartyService.reportRaid: the region a raid goes to', () => {
   async function overlapping() {
     const real = gymsFixture();
     const made = await partyServiceWith([], {
-      gyms: {
+      gyms: asTestServerGyms({
         get: (id) => real.get(id),
         regionsOf: (id) =>
           id === library!.id ? [WEST_CHANNEL, OVERLAP_CHANNEL, OTHER_CHANNEL] : real.regionsOf(id),
-      },
+      }),
     });
     made.gateway.addForum(OVERLAP_FORUM, FORUM_TAGS);
     made.gateway.addForum(OTHER_FORUM, FORUM_TAGS);
@@ -1566,6 +1569,15 @@ describe('PartyService.reportRaid: the region a raid goes to', () => {
     });
   });
 
+  it('is a region of the server it was reported in, though the channel is a region of another (plan 19B-2)', async () => {
+    const { service } = await overlapping();
+    // The library lies in a region of the second server too: its channel is no region here.
+    expect(service.regionFor(library!, TEST_GUILD_ROW, OTHER_CHANNEL).region?.id).toBe(1);
+    await expect(
+      service.reportRaid(report({ regionChannelId: OTHER_CHANNEL })),
+    ).resolves.toMatchObject({ kind: 'created', party: { regionId: 1, guildId: TEST_GUILD_ROW } });
+  });
+
   it('is no region of another server than the one the report came from', async () => {
     const { service, regions } = await overlapping();
     regions.rows = regions.rows.filter((region) => region.id === 5 || region.id === 2);
@@ -1574,11 +1586,10 @@ describe('PartyService.reportRaid: the region a raid goes to', () => {
     });
   });
 
-  it('says no region, and logs it, when the chosen region belongs to no server', async () => {
-    const { service, regions, entries, storage } = await partyServiceWith();
+  it('says no region when the gym’s region belongs to no server: no server has it (plan 19B-2)', async () => {
+    const { service, regions, storage } = await partyServiceWith();
     regions.rows[0]!.guildId = null;
     await expect(service.reportRaid(report())).resolves.toEqual({ kind: 'no-region' });
-    expect(entries.some((entry) => entry.level === 40)).toBe(true);
     expect(storage.writes).toEqual([]);
   });
 });
@@ -2228,7 +2239,7 @@ describe('PartyService: rate limits and unchanged posts', () => {
   it('does not rename on every render for a gym name with extra white space', async () => {
     const real = gymsFixture();
     const made = await partyServiceWith([], {
-      gyms: {
+      gyms: asTestServerGyms({
         get: (id) => {
           const gym = real.get(id);
           return gym && id === library!.id
@@ -2236,7 +2247,7 @@ describe('PartyService: rate limits and unchanged posts', () => {
             : gym;
         },
         regionsOf: (id) => real.regionsOf(id),
-      },
+      }),
     });
     const outcome = await made.service.reportRaid(
       report({ time: { hatch: at('2026-10-13T14:30') } }),

@@ -11,7 +11,7 @@ import {
 } from '../../../test/support/gyms.js';
 import { PARTY_NOW } from '../../../test/support/parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
-import { gymsFixture } from '../../../test/support/providers.js';
+import { gymsFixture, gymsLyingIn } from '../../../test/support/providers.js';
 import { screenshotsWith } from '../../../test/support/screenshot-service.js';
 import { eggReading, readingOf, splitOutcome } from '../../../test/support/screenshots.js';
 import { TWO_SCREENS } from '../../render/screenshot-reading.js';
@@ -48,10 +48,10 @@ async function setup(
   const gyms: GymProvider =
     alsoInEast.length === 0
       ? fixture
-      : Object.assign(Object.create(fixture) as GymProvider, {
-          regionsOf: (gymId: number) =>
-            alsoInEast.includes(gymId) ? [WEST_CHANNEL, EAST_CHANNEL] : fixture.regionsOf(gymId),
-        });
+      : gymsLyingIn(
+          Object.fromEntries(alsoInEast.map((gymId) => [gymId, [WEST_CHANNEL, EAST_CHANNEL]])),
+          fixture,
+        );
   const made = await partyServiceWith([], { gyms });
   const shots = screenshotsWith(createTestContext({ gyms }).ctx);
   const { ctx: base, entries } = createTestContext({

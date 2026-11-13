@@ -2,8 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { withZones } from '../../test/support/server-values.js';
 import { zonedAt } from '../../test/support/time.js';
-import { OTHER_GUILD_ROW, testGym, WEST_CHANNEL } from '../../test/support/gyms.js';
-import { gymsFixture } from '../../test/support/providers.js';
+import {
+  OTHER_GUILD_ID,
+  OTHER_GUILD_ROW,
+  testGym,
+  WEST_CHANNEL,
+  WIDE_CHANNEL,
+} from '../../test/support/gyms.js';
+import { gymsFixture, regionsFixture, twoServerGyms } from '../../test/support/providers.js';
+import { gymCandidates } from '../commands/screenshots/gym-question.js';
 import { MAX_FEED_READ_AT } from '../../test/support/max-bosses.js';
 import { maxReading } from '../../test/support/screenshots.js';
 import { createTestContext } from '../../test/support/test-context.js';
@@ -17,6 +24,55 @@ import { maxReportContext, reportContext } from './screenshot-context.js';
 const GUILD_ROW = 1;
 /** Another server, in a zone of its own. */
 const OTHER_SERVER = '412345678901234599';
+
+describe('a screenshot’s gym in two servers whose regions overlap (plan 19B-2)', () => {
+  it('is never the other server’s gym in a region of both, read or offered', () => {
+    const { gyms, regions } = twoServerGyms();
+    const { ctx } = createTestContext({ gyms, regions: regionsFixture(regions) });
+    const context = reportContext(
+      ctx,
+      { channelId: WEST_CHANNEL, guildId: FAKE_GUILD_ID, guildRow: GUILD_ROW },
+      1_000,
+    );
+    expect(context.searchGym('Old Stone Fountain').map((hit) => hit.gym.id)).not.toContain(2);
+    // Nor among the gyms the member is asked to choose from, as read or as taken.
+    const offered = gymCandidates(ctx, WEST_CHANNEL, GUILD_ROW, {
+      read: 'Old Stone Fountain',
+      searched: 'Old Stone Fountain',
+      gymId: 2,
+      place: null,
+      clear: true,
+    });
+    expect(offered.map((gym) => gym.id)).not.toContain(2);
+    // Its own gym is read.
+    expect(context.searchGym('Pinewood Public Library')[0]?.gym.id).toBe(1);
+    // From the other server, in its region Wide: its gym, and not this server's.
+    const there = reportContext(
+      ctx,
+      { channelId: WIDE_CHANNEL, guildId: OTHER_GUILD_ID, guildRow: OTHER_GUILD_ROW },
+      1_000,
+    );
+    expect(there.searchGym('Old Stone Fountain')[0]?.gym.id).toBe(2);
+    expect(there.searchGym('Pinewood Public Library').map((hit) => hit.gym.id)).not.toContain(1);
+    const offeredThere = gymCandidates(ctx, WIDE_CHANNEL, OTHER_GUILD_ROW, {
+      read: 'Old Stone Fountain',
+      searched: 'Old Stone Fountain',
+      gymId: 2,
+      place: null,
+      clear: true,
+    });
+    expect(offeredThere.map((gym) => gym.id)).toContain(2);
+    expect(
+      gymCandidates(ctx, WIDE_CHANNEL, OTHER_GUILD_ROW, {
+        read: 'Pinewood Public Library',
+        searched: 'Pinewood Public Library',
+        gymId: 1,
+        place: null,
+        clear: true,
+      }).map((gym) => gym.id),
+    ).not.toContain(1);
+  });
+});
 
 describe('reportContext', () => {
   it('gives the report the bosses, the gym search by names where it was posted, and the settings', () => {

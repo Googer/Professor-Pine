@@ -18,7 +18,13 @@ import { createTestContext } from '../../test/support/test-context.js';
 import { components } from '../components/index.js';
 import { InteractionRouter } from '../discord/router.js';
 import { PartyStatus } from '../domain/party/status.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../test/support/gyms.js';
 import { ALICE, at, BOB, CAROL, MINUTE, REPORTER } from '../../test/support/parties.js';
 import { partyServiceWith, reportedRaid } from '../../test/support/party-service.js';
 import { pokemonTarget, type NotificationTarget } from '../domain/pogo/notification-target.js';
@@ -399,6 +405,7 @@ describe('NotifyService: the buttons that stop a message', () => {
     const report = () =>
       made.service.reportRaid({
         gym,
+        guildRow: TEST_GUILD_ROW,
         reporterId: BOB,
         anonymous: false,
         autoStatus: PartyStatus.Interested,

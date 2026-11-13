@@ -15,11 +15,11 @@ import { gymRequestIssue } from '../../render/gym-request.js';
 import { gymWithId } from '../../render/gym-view.js';
 import type { IssueOutcome } from '../../services/issue-gateway.js';
 import {
-  inServer,
+  inRegions,
+  serverGyms,
   respondWithServerGyms,
   serverGym,
   serverGymOption,
-  serverOf,
 } from './server-gym.js';
 
 /** Spec row 190: three requests in half an hour, as the legacy bot allowed. */
@@ -54,8 +54,9 @@ async function gymOfPost(interaction: ChatInputCommandInteraction, ctx: AppConte
     : isTrain(party)
       ? gymIdOf(currentStop(party))
       : undefined;
-  const gym = gymId === null || gymId === undefined ? undefined : ctx.gyms.get(gymId);
-  if (!gym || !inServer(ctx, await serverOf(interaction, ctx))(gym)) {
+  const gyms = await serverGyms(interaction, ctx);
+  const gym = gymId === null || gymId === undefined ? undefined : gyms.get(gymId);
+  if (!gym || !inRegions(gyms)(gym)) {
     throw new UserError(
       `This ${partyWord(party)} is at no gym right now. Say which gym with the \`gym\` option.`,
     );

@@ -4,6 +4,7 @@ import {
   EAST_FORUM,
   ELITE_GYM_CHANNEL,
   REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
   UNBOUNDED_CHANNEL,
   WEST_CHANNEL,
   WEST_FORUM,
@@ -408,6 +409,7 @@ describe('PartyService: the post of a meetup', () => {
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: BOB,
       anonymous: false,
       autoStatus: PartyStatus.Coming,

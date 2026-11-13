@@ -1,3 +1,4 @@
+import { asTestServerGyms } from '../../test/support/providers.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { Gym } from '../db/repositories/gym-repository.js';
 import type { Region } from '../db/repositories/region-repository.js';
@@ -5,6 +6,7 @@ import {
   EAST_CHANNEL,
   EAST_FORUM,
   REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
   WEST_CHANNEL,
   WEST_FORUM,
 } from '../../test/support/gyms.js';
@@ -270,14 +272,14 @@ describe('PartyService.relocate', () => {
     const gyms = gymsFixture();
     const state = { away: false };
     const made = await reportedRaid(yveltal, {
-      gyms: {
+      gyms: asTestServerGyms({
         // The gym of the old party cannot be read once the raid has moved.
         get: (id) => {
           if (state.away && id === made.party.gymId) throw new Error('the gyms are away');
           return gyms.get(id);
         },
         regionsOf: (id) => gyms.regionsOf(id),
-      },
+      }),
     });
     const told: string[] = [];
     made.notify.raidMoved = (from, to) => {
@@ -345,6 +347,7 @@ describe('PartyService.relocate: when it cannot be done', () => {
     const made = await reportedRaid(yveltal);
     const other = await made.service.reportRaid({
       gym: cafe(),
+      guildRow: TEST_GUILD_ROW,
       reporterId: BOB,
       anonymous: false,
       autoStatus: PartyStatus.Coming,
@@ -576,6 +579,7 @@ describe('PartyService.relocate: what happens meanwhile', () => {
     await reached;
     const reporting = made.service.reportRaid({
       gym: cafe(),
+      guildRow: TEST_GUILD_ROW,
       reporterId: CAROL,
       anonymous: false,
       autoStatus: PartyStatus.Coming,
@@ -599,6 +603,7 @@ describe('PartyService.relocate: what happens meanwhile', () => {
     await reached;
     const reporting = made.service.reportRaid({
       gym: cafe(),
+      guildRow: TEST_GUILD_ROW,
       reporterId: CAROL,
       anonymous: false,
       autoStatus: PartyStatus.Coming,

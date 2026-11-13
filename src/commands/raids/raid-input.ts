@@ -24,7 +24,7 @@ import { resolvePartyTime } from '../../domain/time/party-time.js';
 import { longestRaidDurations, raidDurationRules } from '../../domain/time/raid-durations.js';
 import { UserError } from '../../discord/errors.js';
 import { isFarOff, plain, timestamp, truncate } from '../../render/text.js';
-import { gymInGuild } from '../../services/region-directory.js';
+import type { GymView } from '../../services/gym-directory.js';
 import { byName, CHOICE_NAME, MAX_CHOICES, showsGuessed, type Choice } from '../choices.js';
 
 const MINUTE = 60_000;
@@ -514,17 +514,18 @@ export function trainBoss(ctx: AppContext, value: string, noTier: string, zone: 
 }
 
 /**
- * The gyms a text names, seen from a region channel: the region's own and those just outside it,
- * as `ctx.gyms.search` orders them. When none of them has every word, the search goes on to the
- * other regions of the same server (Matt, 2026-10-11), and what it finds there with every word
- * comes before the guesses from here. Without a region channel all gyms are searched.
+ * The gyms of the server (`gyms`, its view: plan 19B-2) a text names, seen from a region
+ * channel: the region's own and those just outside it, as the search orders them. When none of
+ * them has every word, the search goes on to the server's other gyms (Matt, 2026-10-11), and
+ * what it finds there with every word comes before the guesses from here. Without a region
+ * channel all the server's gyms are searched. Another server's gym is never among them.
  *
- * With `accepts`, only the gyms it accepts count (the gyms of one server, a member's targets):
- * the others are left out before anything is decided, and the step to other regions looks at
- * every gym that is accepted, wherever it lies.
+ * With `accepts`, only the gyms it accepts count (a member's targets): the others are left out
+ * before anything is decided, and the step beyond the region looks at every gym that is
+ * accepted.
  */
 function gymHits(
-  ctx: AppContext,
+  gyms: GymView,
   regionChannelId: string | undefined,
   text: string,
   limit: number,
@@ -533,18 +534,16 @@ function gymHits(
   // With `accepts` every hit is asked for and then narrowed: a limit would be used up by the
   // gyms that do not count.
   const near = accepts
-    ? ctx.gyms
+    ? gyms
         .search(regionChannelId ?? null, text)
         .filter((hit) => accepts(hit.gym))
         .slice(0, limit)
-    : ctx.gyms.search(regionChannelId ?? null, text, { limit });
-  const region = regionChannelId === undefined ? undefined : ctx.regions.byChannel(regionChannelId);
-  if (!region || near.some((hit) => hit.allWords)) return near;
-  const { guildId } = region;
-  const sameServer = (gym: Gym): boolean =>
-    guildId !== null && gymInGuild(ctx.gyms, ctx.regions, gym.id, guildId);
-  const elsewhere = accepts ?? sameServer;
-  const far = ctx.gyms
+    : gyms.search(regionChannelId ?? null, text, { limit });
+  if (regionChannelId === undefined || !gyms.isRegion(regionChannelId)) return near;
+  if (near.some((hit) => hit.allWords)) return near;
+  // Beyond the region: the gyms `accepts` takes, else the server's gyms in its regions.
+  const elsewhere = accepts ?? ((gym: Gym) => gyms.regionsOf(gym.id).length > 0);
+  const far = gyms
     .search(null, text, accepts ? {} : { limit: limit * 4 })
     .filter((hit) => hit.allWords && elsewhere(hit.gym));
   return [...far, ...near].slice(0, limit);
@@ -565,13 +564,13 @@ export function between(first: number, last: number, now: number): string {
 }
 
 /**
- * The choices for the `gym` option: the gyms matching what was typed, the region's own first;
- * while nothing is typed, the region's own gyms by name.
+ * The choices for the `gym` option: the server's gyms (`gyms`, its view) matching what was
+ * typed, the region's own first; while nothing is typed, the region's own gyms by name.
  * `regionName` gives the name of a region channel, to say where a gym of another region lies.
  * `accepts` narrows the list to the gyms it accepts.
  */
 export function gymChoices(
-  ctx: AppContext,
+  gyms: GymView,
   regionChannelId: string | undefined,
   typed: string,
   regionName: (channelId: string) => string | undefined,
@@ -580,15 +579,15 @@ export function gymChoices(
   if (typed.trim() === '') {
     // Nothing typed yet: the region's own gyms by name, as many as a list holds.
     if (regionChannelId === undefined) return [];
-    return ctx.gyms
+    return gyms
       .inRegion(regionChannelId)
       .filter((gym) => accepts?.(gym) ?? true)
       .sort((a, b) => byName(a.name, b.name))
       .slice(0, MAX_CHOICES)
       .map((gym) => ({ name: gymLabel(gym, undefined), value: `g:${String(gym.id)}` }));
   }
-  return gymHits(ctx, regionChannelId, typed, MAX_CHOICES, accepts).map(({ gym, place }) => {
-    const elsewhere = place === 'local' ? undefined : ctx.gyms.regionsOf(gym.id)[0];
+  return gymHits(gyms, regionChannelId, typed, MAX_CHOICES, accepts).map(({ gym, place }) => {
+    const elsewhere = place === 'local' ? undefined : gyms.regionsOf(gym.id)[0];
     const region = elsewhere === undefined ? undefined : regionName(elsewhere);
     return { name: gymLabel(gym, region), value: `g:${String(gym.id)}` };
   });
@@ -616,12 +615,13 @@ export type GymAnswer =
   | { kind: 'none' };
 
 /**
- * The gym the `gym` option names: a choice of the list, or typed text. Typed text is acted on
- * only when exactly one gym has every word as typed; otherwise the best few are offered.
- * With `accepts`, a gym it does not accept is never the answer, picked or typed.
+ * The gym of the server (`gyms`, its view) the `gym` option names: a choice of the list, or
+ * typed text. Typed text is acted on only when exactly one gym has every word as typed;
+ * otherwise the best few are offered. Another server's gym is never the answer, picked or typed
+ * (plan 19B-2), nor is a gym `accepts` does not accept.
  */
 export function reportedGym(
-  ctx: AppContext,
+  gyms: GymView,
   regionChannelId: string | undefined,
   value: string,
   accepts?: (gym: Gym) => boolean,
@@ -629,10 +629,10 @@ export function reportedGym(
   const text = value.trim();
   const picked = /^g:(\d{1,10})$/.exec(text);
   if (picked) {
-    const gym = ctx.gyms.get(Number(picked[1]));
+    const gym = gyms.get(Number(picked[1]));
     return gym && (accepts?.(gym) ?? true) ? { kind: 'gym', gym } : { kind: 'none' };
   }
-  const hits = gymHits(ctx, regionChannelId, text, 5, accepts);
+  const hits = gymHits(gyms, regionChannelId, text, 5, accepts);
   if (hits.length === 0) return { kind: 'none' };
   const clear = clearGymHit(hits);
   if (clear) return { kind: 'gym', gym: clear };

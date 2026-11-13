@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { watchEachTest, watchImmediates } from '../../test/support/timers.js';
 import { heldCall } from '../../test/support/held-call.js';
-import { REMOTE_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../test/support/gyms.js';
 import {
   ALICE,
   asRaid,
@@ -234,6 +239,7 @@ describe('PartyScheduler: hatch and end', () => {
     if (!gym) throw new Error('no gym');
     const second = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: ALICE,
       anonymous: false,
       autoStatus: PartyStatus.Interested,
@@ -1267,6 +1273,7 @@ async function endedButOpen(made: Made): Promise<string> {
   if (!gym) throw new Error('no gym');
   const outcome = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: BOB,
     anonymous: false,
     autoStatus: PartyStatus.Interested,

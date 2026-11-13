@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EAST_FORUM, testGym, WEST_CHANNEL } from '../../test/support/gyms.js';
+import { EAST_FORUM, TEST_GUILD_ROW, testGym, WEST_CHANNEL } from '../../test/support/gyms.js';
 import {
   ALICE,
   asRaid,
@@ -43,6 +43,7 @@ async function secondRaid(made: Made, gymId: number, report: Partial<RaidReport>
   if (!gym) throw new Error('no gym');
   const outcome = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: BOB,
     anonymous: false,
     autoStatus: PartyStatus.Interested,

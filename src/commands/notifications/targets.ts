@@ -1,3 +1,4 @@
+import { inRegions, serverGyms } from '../util/server-gym.js';
 import {
   ActionRowBuilder,
   SlashCommandBuilder,
@@ -25,7 +26,8 @@ import { stopLink } from '../../render/train-stops.js';
 import { count, plain, truncate } from '../../render/text.js';
 import { memberListControls } from './list-controls.js';
 import { PendingRequests } from '../../services/pending-requests.js';
-import { gymInGuild, gymRegionsInGuild } from '../../services/region-directory.js';
+import { gymRegionsInGuild } from '../../services/region-directory.js';
+import type { GymView } from '../../services/gym-directory.js';
 import { beginningFirst, byName, CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import { gymChoices, reportedGym } from '../raids/raid-input.js';
 import { removeAllQuestion } from './remove-all.js';
@@ -58,11 +60,6 @@ async function serverOf(
   return interaction.guildId === null ? undefined : ctx.guilds.idFor(interaction.guildId);
 }
 
-/** Whether a gym lies in a region of a server (`gymInGuild`); no gym does in no server. */
-function inServer(ctx: AppContext, guildRow: number | undefined): (gym: Gym) => boolean {
-  return (gym) => guildRow !== undefined && gymInGuild(ctx.gyms, ctx.regions, gym.id, guildRow);
-}
-
 /** A gym as a sentence names it: `**The Stacks** (Pinewood Public Library)`. */
 function gymText(gym: Gym): string {
   // A nickname that was cleared to an empty text names nothing, so it is tested for truth.
@@ -82,7 +79,7 @@ const SAY_WHICH =
  * or the stop the train of that post is at. Throws a `UserError` that says how to name a gym
  * anywhere else, and in the post of a party that is at no gym.
  */
-function gymOfPost(interaction: ChatInputCommandInteraction, ctx: AppContext): Gym {
+function gymOfPost(interaction: ChatInputCommandInteraction, ctx: AppContext, gyms: GymView): Gym {
   const party = partyOf(interaction, ctx);
   if (!party) throw new UserError(SAY_WHICH);
   if (isMax(party)) throw new UserError(MAX_NO_GYM);
@@ -90,7 +87,7 @@ function gymOfPost(interaction: ChatInputCommandInteraction, ctx: AppContext): G
   if (isRaid(party)) gymId = party.gymId;
   // A train at a power spot (plan 8X-4) is at no gym: gym targets are of gyms only.
   else if (isTrain(party)) gymId = gymIdOf(currentStop(party));
-  const gym = gymId === null || gymId === undefined ? undefined : ctx.gyms.get(gymId);
+  const gym = gymId === null || gymId === undefined ? undefined : gyms.get(gymId);
   if (!gym) {
     throw new UserError(
       `This ${partyWord(party)} is at no gym right now. Say which gym with the \`gym\` option.`,
@@ -115,7 +112,7 @@ async function removeTarget(
   gymId: number,
 ): Promise<void> {
   const removed = await ctx.gymTargets.remove(interaction.user.id, guildIdOf(interaction), gymId);
-  const gym = ctx.gyms.get(gymId);
+  const gym = (await serverGyms(interaction, ctx)).get(gymId);
   const name = gym ? gymText(gym) : 'That gym';
   await answer(interaction, {
     content: removed
@@ -135,12 +132,13 @@ async function askWhich(
 ): Promise<void> {
   const token = pending.put(interaction.user.id, { mode, gymIds: gyms.map((gym) => gym.id) });
   const here = regionChannelOf(interaction, ctx);
+  const view = await serverGyms(interaction, ctx);
   const menu = new StringSelectMenuBuilder()
     .setCustomId(encodeCustomId({ kind: MENU_KIND, id: token, action: 'gym' }))
     .setPlaceholder('Choose the gym')
     .addOptions(
       gyms.map((gym) => {
-        const regions = ctx.gyms.regionsOf(gym.id);
+        const regions = view.regionsOf(gym.id);
         const [elsewhere] = regions;
         const region =
           here !== undefined && elsewhere !== undefined && !regions.includes(here)
@@ -196,14 +194,18 @@ export const target: SimpleCommand = {
   async execute(interaction, ctx) {
     const typed = interaction.options.getString('gym');
     if (typed === null || typed.trim() === '') {
-      await addTarget(interaction, ctx, gymOfPost(interaction, ctx));
+      await addTarget(
+        interaction,
+        ctx,
+        gymOfPost(interaction, ctx, await serverGyms(interaction, ctx)),
+      );
       return;
     }
     const answer = reportedGym(
-      ctx,
+      await serverGyms(interaction, ctx),
       regionChannelOf(interaction, ctx),
       typed,
-      inServer(ctx, await serverOf(interaction, ctx)),
+      inRegions(await serverGyms(interaction, ctx)),
     );
     if (answer.kind === 'none') {
       throw new UserError(
@@ -220,20 +222,20 @@ export const target: SimpleCommand = {
       interaction.guild?.channels.cache.get(channelId)?.name;
     await interaction.respond(
       gymChoices(
-        ctx,
+        await serverGyms(interaction, ctx),
         regionChannelOf(interaction, ctx),
         interaction.options.getFocused(),
         regionName,
-        inServer(ctx, await serverOf(interaction, ctx)),
+        inRegions(await serverGyms(interaction, ctx)),
       ),
     );
   },
 };
 
 /** The gyms among these ids that still exist. */
-function knownGyms(ctx: AppContext, gymIds: readonly number[]): Gym[] {
+function knownGyms(gyms: GymView, gymIds: readonly number[]): Gym[] {
   return gymIds.flatMap((id) => {
-    const gym = ctx.gyms.get(id);
+    const gym = gyms.get(id);
     return gym ? [gym] : [];
   });
 }
@@ -295,7 +297,11 @@ export const untarget: SimpleCommand = {
   async execute(interaction, ctx) {
     const typed = interaction.options.getString('gym');
     if (typed === null || typed.trim() === '') {
-      await removeTarget(interaction, ctx, gymOfPost(interaction, ctx).id);
+      await removeTarget(
+        interaction,
+        ctx,
+        gymOfPost(interaction, ctx, await serverGyms(interaction, ctx)).id,
+      );
       return;
     }
     // A choice of the list is taken by its id, also for a gym that no longer exists.
@@ -307,8 +313,11 @@ export const untarget: SimpleCommand = {
     const own = new Set(
       (await ctx.gymTargets.list(interaction.user.id, guildIdOf(interaction))).gymIds,
     );
-    const answer = reportedGym(ctx, regionChannelOf(interaction, ctx), typed, (gym) =>
-      own.has(gym.id),
+    const answer = reportedGym(
+      await serverGyms(interaction, ctx),
+      regionChannelOf(interaction, ctx),
+      typed,
+      (gym) => own.has(gym.id),
     );
     if (answer.kind === 'none') {
       throw new UserError(
@@ -328,8 +337,9 @@ export const untarget: SimpleCommand = {
     // As `/target` says it: the region of a gym that is not in the region the command is used
     // in, by the name of its channel.
     const here = regionChannelOf(interaction, ctx);
+    const view = await serverGyms(interaction, ctx);
     const regionOf = (gym: Gym): string | undefined => {
-      const regions = ctx.gyms.regionsOf(gym.id);
+      const regions = view.regionsOf(gym.id);
       const [elsewhere] = regions;
       if (elsewhere === undefined || (here !== undefined && regions.includes(here))) {
         return undefined;
@@ -337,7 +347,7 @@ export const untarget: SimpleCommand = {
       return interaction.guild?.channels.cache.get(elsewhere)?.name;
     };
     await interaction.respond(
-      ownTargetChoices(knownGyms(ctx, gymIds), interaction.options.getFocused(), regionOf),
+      ownTargetChoices(knownGyms(view, gymIds), interaction.options.getFocused(), regionOf),
     );
   },
 };
@@ -356,7 +366,9 @@ export const targetControls: ComponentHandler = {
     }
     const { mode, gymIds } = taken.value;
     const gymId = Number(interaction.values[0]);
-    const gym = gymIds.includes(gymId) ? ctx.gyms.get(gymId) : undefined;
+    const gym = gymIds.includes(gymId)
+      ? (await serverGyms(interaction, ctx)).get(gymId)
+      : undefined;
     if (!gym) {
       // The menu is used up: it goes, and its own message says why.
       await interaction.update({
@@ -425,7 +437,7 @@ export function targetsList(
   },
   page: number,
 ): V2Message {
-  const gyms = knownGyms(ctx, list.gymIds);
+  const gyms = knownGyms(ctx.gyms.of(server.guildRow), list.gymIds);
   const unreadable = list.unreadable + (list.gymIds.length - gyms.length);
   const regionName = (channelId: string) => server.nameOf(channelId) ?? channelId;
   const listed = gyms.map((gym): ListedGym => {

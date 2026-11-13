@@ -71,6 +71,7 @@ const report = (made: Made, gymId: number, more: Partial<RaidReport> = {}): Raid
   autoStatus: PartyStatus.Interested,
   tier: { level: 'T5', shadow: false },
   boss: null,
+  guildRow: TEST_GUILD_ROW,
   ...more,
 });
 

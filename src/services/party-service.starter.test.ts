@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FakePartyGateway } from '../../test/support/fake-gateway.js';
-import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { textOf, thumbnailOf } from '../../test/support/messages.js';
 import { ALICE, REPORTER } from '../../test/support/parties.js';
 import { createdMeetup, partyServiceWith, reportedRaid } from '../../test/support/party-service.js';
@@ -218,6 +218,7 @@ describe('PartyService: the first message of a forum post, when things go wrong'
     if (!gym) throw new Error('no gym 1');
     const outcome = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,
@@ -239,6 +240,7 @@ describe('PartyService: the first message of a forum post, when things go wrong'
     await made.service
       .reportRaid({
         gym,
+        guildRow: TEST_GUILD_ROW,
         reporterId: REPORTER,
         anonymous: false,
         autoStatus: PartyStatus.Interested,
@@ -262,6 +264,7 @@ describe('PartyService: the first message of a forum post, when things go wrong'
       await expect(
         made.service.reportRaid({
           gym,
+          guildRow: TEST_GUILD_ROW,
           reporterId: REPORTER,
           anonymous: false,
           autoStatus: PartyStatus.Interested,

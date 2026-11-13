@@ -1,6 +1,6 @@
 import { DiscordAPIError, RESTJSONErrorCodes } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
-import { EAST_CHANNEL, EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
+import { EAST_CHANNEL, EAST_FORUM, TEST_GUILD_ROW, WEST_FORUM } from '../../test/support/gyms.js';
 import { ALICE, BOB, CAROL, MINUTE, REPORTER } from '../../test/support/parties.js';
 import {
   createdMeetup,
@@ -38,6 +38,7 @@ async function secondRaid(made: Made): Promise<string> {
   if (!gym) throw new Error('no gym 2');
   const outcome = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: REPORTER,
     anonymous: false,
     autoStatus: PartyStatus.NotInterested,
@@ -88,6 +89,7 @@ describe('AccessService: who is let into a forum', () => {
     if (!gym) throw new Error('no gym 8');
     const outcome = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: BOB,
       anonymous: false,
       autoStatus: PartyStatus.Coming,

@@ -46,6 +46,7 @@ import type { PostsRefused } from '../domain/party/post-permissions.js';
 import type { RelocateOutcome } from './party-service.js';
 import type { PartyStore } from './party-store.js';
 import { gymRegionsInGuild, type RegionProvider } from './region-directory.js';
+import type { ServerGymProvider } from './gym-directory.js';
 
 /**
  * What came of a change to a raid. `gone`: there is no such active raid. `refused`: the raid
@@ -82,7 +83,10 @@ export interface RaidChangeServiceOptions {
   lines: Pick<PartyLines, 'say'>;
   /** Takes away the completion questions nobody has to answer any more. */
   questions?: { removeQuestions(partyId: string): Promise<void> };
-  gyms: { get(id: number): Gym | undefined; regionsOf(gymId: number): string[] };
+  gyms: { get(id: number): Gym | undefined; regionsOf(gymId: number): string[] } & Pick<
+    ServerGymProvider,
+    'of' | 'stored'
+  >;
   regions: Pick<RegionProvider, 'byId' | 'byChannel'>;
   gameData: GameDataProvider;
   /** Told of every stored change of a raid, with the member who made it. */
