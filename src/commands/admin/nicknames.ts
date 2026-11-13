@@ -163,8 +163,9 @@ export const addNickname: SubcommandPart = {
     ),
   help: {
     details:
-      'The nickname works wherever members type a Pokémon (`/raid`, `/want`, `/wild`, …) from ' +
-      `then on. It has ${String(NICKNAME_MIN)} to ${String(NICKNAME_MAX)} letters, digits, ` +
+      'The nickname works wherever members of this server type a Pokémon (`/raid`, `/want`, ' +
+      '`/wild`, …) from then on; other servers have nicknames of their own. ' +
+      `It has ${String(NICKNAME_MIN)} to ${String(NICKNAME_MAX)} letters, digits, ` +
       'spaces or hyphens, and must not be the name or a nickname of another Pokémon.',
     examples: ['/admin nickname add pokemon:Dratini nickname:danger noodle'],
   },

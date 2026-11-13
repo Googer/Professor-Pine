@@ -205,7 +205,8 @@ export const request: SimpleCommand = {
   help: {
     category: 'util',
     details:
-      'Sends what you write to the people who keep the gym list, as a request about one gym. ' +
+      'Sends what you write to the people who keep the gym list (the moderators of this ' +
+      'server, or the list Pine shares), as a request about one gym. ' +
       'In the post of a raid or train it is about the gym of that raid or the stop the train ' +
       'is at; elsewhere pick the gym with `gym`.\n\nYour name and the server go with it, nothing ' +
       'else of you. You can send three requests in half an hour.',
