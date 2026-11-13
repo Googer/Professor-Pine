@@ -20,7 +20,8 @@ export interface WantCountServiceOptions {
 /**
  * The daily want counts (plan 8H-3; design Part A, "Want counts"; `WantCountDay`): a snapshot of
  * the wants of every server as they stand a second after its local midnight (plan 19A-2: of its
- * zone; one timer per zone in use, counting the servers in that zone), kept under its day that
+ * zone; one timer per zone in use, counting the servers in that zone, whose wants alone it reads),
+ * kept under its day that
  * just ended; and at start, under the day before, for each server that has no counts of that day
  * yet (a bot down over midnight loses the hours it was down, not the day). A server's day is
  * written once: a second count of it changes nothing. A count that fails is logged and that day
@@ -106,10 +107,12 @@ export class WantCountService {
     const { storage, log } = this.options;
     try {
       const counted = await storage.serversCounted(day);
-      // The servers in the zone (as they are now) whose day it is.
-      const servers = [...(await storage.countNow())].filter(
-        ([serverId]) => !counted.has(serverId) && this.options.servers.zoneOf(serverId) === zone,
+      // The servers in the zone (as they are now) whose day it is not counted yet; only their
+      // wants are read (the index audit of 2026-11-13, X12).
+      const due = (await storage.servers()).filter(
+        (serverId) => !counted.has(serverId) && this.options.servers.zoneOf(serverId) === zone,
       );
+      const servers = due.length === 0 ? [] : [...(await storage.countNow(due))];
       let written = 0;
       let targets = 0;
       for (const [serverId, counts] of servers) {

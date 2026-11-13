@@ -3,23 +3,43 @@ import type { WantCountStorage } from '../../src/db/repositories/want-count-repo
 /**
  * The daily want counts in memory (`WantCountStorage`), for tests of `WantCountService`: what the
  * wants count as now is what a test puts in `standing` (by server, by key: the repository counts
- * it from the tables of wants, `want-count-repository.db.test.ts`); `days` holds what was written,
- * by `<server> <day>`, a key written again keeping its count as the repository's upsert does.
- * `failing` makes `countNow` reject; `failingWrites` the writes of the servers it holds, each
- * with its error, writing nothing of them.
+ * it from the tables of wants, `want-count-repository.db.test.ts`), and the servers with a row are
+ * those it holds; `asked` records the servers of each `countNow`, in order. `days` holds what was
+ * written, by `<server> <day>`, a key written again keeping its count as the repository's upsert
+ * does. `failing` makes `countNow` reject; `failingWrites` the writes of the servers it holds,
+ * each with its error, writing nothing of them.
  */
 export class MemoryWantCounts implements WantCountStorage {
   standing = new Map<string, Map<string, number>>();
   readonly days = new Map<string, Map<string, number>>();
+  readonly asked: (readonly string[])[] = [];
   failing: Error | undefined;
   readonly failingWrites = new Map<string, Error>();
 
-  countNow(): Promise<Map<string, Map<string, number>>> {
+  servers(): Promise<string[]> {
+    return Promise.resolve([...this.standing.keys()]);
+  }
+
+  countNow(serverIds: readonly string[]): Promise<Map<string, Map<string, number>>> {
+    this.asked.push(serverIds);
     return new Promise((resolve, reject) => {
       // Like a real query, the answer never comes in the same turn of the event loop.
       setImmediate(() => {
-        if (this.failing) reject(this.failing);
-        else resolve(new Map([...this.standing].map(([server, keys]) => [server, new Map(keys)])));
+        if (this.failing) {
+          reject(this.failing);
+          return;
+        }
+        try {
+          resolve(
+            new Map(
+              [...this.standing]
+                .filter(([server]) => serverIds.includes(server))
+                .map(([server, keys]) => [server, new Map(keys)]),
+            ),
+          );
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error(String(err)));
+        }
       });
     });
   }

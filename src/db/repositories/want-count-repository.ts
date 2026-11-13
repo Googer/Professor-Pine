@@ -21,14 +21,17 @@ const ROWS_PER_INSERT = 2_000;
  * member is kept. Lets tests keep them in memory (`MemoryWantCounts`).
  */
 export interface WantCountStorage {
+  /** The servers that have a row (`Guild`): those whose wants can be counted. */
+  servers(): Promise<string[]>;
   /**
-   * The wants of every server as they stand now, by the server's snowflake: how many members want
-   * each key, of every kind of want (`PokemonNotification`, `TargetWant`, `GymNotification`,
-   * `NewTrainNotification`); rows that cannot be read are no want, nor are those of a member
-   * row without a snowflake, which the notifier cannot reach either. A server without wants is
-   * not there.
+   * The wants of the servers given as they stand now, by the server's snowflake: how many
+   * members want each key, of every kind of want (`PokemonNotification`, `TargetWant`,
+   * `GymNotification`, `NewTrainNotification`); rows that cannot be read are no want, nor are
+   * those of a member row without a snowflake, which the notifier cannot reach either. A server
+   * without wants is not there, nor is one not given (the index audit of 2026-11-13, X12: a
+   * zone's midnight reads its own servers' wants, not every server's).
    */
-  countNow(): Promise<Map<string, Map<string, number>>>;
+  countNow(serverIds: readonly string[]): Promise<Map<string, Map<string, number>>>;
   /** The servers that have counts of a day already. */
   serversCounted(day: string): Promise<Set<string>>;
   /**
@@ -60,17 +63,29 @@ export class WantCountRepository implements WantCountStorage {
     private readonly forms: FormReader,
   ) {}
 
-  async countNow(): Promise<Map<string, Map<string, number>>> {
+  /** A whole read: one row per server, bounded small by nature. */
+  async servers(): Promise<string[]> {
+    const rows = await this.db.selectFrom('Guild').select('snowflake').execute();
+    return rows.flatMap((row) => (row.snowflake === null ? [] : [row.snowflake]));
+  }
+
+  async countNow(serverIds: readonly string[]): Promise<Map<string, Map<string, number>>> {
+    if (serverIds.length === 0) return new Map();
     // Only the wants the notifier could act on (review 8H3-1): a member is their `User` row's
     // snowflake, joined as the notifier's reads join it (`wanting` of the wants and the targets,
     // `targeting` of the gyms), and a row whose member has none is no one's want; new trains hold
     // the snowflake themselves. Only a species (`species:<dex>`) is counted over two tables,
-    // `PokemonNotification` and `TargetWant`, which share the members' snowflakes.
+    // `PokemonNotification` and `TargetWant`, which share the members' snowflakes. Each read
+    // finds the servers by `guild_snowflake_unique` and their wants by the table's key that
+    // begins with the server (`notification_guildid_foreign`, `targetwant_member_unique`,
+    // `gymnotification_guildid_foreign`, the primary key of `NewTrainNotification`).
+    const servers = [...serverIds];
     const found = new ByServer();
     const pokemon = await this.db
       .selectFrom('PokemonNotification as n')
       .innerJoin('Guild as g', 'g.id', 'n.guildId')
       .innerJoin('User as u', 'u.id', 'n.userId')
+      .where('g.snowflake', 'in', servers)
       .select([
         'g.snowflake as serverId',
         'u.userSnowflake as memberId',
@@ -109,6 +124,7 @@ export class WantCountRepository implements WantCountStorage {
       .selectFrom('TargetWant as w')
       .innerJoin('Guild as g', 'g.id', 'w.guildId')
       .innerJoin('User as u', 'u.id', 'w.userId')
+      .where('g.snowflake', 'in', servers)
       .select(['g.snowflake as serverId', 'u.userSnowflake as memberId', 'w.target'])
       .execute();
     for (const row of targets) found.add(row.serverId, row.memberId, targetWantKey(row.target));
@@ -116,6 +132,7 @@ export class WantCountRepository implements WantCountStorage {
       .selectFrom('GymNotification as n')
       .innerJoin('Guild as g', 'g.id', 'n.guildId')
       .innerJoin('User as u', 'u.id', 'n.userId')
+      .where('g.snowflake', 'in', servers)
       .select(['g.snowflake as serverId', 'u.userSnowflake as memberId', 'n.gym'])
       .execute();
     for (const row of gyms) {
@@ -125,6 +142,7 @@ export class WantCountRepository implements WantCountStorage {
     const trains = await this.db
       .selectFrom('NewTrainNotification as n')
       .innerJoin('Guild as g', 'g.id', 'n.guildId')
+      .where('g.snowflake', 'in', servers)
       .select(['g.snowflake as serverId', 'n.memberId'])
       .execute();
     for (const row of trains) found.add(row.serverId, row.memberId, NEW_TRAINS_KEY);

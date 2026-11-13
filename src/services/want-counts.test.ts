@@ -90,6 +90,21 @@ describe('WantCountService (plan 8H-3)', () => {
     await made.service.idle();
     expect(await made.storage.countsOf(HERE, '2026-11-03')).toEqual(new Map([['trains', 1]]));
     expect(await made.storage.countsOf(THERE, '2026-11-03')).toEqual(new Map([['trains', 2]]));
+    // Only the server without its day is read (the index audit of 2026-11-13, X12).
+    expect(made.storage.asked).toEqual([[THERE]]);
+  });
+
+  it('reads nothing of the wants when every server of the zone has its day already', async () => {
+    const made = counting('2026-11-04T10:00');
+    await made.storage.write(HERE, '2026-11-03', new Map([['trains', 1]]));
+    made.storage.standing = new Map([[HERE, new Map([['trains', 9]])]]);
+    made.service.start();
+    await made.service.idle();
+    expect(made.storage.asked).toEqual([]);
+    expect(await made.storage.countsOf(HERE, '2026-11-03')).toEqual(new Map([['trains', 1]]));
+    expect(made.entries.filter((entry) => entry.msg === 'counted the wants of a day')).toEqual([
+      expect.objectContaining({ level: 30, day: '2026-11-03', servers: 0, targets: 0 }),
+    ]);
   });
 
   it('logs a day it could not count, and counts the next one at its midnight', async () => {
@@ -202,6 +217,24 @@ describe('WantCountService in each server’s zone (plan 19A-2)', () => {
     await made.service.idle();
     expect(await made.storage.countsOf(THERE, '2026-11-04')).toEqual(new Map([['gym:7', 6]]));
     expect(await made.storage.countsOf(HERE, '2026-11-04')).toEqual(new Map());
+  });
+
+  it('reads the wants of a zone’s servers alone at its midnight, and of each zone’s at start (the index audit of 2026-11-13, X12)', async () => {
+    const made = counting('2026-11-04T10:00', withZones({ [THERE]: BERLIN }));
+    made.storage.standing = new Map([
+      [HERE, new Map([['trains', 1]])],
+      [THERE, new Map([['gym:7', 2]])],
+    ]);
+    made.service.start();
+    await made.service.idle();
+    expect([...made.storage.asked].sort()).toEqual([[HERE], [THERE]]);
+    made.storage.asked.length = 0;
+    made.clock.now = berlin('2026-11-05T00:00:01');
+    made.timers
+      .find((timer) => timer.ms === berlin('2026-11-05T00:00') - at('2026-11-04T10:00') + 1_000)
+      ?.run();
+    await made.service.idle();
+    expect(made.storage.asked).toEqual([[THERE]]);
   });
 
   it('counts at start the day before on each server’s own clock (fix round 2, N7 a)', async () => {
