@@ -14,12 +14,17 @@ export interface PlanRow {
   key: string | null;
 }
 
+/** What starts, ends or marks a transaction: no plan to ask of it. */
+const TRANSACTION_CONTROL =
+  /^\s*(?:begin|start transaction|commit|rollback|savepoint|release savepoint|set transaction)\b/iu;
+
 /**
  * The plans MySQL makes of what `read` asks of the database, one per statement in the order
  * asked: `read` runs against a connection of its own that hears every statement, and each is
  * explained with the values it was asked with (`explain format=traditional`: since MySQL 9 a bare
- * `explain` answers one row of text). A plan depends on the table's statistics: `analyze table`
- * after seeding, and seed enough rows for the optimizer to choose as it does on a real history.
+ * `explain` answers one row of text). A transaction's own statements (`begin`, `commit` and the
+ * like) are left out. A plan depends on the table's statistics: `analyze table` after seeding,
+ * and seed enough rows for the optimizer to choose as it does on a real history.
  */
 export async function plansOf(
   database: TestDatabase,
@@ -27,7 +32,9 @@ export async function plansOf(
 ): Promise<PlanRow[][]> {
   const asked: CompiledQuery[] = [];
   const logged = createDb<DB>(database.config, (event) => {
-    if (event.level === 'query') asked.push(event.query);
+    if (event.level === 'query' && !TRANSACTION_CONTROL.test(event.query.sql)) {
+      asked.push(event.query);
+    }
   });
   try {
     await read(logged);

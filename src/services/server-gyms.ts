@@ -174,6 +174,17 @@ export class ServerGyms {
     }
   }
 
+  /**
+   * Takes a gym out of one server's gyms, the others keeping it (a server deleted a gym it
+   * shared). False when the server did not have it.
+   */
+  unlink(id: number, guildId: number): boolean {
+    const known = this.links.get(id)?.delete(guildId) ?? false;
+    this.linked.get(guildId)?.delete(id);
+    this.views.get(guildId)?.lookup.remove(id);
+    return known;
+  }
+
   /** Takes a gym out of every view. False when there was no such gym. */
   remove(id: number): boolean {
     const known = this.gyms.delete(id);

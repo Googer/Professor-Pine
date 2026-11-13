@@ -113,9 +113,10 @@ async function viewedGym(
   id: string,
 ): Promise<Gym> {
   const gymId = Number(id);
-  const gym = Number.isSafeInteger(gymId) ? ctx.gyms.get(gymId) : undefined;
   const { guildId } = await staffPlace(interaction, ctx);
-  if (!gym || !ctx.gymAdmin.mayTouch(gym.id, guildId)) throw new UserError(VIEW_GONE);
+  // The server's gym of that number: another server's is none (plan 19B-2).
+  const gym = Number.isSafeInteger(gymId) ? ctx.gyms.of(guildId).get(gymId) : undefined;
+  if (!gym) throw new UserError(VIEW_GONE);
   return gym;
 }
 
@@ -174,7 +175,11 @@ export const gymViewControls: ComponentHandler = {
       case DELETE_ACTION: {
         // The dialog of `/gym delete`, read in time; the view stays.
         const dialog = await readInTime(ctx.log, interaction, async () =>
-          deleteDialog(ctx, await viewedGym(interaction, ctx, id.id)),
+          deleteDialog(
+            ctx,
+            await viewedGym(interaction, ctx, id.id),
+            (await staffPlace(interaction, ctx)).guildId,
+          ),
         );
         await interaction.showModal(dialog);
         return;

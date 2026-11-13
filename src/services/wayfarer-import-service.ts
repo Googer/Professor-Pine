@@ -61,6 +61,7 @@ import type {
   GymBatch,
   StaffPlace,
 } from './gym-admin-service.js';
+import type { GymDirectory } from './gym-directory.js';
 import type { RegionProvider } from './region-directory.js';
 import type { WayspotDirectory } from './wayspot-directory.js';
 
@@ -223,12 +224,11 @@ export interface WayfarerOutcome {
  * What came of making one gym one Wayspot (`applyMatch`, a review's "Same as"): `gone`, there
  * is no such gym this server may touch; `withdrawn`, what the caller asked inside the lock no
  * longer holds (nothing was written); `taken`, another gym already is that Wayspot (`gym`
- * undefined when it is another server's, which is not named); `foreign`, the match would move
- * the gym where this server may not put one (nothing was written); `failed`, a write failed
+ * undefined when it is another server's, which is not named); `failed`, a write failed
  * (logged; what was written before it stands); `matched`, with what changed.
  */
 export type MatchOutcome =
-  | { kind: 'gone' | 'withdrawn' | 'foreign' }
+  | { kind: 'gone' | 'withdrawn' }
   | { kind: 'taken'; gym: Gym | undefined }
   | { kind: 'failed' }
   | { kind: 'matched'; change: MatchChange; gym: Gym };
@@ -239,9 +239,13 @@ export interface WayfarerImportOptions {
   wayspots: WayspotStorage;
   /** The kept Wayspots in memory: read again after an import, a matched one forgotten. */
   kept: Pick<WayspotDirectory, 'load' | 'forget'>;
-  admin: Pick<GymAdminService, 'batch' | 'mayTouch' | 'mayPlace' | 'inAnyRegion'>;
+  admin: Pick<GymAdminService, 'batch' | 'mayTouch' | 'inRegionOf'>;
   /** The gyms in memory (`GymDirectory`). */
-  directory: { all(): Gym[]; get(id: number): Gym | undefined; regionsOf(gymId: number): string[] };
+  directory: Pick<GymDirectory, 'of'> & {
+    all(): Gym[];
+    get(id: number): Gym | undefined;
+    regionsOf(gymId: number): string[];
+  };
   regions: Pick<RegionProvider, 'all'>;
   /**
    * The stops of Pine's own (plan 8R-1): the preview names those of the server that lie near a
@@ -266,7 +270,7 @@ interface Planned {
 }
 
 /** What came of writing one match. */
-type Written = 'written' | 'gone' | 'foreign' | 'failed';
+type Written = 'written' | 'gone' | 'failed';
 
 /**
  * The Wayfarer import of `/gym import` (spec "The import"): what a file of the export tool says
@@ -353,14 +357,13 @@ export class WayfarerImportService {
   }
 
   /**
-   * The gyms of this server beyond the area a file scanned: those that lie in no region of any
-   * server and whose nearest region is one of this server's (Matt, 2026-10-16: a gym in no
-   * region is anybody's to touch, but only those around this server's regions are its to
-   * delete), outside the file's outlines grown by its margin, nearest first. A server without
-   * regions has none, and neither has one with a region the file did not scan as it is now
-   * (`compareOutlines`: added or changed since, or never scanned; the gyms around it were never
-   * looked at). Worked out from the gyms and regions as they are now, at the preview and again
-   * when the deletion is pressed.
+   * The gyms of this server beyond the area a file scanned: its gyms that lie in none of its
+   * regions (plan 19B-2: a server's gyms are its own wherever they lie, and another server's are
+   * never its to delete), outside the file's outlines grown by its margin, nearest first. A
+   * server without an outlined region has none, and neither has one with a region the file did
+   * not scan as it is now (`compareOutlines`: added or changed since, or never scanned; the gyms
+   * around it were never looked at). Worked out from the gyms and regions as they are now, at
+   * the preview and again when the deletion is pressed.
    */
   outsideArea(guildId: number | undefined, file: ScannedArea): BeyondGym[] {
     const { admin, directory, regions } = this.options;
@@ -368,25 +371,12 @@ export class WayfarerImportService {
     if (this.compareWith(guildId, file).regionsNotScanned.length > 0) return [];
     const outlined = regions
       .all()
-      .flatMap((region) =>
-        region.bounds === null || region.guildId === null
-          ? []
-          : [{ guildId: region.guildId, bounds: region.bounds }],
-      );
-    const nearestIsOurs = (gym: Gym): boolean => {
-      let nearest: { guildId: number; metres: number } | undefined;
-      for (const region of outlined) {
-        const metres = metresFromRing(region.bounds, gym);
-        if (!nearest || metres < nearest.metres) nearest = { guildId: region.guildId, metres };
-      }
-      return nearest?.guildId === guildId;
-    };
+      .some((region) => region.guildId === guildId && region.bounds !== null);
+    if (!outlined) return [];
     const candidates = directory
+      .of(guildId)
       .all()
-      .filter(
-        (gym) =>
-          admin.mayTouch(gym.id, guildId) && !admin.inAnyRegion(gym.id) && nearestIsOurs(gym),
-      );
+      .filter((gym) => !admin.inRegionOf(gym.id, guildId));
     return gymsBeyond(candidates, file.outlines, file.margin);
   }
 
@@ -554,7 +544,6 @@ export class WayfarerImportService {
       );
       const written = await this.writeMatch(ops, staff, gym, change);
       if (written === 'gone') return { kind: 'gone' };
-      if (written === 'foreign') return { kind: 'foreign' };
       if (written === 'failed') return { kind: 'failed' };
       await this.record('seen', () => storage.seen([gymId], this.now()));
       // The Wayspot lives in `Gym` now.
@@ -772,7 +761,7 @@ export class WayfarerImportService {
   /**
    * Writes one match in one row write: the Wayfarer id (when it differs), the name, the picture
    * and, with a move, the place (`GymBatch.move` with its `patch`). `gone`: the gym went
-   * meanwhile; `failed`: the write failed or the move was refused (logged; nothing was written).
+   * meanwhile; `failed`: the write failed (logged; nothing was written).
    */
   private async writeMatch(
     ops: GymBatch,
@@ -780,16 +769,8 @@ export class WayfarerImportService {
     gym: Gym,
     match: MatchChange,
   ): Promise<Written> {
-    const { admin, log } = this.options;
+    const { log } = this.options;
     const { gymId, wayspot } = match;
-    // Decided before anything is written (the move asks again as it writes).
-    if (match.move && !admin.mayPlace(wayspot, staff.guildId)) {
-      log.warn(
-        { staff: staff.staffId, gym: gymId, wayspot: wayspot.id },
-        'a gym was not matched to its Wayspot: the place is another server’s',
-      );
-      return 'foreign';
-    }
     // Wayfarer's address for a gym that has none, or that moves far enough to be looked up
     // again: Google is then asked for its places only.
     const refetch = match.metres > REFETCH_METRES;
@@ -803,22 +784,14 @@ export class WayfarerImportService {
     };
     try {
       if (match.move) {
-        // The fields go with the place, in one write: a refused move writes none of them, and
-        // the batch's summary counts a rename only with its move.
+        // The fields go with the place, in one write: the batch's summary counts a rename only
+        // with its move.
         const moved = await ops.move(gymId, wayspot, {
           places: refetch,
           address: !address,
           patch,
         });
         if (!moved) return 'gone';
-        if (moved.kind === 'foreign') {
-          // The regions changed between the look above and the move: nothing was written.
-          log.warn(
-            { staff: staff.staffId, gym: gymId, wayspot: wayspot.id },
-            'a gym was not moved to its Wayspot: the place is another server’s',
-          );
-          return 'failed';
-        }
       } else if (Object.keys(patch).length > 0 && !(await ops.update(gymId, patch))) {
         return 'gone';
       }
@@ -939,7 +912,6 @@ export class WayfarerImportService {
       covered,
       storedLength: this.storedLength,
       inRegion: (point) => own.some((region) => region.contains(point)),
-      mayPlace: (point) => admin.mayPlace(point, guildId),
       takenElsewhere,
       others: others.map((gym) => importGym(gym, records.get(gym.id)?.notInWayfarer ?? false)),
       refused,

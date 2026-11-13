@@ -675,7 +675,7 @@ describe('/gym review: the answers to an item to match', () => {
 
   it('New gym is refused where another gym lies within ten metres of the Wayspot', async () => {
     const made = await gymCommandsWith();
-    await made.gymStore.create({ name: 'Leaf Bench', ...at(gymOf(made, 6), 45) });
+    await made.gymStore.create({ name: 'Leaf Bench', ...at(gymOf(made, 6), 45) }, 1);
     await made.directory.load();
     await queue(made, [
       {

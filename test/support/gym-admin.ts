@@ -1,5 +1,9 @@
 import type { MapProvider } from '../../src/services/static-maps.js';
-import type { GymRemoval, RemovedGym } from '../../src/db/repositories/gym-removal-repository.js';
+import type {
+  GymRemoval,
+  RemovedGym,
+  RemovingServer,
+} from '../../src/db/repositories/gym-removal-repository.js';
 import { AdminLock } from '../../src/services/admin-lock.js';
 import { GymAdminService, type StaffPlace } from '../../src/services/gym-admin-service.js';
 import { GymUpkeep } from '../../src/services/gym-upkeep.js';
@@ -46,7 +50,10 @@ export async function withOtherServer(made: {
   directory: { load(): Promise<void>; get(id: number): Gym | undefined };
 }): Promise<Gym> {
   made.regions.rows.push(northRegion());
-  const created = await made.gymStore.create({ name: 'Northgate Clock', ...NORTH_PLACE });
+  const created = await made.gymStore.create(
+    { name: 'Northgate Clock', ...NORTH_PLACE },
+    OTHER_GUILD_ROW,
+  );
   await made.directory.load();
   const gym = made.directory.get(created.id);
   if (!gym) throw new Error('the gym of the second server is not in the directory');
@@ -68,7 +75,7 @@ export class MemoryGymRemoval implements GymRemoval {
     private readonly targets: MemoryGymTargets,
   ) {}
 
-  async remove(gymId: number): Promise<RemovedGym> {
+  async remove(gymId: number, server: RemovingServer): Promise<RemovedGym> {
     await new Promise((resolve) => setImmediate(resolve));
     const failing =
       this.failing ??
@@ -77,11 +84,18 @@ export class MemoryGymRemoval implements GymRemoval {
       this.routes.failing ??
       this.targets.failing;
     if (failing) throw failing;
-    const routes = await this.routes.removeGym(gymId);
-    const targets = await this.targets.membersTargeting(gymId);
-    await this.targets.removeGym(gymId);
-    await this.gyms.delete(gymId);
-    return { routes: routes.changed + routes.removed, targets };
+    // The last server's removal takes the row and whatever still names it; another's, its own.
+    const last = [...(this.gyms.servers.get(gymId) ?? [])].every(
+      (guildId) => guildId === server.guildId,
+    );
+    // The server's counts; what others still name goes with the row, uncounted.
+    const routes = await this.routes.removeGym(gymId, server.regionIds);
+    if (last) await this.routes.removeGym(gymId, 'every');
+    const targets = await this.targets.membersTargeting(gymId, server.guildId);
+    await this.targets.removeGym(gymId, last ? 'every' : server.guildId);
+    if (last) await this.gyms.delete(gymId);
+    else this.gyms.unlink(gymId, server.guildId);
+    return { routes: routes.changed + routes.removed, targets, deleted: last };
   }
 }
 

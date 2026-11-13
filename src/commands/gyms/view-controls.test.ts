@@ -106,15 +106,16 @@ describe('the buttons of the view of /gym show', () => {
     expect(moveForm({ id: 6, name: '*Big* Fountain' }).title).toBe('Move *Big* Fountain');
   });
 
-  it('refuses a place of another server and a gym gone from the Move form', async () => {
+  it('moves a gym into another server’s region, and refuses a gym gone, from the Move form', async () => {
     const made = await gymCommandsWith();
     const view = await shown(made, 'id:6');
     const form = formOf(await made.press(buttonId(view, 'Move…')));
     await withOtherServer(made);
-    const foreign = await made.submit(form.custom_id, {
+    // Far: asked first, as any far move; no refusal for the other server's region (plan 19B-2).
+    const far = await made.submit(form.custom_id, {
       location: `${NORTH_PLACE.lat}, ${NORTH_PLACE.lon}`,
     });
-    expect(said(answerOf(foreign))).toMatch(/^That place belongs to another server/);
+    expect(said(answerOf(far))).toMatch(/^Move \*\*Maple Leaf Mosaic\*\* \(#6\) from /);
     await made.admin.delete(6, { id: REPORTER }, STAFF_PLACE);
     const gone = await made.submit(form.custom_id, { location: '40.0302, -80.03' });
     expect(said(answerOf(gone))).toBe(VIEW_GONE);

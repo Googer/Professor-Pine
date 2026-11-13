@@ -133,19 +133,11 @@ export function wasAnswered(token: string): boolean {
 /** What a staff member is told whose question or form is no longer known (also after a restart). */
 export { EXPIRED, NOT_YOURS } from '../../services/pending-requests.js';
 /**
- * Also what is said of a gym that has come to lie only in another server's regions since the
- * question was asked: for this server's staff it is a gym that does not exist.
+ * Also what is said of a gym that is no longer this server's since the question was asked
+ * (another server's staff cannot make it so, but this server's deletion of a gym it shared
+ * can): for this server's staff it is a gym that does not exist.
  */
 export const GYM_GONE = 'That gym no longer exists.';
-
-/**
- * What staff are told who put a gym where only another server has regions (`mayPlace` of gym
- * administration): no server's staff administer another's gyms. `what`: "add a gym", "move a
- * gym".
- */
-export function foreignPlace(what: string): string {
-  return `That place belongs to another server’s regions: I cannot ${what} there from here.`;
-}
 
 /** What runs for a button of a question, by what the question is about and the button. */
 export type ButtonAnswer = (
@@ -442,7 +434,7 @@ export async function gymViewMessage(
   controls: readonly APIButtonComponent[] = [],
 ): Promise<V2Message> {
   const [targets, map] = await Promise.all([
-    ctx.gymAdmin.targetCount(gym.id).catch((err: unknown) => {
+    ctx.gymAdmin.targetCount(gym.id, place.guildId).catch((err: unknown) => {
       ctx.log.warn({ err, gym: gym.id }, 'could not count the gym targets of a gym');
       return undefined;
     }),

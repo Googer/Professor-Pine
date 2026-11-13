@@ -9,6 +9,7 @@ import { UserError } from '../../discord/errors.js';
 import { guildIdOf, regionChannelOf } from '../../discord/guards.js';
 import { tidyLine } from '../../domain/gyms/gym-text.js';
 import type { GymHit } from '../../domain/search/gym-lookup.js';
+import type { GymView } from '../../services/gym-directory.js';
 import { searchTokens } from '../../domain/search/text.js';
 import { gymWithId } from '../../render/gym-view.js';
 import { plain, truncate } from '../../render/text.js';
@@ -25,49 +26,36 @@ const BARE_NUMBER = /^(\d{1,10})$/;
 /** How many gyms a refusal of typed text suggests. */
 const SUGGESTIONS = 5;
 
-/** Whether the staff of the server an interaction comes from may touch a gym. */
-type Reach = (gym: Pick<Gym, 'id'>) => boolean;
-
 /**
- * Which gyms the staff of the server of an interaction may touch (Matt, 2026-10-13): those in
- * a region of their server, and those in no region of any server
- * (`GymAdminService.mayTouch`). A gym that lies only in regions of other servers is, for
- * everything the `gym` option does, a gym that does not exist: it is not offered, not found
- * and not accepted by its number, and no answer says whose it is. This is the one place the
- * option decides it; every subcommand that takes a gym goes through `chosenGym`.
+ * The gyms the staff of the server of an interaction may touch: exactly their server's (plan
+ * 19B-2, `ctx.gyms.of`; `GymAdminService.mayTouch` decides by the same view). Another server's
+ * gym is, for everything the `gym` option does, a gym that does not exist: it is not offered,
+ * not found and not accepted by its number, and no answer says whose it is. This is the one
+ * place the option decides it; every subcommand that takes a gym goes through `chosenGym`.
  */
-async function reachOf(interaction: { guildId: string | null }, ctx: AppContext): Promise<Reach> {
-  const guildId = await ctx.guilds.idFor(guildIdOf(interaction));
-  return (gym) => ctx.gymAdmin.mayTouch(gym.id, guildId);
+async function reachOf(interaction: { guildId: string | null }, ctx: AppContext): Promise<GymView> {
+  return ctx.gyms.of(await ctx.guilds.idFor(guildIdOf(interaction)));
 }
 
 /**
- * The gyms a text names, for staff, among the gyms they may touch (`within`): what the search
- * finds from the region of the channel (its own gyms, then those just outside it), then what
- * it finds among all gyms, as many of each as a list of choices holds. Gyms that have only
- * some of the words (guesses) are given only when no gym within reach has every word.
+ * The gyms a text names, for staff, among their server's gyms (`within`): what the search finds
+ * from the region of the channel (its own gyms, then those just outside it), then what it finds
+ * among all the server's gyms, as many of each as a list of choices holds. Gyms that have only
+ * some of the words (guesses) are given only when no gym of the server has every word.
  */
 function staffGymHits(
-  ctx: AppContext,
   regionChannelId: string | undefined,
   text: string,
-  within: Reach,
+  within: GymView,
 ): GymHit<Gym>[] {
   const limit = MAX_CHOICES;
-  // Searched without a limit and cut afterwards: the gyms of other servers must not use up
-  // the places of those that may be shown.
   const near =
-    regionChannelId === undefined
-      ? []
-      : ctx.gyms
-          .search(regionChannelId, text)
-          .filter((hit) => within(hit.gym))
-          .slice(0, limit);
+    regionChannelId === undefined ? [] : within.search(regionChannelId, text).slice(0, limit);
   const seen = new Set(near.map((hit) => hit.gym.id));
   // As many again from everywhere: those already found from the region do not count.
-  const anywhere = ctx.gyms
+  const anywhere = within
     .search(null, text)
-    .filter((hit) => !seen.has(hit.gym.id) && within(hit.gym))
+    .filter((hit) => !seen.has(hit.gym.id))
     .slice(0, limit);
   const all = [...near, ...anywhere];
   const whole = all.filter((hit) => hit.allWords);
@@ -122,16 +110,15 @@ async function gymChoices(
   const within = await reachOf(interaction, ctx);
   if (typed === '') {
     if (region === undefined) return [];
-    return ctx.gyms
+    return within
       .inRegion(region)
-      .filter(within)
       .sort((a, b) => byName(a.name, b.name) || a.id - b.id)
       .slice(0, MAX_CHOICES)
       .map(gymChoice);
   }
   const numbered = EXPLICIT_NUMBER.exec(typed) ?? BARE_NUMBER.exec(typed);
-  const byNumber = numbered ? reachable(ctx, Number(numbered[1]), within) : undefined;
-  const found = staffGymHits(ctx, region, typed, within).map((hit) => hit.gym);
+  const byNumber = numbered ? within.get(Number(numbered[1])) : undefined;
+  const found = staffGymHits(region, typed, within).map((hit) => hit.gym);
   const gyms = byNumber ? [byNumber, ...found.filter((gym) => gym.id !== byNumber.id)] : found;
   return gyms.slice(0, MAX_CHOICES).map(gymChoice);
 }
@@ -142,12 +129,6 @@ export async function respondWithGyms(
   ctx: AppContext,
 ): Promise<void> {
   await interaction.respond(await gymChoices(interaction, ctx));
-}
-
-/** The gym with this number, when the server may touch it: any other number is no gym's. */
-function reachable(ctx: AppContext, id: number, within: Reach): Gym | undefined {
-  const gym = ctx.gyms.get(id);
-  return gym && within(gym) ? gym : undefined;
 }
 
 /** Whether a word is one of the words staff gave a gym: of its name, nickname or keywords. */
@@ -185,11 +166,11 @@ export async function chosenGym(
   const within = await reachOf(interaction, ctx);
   const explicit = EXPLICIT_NUMBER.exec(typed);
   if (explicit) {
-    const gym = reachable(ctx, Number(explicit[1]), within);
+    const gym = within.get(Number(explicit[1]));
     if (!gym) throw new UserError(`There is no gym #${explicit[1] ?? ''}.`);
     return gym;
   }
-  const found = staffGymHits(ctx, regionChannelOf(interaction, ctx), typed, within);
+  const found = staffGymHits(regionChannelOf(interaction, ctx), typed, within);
   const digits = BARE_NUMBER.test(typed);
   // The search also finds a gym by its own number, and by the beginning of it. For digits a
   // gym that was found by its number alone is not one that is called so: `12` is gym 12, never
@@ -197,7 +178,7 @@ export async function chosenGym(
   const hits = digits
     ? found.filter((hit) => calledBy(hit.gym, typed) || !String(hit.gym.id).startsWith(typed))
     : found;
-  const numbered = digits ? reachable(ctx, Number(typed), within) : undefined;
+  const numbered = digits ? within.get(Number(typed)) : undefined;
   if (numbered) {
     // Another gym that is called so: the digits are a word of its name, its nickname or its
     // keywords (an address with that house number does not make a gym be called so). The gym

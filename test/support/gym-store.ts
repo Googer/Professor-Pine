@@ -71,6 +71,11 @@ export class MemoryGyms implements GymStorage {
     this.servers.set(gymId, servers);
   }
 
+  /** Takes a gym's link to a server away at once (`MemoryGymRemoval` does, as its transaction). */
+  unlink(gymId: number, guildId: number): void {
+    this.servers.get(gymId)?.delete(guildId);
+  }
+
   links(): Promise<GymLink[]> {
     return this.attempt('links', () =>
       [...this.servers]
@@ -141,6 +146,7 @@ export class MemoryGyms implements GymStorage {
 
   createBlock(
     gyms: readonly NewGym[],
+    guildId: number,
     nearest: (created: readonly Gym[]) => readonly NearestWrite[],
   ): Promise<Gym[]> {
     return this.attempt('createBlock', () => {
@@ -153,6 +159,7 @@ export class MemoryGyms implements GymStorage {
       this.nextId += made.length;
       for (const gym of made) {
         this.rows.set(gym.id, { ...gym, nearestGym: writes.get(gym.id) ?? null });
+        this.link(gym.id, guildId);
         this.writes.push({ what: 'create', id: gym.id });
       }
       for (const [id, nearestGym] of writes) {
@@ -193,7 +200,7 @@ export class MemoryGyms implements GymStorage {
     };
   }
 
-  create(gym: NewGym): Promise<Gym> {
+  create(gym: NewGym, guildId: number): Promise<Gym> {
     return this.attempt('create', () => {
       if (this.refuseNames.has(gym.name)) throw new Error('the gym was refused');
       const id = this.nextId++;
@@ -218,6 +225,7 @@ export class MemoryGyms implements GymStorage {
         nearestGym: null,
       };
       this.rows.set(id, created);
+      this.link(id, guildId);
       this.writes.push({ what: 'create', id });
       return { ...created };
     });

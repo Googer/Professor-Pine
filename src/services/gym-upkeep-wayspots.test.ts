@@ -163,7 +163,7 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     await background.settle();
     expect(made.waits.at(-1)).toBe(4 * 3_600_000);
     // A gym an import adds: the month's budget allows it, so it does not wait for tomorrow.
-    const gym = await gyms.create({ name: 'New Gym', lat: 40.05, lon: -80.05 });
+    const gym = await gyms.create({ name: 'New Gym', lat: 40.05, lon: -80.05 }, 1);
     await directory.refreshGym(gym.id);
     await made.upkeep.placed(gym.id, { places: 'later' });
     expect(made.timers).toHaveLength(1);
@@ -318,7 +318,7 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
   it('asks the stops while a gym whose question keeps failing waits for the next day', async () => {
     let now = new Date('2026-10-16T12:00:00-07:00').getTime();
     const { gyms, directory } = await gymDirectoryWith(new MemoryGyms([]));
-    const stuck = await gyms.create({ name: 'Stuck', lat: 40.05, lon: -80.05 });
+    const stuck = await gyms.create({ name: 'Stuck', lat: 40.05, lon: -80.05 }, 1);
     await directory.refreshGym(stuck.id);
     const made = await lineWith([STOP], { gyms, directory, now: () => now });
     let stuckAsked = 0;

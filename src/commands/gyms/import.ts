@@ -1019,13 +1019,13 @@ async function askOutside(
   let targets = 0;
   let raids = 0;
   for (const { gymId } of beyond) {
-    const references = await ctx.gymAdmin.references(gymId);
+    const references = await ctx.gymAdmin.references(gymId, place.guildId);
     routes += references.routes;
     targets += references.targets;
     if (references.raids.length > 0) raids++;
   }
   const named = beyond.slice(0, OUTSIDE_NAMED).flatMap(({ gymId, metres }) => {
-    const gym = ctx.gyms.get(gymId);
+    const gym = ctx.gyms.of(place.guildId).get(gymId);
     return gym
       ? [
           `- ${gymWithId(gym)}, ${distanceWords(metres, serverValuesOf(interaction, ctx).distanceUnits)} from the ` +

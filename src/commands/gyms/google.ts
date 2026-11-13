@@ -10,7 +10,6 @@ import {
 import { zoned } from '../../domain/time/zoned.js';
 import { timestamp } from '../../render/text.js';
 import type { GoogleLineSnapshot } from '../../services/gym-upkeep.js';
-import { gymRegionsInGuild } from '../../services/region-directory.js';
 import { answerGym, gymQuestion, staffPlace } from './shared.js';
 
 /** A number as a sentence writes it: `4,500`. */
@@ -162,8 +161,7 @@ async function googleLineMessage(ctx: AppContext, guildId: number | undefined) {
   );
   const share = serverShare(
     line,
-    (gymId) =>
-      guildId !== undefined && gymRegionsInGuild(ctx.gyms, ctx.regions, gymId, guildId).length > 0,
+    (gymId) => ctx.gyms.of(guildId).regionsOf(gymId).length > 0,
     (wayspotId) => ctx.wayspots.regionsOf(wayspotId).some((channelId) => own.has(channelId)),
   );
   // The maps of `/find-region`, where it is offered and Google is asked at all.

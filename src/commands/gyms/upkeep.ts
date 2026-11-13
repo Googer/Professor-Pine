@@ -124,7 +124,7 @@ export const exportGyms: SubcommandPart = {
     // A gym in two regions that overlap is one line.
     const gyms = new Map<number, Gym>();
     for (const region of regions) {
-      for (const gym of ctx.gyms.inRegion(region.channelId)) gyms.set(gym.id, gym);
+      for (const gym of ctx.gyms.of(guildId).inRegion(region.channelId)) gyms.set(gym.id, gym);
     }
     if (gyms.size === 0) throw new UserError('No gym lies in a region of this server.');
     const file = new AttachmentBuilder(Buffer.from(gymsTsv([...gyms.values()]), 'utf8'), {

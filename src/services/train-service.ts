@@ -362,10 +362,17 @@ export class TrainService {
     gymId: number,
     member: Member,
     name: string,
+    guildId?: number,
   ): Promise<{ changed: TrainParty[]; failed: TrainParty[] }> {
     const changed: TrainParty[] = [];
     const failed: TrainParty[] = [];
-    for (const train of this.options.store.active().filter(isTrain)) {
+    // Only the trains of the server that removed it (its `Guild` row) when the gym stays other
+    // servers' (plan 19B-2); every train when it went.
+    const trains = this.options.store
+      .active()
+      .filter(isTrain)
+      .filter((train) => guildId === undefined || train.guildId === guildId);
+    for (const train of trains) {
       try {
         const outcome = await this.movable(
           train.id,

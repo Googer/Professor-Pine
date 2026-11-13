@@ -230,6 +230,21 @@ export class GymDirectory implements GymProvider {
     return known;
   }
 
+  /**
+   * Takes a gym out of one server's gyms at once, without reading anything: for a gym whose
+   * link to the server was just deleted while other servers keep it, so that nothing of that
+   * server finds it from this moment on. Again behind whatever is on its way, as `forget`.
+   */
+  unlink(id: number, guildId: number): boolean {
+    const known = this.perServer.unlink(id, guildId);
+    this.changes += 1;
+    void this.enqueue(() => {
+      if (this.servers?.unlink(id, guildId)) this.changes += 1;
+      return Promise.resolve();
+    });
+    return known;
+  }
+
   get size(): number {
     return this.current.size;
   }

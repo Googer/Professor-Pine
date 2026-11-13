@@ -82,12 +82,16 @@ export async function gymSeedStep(args: readonly string[], deps: GymSeedDeps): P
   }
   const gyms = new GymRepository(db);
   const wayfarer = new WayfarerRepository(db);
+  // Every gym, for each new gym's nearest gym (of all gyms, as `addBlock` works it out).
   const all = await gyms.listAll();
-  const records = await wayfarer.records(all.map((gym) => gym.id));
+  // The server's own gyms (plan 19B-2), read by its links: a row marks or stands beside only
+  // those; another server's gym of that Wayfarer id or place is none of this server's.
+  const ours = await gyms.listOf(guildRow);
+  const records = await wayfarer.records(ours.map((gym) => gym.id));
   const plan = planGymSeed(
     rows,
     {
-      gyms: all.map((gym) => ({
+      gyms: ours.map((gym) => ({
         id: gym.id,
         name: gym.name,
         lat: gym.lat,
@@ -110,6 +114,7 @@ export async function gymSeedStep(args: readonly string[], deps: GymSeedDeps): P
     try {
       const made = await gyms.createBlock(
         toAdd.map(({ row }) => ({ name: row.name, lat: row.lat, lon: row.lon, pogoId: row.id })),
+        guildRow,
         (created) =>
           nearestBlockChanges([...all, ...created], new Set(created.map((gym) => gym.id))),
       );

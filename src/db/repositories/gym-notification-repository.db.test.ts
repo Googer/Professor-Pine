@@ -198,23 +198,29 @@ describe('GymNotificationRepository', () => {
     expect(await script(targets)).toEqual(await script(memory));
   });
 
-  it('counts the members who target a gym over all servers, and removes its targets', async () => {
+  it('counts the members who target a gym in a server or in every server, and removes its targets', async () => {
     for (const store of [targets, new MemoryGymTargets()]) {
       await db.deleteFrom('GymNotification').execute();
       await store.add(ALICE, HOME, 17);
       await store.add(ALICE, AWAY, 17);
       await store.add(BOB, HOME, 17);
       await store.add(BOB, HOME, 170);
-      expect(await store.membersTargeting(17)).toBe(2);
-      expect(await store.membersTargeting(170)).toBe(1);
-      expect(await store.membersTargeting(1)).toBe(0);
+      expect(await store.membersTargeting(17, 'every')).toBe(2);
+      expect(await store.membersTargeting(17, 1)).toBe(2);
+      expect(await store.membersTargeting(17, 2)).toBe(1);
+      expect(await store.membersTargeting(170, 'every')).toBe(1);
+      expect(await store.membersTargeting(1, 'every')).toBe(0);
 
-      expect(await store.removeGym(17)).toBe(3);
+      // One server's, then every server's.
+      expect(await store.removeGym(17, 2)).toBe(1);
+      expect(await store.membersTargeting(17, 2)).toBe(0);
+      expect(await store.membersTargeting(17, 1)).toBe(2);
+      expect(await store.removeGym(17, 'every')).toBe(2);
 
-      expect(await store.membersTargeting(17)).toBe(0);
+      expect(await store.membersTargeting(17, 'every')).toBe(0);
       expect(await store.list(ALICE, HOME)).toEqual({ gymIds: [], unreadable: 0 });
       expect(await store.list(BOB, HOME)).toEqual({ gymIds: [170], unreadable: 0 });
-      expect(await store.removeGym(17)).toBe(0);
+      expect(await store.removeGym(17, 'every')).toBe(0);
     }
   });
 });

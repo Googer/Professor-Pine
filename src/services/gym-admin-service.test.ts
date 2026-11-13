@@ -12,10 +12,14 @@ import {
   UPDATES_CHANNEL,
   withOtherServer,
 } from '../../test/support/gym-admin.js';
+import { FORUM_TAGS } from '../render/party-post.js';
 import {
   EAST_CHANNEL,
+  NORTH_CHANNEL,
   NORTH_PLACE,
+  OTHER_GUILD_ID,
   OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
   WEST_CHANNEL,
 } from '../../test/support/gyms.js';
 import { ALICE, asTrain, BOB, REPORTER, gym, inGyms, stops } from '../../test/support/parties.js';
@@ -535,48 +539,98 @@ describe('GymAdminService: another gym within ten metres, looked for under the l
   });
 });
 
-describe('GymAdminService: no gym administration across servers', () => {
-  it('says whose a gym and a place are by the rows of the regions', async () => {
+/** Gives a gym to the second server too, as the upgrade links a gym in regions of both. */
+async function share(made: Made, gymId: number): Promise<void> {
+  made.gymStore.link(gymId, OTHER_GUILD_ROW);
+  await made.directory.refreshGym(gymId);
+}
+
+/** North's forum, given to the second server's region by `otherServerTrain`. */
+const NORTH_FORUM = '100000000000000031';
+
+/**
+ * A train of the second server (after `withOtherServer`), made in its region North through the
+ * service, whose forum it is given, with these gyms of that server as its route.
+ */
+async function otherServerTrain(made: Made, route: readonly number[]) {
+  const north = made.regions.rows.find((region) => region.channelId === NORTH_CHANNEL);
+  if (!north) throw new Error('no region North: call withOtherServer first');
+  north.forumChannelId = NORTH_FORUM;
+  made.gateway.addForum(NORTH_FORUM, FORUM_TAGS);
+  const created = await made.service.createTrain({
+    name: 'Northern round',
+    creatorId: BOB,
+    regionChannelId: NORTH_CHANNEL,
+  });
+  if (created.kind !== 'created') throw new Error('no train of the second server');
+  expect(created.party.guildId).toBe(OTHER_GUILD_ROW);
+  const boarder: Member = { id: BOB, name: 'Bob' };
+  for (const gymId of route) {
+    await expect(
+      made.trains.addStop(created.party.id, boarder, gymStop(gymId)),
+    ).resolves.toMatchObject({ kind: 'ok' });
+  }
+  await settle(made);
+  return { id: created.party.id, current: () => asTrain(made.store.get(created.party.id)) };
+}
+
+describe('GymAdminService: each server administers its own gyms (plan 19B-2)', () => {
+  it('lets a server touch exactly the gyms linked to it, wherever they lie', async () => {
     const made = await gymAdminWith();
     const north = await withOtherServer(made);
-    // A gym in a region of the server, of another server, and of none.
+    // A gym of the first server in its region, the second's in its region, and the first's in
+    // no region: nobody else's.
     expect([1, north.id, 10].map((id) => made.admin.mayTouch(id, 1))).toEqual([true, false, true]);
     expect([1, north.id, 10].map((id) => made.admin.mayTouch(id, OTHER_GUILD_ROW))).toEqual([
       false,
       true,
-      true,
+      false,
     ]);
-    // A server without a row has only what is nobody's; a gym that is not there is nobody's.
+    // A server without a row has none.
     expect([1, north.id, 10].map((id) => made.admin.mayTouch(id, undefined))).toEqual([
       false,
       false,
-      true,
+      false,
     ]);
-    expect(made.admin.mayPlace(FREE, 1)).toBe(true);
-    expect(made.admin.mayPlace(FREE, OTHER_GUILD_ROW)).toBe(false);
-    expect(made.admin.mayPlace(NORTH_PLACE, 1)).toBe(false);
-    expect(made.admin.mayPlace(NORTH_PLACE, OTHER_GUILD_ROW)).toBe(true);
-    expect(made.admin.mayPlace({ lat: 41, lon: -80 }, undefined)).toBe(true);
-    // A region that belongs to no server keeps nobody out.
-    const [west] = made.regions.rows;
-    if (west) west.guildId = null;
+    // A gym of both (the upgrade's link): both may.
+    await share(made, 1);
     expect(made.admin.mayTouch(1, OTHER_GUILD_ROW)).toBe(true);
-    expect(made.admin.mayPlace(FREE, OTHER_GUILD_ROW)).toBe(true);
+    expect(made.admin.mayTouch(1, 1)).toBe(true);
+    // Its regions are each server's own.
+    expect(made.admin.regionsOf(1, OTHER_GUILD_ROW)).toEqual([]);
+    expect(made.admin.regionsOf(1, 1).map((region) => region.channelId)).toEqual([WEST_CHANNEL]);
   });
 
-  it('adds no gym at a place in another server’s regions', async () => {
+  it('adds a gym anywhere, as a new gym of the server alone', async () => {
     const made = await gymAdminWith();
-    await withOtherServer(made);
-    const beside = { name: 'Intruder', lat: 40.26, lon: -80.05 };
-    await expect(made.admin.add(beside, STAFF_PLACE)).resolves.toEqual({ kind: 'foreign' });
-    expect(made.gymStore.row(14)).toBeUndefined();
-    await expect(made.admin.add(beside, OTHER_STAFF_PLACE)).resolves.toMatchObject({
-      kind: 'added',
-      gym: { id: 14 },
-    });
+    const north = await withOtherServer(made);
+    // In the other server's region, a meter from its gym, with its Wayfarer id: a row of its own,
+    // not asked about (another server's gym is none of this server's business).
+    const beside = { name: 'Northgate Clock', lat: 40.25001, lon: -80.05, pogoId: 'abc.16' };
+    const gym = added(await made.admin.add(beside, STAFF_PLACE));
+    expect(gym.id).not.toBe(north.id);
+    expect(made.directory.serversOf(gym.id)).toEqual([1]);
+    expect(made.directory.of(OTHER_GUILD_ROW).get(gym.id)).toBeUndefined();
+    expect(made.directory.of(1).get(gym.id)?.name).toBe('Northgate Clock');
+    // The other server's add there is a row of its own again, asked about only its own gym.
+    const theirs = await made.admin.add(beside, OTHER_STAFF_PLACE);
+    expect(theirs).toMatchObject({ kind: 'near', near: [{ gym: { id: north.id } }] });
   });
 
-  it('moves no gym of another server, and no gym to a place of another server', async () => {
+  it('counts only its own gyms as near a place or nearest to a gym', async () => {
+    const made = await gymAdminWith();
+    const north = await withOtherServer(made);
+    expect(made.admin.near(NORTH_PLACE, 1)).toEqual([]);
+    expect(made.admin.near(NORTH_PLACE, OTHER_GUILD_ROW).map((near) => near.gym.id)).toEqual([
+      north.id,
+    ]);
+    const mine = added(
+      await made.admin.add({ name: 'Northgate Bell', lat: 40.2501, lon: -80.05 }, STAFF_PLACE),
+    );
+    expect(made.admin.nearestFor(mine, 1)?.gym.id).not.toBe(north.id);
+  });
+
+  it('moves a gym of its own anywhere, and no gym of another server', async () => {
     const made = await gymAdminWith();
     const north = await withOtherServer(made);
     const asked = (id: number) => {
@@ -587,21 +641,104 @@ describe('GymAdminService: no gym administration across servers', () => {
     await expect(
       made.admin.move(north.id, { lat: 40.2501, lon: -80.05 }, STAFF_PLACE, asked(north.id)),
     ).resolves.toBeUndefined();
+    expect(made.gymStore.row(north.id)).toMatchObject(NORTH_PLACE);
+    // Into the other server's region: still this server's gym alone.
     await expect(
       made.admin.move(6, { lat: 40.26, lon: -80.06 }, STAFF_PLACE, asked(6)),
-    ).resolves.toEqual({ kind: 'foreign' });
-    expect(made.gymStore.row(6)).toMatchObject({ lat: 40.03, lon: -80.03 });
-    expect(made.gymStore.row(north.id)).toMatchObject(NORTH_PLACE);
-    // Out of every region it may go, and from there into the other server's.
-    await expect(
-      made.admin.move(6, { lat: 41, lon: -80 }, STAFF_PLACE, asked(6)),
     ).resolves.toMatchObject({ kind: 'moved' });
+    expect(made.directory.serversOf(6)).toEqual([1]);
     await expect(
-      made.admin.move(6, { lat: 40.26, lon: -80.06 }, OTHER_STAFF_PLACE, asked(6)),
-    ).resolves.toMatchObject({ kind: 'moved' });
-    await expect(
-      made.admin.move(6, { lat: 40.2601, lon: -80.06 }, STAFF_PLACE, asked(6)),
+      made.admin.move(6, { lat: 40.2601, lon: -80.06 }, OTHER_STAFF_PLACE, asked(6)),
     ).resolves.toBeUndefined();
+  });
+
+  it('deletes a gym two servers share for the server that deletes it alone', async () => {
+    const made = await gymAdminWith();
+    await withOtherServer(made);
+    await share(made, 1);
+    // Each server's targets, and a saved route of each server's region (West, North).
+    await made.gymTargets.add(ALICE, made.gateway.guildId, 1);
+    await made.gymTargets.add(BOB, OTHER_GUILD_ID, 1);
+    made.routes.add(ALICE, 1, 'Loop', [1, 2]);
+    made.routes.add(BOB, 4, 'North loop', [1]);
+    expect(await made.admin.references(1, OTHER_GUILD_ROW)).toMatchObject({
+      routes: 1,
+      targets: 1,
+    });
+
+    const outcome = await made.admin.delete(1, { id: OTHER_STAFF }, OTHER_STAFF_PLACE);
+    await settle(made);
+
+    expect(outcome).toMatchObject({ kind: 'deleted', routes: 1, targets: 1 });
+    // The row and its text stay, the first server's.
+    expect(made.gymStore.row(1)?.nickname).toBe('The Stacks');
+    expect(made.directory.serversOf(1)).toEqual([1]);
+    expect(made.directory.of(OTHER_GUILD_ROW).get(1)).toBeUndefined();
+    expect(made.directory.of(1).get(1)?.name).toBe('Pinewood Public Library');
+    expect(await made.gymTargets.targeting(made.gateway.guildId, 1)).toEqual([ALICE]);
+    expect(await made.gymTargets.targeting(OTHER_GUILD_ID, 1)).toEqual([]);
+    expect(made.routes.rows.map((row) => row.name)).toEqual(['Loop']);
+
+    // The last server's deletion takes the row.
+    await expect(made.admin.delete(1, staff, STAFF_PLACE)).resolves.toMatchObject({
+      kind: 'deleted',
+    });
+    expect(made.gymStore.row(1)).toBeUndefined();
+  });
+
+  it('answers the last server’s deletion with its own counts, though what others named goes too', async () => {
+    const made = await gymAdminWith();
+    await withOtherServer(made);
+    // Gym 6 is the first server's alone; the second server still has a target of it and a
+    // saved route through it (left from before), which go with the row.
+    await made.gymTargets.add(ALICE, made.gateway.guildId, 6);
+    await made.gymTargets.add(BOB, OTHER_GUILD_ID, 6);
+    made.routes.add(ALICE, 1, 'Loop', [6, 1]);
+    made.routes.add(BOB, 4, 'North loop', [6, 13]);
+    expect(await made.admin.references(6, TEST_GUILD_ROW)).toMatchObject({
+      routes: 1,
+      targets: 1,
+    });
+
+    const outcome = await made.admin.delete(6, staff, STAFF_PLACE);
+    await settle(made);
+
+    // As the question said: this server's route and target.
+    expect(outcome).toMatchObject({ kind: 'deleted', routes: 1, targets: 1 });
+    expect(made.gymStore.row(6)).toBeUndefined();
+    expect(await made.gymTargets.targeting(OTHER_GUILD_ID, 6)).toEqual([]);
+    expect(made.routes.rows.map((row) => row.stops)).toEqual([stops(1), stops(13)]);
+  });
+
+  it('takes a shared gym off the trains of the server that deletes it, and no other’s', async () => {
+    const made = await gymAdminWith();
+    await withOtherServer(made);
+    await share(made, 6);
+    const ours = await trainOn(made, [6, 1]);
+    const theirs = await otherServerTrain(made, [6]);
+
+    await expect(made.admin.delete(6, staff, STAFF_PLACE)).resolves.toMatchObject({
+      kind: 'deleted',
+      trains: 1,
+    });
+    await settle(made);
+
+    expect(inGyms(ours.current().train.route)).toEqual(inGyms([1]));
+    expect(inGyms(theirs.current().train.route)).toEqual(inGyms([6]));
+    expect(made.directory.of(OTHER_GUILD_ROW).get(6)).toBeDefined();
+  });
+
+  it('unlinks a shared gym while the other server has a raid there, and keeps its raid', async () => {
+    const made = await gymAdminWith();
+    await withOtherServer(made);
+    await share(made, 6);
+    const raid = await made.service.reportRaid(report(made, 6));
+    if (raid.kind !== 'created') throw new Error('no raid');
+    await expect(
+      made.admin.delete(6, { id: OTHER_STAFF }, OTHER_STAFF_PLACE),
+    ).resolves.toMatchObject({ kind: 'deleted' });
+    expect(made.store.get(raid.party.id)?.gymId).toBe(6);
+    expect(made.directory.of(1).get(6)).toBeDefined();
   });
 
   it('deletes no gym of another server: it answers gone, and the gym stays', async () => {
@@ -815,9 +952,9 @@ describe('GymAdminService.move', () => {
     });
     expect(made.store.get(raid.party.id)).toMatchObject({ gymId: 6, regionId: 1 });
     expect(inGyms(train.current().train.route)).toEqual(inGyms([1, 6]));
-    expect(made.admin.inAnyRegion(6)).toBe(true);
+    expect(made.admin.inRegionOf(6, 1)).toBe(true);
     await moveNow(made, 6, { lat: 41, lon: -80 });
-    expect(made.admin.inAnyRegion(6)).toBe(false);
+    expect(made.admin.inRegionOf(6, 1)).toBe(false);
   });
 });
 
@@ -876,10 +1013,15 @@ describe('GymAdminService.delete', () => {
     made.routes.add(ALICE, 1, 'Loop', [6, 1]);
     made.routes.add(BOB, 2, 'Other', [6]);
     await made.gymTargets.add(ALICE, made.gateway.guildId, 6);
-    const references = await made.admin.references(6);
+    const references = await made.admin.references(6, 1);
     expect(references).toMatchObject({ raids: [], trains: 1, routes: 2, targets: 1 });
-    expect(await made.admin.targetCount(6)).toBe(1);
-    expect(await made.admin.references(3)).toEqual({ raids: [], trains: 0, routes: 0, targets: 0 });
+    expect(await made.admin.targetCount(6, 1)).toBe(1);
+    expect(await made.admin.references(3, 1)).toEqual({
+      raids: [],
+      trains: 0,
+      routes: 0,
+      targets: 0,
+    });
   });
 
   it('refuses while an active raid is at the gym, and deletes nothing', async () => {
@@ -893,7 +1035,7 @@ describe('GymAdminService.delete', () => {
     expect(outcome).toMatchObject({ kind: 'raid-there', raid: { id: raid.party.id } });
     expect(made.gymStore.row(6)).toBeDefined();
     expect(made.routes.rows[0]?.stops).toEqual(stops(6, 1));
-    expect((await made.admin.references(6)).raids.map((party) => party.id)).toEqual([
+    expect((await made.admin.references(6, 1)).raids.map((party) => party.id)).toEqual([
       raid.party.id,
     ]);
   });
@@ -1066,8 +1208,8 @@ describe('GymAdminService.delete', () => {
     await made.attendance.signUp(broken.id, maker, PartyStatus.Present);
     await settle(made);
     const remove = made.removal.remove.bind(made.removal);
-    made.removal.remove = async (id) => {
-      const counts = await remove(id);
+    made.removal.remove = async (id, server) => {
+      const counts = await remove(id, server);
       made.storage.failing = new Error('party table is locked');
       return counts;
     };
@@ -1096,8 +1238,8 @@ describe('GymAdminService.delete', () => {
     const broken = await trainOn(made, [1, 6]);
     // The removal of the gym works; the train cannot be stored.
     const remove = made.removal.remove.bind(made.removal);
-    made.removal.remove = async (id) => {
-      const counts = await remove(id);
+    made.removal.remove = async (id, server) => {
+      const counts = await remove(id, server);
       made.storage.failing = new Error('party table is locked');
       return counts;
     };
@@ -1455,8 +1597,9 @@ describe('GymAdminService.batch', () => {
     });
     await withOtherServer(made);
     await made.admin.batch(STAFF_PLACE, 'import', async (ops) => {
-      expect(await ops.add({ name: 'Theirs', ...NORTH_PLACE, lat: 40.26 })).toEqual({
-        kind: 'foreign',
+      // In another server's region: a gym of this server all the same.
+      expect(await ops.add({ name: 'Theirs', ...NORTH_PLACE, lat: 40.26 })).toMatchObject({
+        kind: 'added',
       });
     });
   });
@@ -1539,10 +1682,11 @@ describe('GymAdminService.batch', () => {
     await made.admin.batch(STAFF_PLACE, 'import', async (ops) => {
       expect(await ops.update(theirs.id, { name: 'Mine now' })).toBeUndefined();
       expect(await ops.move(theirs.id, FREE, { places: false })).toBeUndefined();
-      expect(await ops.move(6, NORTH_PLACE, { places: false })).toEqual({ kind: 'foreign' });
+      // Into the other server's region it may go.
+      expect(await ops.move(6, NORTH_PLACE, { places: false })).toMatchObject({ kind: 'moved' });
     });
     expect(made.gymStore.row(theirs.id)).toMatchObject({ name: 'Northgate Clock' });
-    expect(made.gymStore.row(6)).toMatchObject({ lat: 40.03, lon: -80.03 });
+    expect(made.gymStore.row(6)).toMatchObject(NORTH_PLACE);
   });
 
   it('holds the lock: an add waits until the batch is done', async () => {

@@ -114,20 +114,17 @@ describe('ServerGyms', () => {
     expect(gyms.regionsIn(AWAY, 40)).toEqual(gyms.of(AWAY).regionsOf(40));
   });
 
-  it('builds a view of what the links say after gyms were linked anew or removed', () => {
+  it('builds a view of what the links say after gyms were linked, unlinked or removed', () => {
     const gyms = twoServers();
     // No view is built yet: each is built from the links as they are when it is asked for.
     gyms.put({ ...WATERMILL, name: 'Old Watermill Gallery' }, [HOME]);
+    gyms.unlink(7, AWAY);
     gyms.remove(3);
     expect(gyms.of(HOME).get(40)?.name).toBe('Old Watermill Gallery');
     expect(gyms.of(HOME).get(3)).toBeUndefined();
     expect(gyms.of(HOME).all()).toHaveLength(12);
-    expect(
-      gyms
-        .of(AWAY)
-        .all()
-        .map((gym) => gym.id),
-    ).toEqual([7]);
+    expect(gyms.of(AWAY).all()).toEqual([]);
+    expect(gyms.serversOf(7)).toEqual([HOME]);
   });
 
   it('gives a server without a row no gyms', () => {

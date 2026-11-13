@@ -49,7 +49,7 @@ async function upkeepWith(
   });
   /** A gym as gym administration adds one: the row, then the directory. */
   const add = async (lat: number, lon: number, name = 'New Gym') => {
-    const created = await gyms.create({ name, lat, lon });
+    const created = await gyms.create({ name, lat, lon }, 1);
     await directory.refreshGym(created.id);
     return created.id;
   };
@@ -295,7 +295,7 @@ describe('GymUpkeep.placed', () => {
     const unsettled = await gymDirectoryWith(new MemoryGyms(testGyms()));
     const { upkeep, entries } = await upkeepWith(unsettled);
     const place = async (lat: number, lon: number): Promise<number> => {
-      const created = await unsettled.gyms.create({ name: 'New Gym', lat, lon });
+      const created = await unsettled.gyms.create({ name: 'New Gym', lat, lon }, 1);
       await unsettled.directory.refreshGym(created.id);
       await upkeep.placed(created.id);
       return created.id;
@@ -333,6 +333,7 @@ describe('GymUpkeep.placedBlock', () => {
         { name: 'Beside', ...BESIDE_LONELY, geodata: '{"addressComponents":{"route":"Lake"}}' },
         { name: 'Elsewhere', lat: 40.08, lon: -80.02 },
       ],
+      1,
       (made) =>
         nearestBlockChanges([...directory.all(), ...made], new Set(made.map((gym) => gym.id))),
     );
@@ -901,7 +902,7 @@ describe('the line of gyms that wait for Google', () => {
     });
     geo.failing = { places: 'failed' };
     for (const [n, name] of ['One', 'Two', 'Three'].entries()) {
-      const made = await alone.gyms.create({ name, lat: 40.01 + n / 100, lon: -80.09 });
+      const made = await alone.gyms.create({ name, lat: 40.01 + n / 100, lon: -80.09 }, 1);
       await alone.directory.refreshGym(made.id);
     }
     await upkeep.resume();
@@ -1236,10 +1237,10 @@ describe('the line of gyms that wait for Google', () => {
     const lacking = directory.all().filter((gym) => gym.places === null);
     await upkeep.resume();
     expect(await upkeep.waiting()).toBe(lacking.length);
-    const bare = await gyms.create({ name: 'Bare', lat: 40.05, lon: -80.05 });
+    const bare = await gyms.create({ name: 'Bare', lat: 40.05, lon: -80.05 }, 1);
     await directory.refreshGym(bare.id);
     // A gym of before with places counts as asked, though it has no address.
-    const placed = await gyms.create({ name: 'Placed', lat: 40.051, lon: -80.05 });
+    const placed = await gyms.create({ name: 'Placed', lat: 40.051, lon: -80.05 }, 1);
     await gyms.update(placed.id, { places: 'Corner Bakery' });
     await directory.refreshGym(placed.id);
     await upkeep.resume();

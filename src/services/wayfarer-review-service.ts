@@ -119,16 +119,15 @@ export interface ReviewNone {
  * - `back`: show the item again (from the question before a deletion); nothing was done. With
  *   `waits`, the item cannot be shown: its gym became another Wayspot since it was queued.
  * - `asking`: Delete was pressed: the question before the deletion, with what goes with the gym.
- * - `foreign`: "Same as" would move the gym where this server may not put one; the item stays.
  * - `gone`: the gym no longer exists for this server; its item was closed.
  * - `skipped`: the item went to the end of the queue.
  * - `decided`: closed with "None of these", "Keep" or "Not in Wayfarer".
  * - `matched`: the gym is the candidate now (`change` says what was written); closed.
  * - `taken`: another gym already is that Wayspot; nothing was done, the item stays open.
  * - `added`: the candidate was added as a gym (`added`); closed.
- * - `not-added`: it was not, because another gym lies within ten metres (`near`, the gym of
- *   the item left out), the place is another server's (`foreign`) or the Wayspot has no title
- *   to name a gym by (`untitled`); the item stays open.
+ * - `not-added`: it was not, because another gym of the server lies within ten metres (`near`,
+ *   the gym of the item left out) or the Wayspot has no title to name a gym by (`untitled`);
+ *   the item stays open.
  * - `failed`: a write failed (logged); what was written before it stands, the item stays open.
  * - `raid-there`: the gym was not deleted while a raid is there; the item stays open.
  * - `deleted`: the gym was deleted, and its item went with it.
@@ -138,13 +137,12 @@ export type ReviewOutcome =
   | { kind: 'back'; waits?: true }
   | { kind: 'changed'; waits?: true }
   | { kind: 'asking'; gym: Gym; references: GymReferences }
-  | { kind: 'foreign'; gym: Gym }
   | { kind: 'skipped'; gym: Gym }
   | { kind: 'decided'; gym: Gym; decision: 'none-of-these' | 'keep' | 'not-in-wayfarer' }
   | { kind: 'matched'; gym: Gym; change: MatchChange; now: Gym }
   | { kind: 'taken'; gym: Gym; other: Gym | undefined }
   | { kind: 'added'; gym: Gym; added: Gym }
-  | { kind: 'not-added'; gym: Gym; why: 'foreign' | 'untitled' }
+  | { kind: 'not-added'; gym: Gym; why: 'untitled' }
   | { kind: 'not-added'; gym: Gym; why: 'near'; near: NearbyGym[] }
   | { kind: 'failed'; gym: Gym }
   | { kind: 'raid-there'; gym: Gym; raid: RaidParty }
@@ -368,7 +366,7 @@ export class WayfarerReviewService {
         return candidate ? this.added(place, item, gym, candidate, still) : this.changed(item);
       case 'delete': {
         // Nothing is written yet: the question, with what goes with the gym.
-        const references = await admin.references(gym.id);
+        const references = await admin.references(gym.id, place.guildId);
         const [raid] = references.raids;
         if (raid) return { kind: 'raid-there', gym, raid };
         return { kind: 'asking', gym, references };
@@ -455,8 +453,6 @@ export class WayfarerReviewService {
         return { kind: 'taken', gym, other: outcome.gym };
       case 'withdrawn':
         return this.changed(item);
-      case 'foreign':
-        return { kind: 'foreign', gym };
       case 'failed':
         return { kind: 'failed', gym };
       case 'matched':
@@ -505,8 +501,6 @@ export class WayfarerReviewService {
         switch (added.kind) {
           case 'added':
             return { kind: 'added', gym, added: added.gym };
-          case 'foreign':
-            return { kind: 'not-added', gym, why: 'foreign' };
           case 'near':
             return {
               kind: 'not-added',

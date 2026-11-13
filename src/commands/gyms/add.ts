@@ -23,7 +23,6 @@ import {
   LOCATION_OPTION,
   EXPIRED,
   fetchNote,
-  foreignPlace,
   gymQuestion,
   gymViewMessage,
   markAnswered,
@@ -46,8 +45,6 @@ import { serverValuesOf } from '../../discord/server-values.js';
 import type { DistanceUnits } from '../../render/distance-words.js';
 
 type PendingAdd = Extract<PendingGym, { what: 'add' }>;
-
-const FOREIGN_PLACE = foreignPlace('add a gym');
 
 /** The fields of the form behind "Add with details…": everything but the name, which is given. */
 const DETAIL_FIELDS = ['nickname', 'description', 'notice', 'keywords'] as const;
@@ -128,7 +125,6 @@ async function addAnswered(
     place,
     request.nearIds,
   );
-  if (outcome.kind === 'foreign') throw new UserError(FOREIGN_PLACE);
   if (outcome.kind === 'near') {
     await answerGym(
       interaction,
@@ -153,7 +149,7 @@ async function addAnswered(
       `Added ${gymWithId(gym)}.`,
       fetchNote(ctx),
       nameNote(serverValuesOf(interaction, ctx), gym),
-      namesakeNote(ctx, gym),
+      namesakeNote(ctx.gyms.of(place.guildId), gym),
     ]),
   );
 }
@@ -252,8 +248,6 @@ export const addGym: SubcommandPart = {
       await ctx.gymAdmin.readLocation(interaction.options.getString('location', true)),
     );
     const { guildId } = await staffPlace(interaction, ctx);
-    // Refused before anything is asked; the service decides again when Add is pressed.
-    if (!ctx.gymAdmin.mayPlace(place.point, guildId)) throw new UserError(FOREIGN_PLACE);
     await answerGym(
       interaction,
       addQuestion(

@@ -201,7 +201,9 @@ export const editForms: Readonly<Record<string, FormAnswer>> = {
           names.includes('name') || !findable
             ? nameNote(serverValuesOf(interaction, ctx), gym)
             : undefined,
-          names.includes('name') || names.includes('nickname') ? namesakeNote(ctx, gym) : undefined,
+          names.includes('name') || names.includes('nickname')
+            ? namesakeNote(ctx.gyms.of(place.guildId), gym)
+            : undefined,
         ]),
       );
     });

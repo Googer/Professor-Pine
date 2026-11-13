@@ -37,7 +37,7 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
     }
     await db.insertInto('Region').values({ guildId, channelId: UNBOUNDED_CHANNEL }).execute();
     for (const gym of testGyms()) {
-      const created = await gyms.create(gym);
+      const created = await gyms.create(gym, 1);
       await gyms.update(created.id, {
         keywords: gym.keywords,
         notice: gym.notice,
@@ -86,7 +86,7 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
   });
 
   it('follows a gym that is edited, moved and deleted', async () => {
-    const created = await gyms.create({ name: 'Clock Tower', lat: 40.05, lon: -80.05 });
+    const created = await gyms.create({ name: 'Clock Tower', lat: 40.05, lon: -80.05 }, 1);
     expect(ids(WEST_CHANNEL, 'clock')).toEqual([]);
     await directory.refreshGym(created.id);
     expect(ids(WEST_CHANNEL, 'clock')).toEqual([created.id]);

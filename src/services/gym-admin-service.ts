@@ -14,7 +14,6 @@ import { metresBetween, nearestTo, placesWithin } from '@pine/wayspot-core/dista
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { readLocation } from '../domain/geo/location-input.js';
 import { ringContains } from '@pine/wayspot-core/region-membership';
-import { withinReach } from '../domain/gyms/gym-server.js';
 import { nearestBlockChanges } from '../domain/gyms/nearest.js';
 import type { GymTexts } from '../domain/gyms/gym-text.js';
 import { isRaid, isTrain, type RaidParty, type TrainParty } from '../domain/party/party.js';
@@ -37,10 +36,20 @@ import type { GeoGateway } from './geo-gateway.js';
 import type { GoogleLineSnapshot, GymRefresh, GymsInMemory, GymUpkeep } from './gym-upkeep.js';
 import { AdminLock } from './admin-lock.js';
 import type { PartyStore } from './party-store.js';
-import { gymRegionsInGuild, type RegionProvider } from './region-directory.js';
+import type { GymDirectory } from './gym-directory.js';
+import type { RegionProvider } from './region-directory.js';
 import type { TrainService } from './train-service.js';
 import { serverChannel } from './server-channels.js';
 import type { ServerSettingsLookup } from './server-settings.js';
+
+/**
+ * The server a gym is added for: a staff member's server always has a `Guild` row, made when
+ * the bot joined it, before any command could be used there.
+ */
+function serverOf(place: Pick<StaffPlace, 'guildId'>): number {
+  if (place.guildId === undefined) throw new Error('A gym is added only for a server with a row');
+  return place.guildId;
+}
 
 /** Another gym this near to a place is asked about before a gym is put there. */
 /** Another gym this near a place is named before one is added or moved there. */
@@ -82,13 +91,11 @@ export interface NearbyGym {
 }
 
 /**
- * What came of adding a gym. `near`: other gyms lie within `DUPLICATE_METRES` of the place
- * (all of them, nearest first) and at least one is not among those the staff member was asked
- * about; nothing was stored. `foreign`: the place lies only in regions of other servers
- * (`mayPlace`); nothing was stored.
+ * What came of adding a gym. `near`: other gyms of the server lie within `DUPLICATE_METRES` of
+ * the place (all of them, nearest first) and at least one is not among those the staff member
+ * was asked about; nothing was stored.
  */
-export type AddOutcome =
-  { kind: 'added'; gym: Gym } | { kind: 'near'; near: NearbyGym[] } | { kind: 'foreign' };
+export type AddOutcome = { kind: 'added'; gym: Gym } | { kind: 'near'; near: NearbyGym[] };
 
 /** What whoever moves a gym knew: where the gym was, and the gyms near the new place they were told of. */
 export interface MoveAsked {
@@ -99,21 +106,19 @@ export interface MoveAsked {
 /**
  * What came of moving a gym: the gym as it is now, where it was and how far it went
  * (`moved`); or nothing was moved, because another gym lies within `DUPLICATE_METRES` of the new
- * place that was not named (`near`: all of them, nearest first), because the gym is no longer
- * where it was said to be (`elsewhere`: somebody else moved it; the gym as it is), or because
- * the new place lies only in regions of other servers (`foreign`; `mayPlace`).
+ * place that was not named (`near`: all of them, nearest first), or because the gym is no longer
+ * where it was said to be (`elsewhere`: somebody else moved it; the gym as it is).
  */
 export type MoveOutcome =
   | { kind: 'moved'; gym: Gym; from: LatLon; metres: number }
   | { kind: 'near'; near: NearbyGym[] }
-  | { kind: 'elsewhere'; gym: Gym }
-  | { kind: 'foreign' };
+  | { kind: 'elsewhere'; gym: Gym };
 
 /** What a batch writes of a gym beside its place (`GymBatch.update`): what a Wayfarer import changes. */
 export type BatchPatch = Pick<GymPatch, 'name' | 'pogoId' | 'imageUrl' | 'geodata'>;
 
 /** What came of a move in a batch: as `move`, without the questions a batch does not ask. */
-export type BatchMoveOutcome = Extract<MoveOutcome, { kind: 'moved' | 'foreign' }>;
+export type BatchMoveOutcome = Extract<MoveOutcome, { kind: 'moved' }>;
 
 /** A gym of a block (`GymBatch.addBlock`): the gym, the gyms near it it may stand beside. */
 export interface BlockGym {
@@ -129,17 +134,16 @@ export type BlockOutcome = AddOutcome | { kind: 'failed' };
 /**
  * Gym administration inside `GymAdminService.batch`, under the lock the batch holds: what a
  * Wayfarer import (and a decision of its review queue) does to many gyms at once. Each method
- * is what its namesake of the service does, for the staff member's server (`mayTouch`,
- * `mayPlace`), with the same upkeep and the same log lines, but without taking the lock and
- * without an announcement of its own. A write that fails rejects, and nothing of that gym has
- * changed; what fails after the write is logged, and the change stands.
+ * is what its namesake of the service does, for the staff member's server (`mayTouch`, a new
+ * gym the server's alone), with the same upkeep and the same log lines, but without taking the
+ * lock and without an announcement of its own. A write that fails rejects, and nothing of that
+ * gym has changed; what fails after the write is logged, and the change stands.
  */
 export interface GymBatch {
   /**
-   * Adds a gym, unless another gym lies within ten metres that is not among `knownNearIds`
-   * (`near`) or the place lies only in regions of other servers (`foreign`). What the batch
-   * changed is announced as one summary, at its end (`gymListSummary`); `promoted`: the gym was a
-   * PokéStop, which the summary counts.
+   * Adds a gym of the server, unless another gym of the server lies within ten metres that is
+   * not among `knownNearIds` (`near`). What the batch changed is announced as one summary, at its
+   * end (`gymListSummary`); `promoted`: the gym was a PokéStop, which the summary counts.
    */
   add(
     gym: NewGym,
@@ -148,7 +152,7 @@ export interface GymBatch {
   ): Promise<AddOutcome>;
   /**
    * Adds gyms as one block (plan 8W-6: a Wayfarer import's new gyms, in blocks of
-   * `IMPORT_BLOCK`): each is decided first as `add` decides (`foreign`, `near` a gym not among
+   * `IMPORT_BLOCK`): each is decided first as `add` decides (`near` a gym of the server not among
    * its `knownNearIds`; the other gyms of the block count as known to each other, as the gyms an
    * import added one by one were), then those accepted are written in one transaction with the
    * nearest gyms worked out once for the block (`nearestBlockChanges`), and the directory and
@@ -162,9 +166,9 @@ export interface GymBatch {
    * whether its address and the places around it are fetched again (`GymUpkeep.placed`, in its
    * slow line, as for every gym a batch adds: an import moves and adds thousands), `address:
    * false` its places only (it took the Wayspot's address): the nearest gyms and the posts follow
-   * either way. `patch`: fields written with the place, in the same row write, so that a move
-   * refused (`foreign`) writes none of them and a rename is counted only with the move.
-   * Undefined when there is no such gym, or none the server may touch.
+   * either way. `patch`: fields written with the place, in the same row write, so that a rename
+   * is counted only with the move. Undefined when there is no such gym, or none the server may
+   * touch.
    */
   move(
     id: number,
@@ -222,9 +226,15 @@ export type DeleteOutcome =
 
 export interface GymAdminOptions {
   gyms: GymStorage;
-  /** The gym's row with the saved routes and gym targets that name it, removed as one. */
+  /**
+   * The gym's link to the server with the server's saved routes and gym targets that name it,
+   * and the row when no server is left, removed as one.
+   */
   removal: GymRemoval;
-  directory: GymsInMemory & { regionsOf(gymId: number): string[]; forget(id: number): boolean };
+  directory: GymsInMemory &
+    Pick<GymDirectory, 'of' | 'stored' | 'serversOf' | 'forget' | 'unlink'> & {
+      regionsOf(gymId: number): string[];
+    };
   regions: Pick<RegionProvider, 'byChannel' | 'all'>;
   store: Pick<PartyStore, 'active' | 'withGymLock'>;
   trains: Pick<TrainService, 'gymRemoved'>;
@@ -260,12 +270,15 @@ export interface GymAdminOptions {
  * in the log with who made it: the staff member, the gym, and what (the fields of an edit by
  * name, never their texts; the old and the new place of a move).
  *
- * No server's staff administer the gyms of another (Matt, 2026-10-13; the rule is
- * `withinReach`): a gym that lies only in regions of other servers is, for them, a gym that
- * does not exist (`mayTouch`), and a place there is none to put a gym (`mayPlace`). The `gym`
- * option of the commands asks `mayTouch` for whatever is typed or offered; `add`, `move` and
- * `delete` decide again themselves, under the lock, since a question may be minutes old and
- * gyms and regions change meanwhile.
+ * A server's staff administer exactly their server's gyms, wherever they lie (plan 19B-2: the
+ * gyms linked to the server, `GymServer`): another server's gym is, for them, a gym that does
+ * not exist (`mayTouch`). They may put a gym anywhere, also inside another server's regions
+ * (regions of different servers overlap freely); a gym they add is a new row of their server
+ * alone. A gym several servers share (the upgrade's links) is one row with one text: a change by
+ * one is seen by all, and a deletion takes it from the deleting server only, the row going with
+ * the last. The `gym` option of the commands asks `mayTouch` for whatever is typed or offered;
+ * `add`, `move` and `delete` decide again themselves, under the lock, since a question may be
+ * minutes old and gyms change meanwhile.
  *
  * Adding, moving and deleting run one at a time (one lock): the question "is another gym
  * within ten metres" and the bookkeeping of nearest gyms assume that nothing else changes where
@@ -330,9 +343,8 @@ export class GymAdminService {
 
   /**
    * The gyms within `DUPLICATE_METRES` of a point, nearest first, of those the staff of a server
-   * may touch (`mayTouch`: in a region of theirs, or in no region): another server's gyms are
-   * not theirs to be asked about, nor named to them. `exceptId` leaves out the gym that is being
-   * moved.
+   * may touch (`mayTouch`: their server's): another server's gyms are not theirs to be asked
+   * about, nor named to them. `exceptId` leaves out the gym that is being moved.
    */
   near(point: LatLon, guildId: number | undefined, exceptId?: number): NearbyGym[] {
     // The few within ten meters first, then whose they are: not every gym's regions each time.
@@ -349,19 +361,24 @@ export class GymAdminService {
    */
   nearestFor(gym: Gym, guildId: number | undefined): NearbyGym | undefined {
     const { directory } = this.options;
-    const stored = gym.nearestGym === null ? undefined : directory.get(gym.nearestGym);
-    if (stored && this.mayTouch(stored.id, guildId)) {
-      return { gym: stored, metres: metresBetween(gym, stored) };
-    }
-    const theirs = directory.all().filter((other) => this.mayTouch(other.id, guildId));
-    const found = nearestTo(gym, theirs);
+    // Read through the server's view: another server's stored nearest gym is not there.
+    const stored = gym.nearestGym === null ? undefined : directory.of(guildId).get(gym.nearestGym);
+    if (stored) return { gym: stored, metres: metresBetween(gym, stored) };
+    // The server's gyms alone (its view), not every gym narrowed down.
+    const found = nearestTo(gym, directory.of(guildId).all());
     return found && { gym: found.place, metres: found.metres };
   }
 
-  /** The regions of a server (by its row id) a gym lies in. */
+  /** The regions of a server (by its row id) a gym of the server lies in. */
   regionsOf(gymId: number, guildId: number | undefined): Region[] {
     const { directory, regions } = this.options;
-    return guildId === undefined ? [] : gymRegionsInGuild(directory, regions, gymId, guildId);
+    return directory
+      .of(guildId)
+      .regionsOf(gymId)
+      .flatMap((channelId) => {
+        const region = regions.byChannel(channelId);
+        return region ? [region] : [];
+      });
   }
 
   /** The regions of a server (by its row id) a point lies in: where a gym there would be. */
@@ -379,37 +396,35 @@ export class GymAdminService {
 
   /**
    * Whether the staff of a server (by its row id; undefined when it has none) may touch a gym:
-   * it lies in a region of their server, or in no region of any server (`withinReach`). Whose
-   * a region is its own row says, never the channel cache.
+   * it is one of their server's gyms (plan 19B-2: linked to it, wherever it lies), as the
+   * server's view of the gyms has it.
    */
   mayTouch(gymId: number, guildId: number | undefined): boolean {
-    const { directory, regions } = this.options;
-    const servers = directory
-      .regionsOf(gymId)
-      .map((channelId) => regions.byChannel(channelId)?.guildId ?? null);
-    return withinReach(servers, guildId);
+    return this.options.directory.of(guildId).get(gymId) !== undefined;
   }
 
-  /** Whether the staff of a server may put a gym at a place: the rule of `mayTouch`, for a point. */
-  mayPlace(point: LatLon, guildId: number | undefined): boolean {
-    const servers = this.options.regions
+  /**
+   * Whether a gym of a server lies in a region of that server: only there its members can
+   * report a raid at it.
+   */
+  inRegionOf(gymId: number, guildId: number | undefined): boolean {
+    return this.options.directory.of(guildId).regionsOf(gymId).length > 0;
+  }
+
+  /** The ids of a server's regions: what of a gym's saved routes is that server's. */
+  private regionIdsOf(guildId: number): number[] {
+    return this.options.regions
       .all()
-      .filter((region) => region.bounds !== null && ringContains(region.bounds, point))
-      .map((region) => region.guildId);
-    return withinReach(servers, guildId);
-  }
-
-  /** Whether a gym lies in a region of any server: only there a raid can be reported at it. */
-  inAnyRegion(gymId: number): boolean {
-    const { directory, regions } = this.options;
-    return directory
-      .regionsOf(gymId)
-      .some((channelId) => (regions.byChannel(channelId)?.guildId ?? null) !== null);
+      .filter((region) => region.guildId === guildId)
+      .map((region) => region.id);
   }
 
   /** The active parties that show a gym: the raids at it, and the trains with it on their route. */
-  shownBy(gymId: number): { raids: RaidParty[]; trains: TrainParty[] } {
-    const active = this.options.store.active();
+  shownBy(gymId: number, guildId?: number): { raids: RaidParty[]; trains: TrainParty[] } {
+    // Of one server (its `Guild` row) when it is given, else of every server.
+    const active = this.options.store
+      .active()
+      .filter((party) => guildId === undefined || party.guildId === guildId);
     return {
       raids: active.filter(isRaid).filter((party) => party.gymId === gymId),
       trains: active.filter(isTrain).filter((party) => hasStop(party.train.route, gymStop(gymId))),
@@ -417,12 +432,12 @@ export class GymAdminService {
   }
 
   /**
-   * Adds a gym, unless another gym lies within `DUPLICATE_METRES` of its place that is not among
-   * `knownNearIds` (the gyms the staff member was asked about and answered "Add anyway" to):
-   * then nothing is stored and the gyms there are answered (`near`). That look happens here,
-   * under the lock, so of two adds at one place in one moment the second finds the first.
-   * A place that lies only in regions of other servers is refused (`foreign`), here as well as
-   * by the command: the regions may have changed since the question.
+   * Adds a gym of the staff member's server, a row of its own wherever it lies (also where
+   * another server has a gym of the same place or Wayfarer id), unless another gym of the server
+   * lies within `DUPLICATE_METRES` of its place that is not among `knownNearIds` (the gyms the
+   * staff member was asked about and answered "Add anyway" to): then nothing is stored and the
+   * gyms there are answered (`near`). That look happens here, under the lock, so of two adds at
+   * one place in one moment the second finds the first.
    *
    * It answers once the row is stored, the gym can be found and the nearest gyms
    * are settled; its address and the places around it are fetched on the side
@@ -442,7 +457,7 @@ export class GymAdminService {
               })
             : undefined;
           // As the gym is once its map is there: a gym deleted meanwhile is not announced.
-          const gym = this.options.directory.get(added.id);
+          const gym = this.options.directory.of(place.guildId).get(added.id);
           if (!gym) return [];
           const regions = this.regionsOf(gym.id, place.guildId);
           const plain = gymAnnouncement(gym, regions);
@@ -468,10 +483,10 @@ export class GymAdminService {
     places: true | 'later' = true,
   ): Promise<AddOutcome> {
     const { gyms, upkeep, directory, log } = this.options;
-    if (!this.mayPlace(gym, place.guildId)) return { kind: 'foreign' };
-    const near = this.near(gym, place.guildId);
+    const guildId = serverOf(place);
+    const near = this.near(gym, guildId);
     if (near.some((found) => !known.has(found.gym.id))) return { kind: 'near', near };
-    const created = await gyms.create(gym);
+    const created = await gyms.create(gym, guildId);
     log.info(
       { staff: place.staffId, gym: created.id, lat: created.lat, lon: created.lon },
       'a gym was added',
@@ -483,7 +498,7 @@ export class GymAdminService {
     } catch (err) {
       log.error({ err, gym: created.id }, 'a gym was added, but not everything after it worked');
     }
-    return { kind: 'added', gym: directory.get(created.id) ?? created };
+    return { kind: 'added', gym: directory.of(guildId).get(created.id) ?? created };
   }
 
   /** `GymBatch.addBlock` (the caller holds the lock). */
@@ -492,9 +507,11 @@ export class GymAdminService {
     place: StaffPlace,
   ): Promise<BlockOutcome[]> {
     const { gyms, upkeep, directory, log } = this.options;
+    const guildId = serverOf(place);
     // Decided first, against the gyms as they are: each as `add` decides, the block's gyms
-    // known to each other.
+    // known to each other, near only the server's own. Every gym's nearest gym is of all gyms.
     const all = directory.all();
+    const ours = directory.of(guildId).all();
     // The gyms of a block share one list of the gyms they may stand beside: one set of it.
     const knownSets = new Map<readonly number[], ReadonlySet<number>>();
     const knownOf = (ids: readonly number[] = []): ReadonlySet<number> => {
@@ -503,8 +520,7 @@ export class GymAdminService {
       return known;
     };
     const decided = block.map((item): AddOutcome | 'accepted' => {
-      if (!this.mayPlace(item.gym, place.guildId)) return { kind: 'foreign' };
-      const near = placesWithin(item.gym, all, DUPLICATE_METRES).map(({ place: gym, metres }) => ({
+      const near = placesWithin(item.gym, ours, DUPLICATE_METRES).map(({ place: gym, metres }) => ({
         gym,
         metres,
       }));
@@ -521,6 +537,7 @@ export class GymAdminService {
           ? []
           : await gyms.createBlock(
               accepted.map((item) => item.gym),
+              guildId,
               (made) => {
                 const added = new Set(made.map((gym) => gym.id));
                 const writes = nearestBlockChanges([...all, ...made], added);
@@ -554,7 +571,9 @@ export class GymAdminService {
     return decided.map((outcome): BlockOutcome => {
       if (outcome !== 'accepted') return outcome;
       const gym = created[next++];
-      return gym ? { kind: 'added', gym: directory.get(gym.id) ?? gym } : { kind: 'failed' };
+      return gym
+        ? { kind: 'added', gym: directory.of(guildId).get(gym.id) ?? gym }
+        : { kind: 'failed' };
     });
   }
 
@@ -633,7 +652,7 @@ export class GymAdminService {
           return outcomes;
         },
         move: async (id, point, { places, address = true, patch = {} }) => {
-          const before = this.options.directory.get(id)?.name;
+          const before = this.options.directory.of(place.guildId).get(id)?.name;
           const outcome = await this.moveLocked(id, point, place, places, address, patch);
           if (outcome?.kind === 'moved') {
             changes.moved++;
@@ -650,7 +669,7 @@ export class GymAdminService {
           changes.wayspots = addWayspotChanges(changes.wayspots, counted);
         },
         update: async (id, patch) => {
-          const before = this.options.directory.get(id)?.name;
+          const before = this.options.directory.of(place.guildId).get(id)?.name;
           const gym = await this.updateLocked(id, patch, place);
           if (gym) renamed(before, patch.name);
           return gym;
@@ -715,9 +734,8 @@ export class GymAdminService {
     patch: BatchPatch,
   ): Promise<BatchMoveOutcome | undefined> {
     const { gyms, directory, log } = this.options;
-    const before = directory.get(id);
+    const before = directory.of(place.guildId).get(id);
     if (!before || !this.mayTouch(id, place.guildId)) return undefined;
-    if (!this.mayPlace(point, place.guildId)) return { kind: 'foreign' };
     const from = { lat: before.lat, lon: before.lon };
     const fields = (Object.keys(patch) as (keyof BatchPatch)[]).filter(
       (field) => patch[field] !== undefined,
@@ -749,7 +767,7 @@ export class GymAdminService {
       const moved = await upkeep.gymChanged(id);
       if (!moved) return undefined;
       await upkeep.placed(id, { places, address });
-      return directory.get(id) ?? moved;
+      return directory.stored(id) ?? moved;
     } catch (err) {
       log.error({ err, gym: id }, 'a gym was changed, but not everything after it worked');
       return written;
@@ -763,11 +781,11 @@ export class GymAdminService {
     place: StaffPlace,
   ): Promise<Gym | undefined> {
     const { gyms, directory, log } = this.options;
-    if (!directory.get(id) || !this.mayTouch(id, place.guildId)) return undefined;
+    if (!directory.of(place.guildId).get(id) || !this.mayTouch(id, place.guildId)) return undefined;
     const fields = (Object.keys(patch) as (keyof BatchPatch)[]).filter(
       (field) => patch[field] !== undefined,
     );
-    if (fields.length === 0) return directory.get(id);
+    if (fields.length === 0) return directory.stored(id);
     const written = await gyms.update(id, patch);
     if (!written) return undefined;
     log.info({ staff: place.staffId, gym: id, fields }, 'a gym was changed');
@@ -784,7 +802,7 @@ export class GymAdminService {
     const fields = Object.keys(texts);
     if (fields.length === 0) {
       await upkeep.gymChanged(id);
-      return directory.get(id);
+      return directory.stored(id);
     }
     const written = await gyms.update(id, texts);
     if (!written) return undefined;
@@ -807,7 +825,7 @@ export class GymAdminService {
       log.error({ err, gym: id }, 'a gym was changed, but not everything after it worked');
       return written;
     }
-    return directory.get(id);
+    return directory.stored(id);
   }
 
   /**
@@ -839,8 +857,9 @@ export class GymAdminService {
    * to one place in one moment the second finds the first.
    *
    * Decided here as well, for the server of the staff member: a gym they may not touch
-   * (`mayTouch`) is no gym (undefined), and a new place that lies only in regions of other
-   * servers is refused (`foreign`). Out of every region a gym may go.
+   * (`mayTouch`) is no gym (undefined). A gym may go anywhere (plan 19B-2): into another
+   * server's region, which leaves it this server's alone, or out of every region of this server,
+   * where raids cannot be reported at it.
    */
   move(
     id: number,
@@ -851,9 +870,8 @@ export class GymAdminService {
     const { gyms, directory, log } = this.options;
     const { staffId } = staff;
     return this.lock.run(async () => {
-      const before = directory.get(id);
+      const before = directory.of(staff.guildId).get(id);
       if (!before || !this.mayTouch(id, staff.guildId)) return undefined;
-      if (!this.mayPlace(point, staff.guildId)) return { kind: 'foreign' };
       const from = { lat: before.lat, lon: before.lon };
       if (from.lat !== asked.from.lat || from.lon !== asked.from.lon) {
         return { kind: 'elsewhere', gym: before };
@@ -879,18 +897,24 @@ export class GymAdminService {
     return this.options.upkeep.snapshot();
   }
 
-  /** How many members have a gym as a gym target, over all servers. */
-  targetCount(id: number): Promise<number> {
-    return this.options.targets.membersTargeting(id);
+  /** How many members of a server (its `Guild` row) have a gym as a gym target. */
+  targetCount(id: number, guildId: number | undefined): Promise<number> {
+    if (guildId === undefined) return Promise.resolve(0);
+    return this.options.targets.membersTargeting(id, guildId);
   }
 
-  /** What refers to a gym now: what the question before a deletion lists. */
-  async references(id: number): Promise<GymReferences> {
+  /**
+   * What of a server (its `Guild` row) refers to a gym now: what the question before a deletion
+   * lists. Another server's raids, trains, saved routes and targets are not that server's to be
+   * told of, and its deletion leaves them (plan 19B-2).
+   */
+  async references(id: number, guildId: number | undefined): Promise<GymReferences> {
+    if (guildId === undefined) return { raids: [], trains: 0, routes: 0, targets: 0 };
     const { routes, targets } = this.options;
-    const shown = this.shownBy(id);
+    const shown = this.shownBy(id, guildId);
     const [saved, targeting] = await Promise.all([
-      routes.countWithGym(id),
-      targets.membersTargeting(id),
+      routes.countWithGym(id, this.regionIdsOf(guildId)),
+      targets.membersTargeting(id, guildId),
     ]);
     return { raids: shown.raids, trains: shown.trains.length, routes: saved, targets: targeting };
   }
@@ -902,14 +926,19 @@ export class GymAdminService {
    *
    * 0. under the lock, `onlyIf` (a review item still asks this, `/gym review`) is asked;
    * 1. under the lock of the gym: a gym the staff member's server may not touch (`mayTouch`)
-   *    is no gym (`gone`), and it is refused while an active raid is there;
-   * 2. the gym's row, the saved routes that have it and the gym targets of it go in one
-   *    transaction (`GymRemoval`). When that fails nothing has changed (`failed`);
-   * 3. the directory forgets the gym, at once and without asking the database: from here a
-   *    report, a `/location`, a new stop and a loaded route refuse it;
-   * 4. the gym is taken off the route of every active train (`TrainService.gymRemoved`), whose
-   *    post says why. A train that could not be changed is logged and answered (`unmended`);
-   *    the hourly upkeep takes the stop off later (`TrainService.removeUnknownStops`);
+   *    is no gym (`gone`), and it is refused while an active raid of the server is there (of
+   *    any server, when no other server has the gym);
+   * 2. the gym's link to the server, the server's saved routes that have it and its gym targets
+   *    of it go in one transaction (`GymRemoval`), and the row with whatever still names it
+   *    when no other server has the gym (plan 19B-2: a gym servers share stays the others').
+   *    When that fails nothing has changed (`failed`);
+   * 3. the directory forgets the gym, or takes it from the server's gyms, at once and without
+   *    asking the database: from here a report, a `/location`, a new stop and a loaded route
+   *    of the server refuse it;
+   * 4. the gym is taken off the route of every active train of the server (of every server
+   *    when the row went; `TrainService.gymRemoved`), whose post says why. A train that could
+   *    not be changed is logged and answered (`unmended`); the hourly upkeep takes the stop
+   *    off later (`TrainService.removeUnknownStops`);
    * 5. the gyms that had it as their nearest get another, and the server's channel for bot
    *    updates is told: in its own post, or with `source` counted in that summary
    *    (`summarize`; an answer of the review queue).
@@ -935,35 +964,45 @@ export class GymAdminService {
   /** `delete` without the lock and the announcement: the caller holds the lock. */
   private async deleteLocked(id: number, by: Member, place: StaffPlace): Promise<DeleteOutcome> {
     const { directory, removal, store, upkeep, log } = this.options;
+    const guildId = place.guildId;
     const removed = await store.withGymLock(id, async () => {
-      const gym = directory.get(id);
-      if (!gym || !this.mayTouch(id, place.guildId)) return { kind: 'gone' as const };
-      const [raid] = this.shownBy(id).raids;
+      const gym = directory.of(guildId).get(id);
+      if (!gym || guildId === undefined) return { kind: 'gone' as const };
+      // Another server's raid there is no reason to keep the gym from this one.
+      const shared = directory.serversOf(id).some((server) => server !== guildId);
+      const [raid] = this.shownBy(id, shared ? guildId : undefined).raids;
       if (raid) return { kind: 'raid-there' as const, raid };
-      let counts: { routes: number; targets: number };
+      let counts: { routes: number; targets: number; deleted: boolean };
       try {
-        counts = await removal.remove(id);
+        counts = await removal.remove(id, { guildId, regionIds: this.regionIdsOf(guildId) });
       } catch (err) {
         log.error({ err, gym: id }, 'could not delete a gym');
         return { kind: 'failed' as const };
       }
       // Inside the lock, and without a read that could fail: a report that waits for the
       // lock must find the gym gone, or it would store a raid the database refuses.
-      directory.forget(id);
+      if (counts.deleted) directory.forget(id);
+      else directory.unlink(id, guildId);
       return { kind: 'removed' as const, gym, ...counts };
     });
     if (removed.kind !== 'removed') return removed;
-    const { gym, routes, targets } = removed;
-    log.info({ staff: place.staffId, gym: id, routes, targets }, 'a gym was deleted');
+    const { gym, routes, targets, deleted } = removed;
+    log.info(
+      { staff: place.staffId, gym: id, routes, targets, ...(deleted ? {} : { unlinked: true }) },
+      'a gym was deleted',
+    );
+    /** The server whose trains lose the gym: every server's when the row went. */
+    const ofServer = deleted ? undefined : guildId;
     // One look: every active train is asked in its own turn (`gymRemoved`), so a stop
     // that was being written while the gym went is seen too.
     let mended = 0;
     try {
-      mended = (await this.options.trains.gymRemoved(id, by, gymLabel(gym))).changed.length;
+      mended = (await this.options.trains.gymRemoved(id, by, gymLabel(gym), ofServer)).changed
+        .length;
     } catch (err) {
       log.warn({ err, gym: id }, 'could not take a deleted gym off the routes of trains');
     }
-    const unmended = this.shownBy(id).trains;
+    const unmended = this.shownBy(id, ofServer).trains;
     for (const train of unmended) {
       log.warn({ gym: id, party: train.id }, 'a train keeps a deleted gym on its route');
     }
@@ -972,7 +1011,7 @@ export class GymAdminService {
     } catch (err) {
       log.warn({ err, gym: id }, 'could not bring the directory up to date after a deletion');
     }
-    await upkeep.removed(id);
+    if (deleted) await upkeep.removed(id);
     return { kind: 'deleted', gym, trains: mended, routes, targets, unmended };
   }
 

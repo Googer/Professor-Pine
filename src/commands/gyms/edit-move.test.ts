@@ -618,7 +618,7 @@ describe('/gym move', () => {
     expect(await lines('41.0, -80')).toEqual([
       `The raid at it stays in <#${raid.party.forumPostId ?? ''}>.`,
       'It stays a stop of 2 trains.',
-      'It now lies in no region: raids cannot be reported there.',
+      'It now lies in no region of this server: raids cannot be reported there.',
     ]);
     // Further out, still in none: that is not news.
     expect(await lines('41.001, -80')).toEqual([]);
@@ -629,7 +629,7 @@ describe('/gym move', () => {
     const question = answerOf(await made.use('move', { gym: 'id:6', location: '41.0, -80' }));
     const answer = answerOf(await made.press(buttonId(question, 'Move anyway')));
     expect(said(answer).split('\n').slice(2)).toEqual([
-      'It now lies in no region: raids cannot be reported there.',
+      'It now lies in no region of this server: raids cannot be reported there.',
     ]);
   });
 

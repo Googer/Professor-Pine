@@ -1,7 +1,7 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import { isTrainAtEnd, type TrainAtEnd } from '../../domain/party/party.js';
 import { gymStop, hasStop, readStopKey, stopKey, type StopRef } from '../../domain/party/stops.js';
-import { inTransaction } from '../transaction.js';
+import { inTransaction, retryOnDeadlock } from '../transaction.js';
 import type { DB } from '../types.js';
 
 /** A member may keep this many routes per region: what one list of choices holds. */
@@ -55,14 +55,22 @@ export interface SavedRouteStorage {
  * regions that have the gym as a stop.
  */
 export interface SavedRouteUpkeep {
-  /** How many saved routes have this gym as a stop. */
-  countWithGym(gymId: number): Promise<number>;
   /**
-   * Takes a gym off every saved route, its power spots kept. A route that is left without a stop
-   * is removed.
-   * `changed` counts the routes that lost the stop and remain, `removed` those that went.
+   * How many saved routes have this gym as a stop: of these regions (a server's, plan 19B-2;
+   * none of an empty list), or of every region (`'every'`). Always named, never every region by
+   * default.
    */
-  removeGym(gymId: number): Promise<{ changed: number; removed: number }>;
+  countWithGym(gymId: number, regionIds: readonly number[] | 'every'): Promise<number>;
+  /**
+   * Takes a gym off every saved route of these regions (of every region with `'every'`: only the
+   * deletion of a gym's row asks so), its power spots kept. A route that is left without a stop
+   * is removed. `changed` counts the routes that lost the stop and remain, `removed` those that
+   * went.
+   */
+  removeGym(
+    gymId: number,
+    regionIds: readonly number[] | 'every',
+  ): Promise<{ changed: number; removed: number }>;
   /**
    * How many saved routes, of all members, belong to this region: they go with the region when
    * it is removed (the table's foreign key deletes them).
@@ -131,9 +139,43 @@ function toRoute(row: {
  * power spots as `w<Wayfarer id>`), `atEnd` (migration 013) what a train does at
  * the end of the route. Members are named by their snowflake here;
  * a member without a `User` row has no routes, and gets the row when they save their first.
+ *
+ * Beside it `SavedRouteGym` (migration 056): one row per route and gym among its stops
+ * (`routeGymIds`), written in the same transaction as every write of a route's text, while the
+ * route's row is locked (so that the rows of a route are always what its text says); a route's
+ * rows go with it by their foreign key. A deletion of a gym finds its routes through them.
  */
 export class SavedRouteRepository implements SavedRouteStorage, SavedRouteUpkeep {
   constructor(private readonly db: Kysely<DB>) {}
+
+  /**
+   * Makes the route's rows of `SavedRouteGym` say `stops`, where they said `was`: the gyms it
+   * lost and gained alone, each by its key (no range of the table is locked).
+   */
+  private async indexGyms(
+    trx: Kysely<DB>,
+    routeId: number,
+    was: readonly StopRef[],
+    stops: readonly StopRef[],
+  ): Promise<void> {
+    const before = routeGymIds(was);
+    const after = routeGymIds(stops);
+    const lost = before.filter((gymId) => !after.includes(gymId));
+    const gained = after.filter((gymId) => !before.includes(gymId));
+    if (lost.length > 0) {
+      await trx
+        .deleteFrom('SavedRouteGym')
+        .where('routeId', '=', routeId)
+        .where('gymId', 'in', lost)
+        .execute();
+    }
+    if (gained.length > 0) {
+      await trx
+        .insertInto('SavedRouteGym')
+        .values(gained.map((gymId) => ({ routeId, gymId })))
+        .execute();
+    }
+  }
 
   private rows(db: Kysely<DB>, memberId: string, regionId: number) {
     return db
@@ -176,6 +218,19 @@ export class SavedRouteRepository implements SavedRouteStorage, SavedRouteUpkeep
     stops: readonly StopRef[],
     atEnd: TrainAtEnd = 'finish',
   ): Promise<SaveRouteOutcome> {
+    // A deadlock (with another first save of the member, or with a gym's removal over the routes
+    // and their gyms) runs all of it again, the look for the member's row too: the rollback took
+    // whatever the first try made (`retryOnDeadlock`).
+    return retryOnDeadlock(this.db, () => this.saveOnce(memberId, regionId, name, stops, atEnd));
+  }
+
+  private async saveOnce(
+    memberId: string,
+    regionId: number,
+    name: string,
+    stops: readonly StopRef[],
+    atEnd: TrainAtEnd,
+  ): Promise<SaveRouteOutcome> {
     const text = routeText(stops);
     // A row for the member is made only when they have none (as `UserRepository.ensure` does):
     // an insert that finds one uses up an id all the same. Looked for before the transaction,
@@ -210,17 +265,26 @@ export class SavedRouteRepository implements SavedRouteStorage, SavedRouteUpkeep
       const same = existing.find((row) => (row.name ?? '').toLowerCase() === name.toLowerCase());
       // The rows were read without a lock on them (only the member's row is locked): the
       // namesake may have gone since, when the gym that was its only stop was deleted
-      // (`removeGym`). Then nothing was replaced, and the route is saved as a new one.
-      const replaced =
+      // (`removeGym`), or lost a stop. It is read again by its key with a lock: gone, nothing
+      // is replaced, and the route is saved as a new one; there, its stops as they are now
+      // are what its gyms beside it say.
+      const current =
         same === undefined
           ? undefined
           : await trx
-              .updateTable('SavedRoutes')
-              .set({ name, gyms: text, atEnd })
+              .selectFrom('SavedRoutes')
+              .select(['id', 'gyms'])
               .where('id', '=', same.id)
+              .forUpdate()
               .executeTakeFirst();
-      if (same && replaced && replaced.numUpdatedRows > 0n) {
-        return { kind: 'replaced', route: { id: same.id, name, stops: [...stops], atEnd } };
+      if (current) {
+        await trx
+          .updateTable('SavedRoutes')
+          .set({ name, gyms: text, atEnd })
+          .where('id', '=', current.id)
+          .execute();
+        await this.indexGyms(trx, current.id, routeStops(current.gyms), stops);
+        return { kind: 'replaced', route: { id: current.id, name, stops: [...stops], atEnd } };
       }
       const others = same ? existing.length - 1 : existing.length;
       if (others >= MAX_SAVED_ROUTES) return { kind: 'full' };
@@ -228,10 +292,9 @@ export class SavedRouteRepository implements SavedRouteStorage, SavedRouteUpkeep
         .insertInto('SavedRoutes')
         .values({ userId: user.id, region: regionId, name, gyms: text, atEnd })
         .executeTakeFirstOrThrow();
-      return {
-        kind: 'saved',
-        route: { id: Number(inserted.insertId), name, stops: [...stops], atEnd },
-      };
+      const id = Number(inserted.insertId);
+      await this.indexGyms(trx, id, [], stops);
+      return { kind: 'saved', route: { id, name, stops: [...stops], atEnd } };
     });
   }
 
@@ -249,21 +312,30 @@ export class SavedRouteRepository implements SavedRouteStorage, SavedRouteUpkeep
   }
 
   /**
-   * The rows whose text has the digits of this id somewhere: a superset of the routes with the
-   * gym (17 is also in 170, and in a Wayfarer id), which the caller narrows by reading the text
-   * (`routeStops`).
+   * The routes with the gym as a stop: its rows of `SavedRouteGym` by the index `(gymId,
+   * routeId)`, each route by its key (`savedroutegym_gymid_routeid_index`, then `SavedRoutes`'
+   * `PRIMARY`; never a search of the routes' text). Of these regions only (a server's, plan
+   * 19B-2: none of an empty list), or of every region (`'every'`). In the order of their ids.
    */
-  private mentioning(db: Kysely<DB>, gymId: number) {
-    return db
-      .selectFrom('SavedRoutes')
-      .select(['id', 'gyms'])
-      .where('gyms', 'like', `%${String(gymId)}%`)
-      .orderBy('id');
+  private withGym(db: Kysely<DB>, gymId: number, regionIds: readonly number[] | 'every') {
+    let query = db
+      .selectFrom('SavedRouteGym')
+      .innerJoin('SavedRoutes', 'SavedRoutes.id', 'SavedRouteGym.routeId')
+      .where('SavedRouteGym.gymId', '=', gymId);
+    if (regionIds !== 'every') {
+      query =
+        regionIds.length === 0
+          ? query.where(sql<boolean>`false`)
+          : query.where('SavedRoutes.region', 'in', [...regionIds]);
+    }
+    return query;
   }
 
-  async countWithGym(gymId: number): Promise<number> {
-    const rows = await this.mentioning(this.db, gymId).execute();
-    return rows.filter((row) => hasStop(routeStops(row.gyms), gymStop(gymId))).length;
+  async countWithGym(gymId: number, regionIds: readonly number[] | 'every'): Promise<number> {
+    const counted = await this.withGym(this.db, gymId, regionIds)
+      .select((eb) => eb.fn.countAll<string>().as('n'))
+      .executeTakeFirstOrThrow();
+    return Number(counted.n);
   }
 
   async countInRegion(regionId: number): Promise<number> {
@@ -276,15 +348,22 @@ export class SavedRouteRepository implements SavedRouteStorage, SavedRouteUpkeep
   }
 
   /**
-   * The rows that may have the gym are listed without a lock; each of them is then read again
-   * by its key with a lock, and decided by what it holds at that moment: a route that a member
-   * saved anew since the listing is taken as it is now, and a save of that row meanwhile waits
-   * for this (as this waits for it). A row is locked only while it is decided, never the table.
-   * It runs in a transaction of its own or inside the caller's (`GymRemovalRepository`), which
-   * then keeps the locks until it ends.
+   * The routes with the gym are listed without a lock (`withGym`); each of them is then read
+   * again by its key with a lock, and decided by what it holds at that moment: a route that a
+   * member saved anew since the listing is taken as it is now, and a save of that row meanwhile
+   * waits for this (as this waits for it). A row is locked only while it is decided, never the
+   * table. A route that stays loses its row of the gym in `SavedRouteGym`; one that goes takes
+   * its rows with it (their foreign key). It runs in a transaction of its own or inside the
+   * caller's (`GymRemovalRepository`), which then keeps the locks until it ends.
    */
-  async removeGym(gymId: number): Promise<{ changed: number; removed: number }> {
-    const listed = await this.mentioning(this.db, gymId).execute();
+  async removeGym(
+    gymId: number,
+    regionIds: readonly number[] | 'every',
+  ): Promise<{ changed: number; removed: number }> {
+    const listed = await this.withGym(this.db, gymId, regionIds)
+      .select('SavedRoutes.id')
+      .orderBy('SavedRouteGym.routeId')
+      .execute();
     return inTransaction(this.db, async (trx) => {
       let changed = 0;
       let removed = 0;
@@ -308,6 +387,7 @@ export class SavedRouteRepository implements SavedRouteStorage, SavedRouteUpkeep
             .set({ gyms: routeText(kept) })
             .where('id', '=', id)
             .execute();
+          await this.indexGyms(trx, id, stops, kept);
           changed += 1;
         }
       }

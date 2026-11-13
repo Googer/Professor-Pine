@@ -154,7 +154,7 @@ describe('/gym: the gym option', () => {
     const twelve = await made.use('show', { gym: '12' });
     expect(gymOf(answerOf(twelve))).toMatch(/^Gym #12 /);
     // Not gym 120 or 121 either, which the search would find by the beginning of their number.
-    await made.gymStore.create({ name: 'Liberty Bell', lat: 40.021, lon: -80.021 });
+    await made.gymStore.create({ name: 'Liberty Bell', lat: 40.021, lon: -80.021 }, 1);
     await made.directory.refreshGym(13);
     const one = await made.use('show', { gym: '1' });
     expect(gymOf(answerOf(one))).toMatch(/^Gym #1 /);
@@ -185,7 +185,7 @@ describe('/gym: the gym option', () => {
     const shown = await made.use('show', { gym: '12' });
     expect(gymOf(answerOf(shown))).toMatch(/^Gym #12 /);
     // Another gym that is called so still makes it a question.
-    await made.gymStore.create({ name: 'Pier 12', lat: 40.021, lon: -80.021 });
+    await made.gymStore.create({ name: 'Pier 12', lat: 40.021, lon: -80.021 }, 1);
     await made.directory.refreshGym(13);
     expect(said(sent((await made.use('show', { gym: '12' })).followUp))).toBe(
       '"12" is the number of one gym and in the name of another. Pick the one you mean from ' +
@@ -200,11 +200,14 @@ describe('/gym: the gym option', () => {
     await made.gymStore.delete(12);
     await made.directory.refreshGym(12);
     for (let id = 13; id <= 120; id++) {
-      await made.gymStore.create({
-        name: id === 120 ? '12 Apostles' : `Filler ${String.fromCharCode(97 + (id % 26))}`,
-        lat: 41 + id / 1000,
-        lon: -81,
-      });
+      await made.gymStore.create(
+        {
+          name: id === 120 ? '12 Apostles' : `Filler ${String.fromCharCode(97 + (id % 26))}`,
+          lat: 41 + id / 1000,
+          lon: -81,
+        },
+        1,
+      );
     }
     await made.directory.load();
     const apostles = await made.use('show', { gym: '12' });
@@ -214,7 +217,7 @@ describe('/gym: the gym option', () => {
   it('does not act on a number that another gym with a longer number is called by', async () => {
     const made = await gymCommandsWith();
     // Gym 1 exists, and gym 13 is called "1 Main Street": `1` could mean either.
-    await made.gymStore.create({ name: '1 Main Street', lat: 41, lon: -81 });
+    await made.gymStore.create({ name: '1 Main Street', lat: 41, lon: -81 }, 1);
     await made.directory.refreshGym(13);
     const both = await made.use('show', { gym: '1' });
     expect(said(sent(both.followUp))).toBe(

@@ -179,8 +179,11 @@ export interface NearestWrite {
   nearestGym: number | null;
 }
 
-/** Inserts a gym and its metadata (inside the caller's transaction); gives its id. */
-async function insertGym(trx: Kysely<DB>, gym: NewGym): Promise<number> {
+/**
+ * Inserts a gym, its metadata and its link to its server (inside the caller's transaction);
+ * gives its id.
+ */
+async function insertGym(trx: Kysely<DB>, gym: NewGym, guildId: number): Promise<number> {
   const inserted = await trx
     .insertInto('Gym')
     .values({
@@ -203,6 +206,7 @@ async function insertGym(trx: Kysely<DB>, gym: NewGym): Promise<number> {
       geodata: gym.geodata ?? null,
     })
     .execute();
+  await trx.insertInto('GymServer').values({ gymId, guildId }).execute();
   return gymId;
 }
 
@@ -214,15 +218,17 @@ export interface GymStorage {
   links(): Promise<GymLink[]>;
   /** The servers one gym belongs to, in order. */
   linksOf(gymId: number): Promise<number[]>;
-  create(gym: NewGym): Promise<Gym>;
+  /** Creates a gym of one server (its `Guild` row; plan 19B-2), the row and its link as one. */
+  create(gym: NewGym, guildId: number): Promise<Gym>;
   /**
-   * Creates gyms as one (plan 8W-6: a block of a Wayfarer import), with the nearest gyms that
-   * `nearest` works out from the created gyms (theirs and those of other gyms), in one
-   * transaction: all of it, or nothing when anything fails (also `nearest`). Gives the gyms as
-   * created, in order, with their nearest gym.
+   * Creates gyms of one server as one (plan 8W-6: a block of a Wayfarer import), with the
+   * nearest gyms that `nearest` works out from the created gyms (theirs and those of other
+   * gyms), in one transaction: all of it, or nothing when anything fails (also `nearest`). Gives
+   * the gyms as created, in order, with their nearest gym.
    */
   createBlock(
     gyms: readonly NewGym[],
+    guildId: number,
     nearest: (created: readonly Gym[]) => readonly NearestWrite[],
   ): Promise<Gym[]>;
   /** Undefined, having written nothing, when there is no such gym. */
@@ -278,6 +284,20 @@ export class GymRepository implements GymStorage {
       .execute();
   }
 
+  /**
+   * The gyms of one server (its `Guild` row), by id: through the server's links
+   * (`gymserver_guildid_index`), each gym by its key, never every gym.
+   */
+  async listOf(guildId: number): Promise<Gym[]> {
+    return toGyms(
+      await this.select()
+        .innerJoin('GymServer', 'GymServer.gymId', 'Gym.id')
+        .where('GymServer.guildId', '=', guildId)
+        .orderBy('Gym.id')
+        .execute(),
+    );
+  }
+
   /** The servers one gym belongs to, in order. */
   async linksOf(gymId: number): Promise<number[]> {
     const rows = await this.db
@@ -315,8 +335,8 @@ export class GymRepository implements GymStorage {
     return toGyms(rows);
   }
 
-  async create(gym: NewGym): Promise<Gym> {
-    const id = await inTransaction(this.db, (trx) => insertGym(trx, gym));
+  async create(gym: NewGym, guildId: number): Promise<Gym> {
+    const id = await inTransaction(this.db, (trx) => insertGym(trx, gym, guildId));
     const created = await this.get(id);
     if (!created) throw new Error(`Gym ${id} vanished after insert`);
     return created;
@@ -324,11 +344,12 @@ export class GymRepository implements GymStorage {
 
   async createBlock(
     gyms: readonly NewGym[],
+    guildId: number,
     nearest: (created: readonly Gym[]) => readonly NearestWrite[],
   ): Promise<Gym[]> {
     return inTransaction(this.db, async (trx) => {
       const ids: number[] = [];
-      for (const gym of gyms) ids.push(await insertGym(trx, gym));
+      for (const gym of gyms) ids.push(await insertGym(trx, gym, guildId));
       const inBlock = new GymRepository(trx);
       const created = toGyms(
         await inBlock.select().where('Gym.id', 'in', ids).orderBy('Gym.id').execute(),

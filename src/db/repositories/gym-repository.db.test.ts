@@ -1,7 +1,9 @@
 import * as he from 'he';
-import type { Kysely } from 'kysely';
+import { CompiledQuery, sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
+import type { TestDatabase } from '../../../test/support/mysql.js';
+import { createDb } from '../kysely.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { DB } from '../types.js';
 import { GuildRepository } from './guild-repository.js';
@@ -20,10 +22,11 @@ const DOWNTOWN_RING: LatLon[] = [
 describe('GymRepository', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
+  let database: TestDatabase;
   let gyms: GymRepository;
 
   beforeAll(async () => {
-    ({ db, stop } = await startMigratedDatabase());
+    ({ db, stop, database } = await startMigratedDatabase());
     gyms = new GymRepository(db);
     const guildId = await new GuildRepository(db).ensure('412345678901234567');
     await new RegionRepository(db).saveBounds(guildId, DOWNTOWN, DOWNTOWN_RING);
@@ -36,7 +39,7 @@ describe('GymRepository', () => {
   });
 
   it('creates a gym and reads it back with empty metadata', async () => {
-    const created = await gyms.create({ name: 'Big Fountain', lat: 40.4417, lon: -80.0128 });
+    const created = await gyms.create({ name: 'Big Fountain', lat: 40.4417, lon: -80.0128 }, 1);
     expect(created).toEqual({
       id: expect.any(Number) as number,
       pogoId: null,
@@ -59,15 +62,18 @@ describe('GymRepository', () => {
   });
 
   it('creates a gym with everything a moderator may give it at once', async () => {
-    const created = await gyms.create({
-      name: "Rosie's Diner",
-      lat: 40.45,
-      lon: -80.0,
-      nickname: 'Rosie',
-      description: 'Neon sign',
-      notice: "Don't block the drive",
-      keywords: [' Diner ', 'NEON', ''],
-    });
+    const created = await gyms.create(
+      {
+        name: "Rosie's Diner",
+        lat: 40.45,
+        lon: -80.0,
+        nickname: 'Rosie',
+        description: 'Neon sign',
+        notice: "Don't block the drive",
+        keywords: [' Diner ', 'NEON', ''],
+      },
+      1,
+    );
     expect(created).toMatchObject({
       name: "Rosie's Diner",
       nickname: 'Rosie',
@@ -85,13 +91,16 @@ describe('GymRepository', () => {
   });
 
   it('creates a gym with its Wayfarer id and picture address, as an import does', async () => {
-    const created = await gyms.create({
-      name: 'Mural',
-      lat: 40.45,
-      lon: -80.0,
-      pogoId: '0123456789abcdef0123456789abcdef.16',
-      imageUrl: 'https://lh3.googleusercontent.com/abc',
-    });
+    const created = await gyms.create(
+      {
+        name: 'Mural',
+        lat: 40.45,
+        lon: -80.0,
+        pogoId: '0123456789abcdef0123456789abcdef.16',
+        imageUrl: 'https://lh3.googleusercontent.com/abc',
+      },
+      1,
+    );
     expect(created).toMatchObject({
       pogoId: '0123456789abcdef0123456789abcdef.16',
       imageUrl: 'https://lh3.googleusercontent.com/abc',
@@ -100,12 +109,13 @@ describe('GymRepository', () => {
   });
 
   it('creates a block of gyms and their nearest gyms in one transaction, all or nothing', async () => {
-    const old = await gyms.create({ name: 'Old Gym', lat: 40.45, lon: -80 });
+    const old = await gyms.create({ name: 'Old Gym', lat: 40.45, lon: -80 }, 1);
     const created = await gyms.createBlock(
       [
         { name: 'Café & Co', lat: 40.4501, lon: -80, pogoId: 'aa.16', geodata: '{"a":1}' },
         { name: 'Second', lat: 40.46, lon: -80 },
       ],
+      1,
       (made) => {
         const [first, second] = made;
         return [
@@ -126,7 +136,7 @@ describe('GymRepository', () => {
     // A block that fails half-way leaves nothing of it.
     const before = (await gyms.listAll()).length;
     await expect(
-      gyms.createBlock([{ name: 'Third', lat: 40.47, lon: -80 }], () => {
+      gyms.createBlock([{ name: 'Third', lat: 40.47, lon: -80 }], 1, () => {
         throw new Error('no nearest gyms');
       }),
     ).rejects.toThrow('no nearest gyms');
@@ -136,6 +146,7 @@ describe('GymRepository', () => {
           { name: 'Fourth', lat: 40.48, lon: -80 },
           { name: 'x'.repeat(300), lat: 40.49, lon: -80 },
         ],
+        1,
         () => [],
       ),
     ).rejects.toThrow();
@@ -149,7 +160,7 @@ describe('GymRepository', () => {
     // What it says fits does fit, and is read back whole.
     const name = "'".repeat(42) + 'abc';
     expect(storedTextLength(name)).toBe(255);
-    const created = await gyms.create({ name, lat: 40.45, lon: -80.0 });
+    const created = await gyms.create({ name, lat: 40.45, lon: -80.0 }, 1);
     expect(created.name).toBe(name);
   });
 
@@ -187,13 +198,16 @@ describe('GymRepository', () => {
   });
 
   it('stores text entity-encoded like the legacy bot', async () => {
-    const gym = await gyms.create({
-      name: "Joe's Café",
-      lat: 40.45,
-      lon: -80,
-      nickname: "Joe's",
-      description: 'Mural & fountain',
-    });
+    const gym = await gyms.create(
+      {
+        name: "Joe's Café",
+        lat: 40.45,
+        lon: -80,
+        nickname: "Joe's",
+        description: 'Mural & fountain',
+      },
+      1,
+    );
     const raw = await db
       .selectFrom('Gym')
       .leftJoin('GymMeta', 'GymMeta.gymId', 'Gym.id')
@@ -209,7 +223,7 @@ describe('GymRepository', () => {
   });
 
   it('stores updated text entity-encoded too', async () => {
-    const gym = await gyms.create({ name: 'Plain', lat: 40.45, lon: -80 });
+    const gym = await gyms.create({ name: 'Plain', lat: 40.45, lon: -80 }, 1);
     const text = {
       name: "Joe's Café",
       nickname: "Ben & Jerry's",
@@ -246,7 +260,7 @@ describe('GymRepository', () => {
   });
 
   it('updates gym and metadata fields and leaves the rest alone', async () => {
-    const gym = await gyms.create({ name: 'Old Name', lat: 40.45, lon: -80, nickname: 'Oldie' });
+    const gym = await gyms.create({ name: 'Old Name', lat: 40.45, lon: -80, nickname: 'Oldie' }, 1);
     const updated = await gyms.update(gym.id, {
       name: 'New Name',
       lat: 40.46,
@@ -271,7 +285,7 @@ describe('GymRepository', () => {
   });
 
   it('clears metadata with null, an empty keyword list and false', async () => {
-    const gym = await gyms.create({ name: 'Gym', lat: 40.45, lon: -80, nickname: 'Nick' });
+    const gym = await gyms.create({ name: 'Gym', lat: 40.45, lon: -80, nickname: 'Nick' }, 1);
     await gyms.update(gym.id, { keywords: ['a'], taggedEx: true, confirmedEx: true });
     const cleared = await gyms.update(gym.id, {
       nickname: null,
@@ -323,13 +337,13 @@ describe('GymRepository', () => {
   });
 
   it('an empty patch changes nothing', async () => {
-    const gym = await gyms.create({ name: 'Gym', lat: 40.45, lon: -80 });
+    const gym = await gyms.create({ name: 'Gym', lat: 40.45, lon: -80 }, 1);
     expect(await gyms.update(gym.id, {})).toEqual(gym);
   });
 
   it('lists the gyms inside a region or an arbitrary outline', async () => {
-    const inside = await gyms.create({ name: 'Inside', lat: 40.45, lon: -80 });
-    const outside = await gyms.create({ name: 'Outside', lat: 40.55, lon: -80 });
+    const inside = await gyms.create({ name: 'Inside', lat: 40.45, lon: -80 }, 1);
+    const outside = await gyms.create({ name: 'Outside', lat: 40.55, lon: -80 }, 1);
     expect((await gyms.listAll()).map((g) => g.id)).toEqual([inside.id, outside.id]);
     expect((await gyms.listInRegion(DOWNTOWN)).map((g) => g.id)).toEqual([inside.id]);
     expect(await gyms.listInRegion('999999999999999999')).toEqual([]);
@@ -347,7 +361,7 @@ describe('GymRepository', () => {
 
     async function writeAll(trx: Kysely<DB>): Promise<void> {
       const trxGyms = new GymRepository(trx);
-      const created = await trxGyms.create({ name: 'In Trx', lat: 40.45, lon: -80 });
+      const created = await trxGyms.create({ name: 'In Trx', lat: 40.45, lon: -80 }, 1);
       await trxGyms.update(created.id, { notice: 'Changed' });
       const guildId = await new GuildRepository(trx).ensure('412345678901234999');
       await new RegionRepository(trx).saveBounds(guildId, CHANNEL, DOWNTOWN_RING);
@@ -373,7 +387,7 @@ describe('GymRepository', () => {
   });
 
   it('answers undefined, and never throws, for a gym that is deleted while it is changed', async () => {
-    const gym = await gyms.create({ name: 'Going', lat: 40.45, lon: -80 });
+    const gym = await gyms.create({ name: 'Going', lat: 40.45, lon: -80 }, 1);
     // A deletion that has taken the row and its metadata away and has not committed yet.
     let commit: () => void = () => undefined;
     const committing = new Promise<void>((resolve) => {
@@ -402,7 +416,7 @@ describe('GymRepository', () => {
   });
 
   it('deletes a gym together with its metadata', async () => {
-    const gym = await gyms.create({ name: 'Gone', lat: 40.45, lon: -80, nickname: 'Bye' });
+    const gym = await gyms.create({ name: 'Gone', lat: 40.45, lon: -80, nickname: 'Bye' }, 1);
     expect(await gyms.delete(gym.id)).toBe(true);
     expect(await gyms.get(gym.id)).toBeUndefined();
     expect(await db.selectFrom('GymMeta').selectAll().execute()).toHaveLength(0);
@@ -411,16 +425,10 @@ describe('GymRepository', () => {
   it('reads the servers of every gym and of one (plan 19B-2)', async () => {
     const home = await new GuildRepository(db).ensure('412345678901234567');
     const away = await new GuildRepository(db).ensure('412345678901234568');
-    const shared = await gyms.create({ name: 'Shared', lat: 40.45, lon: -80 });
-    const own = await gyms.create({ name: 'Own', lat: 40.46, lon: -80 });
-    await db
-      .insertInto('GymServer')
-      .values([
-        { gymId: shared.id, guildId: away },
-        { gymId: shared.id, guildId: home },
-        { gymId: own.id, guildId: away },
-      ])
-      .execute();
+    // Each made for one server, its link made with it; the first given to the other too.
+    const shared = await gyms.create({ name: 'Shared', lat: 40.45, lon: -80 }, home);
+    const own = await gyms.create({ name: 'Own', lat: 40.46, lon: -80 }, away);
+    await db.insertInto('GymServer').values({ gymId: shared.id, guildId: away }).execute();
     expect(await gyms.links()).toEqual([
       { gymId: shared.id, guildId: home },
       { gymId: shared.id, guildId: away },
@@ -428,5 +436,38 @@ describe('GymRepository', () => {
     ]);
     expect(await gyms.linksOf(shared.id)).toEqual([home, away]);
     expect(await gyms.linksOf(own.id + 1)).toEqual([]);
+  });
+
+  it('lists one server’s gyms through the server index, not every gym (plan 19B-2)', async () => {
+    const home = await new GuildRepository(db).ensure('412345678901234567');
+    const away = await new GuildRepository(db).ensure('412345678901234568');
+    // Many gyms of the first server, a few of the second.
+    for (let n = 0; n < 60; n += 1) {
+      await gyms.create({ name: `Home ${String(n)}`, lat: 40.4 + n / 1000, lon: -80 }, home);
+    }
+    const own = await gyms.create({ name: 'Own', lat: 40.46, lon: -80 }, away);
+    const shared = await gyms.create({ name: 'Shared', lat: 40.47, lon: -80 }, home);
+    await db.insertInto('GymServer').values({ gymId: shared.id, guildId: away }).execute();
+    await sql`analyze table Gym, GymServer`.execute(db);
+    expect((await gyms.listOf(away)).map((gym) => gym.name)).toEqual(['Own', 'Shared']);
+    expect(await gyms.listOf(away + 7)).toEqual([]);
+    const asked: CompiledQuery[] = [];
+    const logged = createDb<DB>(database.config, (event) => {
+      if (event.level === 'query') asked.push(event.query);
+    });
+    try {
+      await new GymRepository(logged).listOf(away);
+      const [query] = asked;
+      if (query === undefined) throw new Error('nothing was asked');
+      const plan = await db.executeQuery<{ table: string | null; key: string | null }>(
+        CompiledQuery.raw(`explain format=traditional ${query.sql}`, [...query.parameters]),
+      );
+      const keyOf = (table: string) => plan.rows.find((row) => row.table === table)?.key;
+      expect(keyOf('GymServer')).toBe('gymserver_guildid_index');
+      expect(keyOf('Gym')).toBe('PRIMARY');
+    } finally {
+      await logged.destroy();
+    }
+    expect(own.id).toBeGreaterThan(0);
   });
 });

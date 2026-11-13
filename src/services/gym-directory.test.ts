@@ -226,6 +226,32 @@ describe('GymDirectory', () => {
     expect(ids(service, null, 'pinewood public library')).not.toContain(1);
   });
 
+  it('does not let a read that is on its way link an unlinked gym to its server again', async () => {
+    const { service, state } = directory();
+    // Gym 1 is both servers'.
+    state.links.push({ gymId: 1, guildId: OTHER_GUILD_ROW });
+    await service.load();
+    // A re-read of the gym and a whole load, both of which see the links as they still were.
+    const refreshing = service.refreshGym(1);
+    const loading = service.load();
+    // The first server's link goes, and the gym is unlinked, before either has finished.
+    expect(service.unlink(1, TEST_GUILD_ROW)).toBe(true);
+    await Promise.all([refreshing, loading]);
+    state.links = state.links.filter((link) => link.gymId !== 1 || link.guildId !== TEST_GUILD_ROW);
+    await background.settle();
+    expect(service.of(TEST_GUILD_ROW).get(1)).toBeUndefined();
+    expect(
+      service
+        .of(TEST_GUILD_ROW)
+        .search(null, 'pinewood public library')
+        .map((hit) => hit.gym.id),
+    ).not.toContain(1);
+    // The other server keeps it, and so does a stored reference.
+    expect(service.of(OTHER_GUILD_ROW).get(1)?.name).toBe('Pinewood Public Library');
+    expect(service.stored(1)).toBeDefined();
+    expect(service.unlink(1, TEST_GUILD_ROW)).toBe(false);
+  });
+
   it('lists every gym, as a list of its own', async () => {
     const { service } = directory();
     await service.load();

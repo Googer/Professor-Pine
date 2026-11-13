@@ -232,8 +232,8 @@ describe('/gym delete', () => {
     expect(dialogText(dialog)).toContain('- the gym target of 1 member');
     // The gym goes; the train cannot be stored afterwards.
     const remove = made.removal.remove.bind(made.removal);
-    made.removal.remove = async (id) => {
-      const counts = await remove(id);
+    made.removal.remove = async (id, server) => {
+      const counts = await remove(id, server);
       made.storage.failing = new Error('party table is locked');
       return counts;
     };
@@ -454,7 +454,7 @@ describe('/gym: what it says fits one message', () => {
     const nasty = '*_~`|'.repeat(51);
     const spot = { lat: 40.015, lon: -80.015 };
     for (let n = 0; n < 5; n++) {
-      const gym = await made.gymStore.create({ name: nasty, ...spot, nickname: nasty });
+      const gym = await made.gymStore.create({ name: nasty, ...spot, nickname: nasty }, 1);
       await made.directory.refreshGym(gym.id);
     }
     const square = made.regions.rows[0]?.bounds ?? null;

@@ -813,7 +813,7 @@ describe('/gym import: the buttons', () => {
       margin: 500,
       bareCells: missingCells(outlines, new Set(city.cells), 500),
     };
-    const beyond = made.directory.all().filter((gym) => !made.admin.inAnyRegion(gym.id));
+    const beyond = made.directory.all().filter((gym) => !made.admin.inRegionOf(gym.id, 1));
     expect(beyond.length).toBeGreaterThan(0);
     const { answer } = await importing(made, packed(file));
     const imported = await pressing(made, buttonId(answer, 'Import'), answer);
