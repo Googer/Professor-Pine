@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-12T22:52",
+  "updated": "2026-11-13T04:43",
   "items": [
     {
       "id": "0",
@@ -12091,7 +12091,100 @@ window.GANTT = {
       ],
       "scope": "Feeds as wall-clock times, the boss list per zone, event windows, midnights per zone, the activity store, the web",
       "doneWhen": "Merged into main-dev",
-      "status": "unplanned"
+      "status": "done",
+      "planning": {
+        "start": "2026-11-12T22:52",
+        "end": "2026-11-13T04:42",
+        "review": {
+          "start": "2026-11-12T23:36",
+          "end": "2026-11-13T04:42"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T04:42",
+        "end": "2026-11-13T04:42"
+      }
+    },
+    {
+      "id": "19A-2.1",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "A server’s zone, the zones in use, the panel",
+      "status": "done",
+      "start": "2026-11-13T04:24",
+      "end": "2026-11-13T04:24"
+    },
+    {
+      "id": "19A-2.2",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Times members type and read",
+      "status": "done",
+      "start": "2026-11-13T04:24",
+      "end": "2026-11-13T04:24"
+    },
+    {
+      "id": "19A-2.3",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Feed times kept as wall-clock time",
+      "status": "done",
+      "start": "2026-11-13T04:24",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.4",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "The boss list per zone",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.5",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Events, event pages, research sections, the event window",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.6",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Local midnights and day keys per zone",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.7",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Activity and history in the server’s zone",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.8",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "The web in the server’s zone",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.9",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Docs, and no zone read from the file",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
     },
     {
       "id": "19B",
