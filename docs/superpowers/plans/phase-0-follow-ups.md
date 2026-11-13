@@ -3608,6 +3608,15 @@ Plan `2026-11-12-phase-19d-sharding.md`, merged on main-dev; check 13,747, datab
 - `onEveryShardReady` and `ShardStart.gone` are built for plan 19C, which marks a gone server left; nothing acts on them yet.
 - Beyond about 90,000 servers (36 shards and more at a `max_concurrency` of 1) the login's identify slots are long; the health rule gives each shard its slot, but nothing has been tried at that size.
 
+## From Phase 19B-1 (operators and alerts, 2026-11-13)
+
+Plan `2026-11-13-phase-19b-1-operators.md`, merged on main-dev; full check, database suite and build pass. **Staging not run** (its plan's six steps; needs a global deploy: the commands change).
+
+- For plan 19C: the shared-data tier's "a listed server" becomes "an allowed server" (the file's list, the servers recorded at the upgrade, those `/operator servers` allows), and the block list wins over it.
+- A server unavailable at the start is not checked by meetup safety's start warnings (logged in one line); telling its staff once Discord says it is available (`GuildAvailable`) is not built. Likewise a notice whose only occasion is the start (meetup safety, the fill's names not found) waits for the next restart when a lab is set later.
+- `/help` still lists `/admin nickname add` and `remove` to staff on an open instance, where the shared-data guard refuses them; moot once 19B-4 makes nicknames a server's.
+- A notice whose send timed out after Discord made the message is told again at the next occasion (rare, harmless).
+
 ## From Phase 19A-2 (a time zone per server, 2026-11-13)
 
 Plan `2026-11-13-phase-19a-2-time-zones.md`, merged on main-dev; full check, database suite and build pass. **Staging not run** (its plan’s seven steps; needs `./pine update` for migrations 054 and 055 and a global deploy).
