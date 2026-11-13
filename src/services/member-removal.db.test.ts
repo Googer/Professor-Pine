@@ -18,6 +18,7 @@ import { messageSubject, newReport, partySubject } from '../../test/support/repo
 import { eggReading } from '../../test/support/screenshots.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { sessionId, storedSession } from '../../test/support/web-session-cases.js';
+import { indexRouteGyms } from '../db/migrations/2026_11_13_056_gym_servers.js';
 import { HistoryRepository } from '../db/repositories/history-repository.js';
 import { MeetupSafetyRepository } from '../db/repositories/meetup-safety-repository.js';
 import {
@@ -185,6 +186,8 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
       await sql`insert into SavedRoutes (userId, name, region, gyms)
                 values (${userId}, 'Loop', ${guild}, '1,2')`.execute(db);
     }
+    // The gyms of the routes beside them (migration 056).
+    await indexRouteGyms(db);
     for (const server of [HOME, AWAY]) {
       await new NewTrainRepository(db).set(member, server, true, NOW);
       await new UnownGiftRepository(db).record(member, server, NOW);
@@ -536,6 +539,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
     const changed = (table: string, change: (row: Row) => Row) =>
       (before[table] ?? []).map((row) => change(row));
     const hung = (row: Row) => row.userId === aliceRow;
+    const herRoutes = new Set((before.SavedRoutes ?? []).filter(hung).map((row) => row.id));
     const hersBy = (column: string) => (row: Row) => row[column] === ALICE;
     const blank = (row: Row, is: boolean, columns: string[]) =>
       is ? { ...row, ...Object.fromEntries(columns.map((column) => [column, null])) } : row;
@@ -546,6 +550,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
       TargetWant: without('TargetWant', hung),
       GymNotification: without('GymNotification', hung),
       SavedRoutes: without('SavedRoutes', hung),
+      SavedRouteGym: without('SavedRouteGym', (row) => herRoutes.has(row.routeId)),
       NewTrainNotification: without('NewTrainNotification', hersBy('memberId')),
       UnownWantGift: without('UnownWantGift', hersBy('memberId')),
       HistoryOptIn: without('HistoryOptIn', hersBy('memberId')),

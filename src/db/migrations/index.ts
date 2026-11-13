@@ -54,6 +54,7 @@ import { serverSettings } from './2026_11_12_052_server_settings.js';
 import { serverSettingsAudit } from './2026_11_12_053_server_settings_audit.js';
 import { feedLocalTimes } from './2026_11_13_054_feed_local_times.js';
 import { maxBossStart } from './2026_11_13_055_max_boss_start.js';
+import { gymServers } from './2026_11_13_056_gym_servers.js';
 
 /**
  * Every migration, keyed by name. Kysely applies them in name order, so names are
@@ -115,4 +116,5 @@ export const migrations: Record<string, Migration> = {
   '2026_11_12_053_server_settings_audit': serverSettingsAudit,
   '2026_11_13_054_feed_local_times': feedLocalTimes,
   '2026_11_13_055_max_boss_start': maxBossStart,
+  '2026_11_13_056_gym_servers': gymServers,
 };

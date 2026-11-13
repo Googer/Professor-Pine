@@ -96,6 +96,21 @@ export function routeText(stops: readonly StopRef[]): string {
   return stops.map(stopKey).join(',');
 }
 
+/** The largest id a gym's row can have (`Gym.id` is `int unsigned`). */
+const MAX_GYM_ID = 4_294_967_295;
+
+/**
+ * The gyms among a route's stops, each once: what `SavedRouteGym` holds of the route (migration
+ * 056; its Power Spots are not there). An id that no gym's row can have (the legacy bot's text
+ * may hold any digits) names no gym, and is left out.
+ */
+export function routeGymIds(stops: readonly StopRef[]): number[] {
+  const ids = stops.flatMap((stop) =>
+    stop.kind === 'gym' && stop.id <= MAX_GYM_ID ? [stop.id] : [],
+  );
+  return [...new Set(ids)];
+}
+
 function toRoute(row: {
   id: number;
   name: string | null;

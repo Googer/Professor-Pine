@@ -219,6 +219,11 @@ export interface GymReview {
   queuedAt: string;
 }
 
+export interface GymServer {
+  guildId: number;
+  gymId: number;
+}
+
 export interface GymWayfarer {
   gymId: number;
   lastSeen: string | null;
@@ -670,6 +675,11 @@ export interface RoleGroup {
   position: number;
 }
 
+export interface SavedRouteGym {
+  gymId: number;
+  routeId: number;
+}
+
 export interface SavedRoutes {
   atEnd: Generated<string>;
   gyms: string | null;
@@ -909,6 +919,7 @@ export interface DB {
   GymMeta: GymMeta;
   GymNotification: GymNotification;
   GymReview: GymReview;
+  GymServer: GymServer;
   GymWayfarer: GymWayfarer;
   HistoryOptIn: HistoryOptIn;
   LeaderboardOptIn: LeaderboardOptIn;
@@ -942,6 +953,7 @@ export interface DB {
   RocketLineup: RocketLineup;
   Role: Role;
   RoleGroup: RoleGroup;
+  SavedRouteGym: SavedRouteGym;
   SavedRoutes: SavedRoutes;
   ScriptAccess: ScriptAccess;
   ServerSettings: ServerSettings;
