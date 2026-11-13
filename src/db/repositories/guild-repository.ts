@@ -111,7 +111,8 @@ export class GuildRepository implements GuildStore {
   /**
    * Makes the server of every row known (`RowIds.serverOfRow`; fix round 1, K1): read once at
    * start, before the parties are loaded, so that a party's server, and so its zone, is known
-   * from its first moment on, whatever the bounded memory of seen rows holds.
+   * from its first moment on, whatever the bounded memory of seen rows holds. A whole read, at
+   * start: one row per server, bounded small by nature.
    */
   async loadRows(): Promise<void> {
     const rows = await this.db.selectFrom('Guild').select(['id', 'snowflake']).execute();

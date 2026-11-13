@@ -69,6 +69,10 @@ const stored = (row: Row): StoredServer => ({
 export class ServerSettingsRepository implements ServerSettingsStorage {
   constructor(private readonly db: Kysely<DB>) {}
 
+  /**
+   * A whole read (`ServerSettings.load` at start, the cutover check): one row per server,
+   * bounded small by nature.
+   */
   async all(): Promise<StoredServer[]> {
     const rows = await this.db
       .selectFrom('ServerSettings')
