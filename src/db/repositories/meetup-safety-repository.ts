@@ -821,7 +821,7 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
   }
 
   /**
-   * What meetup safety holds of a member in every server (plan 8G: the look of `/admin forget`):
+   * What meetup safety holds of a member in every server (plan 8G: the look of `/operator forget`):
    * their blocks, lifted or not, and their own requests, appeals and asks about places that
    * carry their id: those still with the moderators, approvals whose meetup is still to be made
    * (`REQUEST_UNMADE`), approvals whose meetup is still going on (`requestLive`: its party's id
@@ -865,7 +865,7 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
 
   /**
    * Takes a member's id and name (and a request's team) off their own requests, appeals and asks
-   * about places that are decided and over, in every server (plan 8G, `/admin forget`; migration
+   * about places that are decided and over, in every server (plan 8G, `/operator forget`; migration
    * 051 lets the ids be null); from how many. Their words stay, for the moderators, without who
    * wrote them. What is still open keeps both: a request the moderators have not decided, an
    * approval whose meetup is not made yet (it is made by that member, with that name and team),

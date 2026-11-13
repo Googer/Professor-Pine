@@ -143,7 +143,7 @@ describe('ReportRepository', () => {
     ).toHaveLength(1);
   });
 
-  describe('forgetting who made a report (plan 8G, `/admin forget`)', () => {
+  describe('forgetting who made a report (plan 8G, `/operator forget`)', () => {
     const OTHER_PARTY = '00000000-0000-4000-8000-0000000000bb';
     const reasons = () =>
       db

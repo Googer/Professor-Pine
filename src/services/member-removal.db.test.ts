@@ -89,7 +89,7 @@ function shot(senderId: string, refused = false): NewScreenshot {
   };
 }
 
-describe('MemberRemoval over the database and the folders (plan 8G, `/admin forget`)', () => {
+describe('MemberRemoval over the database and the folders (plan 8G, `/operator forget`)', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
   let users: UserRepository;

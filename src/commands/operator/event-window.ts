@@ -24,7 +24,7 @@ import { timedTimeHint } from '../parties/timed.js';
 import { between } from '../raids/raid-input.js';
 import { tellOwnerOfSharedChange } from './shared-change.js';
 
-/** The subcommand group of `/admin` the event window lives under. */
+/** The subcommand group of `/operator` the event window lives under. */
 export const EVENT_WINDOW_GROUP = 'event-window';
 export const EVENT_WINDOW_DESCRIPTION = 'All-day Raid Hour raids and Max Battle Day rotations';
 
@@ -211,7 +211,7 @@ function usedBy(interaction: ChatInputCommandInteraction): { by: string; guild: 
   return { by: interaction.user.id, guild: interaction.guildId };
 }
 
-/** `/admin event-window set`. */
+/** `/operator event-window set`. */
 export const setEventWindow: SubcommandPart = {
   group: EVENT_WINDOW_GROUP,
   data: new SlashCommandSubcommandBuilder()
@@ -248,14 +248,17 @@ export const setEventWindow: SubcommandPart = {
         'type are local time: the window is on at those hours on each server’s own clock.\n\n' +
         'Setting it again replaces it. Without `from:` it keeps the start of a window that is ' +
         'on or ended less than 2 hours ago.\n\n' +
-        'End it with `/admin event-window end` once raids and battles are back to normal. ' +
-        'There is one window for all servers: anyone who may use `/admin` on any of them can ' +
-        'set or end it. My owner is told who did, and in which server.'
+        'End it with `/operator event-window end` once raids and battles are back to normal.\n\n' +
+        'There is one window for all servers: the operators of this Pine set and end it, from ' +
+        'any server or a direct message with me. Unless this Pine is open to every server, the ' +
+        'admins, moderators and bot developers of its servers may too, from their server (where ' +
+        'it lists its servers, those of the listed ones only).\n\nMy owner is told who did, ' +
+        'and from where.'
       );
     },
     examples: [
-      `/admin event-window set until:${DATE_EXAMPLE} 8pm`,
-      `/admin event-window set from:${DATE_EXAMPLE} 10am until:${DATE_EXAMPLE} 8pm`,
+      `/operator event-window set until:${DATE_EXAMPLE} 8pm`,
+      `/operator event-window set from:${DATE_EXAMPLE} 10am until:${DATE_EXAMPLE} 8pm`,
     ],
   },
   defer: 'ephemeral',
@@ -325,7 +328,7 @@ export const setEventWindow: SubcommandPart = {
   },
 };
 
-/** `/admin event-window end`. */
+/** `/operator event-window end`. */
 export const endEventWindow: SubcommandPart = {
   group: EVENT_WINDOW_GROUP,
   data: new SlashCommandSubcommandBuilder()
@@ -336,7 +339,7 @@ export const endEventWindow: SubcommandPart = {
       'Ends the event window now in every server: where it has not begun yet, it is called ' +
       'off; where it has, what ran stays. Raids and battles ' +
       'reported from then on last as usual; those reported before keep their times.',
-    examples: ['/admin event-window end'],
+    examples: ['/operator event-window end'],
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {

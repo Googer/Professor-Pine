@@ -93,7 +93,7 @@ export async function findMemberInGuild(
  * snowflake all the same, so what is remembered of it decides only whether an insert is
  * tried; when a remembered row turns out to be gone it is forgotten and the change runs once
  * more as for a member who was never seen. So does a change with `create` whose row was read
- * from the table and is gone once locked: the owner's `/admin forget` (plan 8G) deleted it
+ * from the table and is gone once locked: the operators' `/operator forget` (plan 8G) deleted it
  * and committed while the lock waited. The server's row is used by its remembered id; when
  * that row is gone (the legacy bot deletes it on leaving a server, and the next one has
  * another id), `work` fails the foreign key of whatever it hangs on the server (MySQL's error
@@ -147,7 +147,7 @@ export async function withMemberLocked<T>(
       .forUpdate()
       .executeTakeFirst();
     if (!user) {
-      // Only remembered wrongly; or read just before the owner's `/admin forget` deleted it
+      // Only remembered wrongly; or read just before the operators' `/operator forget` deleted it
       // (plan 8G), whose commit this lock waited for: either way the member is new now, and a
       // change that makes their row runs once more as for a new member.
       if (remembered || (known && create)) {

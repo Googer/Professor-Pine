@@ -68,7 +68,7 @@ export interface OptedOut {
 }
 
 /**
- * What the history holds of a member, counted (plan 8G, `/admin forget`): the servers where
+ * What the history holds of a member, counted (plan 8G, `/operator forget`): the servers where
  * their history is on (`optIns`), where they are on the boards, where they asked for their
  * old-bot history (`fillIns`), in how many records it names them (`named`: parties and reports
  * at stops together, as `namedIn` counts them), and how many of the parties they made keep what
@@ -970,7 +970,7 @@ export class HistoryRepository
   }
 
   /**
-   * What the history holds of a member over every server (plan 8G: the look of `/admin forget`),
+   * What the history holds of a member over every server (plan 8G: the look of `/operator forget`),
    * counted as `forgetEverywhere` takes it away: server by server (`serversNaming`), the records
    * with the opt-out's own count.
    */
@@ -997,7 +997,7 @@ export class HistoryRepository
   }
 
   /**
-   * Takes a member out of the history of every server (plan 8G, `/admin forget`), exactly as
+   * Takes a member out of the history of every server (plan 8G, `/operator forget`), exactly as
    * `optOut` does in one: the opt-out's own transaction (`forget`) for each server that holds
    * anything of them (`serversNaming`: an opt-in, a place on the boards, a request for their
    * old-bot history, a party or a report at a stop that names them; also a server the bot has
@@ -1106,7 +1106,7 @@ export class HistoryRepository
  * old-bot history, and where a party (maker, conductor, attendee) or a record of a report at a
  * stop names them. Plain reads: the parties by the indexes that begin with the member; the
  * three switches and the reports read whole, their keys beginning with the server (only the
- * owner's `/admin forget` asks, seldom).
+ * operators' `/operator forget` asks, seldom).
  */
 async function serversNaming(db: Kysely<DB>, memberId: string): Promise<string[]> {
   const found = await sql<{ serverId: string }>`

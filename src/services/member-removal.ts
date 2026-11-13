@@ -110,7 +110,7 @@ function meetupsGoingOn(active: readonly Party[], memberId: string): string[] {
 }
 
 /**
- * Removing a member's data on request (plan 8G; the owner's `/admin forget member:`), across
+ * Removing a member's data on request (plan 8G; the operators' `/operator forget member:`), across
  * every server: the policy's promise that what Pine holds of somebody goes when they ask.
  *
  * `look` counts what Pine holds and changes nothing. `remove` is the one way it goes: the
@@ -152,7 +152,7 @@ export class MemberRemoval {
     };
   }
 
-  /** `by`: the owner who asked. Rejects, with nothing changed, when the database refuses. */
+  /** `by`: the operator who asked. Rejects, with nothing changed, when the database refuses. */
   async remove(memberId: string, by: string): Promise<MemberRemovalOutcome> {
     const { data, screenshots, parties, endSession, heldReports, log } = this.options;
     let removed: MemberRemoved;

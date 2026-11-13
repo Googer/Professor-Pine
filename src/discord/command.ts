@@ -170,6 +170,12 @@ interface CommandBase {
    * `/help` lists it on that command's line.
    */
   formOf?: string;
+  /**
+   * For a command `/help` shows by a rule of its own rather than by being a staff command
+   * (`/operator`, plan 19B-1): whether the member who asks, where they ask, may read about it.
+   * Undefined: shown to everybody, or to staff only for a staff command.
+   */
+  seenBy?: (asker: LocatedInteraction, ctx: AppContext) => boolean;
 }
 
 /** A command without subcommands: `/join`, `/raid`. */
@@ -191,10 +197,16 @@ export interface SimpleCommand extends CommandBase, CommandHandler {
 export interface SubcommandHandler extends CommandHandler {
   /** Shown by `/help` for this subcommand, in addition to its description. */
   help?: Pick<CommandHelp, 'details' | 'examples'>;
+  /**
+   * Whether `/help` names this subcommand to the member who asks, where they ask (plan 19B-1:
+   * `/operator forget` to the instance operators alone); undefined, to whoever sees the command.
+   * Its guards keep it all the same.
+   */
+  seenBy?: (asker: LocatedInteraction, ctx: AppContext) => boolean;
 }
 
 /**
- * A command made of subcommands: `/gym create`, `/admin boss add`. Build one with
+ * A command made of subcommands: `/gym create`, `/operator boss add`. Build one with
  * `commandGroup` (command-group.ts), which keeps the definition and the handlers together.
  */
 export interface GroupedCommand extends CommandBase {

@@ -355,7 +355,7 @@ describe('listTierNote (plan 8X-J)', () => {
     expect(listTierNote(max)).toBe(
       'Screenshots show **Dynamax Sneasel** with 2 heads (2★) 3 times since yesterday, but the ' +
         'boss list has it at 1★. If the game has it at 2★, this would move it there: ' +
-        '`/admin boss add pokemon:sneasel tier:Dynamax 2★ days:7`',
+        '`/operator boss add pokemon:sneasel tier:Dynamax 2★ days:7`',
     );
   });
 
@@ -373,7 +373,7 @@ describe('listTierNote (plan 8X-J)', () => {
     ).toBe(
       'Screenshots show **Drapion** with 5 heads (Shadow T5) 4 times since yesterday, but the ' +
         'boss list has it at Shadow T3. If the game has it at Shadow T5, this would move it ' +
-        'there: `/admin boss add pokemon:drapion tier:Shadow T5 days:7`',
+        'there: `/operator boss add pokemon:drapion tier:Shadow T5 days:7`',
     );
     expect(
       listTierNote({
@@ -391,13 +391,13 @@ describe('listTierNote (plan 8X-J)', () => {
     expect(listTierNote({ ...max, overrideId: 4 })).toBe(
       'Screenshots show **Dynamax Sneasel** with 2 heads (2★) 3 times since yesterday, but the ' +
         'boss list has it at 1★, by override #4. If the game has it at 2★, that override may be ' +
-        'wrong: `/admin boss remove override:4`',
+        'wrong: `/operator boss remove override:4`',
     );
   });
 
   it('names a boss the game data lacks by its ids and its name made plain', () => {
     const note = listTierNote({ ...max, name: 'New*mon*', pokemon: 'ids:NEWMON' });
     expect(note).toContain(`**Dynamax ${plain('New*mon*')}**`);
-    expect(note).toContain('`/admin boss add pokemon:ids:NEWMON tier:Dynamax 2★ days:7`');
+    expect(note).toContain('`/operator boss add pokemon:ids:NEWMON tier:Dynamax 2★ days:7`');
   });
 });

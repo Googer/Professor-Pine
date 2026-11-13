@@ -258,7 +258,7 @@ export type SyncResult<T = RaidTier> =
    */
   | { status: 'failed'; kind: SyncFailure; httpStatus?: number; reason: string };
 
-/** What staff need of a boss list beyond what handlers read (`/admin boss`). */
+/** What staff need of a boss list beyond what handlers read (`/operator boss`). */
 export interface BossAdmin<T> {
   /**
    * The bosses the feed listed at the last successful read, as stored; with a zone, as they are
@@ -714,7 +714,7 @@ export class BossFeedService<T> implements BossAdmin<T> {
   }
 
   /**
-   * After a read the timer did not start (`/admin boss sync`, a catch-up), the timer is set
+   * After a read the timer did not start (`/operator boss sync`, a catch-up), the timer is set
    * again when that read learned a change that comes before it (review R3 of 8B-L).
    */
   private followChange(): void {

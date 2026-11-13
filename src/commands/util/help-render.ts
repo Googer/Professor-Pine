@@ -354,7 +354,7 @@ const EXAMPLES_ROOM = 700;
 
 /** Where a command's page leads besides "All groups". */
 interface HelpPageControls {
-  /** The page's path: `raid`, `admin boss`, `route add`. */
+  /** The page's path: `raid`, `operator boss`, `route add`. */
   path: string;
   /** The label of "◀": a group's label, or `/admin`. */
   back: string;
@@ -417,7 +417,7 @@ function helpPage(
 
 /**
  * Help for a command: what it does, a usage line per subcommand, and one per group of
- * subcommands (`/admin boss …` with what the group is for), with a menu of those groups; its
+ * subcommands (`/operator boss …` with what the group is for), with a menu of those groups; its
  * examples; "◀" to its group of commands and "All groups".
  */
 export function renderCommandHelp(
@@ -524,7 +524,7 @@ export function renderSubcommandHelp(
         command.subcommands?.get(path)?.help,
         [usageLine(name, childrenOf(sub))],
         settings,
-        // A subcommand of a group leads back to its group: `/admin boss add` to `/admin boss`.
+        // A subcommand of a group leads back to its group: `/operator boss add` to `/operator boss`.
         parent === null ? controls : { path: name, back: `/${json.name} ${parent}` },
         facts,
       );

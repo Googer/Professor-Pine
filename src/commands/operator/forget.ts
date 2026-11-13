@@ -12,7 +12,7 @@ import type { SubcommandPart } from '../../discord/command-group.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { deferSubmit, dialog } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
-import { requireOwner } from '../../discord/guards.js';
+import { isInstanceOperatorOf, requireInstanceOperator } from '../../discord/guards.js';
 import { answerApart, showInPlace, v2Answer } from '../../discord/late-reply.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
@@ -28,13 +28,13 @@ import { removable } from '../../services/member-removal.js';
 import { EXPIRED, NOT_YOURS, PendingRequests } from '../../services/pending-requests.js';
 
 /**
- * The kind of the custom ids of `/admin forget` (plan 8G): `forget:<token>:ask` under the look
+ * The kind of the custom ids of `/operator forget` (plan 8G): `forget:<token>:ask` under the look
  * ("Remove…", which opens the question) and `forget:<token>:remove`, the question's dialog,
- * whose Submit removes. The token is a pending request of the owner who asked.
+ * whose Submit removes. The token is a pending request of the operator who asked.
  */
 export const FORGET_KIND = 'forget';
 
-/** How long a look can be confirmed by the owner who asked for it. */
+/** How long a look can be confirmed by the operator who asked for it. */
 export const FORGET_MINUTES = 10;
 
 /** The looks waiting for "Remove…" and its question, by the token of their controls. */
@@ -44,23 +44,24 @@ const pending = new PendingRequests<{ member: NamedMember }>({
 });
 
 /**
- * `/admin forget member:`: removes what Pine holds of somebody, across every server, when they
- * ask for it (plan 8G; the privacy policy's promise). The owner's alone (`requireOwner`, on the
+ * `/operator forget member:`: removes what Pine holds of somebody, across every server, when they
+ * ask for it (plan 8G; the privacy policy's promise). The instance operators' alone (plan 19B-1,
+ * `requireInstanceOperator`: the owner and the file's `operators`; never a server's staff), on the
  * command and again on its controls): the data spans servers and it cannot be undone.
  *
  * First a look, then the act. The command answers privately with what Pine holds of that id
  * (`MemberRemoval.look`: counts, nothing of the data itself), what a removal takes, what it
- * leaves and why, and what is left for the owner to do by hand, with "Remove…" where there is
+ * leaves and why, and what is left for the operators to do by hand, with "Remove…" where there is
  * anything to take. The button asks once more in a dialog ("This cannot be undone"), and only
  * its Submit removes (`MemberRemoval.remove`, the one way it goes), answering with what went
- * and what is left. Only the owner who asked can press, within `FORGET_MINUTES`; a look is
+ * and what is left. Only the operator who asked can press, within `FORGET_MINUTES`; a look is
  * answered once. Nothing is sent to the member and nobody is pinged; the id is enough, so it
  * works for somebody who has left the server, or Discord.
  */
 export const forget: SubcommandPart = {
   data: new SlashCommandSubcommandBuilder()
     .setName('forget')
-    .setDescription('Remove what Pine holds of somebody, in every server (the bot’s owner only)')
+    .setDescription('Remove what Pine holds of somebody, in every server (its operators only)')
     .addUserOption((option) =>
       option
         .setName('member')
@@ -69,8 +70,9 @@ export const forget: SubcommandPart = {
     ),
   help: {
     details:
-      'For a request to have somebody’s data removed. Only the owner of this Pine can use it: ' +
-      'it works across every server Pine is in, and it cannot be undone.\n\n' +
+      'For a request to have somebody’s data removed. Only the operators of this Pine (its ' +
+      'owner and those its settings name) can use it, also in a direct message with me: it ' +
+      'works across every server Pine is in, and it cannot be undone.\n\n' +
       'It first shows, for you alone, what Pine holds of that person in every server, as ' +
       'counts: what a removal takes, what it leaves and why, and what is left for you to do ' +
       'by hand. Nothing changes until you press "Remove…" and confirm, within ' +
@@ -90,15 +92,17 @@ export const forget: SubcommandPart = {
       'nobody stay.\n\n' +
       'Backups keep the data until they age out, and posts on Discord are not edited. The ' +
       'person is not told. `member` takes an id too, for somebody who has left.',
-    examples: ['/admin forget member:@Ash'],
+    examples: ['/operator forget member:@Ash'],
   },
-  guards: [requireOwner],
+  guards: [requireInstanceOperator],
+  // Named in `/help` to the instance operators alone (plan 19B-1).
+  seenBy: (asker, ctx) => isInstanceOperatorOf(asker.user.id, ctx),
   // The look reads every table and both screenshot folders: longer than Discord waits.
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const user = interaction.options.getUser('member', true);
     // The name in this server where the account is in it (Discord sends the member then), else
-    // the account's: for the owner's eyes alone, kept only for the look's ten minutes.
+    // the account's: for the operator's eyes alone, kept only for the look's ten minutes.
     const inServer = interaction.options.getMember('member');
     const shown =
       inServer === null
@@ -129,7 +133,7 @@ export const forget: SubcommandPart = {
 };
 
 /**
- * What this installation leaves the owner to do by hand: where `/request` sends gym requests,
+ * What this installation leaves the operators to do by hand: where `/request` sends gym requests,
  * and whether it has the old bot's own `parties/` folder.
  */
 function byHandOf(ctx: Pick<AppContext, 'config'>): ByHand {
@@ -144,7 +148,7 @@ function byHandOf(ctx: Pick<AppContext, 'config'>): ByHand {
 }
 
 /**
- * The controls of `/admin forget` (kind `forget`): the owner's alone, as the command. "Remove…"
+ * The controls of `/operator forget` (kind `forget`): the instance operators' alone, as the command. "Remove…"
  * (`ask`) reads nothing but the pending look and opens the question; the question's Submit
  * (`remove`) takes the look (it is answered once), acknowledges on the look and removes, its
  * answer in the look's place (`inPlaceOfLook`). A removal the database refuses is answered with
@@ -152,7 +156,7 @@ function byHandOf(ctx: Pick<AppContext, 'config'>): ByHand {
  */
 export const forgetControls: ComponentHandler = {
   kind: FORGET_KIND,
-  guards: [requireOwner],
+  guards: [requireInstanceOperator],
   async button(interaction, id) {
     if (id.action !== 'ask') throw new UserError(STALE_COMPONENT);
     const found = pending.peek(id.id, interaction.user.id);
@@ -205,7 +209,7 @@ export const forgetControls: ComponentHandler = {
 
 /**
  * Shows the Submit's answer in the place of the look (`showInPlace`), so that the look no longer
- * offers Remove… once it is answered. A look that can no longer be edited (the owner dismissed
+ * offers Remove… once it is answered. A look that can no longer be edited (the operator dismissed
  * it, Discord forgot it) is logged and the answer follows privately below instead; a Submit from
  * no message answers apart.
  */

@@ -337,7 +337,7 @@ describe('MeetupSafetyRepository', () => {
     expect(await lifted()).toEqual({ liftedBy: null, liftedByName: null, liftedAt: null });
   });
 
-  describe('forgetting a member (plan 8G, `/admin forget`)', () => {
+  describe('forgetting a member (plan 8G, `/operator forget`)', () => {
     const BOB = '200000000000000003';
     const names = async () => ({
       requests: await db

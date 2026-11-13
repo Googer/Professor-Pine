@@ -399,7 +399,7 @@ export interface ListTierNotice extends ListTierSighting {
   channelId: string;
   /** The boss's name as the list has it. */
   name: string;
-  /** How `/admin boss` names it: its catalogue key, or `ids:<id>[:<form>]` (review M3). */
+  /** How `/operator boss` names it: its catalogue key, or `ids:<id>[:<form>]` (review M3). */
   pokemon: string;
   /** How many screenshots (`listTierDoubt`'s `count`). */
   count: number;
@@ -438,12 +438,12 @@ export function listTierNote(notice: ListTierNotice): string {
     const id = String(notice.overrideId);
     return (
       `${shown}, by override #${id}. ${then}, that override may be wrong: ` +
-      `\`/admin boss remove override:${id}\``
+      `\`/operator boss remove override:${id}\``
     );
   }
   return (
     `${shown}. ${then}, this would move it there: ` +
-    `\`/admin boss add pokemon:${notice.pokemon} tier:${bossTierLabel(notice.headsTier)} days:7\``
+    `\`/operator boss add pokemon:${notice.pokemon} tier:${bossTierLabel(notice.headsTier)} days:7\``
   );
 }
 

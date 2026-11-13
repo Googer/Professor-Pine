@@ -7,13 +7,13 @@ import { addDays, zoned } from './zoned.js';
  * its lead-up, such as "Into the Wild 2026", and the event itself), when the game runs what
  * amounts to an all-day Raid Hour (no eggs, every raid 25 minutes) and Power Spots everywhere
  * whose battles rotate every 30 minutes, as on a Max Battle Day, while neither ScrapedDuck's feed
- * nor Leek Duck's page says so. Staff set it (`/admin event-window`); one at a time per
+ * nor Leek Duck's page says so. Staff set it (`/operator event-window`); one at a time per
  * installation. Times are epoch milliseconds.
  *
  * Plan 19A-2: a time staff typed is local time in every server's zone, as the game's events are
  * (`FeedTimed`): `startLocal` and `endLocal` are the truth, `start` and `end` their moments in the
  * instance's default zone (what 2.0 reads), and `timedIn(window, zone)` the window in a server's
- * zone. A time that is a moment (a start of now, an end of now: `/admin event-window end`) has
+ * zone. A time that is a moment (a start of now, an end of now: `/operator event-window end`) has
  * no `…Local`, the same moment everywhere; a window kept before 2.1 has none either.
  */
 export interface EventWindow {

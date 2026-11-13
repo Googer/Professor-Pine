@@ -4,7 +4,7 @@ import { trustedLocals } from '../../domain/time/feed-times.js';
 import type { DB } from '../types.js';
 
 /**
- * The event window staff set (`/admin event-window`; table `EventWindow` of migration 049): one
+ * The event window staff set (`/operator event-window`; table `EventWindow` of migration 049): one
  * per installation, kept so that it survives a restart. Twin `MemoryEventWindows`
  * (`test/support/event-window-store.ts`), both running `eventWindowCases`.
  */

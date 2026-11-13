@@ -13,7 +13,7 @@ import { WebSessionRepository } from './web-session-repository.js';
 
 /**
  * What the database holds of one member across every server, counted (plan 8G: the look of the
- * owner's `/admin forget`). The first part is what `MemberData.remove` takes away or blanks, each
+ * operators' `/operator forget`). The first part is what `MemberData.remove` takes away or blanks, each
  * counted by the repository that removes it; the second is what it leaves.
  */
 export interface MemberHoldings {
@@ -124,7 +124,7 @@ export class MemberRemovalError extends Error {
 
 /**
  * Everything the database holds of one member, over every server, and its removal on request
- * (plan 8G, the owner's `/admin forget`): one place that names every table with a member's id.
+ * (plan 8G, the operators' `/operator forget`): one place that names every table with a member's id.
  *
  * `remove` is one transaction over the repositories that own the tables, each of whose methods
  * joins it: the member's row of settings with their wants, gym notices and saved routes

@@ -22,7 +22,7 @@ import { plain, truncate } from '../../render/text.js';
 import { CHOICE_NAME, MAX_CHOICES, showsGuessed, type Choice } from '../choices.js';
 import { namedPokemon } from '../pokemon-option.js';
 
-/** The subcommand group of `/admin` the boss list lives under. */
+/** The subcommand group of `/operator` the boss list lives under. */
 export const BOSS_GROUP = 'boss';
 export const BOSS_DESCRIPTION =
   'The raid and max boss lists: what the feeds say, and your changes to them';

@@ -389,7 +389,7 @@ describe('/gym export', () => {
   });
 });
 
-describe('/admin clear-image-cache', () => {
+describe('/operator clear-image-cache', () => {
   it('deletes the cached map pictures and says how many', async () => {
     const made = await gymCommandsWith();
     let left = 7;
@@ -405,7 +405,7 @@ describe('/admin clear-image-cache', () => {
     });
     const run = async () => {
       const interaction = fakeChatInput({
-        commandName: 'admin',
+        commandName: 'operator',
         subcommand: 'clear-image-cache',
         userId: MODERATOR,
         roleNames: ['Bot Developer'],
@@ -424,7 +424,7 @@ describe('/admin clear-image-cache', () => {
   it('is for staff', async () => {
     const made = await gymCommandsWith();
     const interaction = fakeChatInput({
-      commandName: 'admin',
+      commandName: 'operator',
       subcommand: 'clear-image-cache',
       userId: MEMBER,
     });

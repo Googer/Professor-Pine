@@ -411,7 +411,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
   }
 
   /**
-   * What is kept of a member (plan 8G: the look of `/admin forget`): the screenshots they sent
+   * What is kept of a member (plan 8G: the look of `/operator forget`): the screenshots they sent
    * or whose picture they posted (`theirs`; one kept and copied to review counts once) and, apart, the other members' screenshots that
    * hold feedback of theirs.
    */
@@ -430,7 +430,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
   }
 
   /**
-   * Removes what is kept of a member, from both folders (plan 8G, `/admin forget`): every
+   * Removes what is kept of a member, from both folders (plan 8G, `/operator forget`): every
    * screenshot they sent or whose picture they posted (`theirs`), the picture and its record, also one a raid that is going on shows
    * (its "Screenshot feedback" then says it is no longer kept); and from other members'
    * screenshots their feedback, their id and what they typed, the rest of the record as it was

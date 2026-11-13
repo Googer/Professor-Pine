@@ -181,7 +181,7 @@ export function memberText(member: NamedMember): string {
 
 /**
  * A member in a sentence as `memberText` names them, or "a former member" where the record lost
- * who they were: the owner removed their data on request (plan 8G, `/admin forget`), and the
+ * who they were: the owner removed their data on request (plan 8G, `/operator forget`), and the
  * moderators' records that stay keep neither their id nor their name. `start`: the words begin
  * a sentence or a line ("A former member").
  */

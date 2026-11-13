@@ -96,11 +96,11 @@ export interface AppContext {
   readonly gameData: GameDataProvider;
   /** The raid bosses in effect: the feed's list with the moderators' overrides. */
   readonly raidBosses: RaidBossProvider;
-  /** The boss list for staff (`/admin boss`): the feed as stored, the overrides, a sync now. */
+  /** The boss list for staff (`/operator boss`): the feed as stored, the overrides, a sync now. */
   readonly raidBossAdmin: RaidBossAdmin;
   /** The max bosses in effect (plan 8X-2). */
   readonly maxBosses: MaxBossProvider;
-  /** The max boss list for staff (`/admin boss`). */
+  /** The max boss list for staff (`/operator boss`). */
   readonly maxBossAdmin: MaxBossAdmin;
   /**
    * Raid Hours and Raid Days from the events feed (see `raidDurationRules`), and its max events
@@ -108,7 +108,7 @@ export interface AppContext {
    */
   readonly raidEvents: RaidEventProvider & MaxEventProvider & ResearchEventProvider;
   /**
-   * The event window staff set (`/admin event-window`, 2026-11-09), which `raidEvents` gives as a
+   * The event window staff set (`/operator event-window`, 2026-11-09), which `raidEvents` gives as a
    * Raid Hour and a Max Battle Day.
    */
   readonly eventWindows: EventWindows;
@@ -178,7 +178,7 @@ export interface AppContext {
   readonly raids: RaidChangeService;
   /** What members change about a max battle itself (plan 8X-3): its end and its boss. */
   readonly maxBattles: MaxChangeService;
-  /** The running battles moved with an add that moved their boss (plan 8X-J, `/admin boss add`). */
+  /** The running battles moved with an add that moved their boss (plan 8X-J, `/operator boss add`). */
   readonly bossMoves: Pick<BossTierMoves, 'move'>;
   /**
    * Meetup safety (plan 8S-1): the check of a meetup's place, the requests held for the
@@ -280,7 +280,7 @@ export interface AppContext {
   readonly scriptAccess: ScriptAccessService;
   /**
    * A member's data across every server, counted and removed on request (plan 8G: the owner's
-   * `/admin forget`).
+   * `/operator forget`).
    */
   readonly memberRemoval: MemberRemoval;
   /** Privileged-intent features actually granted at login (may be fewer than configured). */

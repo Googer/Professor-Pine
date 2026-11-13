@@ -5,6 +5,10 @@ import {
   MEMBER,
   textsOf,
 } from '../../../test/support/boss-commands.js';
+import { instanceConfig } from '../../../test/support/operators.js';
+import { createTestContext } from '../../../test/support/test-context.js';
+import { TEST_ENV } from '../../../test/support/test-env.js';
+import { ONLY_OPERATORS } from '../../discord/guards.js';
 import { admin } from './index.js';
 
 const textOf = (interaction: Parameters<typeof textsOf>[0]) => textsOf(interaction).join('\n');
@@ -29,6 +33,32 @@ describe('/admin nickname', () => {
     );
     expect(textOf(used)).toBe('Only admins, moderators and bot developers can do that.');
     expect(made.search.rows.rows.size).toBe(0);
+  });
+
+  // Plan 19B-1: the nicknames are every server's until they become a server's own (19B-4).
+  it('adds and removes only for the operators on an open instance; lists for staff', async () => {
+    const config = instanceConfig(createTestContext().ctx, { servers: 'open' });
+    const made = await bossCommandsWith({
+      nicknames: { dratini: ['danger noodle'] },
+      context: { config },
+    });
+    const add = await made.use('nickname', 'add', { pokemon: 'dratini', nickname: 'wiggle' });
+    expect(textOf(add)).toBe(ONLY_OPERATORS);
+    const remove = await made.use('nickname', 'remove', {
+      pokemon: 'dratini',
+      nickname: 'danger noodle',
+    });
+    expect(textOf(remove)).toBe(ONLY_OPERATORS);
+    expect(made.search.rows.rows.get('dratini')).toEqual(['danger noodle']);
+    expect(textOf(await made.use('nickname', 'list', {}))).toContain('danger noodle');
+    // The owner is an operator.
+    const owner = await made.use(
+      'nickname',
+      'add',
+      { pokemon: 'dratini', nickname: 'wiggle' },
+      { userId: TEST_ENV.OWNER_ID ?? '', roleNames: [] },
+    );
+    expect(textOf(owner)).toContain('Members find Dratini by **wiggle** now.');
   });
 });
 

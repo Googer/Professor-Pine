@@ -520,7 +520,7 @@ describe('RaidBossService with Leek Duck’s raid manifest', () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(requests.map((r) => r.url)).toEqual([MANIFEST, FEED]);
 
-      // As /admin boss sync would, half an hour later, with the manifest back.
+      // As /operator boss sync would, half an hour later, with the manifest back.
       await vi.advanceTimersByTimeAsync(30 * MINUTE);
       route(MANIFEST, reply(200, manifestText));
       await raidBosses.sync();

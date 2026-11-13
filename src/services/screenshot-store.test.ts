@@ -512,7 +512,7 @@ describe('ScreenshotStore', () => {
     await store.sweep();
   });
 
-  describe('forgetting a member (plan 8G, `/admin forget`)', () => {
+  describe('forgetting a member (plan 8G, `/operator forget`)', () => {
     const refused: NewScreenshot['decision'] = { kind: 'refuse', reason: 'not-a-raid-screen' };
 
     it('removes the screenshots a member sent from both folders, and their feedback on others’', async () => {

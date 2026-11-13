@@ -127,7 +127,7 @@ function overrideLine(reported: ReportedOverride<BossTier>): string {
 }
 
 /**
- * What `/admin boss list` says: when the feed was read and what it has that Pine does not know,
+ * What `/operator boss list` says: when the feed was read and what it has that Pine does not know,
  * then the bosses tier by tier as members see them, each with where it came from and what acts
  * on it, then what is hidden and what acts on nothing. With `tier`, that tier only; a max tier
  * shows the max boss list (`maxListLines`), and without a tier it follows the raid bosses.
@@ -303,7 +303,7 @@ async function sendLines(
   }
 }
 
-/** `/admin boss list`. */
+/** `/operator boss list`. */
 export const listBosses: SubcommandPart = {
   group: BOSS_GROUP,
   data: new SlashCommandSubcommandBuilder()
@@ -321,7 +321,11 @@ export const listBosses: SubcommandPart = {
       'days, or one the feed has made pointless, is marked "old?".\n\nWhere max battles are on, ' +
       "the max bosses follow (Pokebattler's feed), with the bosses it lists ahead of their start " +
       'under Coming; a max battle tier shows that tier only.',
-    examples: ['/admin boss list', '/admin boss list tier:T5', '/admin boss list tier:Gigantamax'],
+    examples: [
+      '/operator boss list',
+      '/operator boss list tier:T5',
+      '/operator boss list tier:Gigantamax',
+    ],
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
@@ -374,7 +378,7 @@ function overrideActsOn(ctx: AppContext, change: FeedChange): boolean {
   return ctx.raidBossAdmin.overrides().some((override) => keys.has(keyOf(override).key));
 }
 
-/** What `/admin boss sync` says of a read of the feed. */
+/** What `/operator boss sync` says of a read of the feed. */
 export function syncLines(ctx: AppContext, result: SyncResult): string[] {
   const read = ctx.raidBossAdmin.lastSyncedAt;
   if (result.status === 'failed') {
@@ -413,21 +417,21 @@ export function syncLines(ctx: AppContext, result: SyncResult): string[] {
     lines.push(
       'The feed has headings I do not know, whose bosses are left out: ' +
         `${fitItems(result.unknownLevels.map(plain), 1000)}. If one is a tier that is missing ` +
-        'from the list, add its bosses with `/admin boss add` until I learn the heading.',
+        'from the list, add its bosses with `/operator boss add` until I learn the heading.',
     );
   }
   if (result.shrank) {
     lines.push(
       `**The feed lists ${count(result.shrank.after, 'boss', 'bosses')} where it listed ` +
         `${String(result.shrank.before)}.** If that is not the rotation, the feed may be ` +
-        'broken; `/admin boss list` shows what is left, and `/admin boss add` puts a boss back.',
+        'broken; `/operator boss list` shows what is left, and `/operator boss add` puts a boss back.',
     );
   }
   return lines;
 }
 
 /**
- * What `/admin boss sync max:True` says of a read of the max boss feed (plan 8X-2): whether it
+ * What `/operator boss sync max:True` says of a read of the max boss feed (plan 8X-2): whether it
  * was read, and how many bosses came and went, and the tiers it does not know. `read` is when it
  * was last read before.
  */
@@ -446,7 +450,7 @@ export function maxSyncLines(read: number | undefined, result: SyncResult<MaxTie
       : [
           'The max boss feed lists other bosses now: ' +
             `${count(result.change.added.length, 'boss', 'bosses')} came, ` +
-            `${String(result.change.removed.length)} went. \`/admin boss list\` shows them.`,
+            `${String(result.change.removed.length)} went. \`/operator boss list\` shows them.`,
         ];
   if (result.unknownLevels) {
     lines.push(
@@ -457,7 +461,7 @@ export function maxSyncLines(read: number | undefined, result: SyncResult<MaxTie
   return lines;
 }
 
-/** `/admin boss sync`. */
+/** `/operator boss sync`. */
 export const syncBosses: SubcommandPart = {
   group: BOSS_GROUP,
   data: new SlashCommandSubcommandBuilder()
@@ -473,7 +477,7 @@ export const syncBosses: SubcommandPart = {
       'Reads the feed at once and says what changed. A read that fails leaves the list as it ' +
       'was.\n\nThe game data (names, stats, forms) is not read again by this. With `max:True` it ' +
       "reads the max boss feed (Pokebattler's) instead.",
-    examples: ['/admin boss sync', '/admin boss sync max:True'],
+    examples: ['/operator boss sync', '/operator boss sync max:True'],
   },
   defer: 'ephemeral',
   // A read asks a server of somebody else's; staff need it now and then, not in a loop.

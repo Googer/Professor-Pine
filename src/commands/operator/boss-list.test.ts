@@ -11,7 +11,7 @@ import type { NewBossOverride } from '../../domain/pogo/raid-bosses.js';
 import type { RaidTier } from '../../domain/pogo/raid-tier.js';
 import { fitMessages } from '../../render/text.js';
 import { keptTogether } from './boss-list.js';
-import { admin } from './index.js';
+import { operator } from './index.js';
 
 const T3: RaidTier = { level: 'T3', shadow: false };
 const T5: RaidTier = { level: 'T5', shadow: false };
@@ -44,14 +44,14 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('/admin boss: who may use it', () => {
-  it('is a group of /admin with list and sync', () => {
-    const json = admin.data.toJSON();
+describe('/operator boss: who may use it', () => {
+  it('is a group of /operator with list and sync', () => {
+    const json = operator.data.toJSON();
     const group = json.options?.find((option) => option.name === 'boss');
     expect(group?.description).toBe(
       'The raid and max boss lists: what the feeds say, and your changes to them',
     );
-    expect([...admin.subcommands.keys()]).toEqual(
+    expect([...operator.subcommands.keys()]).toEqual(
       expect.arrayContaining(['boss list', 'boss sync']),
     );
   });
@@ -69,7 +69,7 @@ describe('/admin boss: who may use it', () => {
   });
 });
 
-describe('/admin boss list', () => {
+describe('/operator boss list', () => {
   it('shows the bosses tier by tier, how each was found, and when the feed was read', async () => {
     const made = await bossCommandsWith();
     const used = await made.use('boss', 'list');
@@ -234,7 +234,7 @@ describe('/admin boss list', () => {
   });
 });
 
-describe('/admin boss sync', () => {
+describe('/operator boss sync', () => {
   it('says that nothing changed', async () => {
     const made = await bossCommandsWith();
     const used = await made.use('boss', 'sync');
@@ -323,7 +323,7 @@ describe('/admin boss sync', () => {
     for (let use = 0; use < 3; use++) await made.use('boss', 'sync');
     const fourth = await made.use('boss', 'sync');
     expect(made.bosses.state.requests).toBe(3);
-    expect(textsOf(fourth)[0]).toMatch(/^You can use \/admin boss sync again in/);
+    expect(textsOf(fourth)[0]).toMatch(/^You can use \/operator boss sync again in/);
   });
 
   it('says what changed, by tier', async () => {

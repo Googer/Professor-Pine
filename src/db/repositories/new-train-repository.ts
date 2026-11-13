@@ -89,7 +89,7 @@ export class NewTrainRepository implements NewTrainStorage {
     return rows.map((row) => row.memberId);
   }
 
-  /** In how many servers the member asked to be told of new trains (plan 8G, `/admin forget`). */
+  /** In how many servers the member asked to be told of new trains (plan 8G, `/operator forget`). */
   async countOf(memberId: string): Promise<number> {
     const counted = await this.db
       .selectFrom('NewTrainNotification')
@@ -100,7 +100,7 @@ export class NewTrainRepository implements NewTrainStorage {
   }
 
   /**
-   * Deletes the member's rows of every server (plan 8G, `/admin forget`); how many. The servers
+   * Deletes the member's rows of every server (plan 8G, `/operator forget`); how many. The servers
    * are read first, without a lock, and the rows deleted by their key (the server, the member):
    * the table has no index that begins with the member, and a delete by the member alone would
    * lock every row of it. In the caller's transaction when `db` is one.

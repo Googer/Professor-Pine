@@ -32,7 +32,7 @@ describe('ModerationReports: screenshots that disagree with the boss list (plan 
     expect(notes(made)).toEqual([
       'Screenshots show **Dynamax Sneasel** with 2 heads (2★) 3 times since yesterday, but the ' +
         'boss list has it at 1★. If the game has it at 2★, this would move it there: ' +
-        '`/admin boss add pokemon:sneasel tier:Dynamax 2★ days:7`',
+        '`/operator boss add pokemon:sneasel tier:Dynamax 2★ days:7`',
     ]);
     // A fourth screenshot, from another channel: the staff know already.
     expect(made.reports.listTier({ ...SNEASEL, channelId: EAST_CHANNEL, count: 4 })).toBe(true);

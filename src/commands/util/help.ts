@@ -32,7 +32,7 @@ import {
   type HelpGroup,
 } from './help-render.js';
 import { serverValuesOf, zoneOf } from '../../discord/server-values.js';
-import { commandsIn } from '../../discord/set-up.js';
+import { commandsIn, commandsSeenBy } from '../../discord/set-up.js';
 
 const MAX_CHOICES = 25;
 
@@ -47,15 +47,19 @@ function isStaff(interaction: Asker, ctx: AppContext): boolean {
   return isBotStaff(interaction, ctx);
 }
 
-/** The commands a member may read about: staff commands are shown to staff only. */
-function visibleCommands(
-  staff: boolean,
-  ctx: AppContext,
-  where: { guildId: string | null },
-): readonly CommandModule[] {
-  const seen = staff
-    ? ctx.commands
-    : ctx.commands.filter((c) => !isStaffCommand(c, ctx.config.settings.helpGroups));
+/**
+ * The commands a member may read about: staff commands are shown to staff only, and a command
+ * or subcommand with a rule of its own (`seenBy`: `/operator`, plan 19B-1) to whoever it names
+ * where they ask, staff or not.
+ */
+function visibleCommands(staff: boolean, ctx: AppContext, where: Asker): readonly CommandModule[] {
+  const seen = commandsSeenBy(
+    ctx.commands.filter(
+      (c) => c.seenBy !== undefined || staff || !isStaffCommand(c, ctx.config.settings.helpGroups),
+    ),
+    where,
+    ctx,
+  );
   // Without what the server has not set up (plan 19A-1); in a DM, as registered.
   return where.guildId === null
     ? seen
@@ -99,12 +103,7 @@ const TOLD_INSTEAD: ReadonlyMap<string, string> = new Map([
  * boss`) as the member who asks may see it; a staff command is answered to anybody else exactly
  * as one that does not exist.
  */
-function commandPage(
-  path: string,
-  staff: boolean,
-  ctx: AppContext,
-  where: { guildId: string | null },
-): V2Message {
+function commandPage(path: string, staff: boolean, ctx: AppContext, where: Asker): V2Message {
   const onMessage = messageCommandNamed(normalise(path), staff, ctx);
   if (onMessage) return renderMessageCommandHelp(onMessage, ctx.config.settings);
   const [name = '', ...rest] = path.split(' ');
@@ -125,26 +124,19 @@ function commandPage(
 }
 
 /** The groups of commands the member sees. */
-function groupsFor(
-  staff: boolean,
-  ctx: AppContext,
-  where: { guildId: string | null },
-): HelpGroup[] {
+function groupsFor(staff: boolean, ctx: AppContext, where: Asker): HelpGroup[] {
+  const commands = visibleCommands(staff, ctx, where);
   return helpGroupsOf(
-    visibleCommands(staff, ctx, where),
+    commands,
     ctx.config.settings.helpGroups,
-    staff,
+    // The staff's groups also for an operator who is no staff here (`/operator` in a DM).
+    staff || commands.some((command) => command.seenBy !== undefined),
     visibleMessageCommands(staff, ctx),
   );
 }
 
 /** The page of one group of commands, if the member sees it. */
-function groupPage(
-  category: string,
-  staff: boolean,
-  ctx: AppContext,
-  where: { guildId: string | null },
-): V2Message {
+function groupPage(category: string, staff: boolean, ctx: AppContext, where: Asker): V2Message {
   const group = groupsFor(staff, ctx, where).find((each) => each.category === category);
   if (!group) throw new UserError('There is no such group of commands.');
   return renderGroupHelp(group);
@@ -243,7 +235,7 @@ export const helpControls: ComponentHandler = {
       if (onMessage) {
         page = groupPage(onMessage.help.category, staff, ctx, interaction);
       } else if (words.length > 1) {
-        // One level up: `/admin boss add` to `/admin boss`, `/route add` to `/route`.
+        // One level up: `/operator boss add` to `/operator boss`, `/route add` to `/route`.
         page = commandPage(words.slice(0, -1).join(' '), staff, ctx, interaction);
       } else {
         const command = visibleCommands(staff, ctx, interaction).find((c) => c.data.name === name);

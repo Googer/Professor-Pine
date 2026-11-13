@@ -57,7 +57,7 @@ export interface RaidBossProvider {
   autoset(tier: RaidTier, zone: string): RaidBoss | undefined;
 }
 
-/** What staff need of the raid boss list beyond what handlers read (`/admin boss`). */
+/** What staff need of the raid boss list beyond what handlers read (`/operator boss`). */
 export type RaidBossAdmin = BossAdmin<RaidTier>;
 
 /**

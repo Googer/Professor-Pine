@@ -19,7 +19,7 @@ const NESTING = new Set<number | undefined>([
   ApplicationCommandOptionType.SubcommandGroup,
 ]);
 
-/** The options of every command and subcommand, by the path a member types (`/admin boss add`). */
+/** The options of every command and subcommand, by the path a member types (`/operator boss add`). */
 function optionLists(node: Declared, path: string): [string, Declared[]][] {
   const options = node.options ?? [];
   const parts = options.filter((option) => NESTING.has(option.type));

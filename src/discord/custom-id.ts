@@ -64,8 +64,8 @@
  * (`src/commands/admin/cleanup-legacy.ts`), with the token of the pending list as the id:
  * `cleanup:<token>:delete` and `cleanup:<token>:cancel`.
  *
- * The controls of the owner's `/admin forget` have the kind `forget`
- * (`src/commands/admin/forget.ts`, plan 8G), with the token of the pending look as the id:
+ * The controls of the operators' `/operator forget` have the kind `forget`
+ * (`src/commands/operator/forget.ts`, plan 8G), with the token of the pending look as the id:
  * `forget:<token>:ask` ("Remove…" under the look, which opens the question) and
  * `forget:<token>:remove` (the question's dialog, whose Submit removes).
  *

@@ -187,6 +187,21 @@ describe('the mapping of legacy commands', () => {
     });
   });
 
+  it('names /operator for the boss list and the image cache, every server’s (plan 19B-1)', () => {
+    for (const name of [
+      'raid-boss',
+      'raid-bosses',
+      'auto-set',
+      'mark-shiny',
+      'mark-not-shiny',
+      'clear-image-cache',
+    ]) {
+      expect(newCommandOf(name), name).toEqual({ kind: 'slash', commands: ['/operator'] });
+    }
+    // A server's own nicknames stay in /admin until plan 19B-4.
+    expect(newCommandOf('add-pokemon-nickname')).toEqual({ kind: 'slash', commands: ['/admin'] });
+  });
+
   it('knows the legacy names of the spec, without regard to case', () => {
     expect(newCommandOf('meetup')).toEqual({ kind: 'slash', commands: ['/meetup'] });
     expect(newCommandOf(' Left ')).toEqual({ kind: 'slash', commands: ['/end'] });

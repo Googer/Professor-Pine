@@ -129,7 +129,7 @@ export function staleWarning(lastSyncedAt: number | undefined): string {
         `(${timestamp(lastSyncedAt, 'R')}), so the raid boss list may be out of date.`;
   return (
     `**The raid boss list is not being updated.** ${since} I keep trying. Meanwhile ` +
-    '`/admin boss add` and `/admin boss hide` change the list, and `/admin boss sync` tries ' +
+    '`/operator boss add` and `/operator boss hide` change the list, and `/operator boss sync` tries ' +
     'again at once.'
   );
 }

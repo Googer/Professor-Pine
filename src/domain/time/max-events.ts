@@ -52,7 +52,7 @@ export interface MaxEvent {
    */
   page?: PageSource;
   /**
-   * The event window staff set (`eventWindowMaxEvent`, `/admin event-window`): `short` over several days,
+   * The event window staff set (`eventWindowMaxEvent`, `/operator event-window`): `short` over several days,
    * featuring nothing; it wins over every max event on at the same time (`maxEventAt`). Never
    * kept in the database.
    */

@@ -229,7 +229,7 @@ describe('HistoryRepository: who is named in the history', () => {
     });
   });
 
-  describe('forgetting a member in every server (plan 8G, `/admin forget`)', () => {
+  describe('forgetting a member in every server (plan 8G, `/operator forget`)', () => {
     /** The member's request for their old-bot history in a server. */
     const asked = (server: string, member: string) =>
       db

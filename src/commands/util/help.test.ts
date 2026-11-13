@@ -34,6 +34,8 @@ import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
 import { MEMBER_READ_THROTTLE } from '../../discord/throttle.js';
 import { meet } from '../parties/meet.js';
 import { end } from '../raids/change.js';
+import { operator } from '../operator/index.js';
+import { instanceConfig, OPERATOR_ID } from '../../../test/support/operators.js';
 import { help, helpControls } from './help.js';
 import { withFeatures } from '../../../test/support/server-values.js';
 
@@ -116,6 +118,56 @@ describe('/help: what a server has not set up', () => {
     );
     // In a DM, which is no server, it is as registered.
     expect(await choices('wa', { isDm: true }, quiet)).toEqual(['want']);
+  });
+});
+
+// Plan 19B-1: `/operator` to whoever passes the shared-data tier where they ask, `forget` on its
+// page to the instance operators alone; to anybody else as if it did not exist.
+describe('/help: /operator', () => {
+  const where = (servers?: 'open') => {
+    const base = createTestContext({ commands: [help, operator] }).ctx;
+    return createTestContext({
+      commands: [help, operator],
+      config: instanceConfig(base, { operators: [OPERATOR_ID], ...(servers ? { servers } : {}) }),
+    }).ctx;
+  };
+  const listed = where();
+  const open = where('open');
+  const OPERATOR_IN_DM = { userId: OPERATOR_ID, isDm: true };
+  const page = async (o: FakeOptions, context: typeof ctx) =>
+    JSON.stringify(textDisplays(await ask({ ...o, options: { command: 'operator' } }, context)));
+
+  it('shows it to the staff of a server of a listed instance, without forget', async () => {
+    const offered = await choices('operator', MODERATOR, listed);
+    expect(offered).toContain('operator clear-image-cache');
+    expect(offered).toContain('operator event-window set');
+    expect(offered).not.toContain('operator forget');
+    const shown = await page(MODERATOR, listed);
+    expect(shown).toContain('clear-image-cache');
+    expect(shown).not.toContain('forget');
+    await expect(
+      ask({ ...MODERATOR, options: { command: 'operator forget' } }, listed),
+    ).rejects.toThrow('There is no /operator forget command.');
+  });
+
+  it('shows forget to the instance operators, in a server and in a DM', async () => {
+    expect(await choices('operator f', { userId: ctx.config.env.OWNER_ID }, listed)).toEqual([
+      'operator forget',
+    ]);
+    expect(await choices('operator f', OPERATOR_IN_DM, listed)).toEqual(['operator forget']);
+    expect(await page(OPERATOR_IN_DM, open)).toContain('forget');
+    expect(groupsOf(await ask(OPERATOR_IN_DM, listed))).toContain('Administration');
+  });
+
+  it('answers it as nonexistent to staff who are no operators where they ask', async () => {
+    // An open instance: a server's staff change none of what every server shares.
+    expect(await choices('operator', MODERATOR, open)).toEqual([]);
+    await expect(ask({ ...MODERATOR, options: { command: 'operator' } }, open)).rejects.toThrow(
+      'There is no /operator command.',
+    );
+    // Their roles are read in their server only, never in a DM.
+    expect(await choices('operator', { ...MODERATOR, isDm: true }, listed)).toEqual([]);
+    expect(await choices('operator', {}, listed)).toEqual([]);
   });
 });
 

@@ -14,7 +14,7 @@ import { count, memberText, type NamedMember } from './text.js';
 import { actionRow, LIST_COLOUR, textMessage } from './v2.js';
 
 /*
- * What the owner is told of a member's data (plan 8G, `/admin forget`): the look before a
+ * What the owner is told of a member's data (plan 8G, `/operator forget`): the look before a
  * removal, and what a removal did. Both say, in the same lines, what goes, what stays and why,
  * and what is left for the owner to do by hand. Private answers: the member is named with
  * `memberText`, and nothing here pings.

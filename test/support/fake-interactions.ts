@@ -80,7 +80,7 @@ interface FakeOptionData {
 
 export interface FakeOptions {
   commandName?: string;
-  /** `/gym create` has subcommand `create`; `/admin boss add` has group `boss`, subcommand `add`. */
+  /** `/gym create` has subcommand `create`; `/operator boss add` has group `boss`, subcommand `add`. */
   subcommand?: string;
   subcommandGroup?: string;
   customId?: string;

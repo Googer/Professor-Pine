@@ -22,7 +22,7 @@ import { setBoss } from '../../domain/party/raid.js';
 import { DM_PRIORITY } from '../../services/dm-sender.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
 import { FEED_READ_AT, feedReply, readRaidBossFeed } from '../../../test/support/raid-bosses.js';
-import { admin } from './index.js';
+import { operator } from './index.js';
 
 /** The zone of the test settings, every server's here. */
 const ZONE = 'America/New_York';
@@ -42,9 +42,9 @@ afterEach(() => {
 
 const textOf = (interaction: Parameters<typeof textsOf>[0]) => textsOf(interaction).join('\n');
 
-describe('/admin boss: the subcommands', () => {
+describe('/operator boss: the subcommands', () => {
   it('lists them in the order of the brief', () => {
-    const json = admin.data.toJSON();
+    const json = operator.data.toJSON();
     const group = json.options?.find((option) => option.name === 'boss');
     const names = (group && 'options' in group ? (group.options ?? []) : []).map((o) => o.name);
     expect(names).toEqual(['list', 'add', 'hide', 'autoset', 'shiny', 'remove', 'sync']);
@@ -78,7 +78,7 @@ describe('/admin boss: the subcommands', () => {
   });
 });
 
-describe('/admin boss add', () => {
+describe('/operator boss add', () => {
   it('adds a boss for 30 days by default, says so, and shows the tier now', async () => {
     const made = await bossCommandsWith();
     const used = await made.use('boss', 'add', { pokemon: 'Zekrom', tier: 'T5' });
@@ -227,7 +227,7 @@ describe('/admin boss add', () => {
     const used = await made.use('boss', 'add', { pokemon: 'yveltal', tier: 'T5', shiny: true });
     expect(textOf(used)).toContain(
       'The feed lists it in that tier already, so this changes nothing while it does. To change ' +
-        'whether it can be shiny, use `/admin boss shiny`.',
+        'whether it can be shiny, use `/operator boss shiny`.',
     );
   });
 
@@ -256,7 +256,7 @@ describe('/admin boss add', () => {
   });
 });
 
-describe('/admin boss hide', () => {
+describe('/operator boss hide', () => {
   it('hides a boss for good by default', async () => {
     const made = await bossCommandsWith();
     const used = await made.use('boss', 'hide', { pokemon: 'starmie', tier: 'T3' });
@@ -279,7 +279,7 @@ describe('/admin boss hide', () => {
   });
 });
 
-describe('/admin boss autoset', () => {
+describe('/operator boss autoset', () => {
   // Review J2: an autoset moves its boss as an add does, and says so.
   it('says which tier of the feed it moves the boss from, and moves running raids', async () => {
     const parties = await partyServiceWith([
@@ -326,7 +326,7 @@ describe('/admin boss autoset', () => {
   });
 });
 
-describe('/admin boss shiny', () => {
+describe('/operator boss shiny', () => {
   it('sets shiny in every tier, or in one', async () => {
     const made = await bossCommandsWith();
     const every = await made.use('boss', 'shiny', { pokemon: 'yveltal', 'can-be-shiny': false });
@@ -349,7 +349,7 @@ describe('/admin boss shiny', () => {
   });
 });
 
-describe('/admin boss remove', () => {
+describe('/operator boss remove', () => {
   it('offers the overrides in force with what they do and when they lapse', async () => {
     const made = await bossCommandsWith();
     await made.use('boss', 'add', { pokemon: 'zekrom', tier: 'T5' });
@@ -415,7 +415,7 @@ describe('/admin boss remove', () => {
   });
 });
 
-describe('/admin boss: the pokemon option', () => {
+describe('/operator boss: the pokemon option', () => {
   it('offers the bosses first, then what the text finds', async () => {
     const made = await bossCommandsWith();
     const empty = choicesOf(await made.typing('boss', 'add', 'pokemon', ''));
@@ -464,7 +464,7 @@ describe('/admin boss: the pokemon option', () => {
 
 // Matt's ruling 5 of 2026-11-10: the boss lists are every server's, changed on the word of one
 // server's staff. The owner is told by DM of each of the five ways the override list changes.
-describe('/admin boss: telling the owner of a change of the override list', () => {
+describe('/operator boss: telling the owner of a change of the override list', () => {
   const OWNER = TEST_ENV.OWNER_ID ?? '';
   const told = (made: Awaited<ReturnType<typeof bossCommandsWith>>) =>
     (made.ctx.dms as RecordingDms).jobs;

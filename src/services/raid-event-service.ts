@@ -131,7 +131,7 @@ export interface RaidEventOptions {
    */
   pageMaxHours?: () => readonly MaxEvent[];
   /**
-   * The event window staff set (`EventWindowService.current`, `/admin event-window`; 2026-11-09),
+   * The event window staff set (`EventWindowService.current`, `/operator event-window`; 2026-11-09),
    * asked at each call with the zone asked for (plan 19A-2: its wall-clock times on that zone's
    * clock): `events()` gives it as a Raid Hour and `maxEvents()` as a Max Battle Day
    * (`withEventWindowRaid`, `withEventWindowMax`); never kept with the max events, never listed

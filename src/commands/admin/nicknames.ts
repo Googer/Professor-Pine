@@ -6,6 +6,7 @@ import {
 import type { AppContext } from '../../app-context.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
+import { requireSharedDataOperator } from '../../discord/guards.js';
 import { zoneOf } from '../../discord/server-values.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
 import {
@@ -19,7 +20,7 @@ import { count, fitItems, fitMessages, plain, truncate } from '../../render/text
 import type { NicknameAdded } from '../../services/pokemon-search-service.js';
 import { byName, CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import { pokemonChoices, pokemonOption } from '../pokemon-option.js';
-import { chosenPokemon } from './boss-input.js';
+import { chosenPokemon } from '../operator/boss-input.js';
 
 /** The subcommand group of `/admin` the nicknames live under. */
 export const NICKNAME_GROUP = 'nickname';
@@ -159,6 +160,8 @@ export const addNickname: SubcommandPart = {
       'spaces or hyphens, and must not be the name or a nickname of another Pokémon.',
     examples: ['/admin nickname add pokemon:Dratini nickname:danger noodle'],
   },
+  // Every server's until they become a server's own (plan 19B-4): the shared-data tier.
+  guards: [requireSharedDataOperator],
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const entry = chosenEntry(
@@ -198,6 +201,8 @@ export const removeNickname: SubcommandPart = {
       'first: the list then offers its nicknames.',
     examples: ['/admin nickname remove pokemon:Dratini nickname:danger noodle'],
   },
+  // Every server's until they become a server's own (plan 19B-4): the shared-data tier.
+  guards: [requireSharedDataOperator],
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const entry = chosenEntry(

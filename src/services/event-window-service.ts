@@ -29,7 +29,7 @@ export interface EventWindowSet {
   before: EventWindow | undefined;
 }
 
-/** What `/admin event-window` needs of the event window (`EventWindowService`). */
+/** What `/operator event-window` needs of the event window (`EventWindowService`). */
 export interface EventWindows {
   /**
    * The window that has not ended at `now` (begun or still to come), in `zone` (a server's, plan
@@ -53,7 +53,7 @@ export interface EventWindows {
 }
 
 /**
- * The event window staff set (`/admin event-window`; 2026-11-09): kept in the database
+ * The event window staff set (`/operator event-window`; 2026-11-09): kept in the database
  * (`EventWindowStorage`) and in memory, where `RaidEventService` asks it at every call
  * (`current`, its option `eventWindow`), so that every reader of the raid and max events has it
  * the moment it is set. Loaded at start (`load`, before the first read of the feed). Its changes

@@ -325,7 +325,7 @@ export async function startApp(
     fetch: (url, init) => fetch(url, init),
     log,
   });
-  // The event window staff set (`/admin event-window`, 2026-11-09), kept in the database.
+  // The event window staff set (`/operator event-window`, 2026-11-09), kept in the database.
   const eventWindows = new EventWindowService({
     store: new EventWindowRepository(db, instanceZone(config.settings)),
     log,
@@ -1189,7 +1189,7 @@ export async function startApp(
   // The screenshot trigger, for "Read screenshot" in a message's Apps menu (plan 7M): set once
   // it is made below, since it takes the context itself.
   const shotTrigger: { is?: ScreenshotTrigger } = {};
-  // Removing a member's data on request (plan 8G, the owner's `/admin forget`): the database in
+  // Removing a member's data on request (plan 8G, the operators' `/operator forget`): the database in
   // one transaction, then the kept screenshots and the live streams of the web logins it
   // deleted, which the hub of the live map ends once it is made (below).
   const liveSessions: { end?: (sessionId: string) => void } = {};

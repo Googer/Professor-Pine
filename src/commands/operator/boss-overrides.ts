@@ -333,7 +333,7 @@ async function respondWithPokemon(
   );
 }
 
-/** `/admin boss add`. */
+/** `/operator boss add`. */
 export const addBoss: SubcommandPart = {
   group: BOSS_GROUP,
   data: withDays(
@@ -356,15 +356,16 @@ export const addBoss: SubcommandPart = {
       "feed's listing of it at another tier of the same kind is left out while the add lasts " +
       '(Gigantamax and mega tiers are kinds of their own).\n\nRaids and max battles on now ' +
       'at the tier it moved from, in every server, move with it and their posts say so; ' +
-      `removing the add does not move them back (\`/boss\` fixes one). It lasts ${String(DEFAULT_DAYS)} days unless you give \`days\`; \`days:0\` keeps ` +
-      'it until you remove it with `/admin boss remove`. Adding it again replaces the earlier one.' +
+      'removing the add does not move them back (`/boss` fixes one).\n\n' +
+      `It lasts ${String(DEFAULT_DAYS)} days unless you give \`days\`; \`days:0\` keeps ` +
+      'it until you remove it with `/operator boss remove`. Adding it again replaces the earlier one.' +
       '\n\nThe boss lists are shared by every server I run in: my owner is told of each ' +
       'change of the overrides, with who made it and in which server.',
     examples: [
-      '/admin boss add pokemon:Zekrom tier:T5',
-      '/admin boss add pokemon:Mew tier:T5 days:3',
-      '/admin boss add pokemon:Machamp tier:Gigantamax',
-      '/admin boss add pokemon:Sneasel tier:Dynamax 2★ days:7',
+      '/operator boss add pokemon:Zekrom tier:T5',
+      '/operator boss add pokemon:Mew tier:T5 days:3',
+      '/operator boss add pokemon:Machamp tier:Gigantamax',
+      '/operator boss add pokemon:Sneasel tier:Dynamax 2★ days:7',
     ],
   },
   defer: 'ephemeral',
@@ -394,7 +395,7 @@ export const addBoss: SubcommandPart = {
             'The feed lists it in that tier already, so this changes nothing while it does.' +
               (shiny === null
                 ? ''
-                : ' To change whether it can be shiny, use `/admin boss shiny`.'),
+                : ' To change whether it can be shiny, use `/operator boss shiny`.'),
           ]
         : []),
       ...(hide
@@ -409,7 +410,7 @@ export const addBoss: SubcommandPart = {
   autocomplete: respondWithPokemon,
 };
 
-/** `/admin boss hide`. */
+/** `/operator boss hide`. */
 export const hideBoss: SubcommandPart = {
   group: BOSS_GROUP,
   data: withDays(
@@ -423,9 +424,9 @@ export const hideBoss: SubcommandPart = {
   help: {
     details:
       'For a boss the feed lists wrongly or no longer has, in a raid or a max battle tier. It ' +
-      'lasts until you remove it with `/admin boss remove`, or for `days`. A hidden boss beats ' +
+      'lasts until you remove it with `/operator boss remove`, or for `days`. A hidden boss beats ' +
       'one you added.',
-    examples: ['/admin boss hide pokemon:Starmie tier:T3'],
+    examples: ['/operator boss hide pokemon:Starmie tier:T3'],
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
@@ -454,7 +455,7 @@ export const hideBoss: SubcommandPart = {
   autocomplete: respondWithPokemon,
 };
 
-/** `/admin boss autoset`. */
+/** `/operator boss autoset`. */
 export const autosetBossPart: SubcommandPart = {
   group: BOSS_GROUP,
   data: withDays(
@@ -473,7 +474,7 @@ export const autosetBossPart: SubcommandPart = {
       'A tier has one choice: a new one replaces the earlier one, which then is no boss of the ' +
       "tier unless the feed lists it.\n\nIt moves the boss from the feed's tier as `add` does. " +
       'Raid tiers only: a max battle has no egg.',
-    examples: ['/admin boss autoset pokemon:Yveltal tier:T5'],
+    examples: ['/operator boss autoset pokemon:Yveltal tier:T5'],
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
@@ -522,7 +523,7 @@ export const autosetBossPart: SubcommandPart = {
   autocomplete: respondWithPokemon,
 };
 
-/** `/admin boss shiny`. */
+/** `/operator boss shiny`. */
 export const shinyBoss: SubcommandPart = {
   group: BOSS_GROUP,
   data: new SlashCommandSubcommandBuilder()
@@ -536,11 +537,11 @@ export const shinyBoss: SubcommandPart = {
   help: {
     details:
       'The feed says which bosses can be shiny; this overrides it until you remove it with ' +
-      '`/admin boss remove`. One for a single tier beats one for every tier. Without a tier it ' +
+      '`/operator boss remove`. One for a single tier beats one for every tier. Without a tier it ' +
       'covers the raid tiers; give a max battle tier for a max boss.',
     examples: [
-      '/admin boss shiny pokemon:Yveltal can-be-shiny:True',
-      '/admin boss shiny pokemon:Machamp can-be-shiny:True tier:Gigantamax',
+      '/operator boss shiny pokemon:Yveltal can-be-shiny:True',
+      '/operator boss shiny pokemon:Machamp can-be-shiny:True tier:Gigantamax',
     ],
   },
   defer: 'ephemeral',
@@ -574,7 +575,7 @@ export const shinyBoss: SubcommandPart = {
   autocomplete: respondWithPokemon,
 };
 
-/** `/admin boss remove`. */
+/** `/operator boss remove`. */
 export const removeOverride: SubcommandPart = {
   group: BOSS_GROUP,
   data: new SlashCommandSubcommandBuilder()
@@ -591,9 +592,9 @@ export const removeOverride: SubcommandPart = {
   help: {
     details:
       'The list offers every override in force, of the raid and the max boss lists, with its ' +
-      'number, what it does and when it lapses; `/admin boss list` shows them too. The boss ' +
+      'number, what it does and when it lapses; `/operator boss list` shows them too. The boss ' +
       'list is then as the other overrides and the feed say.',
-    examples: ['/admin boss remove override:3'],
+    examples: ['/operator boss remove override:3'],
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
@@ -660,7 +661,7 @@ export const removeOverride: SubcommandPart = {
   },
 };
 
-/** The parts of `/admin boss` that change overrides, in the order Discord lists them. */
+/** The parts of `/operator boss` that change overrides, in the order Discord lists them. */
 export const overrideParts: readonly SubcommandPart[] = [
   addBoss,
   hideBoss,

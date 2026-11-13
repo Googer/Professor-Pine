@@ -45,7 +45,7 @@ async function watchWith() {
 }
 
 describe('ListTierWatch (plan 8X-J)', () => {
-  it('tells the moderators at the third screenshot, with the boss as /admin boss names it', async () => {
+  it('tells the moderators at the third screenshot, with the boss as /operator boss names it', async () => {
     const { watch, told, where } = await watchWith();
     watch.observe(where('100000000000000001', 'w1'), SNEASEL);
     watch.observe(where('100000000000000001', 'w1'), SNEASEL);

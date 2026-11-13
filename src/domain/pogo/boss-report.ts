@@ -15,7 +15,7 @@ import {
 } from './raid-bosses.js';
 import type { RaidTier } from './raid-tier.js';
 
-/** An override this old is marked as one to look at (`/admin boss list`). */
+/** An override this old is marked as one to look at (`/operator boss list`). */
 export const OLD_OVERRIDE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** An override in force, with what it is for. */

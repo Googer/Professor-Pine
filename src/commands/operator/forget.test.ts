@@ -21,7 +21,9 @@ import { components } from '../../components/index.js';
 import { REMOVAL_STEPS } from '../../db/repositories/member-data-repository.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { InteractionRouter } from '../../discord/router.js';
-import { admin } from './index.js';
+import { ONLY_OPERATORS, ONLY_OPERATORS_IN_A_DM } from '../../discord/guards.js';
+import { instanceConfig, OPERATOR_ID } from '../../../test/support/operators.js';
+import { operator } from './index.js';
 
 const OWNER = TEST_ENV.OWNER_ID ?? '';
 const MODERATOR = '700000000000000001';
@@ -57,26 +59,28 @@ const EVERYTHING = {
 
 /**
  * `requestsRepo`: the installation sends gym requests to that GitHub repository (`/request`);
- * `legacyPartiesDir`: it has the old bot's own `parties/` folder (`LEGACY_PARTIES_DIR`).
+ * `legacyPartiesDir`: it has the old bot's own `parties/` folder (`LEGACY_PARTIES_DIR`);
+ * `operators`: the settings' `operators` (plan 19B-1).
  */
 function setup(
   options: Parameters<typeof memberRemovalWith>[0] & {
     requestsRepo?: string;
     legacyPartiesDir?: string;
+    operators?: string[];
   } = {},
 ) {
   const made = memberRemovalWith(options);
   const plain = createTestContext({ memberRemoval: made.removal });
   const base = plain.ctx;
-  const { requestsRepo, legacyPartiesDir } = options;
+  const { requestsRepo, legacyPartiesDir, operators } = options;
   /** `logged`: what the command itself logged (the service logs in `entries`). */
   const { ctx, entries: logged } =
-    requestsRepo === undefined && legacyPartiesDir === undefined
+    requestsRepo === undefined && legacyPartiesDir === undefined && operators === undefined
       ? plain
       : createTestContext({
           memberRemoval: made.removal,
           config: {
-            ...base.config,
+            ...instanceConfig(base, operators === undefined ? {} : { operators }),
             env: {
               ...base.config.env,
               ...(requestsRepo === undefined
@@ -86,13 +90,13 @@ function setup(
             },
           },
         });
-  const router = new InteractionRouter(ctx, [admin], components);
+  const router = new InteractionRouter(ctx, [operator], components);
   /** The private message of the latest look, as the owner sees it: its Submit edits it. */
   let look: FakeMessage | undefined;
-  /** `/admin forget member:` as somebody; the owner, who needs no role, unless `by` says. */
+  /** `/operator forget member:` as somebody; the owner, who needs no role, unless `by` says. */
   const ask = async (by: FakeOptions = { userId: OWNER }, memberId = ASH, inServer = true) => {
     const interaction = fakeChatInput({
-      commandName: 'admin',
+      commandName: 'operator',
       subcommand: 'forget',
       resolved: { member: { id: memberId, bot: false, username: 'ash', globalName: 'Ash' } },
       // Discord sends the member with the option only for an account in this server.
@@ -148,19 +152,19 @@ const lookOf = (interaction: { editReply: Parameters<typeof sent>[0] }) =>
 const refusalOf = (interaction: { reply: Parameters<typeof sent>[0] }) =>
   (sent(interaction.reply) as { content?: string } | undefined)?.content;
 
-describe('/admin forget', () => {
+describe('/operator forget', () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('is the owner’s alone: a moderator and a bot developer are refused, and nothing is looked up', async () => {
+  it('is the instance operators’ alone: a moderator and a bot developer are refused, and nothing is looked up', async () => {
     const { ask, data } = setup();
     data.hold(ASH, EVERYTHING);
     const moderator = await ask({ userId: MODERATOR, roleNames: ['Moderator'] });
-    expect(refusalOf(moderator)).toBe('Only the owner of this Pine can do that.');
+    expect(refusalOf(moderator)).toBe(ONLY_OPERATORS);
     const developer = await ask({ userId: DEVELOPER, roleNames: ['Bot Developer'] });
-    expect(refusalOf(developer)).toBe('Only the owner of this Pine can do that.');
-    // Somebody who is no staff at all is refused by `/admin` itself.
+    expect(refusalOf(developer)).toBe(ONLY_OPERATORS);
+    // Somebody who is no staff at all is refused by `/operator` itself.
     const member = await ask({ userId: '700000000000000003' });
     expect(refusalOf(member)).toBe('Only admins, moderators and bot developers can do that.');
     for (const refused of [moderator, developer, member]) {
@@ -325,6 +329,21 @@ describe('/admin forget', () => {
     expect(data.removals).toEqual([ASH]);
   });
 
+  it('is an operator’s of the settings too, also in a DM with the bot (plan 19B-1)', async () => {
+    const { ask, press, submit, data } = setup({ operators: [OPERATOR_ID] });
+    data.hold(ASH, EVERYTHING);
+    const operatorInDm = { userId: OPERATOR_ID, isDm: true };
+    // Staff of a server are refused in a DM as in their server.
+    const moderator = await ask({ userId: MODERATOR, roleNames: ['Moderator'], isDm: true });
+    expect(refusalOf(moderator)).toBe(ONLY_OPERATORS_IN_A_DM);
+    const asked = await ask(operatorInDm, ASH, false);
+    expect(textOf(lookOf(asked))).toContain('### What Pine holds of **Ash** (<@');
+    const [remove] = customIdsOf(lookOf(asked));
+    const dialog = shownDialog(await press(remove ?? '', operatorInDm));
+    await submit(dialog, operatorInDm);
+    expect(data.removals).toEqual([ASH]);
+  });
+
   it('lets only the owner press and submit', async () => {
     const { ask, press, submit, data } = setup();
     data.hold(ASH, EVERYTHING);
@@ -333,12 +352,12 @@ describe('/admin forget', () => {
 
     const pressed = await press(remove ?? '', moderator);
     expect(dialogOf(pressed)).toBeUndefined();
-    expect(refusalOf(pressed)).toBe('Only the owner of this Pine can do that.');
+    expect(refusalOf(pressed)).toBe(ONLY_OPERATORS);
 
     // A Submit that somebody else sends for the owner's question is refused the same way.
     const dialog = shownDialog(await press(remove ?? ''));
     const forged = await submit(dialog, moderator);
-    expect(refusalOf(forged)).toBe('Only the owner of this Pine can do that.');
+    expect(refusalOf(forged)).toBe(ONLY_OPERATORS);
     expect(forged.deferReply).not.toHaveBeenCalled();
     expect(data.removals).toEqual([]);
 
@@ -574,10 +593,12 @@ describe('/admin forget', () => {
     ]);
   });
 
-  it('says in its help that it is the owner’s, and what it takes and leaves', () => {
-    const part = admin.subcommands.get('forget');
+  it('says in its help that it is the operators’, and what it takes and leaves', () => {
+    const part = operator.subcommands.get('forget');
     const details = typeof part?.help?.details === 'string' ? part.help.details : '';
-    expect(details).toContain('Only the owner of this Pine can use it');
+    expect(details).toContain(
+      'Only the operators of this Pine (its owner and those its settings name) can use it',
+    );
     expect(details).toContain('cannot be undone');
     expect(details).toContain('meetup blocks');
     // As the removal does since fix round 1: ids too, and what they wrote of their parties.
@@ -587,6 +608,6 @@ describe('/admin forget', () => {
       'the trains and meetups they made while their history was on (a record made without it ' +
         'does not say who made it)',
     );
-    expect(part?.help?.examples).toEqual(['/admin forget member:@Ash']);
+    expect(part?.help?.examples).toEqual(['/operator forget member:@Ash']);
   });
 });

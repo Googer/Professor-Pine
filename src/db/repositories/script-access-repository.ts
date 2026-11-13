@@ -267,7 +267,7 @@ export class ScriptAccessRepository implements ScriptAccessStore {
   }
 
   /**
-   * Deletes the member's row (plan 8G, `/admin forget`): their name, their community, the state
+   * Deletes the member's row (plan 8G, `/operator forget`): their name, their community, the state
    * of their request and their key, which stops working with it. True when there was one. One
    * statement, in the caller's transaction when `db` is one.
    */

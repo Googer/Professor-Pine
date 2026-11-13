@@ -134,7 +134,7 @@ export class ListTierWatch {
 /**
  * The boss of a family's list in effect with the sighting's key at its list tier (a tier of the
  * family's own: the sighting's family says which), and the `add` or `autoset` in force that acts
- * on it there (review M7), both as `familyReport` gives them to `/admin boss list` (review J8).
+ * on it there (review M7), both as `familyReport` gives them to `/operator boss list` (review J8).
  */
 function listedWithAdd<T, R extends StoredBoss<T>>(
   ops: BossFamilyOps<T>,

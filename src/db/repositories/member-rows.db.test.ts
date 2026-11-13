@@ -142,7 +142,7 @@ describe('member rows with a memory of the rows that were seen', () => {
     expect(ids.user(ALICE)).toBeUndefined();
   });
 
-  // Plan 8G, review G-4: the owner's `/admin forget` deletes the row while the member's own
+  // Plan 8G, review G-4: the operators' `/operator forget` deletes the row while the member's own
   // change, which read the row's id from the table just before, waits for its lock.
   it('makes the change as for a new member when the removal of their row commits under it', async () => {
     const before = await addTarget(undefined);

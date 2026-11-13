@@ -13,9 +13,12 @@ import { withZones } from '../../../test/support/server-values.js';
 import { TEST_ENV } from '../../../test/support/test-env.js';
 import { zonedAt } from '../../../test/support/time.js';
 import { createTestLogger } from '../../../test/support/test-logger.js';
+import { createTestContext } from '../../../test/support/test-context.js';
+import { instanceConfig, OPERATOR_ID } from '../../../test/support/operators.js';
+import { ONLY_OPERATORS_IN_A_DM } from '../../discord/guards.js';
 import { DM_PRIORITY } from '../../services/dm-sender.js';
 import { EventWindowService } from '../../services/event-window-service.js';
-import { admin } from './index.js';
+import { operator } from './index.js';
 
 const ZONE = 'America/New_York';
 const at = (local: string): number => zonedAt(local, ZONE);
@@ -40,6 +43,7 @@ async function commands(
   store = new MemoryEventWindows(),
   zone?: string,
   others: readonly string[] = [],
+  instance: Parameters<typeof instanceConfig>[1] = {},
 ) {
   const { log } = createTestLogger();
   const servers = withZones({
@@ -48,11 +52,12 @@ async function commands(
   });
   const eventWindows = new EventWindowService({ store, log, zones: () => servers.zonesInUse() });
   await eventWindows.load();
-  const made = await bossCommandsWith({ context: { eventWindows, servers } });
+  const config = instanceConfig(createTestContext().ctx, instance);
+  const made = await bossCommandsWith({ context: { eventWindows, servers, config } });
   return { ...made, eventWindows, store };
 }
 
-describe('/admin event-window', () => {
+describe('/operator event-window', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(NOW);
@@ -61,12 +66,26 @@ describe('/admin event-window', () => {
     vi.useRealTimers();
   });
 
-  it('is a group of /admin with set and end', () => {
-    expect([...admin.subcommands.keys()]).toEqual(
+  it('is a group of /operator with set and end', () => {
+    expect([...operator.subcommands.keys()]).toEqual(
       expect.arrayContaining(['event-window set', 'event-window end']),
     );
-    const group = admin.data.toJSON().options?.find((option) => option.name === 'event-window');
+    const group = operator.data.toJSON().options?.find((option) => option.name === 'event-window');
     expect(group?.description).toBe('All-day Raid Hour raids and Max Battle Day rotations');
+  });
+
+  it('says in its help who may set the one window of every server (plan 19B-1)', () => {
+    const { details } = operator.subcommands.get('event-window set')?.help ?? {};
+    const text =
+      typeof details === 'function' ? details(createTestContext().ctx.config.settings) : details;
+    expect(text).toContain(
+      'There is one window for all servers: the operators of this Pine set and end it, from any ' +
+        'server or a direct message with me. Unless this Pine is open to every server, the ' +
+        'admins, moderators and bot developers of its servers may too, from their server (where ' +
+        'it lists its servers, those of the listed ones only).\n\nMy owner is told who ' +
+        'did, and from where.',
+    );
+    expect(text).not.toContain('/admin');
   });
 
   it('sets a window from now until a date and time, and says what it changes', async () => {
@@ -427,6 +446,35 @@ describe('/admin event-window', () => {
       await made.use('event-window', 'end');
       await made.use('event-window', 'end');
       expect(told(made)).toHaveLength(2);
+    });
+
+    it('takes a window set by an operator in a DM, on the instance’s clock (plan 19B-1)', async () => {
+      // The fakes' server in Berlin: a DM has no server, and is read in the default zone.
+      const made = await commands(new MemoryEventWindows(), 'Europe/Berlin', [], {
+        operators: [OPERATOR_ID],
+      });
+      const inDm = { userId: OPERATOR_ID, isDm: true, globalName: 'Ollie' };
+      const used = await made.use(
+        'event-window',
+        'set',
+        { from: '10am', until: '11-13 8pm' },
+        inDm,
+      );
+      expect(answerOf(used)).toMatch(/^From Monday, November 9 at 10:00 AM until Friday/u);
+      expect(made.eventWindows.current()).toMatchObject({ start: at('2026-11-09T10:00') });
+      expect(textDisplays(told(made)[0]?.message)[1]).toBe(
+        `**Ollie** · ${OPERATOR_ID}\nin a direct message`,
+      );
+      await made.use('event-window', 'end', {}, inDm);
+      expect(told(made)).toHaveLength(2);
+      // A server's moderator is refused there: their roles are of a server.
+      const refused = await made.use(
+        'event-window',
+        'set',
+        { until: '11-13 8pm' },
+        { ...inDm, userId: made.staff.userId ?? '' },
+      );
+      expect(answerOf(refused)).toBe(ONLY_OPERATORS_IN_A_DM);
     });
 
     it('sends the owner nothing of what they did themselves', async () => {

@@ -64,7 +64,7 @@ export function bossTierLabel(tier: RaidTier | MaxTier): string {
 }
 
 /**
- * The value of a tier among the choices of `/admin boss`'s `tier` option: `T5`, `T5:shadow`,
+ * The value of a tier among the choices of `/operator boss`'s `tier` option: `T5`, `T5:shadow`,
  * `D2`, `G` (also what a moderators' note suggests, plan 8X-J).
  */
 export function bossTierValue(tier: RaidTier | MaxTier): string {

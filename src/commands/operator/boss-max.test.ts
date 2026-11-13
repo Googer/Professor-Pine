@@ -3,12 +3,12 @@ import { bossCommandsWith, choicesOf, textsOf } from '../../../test/support/boss
 import { at as local } from '../../../test/support/max-bosses.js';
 import { testMax } from '../../../test/support/parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
-import { admin } from './index.js';
+import { operator } from './index.js';
 
 /** The zone of the test settings, every server's here. */
 const ZONE = 'America/New_York';
 
-// Plan 8X-2: `/admin boss` with the max tiers beside the raid tiers.
+// Plan 8X-2: `/operator boss` with the max tiers beside the raid tiers.
 const NOW = local('2026-10-21T12:00');
 // Plan 8X-J: running battles, on the party fixtures' own clock (their day, before their end).
 const BATTLE = (n: number): string => `00000000-0000-4000-8000-00000000040${String(n)}`;
@@ -31,7 +31,7 @@ async function withMax() {
 }
 
 const tierChoices = (subcommand: string) => {
-  const group = admin.data.toJSON().options?.find((option) => option.name === 'boss');
+  const group = operator.data.toJSON().options?.find((option) => option.name === 'boss');
   const part = (group && 'options' in group ? (group.options ?? []) : []).find(
     (option) => option.name === subcommand,
   );
@@ -44,7 +44,7 @@ const tierChoices = (subcommand: string) => {
   ]);
 };
 
-describe('/admin boss: the tiers', () => {
+describe('/operator boss: the tiers', () => {
   it('offers the max tiers after the raid tiers where an override may have one', () => {
     for (const subcommand of ['add', 'hide', 'shiny', 'list']) {
       expect(tierChoices(subcommand).slice(-6), subcommand).toEqual([
@@ -68,7 +68,7 @@ describe('/admin boss: the tiers', () => {
   });
 });
 
-describe('/admin boss with a max tier', () => {
+describe('/operator boss with a max tier', () => {
   it('adds a max boss, kept apart from the raid bosses, and shows its tier now', async () => {
     const made = await withMax();
     const used = await made.use('boss', 'add', { pokemon: 'Machamp', tier: 'G' });
@@ -186,7 +186,7 @@ describe('/admin boss with a max tier', () => {
   });
 });
 
-describe('/admin boss list and sync with max battles', () => {
+describe('/operator boss list and sync with max battles', () => {
   it('lists a max tier, an upcoming boss under what is coming', async () => {
     const made = await withMax();
     const used = await made.use('boss', 'list', { tier: 'D5' });

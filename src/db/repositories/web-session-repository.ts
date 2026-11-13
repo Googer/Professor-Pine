@@ -93,7 +93,7 @@ export class WebSessionRepository implements WebSessionStore {
     return Number(result?.numDeletedRows ?? 0);
   }
 
-  /** How many sessions the account has, expired ones too (plan 8G, `/admin forget`). */
+  /** How many sessions the account has, expired ones too (plan 8G, `/operator forget`). */
   async countOf(userId: string): Promise<number> {
     const counted = await this.db
       .selectFrom('WebSession')
@@ -104,7 +104,7 @@ export class WebSessionRepository implements WebSessionStore {
   }
 
   /**
-   * Deletes every session of the account (plan 8G, `/admin forget`) and answers their ids, so
+   * Deletes every session of the account (plan 8G, `/operator forget`) and answers their ids, so
    * that the live streams opened under them can be ended as a logout ends them. One
    * transaction (the caller's when `db` is one): the rows are read locked, along
    * `websession_userid_index`, so that a login of the account at the same moment waits and

@@ -64,7 +64,7 @@ export interface MaxBossProvider {
   feedBosses(zone: string): readonly StoredBoss<MaxTier>[];
 }
 
-/** What staff need of the max boss list beyond what handlers read (`/admin boss`). */
+/** What staff need of the max boss list beyond what handlers read (`/operator boss`). */
 export type MaxBossAdmin = BossAdmin<MaxTier>;
 
 /**

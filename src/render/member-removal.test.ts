@@ -30,7 +30,7 @@ const look = (held: Partial<MemberHoldings>, more: Partial<MemberLook> = {}): Me
 const linesOf = (held: Partial<MemberHoldings>, more: Partial<MemberLook> = {}) =>
   textOf(forgetLookMessage(ASH, look(held, more), CONTROLS)).split('\n');
 
-describe('the look and the outcome of `/admin forget` in words (plan 8G)', () => {
+describe('the look and the outcome of `/operator forget` in words (plan 8G)', () => {
   it('says one of a thing as one, and each kind by itself', () => {
     expect(
       linesOf({

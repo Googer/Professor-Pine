@@ -9,8 +9,11 @@ const SHARED_ACCENT = 0x5865f2;
 export interface SharedChangeView {
   /** Who did it: their name in the server where they did it, and their id. */
   by: { id: string; name: string | undefined };
-  /** The server they did it in: its name, where the bot knows it, and its id. */
-  server: { id: string; name: string | undefined };
+  /**
+   * The server they did it in: its name, where the bot knows it, and its id; undefined for a
+   * direct message with the bot (`/operator` there, plan 19B-1).
+   */
+  server: { id: string; name: string | undefined } | undefined;
   /** What changed, as a sentence ("Set the event window, for every server: …"). */
   change: string;
 }
@@ -30,7 +33,9 @@ export function sharedChangeDm(view: SharedChangeView): V2Message {
   return textMessage(SHARED_ACCENT, [
     '### Shared data changed',
     `**${named(view.by.name, 'A member')}** · ${view.by.id}\n` +
-      `in **${named(view.server.name, 'a server')}** · ${view.server.id}`,
+      (view.server === undefined
+        ? 'in a direct message'
+        : `in **${named(view.server.name, 'a server')}** · ${view.server.id}`),
     view.change,
   ]);
 }

@@ -348,7 +348,7 @@ export class ReportRepository implements ReportStore {
   }
 
   /**
-   * What the reports of every server hold of a member (plan 8G: the look of `/admin forget`):
+   * What the reports of every server hold of a member (plan 8G: the look of `/operator forget`):
    * the reasons they gave (each with their id) and the reports about them (a party they made, a
    * message they wrote: the subject's `makerId` or `authorId`). The tables are read whole:
    * neither is indexed by the member, both are small, and only the owner asks.

@@ -39,7 +39,7 @@ export class UnownGiftRepository implements UnownGiftStorage {
       on duplicate key update memberId = UnownWantGift.memberId`.execute(this.db);
   }
 
-  /** In how many servers it was settled for the member (plan 8G, `/admin forget`). */
+  /** In how many servers it was settled for the member (plan 8G, `/operator forget`). */
   async countOf(memberId: string): Promise<number> {
     const counted = await this.db
       .selectFrom('UnownWantGift')
@@ -50,7 +50,7 @@ export class UnownGiftRepository implements UnownGiftStorage {
   }
 
   /**
-   * Deletes the member's rows of every server (plan 8G, `/admin forget`); how many. The servers
+   * Deletes the member's rows of every server (plan 8G, `/operator forget`); how many. The servers
    * are read first, without a lock, and the rows deleted by their key (the server, the member),
    * as `NewTrainRepository.forget` does and for its reason. In the caller's transaction when
    * `db` is one. A member who comes back with the old role is given the Unown want once more,

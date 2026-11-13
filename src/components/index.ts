@@ -1,5 +1,5 @@
 import { cleanupControls } from '../commands/admin/cleanup-legacy.js';
-import { forgetControls } from '../commands/admin/forget.js';
+import { forgetControls } from '../commands/operator/forget.js';
 import { closeControls } from '../commands/parties/delete.js';
 import { reportControls } from '../commands/parties/report.js';
 import { gymControls } from '../commands/gyms/controls.js';

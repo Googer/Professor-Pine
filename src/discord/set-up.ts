@@ -1,11 +1,14 @@
 import { ApplicationCommandOptionType, type APIApplicationCommandOption } from 'discord.js';
 import type { Config } from '../config/index.js';
 import type { ServerValues } from '../config/server-settings.js';
+import type { AppContext } from '../app-context.js';
 import {
   subcommandPath,
   type CommandHandler,
   type CommandModule,
   type GroupedCommand,
+  type LocatedInteraction,
+  type SubcommandHandler,
 } from './command.js';
 
 /**
@@ -48,35 +51,64 @@ export function commandsIn(
   values: ServerValues,
   config: Config,
 ): CommandModule[] {
+  return commands.flatMap((command): CommandModule[] =>
+    command.subcommands === undefined
+      ? notSetUpIn(command, values, config) === undefined
+        ? [command]
+        : []
+      : keptOf(command, (handler) => notSetUpIn(handler, values, config) === undefined),
+  );
+}
+
+/**
+ * The commands the member who asks may read about where they ask (plan 19B-1): a command with
+ * `seenBy` only where it says yes, and a command of subcommands without those whose `seenBy` says
+ * no (`/operator forget` but to the instance operators), in its definition and among its handlers
+ * alike. Whether a staff command is shown at all is `/help`'s own rule, before this.
+ */
+export function commandsSeenBy(
+  commands: readonly CommandModule[],
+  asker: LocatedInteraction,
+  ctx: AppContext,
+): CommandModule[] {
   return commands.flatMap((command): CommandModule[] => {
-    if (command.subcommands === undefined) {
-      return notSetUpIn(command, values, config) === undefined ? [command] : [];
+    if (command.seenBy !== undefined && !command.seenBy(asker, ctx)) return [];
+    if (command.subcommands === undefined) return [command];
+    return keptOf(command, (handler) => handler.seenBy?.(asker, ctx) ?? true);
+  });
+}
+
+/**
+ * A command of subcommands with only those `kept` says yes to (in its definition and among its
+ * handlers alike, a group left empty dropped); none where it keeps none.
+ */
+function keptOf(
+  command: GroupedCommand,
+  kept: (handler: SubcommandHandler) => boolean,
+): GroupedCommand[] {
+  const dropped = new Set(
+    [...command.subcommands].filter(([, handler]) => !kept(handler)).map(([path]) => path),
+  );
+  if (dropped.size === 0) return [command];
+  if (dropped.size === command.subcommands.size) return [];
+  const json = command.data.toJSON();
+  const options = (json.options ?? []).flatMap((option): APIApplicationCommandOption[] => {
+    if (option.type === ApplicationCommandOptionType.Subcommand) {
+      return dropped.has(option.name) ? [] : [option];
     }
-    const dropped = new Set(
-      [...command.subcommands]
-        .filter(([, handler]) => notSetUpIn(handler, values, config) !== undefined)
-        .map(([path]) => path),
-    );
-    if (dropped.size === 0) return [command];
-    if (dropped.size === command.subcommands.size) return [];
-    const json = command.data.toJSON();
-    const options = (json.options ?? []).flatMap((option): APIApplicationCommandOption[] => {
-      if (option.type === ApplicationCommandOptionType.Subcommand) {
-        return dropped.has(option.name) ? [] : [option];
-      }
-      if (option.type === ApplicationCommandOptionType.SubcommandGroup) {
-        const kept = (option.options ?? []).filter(
-          (sub) => !dropped.has(subcommandPath(option.name, sub.name)),
-        );
-        return kept.length === 0 ? [] : [{ ...option, options: kept }];
-      }
-      return [option];
-    });
-    const narrowed: GroupedCommand = {
+    if (option.type === ApplicationCommandOptionType.SubcommandGroup) {
+      const left = (option.options ?? []).filter(
+        (sub) => !dropped.has(subcommandPath(option.name, sub.name)),
+      );
+      return left.length === 0 ? [] : [{ ...option, options: left }];
+    }
+    return [option];
+  });
+  return [
+    {
       ...command,
       data: { name: command.data.name, toJSON: () => ({ ...json, options }) },
       subcommands: new Map([...command.subcommands].filter(([path]) => !dropped.has(path))),
-    };
-    return [narrowed];
-  });
+    },
+  ];
 }

@@ -621,7 +621,7 @@ export class ModerationReports {
 
   /**
    * Drops the reasons of `memberId` held for the next report of their subject (`orphans`): the
-   * owner's `/admin forget` (plan 8G) calls it once the removal has committed, so that their id
+   * operators' `/operator forget` (plan 8G) calls it once the removal has committed, so that their id
    * and name are not written back with somebody's next report.
    */
   forgetReporter(memberId: string): void {
