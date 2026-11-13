@@ -193,7 +193,7 @@ export class FakeRegionStaff implements RegionStaffSource {
 const NO_EDITOR: EditorSources = {
   guilds: { idFor: () => Promise.resolve(undefined) },
   regions: { all: () => [], generation: 0 },
-  gyms: { all: () => [], regionsOf: () => [], generation: 0 },
+  gyms: { of: () => ({ all: () => [], regionsOf: () => [] }), generation: 0 },
   wayspots: { all: () => [], generation: 0 },
   servers: { serverChannels: () => undefined, serverName: () => undefined },
 };
@@ -202,7 +202,7 @@ const NO_EDITOR: EditorSources = {
 const NOTHING: GeoSources = {
   guilds: { idFor: () => Promise.resolve(undefined) },
   regions: { all: () => [], generation: 0 },
-  gyms: { all: () => [], regionsOf: () => [], generation: 0 },
+  gyms: { of: () => ({ all: () => [], regionsOf: () => [] }), generation: 0 },
   channels: {
     serverChannels: () => undefined,
     everyoneGates: () => ({

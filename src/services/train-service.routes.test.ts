@@ -1,6 +1,6 @@
 import { asTestServerGyms } from '../../test/support/providers.js';
 import { describe, expect, it } from 'vitest';
-import { EAST_CHANNEL, testGyms, WEST_CHANNEL } from '../../test/support/gyms.js';
+import { EAST_CHANNEL, TEST_GUILD_ROW, testGyms, WEST_CHANNEL } from '../../test/support/gyms.js';
 import { ALICE, BOB, CAROL, REPORTER, stops, gym, inGyms } from '../../test/support/parties.js';
 import { createdMeetup, createdTrain } from '../../test/support/party-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
@@ -152,8 +152,8 @@ describe('TrainService.loadRoute', () => {
     const list = gymsFixture();
     let gone = false;
     const gyms = {
-      get: (id: number) => (gone && id === 6 ? undefined : list.get(id)),
-      regionsOf: (id: number) => (gone && id === 6 ? [] : list.regionsOf(id)),
+      get: (id: number) => (gone && id === 6 ? undefined : list.stored(id)),
+      regionsOf: (id: number) => (gone && id === 6 ? [] : list.of(TEST_GUILD_ROW).regionsOf(id)),
     };
     const made = await createdTrain({ route: stops(4) }, { gyms: asTestServerGyms(gyms) });
     await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);

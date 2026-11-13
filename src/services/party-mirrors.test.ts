@@ -1,7 +1,12 @@
 import { asTestServerGyms } from '../../test/support/providers.js';
 import { DiscordAPIError, RESTJSONErrorCodes } from 'discord.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ELITE_GYM_CHANNEL, REMOTE_CHANNEL, WEST_CHANNEL } from '../../test/support/gyms.js';
+import {
+  ELITE_GYM_CHANNEL,
+  REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+} from '../../test/support/gyms.js';
 import {
   ALICE,
   asRaid,
@@ -60,10 +65,10 @@ function gymsWithExLibrary(): PartyServiceOptions['gyms'] {
   const gyms = gymsFixture();
   return asTestServerGyms({
     get: (id) => {
-      const gym = gyms.get(id);
+      const gym = gyms.stored(id);
       return gym && id === 1 ? { ...gym, taggedEx: true } : gym;
     },
-    regionsOf: (id) => gyms.regionsOf(id),
+    regionsOf: (id) => gyms.of(TEST_GUILD_ROW).regionsOf(id),
   });
 }
 
@@ -315,10 +320,10 @@ describe('the copies of a raid in other channels', () => {
       {
         gyms: asTestServerGyms({
           get: (id) => {
-            const gym = gyms.get(id);
+            const gym = gyms.stored(id);
             return gym && id === 1 ? { ...gym, imageUrl: picture } : gym;
           },
-          regionsOf: (id) => gyms.regionsOf(id),
+          regionsOf: (id) => gyms.of(TEST_GUILD_ROW).regionsOf(id),
         }),
       },
     );

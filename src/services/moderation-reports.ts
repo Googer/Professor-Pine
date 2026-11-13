@@ -155,7 +155,7 @@ export interface ModerationReportsOptions {
   store: Pick<PartyProvider, 'get'>;
   regions: Pick<RegionProvider, 'byId'>;
   /** The gyms, for a raid's and a train's place and a gym's official name. */
-  gyms?: Pick<GymProvider, 'get'>;
+  gyms?: Pick<GymProvider, 'stored'>;
   /** The kept Wayspots, for a train at a power spot (plan 8X-4); without them it is at no place. */
   wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf'>;
   settings: Settings;
@@ -985,12 +985,13 @@ export class ModerationReports {
         : null;
     }
     const gymId = isTrain(party) ? at?.id : party.gymId;
-    const gym = gymId === undefined || gymId === null ? undefined : this.options.gyms?.get(gymId);
+    const gym =
+      gymId === undefined || gymId === null ? undefined : this.options.gyms?.stored(gymId);
     return gym === undefined ? null : gymPlace(gym);
   }
 
   private gym(id: string): Gym | undefined {
-    return /^\d+$/u.test(id) ? this.options.gyms?.get(Number(id)) : undefined;
+    return /^\d+$/u.test(id) ? this.options.gyms?.stored(Number(id)) : undefined;
   }
 
   /** A party ended without a moderator: its open reports end with it. */

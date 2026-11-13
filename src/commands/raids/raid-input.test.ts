@@ -208,7 +208,7 @@ describe('gymChoices and reportedGym', () => {
     const offered = gymChoices(ctx.gyms.of(1), WEST_CHANNEL, '  ', regionName);
     expect(offered.map((choice) => choice.value)).toEqual(
       testGyms()
-        .filter((gym) => ctx.gyms.regionsOf(gym.id).includes(WEST_CHANNEL))
+        .filter((gym) => ctx.gyms.of(TEST_GUILD_ROW).regionsOf(gym.id).includes(WEST_CHANNEL))
         .sort((a, b) => a.name.localeCompare(b.name, 'en'))
         .map((gym) => `g:${String(gym.id)}`),
     );

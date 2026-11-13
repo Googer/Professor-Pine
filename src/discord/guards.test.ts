@@ -6,8 +6,15 @@ import {
   fakeAutocomplete,
   fakeChatInput,
 } from '../../test/support/fake-interactions.js';
-import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  OTHER_GUILD_ID,
+  UNBOUNDED_CHANNEL,
+  WEST_CHANNEL,
+  WEST_FORUM,
+  WIDE_CHANNEL,
+} from '../../test/support/gyms.js';
 import { partyStoreWith, testMeetup, testRaid, testTrain } from '../../test/support/parties.js';
+import { regionsFixture, twoServerGyms } from '../../test/support/providers.js';
 import { TestRegions } from '../../test/support/party-service.js';
 import {
   TEST_PVP_CATEGORY,
@@ -315,6 +322,21 @@ describe('guards', () => {
     expect(
       regionChannelOf(as(fakeChatInput({ channelId: '100000000000000041' })), withForum),
     ).toBeUndefined();
+  });
+
+  it('reads a region channel from the regions of each server, an outline making it one (plan 19B-2)', () => {
+    // Two servers: Wide, the second's region, lies over West and East.
+    const { gyms, regions, guilds } = twoServerGyms();
+    const { ctx: two } = createTestContext({ gyms, regions: regionsFixture(regions), guilds });
+    expect(regionChannelOf(as(fakeChatInput({ channelId: WEST_CHANNEL })), two)).toBe(WEST_CHANNEL);
+    const wide = fakeChatInput({ guildId: OTHER_GUILD_ID, channelId: WIDE_CHANNEL });
+    expect(regionChannelOf(as(wide), two)).toBe(WIDE_CHANNEL);
+    // A region row without an outline is no region channel.
+    expect(
+      regionChannelOf(as(fakeChatInput({ channelId: UNBOUNDED_CHANNEL })), two),
+    ).toBeUndefined();
+    const inUnbounded = fakeChatInput({ thread: { parentId: UNBOUNDED_CHANNEL } });
+    expect(regionChannelOf(as(inUnbounded), two)).toBeUndefined();
   });
 
   it('guildIdOf gives the server of an interaction, and refuses like the guards without one', () => {

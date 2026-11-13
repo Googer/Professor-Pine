@@ -34,7 +34,7 @@ const accessCalls = (made: Made): string[] =>
 
 /** A second raid in West, at the fountain (gym 2), reported by `REPORTER`; gives its id. */
 async function secondRaid(made: Made): Promise<string> {
-  const gym = gymsFixture().get(2);
+  const gym = gymsFixture().stored(2);
   if (!gym) throw new Error('no gym 2');
   const outcome = await made.service.reportRaid({
     gym,
@@ -85,7 +85,7 @@ describe('AccessService: who is let into a forum', () => {
   it('lets in whoever reports a raid for a forum they cannot see', async () => {
     const made = await reportedRaid();
     made.gateway.shutOut(EAST_FORUM, BOB);
-    const gym = gymsFixture().get(8);
+    const gym = gymsFixture().stored(8);
     if (!gym) throw new Error('no gym 8');
     const outcome = await made.service.reportRaid({
       gym,

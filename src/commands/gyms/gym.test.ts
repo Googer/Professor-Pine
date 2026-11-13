@@ -13,7 +13,7 @@ import {
   MODERATOR,
   said,
 } from '../../../test/support/gym-commands.js';
-import { EAST_CHANNEL, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { EAST_CHANNEL, TEST_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { ANSWERED_BELOW } from '../../discord/late-reply.js';
 import { PENDING_HOURS } from './shared.js';
 import {
@@ -338,7 +338,9 @@ describe('/gym add', () => {
       smallPrint: 'Gym #13 · 40.015, -80.015',
     });
     expect(made.gymStore.row(13)).toMatchObject({ name: 'Clock Tower', lat: 40.015, lon: -80.015 });
-    expect(made.directory.search(WEST_CHANNEL, 'clock tower')[0]?.gym.id).toBe(13);
+    expect(made.directory.of(TEST_GUILD_ROW).search(WEST_CHANNEL, 'clock tower')[0]?.gym.id).toBe(
+      13,
+    );
     await made.settle();
     expect(made.gateway.messagesIn(UPDATES_CHANNEL)).toHaveLength(1);
     expect(made.gymStore.row(13)?.places).toBe('Corner Bakery Maple Dental');

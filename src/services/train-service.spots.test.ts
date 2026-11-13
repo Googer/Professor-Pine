@@ -134,7 +134,7 @@ describe('Power Spots as stops of a train (plan 8X-4; design 6.2)', () => {
     const party = made.current();
     const view = {
       party,
-      stop: stopsFrom(made.gyms ?? { get: () => undefined }, kept.wayspots),
+      stop: stopsFrom(made.gyms ?? { stored: () => undefined }, kept.wayspots),
       now: Date.now(),
     };
     // Move… and Manage… (plan 8X-G): their dialogs' ids, and the values of Move…'s choices.

@@ -400,7 +400,7 @@ describe('NotifyService: the buttons that stop a message', () => {
       await gymTargets.add(ALICE, gateway.guildId, 2);
     });
     expect(made.dms.to(ALICE)).toHaveLength(0);
-    const gym = gymsFixture().get(2);
+    const gym = gymsFixture().stored(2);
     if (!gym) throw new Error('no gym 2');
     const report = () =>
       made.service.reportRaid({

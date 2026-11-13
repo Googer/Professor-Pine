@@ -60,11 +60,8 @@ import { byMember, pingInMessages, settingsOf, storedChange } from './party-chan
 import type { PartyLines } from './party-lines.js';
 import type { PartyService, SplitOutcome } from './party-service.js';
 import type { PartyStore } from './party-store.js';
-import {
-  stopRegionsInGuild,
-  type RegionProvider,
-  type ServerGymRegions,
-} from './region-directory.js';
+import { stopRegionsInGuild, type RegionProvider } from './region-directory.js';
+import type { GymView } from './gym-directory.js';
 import type { WayspotProvider } from './wayspot-directory.js';
 
 /**
@@ -126,12 +123,14 @@ export interface TrainServiceOptions {
   /** The members' settings: who lets the bot ping them when the train moves. */
   users: UserSettingsReader;
   /**
-   * The gyms, to name the stops, and the region channels each lies in; `size`, how many gyms
-   * the list knows, for the sweep of stops whose gym is gone (`removeUnknownStops`).
+   * The gyms per server (plan 19B-2): a stop is named as the train's server stored it (`stored`);
+   * whether it is still a stop, and where it lies, is read in that server's view (`of`), so that
+   * a gym the server deleted is gone for its trains though another server keeps it. `size`, how
+   * many gyms the list knows, for the sweep of stops whose gym is gone (`removeUnknownStops`).
    */
-  gyms: ServerGymRegions & {
-    get(id: number): PostGym | undefined;
-    regionsOf(gymId: number): string[];
+  gyms: {
+    of(guildId: number | undefined): Pick<GymView, 'get' | 'regionsOf'>;
+    stored(id: number): PostGym | undefined;
     readonly size?: number;
   };
   /**
@@ -277,9 +276,13 @@ export class TrainService {
     return stopRegionsInGuild(places, regions, ref, party.guildId).length > 0;
   }
 
-  /** Whether a stop is gone: a gym the list no longer has, a power spot no longer kept as one. */
-  private gone(ref: StopRef): boolean {
-    if (ref.kind === 'gym') return this.options.gyms.get(ref.id) === undefined;
+  /**
+   * Whether a stop of this train is gone: a gym its server's list no longer has (plan 19B-2: one
+   * the server deleted is gone, though another server keeps it), a power spot no longer kept as
+   * one.
+   */
+  private gone(party: TrainParty, ref: StopRef): boolean {
+    if (ref.kind === 'gym') return this.options.gyms.of(party.guildId).get(ref.id) === undefined;
     return this.options.wayspots?.byId(ref.id)?.kind !== 'powerspot';
   }
 
@@ -308,7 +311,7 @@ export class TrainService {
       member,
       (party) =>
         stale(party, drawn) ??
-        (this.gone(added)
+        (this.gone(party, added)
           ? refused(added.kind === 'gym' ? 'gym-gone' : 'spot-gone')
           : addStop(party, member.id, added, staff)),
       (party, result) => {
@@ -435,7 +438,7 @@ export class TrainService {
             const removed = { gyms: 0, spots: 0 };
             for (;;) {
               const index = current.train.route.findIndex(
-                (ref) => (ref.kind === 'gym' ? gymsKnown : spotsKnown) && this.gone(ref),
+                (ref) => (ref.kind === 'gym' ? gymsKnown : spotsKnown) && this.gone(current, ref),
               );
               const gone = current.train.route[index];
               if (gone === undefined) break;
@@ -895,7 +898,9 @@ export class TrainService {
         const distinct = route.stops.filter(
           (stop, index) => stopIndexOf(route.stops, stop) === index,
         );
-        const existing = distinct.filter((ref) => !this.gone(ref) && this.reaches(party, ref));
+        const existing = distinct.filter(
+          (ref) => !this.gone(party, ref) && this.reaches(party, ref),
+        );
         const missing = distinct.length - existing.length;
         const cut = Math.max(0, existing.length - MAX_ROUTE_STOPS);
         const replaced = replaceRoute(party, member.id, existing, staff, route.atEnd);

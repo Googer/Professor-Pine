@@ -2,15 +2,24 @@ import { describe, expect, it } from 'vitest';
 import {
   EAST_CHANNEL,
   EAST_FORUM,
+  OTHER_GUILD_ROW,
+  testGyms,
+  testLinks,
   testRegions,
   UNBOUNDED_CHANNEL,
   WEST_CHANNEL,
   WEST_FORUM,
+  WIDE_CHANNEL,
+  wideRegion,
 } from '../../test/support/gyms.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import type { Region } from '../db/repositories/region-repository.js';
+import { NO_REGION_RANK } from '../domain/geo/google-line.js';
+import { GoogleRanks } from './google-ranks.js';
+import { ServerGyms } from './server-gyms.js';
 import {
   gymInGuild,
+  gymRegionsOfItsServers,
   gymRegionsInGuild,
   RegionDirectory,
   regionsAtPoint,
@@ -47,6 +56,55 @@ describe('gymRegionsInGuild', () => {
           : [],
     }),
   };
+
+  it('gives the channels a gym lies in, in the regions of each of its own servers only (plan 19B-2)', async () => {
+    // Two servers whose regions overlap: Wide, the second's, lies over West and East. Gym 2 is
+    // the second server's alone, gym 7 both servers', every other gym the first's. At most one
+    // view is kept: what the upkeep asks of every gym must build none.
+    const overlapping = new ServerGyms(
+      testGyms(),
+      [
+        ...testLinks().filter((link) => link.gymId !== 2),
+        { gymId: 2, guildId: OTHER_GUILD_ROW },
+        { gymId: 7, guildId: OTHER_GUILD_ROW },
+      ],
+      [...testRegions(), wideRegion()],
+      () => [],
+      { maxViews: 1 },
+    );
+    // Gym 8 lies in East and in Wide, but is the first server's alone: East only.
+    expect(gymRegionsOfItsServers(overlapping, 8)).toEqual([EAST_CHANNEL]);
+    expect(gymRegionsOfItsServers(overlapping, 2)).toEqual([WIDE_CHANNEL]);
+    // Shared: each server's region that holds it, each channel once.
+    expect(gymRegionsOfItsServers(overlapping, 7)).toEqual([EAST_CHANNEL, WIDE_CHANNEL]);
+    // In no region of its server; no gym at all.
+    expect(gymRegionsOfItsServers(overlapping, 10)).toEqual([]);
+    expect(gymRegionsOfItsServers(overlapping, 99)).toEqual([]);
+    for (const gym of testGyms()) gymRegionsOfItsServers(overlapping, gym.id);
+    expect(overlapping.built).toBe(0);
+
+    // The Google line's rank goes by it: East has half of West's raids, Wide none at all (its
+    // server has no raids, so its regions rank 1); gym 8 ranks by East alone.
+    const ranks = new GoogleRanks({
+      regions: { all: () => [...testRegions(), wideRegion()] },
+      gymRegions: (id) => gymRegionsOfItsServers(overlapping, id),
+      wayspotRegions: () => [],
+      servers: () => Promise.resolve([]),
+      activity: {
+        raidsByRegion: () =>
+          Promise.resolve(
+            new Map([
+              [1, 10],
+              [2, 5],
+            ]),
+          ),
+      },
+    });
+    await ranks.refresh();
+    expect(ranks.ofGym(8)).toBe(0.5);
+    expect(ranks.ofGym(2)).toBe(1);
+    expect(ranks.ofGym(10)).toBe(NO_REGION_RANK);
+  });
 
   it('gives a gym of another server no region of this one, though one holds it', () => {
     expect(gymRegionsInGuild(gyms, regions, 4, 1).map((region) => region.id)).toEqual([1]);

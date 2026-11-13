@@ -144,7 +144,7 @@ describe('/where', () => {
   });
 
   it('names a gym without a nickname by its name', async () => {
-    const fountain = (await setup()).ctx.gyms.get(2);
+    const fountain = (await setup()).ctx.gyms.stored(2);
     if (!fountain) throw new Error('no gym 2');
     const made = await setup({ gym: fountain });
     expect(sent((await made.run('where')).editReply).content).toMatch(

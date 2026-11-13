@@ -42,6 +42,9 @@ import { isMeetup, type MeetupParty } from '../domain/party/party.js';
 import { MAX_MAP_STOPS, type MeetupAnswer, type StopsView } from '../domain/web/meetup-data.js';
 import type { WayspotRow } from '../domain/wayspots/kept.js';
 import { MAP_PLACE_KINDS_ONLY, MAP_BLOCKED } from './meetup-routes.js';
+import { PLACE_GONE } from '../commands/place-option.js';
+import type { GymProvider } from '../services/gym-directory.js';
+import { THEIR_GYM, twoServerGyms } from '../../test/support/providers.js';
 
 const MAKE = `/s/${FAKE_GUILD_ID}/api/meetups`;
 
@@ -58,11 +61,12 @@ const POWER_SPOT = keptRow(3, { lat: 40.063, lon: -80.063, kind: 'powerspot', ti
  */
 async function making(
   safety: SafetyOptions = {},
-  options: { throttles?: Throttles } = {},
+  options: { throttles?: Throttles; gyms?: GymProvider } = {},
   stops: readonly WayspotRow[] = [],
 ) {
   const throttles = options.throttles ?? new Throttles();
-  const made = await meetupSafetyWith(safety);
+  const gyms = options.gyms ? { gyms: options.gyms } : {};
+  const made = await meetupSafetyWith(safety, [], gyms);
   const { wayspots } = await wayspotsWith([FOUNTAIN_STOP, LIBRARY_STOP, POWER_SPOT, ...stops]);
   const { ctx } = createTestContext({
     partyService: made.service,
@@ -72,6 +76,7 @@ async function making(
     regions: made.regions,
     meetupSafety: made.safety,
     wayspots,
+    ...gyms,
   });
   await ctx.placeFinder.built();
   const members = new FakeMemberDirectory().add(ALICE, 'Alice').add(BOB, 'Bob');
@@ -232,6 +237,20 @@ describe('making a meetup on the map', () => {
       kind: 'pin',
       near: { kind: 'stop', title: 'Market Fountain' },
     });
+  });
+
+  it('takes a gym of this server only: another server’s in a region of both is gone (plan 19B-2)', async () => {
+    const map = await making({}, { gyms: twoServerGyms().gyms });
+    web = map.web;
+    // Gym 2 lies in West but is the other server's alone: as a gym there is not.
+    const theirs = await map.make(asked({ kind: 'gym', id: String(THEIR_GYM) }));
+    expect(theirs.status).toBe(422);
+    expect(theirs.json).toEqual({ ok: false, text: PLACE_GONE });
+    // Its own gym, beside it in West.
+    expect((await map.make(asked({ kind: 'gym', id: '1' }))).status).toBe(200);
+    expect(map.meetups().map((meetup) => meetup.meetup.place)).toMatchObject([
+      { kind: 'gym', id: '1' },
+    ]);
   });
 
   it('refuses a Power Spot and any place that is no gym, PokéStop or pin, and counts none of it', async () => {

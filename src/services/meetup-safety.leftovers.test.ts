@@ -75,7 +75,7 @@ describe('MeetupSafety: Block member on a request decided before (8S-1 review W7
 
   it('names a gym’s official name beside its nickname in the request’s post', async () => {
     const made = await meetupSafetyWith();
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     const request = await made.held({
       place: { ...LIBRARY, kind: 'gym', id: '1', title: 'The Stacks Little Free Library' },

@@ -287,7 +287,7 @@ export interface NotifyServiceOptions {
    * research or Rocket DM goes, and named by their address. Without it a DM names the feed's.
    */
   pictures?: PictureMaker;
-  gyms: { get(id: number): PostGym | undefined };
+  gyms: { stored(id: number): PostGym | undefined };
   gameData: GameDataProvider;
   raidBosses: Pick<RaidBossProvider, 'bosses'>;
   settings: Settings;
@@ -1697,7 +1697,7 @@ export class NotifyService implements PartyNotifier {
     if (others.length === 0) return [];
     const { gyms, regions, posts } = this.options;
     const gymOf = (id: number | null): MovedGym => {
-      const gym = id === null ? undefined : gyms.get(id);
+      const gym = id === null ? undefined : gyms.stored(id);
       return { name: gymName(gym), place: gym && { lat: gym.lat, lon: gym.lon } };
     };
     const region =
@@ -1745,7 +1745,7 @@ export class NotifyService implements PartyNotifier {
   private meetingSubject(party: Party): string {
     if (isRaid(party)) {
       const { gymId } = party;
-      return `the raid at ${plainNoLinks(gymName(gymId === null ? undefined : this.options.gyms.get(gymId)))}`;
+      return `the raid at ${plainNoLinks(gymName(gymId === null ? undefined : this.options.gyms.stored(gymId)))}`;
     }
     if (isMax(party)) {
       // A pin by what it is, in running text (plan 8X-F), never by its label.
@@ -1861,7 +1861,7 @@ export class NotifyService implements PartyNotifier {
         const region = party.regionId === null ? undefined : regions.byId(party.regionId);
         const zone = this.options.posts.zoneOf(party);
         const boss = shownBoss(party, gameData.catalogue, raidBosses.bosses(zone))?.name;
-        const gym = gymName(gymId === null ? undefined : gyms.get(gymId));
+        const gym = gymName(gymId === null ? undefined : gyms.stored(gymId));
         const map = brief.made?.map;
         // Who is signed up is told what became of their egg, whatever else fires for them.
         const theirs = boss !== undefined && reasons.some((reason) => reason.kind === 'boss-set');
@@ -1939,7 +1939,7 @@ export class NotifyService implements PartyNotifier {
         };
       case 'gym':
         return {
-          label: `raids at ${plain(gymName(gyms.get(reason.gymId)))}`,
+          label: `raids at ${plain(gymName(gyms.stored(reason.gymId)))}`,
           stop,
           command: '/untarget',
         };

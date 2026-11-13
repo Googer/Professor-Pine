@@ -182,7 +182,7 @@ import {
   stopRegionsInGuild,
   type RegionProvider,
 } from './region-directory.js';
-import type { ServerGymProvider } from './gym-directory.js';
+import type { GymProvider } from './gym-directory.js';
 import type { ServerSettingsLookup } from './server-settings.js';
 import { DEFAULT_REGION_FORUM_SUFFIX } from '../config/settings.js';
 
@@ -704,7 +704,7 @@ export const RAID_LOOK_READS = {
     catalogue: 'compared',
     icons: 'compared: replaced alone when the list of icons is read',
   },
-  gyms: { get: 'compared: the gym’s row' },
+  gyms: { stored: 'compared: the gym’s row' },
   raidBosses: {
     bosses: 'compared: the very same list until it changes',
     bossesOf: 'of that list',
@@ -742,10 +742,11 @@ export interface PartyServiceOptions {
     idFor(snowflake: string): Promise<number | undefined>;
     snowflakeOf?(id: number): Promise<string | undefined>;
   };
-  gyms: { get(id: number): Gym | undefined; regionsOf(gymId: number): string[] } & Pick<
-    ServerGymProvider,
-    'of' | 'stored' | 'serversOf'
-  >;
+  /**
+   * The gyms per server (plan 19B-2): a party's gym is a reference its server stored (`stored`),
+   * where a gym lies is read in the party's server's view (`of`).
+   */
+  gyms: Pick<GymProvider, 'of' | 'stored' | 'serversOf'>;
   raidBosses: RaidBossProvider;
   /**
    * The max bosses (plan 8X-3): whether a max battle's boss is shiny, its picture. Max battles
@@ -1247,7 +1248,7 @@ export class PartyService {
     return {
       party,
       now: this.now(),
-      gym: party.gymId === null ? undefined : gyms.get(party.gymId),
+      gym: party.gymId === null ? undefined : gyms.stored(party.gymId),
       boss,
       ...(hatchesAs ? { hatchesAs } : {}),
       ...(egg === undefined ? {} : { eggPicture: egg.url }),
@@ -1273,7 +1274,7 @@ export class PartyService {
     const { gyms, raidBosses, gameData } = this.options;
     const { catalogue, icons } = gameData;
     const stage = raidStage(party, this.now());
-    const gym = party.gymId === null ? undefined : gyms.get(party.gymId);
+    const gym = party.gymId === null ? undefined : gyms.stored(party.gymId);
     const bosses = raidBosses.bosses(this.zoneOf(party));
     const served = this.eggPictures.isServed;
     const kept = this.looks.get(party);
@@ -1329,7 +1330,7 @@ export class PartyService {
     const { gyms, wayspots } = this.options;
     return {
       ...this.timedView(party),
-      gym: (id) => gyms.get(id),
+      gym: (id) => gyms.stored(id),
       ...(wayspots === undefined
         ? {}
         : {

@@ -669,7 +669,7 @@ export async function reportedRaid(
   kept?: Partial<Outliving>,
 ) {
   const made = await partyServiceWith([], overrides, kept);
-  const gym = gymsFixture().get(1);
+  const gym = gymsFixture().stored(1);
   if (!gym) throw new Error('the invented gyms have no gym 1');
   const outcome = await made.service.reportRaid({
     gym,

@@ -405,7 +405,7 @@ describe('PartyService: the post of a meetup', () => {
     expect(textDisplays(made.service.summaryMessage(2))).toEqual([
       '### Today and coming up\nNothing going on right now. Report a raid with `/raid` or a max battle with `/max`.',
     ]);
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,
@@ -606,7 +606,7 @@ describe('PartyService: what is said about a meetup', () => {
 
   it('never moves a meetup to a gym: there is no such raid', async () => {
     const made = await createdMeetup();
-    const gym = gymsFixture().get(8);
+    const gym = gymsFixture().stored(8);
     const east = made.regions.byId(2);
     if (!gym || !east) throw new Error('no gym or region');
     expect(await made.service.relocate(made.party.id, gym, east)).toEqual({ kind: 'gone' });

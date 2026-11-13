@@ -47,7 +47,7 @@ export const OTHER_STAFF_PLACE: StaffPlace = {
 export async function withOtherServer(made: {
   regions: { rows: Region[] };
   gymStore: MemoryGyms;
-  directory: { load(): Promise<void>; get(id: number): Gym | undefined };
+  directory: { load(): Promise<void>; stored(id: number): Gym | undefined };
 }): Promise<Gym> {
   made.regions.rows.push(northRegion());
   const created = await made.gymStore.create(
@@ -55,7 +55,7 @@ export async function withOtherServer(made: {
     OTHER_GUILD_ROW,
   );
   await made.directory.load();
-  const gym = made.directory.get(created.id);
+  const gym = made.directory.stored(created.id);
   if (!gym) throw new Error('the gym of the second server is not in the directory');
   return gym;
 }
@@ -68,6 +68,8 @@ export async function withOtherServer(made: {
  */
 export class MemoryGymRemoval implements GymRemoval {
   failing: Error | undefined;
+  /** A promise every removal waits for before it decides anything (a test's hold). */
+  holdOn: Promise<void> | undefined;
 
   constructor(
     private readonly gyms: MemoryGyms,
@@ -77,6 +79,7 @@ export class MemoryGymRemoval implements GymRemoval {
 
   async remove(gymId: number, server: RemovingServer): Promise<RemovedGym> {
     await new Promise((resolve) => setImmediate(resolve));
+    await this.holdOn;
     const failing =
       this.failing ??
       this.gyms.failing ??

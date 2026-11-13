@@ -35,6 +35,7 @@ import { FakeMemberDirectory } from '../../test/support/members.js';
 import { fakeModal } from '../../test/support/fake-interactions.js';
 import type { AppContext } from '../app-context.js';
 import { withFeatures } from '../../test/support/server-values.js';
+import { THEIR_GYM, twoServerGyms } from '../../test/support/providers.js';
 
 const HOME = '412345678901234567';
 const AWAY = '412345678901234568';
@@ -51,12 +52,12 @@ function activeStops(components: readonly unknown[]): string[] {
     .map((button) => button.customId ?? '');
 }
 
-function setup() {
+function setup(options: { gyms?: AppContext['gyms'] } = {}) {
   const wants = new MemoryWants();
   const gymTargets = new MemoryGymTargets();
   const users = new MemoryUsers();
   const newTrains = new MemoryNewTrains();
-  const { ctx, entries } = createTestContext({ wants, gymTargets, users, newTrains });
+  const { ctx, entries } = createTestContext({ wants, gymTargets, users, newTrains, ...options });
   const router = new InteractionRouter(ctx, [], [dmControls]);
   /**
    * The components of a direct message with a button for each of these reasons, as the fake
@@ -315,6 +316,17 @@ describe('the "Stop" buttons under a direct message', () => {
     expect(made.said(await made.press(ALICE, { kind: 'gym', gymId: 1 }))).toBe(
       '**The Stacks** was already removed from your gyms for that server.',
     );
+  });
+
+  it('names a gym target only as a gym of that server (plan 19B-2)', async () => {
+    // Gym 2 is the second server's alone, though it lies in a region of this one.
+    const made = setup({ gyms: twoServerGyms().gyms });
+    await made.gymTargets.add(ALICE, HOME, THEIR_GYM);
+    const pressed = await made.press(ALICE, { kind: 'gym', gymId: THEIR_GYM });
+    expect(made.said(pressed)).toBe(
+      'Removed **Unknown gym** from your gyms for that server. `/target` there adds it again.',
+    );
+    expect(made.said(pressed)).not.toContain('Fountain');
   });
 
   it('switches the settings for the boss of an egg and for new trains off', async () => {

@@ -9,8 +9,9 @@ import {
 import {
   EAST_CHANNEL,
   NORTH_PLACE,
-  OTHER_GUILD_ROW,
   northRegion,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
   testOutlines,
   WEST_CHANNEL,
 } from '../../test/support/gyms.js';
@@ -84,7 +85,7 @@ function exportOf(
 }
 
 function gymOf(made: Made, id: number): Gym {
-  const gym = made.directory.get(id);
+  const gym = made.directory.stored(id);
   if (!gym) throw new Error(`no gym ${id}`);
   return gym;
 }
@@ -173,8 +174,8 @@ describe('the area an export scanned', () => {
 
     expect(outcome).toMatchObject({ deleted: beyond.length - 1, notBeyond: 0, gone: 0, failed: 0 });
     expect(outcome.raidThere.map((gym) => gym.id)).toEqual([raided]);
-    expect(made.directory.get(raided)).toBeDefined();
-    for (const id of beyond.slice(1)) expect(made.directory.get(id)).toBeUndefined();
+    expect(made.directory.of(TEST_GUILD_ROW).get(raided)).toBeDefined();
+    for (const id of beyond.slice(1)) expect(made.directory.stored(id)).toBeUndefined();
     expect(announced(made).map((message) => textOf(message))).toEqual(
       beyond.length > 1
         ? [
@@ -199,9 +200,9 @@ describe('the area an export scanned', () => {
       { id: STAFF },
     );
     expect(outcome).toMatchObject({ deleted: 1, notBeyond: 1 });
-    expect(made.directory.get(named!)).toBeUndefined();
-    expect(made.directory.get(inside.id)).toBeDefined();
-    for (const id of unnamed) expect(made.directory.get(id)).toBeDefined();
+    expect(made.directory.stored(named!)).toBeUndefined();
+    expect(made.directory.of(TEST_GUILD_ROW).get(inside.id)).toBeDefined();
+    for (const id of unnamed) expect(made.directory.of(TEST_GUILD_ROW).get(id)).toBeDefined();
   });
 
   it('offers only this server’s own gyms, wherever another server’s regions lie (plan 19B-2)', async () => {
@@ -210,7 +211,7 @@ describe('the area an export scanned', () => {
     expect(own.length).toBeGreaterThan(0);
     // Another server's region beside them: they stay this server's.
     await withOtherServer(made);
-    const stray = made.directory.get(own[0]!)!;
+    const stray = made.directory.stored(own[0]!)!;
     made.regions.rows.push({
       ...northRegion(),
       id: 9,
@@ -278,7 +279,7 @@ describe('the area an export scanned', () => {
       id: STAFF,
     });
     expect(outcome).toMatchObject({ deleted: 0, regionsNotScanned: 1, notBeyond: 0 });
-    for (const id of beyond) expect(made.directory.get(id)).toBeDefined();
+    for (const id of beyond) expect(made.directory.of(TEST_GUILD_ROW).get(id)).toBeDefined();
   });
 });
 
@@ -483,7 +484,7 @@ describe('WayfarerImportService: what an import considers', () => {
     expect(made.directory.serversOf(gym.id)).toEqual([1]);
   });
 
-  it('never gives a gym the Wayspot a gym of another server holds', async () => {
+  it('gives a gym its Wayspot though a gym of another server is that Wayspot too (plan 19B-2)', async () => {
     const made = await wayfarerImportWith();
     const theirs = await withOtherServer(made);
     const held = wayspot(1, 'Pinewood Public Library', at(gymOf(made, 1), 1));
@@ -492,8 +493,10 @@ describe('WayfarerImportService: what an import considers', () => {
 
     const outcome = await made.wayfarer.apply(STAFF_PLACE, exportOf([held]));
 
-    expect(outcome.counts).toMatchObject({ matched: 0, added: 0 });
-    expect(made.gymStore.row(1)?.pogoId).toBeNull();
+    expect(outcome.counts).toMatchObject({ matched: 1, added: 0 });
+    expect(made.gymStore.row(1)?.pogoId).toBe(held.id);
+    // The other server's gym is as it was.
+    expect(made.gymStore.row(theirs.id)?.pogoId).toBe(held.id);
   });
 
   it('considers nothing for a server without a row', async () => {
@@ -598,7 +601,9 @@ describe('WayfarerImportService.apply', () => {
     });
     expect(made.gymStore.row(2)).toMatchObject({ pogoId: idOf(2), name: 'Old Stone Fountain' });
     expect(made.gymStore.row(3)).toMatchObject({ pogoId: idOf(3), name: 'Saint Mary Parish' });
-    expect(made.directory.search(WEST_CHANNEL, 'saint mary parish')[0]?.gym.id).toBe(3);
+    expect(
+      made.directory.of(TEST_GUILD_ROW).search(WEST_CHANNEL, 'saint mary parish')[0]?.gym.id,
+    ).toBe(3);
     // The new gyms, with their Wayfarer ids.
     expect(made.gymStore.row(13)).toMatchObject({ name: 'Clock Tower', pogoId: idOf(6) });
     expect(made.gymStore.row(14)).toMatchObject({ name: 'Bell Tower', pogoId: idOf(7) });
@@ -899,9 +904,10 @@ describe('WayfarerImportService.apply', () => {
     expect(made.gymStore.row(13)).toMatchObject({ name: 'Park Sign', pogoId: promoted.id });
   });
 
-  it('holds a Wayfarer gym beside a gym of another server, and logs it', async () => {
+  it('adds a Wayfarer gym beside a gym of another server: that one holds nothing here (plan 19B-2)', async () => {
     const made = await wayfarerImportWith();
-    // A region of the other server just west of West, with a gym 8 metres from West's edge.
+    // A region of the other server just west of West, with gyms 8 and 30 metres from the
+    // Wayfarer gyms just inside West's edge.
     made.regions.rows.push({
       id: 5,
       guildId: OTHER_GUILD_ROW,
@@ -918,107 +924,23 @@ describe('WayfarerImportService.apply', () => {
       summaryMessageId: null,
     });
     const edge = { lat: 40.05, lon: -80.1 };
-    const theirs = await made.gymStore.create(
-      { name: 'Border Stone', ...at(edge, 0, -4) },
-      OTHER_GUILD_ROW,
-    );
+    const north = { lat: 40.06, lon: -80.1 };
+    await made.gymStore.create({ name: 'Border Stone', ...at(edge, 0, -4) }, OTHER_GUILD_ROW);
+    await made.gymStore.create({ name: 'Old Marker', ...at(north, 0, -15) }, OTHER_GUILD_ROW);
     await made.directory.load();
-    const file = exportOf([wayspot(1, 'Border Stone', at(edge, 0, 4))]);
+    const file = exportOf([
+      wayspot(1, 'Border Stone', at(edge, 0, 4)),
+      wayspot(2, 'Old Marker Post', at(north, 0, 15)),
+    ]);
 
+    const before = await made.wayfarer.preview(STAFF_PLACE, file);
+    expect(before.counts).toMatchObject({ added: 2, held: 0 });
+    expect(before.plan.held).toEqual([]);
     const outcome = await made.wayfarer.apply(STAFF_PLACE, file);
 
-    expect(outcome.counts).toMatchObject({ added: 0, held: 1 });
-    expect(made.entries).toContainEqual(
-      expect.objectContaining({
-        msg: 'a Wayfarer gym was not added: a gym nearby may be it',
-        near: [theirs.id],
-      }),
-    );
-  });
-
-  it('adds a Wayfarer gym that a gym of another server refused, and counts the held ones', async () => {
-    const made = await wayfarerImportWith();
-    made.regions.rows.push({
-      id: 5,
-      guildId: OTHER_GUILD_ROW,
-      channelId: '100000000000000005',
-      description: null,
-      bounds: [
-        { lat: 40.0, lon: -80.2 },
-        { lat: 40.1, lon: -80.2 },
-        { lat: 40.1, lon: -80.1 },
-        { lat: 40.0, lon: -80.1 },
-        { lat: 40.0, lon: -80.2 },
-      ],
-      forumChannelId: null,
-      summaryMessageId: null,
-    });
-    const edge = { lat: 40.05, lon: -80.1 };
-    const theirs = await made.gymStore.create(
-      { name: 'Border Stone', ...at(edge, 0, -15) },
-      OTHER_GUILD_ROW,
-    );
-    await made.directory.load();
-    const stone = wayspot(1, 'Old Border Stone', at(edge, 0, 15));
-    const file = exportOf([stone]);
-    const before = await made.wayfarer.preview(STAFF_PLACE, file);
-    expect(before.counts).toMatchObject({ added: 0, held: 1 });
-    expect(before.plan.held).toEqual([{ wayspot: stone, gymId: theirs.id }]);
-
-    // The other server's staff said their gym is none of these: it holds the Wayspot back no more.
-    await made.wayfarerStore.saveReviews(
-      OTHER_GUILD_ROW,
-      null,
-      [
-        {
-          gymId: theirs.id,
-          kind: 'match',
-          candidates: [
-            { id: stone.id, kind: 'gym', title: stone.title, ...at(edge, 0, 15), metres: 30 },
-          ],
-        },
-      ],
-      1,
-    );
-    await made.wayfarerStore.closeReviews(OTHER_GUILD_ROW, [theirs.id], 'none-of-these', STAFF, 2);
-    const after = await made.wayfarer.preview(STAFF_PLACE, file);
-    expect(after.counts).toMatchObject({ added: 1, held: 0 });
-  });
-
-  it('holds a Wayfarer gym that a never matched gym of another server 30 metres off may be', async () => {
-    const made = await wayfarerImportWith();
-    made.regions.rows.push({
-      id: 5,
-      guildId: OTHER_GUILD_ROW,
-      channelId: '100000000000000005',
-      description: null,
-      bounds: [
-        { lat: 40.0, lon: -80.2 },
-        { lat: 40.1, lon: -80.2 },
-        { lat: 40.1, lon: -80.1 },
-        { lat: 40.0, lon: -80.1 },
-        { lat: 40.0, lon: -80.2 },
-      ],
-      forumChannelId: null,
-      summaryMessageId: null,
-    });
-    const edge = { lat: 40.05, lon: -80.1 };
-    const theirs = await made.gymStore.create(
-      { name: 'Border Stone', ...at(edge, 0, -15) },
-      OTHER_GUILD_ROW,
-    );
-    await made.directory.load();
-    const outcome = await made.wayfarer.apply(
-      STAFF_PLACE,
-      exportOf([wayspot(1, 'Old Border Stone', at(edge, 0, 15))]),
-    );
-    expect(outcome.counts).toMatchObject({ added: 0, held: 1 });
-    expect(made.entries).toContainEqual(
-      expect.objectContaining({
-        msg: 'a Wayfarer gym was not added: a gym nearby may be it',
-        wayspot: idOf(1),
-        near: [theirs.id],
-      }),
+    expect(outcome.counts).toMatchObject({ added: 2, held: 0 });
+    expect(made.entries).not.toContainEqual(
+      expect.objectContaining({ msg: 'a Wayfarer gym was not added: a gym nearby may be it' }),
     );
   });
 
@@ -1378,6 +1300,19 @@ describe('WayfarerImportService.applyMatch', () => {
       lastSeen: made.clock.now,
       notInWayfarer: false,
     });
+  });
+
+  it('makes a gym a Wayspot that a gym of another server is too (plan 19B-2)', async () => {
+    const made = await wayfarerImportWith();
+    const theirs = await withOtherServer(made);
+    await made.gymStore.update(theirs.id, { pogoId: idOf(4) });
+    await made.directory.refreshGym(theirs.id);
+    const bench = wayspot(4, 'Bench', at(gymOf(made, 6), 40));
+
+    expect(await made.wayfarer.applyMatch(STAFF_PLACE, 6, bench)).toMatchObject({
+      kind: 'matched',
+    });
+    expect(made.gymStore.row(6)?.pogoId).toBe(bench.id);
   });
 
   it('refuses a Wayspot another gym already is, and a gym that is not there', async () => {

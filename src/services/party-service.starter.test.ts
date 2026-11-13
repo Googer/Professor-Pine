@@ -214,7 +214,7 @@ describe('PartyService: the first message of a forum post, when things go wrong'
       gateway.gone.add(postId);
       return edit(postId, message, options);
     };
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     const outcome = await made.service.reportRaid({
       gym,
@@ -235,7 +235,7 @@ describe('PartyService: the first message of a forum post, when things go wrong'
     gateway.textLimit = 20;
     gateway.failing.set('deletePost', new Error('Discord is down'));
     const made = await partyServiceWith([], {}, { gateway });
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     await made.service
       .reportRaid({
@@ -259,7 +259,7 @@ describe('PartyService: the first message of a forum post, when things go wrong'
       gateway.refuseV2Starter = refuseV2Starter;
       gateway.textLimit = 20;
       const made = await partyServiceWith([], {}, { gateway });
-      const gym = gymsFixture().get(1);
+      const gym = gymsFixture().stored(1);
       if (!gym) throw new Error('no gym 1');
       await expect(
         made.service.reportRaid({

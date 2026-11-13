@@ -235,7 +235,7 @@ describe('PartyScheduler: hatch and end', () => {
 
   it('goes on with the other parties when one cannot be stored or shown', async () => {
     const made = await reportedRaid({ time: { hatch: HATCH } });
-    const gym = gymsFixture().get(2);
+    const gym = gymsFixture().stored(2);
     if (!gym) throw new Error('no gym');
     const second = await made.service.reportRaid({
       gym,
@@ -1269,7 +1269,7 @@ describe('PartyScheduler: running', () => {
 
 /** A second raid that has ended and whose post a late message opened again; gives the post. */
 async function endedButOpen(made: Made): Promise<string> {
-  const gym = gymsFixture().get(3);
+  const gym = gymsFixture().stored(3);
   if (!gym) throw new Error('no gym');
   const outcome = await made.service.reportRaid({
     gym,

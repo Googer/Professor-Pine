@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { keptRow } from '../../test/support/wayspot-cases.js';
 import {
@@ -33,6 +34,17 @@ describe("the region editor's data", () => {
     web = webServerWith({ staff, editor });
     return { web, staff, editor };
   }
+
+  it("gives the server's own gyms only, none of another server's in its regions (plan 19B-2)", async () => {
+    const { web, editor } = await made();
+    // The Library, in West, becomes the second server's alone.
+    editor.gyms.unlink(1, TEST_GUILD_ROW);
+    editor.gyms.link(1, OTHER_GUILD_ROW);
+    await editor.directory.refreshGym(1);
+    const cookie = await web.loggedIn(STAFF, 'Brock');
+    const data = (await web.app.inject({ url: DATA, headers: { cookie } })).json<EditorData>();
+    expect(data.gyms.map(([id]) => id)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 11, 12]);
+  });
 
   it('is for those logged in', async () => {
     const { web } = await made();

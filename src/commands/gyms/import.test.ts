@@ -22,6 +22,7 @@ import { allComponents, buttonsOf, textDisplays, textOf } from '../../../test/su
 import {
   EAST_CHANNEL,
   northRegion,
+  TEST_GUILD_ROW,
   testOutlines,
   WEST_CHANNEL,
 } from '../../../test/support/gyms.js';
@@ -82,7 +83,7 @@ function wayspot(
 }
 
 function gymOf(made: Made, id: number): Gym {
-  const gym = made.directory.get(id);
+  const gym = made.directory.stored(id);
   if (!gym) throw new Error(`no gym ${id}`);
   return gym;
 }
@@ -589,7 +590,7 @@ describe('/gym import: an export in parts', () => {
     const pressed = await pressing(made, buttonId(answer, 'Import'), answer);
     await made.settle();
     expect(linesOf(sentLast(pressed))[0]).toBe('Imported.');
-    expect(made.directory.get(1)?.pogoId).toBe(idOf(1));
+    expect(made.directory.stored(1)?.pogoId).toBe(idOf(1));
   });
 
   it('refuses parts of different exports, a part twice, or a missing part', async () => {
@@ -836,14 +837,14 @@ describe('/gym import: the buttons', () => {
       'Keep them',
     ]);
     // Nothing is deleted by the question.
-    for (const gym of beyond) expect(made.directory.get(gym.id)).toBeDefined();
+    for (const gym of beyond) expect(made.directory.of(TEST_GUILD_ROW).get(gym.id)).toBeDefined();
 
     const deleting = await made.press(buttonId(question, labelsOf(question)[0]!));
     await made.settle();
     expect(linesOf(answerOf(deleting))).toEqual([
       `Deleted ${beyond.length} ${beyond.length === 1 ? 'gym' : 'gyms'} outside the scanned area.`,
     ]);
-    for (const gym of beyond) expect(made.directory.get(gym.id)).toBeUndefined();
+    for (const gym of beyond) expect(made.directory.stored(gym.id)).toBeUndefined();
     const posts = made.gateway
       .messagesIn(UPDATES_CHANNEL)
       .map((message) => textOf(message.message));
@@ -991,8 +992,8 @@ describe('/gym import: the buttons', () => {
     expect((await pressed.fetchReply()).attachments).toEqual([]);
     expect(made.wayfarerStore.imports).toHaveLength(1);
     expect(made.wayfarerStore.imports[0]).toMatchObject({ staffId: MODERATOR });
-    expect(made.directory.get(1)?.pogoId).toBe(idOf(1));
-    expect(made.directory.get(1)?.name).toBe('The Pinewood Public Library');
+    expect(made.directory.stored(1)?.pogoId).toBe(idOf(1));
+    expect(made.directory.stored(1)?.name).toBe('The Pinewood Public Library');
   });
 
   it('answers once: a second press is only acknowledged', async () => {

@@ -174,7 +174,7 @@ export interface PlaceSources {
   gyms: {
     readonly generation: number;
     all(): readonly { id: number; imageUrl?: string | null | undefined }[];
-    get(id: number): { imageUrl?: string | null | undefined } | undefined;
+    stored(id: number): { imageUrl?: string | null | undefined } | undefined;
   };
   wayspots?: {
     readonly contentGeneration: number;
@@ -236,7 +236,7 @@ export class PlacePictures {
   urlOf(kind: PlaceKind, id: string): string | undefined {
     if (kind === 'gym') {
       return /^\d{1,10}$/u.test(id)
-        ? wayspotPicture(this.options.gyms.get(Number(id))?.imageUrl)
+        ? wayspotPicture(this.options.gyms.stored(Number(id))?.imageUrl)
         : undefined;
     }
     return wayspotPicture(this.options.wayspots?.byId(id)?.image);

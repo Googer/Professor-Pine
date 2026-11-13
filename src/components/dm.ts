@@ -18,6 +18,7 @@ import {
   type ControlRows,
 } from '../render/notify-dm.js';
 import { gymName } from '../render/raid-post.js';
+import { serverGyms } from '../commands/util/server-gym.js';
 import { plain } from '../render/text.js';
 import { dialogName, scopeOf } from '../commands/notifications/want-boxes.js';
 import {
@@ -59,7 +60,8 @@ async function stop(
         : `**${name}** was already removed from your list for that server.`;
     }
     case 'gym': {
-      const name = plain(gymName(ctx.gyms.get(reason.gymId)));
+      // The id came with the press: named only as a gym of that server (plan 19B-2).
+      const name = plain(gymName((await serverGyms({ guildId }, ctx)).get(reason.gymId)));
       const removed = await ctx.gymTargets.remove(memberId, guildId, reason.gymId);
       return removed
         ? `Removed **${name}** from your gyms for that server. \`/target\` there adds it again.`

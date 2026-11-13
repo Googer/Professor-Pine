@@ -48,10 +48,9 @@ export interface PartyMirrorsOptions {
     byId(id: number): { channelId: string } | undefined;
     byChannel(channelId: string): { channelId: string; guildId: number | null } | undefined;
   };
+  /** The gyms per server (plan 19B-2): a party's gym a stored reference, where it lies its server's. */
   gyms: ServerGymRegions & {
-    get(id: number): { taggedEx: boolean; confirmedEx: boolean } | undefined;
-    /** The region channels a gym lies in. */
-    regionsOf(gymId: number): string[];
+    stored(id: number): { taggedEx: boolean; confirmedEx: boolean } | undefined;
   };
   /**
    * The kept Wayspots (plan 8X-4): a train's copies go also where a power spot of its route lies.
@@ -438,7 +437,7 @@ export class PartyMirrors {
     }
     const rendered = render(party);
     const place = this.place(party, postId);
-    const gym = party.gymId === null ? undefined : gyms.get(party.gymId);
+    const gym = party.gymId === null ? undefined : gyms.stored(party.gymId);
     // Without a channel of the server to start from, no channel is found and the copies go;
     // they are made again once there is one.
     const near = place.regionChannelId ?? party.forumChannelId ?? undefined;

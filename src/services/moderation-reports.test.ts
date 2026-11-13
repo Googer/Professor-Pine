@@ -119,7 +119,7 @@ describe('ModerationReports: a party reported', () => {
 
   it('names a raid’s gym by the name its post shows, and its official name beside it', async () => {
     const made = await reportsWith();
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     const raid = await made.service.reportRaid({
       gym,

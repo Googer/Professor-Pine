@@ -46,7 +46,7 @@ import type { PostsRefused } from '../domain/party/post-permissions.js';
 import type { RelocateOutcome } from './party-service.js';
 import type { PartyStore } from './party-store.js';
 import { gymRegionsInGuild, type RegionProvider } from './region-directory.js';
-import type { ServerGymProvider } from './gym-directory.js';
+import type { GymProvider } from './gym-directory.js';
 
 /**
  * What came of a change to a raid. `gone`: there is no such active raid. `refused`: the raid
@@ -83,10 +83,8 @@ export interface RaidChangeServiceOptions {
   lines: Pick<PartyLines, 'say'>;
   /** Takes away the completion questions nobody has to answer any more. */
   questions?: { removeQuestions(partyId: string): Promise<void> };
-  gyms: { get(id: number): Gym | undefined; regionsOf(gymId: number): string[] } & Pick<
-    ServerGymProvider,
-    'of' | 'stored'
-  >;
+  /** The gyms per server (plan 19B-2): a gym is read in the raid's server's view. */
+  gyms: Pick<GymProvider, 'of' | 'stored'>;
   regions: Pick<RegionProvider, 'byId' | 'byChannel'>;
   gameData: GameDataProvider;
   /** Told of every stored change of a raid, with the member who made it. */
@@ -356,8 +354,10 @@ export class RaidChangeService {
     const { gyms, regions, store, posts, lines } = this.options;
     const before = store.get(partyId);
     if (!before || !isRaid(before)) return { kind: 'gone' };
-    // Deleted from the gym list since the member picked it.
-    const gym = gyms.get(gymId);
+    // Deleted from the gym list since the member picked it, or from the raid's server's (plan
+    // 19B-2: a shared gym that server deleted is gone for it, as any other).
+    // Another server's gym is as if there were none.
+    const gym = gyms.of(before.guildId).get(gymId);
     if (!gym) return { kind: 'refused', reason: 'gym-gone' };
     const move = this.gymMove(before, gym);
     if (move.kind === 'local') return this.setGymInRegion(partyId, member, gym);
@@ -381,7 +381,7 @@ export class RaidChangeService {
         return { kind: 'refused', reason: 'gym-gone' };
       case 'moved': {
         const { party, from } = outcome;
-        const old = from.gymId === null ? undefined : gyms.get(from.gymId);
+        const old = from.gymId === null ? undefined : gyms.stored(from.gymId);
         const oldRegion = from.regionId === null ? undefined : regions.byId(from.regionId);
         if (party.forumPostId !== null) {
           lines.say(
@@ -450,9 +450,10 @@ export class RaidChangeService {
       (party) => {
         if (party.gymId === gymId) return { ok: true, party };
         // Asked here, under the gym's lock: the deletion of a gym holds it until the gym is gone.
-        if (!gyms.get(gymId)) return refused('gym-gone');
+        const view = gyms.of(party.guildId);
+        if (!view.get(gymId)) return refused('gym-gone');
         const region = party.regionId === null ? undefined : regions.byId(party.regionId);
-        if (!region || !gyms.regionsOf(gymId).includes(region.channelId)) {
+        if (!region || !view.regionsOf(gymId).includes(region.channelId)) {
           return refused('other-region');
         }
         return { ok: true, party: setGym(party, gymId, region.id).party };

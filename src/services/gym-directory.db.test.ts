@@ -3,10 +3,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { catalogueFixture } from '../../test/support/game-data.js';
 import {
   EAST_CHANNEL,
-  UNBOUNDED_CHANNEL,
-  WEST_CHANNEL,
+  TEST_GUILD_ROW,
   testGyms,
   testRegions,
+  UNBOUNDED_CHANNEL,
+  WEST_CHANNEL,
 } from '../../test/support/gyms.js';
 import { startMigratedDatabase } from '../../test/support/migrated-db.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
@@ -49,7 +50,6 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
     directory = new GymDirectory({
       gyms,
       regions,
-      ignoredWords: ['gym', 'raid'],
       wordsOf: () => ['gym', 'raid'],
       log: createTestLogger().log,
     });
@@ -61,18 +61,21 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
 
   const id = (fixtureId: number) => stored.get(fixtureId) ?? -1;
   const ids = (channelId: string | null, text: string) =>
-    directory.search(channelId, text).map((hit) => hit.gym.id);
+    directory
+      .of(TEST_GUILD_ROW)
+      .search(channelId, text)
+      .map((hit) => hit.gym.id);
 
   it('sorts gyms into regions exactly as the database does', async () => {
     for (const channelId of [WEST_CHANNEL, EAST_CHANNEL, UNBOUNDED_CHANNEL]) {
       const inDatabase = (await gyms.listInRegion(channelId)).map((gym) => gym.id);
       const inDirectory = (await gyms.listAll())
-        .filter((gym) => directory.regionsOf(gym.id).includes(channelId))
+        .filter((gym) => directory.of(TEST_GUILD_ROW).regionsOf(gym.id).includes(channelId))
         .map((gym) => gym.id);
       expect(inDirectory, channelId).toEqual(inDatabase);
     }
     expect((await gyms.listInRegion(WEST_CHANNEL)).length).toBe(8);
-    expect(directory.isRegion(UNBOUNDED_CHANNEL)).toBe(false);
+    expect(directory.of(TEST_GUILD_ROW).isRegion(UNBOUNDED_CHANNEL)).toBe(false);
   });
 
   it('searches stored gyms by decoded text, address and places', () => {
@@ -82,7 +85,7 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
     expect(ids(WEST_CHANNEL, 'luna')).toEqual([id(2)]);
     expect(ids(WEST_CHANNEL, 'plaza')).toEqual([id(2)]);
     expect(ids(WEST_CHANNEL, 'mural')).toEqual([id(1), id(7)]);
-    expect(directory.get(id(8))?.name).toBe('Café Élan Fresco');
+    expect(directory.stored(id(8))?.name).toBe('Café Élan Fresco');
   });
 
   it('follows a gym that is edited, moved and deleted', async () => {

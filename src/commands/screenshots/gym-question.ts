@@ -77,10 +77,13 @@ export function gymMenuOptions(
   });
 }
 
-/** The gym's name as members know it (its nickname first), by id. */
+/**
+ * The gym's name as members know it (its nickname first), by id: the gym a reading of the
+ * server's took (a stored reference, plan 19B-2).
+ */
 export function gymNamerOf(ctx: Pick<AppContext, 'gyms'>): GymNamer {
   return (id) => {
-    const gym = ctx.gyms.get(id);
+    const gym = ctx.gyms.stored(id);
     return gym ? gym.nickname || gym.name : undefined;
   };
 }

@@ -37,7 +37,7 @@ async function settled(made: Made): Promise<void> {
 }
 
 const report = (made: Made, gymId: number, more: Partial<RaidReport> = {}): RaidReport => {
-  const gym = made.directory.get(gymId);
+  const gym = made.directory.stored(gymId);
   if (!gym) throw new Error(`no gym ${gymId}`);
   return {
     gym,
@@ -179,9 +179,9 @@ describe('RegionAdminService.import', () => {
     // The rows, and both directories: the Bridge (gym 4) lies in no region of West any more.
     expect(regionOf(made, WEST_CHANNEL)).toMatchObject({ bounds: WEST_HALF_RING, guildId: 1 });
     expect(south).toMatchObject({ bounds: SOUTH_RING, guildId: 1 });
-    expect(made.directory.regionsOf(1)).toEqual([WEST_CHANNEL]);
-    expect(made.directory.regionsOf(4)).toEqual([]);
-    expect(made.directory.isRegion(SOUTH_CHANNEL)).toBe(true);
+    expect(made.directory.of(TEST_GUILD_ROW).regionsOf(1)).toEqual([WEST_CHANNEL]);
+    expect(made.directory.of(TEST_GUILD_ROW).regionsOf(4)).toEqual([]);
+    expect(made.directory.of(TEST_GUILD_ROW).isRegion(SOUTH_CHANNEL)).toBe(true);
     // The new region has its forum, named after its channel, with the list of active raids.
     const forumId = south?.forumChannelId ?? '';
     expect(made.gateway.forums.get(forumId)).toMatchObject({
@@ -507,10 +507,10 @@ describe('RegionAdminService.remove', () => {
     // The row, its routes, and what the directories know.
     expect(made.regions.byId(1)).toBeUndefined();
     expect(made.routes.rows.map((row) => row.name)).toEqual(['East loop']);
-    expect(made.directory.isRegion(WEST_CHANNEL)).toBe(false);
-    expect(made.directory.regionsOf(1)).toEqual([]);
+    expect(made.directory.of(TEST_GUILD_ROW).isRegion(WEST_CHANNEL)).toBe(false);
+    expect(made.directory.of(TEST_GUILD_ROW).regionsOf(1)).toEqual([]);
     // The gyms are all still there, and so is the channel.
-    expect(made.directory.get(1)).toBeDefined();
+    expect(made.directory.of(TEST_GUILD_ROW).get(1)).toBeDefined();
     expect(made.gateway.serverChannels(made.gateway.guildId)?.map((one) => one.id)).toContain(
       WEST_CHANNEL,
     );
@@ -588,7 +588,7 @@ describe('RegionAdminService.remove', () => {
     expect(outcome).toEqual({ kind: 'failed', ended: 1 });
     expect(made.regions.byId(1)).toBeDefined();
     expect(made.gateway.forums.has(WEST_FORUM)).toBe(true);
-    expect(made.directory.isRegion(WEST_CHANNEL)).toBe(true);
+    expect(made.directory.of(TEST_GUILD_ROW).isRegion(WEST_CHANNEL)).toBe(true);
     await expect(reported(made, 2)).resolves.toBeDefined();
   });
 
@@ -630,7 +630,7 @@ describe('RegionAdminService.remove', () => {
       ).kind,
     ).toBe('no-region');
     // A raid of East that is moved into the region somebody still holds: it stays where it is.
-    const gym = made.directory.get(1);
+    const gym = made.directory.stored(1);
     if (!gym) throw new Error('no gym 1');
     expect((await made.service.relocate(raid.party.id, gym, held)).kind).toBe('no-forum');
     expect(made.store.get(raid.party.id)).toMatchObject({ regionId: 2 });
@@ -699,7 +699,7 @@ describe('RegionAdminService.remove', () => {
     expect(question?.strandedGyms).toBe(0);
     const outcome = await made.regionAdmin.remove(1, REGION_STAFF, 'keep');
     expect(outcome).toMatchObject({ kind: 'removed', strandedGyms: 0 });
-    expect(made.directory.regionsOf(1)).toEqual([SOUTH_CHANNEL]);
+    expect(made.directory.of(TEST_GUILD_ROW).regionsOf(1)).toEqual([SOUTH_CHANNEL]);
     expect(regionOf(made, UNBOUNDED_CHANNEL)).toBeDefined();
   });
 });

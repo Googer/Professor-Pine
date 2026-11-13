@@ -1,7 +1,6 @@
 import type { Gym } from '../db/repositories/gym-repository.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import type { GymLink } from '../domain/gyms/gym-server.js';
-import { GymLookup, type GymHit, type GymLookupOptions } from '../domain/search/gym-lookup.js';
 import type { Logger } from '../log.js';
 import { ServerGyms, type GymView } from './server-gyms.js';
 
@@ -23,10 +22,11 @@ export interface RegionSource {
 }
 
 /**
- * The gyms per server (plan 19B-2): a server's view (`of`), and a stored reference by its id
- * (`stored`). See `ServerGyms`.
+ * What handlers need of the gyms (plan 19B-2): a server's view (`of`), and a stored reference by
+ * its id (`stored`). See `ServerGyms`. Nothing reads every server's gyms as one list but the
+ * instance's own upkeep (`GymDirectory.all`).
  */
-export interface ServerGymProvider {
+export interface GymProvider {
   /** The gyms of a server, by its `Guild` row (undefined: a server without one, no gyms). */
   of(guildId: number | undefined): GymView;
   /**
@@ -39,36 +39,9 @@ export interface ServerGymProvider {
   serversOf(gymId: number): number[];
 }
 
-/**
- * What handlers need: the gyms per server, and finding them by what members type. The reads
- * below over every server's gyms and regions are the ones before plan 19B-2, left while their
- * callers move to a server's view (`of`) or a stored reference (`stored`); they go with the last.
- */
-export interface GymProvider extends ServerGymProvider {
-  /** The gym with this id, or undefined. */
-  get(id: number): Gym | undefined;
-  /** Whether the channel is a region with an outline. */
-  isRegion(channelId: string): boolean;
-  /** Channel ids of the regions the gym lies in; empty when it lies in none. */
-  regionsOf(gymId: number): string[];
-  /** The gyms that lie in the region of this channel, in no particular order (a new list). */
-  inRegion(channelId: string): Gym[];
-  /**
-   * Gyms matching the text, best first. In a region channel: the matches of the text as typed
-   * (the region's own gyms, then gyms just outside it), then the matches that needed a
-   * correction (the same order of places); in any other channel, or with null, all gyms are
-   * searched. Guesses (`allWords` false: gyms with only some of the words) come only when no gym
-   * has every word, the region's own first, then the neighbours'. A hit's `score` is comparable
-   * only with hits of the same `place` and the same `corrected` value of one search.
-   */
-  search(channelId: string | null, text: string, options?: GymLookupOptions): GymHit<Gym>[];
-}
-
 export interface GymDirectoryOptions {
   gyms: GymSource;
   regions: RegionSource;
-  /** Words ignored in gym texts and searches (settings.blacklistWords). */
-  ignoredWords: readonly string[];
   /**
    * The words a server's gym search ignores (its `blacklistWords`, `ServerSettings`), read at
    * every ask of its view: a change rebuilds its index.
@@ -84,7 +57,6 @@ export interface GymDirectoryOptions {
  * complete state.
  */
 export class GymDirectory implements GymProvider {
-  private lookup: GymLookup<Gym> | undefined;
   private servers: ServerGyms | undefined;
   private queue: Promise<unknown> = Promise.resolve();
   private changes = 0;
@@ -125,11 +97,6 @@ export class GymDirectory implements GymProvider {
     return this.changes;
   }
 
-  private get current(): GymLookup<Gym> {
-    if (!this.lookup) throw new Error('Gyms have not been loaded yet');
-    return this.lookup;
-  }
-
   /** Changes are applied one after the other, in the order they were asked for. */
   private enqueue<T>(work: () => Promise<T>): Promise<T> {
     const result = this.queue.then(work);
@@ -146,7 +113,6 @@ export class GymDirectory implements GymProvider {
         this.options.regions.listAll(),
       ]);
       const started = performance.now();
-      this.lookup = new GymLookup(gyms, regions, this.options.ignoredWords);
       this.servers = new ServerGyms(gyms, links, regions, this.options.wordsOf);
       this.changes += 1;
       this.options.log.info(
@@ -162,31 +128,15 @@ export class GymDirectory implements GymProvider {
    */
   refreshGym(id: number): Promise<Gym | undefined> {
     return this.enqueue(async () => {
-      const lookup = this.current;
-      const [gym, servers] = await Promise.all([
+      const servers = this.perServer;
+      const [gym, linked] = await Promise.all([
         this.options.gyms.get(id),
         this.options.gyms.linksOf(id),
       ]);
-      this.take(lookup, id, gym, servers);
+      take(servers, id, gym, linked);
       this.changes += 1;
       return gym;
     });
-  }
-
-  /** A gym as read: put in (with its servers) or taken out of every view. */
-  private take(
-    lookup: GymLookup<Gym>,
-    id: number,
-    gym: Gym | undefined,
-    servers: readonly number[],
-  ): void {
-    if (gym) {
-      lookup.put(gym);
-      this.perServer.put(gym, servers);
-    } else {
-      lookup.remove(id);
-      this.perServer.remove(id);
-    }
   }
 
   /**
@@ -195,14 +145,14 @@ export class GymDirectory implements GymProvider {
    */
   refreshGyms(ids: readonly number[]): Promise<Gym[]> {
     return this.enqueue(async () => {
-      const lookup = this.current;
+      const servers = this.perServer;
       const read: Gym[] = [];
       for (const id of ids) {
-        const [gym, servers] = await Promise.all([
+        const [gym, linked] = await Promise.all([
           this.options.gyms.get(id),
           this.options.gyms.linksOf(id),
         ]);
-        this.take(lookup, id, gym, servers);
+        take(servers, id, gym, linked);
         if (gym) read.push(gym);
       }
       this.changes += 1;
@@ -219,12 +169,10 @@ export class GymDirectory implements GymProvider {
    * a `load` that read the database before the row went would otherwise put it back.
    */
   forget(id: number): boolean {
-    const known = this.current.remove(id);
-    this.perServer.remove(id);
+    const known = this.perServer.remove(id);
     this.changes += 1;
     void this.enqueue(() => {
-      const again = this.servers?.remove(id) ?? false;
-      if (this.lookup?.remove(id) || again) this.changes += 1;
+      if (this.servers?.remove(id)) this.changes += 1;
       return Promise.resolve();
     });
     return known;
@@ -245,35 +193,28 @@ export class GymDirectory implements GymProvider {
     return known;
   }
 
+  /** How many gyms there are, of every server. */
   get size(): number {
-    return this.current.size;
-  }
-
-  get(id: number): Gym | undefined {
-    return this.current.get(id);
+    return this.perServer.size;
   }
 
   /**
-   * Every gym, in no particular order (a new list): for the upkeep of the gyms, which measures
-   * from one gym to all others. Handlers search; they do not list.
+   * Every gym of every server, in no particular order (a new list): for the instance's upkeep of
+   * the gyms (its Google queue, which measures from one gym to all others). Handlers read a
+   * server's view; they do not list.
    */
   all(): Gym[] {
     return this.perServer.all();
   }
+}
 
-  isRegion(channelId: string): boolean {
-    return this.current.isRegion(channelId);
-  }
-
-  regionsOf(gymId: number): string[] {
-    return this.current.regionsOf(gymId);
-  }
-
-  inRegion(channelId: string): Gym[] {
-    return this.current.inRegion(channelId);
-  }
-
-  search(channelId: string | null, text: string, options?: GymLookupOptions): GymHit<Gym>[] {
-    return this.current.search(channelId, text, options);
-  }
+/** A gym as read: put in (with its servers) or taken out of every view. */
+function take(
+  servers: ServerGyms,
+  id: number,
+  gym: Gym | undefined,
+  linked: readonly number[],
+): void {
+  if (gym) servers.put(gym, linked);
+  else servers.remove(id);
 }

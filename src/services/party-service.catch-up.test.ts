@@ -182,7 +182,7 @@ describe('PartyService on a catch-up (plan 8X-H)', () => {
 
   it('tries one closing a run while the network is away, the rest kept (review r1 C2)', async () => {
     const made = await reportedRaid();
-    const gym = gymsFixture().get(2);
+    const gym = gymsFixture().stored(2);
     if (!gym) throw new Error('the invented gyms have no gym 2');
     const other = await made.service.reportRaid({
       gym,

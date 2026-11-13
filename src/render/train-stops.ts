@@ -42,19 +42,19 @@ export const UNKNOWN_SPOT = 'Unknown Power Spot';
 export type StopLookup = (ref: StopRef) => PostStop;
 
 /**
- * The stops as the gyms and the kept Wayspots have them now (`stopsFrom`): a gym by its id, a
- * power spot by its Wayfarer id while it is kept as a power spot. Without Wayspots every power
- * spot is unknown.
+ * The stops as the gyms and the kept Wayspots have them now (`stopsFrom`): a gym by its id (a
+ * stop is a reference the train's server stored: `stored`, plan 19B-2), a power spot by its
+ * Wayfarer id while it is kept as a power spot. Without Wayspots every power spot is unknown.
  */
 export function stopsFrom(
-  gyms: { get(id: number): PostGym | undefined },
+  gyms: { stored(id: number): PostGym | undefined },
   wayspots?: {
     byId(id: string): Wayspot | undefined;
     addressOf(wayspot: AddressedWayspot & { id: string }): string;
   },
 ): StopLookup {
   return (ref) => {
-    if (ref.kind === 'gym') return { kind: 'gym', gym: gyms.get(ref.id) };
+    if (ref.kind === 'gym') return { kind: 'gym', gym: gyms.stored(ref.id) };
     const kept = wayspots?.byId(ref.id);
     return {
       kind: 'powerspot',

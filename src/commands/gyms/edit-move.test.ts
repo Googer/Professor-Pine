@@ -136,7 +136,7 @@ describe('/gym edit', () => {
 
   it('shows a changed notice in the post of a raid at the gym', async () => {
     const made = await gymCommandsWith();
-    const gym = made.directory.get(1);
+    const gym = made.directory.stored(1);
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,
@@ -583,7 +583,7 @@ describe('/gym move', () => {
 
   it('is never refused for a raid or a train, and says what stays when the regions change', async () => {
     const made = await gymCommandsWith();
-    const gym = made.directory.get(6);
+    const gym = made.directory.stored(6);
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,
@@ -642,7 +642,7 @@ describe('/gym move', () => {
 
   it('points to /location when it is used in the post of a raid', async () => {
     const made = await gymCommandsWith();
-    const gym = made.directory.get(1);
+    const gym = made.directory.stored(1);
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,

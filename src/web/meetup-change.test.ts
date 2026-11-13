@@ -579,7 +579,7 @@ describe('changing a meetup on the map', () => {
     expect((await map.change('place', { drawn: null })).status).toBe(404);
     expect((await map.change('name', { name: 'x' })).status).toBe(400);
     // A raid of the same store and server: no meetup.
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('the invented gyms have no gym 1');
     const raid = await map.made.service.reportRaid({
       gym,

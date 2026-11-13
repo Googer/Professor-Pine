@@ -64,6 +64,23 @@ export function stopRegionsInGuild<R extends { guildId: number | null }>(
   });
 }
 
+/**
+ * The channels of the regions a gym lies in, in each server it belongs to (plan 19B-2: each
+ * server's view, never another server's region that happens to hold it), each once, in the order
+ * of its servers: what the instance's own upkeep goes by (the line that waits for Google ranks a
+ * gym by its best region, `GoogleRanks`). None for a gym of no server or in none of their regions.
+ * Asked of every gym, it builds no server's view (`regionsIn`: the one rule for this gym alone).
+ */
+export function gymRegionsOfItsServers(
+  gyms: {
+    serversOf(gymId: number): readonly number[];
+    regionsIn(guildId: number, gymId: number): readonly string[];
+  },
+  gymId: number,
+): string[] {
+  return [...new Set(gyms.serversOf(gymId).flatMap((guildId) => gyms.regionsIn(guildId, gymId)))];
+}
+
 /** Whether a gym lies in a region of a server (`gymRegionsInGuild`). */
 export function gymInGuild(
   gyms: ServerGymRegions,

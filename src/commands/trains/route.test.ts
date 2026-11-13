@@ -219,7 +219,7 @@ describe('/route show', () => {
     }));
     const gyms = {
       ...made.ctx.gyms,
-      get: (id: number) => ({
+      stored: (id: number) => ({
         ...testGyms()[0],
         id,
         name: `Gym with a long name ${id}`,
@@ -1282,7 +1282,7 @@ describe('/route: what the review of the whole plan found', () => {
   it('add refuses a gym that lies in no region of the server, as a name that finds nothing', async () => {
     const made = await setup();
     // Gym 10 exists and lies in no region: the list never offers it, but its choice can be typed.
-    expect(made.ctx.gyms.get(10)?.name).toBe('Lakeview Trailhead');
+    expect(made.ctx.gyms.stored(10)?.name).toBe('Lakeview Trailhead');
     expect(await made.answer('add', { stop: 'gym:10' })).toBe(
       'I found no gym or Power Spot for "gym:10". Type part of its name and pick it from the list.',
     );

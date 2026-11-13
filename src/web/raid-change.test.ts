@@ -250,7 +250,7 @@ describe('changing a raid on the map', () => {
     // Over by the clock, then a new raid at the same gym: the first cannot come back beside it.
     map.made.clock.now = at('2026-10-13T14:12');
     web.clock.now = at('2026-10-13T14:12');
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     const standard = await map.made.service.reportRaid({
       gym,

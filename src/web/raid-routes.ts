@@ -312,7 +312,8 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       return sent;
     };
     const row = await parties.guilds.idFor(guild);
-    const gym = ctx.gyms.get(body.data.gym);
+    // A gym of the server only (plan 19B-2): another server's is no gym here (404).
+    const gym = ctx.gyms.of(row).get(body.data.gym);
     const lying =
       gym === undefined || row === undefined
         ? []

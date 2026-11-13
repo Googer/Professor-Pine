@@ -57,6 +57,7 @@ import type { PartyViewers } from './party-viewers.js';
 import { limitedRead } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import type { RaidStandSettings } from '../domain/time/raid-durations.js';
+import type { GymView } from '../services/gym-directory.js';
 
 /** What the activity heatmap of the live map reads (plan 8H-4). */
 export interface ActivityWebDeps {
@@ -68,13 +69,11 @@ export interface ActivityWebDeps {
   /** The regions, whose forums say who may see their parties (`RegionDirectory`). */
   regions: { all(): readonly Region[] };
   /**
-   * The gyms as the map has them (`GymDirectory`): a gym no longer listed is left out; the
-   * channels of the regions a gym lies in now (plan 8H-7B: a legacy train's stops, review A1).
+   * The gyms as the server's map has them (`GymDirectory.of`, plan 19B-2): a gym no longer
+   * listed, or no longer the server's, is left out; the channels of the server's regions a gym
+   * lies in now (plan 8H-7B: a legacy train's stops, review A1).
    */
-  gyms: {
-    get(id: number): { lat: number; lon: number } | undefined;
-    regionsOf(gymId: number): string[];
-  };
+  gyms: { of(guildId: number | undefined): Pick<GymView, 'get' | 'regionsOf'> };
   /** The row of a server (`Guild.id`), whose regions are its own (plan 8H-7B, review A2). */
   guilds: { idFor(snowflake: string): Promise<number | undefined> };
   /** The kept Wayspots (`WayspotDirectory`): a Power Spot no longer kept is left out. */
@@ -267,6 +266,8 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
       const now = deps.now();
       // The server's zone, the request's (plan 19A-2): its buckets' months, weekdays and hours.
       const zone = requestZone(request);
+      // The server's gyms (plan 19B-2): a bucket at a gym no longer its own is left out.
+      const gyms = activity.gyms.of(await activity.guilds.idFor(guild));
       const [buckets, months] = await Promise.all([
         activity.reader.buckets(guild, activityWindow(mode, now, zone)),
         activity.reader.months(guild),
@@ -298,7 +299,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         return gate === undefined || !keptOutOf(viewer, gate);
       });
       const pointOf = (kind: 'gym' | 'spot', id: string) =>
-        kind === 'gym' ? activity.gyms.get(Number(id)) : activity.wayspots.byId(id);
+        kind === 'gym' ? gyms.get(Number(id)) : activity.wayspots.byId(id);
       const weights = activityWeights(
         seen,
         mode,
@@ -542,15 +543,16 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
   > => {
     const row = await activity.guilds.idFor(guild);
     const ofServer = activity.regions.all().filter((region) => region.guildId === row);
+    const gyms = activity.gyms.of(row);
     const byId = new Map(ofServer.map((region) => [region.id, region]));
     const byChannel = new Map(ofServer.map((region) => [region.channelId, region.id]));
     const viewer = await viewers.viewer(guild, userId, ofServer.map(regionGate), member);
     if (viewer.kind !== 'member') return { refused: viewer.kind };
     const places: TrainPlaces = {
-      gym: (id) => activity.gyms.get(id),
+      gym: (id) => gyms.get(id),
       spot: (id) => activity.wayspots.byId(id),
       gymRegions: (id) =>
-        activity.gyms.regionsOf(id).flatMap((channel) => {
+        gyms.regionsOf(id).flatMap((channel) => {
           const regionId = byChannel.get(channel);
           return regionId === undefined ? [] : [regionId];
         }),

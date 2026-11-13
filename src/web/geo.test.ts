@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
+  WEST_FORUM,
+} from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ROLE, selfRolesWith } from '../../test/support/roles.js';
 import { GeoCache, PUBLIC_REGIONS_KEPT_MS } from './geo-cache.js';
@@ -352,6 +358,18 @@ describe('the regions and gyms of a server', () => {
     const view = answer.json<View>();
     expect(view.regions.map((region) => region.name)).toEqual(['east', 'west']);
     expect(view.gyms).toHaveLength(11);
+  });
+
+  it("show the server's own gyms only, though another server's lies in its regions (plan 19B-2)", async () => {
+    const sources = await geoSourcesWith();
+    web = webServerWith({ geo: sources });
+    // The Library, in West, becomes the second server's alone.
+    sources.gyms.unlink(1, TEST_GUILD_ROW);
+    sources.gyms.link(1, OTHER_GUILD_ROW);
+    await sources.directory.refreshGym(1);
+    const view = (await web.app.inject({ url: GEO })).json<View>();
+    expect(view.gyms).toHaveLength(10);
+    expect(view.gyms.map((gym) => gym.id)).not.toContain(1);
   });
 
   it('answer an unchanged view with 304, and nothing else', async () => {

@@ -1,11 +1,22 @@
 import { asTestServerGyms } from '../../test/support/providers.js';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { watchImmediates } from '../../test/support/timers.js';
-import { testGym, testGyms, WEST_CHANNEL } from '../../test/support/gyms.js';
+import {
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
+  testGym,
+  testGyms,
+  testLinks,
+  testRegions,
+  WEST_CHANNEL,
+  WIDE_CHANNEL,
+  wideRegion,
+} from '../../test/support/gyms.js';
+import { FORUM_TAGS } from '../render/party-post.js';
 import { ALICE, BOB, CAROL, REPORTER, stops, gym, inGyms } from '../../test/support/parties.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import { createdMeetup, createdTrain, reportedRaid } from '../../test/support/party-service.js';
-import { attendeeOf } from '../domain/party/party.js';
+import { attendeeOf, isTrain } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
 import { currentStop } from '../domain/party/train.js';
 import type { Member } from './attendance-service.js';
@@ -124,8 +135,8 @@ describe('TrainService: the route', () => {
     const list = gymsFixture();
     const gone = new Set<number>();
     const gyms = {
-      get: (id: number) => (gone.has(id) ? undefined : list.get(id)),
-      regionsOf: (id: number) => list.regionsOf(id),
+      get: (id: number) => (gone.has(id) ? undefined : list.stored(id)),
+      regionsOf: (id: number) => list.of(TEST_GUILD_ROW).regionsOf(id),
       size: 12,
     };
     const made = await createdTrain({ route: stops(4, 1, 7, 2) }, { gyms: asTestServerGyms(gyms) });
@@ -151,6 +162,42 @@ describe('TrainService: the route', () => {
       { content: "2 stops were removed: their gyms are no longer in Pine's gym list." },
     ]);
     expect(await made.trains.removeUnknownStops()).toBe(0);
+  });
+
+  it("takes a shared gym its server deleted off that server's trains only (plan 19B-2)", async () => {
+    // The Mural (7) is both servers': it lies in East and in Wide, the second server's region
+    // over West and East (given a forum here).
+    const gyms = gymsFixture([], {
+      links: [...testLinks(), { gymId: 7, guildId: OTHER_GUILD_ROW }],
+      regions: [...testRegions(), wideRegion()],
+    });
+    const made = await createdTrain({ route: stops(4, 1, 7) }, { gyms });
+    const WIDE_FORUM = '100000000000000061';
+    made.regions.rows.push({ ...wideRegion(), forumChannelId: WIDE_FORUM });
+    made.gateway.addForum(WIDE_FORUM, FORUM_TAGS);
+    // A train of the second server at the Mural, made in Wide as its members make one.
+    const other = await made.service.createTrain({
+      name: 'Their round',
+      creatorId: BOB,
+      regionChannelId: WIDE_CHANNEL,
+    });
+    if (other.kind !== 'created') throw new Error('the second train was not made');
+    expect(other.party.guildId).toBe(OTHER_GUILD_ROW);
+    expect(
+      await made.trains.addStop(other.party.id, { id: BOB, name: 'Bob' }, gym(7)),
+    ).toMatchObject({ kind: 'ok' });
+    await settled(made);
+    gyms.unlink(7, TEST_GUILD_ROW);
+
+    expect(await made.trains.removeUnknownStops()).toBe(1);
+    expect(inGyms(made.current().train.route)).toEqual(inGyms([4, 1]));
+    const theirs = made.store.get(other.party.id);
+    expect(theirs && isTrain(theirs) ? inGyms(theirs.train.route) : []).toEqual(inGyms([7]));
+    // Nor can it be added again to the deleting server's train.
+    expect(await made.trains.addStop(made.party.id, maker, gym(7), true)).toEqual({
+      kind: 'refused',
+      reason: 'gym-gone',
+    });
   });
 
   it('sweeps nothing while the gym list knows no gym at all', async () => {

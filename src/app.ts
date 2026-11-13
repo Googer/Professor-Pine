@@ -170,7 +170,11 @@ import { MemberNames } from './services/member-names.js';
 import { Boards } from './services/boards.js';
 import { MemberStatsService } from './services/member-stats.js';
 import { BoardRepository } from './db/repositories/board-repository.js';
-import { RegionDirectory, stopRegionsInGuild } from './services/region-directory.js';
+import {
+  gymRegionsOfItsServers,
+  RegionDirectory,
+  stopRegionsInGuild,
+} from './services/region-directory.js';
 import { SelfRoleService } from './services/self-role-service.js';
 import { SpawnService } from './services/spawn-service.js';
 import { MeetupSafety } from './services/meetup-safety.js';
@@ -475,7 +479,6 @@ export async function startApp(
   const gyms = new GymDirectory({
     gyms: gymRepository,
     regions: new RegionRepository(db),
-    ignoredWords: config.settings.blacklistWords,
     // Each server's search ignores the words its staff set (plan 19B-2); a row whose server is
     // not known yet has the file's defaults until it is.
     wordsOf: (row) => {
@@ -906,7 +909,8 @@ export async function startApp(
     // The line goes by the raids of each place's best region (plan 8W-6), from the history.
     ranks: new GoogleRanks({
       regions,
-      gymRegions: (id) => gyms.regionsOf(id),
+      // Each gym by the regions of its own servers (plan 19B-2).
+      gymRegions: (id) => gymRegionsOfItsServers(gyms, id),
       wayspotRegions: (id) => wayspots.regionsOf(id),
       // The servers by their rows: the first reading comes before the login (plan 8Z-2).
       servers: () => guilds.snowflakes(),
@@ -992,7 +996,7 @@ export async function startApp(
     reviewDays: config.settings.ocr.reviewDays,
     keepMegabytes: config.settings.ocr.keepMegabytes,
     reviewPerDay: config.settings.ocr.reviewPerDay,
-    gymName: (id) => gyms.get(id)?.name,
+    gymName: (id) => gyms.stored(id)?.name,
     // A raid's screenshot is kept while the raid is active, for its "Screenshot feedback" button;
     // a max battle's while it lasts (plan 8X-S, review R4), or the sweep would undo `inUse`.
     shown: () =>

@@ -170,20 +170,12 @@ export class MemoryWayfarer implements WayfarerStorage {
     });
   }
 
-  latestDecided(
-    guildId: number | 'any',
-    gymIds: readonly number[],
-  ): Promise<Map<number, StoredReview>> {
+  latestDecided(guildId: number, gymIds: readonly number[]): Promise<Map<number, StoredReview>> {
     return this.attempt(() => {
       const ids = new Set(gymIds);
       const latest = new Map<number, StoredReview>();
       const rows = this.reviews
-        .filter(
-          (row) =>
-            (guildId === 'any' || row.guildId === guildId) &&
-            ids.has(row.gymId) &&
-            row.decision !== null,
-        )
+        .filter((row) => row.guildId === guildId && ids.has(row.gymId) && row.decision !== null)
         .sort((a, b) => (b.decidedAt ?? 0) - (a.decidedAt ?? 0) || b.id - a.id);
       for (const row of rows) {
         const item = this.reviewOf(row);

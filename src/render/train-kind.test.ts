@@ -27,7 +27,7 @@ function view(party: TrainParty): TrainPostView {
     zone: PARTY_ZONE,
     archiving: { graceMinutes: 5, warningMinutes: 60 },
     emoji,
-    stop: stopsFrom({ get: gym }),
+    stop: stopsFrom({ stored: gym }),
     boss: undefined,
     catalogue,
   };

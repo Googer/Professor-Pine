@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { EAST_FORUM, TEST_GUILD_ROW, testGym, WEST_CHANNEL } from '../../test/support/gyms.js';
+import {
+  EAST_FORUM,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
+  testGym,
+  testLinks,
+  WEST_CHANNEL,
+} from '../../test/support/gyms.js';
 import {
   ALICE,
   asRaid,
@@ -39,7 +46,7 @@ async function lines(made: Made): Promise<string[]> {
 
 /** A second raid, reported through the same service at another gym. */
 async function secondRaid(made: Made, gymId: number, report: Partial<RaidReport> = {}) {
-  const gym = gymsFixture().get(gymId);
+  const gym = gymsFixture().stored(gymId);
   if (!gym) throw new Error('no gym');
   const outcome = await made.service.reportRaid({
     gym,
@@ -60,7 +67,7 @@ describe('RaidChangeService: a party that is no raid', () => {
   it('answers gone and leaves the party alone: there is no such raid', async () => {
     const meetup = { ...testMeetup(), forumPostId: '300000000000000077' };
     const made = await partyServiceWith([meetup]);
-    const gym = gymsFixture().get(2);
+    const gym = gymsFixture().stored(2);
     if (!gym) throw new Error('no gym');
     const gone = { kind: 'gone' };
     expect(await made.raids.setHatchTime(meetup.id, alice, HATCH)).toEqual(gone);
@@ -503,6 +510,20 @@ describe('RaidChangeService: the gym, and one raid per gym', () => {
     );
   });
 
+  it('refuses a shared gym its server deleted since the member picked it, as gone (plan 19B-2)', async () => {
+    // The Fountain (2) is both servers'; the raid's server deletes it after it was picked.
+    const gyms = gymsFixture([], {
+      links: [...testLinks(), { gymId: 2, guildId: OTHER_GUILD_ROW }],
+    });
+    const made = await reportedRaid({}, { gyms });
+    gyms.unlink(2, TEST_GUILD_ROW);
+    expect(await made.raids.setGym(made.party.id, alice, 2)).toEqual({
+      kind: 'refused',
+      reason: 'gym-gone',
+    });
+    expect(made.current()).toMatchObject({ gymId: 1 });
+  });
+
   it('changes nothing for the gym the raid is at', async () => {
     const made = await reportedRaid();
     expect(await made.raids.setGym(made.party.id, alice, 1)).toMatchObject({
@@ -558,7 +579,7 @@ describe('RaidChangeService: the gym, and one raid per gym', () => {
   it('says where a move would take the raid: its own region, another one of the server, or nowhere', async () => {
     const made = await reportedRaid();
     const gym = (id: number) => {
-      const found = gymsFixture().get(id);
+      const found = gymsFixture().stored(id);
       if (!found) throw new Error(`no gym ${String(id)}`);
       return found;
     };

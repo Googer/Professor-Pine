@@ -32,7 +32,7 @@ type Made = Awaited<ReturnType<typeof regionCommandsWith>>;
 
 /** Reports a raid at a gym and gives its post. */
 async function reported(made: Made, gymId: number): Promise<string> {
-  const gym = made.directory.get(gymId);
+  const gym = made.directory.stored(gymId);
   if (!gym) throw new Error(`no gym ${gymId}`);
   const outcome = await made.service.reportRaid({
     gym,

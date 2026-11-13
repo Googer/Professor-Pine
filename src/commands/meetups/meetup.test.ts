@@ -39,6 +39,7 @@ import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
 import type { PartyStore } from '../../services/party-store.js';
 import { OPEN_PARTIES_FULL } from '../parties/open-parties.js';
 import { createTestContext } from '../../../test/support/test-context.js';
+import { withOutline } from '../../../test/support/providers.js';
 import { MemoryUsers } from '../../../test/support/users.js';
 import { keptRow, wayspotId } from '../../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../../test/support/wayspots.js';
@@ -369,8 +370,9 @@ describe('/meetup', () => {
 
   it('says so when the region has no forum yet', async () => {
     const made = await setup();
-    const gyms = { ...made.ctx.gyms, isRegion: (id: string) => id === UNBOUNDED_CHANNEL };
-    const other = await setup({ gyms });
+    // The region without a forum, given an outline: a region channel.
+    const regions = withOutline(made.ctx.regions, UNBOUNDED_CHANNEL);
+    const other = await setup({ regions });
     for (let n = 0; n < 3; n++) {
       expect((await other.run('Picnic', { channelId: UNBOUNDED_CHANNEL })).told).toBe(
         `The region <#${UNBOUNDED_CHANNEL}> has no forum yet. ` +

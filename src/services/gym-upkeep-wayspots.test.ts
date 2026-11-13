@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FakeGeoGateway } from '../../test/support/geo.js';
 import { gymDirectoryWith, MemoryGyms } from '../../test/support/gym-store.js';
-import { testRegions, WEST_CHANNEL } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, testRegions, WEST_CHANNEL } from '../../test/support/gyms.js';
 import { regionsFixture } from '../../test/support/providers.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { watchEachTest } from '../../test/support/timers.js';
@@ -46,7 +46,7 @@ async function lineWith(
   await places.load();
   const ranks = new GoogleRanks({
     regions,
-    gymRegions: (id) => directory.regionsOf(id),
+    gymRegions: (id) => directory.of(TEST_GUILD_ROW).regionsOf(id),
     wayspotRegions: (id) => wayspots.regionsOf(id),
     servers: () => Promise.resolve([]),
     activity: { raidsByRegion: () => Promise.resolve(new Map()) },

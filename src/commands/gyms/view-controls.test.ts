@@ -223,7 +223,7 @@ describe('the buttons of the view of /gym show', () => {
 
   it('refuses to delete a gym with a raid, as /gym delete does', async () => {
     const made = await gymCommandsWith();
-    const gym = made.directory.get(6);
+    const gym = made.directory.stored(6);
     if (!gym) throw new Error('no gym 6');
     const raid = await made.service.reportRaid({
       gym,

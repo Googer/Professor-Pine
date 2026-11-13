@@ -231,10 +231,7 @@ export interface GymAdminOptions {
    * and the row when no server is left, removed as one.
    */
   removal: GymRemoval;
-  directory: GymsInMemory &
-    Pick<GymDirectory, 'of' | 'stored' | 'serversOf' | 'forget' | 'unlink'> & {
-      regionsOf(gymId: number): string[];
-    };
+  directory: GymsInMemory & Pick<GymDirectory, 'of' | 'stored' | 'serversOf' | 'forget' | 'unlink'>;
   regions: Pick<RegionProvider, 'byChannel' | 'all'>;
   store: Pick<PartyStore, 'active' | 'withGymLock'>;
   trains: Pick<TrainService, 'gymRemoved'>;

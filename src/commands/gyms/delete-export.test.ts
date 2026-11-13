@@ -27,7 +27,7 @@ import { EXPIRED } from './shared.js';
 type Made = Awaited<ReturnType<typeof gymCommandsWith>>;
 
 async function raidAt(made: Made, gymId: number) {
-  const gym = made.directory.get(gymId);
+  const gym = made.directory.stored(gymId);
   if (!gym) throw new Error('no gym');
   const raid = await made.service.reportRaid({
     gym,
@@ -144,7 +144,7 @@ describe('/gym delete', () => {
     );
     expect(buttonsOf(answerOf(submitted))).toEqual([]);
     expect(made.gymStore.row(6)).toBeUndefined();
-    expect(made.directory.get(6)).toBeUndefined();
+    expect(made.directory.stored(6)).toBeUndefined();
     expect(inGyms(asTrain(made.store.get(train.id)).train.route)).toEqual(inGyms([1]));
     // The post of the train says why, and names nobody as a mention.
     const lines = made.gateway
@@ -249,7 +249,7 @@ describe('/gym delete', () => {
       '- the gym target of 1 member',
       `I could not take it off the route of <#${broken.forumPostId ?? ''}>: use \`/route remove\` in its post.`,
     ]);
-    expect(made.directory.get(6)).toBeUndefined();
+    expect(made.directory.stored(6)).toBeUndefined();
   });
 
   it('lets only staff submit, and takes no gym of another server', async () => {

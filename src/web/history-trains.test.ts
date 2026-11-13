@@ -7,7 +7,13 @@ import { MemoryHistory } from '../../test/support/history.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
-import { gymsFixture, regionsFixture } from '../../test/support/providers.js';
+import {
+  gymsFixture,
+  regionsFixture,
+  THEIR_GYM,
+  twoServerGyms,
+  type TestGyms,
+} from '../../test/support/providers.js';
 import { zonedAt } from '../../test/support/time.js';
 import { trainRecord } from '../../test/support/train-history-cases.js';
 import { noWayspots } from '../../test/support/wayspots.js';
@@ -76,7 +82,7 @@ const legacyTrain = (start: number, gyms: (number | null)[]): HistoryRecord =>
  * The fakes' server with its history in memory, Alice and Bob members, West and East named by
  * their channels. `records` go in in order: a record's id is its place, from 1.
  */
-async function setup(records: readonly HistoryRecord[]) {
+async function setup(records: readonly HistoryRecord[], gyms: TestGyms = gymsFixture()) {
   const made = await partyServiceWith();
   const history = new MemoryHistory();
   history.records.push(...records);
@@ -90,7 +96,7 @@ async function setup(records: readonly HistoryRecord[]) {
     parties: partyWebWith(made),
     activity: activityWebWith({
       reader: new MemoryActivity(),
-      gyms: gymsFixture(),
+      gyms,
       regions: regionsFixture(),
       wayspots: noWayspots(),
       channelName: (channelId) => names.get(channelId),
@@ -380,6 +386,22 @@ describe('the ended trains on the map’s History (plan 8H-7B)', () => {
       expect(answer.body).toBe(refused.body);
     }
     expect((await made.train(1, BOB)).statusCode).toBe(200);
+  });
+
+  it('places a train by the server’s own gyms: another server’s gym in a region of both is none (plan 19B-2)', async () => {
+    // Gym 2 lies in West but is the other server's alone; gym 1 is this server's.
+    const made = await setup(
+      [
+        { ...legacyTrain(SUNDAY, [THEIR_GYM]), regionId: null },
+        { ...legacyTrain(SUNDAY + MINUTE, [1]), regionId: null },
+      ],
+      twoServerGyms().gyms,
+    );
+    web = made.web;
+    const listed = (await made.month('2026-06')).json<TrainMonthView>();
+    expect(listed.trains.map((one) => one.id)).toEqual([2]);
+    expect((await made.train(1)).statusCode).toBe(404);
+    expect((await made.train(2)).statusCode).toBe(200);
   });
 
   it('refuses the route of a train with any stop in a barred region (A5)', async () => {

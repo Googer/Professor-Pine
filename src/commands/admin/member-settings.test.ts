@@ -9,6 +9,7 @@ import { MemoryTargetWants } from '../../../test/support/target-wants.js';
 import { MemoryUsers } from '../../../test/support/users.js';
 import { MemoryWants } from '../../../test/support/wants.js';
 import { PartyStatus, RaidPrivacy } from '../../domain/party/status.js';
+import { type TestGyms, twoServerGyms } from '../../../test/support/providers.js';
 
 const ASH = '300000000000000001';
 const OTHER_GUILD = '412345678901234599';
@@ -16,7 +17,11 @@ const OTHER_GUILD = '412345678901234599';
 const textOf = (interaction: Parameters<typeof textsOf>[0]) => textsOf(interaction).join('\n');
 
 async function setup(
-  legacy: { legacyIndex?: MemoryLegacyIndex; legacyFillIns?: MemoryLegacyFillIns } = {},
+  legacy: {
+    legacyIndex?: MemoryLegacyIndex;
+    legacyFillIns?: MemoryLegacyFillIns;
+    gyms?: TestGyms;
+  } = {},
 ) {
   const users = new MemoryUsers(
     new Map([
@@ -83,6 +88,13 @@ describe('/admin member-settings', () => {
       ),
       '- Gym targets in this server: **2** (Old Stone Fountain, gym #999 (gone))',
     ]);
+  });
+
+  it('names a gym target only as a gym of this server (plan 19B-2)', async () => {
+    // Gym 2 is the second server's alone, though it lies in a region of this one.
+    const made = await setup({ gyms: twoServerGyms().gyms });
+    const lines = textOf(await made.use(null, 'member-settings', {}, ash())).split('\n');
+    expect(lines).toContain('- Gym targets in this server: **2** (gym #2 (gone), gym #999 (gone))');
   });
 
   it('says where the member’s old-bot history stands, in neutral words (plan 8H-10)', async () => {

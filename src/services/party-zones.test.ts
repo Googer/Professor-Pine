@@ -273,7 +273,7 @@ describe('PartyScheduler in each server’s zone (plan 19A-2)', () => {
       { servers: withZones({ [OTHER]: 'Europe/Berlin' }), serverOfRow },
       { clock: { now: at('2026-10-13T17:50') } },
     );
-    const gym = gymsFixture().get(2);
+    const gym = gymsFixture().stored(2);
     if (!gym) throw new Error('the invented gyms have no gym 2');
     const second = await made.service.reportRaid({
       gym,

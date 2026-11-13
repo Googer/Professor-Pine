@@ -6,7 +6,13 @@ import { EAST_FORUM, UNBOUNDED_CHANNEL } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
-import { gymsFixture, regionsFixture } from '../../test/support/providers.js';
+import {
+  gymsFixture,
+  regionsFixture,
+  THEIR_GYM,
+  twoServerGyms,
+  type TestGyms,
+} from '../../test/support/providers.js';
 import { STOP_ROWS } from '../../test/support/stop-reporting.js';
 import { zonedAt } from '../../test/support/time.js';
 import { wayspotId } from '../../test/support/wayspot-cases.js';
@@ -34,7 +40,7 @@ const SPOT = wayspotId(5);
  * members, the clock at `THURSDAY`. With `kept`, the routes read through the kept reads on the
  * web's clock, as the bot's do (`KeptActivity`); without, each request reads the buckets itself.
  */
-async function setup(options: { kept?: boolean } = {}) {
+async function setup(options: { kept?: boolean; gyms?: TestGyms } = {}) {
   const made = await partyServiceWith();
   const activity = new MemoryActivity();
   const { wayspots } = await wayspotsWith(STOP_ROWS);
@@ -45,7 +51,7 @@ async function setup(options: { kept?: boolean } = {}) {
     activity: activityWebWith({
       reader:
         options.kept === true ? new KeptActivity(activity, { now: () => web.clock.now }) : activity,
-      gyms: gymsFixture(),
+      gyms: options.gyms ?? gymsFixture(),
       regions: regionsFixture(),
       wayspots,
     }),
@@ -249,6 +255,18 @@ describe('the activity heatmap on the map', () => {
     const view = (await made.ask()).json<ActivityView>();
     expect(view.places.map((place) => place.id)).toEqual(['1']);
     expect(view.leftOut).toBe(8);
+  });
+
+  it("counts as left out the parties at a gym that is no longer this server's, though another server keeps it (plan 19B-2)", async () => {
+    const made = await setup({ gyms: twoServerGyms().gyms });
+    web = made.web;
+    await made.activity.add(FAKE_GUILD_ID, [
+      activityBucket(1, '2026-10', 4, 18),
+      activityBucket(THEIR_GYM, '2026-10', 4, 18, { raids: 5 }),
+    ]);
+    const view = (await made.ask()).json<ActivityView>();
+    expect(view.places.map((place) => place.id)).toEqual(['1']);
+    expect(view.leftOut).toBe(5);
   });
 
   it('bounds the slider’s months to the game’s launch and this month, whatever a bucket says (8H4-3)', async () => {

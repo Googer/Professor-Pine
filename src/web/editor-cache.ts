@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { BoundedMap } from '../bounded-map.js';
-import type { Gym } from '../db/repositories/gym-repository.js';
+import type { GymView } from '../services/gym-directory.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import type { ServerChannel } from '../domain/regions/region-import.js';
 import type { Wayspot } from '../domain/wayspots/kept.js';
@@ -16,8 +16,14 @@ export interface EditorSources {
   guilds: { idFor(snowflake: string): Promise<number | undefined> };
   /** The regions; `generation` changes with every load. */
   regions: { all(): readonly Region[]; readonly generation: number };
-  /** The gyms; `generation` changes with every change. */
-  gyms: { all(): Gym[]; regionsOf(gymId: number): string[]; readonly generation: number };
+  /**
+   * The gyms per server (plan 19B-2): a server's editor shows its own; `generation` changes with
+   * every change.
+   */
+  gyms: {
+    of(guildId: number | undefined): Pick<GymView, 'all' | 'regionsOf'>;
+    readonly generation: number;
+  };
   /** The kept Wayspots; `generation` changes with every load and forget. */
   wayspots: { all(): Wayspot[]; readonly generation: number };
   /** The server's channels and its name as the bot sees them. */
@@ -69,8 +75,8 @@ export class EditorCache {
         guildRow: row,
         regions: regions.all(),
         channels,
-        gyms: gyms.all(),
-        regionsOf: (id) => gyms.regionsOf(id),
+        gyms: gyms.of(row).all(),
+        regionsOf: (id) => gyms.of(row).regionsOf(id),
         // A stop of Pine's own (plan 8R-1) is its server's alone.
         wayspots: wayspots
           .all()

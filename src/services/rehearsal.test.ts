@@ -165,7 +165,7 @@ describe('rehearsalGateway', () => {
   }
 
   const report = (gymId: number) => {
-    const gym = gymsFixture().get(gymId);
+    const gym = gymsFixture().stored(gymId);
     if (!gym) throw new Error(`no gym ${gymId}`);
     return {
       gym,

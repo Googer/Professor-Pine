@@ -44,9 +44,9 @@ async function bothAnswers() {
   const realGyms = gymsFixture();
   const renamed = new Map<number, string>();
   const gyms: typeof realGyms = Object.create(realGyms) as typeof realGyms;
-  const kept = new Map<number, ReturnType<typeof realGyms.get>>();
-  gyms.get = (id) => {
-    const gym = realGyms.get(id);
+  const kept = new Map<number, ReturnType<typeof realGyms.stored>>();
+  gyms.stored = (id) => {
+    const gym = realGyms.stored(id);
     const name = renamed.get(id);
     if (!gym || name === undefined) return gym;
     if (!kept.has(id)) kept.set(id, { ...gym, name, nickname: name });

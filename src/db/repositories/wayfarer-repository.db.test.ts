@@ -1,6 +1,8 @@
-import type { Kysely } from 'kysely';
+import { CompiledQuery, sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
+import type { TestDatabase } from '../../../test/support/mysql.js';
+import { createDb } from '../kysely.js';
 import { DEPRECATED_SYNTAX, lastWarnings } from '../../../test/support/mysql-warnings.js';
 import { MemoryWayfarer } from '../../../test/support/wayfarer.js';
 import {
@@ -17,6 +19,7 @@ const NOW = 1_800_000_000_000;
 describe('WayfarerRepository', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
+  let database: TestDatabase;
   let home: number;
   let away: number;
   let gyms: [number, number, number];
@@ -35,7 +38,7 @@ describe('WayfarerRepository', () => {
   }
 
   beforeAll(async () => {
-    ({ db, stop } = await startMigratedDatabase());
+    ({ db, stop, database } = await startMigratedDatabase());
   });
   afterAll(async () => {
     await stop();
@@ -109,6 +112,44 @@ describe('WayfarerRepository', () => {
 
   describe('its twin in memory', () => {
     wayfarerStorageCases(() => Promise.resolve(memorySetup()));
+  });
+
+  it('reads the newest answers of a server’s gyms through the gym index, not the server’s queue (plan 19B-2)', async () => {
+    // A server's queue of some size: many decided items of other gyms.
+    const others = await Promise.all(Array.from({ length: 60 }, (_, n) => addGym(`Other ${n}`)));
+    await db
+      .insertInto('GymReview')
+      .values(
+        others.flatMap((gymId) =>
+          [0, 1, 2].map((n) => ({
+            guildId: home,
+            gymId,
+            kind: 'unknown',
+            candidates: '[]',
+            createdAt: String(NOW + n),
+            queuedAt: String(NOW + n),
+            decision: 'keep',
+            decidedAt: String(NOW + n),
+          })),
+        ),
+      )
+      .execute();
+    await sql`analyze table GymReview`.execute(db);
+    const asked: CompiledQuery[] = [];
+    const logged = createDb<DB>(database.config, (event) => {
+      if (event.level === 'query') asked.push(event.query);
+    });
+    try {
+      await new WayfarerRepository(logged).latestDecided(home, gyms);
+      const [query] = asked;
+      if (query === undefined) throw new Error('nothing was asked');
+      const plan = await db.executeQuery<{ key: string | null }>(
+        CompiledQuery.raw(`explain format=traditional ${query.sql}`, [...query.parameters]),
+      );
+      expect(plan.rows[0]?.key).toBe('gymreview_gymid_foreign');
+    } finally {
+      await logged.destroy();
+    }
   });
 
   it('lets the record and the items of a deleted gym go with it', async () => {

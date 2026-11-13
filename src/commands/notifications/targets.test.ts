@@ -501,7 +501,7 @@ describe('/untarget', () => {
 
   it('shows 25 of a long list', () => {
     const { ctx } = createTestContext();
-    const gym = ctx.gyms.get(1);
+    const gym = ctx.gyms.stored(1);
     if (!gym) throw new Error('no gym 1');
     const many = Array.from({ length: 60 }, (_unused, index) => ({
       ...gym,
@@ -535,11 +535,11 @@ describe('/targets', () => {
   /** What `/targets` answered (or a press of its buttons showed), as a v2 message. */
   const shown = (payload: SentPayload) => asV2(payload);
   const link = (
-    ctx: { gyms: { get(id: number): { lat: number; lon: number } | undefined } },
+    ctx: { gyms: { stored(id: number): { lat: number; lon: number } | undefined } },
     id: number,
     name: string,
   ) => {
-    const gym = ctx.gyms.get(id);
+    const gym = ctx.gyms.stored(id);
     if (!gym) throw new Error(`no gym ${String(id)}`);
     return `[${name}](<${gymMapsUrl(gym)}>)`;
   };
@@ -582,7 +582,7 @@ describe('/targets', () => {
 
   it('puts a gym outside the regions of this server last, marks no elite raid gym, and counts what it cannot read', () => {
     const made = setup();
-    const base = made.ctx.gyms.get(3);
+    const base = made.ctx.gyms.stored(3);
     if (!base) throw new Error('no gym 3');
     const elite = { ...base, confirmedEx: true };
     const ctx = {
@@ -684,7 +684,7 @@ describe('/targets', () => {
 
   it('keeps a full page of long names within the components and the text Discord takes', () => {
     const { ctx } = createTestContext();
-    const base = ctx.gyms.get(1);
+    const base = ctx.gyms.stored(1);
     if (!base) throw new Error('no gym 1');
     const gyms = new Map(
       Array.from({ length: 25 }, (_unused, index) => [

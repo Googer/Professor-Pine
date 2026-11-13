@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { BoundedMap } from '../bounded-map.js';
-import type { Gym } from '../db/repositories/gym-repository.js';
+import type { GymView } from '../services/gym-directory.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import { regionGate } from '../domain/history/region-tally.js';
 import type { GateLook } from '../domain/roles/region-roles.js';
@@ -18,8 +18,14 @@ export interface GeoSources {
   guilds: { idFor(snowflake: string): Promise<number | undefined> };
   /** The regions; `generation` changes with every load. */
   regions: { all(): readonly Region[]; readonly generation: number };
-  /** The gyms; `generation` changes with every change. */
-  gyms: { all(): Gym[]; regionsOf(gymId: number): string[]; readonly generation: number };
+  /**
+   * The gyms per server (plan 19B-2): a server's map shows its own; `generation` changes with
+   * every change.
+   */
+  gyms: {
+    of(guildId: number | undefined): Pick<GymView, 'all' | 'regionsOf'>;
+    readonly generation: number;
+  };
   /** The channels of a server as the bot sees them, and who sees them (`PartyGateway`). */
   channels: {
     serverChannels(guildId: string): readonly { id: string; name: string }[] | undefined;
@@ -182,8 +188,8 @@ export class GeoCache {
         geoView({
           regions: shown,
           channelNames,
-          gyms: shown.length === 0 ? [] : gyms.all(),
-          regionsOf: (id) => gyms.regionsOf(id),
+          gyms: shown.length === 0 ? [] : gyms.of(row).all(),
+          regionsOf: (id) => gyms.of(row).regionsOf(id),
         }),
       );
       const view = { key, body, etag: etagOf(body) };

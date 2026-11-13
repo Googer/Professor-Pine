@@ -46,7 +46,7 @@ describe('AttendanceService: Join where the party has a lobby size', () => {
   it('places a reporter whom a second report signs up', async () => {
     const made = await reportedRaid({ autoStatus: PartyStatus.Coming }, inLobbiesOf4);
     await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming, { number: 3 });
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     const again = await made.service.reportRaid({
       gym,

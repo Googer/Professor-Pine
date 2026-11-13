@@ -270,7 +270,6 @@ export async function gymDirectoryWith(
   const directory = new GymDirectory({
     gyms,
     regions: { listAll: () => Promise.resolve(regions.rows) },
-    ignoredWords: loadSettings(TEST_SETTINGS_PATH).blacklistWords,
     wordsOf: () => loadSettings(TEST_SETTINGS_PATH).blacklistWords,
     log,
   });

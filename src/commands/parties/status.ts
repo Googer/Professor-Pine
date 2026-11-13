@@ -144,7 +144,7 @@ export const where: SimpleCommand = {
     } else {
       gymId = party.gymId;
     }
-    const gym = gymId === null ? undefined : ctx.gyms.get(gymId);
+    const gym = gymId === null ? undefined : ctx.gyms.stored(gymId);
     if (!gym) {
       throw new UserError(
         isTrain(party)

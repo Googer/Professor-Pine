@@ -380,7 +380,7 @@ describe('/delete', () => {
   it('closes as many raids as there are, one after the other', async () => {
     const made = await setup();
     for (const gymId of [2, 3]) {
-      const gym = made.ctx.gyms.get(gymId);
+      const gym = made.ctx.gyms.stored(gymId);
       if (!gym) throw new Error('an invented gym is missing');
       const outcome = await made.service.reportRaid({
         gym,
@@ -404,7 +404,7 @@ describe('/delete', () => {
   it('frees the gym for a new report', async () => {
     const made = await setup();
     await made.submit('archive', ['Admin']);
-    const gym = made.ctx.gyms.get(1);
+    const gym = made.ctx.gyms.stored(1);
     if (!gym) throw new Error('no gym 1');
     const again = await made.service.reportRaid({
       gym,

@@ -205,7 +205,7 @@ describe('a picture that could not be had (review 8A-6)', () => {
       gyms: {
         generation: 1,
         all: () => [],
-        get: () => ({ imageUrl: 'https://lh3.googleusercontent.com/g' }),
+        stored: () => ({ imageUrl: 'https://lh3.googleusercontent.com/g' }),
       },
       cache: placeCache.cache,
       now: () => clock.now,
@@ -232,7 +232,7 @@ describe('PlacePictures (plan 8M-8A)', () => {
       { id: 12, imageUrl: 'http://lh3.googleusercontent.com/gym12=s1600' },
       { id: 13, imageUrl: null },
     ],
-    get: (id: number) =>
+    stored: (id: number) =>
       id === 12 ? { imageUrl: 'http://lh3.googleusercontent.com/gym12=s1600' } : undefined,
   };
   const wayspots = {
@@ -264,7 +264,7 @@ describe('PlacePictures (plan 8M-8A)', () => {
         scans += 1;
         return [...pictures].map(([id, imageUrl]) => ({ id, imageUrl }));
       },
-      get: (id: number) => {
+      stored: (id: number) => {
         const imageUrl = pictures.get(id);
         return imageUrl === undefined ? undefined : { imageUrl };
       },

@@ -11,7 +11,12 @@ import { textOf } from '../../test/support/messages.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, at, BOB, PARTY_NOW } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
-import { gymsFixture, gymsLyingIn } from '../../test/support/providers.js';
+import {
+  gymsFixture,
+  gymsLyingIn,
+  THEIR_GYM,
+  twoServerGyms,
+} from '../../test/support/providers.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import { MemoryUsers } from '../../test/support/users.js';
 import {
@@ -304,7 +309,7 @@ describe('reporting a raid on the map', () => {
     users.get = async (userId) => {
       if (userId === ALICE && map.made.store.active().length === 0) {
         await map.made.service.reportRaid({
-          gym: gymsFixture().get(4)!,
+          gym: gymsFixture().stored(4)!,
           guildRow: TEST_GUILD_ROW,
           reporterId: BOB,
           anonymous: false,
@@ -414,6 +419,23 @@ describe('reporting a raid on the map', () => {
     expect((await map.report({ gym: 2, boss: 'e:T5:0' })).status).toBe(403);
     expect(throttles.size).toBe(0);
     expect(map.made.store.active()).toEqual([]);
+  });
+
+  it('takes a gym of this server only: another server’s in a region of both is no gym (plan 19B-2)', async () => {
+    const throttles = new Throttles();
+    const map = await reporting({ throttles, gyms: twoServerGyms().gyms });
+    web = map.web;
+    // Gym 2 lies in West but is the other server's alone: as a gym there is not.
+    const theirs = await map.report({ gym: THEIR_GYM, boss: 'e:T5:0' });
+    expect(theirs.status).toBe(404);
+    expect(JSON.stringify(theirs.json)).not.toContain('Fountain');
+    expect(throttles.size).toBe(0);
+    // Its own gym, beside it in West.
+    const ours = await map.report({ gym: 1, boss: 'e:T5:0' });
+    expect(ours.status).toBe(200);
+    expect(map.made.store.active().map((party) => [party.guildId, party.gymId])).toEqual([
+      [TEST_GUILD_ROW, 1],
+    ]);
   });
 
   it('refuses while Discord cannot say how the member stands to the forum, reporting and counting nothing', async () => {

@@ -1530,9 +1530,11 @@ describe('PartyService.reportRaid: the region a raid goes to', () => {
     const real = gymsFixture();
     const made = await partyServiceWith([], {
       gyms: asTestServerGyms({
-        get: (id) => real.get(id),
+        get: (id) => real.stored(id),
         regionsOf: (id) =>
-          id === library!.id ? [WEST_CHANNEL, OVERLAP_CHANNEL, OTHER_CHANNEL] : real.regionsOf(id),
+          id === library!.id
+            ? [WEST_CHANNEL, OVERLAP_CHANNEL, OTHER_CHANNEL]
+            : real.of(TEST_GUILD_ROW).regionsOf(id),
       }),
     });
     made.gateway.addForum(OVERLAP_FORUM, FORUM_TAGS);
@@ -2241,12 +2243,12 @@ describe('PartyService: rate limits and unchanged posts', () => {
     const made = await partyServiceWith([], {
       gyms: asTestServerGyms({
         get: (id) => {
-          const gym = real.get(id);
+          const gym = real.stored(id);
           return gym && id === library!.id
             ? { ...gym, name: ' The  Stacks ', nickname: null }
             : gym;
         },
-        regionsOf: (id) => real.regionsOf(id),
+        regionsOf: (id) => real.of(TEST_GUILD_ROW).regionsOf(id),
       }),
     });
     const outcome = await made.service.reportRaid(

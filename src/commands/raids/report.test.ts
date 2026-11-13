@@ -20,7 +20,7 @@ import {
 const ALICE_MEMBER = { id: ALICE, name: 'Alice', team: 'valor' } as const;
 
 function libraryGym(): Gym {
-  const gym = gymsFixture().get(1);
+  const gym = gymsFixture().stored(1);
   if (!gym) throw new Error('no gym 1');
   return gym;
 }

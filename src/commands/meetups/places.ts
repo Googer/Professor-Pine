@@ -24,7 +24,8 @@ const PLACE_KINDS: readonly PlaceKind[] = ['gym', 'stop', 'powerspot'];
 /** A ruled place as it is now, when its ruling kept none (8S-1's): the gym or the Wayspot. */
 function placeNow(ctx: AppContext, key: RulingKey): KnownPlace | undefined {
   if (key.kind === 'gym') {
-    const gym = /^\d+$/u.test(key.id) ? ctx.gyms.get(Number(key.id)) : undefined;
+    // A ruling's place is one its server stored (plan 19B-2).
+    const gym = /^\d+$/u.test(key.id) ? ctx.gyms.stored(Number(key.id)) : undefined;
     return (
       gym && {
         kind: 'gym',

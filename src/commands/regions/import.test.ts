@@ -5,7 +5,12 @@ import { asV2, sent } from '../../../test/support/fake-interactions.js';
 import { textDisplays } from '../../../test/support/messages.js';
 import { ANSWERED_BELOW } from '../../discord/late-reply.js';
 import { answerOf, buttonId, buttonsOf } from '../../../test/support/gym-commands.js';
-import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../../test/support/gyms.js';
 import { testRaid } from '../../../test/support/parties.js';
 import {
   SOUTH_CHANNEL,
@@ -395,7 +400,7 @@ describe('/region import: Import and Cancel', () => {
     expect(buttonsOf(done)).toEqual([]);
     expect(made.regions.byChannel(WEST_CHANNEL)?.bounds).toEqual(WEST_HALF_RING);
     expect(made.regions.byChannel(created?.id ?? '')?.forumChannelId).not.toBeNull();
-    expect(made.directory.isRegion(SOUTH_CHANNEL)).toBe(true);
+    expect(made.directory.of(TEST_GUILD_ROW).isRegion(SOUTH_CHANNEL)).toBe(true);
   });
 
   it('says nothing of roles where members do not give themselves any', async () => {

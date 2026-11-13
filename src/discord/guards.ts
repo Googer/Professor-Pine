@@ -148,9 +148,14 @@ export function regionChannelOf(
 ): string | undefined {
   const { baseChannelId } = channelContext(interaction);
   if (baseChannelId === undefined) return undefined;
-  if (ctx.gyms.isRegion(baseChannelId)) return baseChannelId;
+  // A region with an outline (as `GymLookup.isRegion`: of several rows, the first), read from the
+  // regions, which belong to the server whose channel it is (plan 19B-2: no list of every
+  // server's gyms is asked).
+  const outlined = (channelId: string) =>
+    (ctx.regions.byChannel(channelId)?.bounds ?? null) !== null;
+  if (outlined(baseChannelId)) return baseChannelId;
   const ofForum = ctx.regions.byForum(baseChannelId)?.channelId;
-  return ofForum !== undefined && ctx.gyms.isRegion(ofForum) ? ofForum : undefined;
+  return ofForum !== undefined && outlined(ofForum) ? ofForum : undefined;
 }
 
 const SERVER_ONLY = 'This only works in a server.';

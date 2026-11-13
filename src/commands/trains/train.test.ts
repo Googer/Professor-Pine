@@ -27,6 +27,7 @@ import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
 import { OPEN_PARTIES_FULL } from '../parties/open-parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
+import { withOutline } from '../../../test/support/providers.js';
 import { MemoryUsers } from '../../../test/support/users.js';
 import type { AppContext } from '../../app-context.js';
 import { InteractionRouter } from '../../discord/router.js';
@@ -175,8 +176,9 @@ describe('/train', () => {
 
   it('says so when the region has no forum yet', async () => {
     const made = await setup();
-    const gyms = { ...made.ctx.gyms, isRegion: (id: string) => id === UNBOUNDED_CHANNEL };
-    const other = await setup({ gyms });
+    // The region without a forum, given an outline: a region channel.
+    const regions = withOutline(made.ctx.regions, UNBOUNDED_CHANNEL);
+    const other = await setup({ regions });
     expect(await other.answer('Round', { channelId: UNBOUNDED_CHANNEL })).toBe(
       `The region <#${UNBOUNDED_CHANNEL}> has no forum yet. ` +
         'A moderator can create it with `/admin setup-forums`.',

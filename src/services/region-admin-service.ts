@@ -23,6 +23,7 @@ import type { Logger } from '../log.js';
 import type { AdminLock } from './admin-lock.js';
 import type { PartyService } from './party-service.js';
 import type { PartyStore } from './party-store.js';
+import type { GymView } from './gym-directory.js';
 import type { RegionProvider } from './region-directory.js';
 import type { ServerSettingsLookup } from './server-settings.js';
 
@@ -166,7 +167,7 @@ export interface RegionLine {
 
 export interface RegionList {
   regions: RegionLine[];
-  /** How many gyms lie in no region of any server: anybody's staff may touch those. */
+  /** How many of the server's gyms lie in none of its regions (plan 19B-2): still its own. */
   unplacedGyms: number;
   /** The forums that parties of this server name and no region has, and that still exist. */
   orphanForums: string[];
@@ -240,10 +241,9 @@ export interface RegionAdminOptions {
   lock: AdminLock;
   storage: RegionAdminStorage & Pick<RegionRepository, 'setForum'>;
   regions: RegionProvider & { load(): Promise<void> };
+  /** The gyms per server (plan 19B-2): a server counts and plans with its own. */
   gyms: {
-    all(): Gym[];
-    inRegion(channelId: string): Gym[];
-    regionsOf(gymId: number): string[];
+    of(guildId: number | undefined): Pick<GymView, 'all' | 'inRegion' | 'regionsOf'>;
     load(): Promise<void>;
   };
   store: Pick<PartyStore, 'active' | 'inRegion' | 'closeRegion' | 'reopenRegion'>;
@@ -348,7 +348,7 @@ export class RegionAdminService {
       channels: this.channelsOf(staff),
       regions: regions.all(),
       guildId: staff.guildId,
-      gyms: gyms.all(),
+      gyms: gyms.of(staff.guildId).all(),
       raids: store.active().map(({ regionId, gymId }) => ({ regionId, gymId })),
       mayCreate,
       staffMayCreate: staff.mayManageChannels,
@@ -647,7 +647,7 @@ export class RegionAdminService {
         newRegion: written.created,
         unchanged: !written.created && one.unchanged,
         channelCreated,
-        gyms: gyms.inRegion(channelId).length,
+        gyms: gyms.of(staff.guildId).inRegion(channelId).length,
         // A forum deleted by hand is none: the region gets a new one.
         forum: this.hasForum(regions.byId(written.regionId)) ? 'had' : 'none',
       };
@@ -776,17 +776,10 @@ export class RegionAdminService {
       : RegionAdminService.state(channels, region.forumChannelId, 'forum');
   }
 
-  /** Whether a gym lies in a region of any server. */
-  private placed(gymId: number): boolean {
-    const { gyms, regions } = this.options;
-    return gyms
-      .regionsOf(gymId)
-      .some((channelId) => (regions.byChannel(channelId)?.guildId ?? null) !== null);
-  }
-
-  /** The gyms of a region that lie in no other region of its server. */
+  /** The gyms of a region's server (plan 19B-2) that lie in it and in no other of its regions. */
   private onlyIn(region: Region): Gym[] {
-    const { gyms, regions } = this.options;
+    const { regions } = this.options;
+    const gyms = this.options.gyms.of(region.guildId ?? undefined);
     return gyms.inRegion(region.channelId).filter(
       (gym) =>
         !gyms.regionsOf(gym.id).some((channelId) => {
@@ -806,7 +799,9 @@ export class RegionAdminService {
 
   /** The regions of the server with what is wrong with each, and what belongs to none. */
   async list(staff: Pick<RegionStaff, 'guildId' | 'server'>): Promise<RegionList> {
-    const { gyms, store, gateway, log } = this.options;
+    const { store, gateway, log } = this.options;
+    // The server's own gyms (plan 19B-2), in its own regions.
+    const gyms = this.options.gyms.of(staff.guildId);
     const channels = gateway.serverChannels(staff.server);
     const lines = this.regionsOf(staff.guildId).map((region): RegionLine => {
       const inside = gyms.inRegion(region.channelId);
@@ -827,7 +822,7 @@ export class RegionAdminService {
     }
     return {
       regions: lines,
-      unplacedGyms: gyms.all().filter((gym) => !this.placed(gym.id)).length,
+      unplacedGyms: gyms.all().filter((gym) => gyms.regionsOf(gym.id).length === 0).length,
       orphanForums,
     };
   }

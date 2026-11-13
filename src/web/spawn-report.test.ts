@@ -33,6 +33,7 @@ import { meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
 import type { MeetupSafety } from '../services/meetup-safety.js';
 import { UNREACHABLE } from './acting.js';
 import { MAP_PLACE_GONE, MAP_SPAWN_BLOCKED } from './spawn-routes.js';
+import { THEIR_GYM, twoServerGyms, type TestGyms } from '../../test/support/providers.js';
 
 const SPAWNS = `/s/${FAKE_GUILD_ID}/api/spawns`;
 const OPTIONS = `/s/${FAKE_GUILD_ID}/api/wild-options`;
@@ -61,14 +62,17 @@ async function reporting(
     wayspots?: WayspotDirectory;
     /** The places' pictures the map serves; none without it. */
     places?: PartyWebDeps['places'];
+    /** The gyms (`twoServerGyms`); the invented ones, the test server's, without it. */
+    gyms?: TestGyms;
   } = {},
 ) {
   const throttles = options.throttles ?? new Throttles();
-  const made = await partyServiceWith();
+  const made = await partyServiceWith([], options.gyms ? { gyms: options.gyms } : {});
   const base = createTestContext({}).ctx.config;
   const { ctx } = createTestContext({
     ...(options.meetupSafety ? { meetupSafety: options.meetupSafety } : {}),
     ...(options.wayspots ? { wayspots: options.wayspots } : {}),
+    ...(options.gyms ? { gyms: options.gyms } : {}),
     partyService: made.service,
     parties: made.store,
     regions: made.regions,
@@ -334,6 +338,20 @@ describe('reporting a wild Pokémon on the map', () => {
         status: 422,
         json: { ok: false, text: 'That place is not in a region of this server.' },
       });
+      expect(map.reports()).toEqual([]);
+      expect(throttles.size).toBe(0);
+    });
+
+    it('refuses a gym of another server as gone, though it lies in a region of this one (plan 19B-2)', async () => {
+      const throttles = new Throttles();
+      const map = await placed({ throttles, gyms: twoServerGyms().gyms });
+      web = map.web;
+      const answer = await map.report({
+        pokemon: 'dratini',
+        details: 'here',
+        place: { kind: 'gym', id: String(THEIR_GYM) },
+      });
+      expect(answer).toMatchObject({ status: 422, json: { ok: false, text: MAP_PLACE_GONE } });
       expect(map.reports()).toEqual([]);
       expect(throttles.size).toBe(0);
     });

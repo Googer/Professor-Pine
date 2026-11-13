@@ -55,7 +55,7 @@ function onRoute(
 }
 
 const shown = (party: TrainParty) =>
-  moveDialog({ party, stop: stopsFrom({ get: (id) => gyms.get(id) }), now: PARTY_NOW });
+  moveDialog({ party, stop: stopsFrom({ stored: (id) => gyms.get(id) }), now: PARTY_NOW });
 
 /** The choices as [value, label, picked]. */
 const choices = (party: TrainParty) =>
@@ -68,7 +68,7 @@ describe('the ids of the dialogs of a train (review r0 B4)', () => {
   it('keep Move…’s custom id and choices within 100 characters, mid-route and finished', () => {
     const view = (party: TrainParty) => ({
       party,
-      stop: stopsFrom({ get: (id: number) => gyms.get(id) }),
+      stop: stopsFrom({ stored: (id: number) => gyms.get(id) }),
       now: LONGEST.now,
     });
     const mid = onRoute(LONGEST.gyms, 1, 'loop');
@@ -90,7 +90,7 @@ describe('the ids of the dialogs of a train (review r0 B4)', () => {
     ]) {
       const dialog = manageDialog({
         party,
-        stop: stopsFrom({ get: (id: number) => gyms.get(id) }),
+        stop: stopsFrom({ stored: (id: number) => gyms.get(id) }),
         now: LONGEST.now,
       });
       checkModal(dialog);
@@ -233,7 +233,7 @@ describe('moveDialog (plan 8X-G: Move…)', () => {
 });
 
 const managed = (party: TrainParty) =>
-  manageDialog({ party, stop: stopsFrom({ get: (id) => gyms.get(id) }), now: PARTY_NOW });
+  manageDialog({ party, stop: stopsFrom({ stored: (id) => gyms.get(id) }), now: PARTY_NOW });
 
 /** The labels of a dialog's choices, with the values of each and which is picked. */
 function managedChoices(party: TrainParty) {
@@ -260,7 +260,11 @@ describe('manageDialog (plan 8X-G: Manage…)', () => {
   // end, as the map's Manage… asks it, so that /end is not needed.
   it('asks the start and the end of who may arrange the train, as the map’s form, within five components', () => {
     const train = onRoute([4, 1, 7, 2], 0);
-    const view = { party: train, stop: stopsFrom({ get: (id) => gyms.get(id) }), now: PARTY_NOW };
+    const view = {
+      party: train,
+      stop: stopsFrom({ stored: (id) => gyms.get(id) }),
+      now: PARTY_NOW,
+    };
     const asked = manageDialog(view, { zone: PARTY_ZONE });
     checkModal(asked);
     // The route, the mode, the kind, the start and the end: Discord's five. Where the train is
@@ -321,7 +325,7 @@ describe('manageDialog (plan 8X-G: Manage…)', () => {
   it('keeps its text where there is room: a train without a route asks its kind and times', () => {
     const view = {
       party: onRoute([]),
-      stop: stopsFrom({ get: (id) => gyms.get(id) }),
+      stop: stopsFrom({ stored: (id) => gyms.get(id) }),
       now: PARTY_NOW,
     };
     const asked = manageDialog(view, { zone: PARTY_ZONE });
@@ -422,7 +426,11 @@ describe('manageDialog (plan 8X-G: Manage…)', () => {
 
   it('shows the kinds of max battles with the application’s Dynamax and Gigantamax emoji', () => {
     const train = onRoute([4, 1], 0);
-    const view = { party: train, stop: stopsFrom({ get: (id) => gyms.get(id) }), now: PARTY_NOW };
+    const view = {
+      party: train,
+      stop: stopsFrom({ stored: (id) => gyms.get(id) }),
+      now: PARTY_NOW,
+    };
     const kindEmoji = (dialog: ReturnType<typeof manageDialog>) =>
       dialog.components.flatMap((component) =>
         component.type === ComponentType.Label &&

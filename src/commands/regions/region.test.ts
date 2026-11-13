@@ -8,6 +8,7 @@ import { withOtherServer } from '../../../test/support/gym-admin.js';
 import {
   EAST_CHANNEL,
   EAST_FORUM,
+  OTHER_GUILD_ROW,
   UNBOUNDED_CHANNEL,
   WEST_CHANNEL,
   WEST_FORUM,
@@ -165,8 +166,21 @@ describe('/region list', () => {
       `- <#${EAST_CHANNEL}> · 3 gyms · **its forum is gone**`,
       `- <#${UNBOUNDED_CHANNEL}> · 0 gyms · **no outline, no forum yet**`,
       '`/admin setup-forums` gives 2 regions the forum they lack.',
-      '1 gym lies in no region of any server.',
+      '1 gym of this server lies in none of its regions.',
     ]);
+  });
+
+  it('counts only the gyms of this server, in its regions and in none (plan 19B-2)', async () => {
+    const made = await regionCommandsWith();
+    // The Fountain in West and the Trailhead in no region become the second server's alone.
+    for (const gymId of [2, 10]) {
+      made.gymStore.unlink(gymId, 1);
+      made.gymStore.link(gymId, OTHER_GUILD_ROW);
+    }
+    await made.directory.refreshGyms([2, 10]);
+    const lines = textOf(await made.use('list')).split('\n');
+    expect(lines).toContain(`- <#${WEST_CHANNEL}> · 7 gyms`);
+    expect(lines.filter((line) => line.includes('none of its regions'))).toEqual([]);
   });
 
   it('names a region whose channel is gone by the id of the channel', async () => {
@@ -336,6 +350,18 @@ describe('/bounds', () => {
     });
     const again = await failing.run('bounds', { userId: MEMBER, roleNames: [] });
     expect(galleryOf(asV2(answerOf(again)))).toEqual([]);
+  });
+
+  it('counts only the gyms of this server, though another server’s lies in the region (plan 19B-2)', async () => {
+    const made = await regionCommandsWith();
+    // Gym 2, in West, becomes the second server's alone.
+    made.gymStore.unlink(2, 1);
+    made.gymStore.link(2, OTHER_GUILD_ROW);
+    await made.directory.refreshGym(2);
+    const used = await made.run('bounds', { userId: MEMBER, roleNames: [] });
+    expect(textDisplays(asV2(answerOf(used)))).toEqual([
+      `### The area of <#${WEST_CHANNEL}>\nThere are 7 gyms within this region.`,
+    ]);
   });
 
   it('works in a post of the region’s forum', async () => {

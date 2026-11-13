@@ -60,7 +60,7 @@ describe('PartyAudit', () => {
         label: 'Yveltal',
       },
     );
-    const gym2 = gymsFixture().get(2);
+    const gym2 = gymsFixture().stored(2);
     if (!gym2) throw new Error('no gym 2');
     await made.raids.setGym(made.party.id, { id: BOB }, gym2.id);
     expect(await logOf(made)).toEqual([
@@ -120,7 +120,7 @@ describe('PartyAudit', () => {
 
   it('follows a raid moved to another region from its new post back to the old one', async () => {
     const made = await reportedRaid();
-    const east = gymsFixture().get(8);
+    const east = gymsFixture().stored(8);
     if (!east) throw new Error('no gym 8');
     const outcome = await made.raids.setGym(made.party.id, { id: BOB, name: 'Bob' }, east.id);
     if (outcome.kind !== 'ok' || outcome.party.forumPostId === null) {

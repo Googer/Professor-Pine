@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { PokemonCatalogue } from '../../src/domain/pogo/catalogue.js';
 import { gameDataFixture } from './game-data.js';
-import { WEST_CHANNEL } from './gyms.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW, WEST_CHANNEL } from './gyms.js';
 import { createTestContext } from './test-context.js';
 
 describe('the test context', () => {
-  it('finds the invented gyms', () => {
+  it("finds the invented gyms, the test server's (plan 19B-2)", () => {
     const { ctx } = createTestContext();
-    expect(ctx.gyms.search(WEST_CHANNEL, 'library').map((hit) => hit.gym.id)).toEqual([1]);
-    expect(ctx.gyms.isRegion(WEST_CHANNEL)).toBe(true);
+    const gyms = ctx.gyms.of(TEST_GUILD_ROW);
+    expect(gyms.search(WEST_CHANNEL, 'library').map((hit) => hit.gym.id)).toEqual([1]);
+    expect(gyms.isRegion(WEST_CHANNEL)).toBe(true);
+    expect(ctx.gyms.of(OTHER_GUILD_ROW).search(WEST_CHANNEL, 'library')).toEqual([]);
   });
 
   it('finds Pokémon of the game-data fixture', () => {

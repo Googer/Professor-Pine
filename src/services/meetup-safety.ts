@@ -191,7 +191,7 @@ export interface MeetupSafetyOptions {
   /** How the makers are told what came of their requests. */
   dms: DmSender;
   /** The gyms, by which a gym is checked by its official name and its nickname alike. */
-  gyms?: Pick<GymProvider, 'get'>;
+  gyms?: Pick<GymProvider, 'stored'>;
   /** The kept Wayspots: a PokéStop asked about whose ruling kept no place (one of 8S-1). */
   wayspots?: Pick<WayspotProvider, 'byId'>;
   settings: Settings;
@@ -495,7 +495,7 @@ export class MeetupSafety {
   /** A gym's official name and nickname, which its title (the nickname first) may not show. */
   private otherTitles(place: Place): string[] {
     if (place.kind !== 'gym') return [];
-    const gym = this.options.gyms?.get(Number(place.id));
+    const gym = this.options.gyms?.stored(Number(place.id));
     return gym === undefined ? [] : [gym.name, gym.nickname ?? ''].filter((title) => title !== '');
   }
 
@@ -1413,7 +1413,7 @@ export class MeetupSafety {
   /** A ruled place as it is now, where its ruling kept none: the gym or the kept Wayspot. */
   private placeNow(key: RulingKey): KnownPlace | undefined {
     if (key.kind === 'gym') {
-      const gym = /^\d+$/u.test(key.id) ? this.options.gyms?.get(Number(key.id)) : undefined;
+      const gym = /^\d+$/u.test(key.id) ? this.options.gyms?.stored(Number(key.id)) : undefined;
       return (
         gym && {
           kind: 'gym',
@@ -1522,7 +1522,7 @@ export class MeetupSafety {
   /** A gym's official name where its title (the nickname first) shows another; else null. */
   officialName(place: Place): string | null {
     if (place.kind !== 'gym' || !/^\d+$/u.test(place.id)) return null;
-    const gym = this.options.gyms?.get(Number(place.id));
+    const gym = this.options.gyms?.stored(Number(place.id));
     if (!gym?.nickname || gym.nickname === gym.name) return null;
     return gym.name;
   }

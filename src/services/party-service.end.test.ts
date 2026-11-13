@@ -280,7 +280,7 @@ describe('PartyService.sweepPosts', () => {
     const byMember = (await gateway.createPost(WEST_FORUM, post)) ?? '';
     gateway.foreign.add(byMember);
     // A second raid that has ended, whose post a late message opened again.
-    const gym = gymsFixture().get(2);
+    const gym = gymsFixture().stored(2);
     if (!gym) throw new Error('no gym');
     const second = await service.reportRaid({
       gym,

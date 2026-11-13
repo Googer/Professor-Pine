@@ -346,7 +346,7 @@ export function wayfarerStorageCases(setup: () => Promise<WayfarerSetup>): void 
     expect(await store.latestDecided(home, [])).toEqual(new Map());
   });
 
-  it('answers the newest decided item of each gym of any server', async () => {
+  it("answers a server's own last answer, never another server's newer one (plan 19B-2)", async () => {
     const { store, home, away, gyms } = await setup();
     const [first, second] = gyms;
     await store.saveReviews(home, null, [{ gymId: first, kind: 'match', candidates: [STOP] }], NOW);
@@ -360,14 +360,14 @@ export function wayfarerStorageCases(setup: () => Promise<WayfarerSetup>): void 
     await store.closeReviews(away, [first], 'none-of-these', OTHER_STAFF, NOW + 3);
     await store.saveReviews(away, null, [{ gymId: second, kind: 'unknown', candidates: [] }], NOW);
 
-    const decided = await store.latestDecided('any', [first, second]);
+    const decided = await store.latestDecided(home, [first, second]);
     expect([...decided.keys()]).toEqual([first]);
     expect(decided.get(first)).toMatchObject({
-      guildId: away,
-      candidates: [CANDIDATE],
-      decision: 'none-of-these',
+      guildId: home,
+      candidates: [STOP],
+      decision: 'keep',
     });
-    expect(await store.latestDecided('any', [])).toEqual(new Map());
+    expect([...(await store.latestDecided(away, [first, second])).keys()]).toEqual([first]);
   });
 
   it("keeps each server's items apart, also for one gym", async () => {

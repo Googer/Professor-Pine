@@ -13,7 +13,7 @@ async function refusing(overrides: ServiceOverrides = {}) {
   const gateway = new FakePartyGateway();
   gateway.refusePosts.set(WEST_FORUM, ['Manage Posts']);
   const made = await partyServiceWith([], overrides, { gateway });
-  const gym = gymsFixture().get(1);
+  const gym = gymsFixture().stored(1);
   if (!gym) throw new Error('no gym 1');
   const report = () =>
     made.service.reportRaid({

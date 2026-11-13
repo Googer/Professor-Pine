@@ -1,6 +1,5 @@
 import { CURATED_NICKNAMES } from '../../src/domain/pogo/nicknames.js';
 import { PokemonSearch, mergeNicknames } from '../../src/domain/pogo/pokemon-search.js';
-import { GymLookup } from '../../src/domain/search/gym-lookup.js';
 import type { Gym } from '../../src/db/repositories/gym-repository.js';
 import type { Region } from '../../src/db/repositories/region-repository.js';
 import type { GymProvider, GymView } from '../../src/services/gym-directory.js';
@@ -47,7 +46,6 @@ export function gymsOf(
 ): TestGyms {
   const { blacklistWords } = loadSettings(TEST_SETTINGS_PATH);
   const regions = options.regions ?? testRegions();
-  const everything = new GymLookup(gyms, regions, blacklistWords);
   const servers = new ServerGyms(
     gyms,
     options.links ?? testLinks(gyms),
@@ -55,19 +53,14 @@ export function gymsOf(
     () => blacklistWords,
   );
   return {
-    get: (id) => everything.get(id),
-    isRegion: (channelId) => everything.isRegion(channelId),
-    regionsOf: (gymId) => everything.regionsOf(gymId),
-    inRegion: (channelId) => everything.inRegion(channelId),
-    search: (channelId, text, searchOptions) => everything.search(channelId, text, searchOptions),
     of: (guildId) => servers.of(guildId),
     stored: (id) => servers.stored(id),
     serversOf: (gymId) => servers.serversOf(gymId),
-    remove: (id) => {
-      const known = everything.remove(id);
-      servers.remove(id);
-      return known;
+    get size() {
+      return servers.size;
     },
+    remove: (id) => servers.remove(id),
+    unlink: (id, guildId) => servers.unlink(id, guildId),
   };
 }
 
@@ -149,8 +142,8 @@ export function asTestServerGyms(fake: {
 
 /**
  * Gyms that lie in other regions than their places say (a gym on the border of West and East):
- * `lying` gives the region channels of those gyms, for the test server's view (plan 19B-2) as
- * for the reads over every server. Every other gym lies where it is.
+ * `lying` gives the region channels of those gyms, for the test server's view (plan 19B-2).
+ * Every other gym lies where it is.
  */
 export function gymsLyingIn(
   lying: Readonly<Record<number, readonly string[]>>,
@@ -159,7 +152,6 @@ export function gymsLyingIn(
   const regionsOf = (fallback: (gymId: number) => string[]) => (gymId: number) =>
     lying[gymId] === undefined ? fallback(gymId) : [...lying[gymId]];
   return Object.assign(Object.create(base) as GymProvider, {
-    regionsOf: regionsOf((gymId) => base.regionsOf(gymId)),
     of: (guildId: number | undefined) => {
       const view = base.of(guildId);
       return guildId === TEST_GUILD_ROW
@@ -169,10 +161,32 @@ export function gymsLyingIn(
   });
 }
 
-/** The gyms of a test, which a test may take a gym out of as a deletion does (`remove`). */
+/**
+ * The regions of `base` with the one of this channel given an outline (West's square): a region
+ * channel to `regionChannelOf` (`src/discord/guards.ts`), whatever else it lacks, as a region
+ * without a forum yet.
+ */
+export function withOutline<R extends RegionProvider>(base: R, channelId: string): R {
+  return Object.assign(Object.create(base) as R, {
+    byChannel: (id: string) => {
+      const region = base.byChannel(id);
+      return region && id === channelId
+        ? { ...region, bounds: testRegions()[0]?.bounds ?? null }
+        : region;
+    },
+  });
+}
+
+/**
+ * The gyms of a test, which a test may take a gym out of as a deletion does (`remove`); `size`,
+ * how many gyms of every server there are (`GymDirectory.size`).
+ */
 export interface TestGyms extends GymProvider {
+  readonly size: number;
   /** Takes the gym out of every view at once. False when there was none. */
   remove(id: number): boolean;
+  /** Takes the gym out of one server's gyms at once, as a deletion of a shared gym does. */
+  unlink(id: number, guildId: number): boolean;
 }
 
 /**

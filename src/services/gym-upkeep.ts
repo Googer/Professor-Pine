@@ -120,7 +120,8 @@ export interface GoogleLineSnapshot {
 /** The part of `GymDirectory` the upkeep works on. */
 export interface GymsInMemory {
   all(): Gym[];
-  get(id: number): Gym | undefined;
+  /** A gym by its id, whichever server's (`GymDirectory.stored`): the upkeep is the instance's. */
+  stored(id: number): Gym | undefined;
   refreshGym(id: number): Promise<Gym | undefined>;
   /** Re-reads the gyms of a block in one turn (`GymDirectory.refreshGyms`). */
   refreshGyms(ids: readonly number[]): Promise<Gym[]>;
@@ -556,12 +557,12 @@ export class GymUpkeep {
     // Their circle follows the distance to their new nearest gym.
     for (const id of others) this.outdate('places', id);
     await this.queueGyms(
-      ids.filter((id) => directory.get(id)?.geodata === null),
+      ids.filter((id) => directory.stored(id)?.geodata === null),
       true,
     );
     await this.queueGyms(
       ids.filter((id) => {
-        const gym = directory.get(id);
+        const gym = directory.stored(id);
         return gym !== undefined && gym.geodata !== null;
       }),
       false,
@@ -631,7 +632,7 @@ export class GymUpkeep {
   }
 
   private async refreshByHand(id: number): Promise<GymRefresh | undefined> {
-    const gym = this.options.directory.get(id);
+    const gym = this.options.directory.stored(id);
     if (!gym) return undefined;
     const refused = await this.takeByHand();
     if (refused !== undefined) return { gym, geodata: refused, places: refused };
@@ -678,7 +679,7 @@ export class GymUpkeep {
     const geodata = await this.fetchGeodata(id, onReached);
     if (geodata === undefined) return undefined;
     const places = await this.fetchPlaces(id, onReached);
-    const gym = this.options.directory.get(id);
+    const gym = this.options.directory.stored(id);
     return places === undefined || !gym ? undefined : { gym, geodata, places };
   }
 
@@ -716,7 +717,7 @@ export class GymUpkeep {
     onReached?: () => void,
   ): Promise<FetchOutcome | undefined> {
     const { gyms, directory, geo } = this.options;
-    const asked = directory.get(id);
+    const asked = directory.stored(id);
     if (!asked) return undefined;
     const wanted = this.question('address', id);
     const answer = await geo.reverseGeocode({ lat: asked.lat, lon: asked.lon });
@@ -724,7 +725,7 @@ export class GymUpkeep {
       onReached?.();
       await this.count('geocode');
     }
-    const gym = directory.get(id);
+    const gym = directory.stored(id);
     if (!gym) return undefined;
     if (!answer.ok) {
       if (answer.reason === 'denied') {
@@ -744,9 +745,9 @@ export class GymUpkeep {
   /** The places around a gym, within half the way to its nearest gym; undefined when it is gone. */
   private async fetchPlaces(id: number, onReached?: () => void): Promise<FetchOutcome | undefined> {
     const { gyms, directory, geo } = this.options;
-    const asked = directory.get(id);
+    const asked = directory.stored(id);
     if (!asked) return undefined;
-    const nearest = asked.nearestGym === null ? undefined : directory.get(asked.nearestGym);
+    const nearest = asked.nearestGym === null ? undefined : directory.stored(asked.nearestGym);
     const radius = placesRadius(nearest && metresBetween(asked, nearest));
     const wanted = this.question('places', id);
     const answer = await geo.placesNear({ lat: asked.lat, lon: asked.lon }, radius);
@@ -754,7 +755,7 @@ export class GymUpkeep {
       onReached?.();
       await this.count('places');
     }
-    const gym = directory.get(id);
+    const gym = directory.stored(id);
     if (!gym) return undefined;
     if (!answer.ok) {
       if (answer.reason === 'denied') this.deniedForMs = answer.retryInMs ?? this.placesEveryMs;

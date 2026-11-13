@@ -126,7 +126,7 @@ async function raidAt(
   gymId: number,
   tier: RaidReport['tier'] = { level: 'T5', shadow: false },
 ) {
-  const gym = gymsFixture().get(gymId);
+  const gym = gymsFixture().stored(gymId);
   if (!gym) throw new Error('no gym');
   const other = await made.service.reportRaid({
     gym,

@@ -11,8 +11,8 @@ import { describe, expect, it } from 'vitest';
  * as `src/text-distances.test.ts` refuses distances worded by hand. Nor its time zone (plan
  * 19A-2): a server's is `ServerSettings.zoneOf(serverId)`, and the file's, the instance's
  * default, is read only through `instanceZone(settings)` (`src/config/settings.ts`), also by the
- * tools under `scripts/`. The words gym search ignores are not among them yet (plan B moves their
- * readers), nor what the instance allows (`ocr.passive`, `autoAssignRole`).
+ * tools under `scripts/`. Nor the words gym search ignores (plan 19B-2: `blacklistWords` of a
+ * server's values). What the instance allows (`ocr.passive`, `autoAssignRole`) is no server's.
  */
 
 const SRC = import.meta.dirname;
@@ -31,6 +31,8 @@ const SERVER_KEYS = new Set([
   'postNewGyms',
   'regionMapLink',
   'distanceUnits',
+  // The words gym search ignores (plan 19B-2): each server's view of the gyms reads its own.
+  'blacklistWords',
 ]);
 /** The keys of the file's `web` that are a server's, read as `….settings.web.<key>`. */
 const SERVER_WEB_KEYS = new Set(['memberRole', 'invites']);

@@ -70,7 +70,7 @@ describe('a raid from report to archive, in MySQL, over a restart', () => {
         gateway: gatewayWithMirrorChannels(),
       },
     );
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym');
     const outcome = await first.service.reportRaid({
       gym,
@@ -183,8 +183,8 @@ describe('a raid from report to archive, in MySQL, over a restart', () => {
     );
     first.gateway.shutOut(WEST_FORUM, ALICE);
     first.gateway.shutOut(EAST_FORUM, ALICE, BOB);
-    const gym = gymsFixture().get(1);
-    const cafe = gymsFixture().get(8);
+    const gym = gymsFixture().stored(1);
+    const cafe = gymsFixture().stored(8);
     if (!gym || !cafe) throw new Error('no gym');
     const outcome = await first.service.reportRaid({
       gym,

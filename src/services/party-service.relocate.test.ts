@@ -31,7 +31,7 @@ type Made = Awaited<ReturnType<typeof reportedRaid>>;
 
 /** The café (gym 8), which lies in East. */
 function cafe(): Gym {
-  const gym = gymsFixture().get(8);
+  const gym = gymsFixture().stored(8);
   if (!gym) throw new Error('no gym 8');
   return gym;
 }
@@ -276,9 +276,9 @@ describe('PartyService.relocate', () => {
         // The gym of the old party cannot be read once the raid has moved.
         get: (id) => {
           if (state.away && id === made.party.gymId) throw new Error('the gyms are away');
-          return gyms.get(id);
+          return gyms.stored(id);
         },
-        regionsOf: (id) => gyms.regionsOf(id),
+        regionsOf: (id) => gyms.of(TEST_GUILD_ROW).regionsOf(id),
       }),
     });
     const told: string[] = [];
@@ -501,7 +501,7 @@ describe('PartyService.relocate: what happens meanwhile', () => {
 
   it('moves a raid once: a second move at the same time finds it gone', async () => {
     const made = await reportedRaid(yveltal);
-    const gym9 = gymsFixture().get(9);
+    const gym9 = gymsFixture().stored(9);
     if (!gym9) throw new Error('no gym 9');
     const [first, second] = await Promise.all([
       made.service.relocate(made.party.id, cafe(), east(made)),

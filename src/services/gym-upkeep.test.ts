@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { watchEachTest } from '../../test/support/timers.js';
 import { FAKE_ADDRESS, FakeGeoGateway } from '../../test/support/geo.js';
 import { gymDirectoryWith, MemoryGyms } from '../../test/support/gym-store.js';
-import { testGyms } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, testGyms } from '../../test/support/gyms.js';
 import { testMeetup, testRaid, testTrain } from '../../test/support/parties.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
@@ -100,12 +100,12 @@ describe('GymUpkeep.gymChanged', () => {
       ],
     });
     await gyms.update(2, { notice: 'Closed for repairs' });
-    expect(directory.get(2)?.notice).toBeNull();
+    expect(directory.stored(2)?.notice).toBeNull();
 
     const gym = await upkeep.gymChanged(2);
 
     expect(gym?.notice).toBe('Closed for repairs');
-    expect(directory.get(2)?.notice).toBe('Closed for repairs');
+    expect(directory.stored(2)?.notice).toBe('Closed for repairs');
     expect(changed).toEqual([raidThere.id, trainThrough.id, meetupThere.id]);
   });
 
@@ -114,7 +114,7 @@ describe('GymUpkeep.gymChanged', () => {
     const { upkeep, gyms, directory, changed } = await upkeepWith({ parties: [raidThere] });
     await gyms.delete(2);
     await expect(upkeep.gymChanged(2)).resolves.toBeUndefined();
-    expect(directory.get(2)).toBeUndefined();
+    expect(directory.stored(2)).toBeUndefined();
     expect(changed).toEqual([raidThere.id]);
   });
 
@@ -135,7 +135,7 @@ describe('GymUpkeep.gymChanged', () => {
 describe('GymUpkeep.placed', () => {
   it('writes the nearest gyms of the gyms concerned, and of no others', async () => {
     const { upkeep, gyms, directory, add } = await upkeepWith();
-    const before = directory.get(LONELY)?.nearestGym;
+    const before = directory.stored(LONELY)?.nearestGym;
     const id = await add(BESIDE_LONELY.lat, BESIDE_LONELY.lon);
     gyms.writes.length = 0;
 
@@ -146,8 +146,8 @@ describe('GymUpkeep.placed', () => {
       [LONELY, id],
       [id, LONELY],
     ]);
-    expect(directory.get(id)?.nearestGym).toBe(LONELY);
-    expect(directory.get(LONELY)?.nearestGym).toBe(id);
+    expect(directory.stored(id)?.nearestGym).toBe(LONELY);
+    expect(directory.stored(LONELY)?.nearestGym).toBe(id);
     await upkeep.flush();
   });
 
@@ -161,7 +161,7 @@ describe('GymUpkeep.placed', () => {
 
     await upkeep.flush();
     expect(await upkeep.waiting()).toBe(0);
-    const lonely = directory.get(LONELY);
+    const lonely = directory.stored(LONELY);
     if (!lonely) throw new Error('no gym');
     const half = metresBetween(lonely, BESIDE_LONELY) / 2;
     expect(half).toBeGreaterThan(25);
@@ -180,8 +180,13 @@ describe('GymUpkeep.placed', () => {
       places: 'Corner Bakery Maple Dental',
     });
     // The directory has what was written: the gym is found by it.
-    expect(directory.search(null, 'corner bakery').map((hit) => hit.gym.id)).toContain(id);
-    expect(directory.get(LONELY)?.places).toBe('Corner Bakery Maple Dental');
+    expect(
+      directory
+        .of(TEST_GUILD_ROW)
+        .search(null, 'corner bakery')
+        .map((hit) => hit.gym.id),
+    ).toContain(id);
+    expect(directory.stored(LONELY)?.places).toBe('Corner Bakery Maple Dental');
   });
 
   it('asks about one gym of the line at every turn of the timer', async () => {
@@ -251,8 +256,8 @@ describe('GymUpkeep.placed', () => {
     // A gym put beside it, placed without places, still gets its nearest gym and gives its own.
     const beside = await add(40.5011, -80.05, 'Beside');
     await upkeep.placed(beside, { places: false });
-    expect(directory.get(beside)?.nearestGym).toBe(id);
-    expect(directory.get(id)?.nearestGym).toBe(beside);
+    expect(directory.stored(beside)?.nearestGym).toBe(id);
+    expect(directory.stored(id)?.nearestGym).toBe(beside);
     expect(await upkeep.waiting()).toBe(0);
     await upkeep.flush();
     expect(geo.asked).toEqual([]);
@@ -353,7 +358,10 @@ describe('GymUpkeep.placedBlock', () => {
     await upkeep.flush();
     expect(gyms.row(ids[0]!)?.places).not.toBeNull();
     const lonely = geo.questions('places').find((question) => question.point.lat === 40.5);
-    expect(lonely?.radius).toBeCloseTo(metresBetween(directory.get(LONELY)!, BESIDE_LONELY) / 2, 5);
+    expect(lonely?.radius).toBeCloseTo(
+      metresBetween(directory.stored(LONELY)!, BESIDE_LONELY) / 2,
+      5,
+    );
   });
 });
 
@@ -364,7 +372,7 @@ describe('GymUpkeep.removed', () => {
     await upkeep.placed(id);
     await upkeep.flush();
     const others = directory.all().filter((gym) => gym.id !== LONELY && gym.id !== id);
-    const lonely = directory.get(LONELY);
+    const lonely = directory.stored(LONELY);
     if (!lonely) throw new Error('no gym');
     const expected = others.sort((a, b) => metresBetween(lonely, a) - metresBetween(lonely, b))[0]
       ?.id;
@@ -376,7 +384,7 @@ describe('GymUpkeep.removed', () => {
     await upkeep.removed(id);
 
     expect(gyms.written('nearestGym')).toEqual([[LONELY, expected]]);
-    expect(directory.get(LONELY)?.nearestGym).toBe(expected);
+    expect(directory.stored(LONELY)?.nearestGym).toBe(expected);
     expect(await upkeep.waiting()).toBe(1);
     await upkeep.flush();
     // Far from everything again: the largest circle.
@@ -1047,7 +1055,7 @@ describe('the line of gyms that wait for Google', () => {
     release();
     await flushing;
     await upkeep.flush();
-    const at = directory.get(id)!;
+    const at = directory.stored(id)!;
     const asked = geo
       .questions('places')
       .filter((question) => question.point.lat === at.lat && question.point.lon === at.lon);
@@ -1221,7 +1229,7 @@ describe('the line of gyms that wait for Google', () => {
     release();
     await flushing;
     await upkeep.flush();
-    const at = directory.get(id)!;
+    const at = directory.stored(id)!;
     const asked = geo
       .questions('places')
       .filter((question) => question.point.lat === at.lat && question.point.lon === at.lon);

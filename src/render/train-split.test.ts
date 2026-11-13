@@ -66,7 +66,7 @@ function train(more: Partial<TrainDetails> = {}, groups?: PartyGroup[]): TrainPa
 function view(party: TrainParty, extra: Partial<SplitView> = {}): SplitView {
   return {
     party,
-    stop: stopsFrom(gyms),
+    stop: stopsFrom({ stored: (id) => gyms.get(id) }),
     memberId: ALICE,
     staff: false,
     anonymous: false,

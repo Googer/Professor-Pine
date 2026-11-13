@@ -62,7 +62,6 @@ function directory() {
   const service = new GymDirectory({
     gyms: source.gyms,
     regions: source.regions,
-    ignoredWords: ['gym', 'raid'],
     wordsOf: () => ['gym', 'raid'],
     log,
   });
@@ -70,15 +69,22 @@ function directory() {
 }
 
 const ids = (service: GymDirectory, channelId: string | null, text: string) =>
-  service.search(channelId, text).map((hit) => hit.gym.id);
+  service
+    .of(TEST_GUILD_ROW)
+    .search(channelId, text)
+    .map((hit) => hit.gym.id);
 const background = watchEachTest();
 
 describe('GymDirectory', () => {
   it('answers nothing before it has loaded', () => {
     const { service } = directory();
-    expect(() => service.get(1)).toThrow('Gyms have not been loaded yet');
-    expect(() => service.search(null, 'library')).toThrow('Gyms have not been loaded yet');
-    expect(() => service.isRegion(WEST_CHANNEL)).toThrow('Gyms have not been loaded yet');
+    expect(() => service.stored(1)).toThrow('Gyms have not been loaded yet');
+    expect(() => service.of(TEST_GUILD_ROW).search(null, 'library')).toThrow(
+      'Gyms have not been loaded yet',
+    );
+    expect(() => service.of(TEST_GUILD_ROW).isRegion(WEST_CHANNEL)).toThrow(
+      'Gyms have not been loaded yet',
+    );
   });
 
   it('loads every gym and region with one read each and says so', async () => {
@@ -86,9 +92,9 @@ describe('GymDirectory', () => {
     await service.load();
     expect(state.listed).toBe(1);
     expect(service.size).toBe(12);
-    expect(service.get(1)?.name).toBe('Pinewood Public Library');
-    expect(service.isRegion(WEST_CHANNEL)).toBe(true);
-    expect(service.regionsOf(7)).toEqual([EAST_CHANNEL]);
+    expect(service.stored(1)?.name).toBe('Pinewood Public Library');
+    expect(service.of(TEST_GUILD_ROW).isRegion(WEST_CHANNEL)).toBe(true);
+    expect(service.of(TEST_GUILD_ROW).regionsOf(7)).toEqual([EAST_CHANNEL]);
     expect(ids(service, WEST_CHANNEL, 'mural')).toEqual([1, 7]);
     expect(ids(service, null, 'the library gym')).toEqual([1]);
     expect(entries.at(-1)).toMatchObject({ msg: 'gyms indexed', gyms: 12, regions: 3 });
@@ -98,7 +104,7 @@ describe('GymDirectory', () => {
     const { service, state } = directory();
     state.failing = true;
     await expect(service.load()).rejects.toThrow('database is down');
-    expect(() => service.get(1)).toThrow('Gyms have not been loaded yet');
+    expect(() => service.stored(1)).toThrow('Gyms have not been loaded yet');
     state.failing = false;
     await service.load();
     expect(service.size).toBe(12);
@@ -118,7 +124,7 @@ describe('GymDirectory', () => {
     expect(ids(service, WEST_CHANNEL, 'trailhead')).toEqual([]);
     state.regions = state.regions.filter((region) => region.channelId !== WEST_CHANNEL);
     await service.load();
-    expect(service.isRegion(WEST_CHANNEL)).toBe(false);
+    expect(service.of(TEST_GUILD_ROW).isRegion(WEST_CHANNEL)).toBe(false);
     // No longer a region: the whole directory is searched.
     expect(ids(service, WEST_CHANNEL, 'trailhead')).toEqual([10]);
   });
@@ -134,7 +140,7 @@ describe('GymDirectory', () => {
     expect(state.listed).toBe(1);
     expect(ids(service, EAST_CHANNEL, 'reading room')).toEqual([1]);
     expect(ids(service, WEST_CHANNEL, 'public library')).toEqual([]);
-    expect(service.regionsOf(1)).toEqual([EAST_CHANNEL]);
+    expect(service.of(TEST_GUILD_ROW).regionsOf(1)).toEqual([EAST_CHANNEL]);
   });
 
   it('takes up a new gym and forgets a deleted one', async () => {
@@ -148,7 +154,7 @@ describe('GymDirectory', () => {
 
     state.gyms = state.gyms.filter((gym) => gym.id !== 50);
     expect(await service.refreshGym(50)).toBeUndefined();
-    expect(service.get(50)).toBeUndefined();
+    expect(service.stored(50)).toBeUndefined();
     expect(ids(service, null, 'clock')).toEqual([]);
     expect(await service.refreshGym(12345)).toBeUndefined();
   });
@@ -166,7 +172,7 @@ describe('GymDirectory', () => {
     expect(read.map((gym) => gym.id)).toEqual([50, 51, 2]);
     expect(service.generation).toBe(generation + 1);
     expect(ids(service, WEST_CHANNEL, 'zeppelin').sort()).toEqual([50, 51]);
-    expect(service.get(2)?.nearestGym).toBe(51);
+    expect(service.stored(2)?.nearestGym).toBe(51);
     expect(state.fetched).toEqual([50, 51, 2, 999]);
   });
 
@@ -175,7 +181,7 @@ describe('GymDirectory', () => {
     await service.load();
     state.failing = true;
     await expect(service.refreshGym(1)).rejects.toThrow('database is down');
-    expect(service.get(1)?.name).toBe('Pinewood Public Library');
+    expect(service.stored(1)?.name).toBe('Pinewood Public Library');
     state.failing = false;
     expect((await service.refreshGym(1))?.id).toBe(1);
   });
@@ -187,7 +193,7 @@ describe('GymDirectory', () => {
     const refreshed = service.refreshGym(1);
     const reloaded = service.load();
     await Promise.all([refreshed, reloaded]);
-    expect(service.get(1)?.name).toBe('Reading Room');
+    expect(service.stored(1)?.name).toBe('Reading Room');
     expect(state.listed).toBe(2);
   });
 
@@ -201,14 +207,14 @@ describe('GymDirectory', () => {
     await service.load();
     state.failing = true;
     expect(service.forget(1)).toBe(true);
-    expect(service.get(1)).toBeUndefined();
-    expect(service.regionsOf(1)).toEqual([]);
+    expect(service.stored(1)).toBeUndefined();
+    expect(service.of(TEST_GUILD_ROW).regionsOf(1)).toEqual([]);
     expect(ids(service, null, 'pinewood public library')).not.toContain(1);
     expect(service.forget(1)).toBe(false);
     expect(state.fetched).toEqual([]);
     // A read that fails afterwards does not bring it back.
     await expect(service.refreshGym(1)).rejects.toThrow('database is down');
-    expect(service.get(1)).toBeUndefined();
+    expect(service.stored(1)).toBeUndefined();
   });
 
   it('does not let a read that is on its way put a forgotten gym back', async () => {
@@ -222,7 +228,7 @@ describe('GymDirectory', () => {
     await Promise.all([refreshing, loading]);
     state.gyms = state.gyms.filter((gym) => gym.id !== 1);
     await background.settle();
-    expect(service.get(1)).toBeUndefined();
+    expect(service.stored(1)).toBeUndefined();
     expect(ids(service, null, 'pinewood public library')).not.toContain(1);
   });
 
@@ -240,12 +246,7 @@ describe('GymDirectory', () => {
     state.links = state.links.filter((link) => link.gymId !== 1 || link.guildId !== TEST_GUILD_ROW);
     await background.settle();
     expect(service.of(TEST_GUILD_ROW).get(1)).toBeUndefined();
-    expect(
-      service
-        .of(TEST_GUILD_ROW)
-        .search(null, 'pinewood public library')
-        .map((hit) => hit.gym.id),
-    ).not.toContain(1);
+    expect(ids(service, null, 'pinewood public library')).not.toContain(1);
     // The other server keeps it, and so does a stored reference.
     expect(service.of(OTHER_GUILD_ROW).get(1)?.name).toBe('Pinewood Public Library');
     expect(service.stored(1)).toBeDefined();

@@ -16,7 +16,10 @@ export type LineKind = 'gym' | 'stop' | 'powerspot';
 /** Kind first (Matt, 2026-10-20): gyms are caught up within weeks, then stops, then Power Spots. */
 const KIND_ORDER: Readonly<Record<LineKind, number>> = { gym: 0, stop: 1, powerspot: 2 };
 
-/** The rank of a gym in no region of any server: after every gym that is in one. */
+/**
+ * The rank of a gym in none of the regions of its own servers (`gymRegionsOfItsServers`, plan
+ * 19B-2), and of a place given no region: after every gym that is in one.
+ */
 export const NO_REGION_RANK = -1;
 
 /** How far back the raids of a region count for its rank. */
@@ -154,8 +157,8 @@ export function regionRanks(
 }
 
 /**
- * The rank of a place in these regions: its best region's; `NO_REGION_RANK` for a place in no
- * region of any server.
+ * The rank of a place in these regions: its best region's; `NO_REGION_RANK` for a place in none
+ * (a gym in none of its own servers' regions, a Wayspot in no region of any server).
  */
 export function bestRank(regionIds: Iterable<number>, ranks: ReadonlyMap<number, number>): number {
   let best = NO_REGION_RANK;
