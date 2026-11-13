@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-13T15:03",
+  "updated": "2026-11-13T16:28",
   "items": [
     {
       "id": "0",
@@ -12411,7 +12411,64 @@ window.GANTT = {
       ],
       "scope": "party ids in controls and dialogs, tokens, DM controls, Pokémon nicknames per server, gym requests per server",
       "doneWhen": "Merged into main-dev",
-      "status": "unplanned"
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T12:04",
+        "end": "2026-11-13T16:28",
+        "review": {
+          "start": "2026-11-13T14:52",
+          "end": "2026-11-13T16:20"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T16:20",
+        "end": "2026-11-13T16:20"
+      }
+    },
+    {
+      "id": "19B-4.1",
+      "kind": "task",
+      "parent": "19B-4",
+      "name": "Parties named by a custom id checked against their server",
+      "status": "done",
+      "start": "2026-11-13T16:20",
+      "end": "2026-11-13T16:20"
+    },
+    {
+      "id": "19B-4.2",
+      "kind": "task",
+      "parent": "19B-4",
+      "name": "Pending questions bound to their server",
+      "status": "done",
+      "start": "2026-11-13T16:20",
+      "end": "2026-11-13T16:20"
+    },
+    {
+      "id": "19B-4.3",
+      "kind": "task",
+      "parent": "19B-4",
+      "name": "Pokémon nicknames are a server's own",
+      "status": "done",
+      "start": "2026-11-13T16:20",
+      "end": "2026-11-13T16:20"
+    },
+    {
+      "id": "19B-4.4",
+      "kind": "task",
+      "parent": "19B-4",
+      "name": "Gym requests go where a server's go",
+      "status": "done",
+      "start": "2026-11-13T16:20",
+      "end": "2026-11-13T16:20"
+    },
+    {
+      "id": "19B-4.5",
+      "kind": "task",
+      "parent": "19B-4",
+      "name": "Docs",
+      "status": "done",
+      "start": "2026-11-13T16:20",
+      "end": "2026-11-13T16:20"
     },
     {
       "id": "19B-5",
