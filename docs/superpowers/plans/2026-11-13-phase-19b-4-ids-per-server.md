@@ -18,11 +18,11 @@
 |---|---|---|
 | 1 | `3b09698ab` | 19B-4 1: parties named by a custom id are checked against their server |
 | 2 | `f646e3c37` | 19B-4 2: pending questions are bound to their server, the counters dialog to its member |
-| 3 | `13e477198` | 19B-4 3: Pokémon nicknames are a server's own |
-| 4 | `08e47ac6c` | 19B-4 4: gym requests go where a server's go |
-| 5 | `40b4fdc6e` | 19B-4 5: docs of ids checked against their server, nicknames and gym requests per server |
+| 3 | `c22297cdd` | 19B-4 3: Pokémon nicknames are a server's own |
+| 4 | `ce0773aec` | 19B-4 4: gym requests go where a server's go |
+| 5 | `eb8712371` | 19B-4 5: docs of ids checked against their server, nicknames and gym requests per server |
 
-On the tip: `npm run check`, `npm run build`, `npm run test:db`, one at a time, each judged by its exit status.
+On the tip: `npm run check`, `npm run build`, `npm run test:db`, one at a time, each judged by its exit status.  The database suite found `PokemonNickname` missing from `src/db/table-names.ts` (restore's list); folded into task 3.
 
 ## What staff and members will notice
 

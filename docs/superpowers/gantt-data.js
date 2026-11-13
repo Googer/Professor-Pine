@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-13T16:28",
+  "updated": "2026-11-13T16:45",
   "items": [
     {
       "id": "0",
@@ -12414,15 +12414,15 @@ window.GANTT = {
       "status": "done",
       "planning": {
         "start": "2026-11-13T12:04",
-        "end": "2026-11-13T16:28",
+        "end": "2026-11-13T16:45",
         "review": {
           "start": "2026-11-13T14:52",
-          "end": "2026-11-13T16:20"
+          "end": "2026-11-13T16:45"
         }
       },
       "review": {
-        "start": "2026-11-13T16:20",
-        "end": "2026-11-13T16:20"
+        "start": "2026-11-13T16:45",
+        "end": "2026-11-13T16:45"
       }
     },
     {
@@ -12450,7 +12450,7 @@ window.GANTT = {
       "name": "Pokémon nicknames are a server's own",
       "status": "done",
       "start": "2026-11-13T16:20",
-      "end": "2026-11-13T16:20"
+      "end": "2026-11-13T16:45"
     },
     {
       "id": "19B-4.4",
@@ -12458,8 +12458,8 @@ window.GANTT = {
       "parent": "19B-4",
       "name": "Gym requests go where a server's go",
       "status": "done",
-      "start": "2026-11-13T16:20",
-      "end": "2026-11-13T16:20"
+      "start": "2026-11-13T16:45",
+      "end": "2026-11-13T16:45"
     },
     {
       "id": "19B-4.5",
@@ -12467,8 +12467,8 @@ window.GANTT = {
       "parent": "19B-4",
       "name": "Docs",
       "status": "done",
-      "start": "2026-11-13T16:20",
-      "end": "2026-11-13T16:20"
+      "start": "2026-11-13T16:45",
+      "end": "2026-11-13T16:45"
     },
     {
       "id": "19B-5",
