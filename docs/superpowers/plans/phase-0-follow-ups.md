@@ -3608,6 +3608,16 @@ Plan `2026-11-12-phase-19d-sharding.md`, merged on main-dev; check 13,747, datab
 - `onEveryShardReady` and `ShardStart.gone` are built for plan 19C, which marks a gone server left; nothing acts on them yet.
 - Beyond about 90,000 servers (36 shards and more at a `max_concurrency` of 1) the login's identify slots are long; the health rule gives each shard its slot, but nothing has been tried at that size.
 
+## From Phase 19B-2 (gyms per server, 2026-11-13)
+
+Plan `2026-11-13-phase-19b-2-gyms-per-server.md`, merged on main-dev; full check, database suite and build pass. **Staging not run** (its plan's five steps; needs `./pine update` for migration 056).
+
+- **Before the 2.1 release:** on a copy of production's latest backup, run the upgrade's links read-only and count the gyms not linked to Pittsburgh's row (expected 0, or a list for Matt).
+- The kept Wayspots of an import still leave out every server's gym ids (`gymWayfarerIds`): 19B-3 makes Wayspots a server's.
+- A row written into `SavedRoutes` by anything but the repository after migration 056 has no `SavedRouteGym` rows, so a gym's deletion would not find it (only the stopped legacy bot or a test's raw insert could).
+- `gyms:seed` reads every gym (`listAll`) to find a new gym's nearest, as the directory does.
+- Web routes' two-server tests run their positive controls from the test server only; the views' own tests cover the other server.
+
 ## From Phase 19B-1 (operators and alerts, 2026-11-13)
 
 Plan `2026-11-13-phase-19b-1-operators.md`, merged on main-dev; full check, database suite and build pass. **Staging not run** (its plan's six steps; needs a global deploy: the commands change).
