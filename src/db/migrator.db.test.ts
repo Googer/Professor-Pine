@@ -39,6 +39,7 @@ const ADDED_TABLES = [
   'GymReview',
   'GymServer',
   'SavedRouteGym',
+  'ServerWayspot',
   'GymLookup',
   'GymLookupDay',
   'WebSession',
@@ -244,6 +245,7 @@ describe('runMigrations', () => {
       '2026_11_13_056_gym_servers',
       '2026_11_13_057_member_indexes',
       '2026_11_13_058_pokemon_nicknames',
+      '2026_11_13_059_server_wayspots',
     ]);
     expect(
       await describeSchema(

@@ -727,6 +727,20 @@ export interface ServerSettingsAudit {
   serverId: string;
 }
 
+export interface ServerWayspot {
+  address: string | null;
+  firstSeen: string;
+  formerKind: string | null;
+  guildId: number;
+  id: string;
+  image: string | null;
+  kind: string;
+  lastSeen: string;
+  lat: number;
+  lon: number;
+  title: string;
+}
+
 export interface SpawnReport {
   channelId: string;
   costumed: Generated<number>;
@@ -965,6 +979,7 @@ export interface DB {
   ScriptAccess: ScriptAccess;
   ServerSettings: ServerSettings;
   ServerSettingsAudit: ServerSettingsAudit;
+  ServerWayspot: ServerWayspot;
   SpawnReport: SpawnReport;
   StopLine: StopLine;
   StopPost: StopPost;

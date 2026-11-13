@@ -63,6 +63,7 @@ export const PINE_TABLES: readonly string[] = [
   'ScriptAccess',
   'ServerSettings',
   'ServerSettingsAudit',
+  'ServerWayspot',
   'SpawnReport',
   'StopLine',
   'StopPost',
