@@ -54,7 +54,7 @@ export interface RegionsMineView {
    * regions (R8), and nothing can be joined or left.
    */
   readOnly: boolean;
-  /** Whether the server offers roles to join or leave its regions (`settings.features.roles`). */
+  /** Whether the server offers roles to join or leave its regions (its values' `features.roles`, plan 19A-1). */
   roles: boolean;
   regions: RegionMineView[];
 }

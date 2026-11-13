@@ -33,7 +33,7 @@ export interface WhatIsOnDeps {
   /** Where distances are measured from: your location, else the map's middle. */
   origin(): LatLon | undefined;
   zone(): string;
-  /** The units distances are said in (`settings.distanceUnits`, task 7). */
+  /** The units distances are said in (the server's `distanceUnits`, plan 19A-1). */
   units: DistanceUnits;
   /** A line tapped: fly there and open it; false where the map does not draw it. */
   open(line: ListLine): boolean;

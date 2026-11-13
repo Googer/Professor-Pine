@@ -116,6 +116,8 @@ chmod 600 .env
 cp data/settings.json pine-settings.json
 ```
 
+**What the file holds of your server is only where it starts.** The keys that are your server's (`channels`, `categories.pvp`, `roles.unown`, `features`, `distanceUnits`, `eventsForum`, `meetupSafety.flaggedWords`, `regionForumSuffix`, `postNewGyms`, `regionMapLink`, and under `web` the `memberRole` and your server's entry of `invites`) are copied into the bot's database the first time the bot starts in your server, the channel, category and role names looked up there; a name your server lacks stays unset, and the moderators' bot lab is told which. From then on your staff see and change them in Discord with `/admin settings` (by picking the channel or role, not by name), and editing them in `pine-settings.json` changes nothing for that server. So set them right before the first start, or fix them afterwards in `/admin settings`. The time zone is still read from the file.
+
 The settings that matter first:
 
 - `timezone`: yours, as an IANA name (`America/Chicago`, `Europe/London`). Every time members type is read in it. The file comes with `America/New_York`.

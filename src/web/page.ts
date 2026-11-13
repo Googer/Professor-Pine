@@ -89,7 +89,10 @@ export interface MapPageData {
   googleKey?: string;
   /** How a member logs in: with Discord, or only through the links of `/maps`. */
   login: 'discord' | 'links';
-  /** The units the pages say distances in (`settings.distanceUnits`, task 7; the editor's too, review fix 8). */
+  /**
+   * The units the pages say distances in (the server's `distanceUnits`, plan 19A-1; task 7; the
+   * editor's too, review fix 8).
+   */
   distanceUnits?: DistanceUnits;
 }
 

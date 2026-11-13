@@ -77,7 +77,7 @@ export function publicRegions<
 /**
  * The name the public view gives a region (v2.0.2), from the name of its gate (`regionGate`,
  * the channel that let it in, F-B1): a forum is named after its region's channel with
- * `settings.regionForumSuffix` added (`north` and `north-board`; `/admin setup-forums`,
+ * the server's `regionForumSuffix` added (plan 19A-1) (`north` and `north-board`; `/admin setup-forums`,
  * `/region import`), so a forum's name that ends with the suffix is shown without it. Nothing
  * else is read: the text channel's name may be one the public cannot view. A forum named
  * otherwise, or only the suffix, and a region whose gate is its text channel keep the name.

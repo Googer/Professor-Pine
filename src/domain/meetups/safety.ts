@@ -40,8 +40,8 @@ export const DEFAULT_FLAGGED_WORDS: readonly string[] = [
 ];
 
 /**
- * The words in effect: the default list and the server's own (`settings.meetupSafety.flaggedWords`),
- * trimmed, in lower case, each once.
+ * The words in effect: the default list and the server's own (`flaggedWords` of its values, plan
+ * 19A-1), trimmed, in lower case, each once.
  */
 export function flaggedWordsOf(extra: readonly string[] | undefined): string[] {
   const words = [...DEFAULT_FLAGGED_WORDS, ...(extra ?? [])]

@@ -1,5 +1,7 @@
 import {
   CHANNEL_LABELS,
+  fileCategoryAndRoleNames,
+  fileChannelNames,
   fileDefaults,
   type ServerChannelRole,
   type ServerValues,
@@ -60,10 +62,11 @@ export function filledValues(
   const several: SeveralNamed[] = [];
   const kept: UnmatchedKey[] = [];
   const channels: Partial<Record<ServerChannelRole, string>> = {};
-  if (settings.channels.events !== undefined && recordedForum !== undefined) {
+  const fileNames = fileChannelNames(settings);
+  if (fileNames.events !== undefined && recordedForum !== undefined) {
     channels.events = recordedForum;
   }
-  for (const [role, name] of Object.entries(settings.channels) as Array<
+  for (const [role, name] of Object.entries(fileNames) as Array<
     [ServerChannelRole, string | undefined]
   >) {
     if (name === undefined || channels[role] !== undefined) continue;
@@ -84,15 +87,14 @@ export function filledValues(
       closed.push({ key: 'channels.moderation', name });
     } else unmatched.push(`${CHANNEL_LABELS[role]} #${name}`);
   }
-  const pvpCategory = settings.categories.pvp;
+  const { pvpCategory, unownRole, mapMemberRole: memberName } = fileCategoryAndRoleNames(settings);
   const category = names.category(pvpCategory);
   if (category === undefined) unmatched.push(`the PvP category ${pvpCategory}`);
   else if (names.howMany(pvpCategory, 'category') > 1) {
     several.push({ setting: `the PvP category ${pvpCategory}`, kept: category });
   }
-  const unown = names.role(settings.roles.unown);
-  if (unown === undefined) unmatched.push(`the Unown role ${settings.roles.unown}`);
-  const memberName = settings.web?.memberRole;
+  const unown = names.role(unownRole);
+  if (unown === undefined) unmatched.push(`the Unown role ${unownRole}`);
   const mapMember = memberName === undefined ? undefined : names.role(memberName);
   if (memberName !== undefined && mapMember === undefined) {
     kept.push('roles.mapMember');

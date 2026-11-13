@@ -5,7 +5,7 @@ import { distanceWords, type DistanceUnits } from '../../render/distance-words.j
  * Distances on the live map (plan 8M-7), for the list and the plans after it: measured by the
  * one function the rest of Pine measures with (`metresBetween` of `@pine/wayspot-core`: the
  * place search, Wayfarer matching), said by `distanceWords` in the units of
- * `settings.distanceUnits` (task 7), which the page reads from `data-distance-units`.
+ * the server's `distanceUnits` (plan 19A-1: the units of the server it shows), which the page reads from `data-distance-units`.
  */
 
 export interface Place {

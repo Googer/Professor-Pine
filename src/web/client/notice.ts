@@ -15,7 +15,7 @@ export type Me =
       member: boolean;
       readOnly: boolean;
       /**
-       * For one in the server who lacks the map's member role (`settings.web.memberRole`): the
+       * For one in the server who lacks the map's member role (the server's `roles.mapMember`, plan 19A-1): the
        * role's name, which they need to join and report on the map.
        */
       missingRole?: string;
@@ -26,7 +26,7 @@ export type Me =
       mayEditRegions?: boolean;
       /**
        * For one logged in who is not in the server (plan 8M-11B): the server's invite, as its
-       * admin set it in `settings.web.invites`; absent where it has none.
+       * staff set it in `/admin settings` (its `invite`, plan 19A-1); absent where it has none.
        */
       invite?: string;
     };

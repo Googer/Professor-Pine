@@ -188,7 +188,7 @@ type ChangeRequest = FastifyRequest<{
  * and nothing of the regions (R8).
  *
  * `POST /s/<guild>/api/regions/<region id>/join|leave`, body `{ role }`, only where
- * `settings.features.roles` is on (R6): the per-address limit and `postGuard` before the body is
+ * the server's `features.roles` is on (R6; plan 19A-1): the per-address limit and `postGuard` before the body is
  * read; who writes as every write on the map (`actingOnTheMap`: a member who counts, not timed
  * out, through the screening, fetched afresh); the member and the gates from that fetch
  * (`memberGates`, cached): a region kept out of 403 (R4), a join where it is seen 409, a role that

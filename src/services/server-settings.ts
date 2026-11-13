@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   fileDefaults,
+  fileInvite,
   fileUnmatched,
   parseServerValues,
   serverValuesSchema,
@@ -252,7 +253,7 @@ export class ServerSettings implements ServerSettingsService {
    * defaults with its invite, keeping closed what the file names (fix round 4, I1).
    */
   private fileDefaultsOf(serverId: string): ServerValues {
-    const invite = this.options.settings.web?.invites?.[serverId];
+    const invite = fileInvite(this.options.settings, serverId);
     return invite === undefined ? this.withoutRow : { ...this.withoutRow, invite };
   }
 

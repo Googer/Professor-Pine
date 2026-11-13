@@ -1,5 +1,6 @@
 import { SnowflakeUtil } from 'discord.js';
 import type { Settings } from '../config/settings.js';
+import { fileChannelNames } from '../config/server-settings.js';
 import { isSnowflake } from '../db/snowflake.js';
 import type {
   EventForumRecord,
@@ -186,7 +187,7 @@ export interface EventForumOptions {
   log: Logger;
   /**
    * The big days (plan 8H-8, `HistoryDays`): "On this day" is posted only with them, and
-   * `settings.eventsForum.onThisDay` above 0.
+   * the server's `eventsForum.onThisDay` above 0 (plan 19A-1).
    */
   days?: Pick<HistoryDays, 'onThisDay'>;
   /**
@@ -216,7 +217,7 @@ export function eventForumWanted(settings: Pick<Settings, 'rehearsal'>): boolean
 
 /** The name of a new events forum: the file's `channels.events` (plan 8V-1), else `events`. */
 export function newEventsForumName(settings: Pick<Settings, 'channels'>): string {
-  const name = settings.channels.events ?? 'events';
+  const name = fileChannelNames(settings).events ?? 'events';
   return channelNameFor(name) || name;
 }
 
@@ -225,8 +226,8 @@ export function newEventsForumName(settings: Pick<Settings, 'channels'>): string
  * forum, the server's events forum (plan 19A-1: by id), made by `/admin setup-forums` in the
  * category of its channel for bot updates, with Pine's pinned and locked listing "Events" (`EVENTS_TITLE`: Now, This week,
  * Coming up, `listingSections`) and a post per event of a posted kind (`isPosted`), opened
- * `settings.eventsForum.postDaysAhead` before its start. Made only where the settings name a
- * forum and rehearsal mode is off (`app.ts`, R8).
+ * the server's `eventsForum.postDaysAhead` before its start (plan 19A-1). Made wherever
+ * rehearsal mode is off (`app.ts`, R8), drawing in a server only the forum its values name.
  *
  * Everything is drawn from the listed events (`ListedEventProvider`) and the rows of the forums
  * and posts, so a draw at any time puts right what a restart or the network missed. Draws run one
@@ -599,7 +600,7 @@ export class EventForumService {
    * A day's "On this day" (plan 8H-8, design Part G): from 10:00 local time (`onThisDayDue`), at
    * the first draw of the day after it (its own timer, a start, the hourly upkeep, a catch-up),
    * once a day per server, where today's date was one of an earlier year's top
-   * `settings.eventsForum.onThisDay` big days (`HistoryDays.onThisDay`): a post of its own, never
+   * `eventsForum.onThisDay` big days of the server's values (`HistoryDays.onThisDay`): a post of its own, never
    * pinned, nobody pinged, archiving itself after a day without messages, recorded among the event
    * posts under `on-this-day:<day>` (start and end its making, ended at once), which the upkeep
    * archives three days on as an event's post. A day missed (the bot down) is never posted later.

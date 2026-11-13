@@ -69,6 +69,17 @@
  * `forget:<token>:ask` ("Remove…" under the look, which opens the question) and
  * `forget:<token>:remove` (the question's dialog, whose Submit removes).
  *
+ * The controls of `/admin settings` have the kind `server` (`src/commands/admin/server-settings.ts`,
+ * plan 19A-1), with a setting's key as the id: `server:panel:show` (the menu of the sections),
+ * `server:<key>:set` (a channel, category, role or units menu: the value picked, none clears),
+ * `server:<key>:set:on|off` (a feature's button: what it sets), `server:<key>:ask` (opens the
+ * dialog `server:<key>:set:~<token>`); the flagged words too many to show in a dialog
+ * `server:flaggedWords:ask` (the dialog `server:flaggedWords:add:~<token>`) and
+ * `server:flaggedWords:ask:remove` (`server:flaggedWords:remove:~<token>`); `server:<key>:unset`
+ * (Leave unset, of a setting the settings file named and the fill did not find, which asks),
+ * `server:<key>:unset:confirm` (which writes) and `server:<key>:keep` (Keep it closed). The server
+ * is the interaction's.
+ *
  * The controls about a screenshot have the kind `shot` (`src/commands/screenshots/shot-kind.ts`).
  * With the id of a kept screenshot (twelve URL-safe characters): `shot:<id>:right`,
  * `shot:<id>:wrong` (which opens the form `shot:<id>:form`) and `shot:<id>:show`. With the token

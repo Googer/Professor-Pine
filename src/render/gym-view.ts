@@ -162,7 +162,7 @@ export interface GymView {
   nearest?: { gym: Pick<NamedGym, 'id' | 'name' | 'nickname'>; metres: number } | undefined;
   /** How many members have it as a gym target; undefined when that could not be read. */
   targets?: number | undefined;
-  /** The units distances are said in (`settings.distanceUnits`, task 7). */
+  /** The units distances are said in (the server's `distanceUnits`, plan 19A-1). */
   units: DistanceUnits;
   /** The map (`mapPicture`); without it, none. */
   map?: MapPicture | undefined;

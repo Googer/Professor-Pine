@@ -180,7 +180,7 @@ export interface ResearchWordsView {
 export interface ResearchAnswerView extends ResearchWordsView {
   /** The stops near the first that have no report of this task in the period (25 at most). */
   more: readonly MoreStop[];
-  /** The units distances are said in (`settings.distanceUnits`, task 7). */
+  /** The units distances are said in (the server's `distanceUnits`, plan 19A-1). */
   units: DistanceUnits;
 }
 

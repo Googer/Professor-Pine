@@ -233,13 +233,44 @@ export function settingChanges(before: ServerValues, after: ServerValues): Setti
  */
 export const NOT_FOUND = 'not found';
 
+/** A server's invite in the file (`web.invites`, one per server), the default of its `invite`. */
+export function fileInvite(settings: Pick<Settings, 'web'>, serverId: string): string | undefined {
+  return settings.web?.invites?.[serverId];
+}
+
+/**
+ * The names the file gives a server's channels by their role (the file names them, a server's
+ * values hold ids): what the fill looks for in each server (`filledValues`), and the name a new
+ * events forum is made with (`newEventsForumName`).
+ */
+export function fileChannelNames(
+  settings: Pick<Settings, 'channels'>,
+): Partial<Record<ServerChannelRole, string>> {
+  return settings.channels;
+}
+
+/** The names the file gives the PvP category, the Unown role and the map's member role. */
+export function fileCategoryAndRoleNames(
+  settings: Pick<Settings, 'categories' | 'roles' | 'web'>,
+): {
+  pvpCategory: string;
+  unownRole: string;
+  mapMemberRole: string | undefined;
+} {
+  return {
+    pvpCategory: settings.categories.pvp,
+    unownRole: settings.roles.unown,
+    mapMemberRole: settings.web?.memberRole,
+  };
+}
+
 /**
  * The values of the file's server keys (spec: the defaults of a server's first row), for a server
  * without a row: the channels, the category and the roles are names in the file and ids here, so
  * they stay unset until the fill has resolved them in that server (`fillValues`).
  */
 export function fileDefaults(settings: Settings, serverId?: string): ServerValues {
-  const invite = serverId === undefined ? undefined : settings.web?.invites?.[serverId];
+  const invite = serverId === undefined ? undefined : fileInvite(settings, serverId);
   return parseServerValues({
     features: settings.features,
     timezone: settings.timezone,

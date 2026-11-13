@@ -30,7 +30,7 @@ export const SPAWN_FOOTER = '/want tells you of spawns like this one · /wild re
 
 /**
  * The footer of the public message: it names `/want` only where the server has notifications
- * (`settings.features.notifications`); elsewhere there is no such command.
+ * (its values' `features.notifications`, plan 19A-1); elsewhere there is no such command.
  */
 export function spawnFooter(notifications: boolean): string {
   return notifications ? SPAWN_FOOTER : '/wild reports a spawn like this one';

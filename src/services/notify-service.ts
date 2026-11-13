@@ -441,7 +441,8 @@ const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(reso
 
 /**
  * Tells members by direct message what they asked to be told about (spec 6.4): raids for their
- * wants and at their gyms. Only where `settings.features.notifications` is on.
+ * wants and at their gyms. Only in a server whose `features.notifications` is on (its values,
+ * plan 19A-1).
  *
  * An event is worked off on the side, in steps that give the event loop back: the members
  * with a row that may fit are read (the reads by event of the storages), then ninety-nine at a
