@@ -14,6 +14,7 @@ import {
   TEST_GUILD_ROW,
   testOutlines,
   WEST_CHANNEL,
+  wideRegion,
 } from '../../test/support/gyms.js';
 import { testRaid } from '../../test/support/parties.js';
 import { wayfarerImportWith } from '../../test/support/wayfarer-import.js';
@@ -1013,8 +1014,10 @@ describe('WayfarerImportService: the kept Wayspots', () => {
   it('keeps every Wayspot of the file but those Pine gyms are, and counts them in the preview', async () => {
     const made = await wayfarerImportWith();
     const { file } = cityFile(made);
-    const far = wayspot(8, 'Water Tower', { lat: 41, lon: -81 }, { kind: 'powerspot' });
-    const withFar = { ...file, wayspots: [...file.wayspots, far] };
+    // A Power Spot in West, and one far outside the server's regions (plan 19B-3: not kept).
+    const spot = wayspot(8, 'Water Tower', { lat: 40.085, lon: -80.085 }, { kind: 'powerspot' });
+    const far = wayspot(9, 'Lake Tower', { lat: 41, lon: -81 }, { kind: 'powerspot' });
+    const withFar = { ...file, wayspots: [...file.wayspots, spot, far] };
 
     const preview = await made.wayfarer.preview(STAFF_PLACE, withFar);
     expect(preview.wayspots).toEqual({ added: 2, changed: 0, gone: 0, gyms: 1 });
@@ -1027,13 +1030,13 @@ describe('WayfarerImportService: the kept Wayspots', () => {
       '### The gym list changed\nProfessor Pine has added 2 gyms, renamed 2, and moved 2. It also ' +
         'added 1 PokéStop and 1 Power Spot.',
     ]);
-    // The bench (a stop), the mosaic wall (a Wayfarer gym asked about) and the water tower far
-    // outside every region; never the Wayfarer gyms the gyms are now.
+    // The bench (a stop), the mosaic wall (a Wayfarer gym asked about) and the Power Spot in West;
+    // never the Wayfarer gyms the gyms are now, nor the Power Spot far outside every region.
     expect(await ids(made)).toEqual([idOf(4), idOf(5), idOf(8)]);
     // The directory has read them again.
     expect(made.wayspots.of(TEST_GUILD_ROW).byId(idOf(4))).toMatchObject({ title: 'Bench' });
     expect(made.wayspots.of(TEST_GUILD_ROW).regionsOf(idOf(4))).toEqual([WEST_CHANNEL]);
-    expect(made.wayspots.of(TEST_GUILD_ROW).regionsOf(idOf(8))).toEqual([]);
+    expect(made.wayspots.of(TEST_GUILD_ROW).regionsOf(idOf(8))).toEqual([WEST_CHANNEL]);
     expect((await made.wayspotStore.all(TEST_GUILD_ROW))[0]).toMatchObject({
       kind: 'stop',
       title: 'Bench',
@@ -1094,9 +1097,68 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     });
   });
 
+  it('keeps a Wayfarer gym that is another server’s gym, not this server’s, among this server’s Wayspots (plan 19B-3)', async () => {
+    const made = await wayfarerImportWith();
+    await withOtherServer(made);
+    made.regions.rows.push(wideRegion());
+    // The second server's gym of a Wayfarer gym 50 m north of West (and of the second server's
+    // Wide): outside both servers' regions, inside both grown by the file's margin.
+    const beside = at({ lat: 40.1, lon: -80.05 }, 50);
+    await made.gymStore.create(
+      { name: 'Water Tower', ...beside, pogoId: idOf(9) },
+      OTHER_GUILD_ROW,
+    );
+    await made.directory.load();
+    const tower = wayspot(9, 'Water Tower', beside);
+    const file = { ...exportOf([tower]), margin: 100 };
+
+    expect((await made.wayfarer.preview(STAFF_PLACE, file)).wayspots).toMatchObject({ gyms: 1 });
+    await made.wayfarer.apply(STAFF_PLACE, file);
+    expect(await made.wayspotStore.all(TEST_GUILD_ROW)).toEqual([
+      expect.objectContaining({ id: idOf(9), kind: 'gym', title: 'Water Tower' }),
+    ]);
+    expect(made.wayspots.of(TEST_GUILD_ROW).byId(idOf(9))).toBeDefined();
+    // The second server's own import keeps none of it: it is that server's gym (positive control).
+    await made.wayfarer.apply(OTHER_STAFF_PLACE, file);
+    expect(await made.wayspotStore.all(OTHER_GUILD_ROW)).toEqual([]);
+  });
+
+  it('keeps only the Wayspots of the server’s regions grown by the file’s margin (plan 19B-3)', async () => {
+    const made = await wayfarerImportWith();
+    // West's northern edge.
+    const edge = { lat: 40.1, lon: -80.05 };
+    const inside = wayspot(21, 'Inside', { lat: 40.05, lon: -80.07 }, { kind: 'stop' });
+    const near = wayspot(22, 'Near', at(edge, 50), { kind: 'stop' });
+    const beyond = wayspot(23, 'Beyond', at(edge, 1_000), { kind: 'stop' });
+    const far = wayspot(24, 'Far', { lat: 41.5, lon: -81 }, { kind: 'powerspot' });
+    // A row kept from before (the upgrade's copy) beyond the area, in a cell the file covers.
+    const old = wayspot(25, 'Old', at(edge, 1_010), { kind: 'stop' });
+    await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
+      { upsert: [keptOf(old)], remove: [] },
+      500,
+    );
+    // A file of the whole state: Wayspots far beyond the server's regions.
+    const file = { ...exportOf([inside, near, beyond, far], [old]), margin: 100 };
+
+    expect((await made.wayfarer.preview(STAFF_PLACE, file)).wayspots).toEqual({
+      added: 2,
+      changed: 0,
+      gone: 0,
+      gyms: 0,
+    });
+    await made.wayfarer.apply(STAFF_PLACE, file);
+    expect((await made.wayspotStore.all(TEST_GUILD_ROW)).map((row) => row.id).sort()).toEqual(
+      [inside.id, near.id, old.id].sort(),
+    );
+    expect(await made.wayspotStore.gone(TEST_GUILD_ROW)).toEqual(new Map());
+  });
+
   it('reads again the importing server’s Wayspots alone after its import (plan 19B-3)', async () => {
     const made = await wayfarerImportWith();
     await withOtherServer(made);
+    // The second server's Wide over West, where the bench is.
+    made.regions.rows.push(wideRegion());
     const mosaic = gymOf(made, 6);
     const bench = wayspot(4, 'Bench', at(mosaic, 40), { kind: 'stop' });
     const told: number[] = [];
@@ -1114,6 +1176,8 @@ describe('WayfarerImportService: the kept Wayspots', () => {
   it('keeps an older file of another server as that server’s own, leaving this server’s newer rows alone (plan 19B-3)', async () => {
     const made = await wayfarerImportWith();
     await withOtherServer(made);
+    // The second server's Wide over West, where the bench and the swing are.
+    made.regions.rows.push(wideRegion());
     const mosaic = gymOf(made, 6);
     const bench = wayspot(4, 'Bench', at(mosaic, 40), { kind: 'stop' });
     const swing = wayspot(8, 'Swing', at(mosaic, 45), { kind: 'stop' });
@@ -1178,24 +1242,6 @@ describe('WayfarerImportService: the kept Wayspots', () => {
     // A newer one that has it brings it back.
     await made.wayfarer.apply(STAFF_PLACE, dated(exportOf([bench, swing]), '15'));
     expect(await ids(made)).toEqual([bench.id, swing.id]);
-  });
-
-  it('keeps no Wayspot that a gym of another server is, and drops a row kept of it before', async () => {
-    const made = await wayfarerImportWith();
-    const theirs = await withOtherServer(made);
-    const clock = wayspot(9, 'Northgate Clock', at(NORTH_PLACE, 1));
-    await made.gymStore.update(theirs.id, { pogoId: clock.id });
-    await made.directory.load();
-    await made.wayspotStore.saveFromImport(
-      TEST_GUILD_ROW,
-      { upsert: [keptOf(clock)], remove: [] },
-      1,
-    );
-
-    const outcome = await made.wayfarer.apply(STAFF_PLACE, exportOf([clock]));
-
-    expect(outcome.wayspots).toEqual({ added: 0, changed: 0, gone: 0, gyms: 1 });
-    expect(await ids(made)).toEqual([]);
   });
 
   it('keeps a Wayfarer gym whose adding failed as a Wayfarer gym Pine did not take', async () => {

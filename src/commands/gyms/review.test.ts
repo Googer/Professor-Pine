@@ -8,7 +8,7 @@ import {
   MEMBER,
   MODERATOR,
 } from '../../../test/support/gym-commands.js';
-import { TEST_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { REPORTER } from '../../../test/support/parties.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
@@ -651,6 +651,18 @@ describe('/gym review: the answers to an item to match', () => {
       },
       1,
     );
+    // The second server keeps a copy of its own (plan 19B-3), which this server's answer leaves.
+    const theirs = {
+      id: promoted.id,
+      kind: 'stop' as const,
+      formerKind: null,
+      lat: promoted.lat,
+      lon: promoted.lon,
+      title: 'Their Mosaic',
+      address: null,
+      image: null,
+    };
+    await made.wayspotStore.saveFromImport(OTHER_GUILD_ROW, { upsert: [theirs], remove: [] }, 1);
     await made.wayspots.load();
 
     await made.press(`gymreview:${reviewOf(made, 6)}:new:${idOf(4)}`);
@@ -662,6 +674,10 @@ describe('/gym review: the answers to an item to match', () => {
     ]);
     expect(await made.wayspotStore.all(TEST_GUILD_ROW)).toEqual([]);
     expect(made.wayspots.of(TEST_GUILD_ROW).byId(idOf(4))).toBeUndefined();
+    expect(await made.wayspotStore.all(OTHER_GUILD_ROW)).toEqual([
+      expect.objectContaining({ id: promoted.id, title: 'Their Mosaic' }),
+    ]);
+    expect(made.wayspots.of(OTHER_GUILD_ROW).byId(idOf(4))?.title).toBe('Their Mosaic');
   });
 
   it('New gym gives the gym the picture of the Wayspot it was kept with', async () => {

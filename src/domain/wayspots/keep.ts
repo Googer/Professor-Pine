@@ -1,6 +1,8 @@
 import { tidyLine } from '../gyms/gym-text.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
 import { wayfarerCellAt } from '@pine/wayspot-core/s2';
+import type { LatLon } from '@pine/wayspot-core/lat-lon';
+import { boxOf, grownBox, inBox, nearRing } from '@pine/wayspot-core/region-membership';
 import type { ExportedWayspot, WayspotKind } from '@pine/wayspot-core/export-file';
 import {
   MAX_KEPT_TEXT,
@@ -102,8 +104,15 @@ export interface KeptInput {
    * (`formerKind`: a stop back as a gym was a stop). Default: none.
    */
   gone?: ReadonlyMap<string, GoneWayspot>;
-  /** The Wayfarer ids of every Pine gym (of any server) after the import. */
+  /** The Wayfarer ids of the server's Pine gyms after the import. */
   gymIds: ReadonlySet<string>;
+  /**
+   * The area the import keeps Wayspots in (plan 19B-3: the server's regions grown by the file's
+   * margin, `keptArea`): a Wayspot of the file outside it is neither kept nor counted, and a kept
+   * row outside it is never found gone (a file of a wider area says nothing of the server's).
+   * Default: everywhere.
+   */
+  area?: (point: LatLon) => boolean;
   /**
    * When the file's scan was made (`scanTimeOf`): a kept row last seen later than this is not
    * written again, unless a Pine gym is it now.
@@ -190,6 +199,20 @@ function noticeable(row: WayspotRow, before: Wayspot): boolean {
   );
 }
 
+/**
+ * The area a server's import keeps Wayspots in (plan 19B-3): its regions' outlines grown by the
+ * file's margin, as the import considers its gyms (`grownBox`, then `nearRing`). Nowhere for a
+ * server without an outline.
+ */
+export function keptArea(
+  outlines: readonly (readonly LatLon[])[],
+  margin: number,
+): (point: LatLon) => boolean {
+  const grown = outlines.map((ring) => ({ ring, box: grownBox(boxOf(ring), Math.max(0, margin)) }));
+  return (point) =>
+    grown.some(({ ring, box }) => inBox(box, point) && nearRing(ring, point, Math.max(0, margin)));
+}
+
 /** What an import writes of the kept Wayspots, and what that changes, counted. */
 export function planKept(input: KeptInput): KeptPlan {
   const before = new Map(input.kept.map((row) => [row.id, row]));
@@ -222,7 +245,9 @@ export function planKept(input: KeptInput): KeptPlan {
   // file's own (an earlier import of the same scan).
   const seenSinceStart = (row: Wayspot): boolean =>
     row.lastSeen > input.startedAt && row.lastSeen !== input.scannedAt;
+  const inArea = input.area ?? (() => true);
   for (const wayspot of input.wayspots) {
+    if (!inArea(wayspot)) continue;
     inFile.add(wayspot.id);
     const old = before.get(wayspot.id);
     if (input.gymIds.has(wayspot.id)) {
@@ -256,7 +281,9 @@ export function planKept(input: KeptInput): KeptPlan {
   for (const row of input.kept) {
     if (inFile.has(row.id)) continue;
     if (input.gymIds.has(row.id)) removed(row, true);
-    else if (!seenSinceStart(row) && input.covered.has(wayfarerCellAt(row))) removed(row, false);
+    else if (!seenSinceStart(row) && inArea(row) && input.covered.has(wayfarerCellAt(row))) {
+      removed(row, false);
+    }
   }
   return { writes: { upsert, remove, gone }, counts, byKind };
 }
