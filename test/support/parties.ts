@@ -61,7 +61,11 @@ export const PARTY_NOW = at('2026-10-13T14:00');
 
 /** The test settings with the events of the fixture feed. */
 export function testRaidRules(): RaidDurationRules {
-  return raidDurationRules(loadSettings(TEST_SETTINGS_PATH), raidEventsFixture().events());
+  return raidDurationRules(
+    loadSettings(TEST_SETTINGS_PATH),
+    raidEventsFixture().events(),
+    PARTY_ZONE,
+  );
 }
 
 /** The same rules, but a boss that hatches during a Raid Day stays `raidDayMinutes` (60 by default). */

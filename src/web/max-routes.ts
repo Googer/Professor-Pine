@@ -78,7 +78,7 @@ import { placesFor, placesQuerySchema } from './wayspot-box.js';
 export type MaxWebContext = MaxReading &
   MaxReporting &
   SpotReading &
-  Pick<AppContext, 'meetupSafety' | 'regions' | 'parties' | 'wayspotAddresses'>;
+  Pick<AppContext, 'meetupSafety' | 'regions' | 'parties' | 'wayspotAddresses' | 'servers'>;
 
 /** What the max battles of the live map need beyond the parties' own (`PartyWebDeps`). */
 export interface MaxWebDeps {
@@ -462,7 +462,13 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
     const typed = (body.data.end ?? '').trim();
     try {
       boss = readMaxBoss(ctx, body.data.boss, body.data.tier ?? null, now);
-      end = reportedEnd(ctx, boss.tier, typed === '' ? null : typed, now);
+      end = reportedEnd(
+        ctx,
+        boss.tier,
+        typed === '' ? null : typed,
+        now,
+        ctx.servers.zoneOf(guild),
+      );
     } catch (err) {
       if (!(err instanceof UserError)) throw err;
       // `/max`'s `tier:` option is no part of the map: its words, and what the page asks for.
@@ -509,7 +515,10 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
       // Discord refuses `/max` for a full window before its dialog opens (final review F2).
       const full = throttledOnTheMap(deps, reply, counted, userId, MAX_THROTTLE, { count: false });
       if (full) return noted('throttled', full);
-      const next = nextRotationEnd(end, maxEndInput(ctx, boss.tier, now));
+      const next = nextRotationEnd(
+        end,
+        maxEndInput(ctx, boss.tier, now, ctx.servers.zoneOf(guild)),
+      );
       const question = endingSoonQuestion({ end, next, now, zone: parties.zone });
       const chosen = question.choices.find(
         (choice) => choice.value === soon?.value && choice.end === soon.end,

@@ -60,11 +60,30 @@ describe('RowIds', () => {
     expect(ids.user('u20000')).toBe(20_000);
   });
 
+  it('knows the server of every row it saw, beyond what it remembers (fix round 1, K1)', () => {
+    const ids = new RowIds();
+    for (let n = 0; n <= 1_000; n++) ids.sawGuild(`g${String(n)}`, n);
+    // The memory of a thousand servers dropped the first; the server of its row stays known.
+    expect(ids.guildSnowflake(0)).toBeUndefined();
+    expect(ids.serverOfRow(0)).toBe('g0');
+    expect(ids.serverOfRow(1_000)).toBe('g1000');
+    // Forgetting a server (its row deleted, or no longer sure) leaves its row's server known:
+    // a row id is never another server's.
+    ids.forgetGuild('g1000');
+    expect(ids.serverOfRow(1_000)).toBe('g1000');
+    // A row known without being seen: what the start reads of the table.
+    ids.knowGuildRow('g2000', 2_000);
+    expect(ids.serverOfRow(2_000)).toBe('g2000');
+    expect(ids.guild('g2000')).toBeUndefined();
+    expect(ids.serverOfRow(2_001)).toBeUndefined();
+  });
+
   it('remembers nothing when it is the one a repository has by default', () => {
     RowIds.none.sawGuild('g1', 7);
     RowIds.none.sawUser('u1', 42);
     expect(RowIds.none.guild('g1')).toBeUndefined();
     expect(RowIds.none.guildSnowflake(7)).toBeUndefined();
+    expect(RowIds.none.serverOfRow(7)).toBeUndefined();
     expect(RowIds.none.user('u1')).toBeUndefined();
   });
 });

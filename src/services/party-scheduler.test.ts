@@ -2,7 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { watchEachTest, watchImmediates } from '../../test/support/timers.js';
 import { heldCall } from '../../test/support/held-call.js';
 import { REMOTE_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
-import { ALICE, asRaid, at, BOB, CAROL, MINUTE, testRaid } from '../../test/support/parties.js';
+import {
+  ALICE,
+  asRaid,
+  at,
+  BOB,
+  CAROL,
+  MINUTE,
+  PARTY_ZONE,
+  testRaid,
+} from '../../test/support/parties.js';
 import {
   gatewayWithMirrorChannels,
   partyServiceWith,
@@ -151,7 +160,7 @@ describe('PartyScheduler: hatch and end', () => {
     expect(warning).not.toBeNull();
     const later = END + 20 * MINUTE;
     await made.store.update(id, (party) => ({
-      party: setEndTime(asRaid(party), later, made.service.rules(), made.clock.now),
+      party: setEndTime(asRaid(party), later, made.service.rulesIn(PARTY_ZONE), made.clock.now),
     }));
     expect(made.current().deletionTime).toBeNull();
     await tickAt(made, END + 7 * MINUTE);
@@ -172,7 +181,12 @@ describe('PartyScheduler: hatch and end', () => {
     // The tick is queued, and right behind it a correction of the end time.
     const ticking = made.scheduler.tick();
     const corrected = made.store.update(id, (party) => ({
-      party: setEndTime(asRaid(party), END + 40 * MINUTE, made.service.rules(), made.clock.now),
+      party: setEndTime(
+        asRaid(party),
+        END + 40 * MINUTE,
+        made.service.rulesIn(PARTY_ZONE),
+        made.clock.now,
+      ),
     }));
     await Promise.all([ticking, corrected]);
     await made.attendance.flush();
@@ -331,7 +345,7 @@ describe('PartyScheduler: the warning in a busy post', () => {
     await chatter(made, WARN_AGAIN_AFTER - 1);
     const later = END + 30 * MINUTE;
     await made.store.update(id, (party) => ({
-      party: setEndTime(asRaid(party), later, made.service.rules(), made.clock.now),
+      party: setEndTime(asRaid(party), later, made.service.rulesIn(PARTY_ZONE), made.clock.now),
     }));
     // A message while the raid runs on forgets the count.
     await chatter(made, 1);

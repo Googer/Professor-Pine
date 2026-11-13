@@ -97,7 +97,7 @@ export async function openMeet(
   if (typeof party === 'string') throw new UserError(party);
   const groupId = attendeeOf(party, interaction.user.id)?.group ?? party.defaultGroupId;
   await interaction.showModal(
-    meetDialog({ party, groupId, zone: ctx.config.settings.timezone, now }),
+    meetDialog({ party, groupId, zone: ctx.partyService.zoneOf(party), now }),
   );
 }
 

@@ -122,7 +122,7 @@ import type { WebDeps } from './server.js';
  */
 export type TrainWebContext = TrainStarting &
   TrainManaging &
-  Pick<AppContext, 'config' | 'regions' | 'meetupSafety'>;
+  Pick<AppContext, 'config' | 'regions' | 'meetupSafety' | 'servers'>;
 
 /** What the trains of the live map need beyond the parties' own (`PartyWebDeps`). */
 export interface TrainWebDeps {
@@ -467,7 +467,14 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       try {
         // One clock for the reading, as `/train`'s guard reads it (`typedStart`).
         const now = deps.now();
-        const read = typedTimedTime(ctx, newPartyTimes('train', now), 'meet', typed, now);
+        const read = typedTimedTime(
+          ctx,
+          newPartyTimes('train', now),
+          'meet',
+          typed,
+          now,
+          ctx.servers.zoneOf(guild),
+        );
         // A word that removes a time, of a train that has none yet: refused as `/train` does.
         if (read === 'unset') return refuse(reply, 422, NO_START_TO_REMOVE);
         start = read.at;

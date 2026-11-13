@@ -239,14 +239,14 @@ export async function openMove(
 
 /**
  * Whether Manage… asks the member the train's start and end (`/meet`'s and `/end`'s, as the map's
- * form asks them of who may arrange the train), in the posts' zone.
+ * form asks them of who may arrange the train), in the zone of the train's server.
  */
 function timesAsked(
   ctx: AppContext,
   party: TrainParty,
   memberId: string,
 ): { zone: string } | undefined {
-  return mayArrange(party, memberId) ? { zone: ctx.config.settings.timezone } : undefined;
+  return mayArrange(party, memberId) ? { zone: ctx.partyService.zoneOf(party) } : undefined;
 }
 
 /**

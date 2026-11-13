@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import { DATE_EXAMPLE, type SimpleCommand } from '../../discord/command.js';
@@ -48,7 +49,16 @@ function typedStart(interaction: ChatInputCommandInteraction, ctx: AppContext): 
   const text = interaction.options.getString('start')?.trim() ?? '';
   const now = Date.now();
   const read =
-    text === '' ? undefined : typedTimedTime(ctx, newPartyTimes('train', now), 'meet', text, now);
+    text === ''
+      ? undefined
+      : typedTimedTime(
+          ctx,
+          newPartyTimes('train', now),
+          'meet',
+          text,
+          now,
+          zoneOf(interaction, ctx),
+        );
   if (read === 'unset') throw new UserError(NO_START_TO_REMOVE);
   readStarts.set(interaction, { at: read?.at });
   return read?.at;

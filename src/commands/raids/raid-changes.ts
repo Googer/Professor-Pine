@@ -105,7 +105,7 @@ export async function changeRaidTime(
   now: number = Date.now(),
   post?: PostNamer,
 ): Promise<RaidChangeAnswer> {
-  const typed = typedPartyTime(ctx, party, parameter, text, now);
+  const typed = typedPartyTime(ctx, party, parameter, text, now, ctx.partyService.zoneOf(party));
   if (typed === 'unset') {
     throw new UserError('A raid keeps its times once it has them. Give the right time instead.');
   }

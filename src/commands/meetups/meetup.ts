@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   MessageFlags,
   SlashCommandBuilder,
@@ -180,19 +181,27 @@ async function readAsked(
     MEETUP_PLACES,
   );
   if (place === undefined) throw new UserError('Say where it is with `near`.');
+  // The server's zone (plan 19A-2): the start and the end are its member's clock.
+  const zone = zoneOf(interaction, ctx);
   const typed = typedTimedTime(
     ctx,
     newPartyTimes('meetup', now),
     'meet',
     interaction.options.getString('start') ?? '',
     now,
+    zone,
   );
   if (typed === 'unset') {
-    throw new UserError(
-      `Give the time the meetup starts. ${timedTimeHint(now, ctx.config.settings.timezone)}`,
-    );
+    throw new UserError(`Give the time the meetup starts. ${timedTimeHint(now, zone)}`);
   }
-  const endTime = typedNewEnd(ctx, 'meetup', typed.at, interaction.options.getString('end'), now);
+  const endTime = typedNewEnd(
+    ctx,
+    'meetup',
+    typed.at,
+    interaction.options.getString('end'),
+    now,
+    zone,
+  );
   // The block is read above: not again.
   const verdict = await ctx.meetupSafety.verdict({
     serverId,

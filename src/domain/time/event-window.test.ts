@@ -39,7 +39,8 @@ const wild: EventWindow = {
 
 /** Minutes a standard raid that hatches at a local time lasts, with these raid events. */
 function hatchedAt(local: string, events: readonly RaidEvent[]): number {
-  return raidDurationsAt('standard', at(local), raidDurationRules(settings, events)).hatched;
+  return raidDurationsAt('standard', at(local), raidDurationRules(settings, events, MAX_ZONE))
+    .hatched;
 }
 
 describe('an event window (Matt, 2026-11-09: all-day Raid Hour raids, half-hour max rotations)', () => {
@@ -51,7 +52,7 @@ describe('an event window (Matt, 2026-11-09: all-day Raid Hour raids, half-hour 
     expect(hatchedAt('2026-11-09T09:59', events)).toBe(45);
     expect(hatchedAt('2026-11-13T20:00', events)).toBe(45);
     // Elite raids keep their own.
-    const rules = raidDurationRules(settings, events);
+    const rules = raidDurationRules(settings, events, MAX_ZONE);
     expect(raidDurationsAt('elite', at('2026-11-10T12:00'), rules).hatched).toBe(30);
   });
 

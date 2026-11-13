@@ -67,7 +67,9 @@ export const RAID_WRITES_PER_ADDRESS_MINUTE = 30;
  * `/hatch`, `/end`, `/boss` and `/moveset` use (the readers' sources, the members' settings, the
  * party and raid services, the gyms and regions), so that the map shares their code paths.
  */
-export type RaidWebContext = RaidChanging & RaidReporting & Pick<AppContext, 'gyms' | 'regions'>;
+export type RaidWebContext = RaidChanging &
+  RaidReporting &
+  Pick<AppContext, 'gyms' | 'regions' | 'servers'>;
 
 /** What the raids of the live map need beyond the parties' own (`PartyWebDeps`). */
 export interface RaidWebDeps {
@@ -348,7 +350,13 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
     let time: ReturnType<typeof reportedTime>;
     try {
       reported = reportedBoss(ctx, body.data.boss);
-      time = reportedTime(ctx, reported, body.data.time ?? null, deps.now());
+      time = reportedTime(
+        ctx,
+        reported,
+        body.data.time ?? null,
+        deps.now(),
+        ctx.servers.zoneOf(guild),
+      );
     } catch (err) {
       if (!(err instanceof UserError)) throw err;
       const refused: RaidAnswer = { ok: false, text: words(err.message) };

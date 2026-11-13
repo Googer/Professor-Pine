@@ -230,6 +230,8 @@ export interface NotifyServiceOptions {
   /** A party's post in brief as it is now (`PartyService.briefOf`). */
   posts: {
     briefOf(party: Party): PartyBrief;
+    /** The zone of a party's server (`PartyService.zoneOf`, plan 19A-2): its times are said in it. */
+    zoneOf(party: Pick<Party, 'guildId'>): string;
     /** A meetup's place as its post shows it now (`PartyService.placeOf`); else as it was named. */
     placeOf?(party: MeetupParty): MeetupPlace | null;
     /** A max battle's spot as its post shows it now (`PartyService.spotOf`); else as named. */
@@ -938,7 +940,7 @@ export class NotifyService implements PartyNotifier {
     const now = this.now();
     this.tellAttendees(party, others, by, {
       what: 'start',
-      time: start === null ? null : clockOrDay(start, now, this.options.settings.timezone),
+      time: start === null ? null : clockOrDay(start, now, this.options.posts.zoneOf(party)),
       heads: headCount(party),
       expiresAt: start ?? now + CANCELLED_NEWS_MS,
     });
@@ -1218,7 +1220,8 @@ export class NotifyService implements PartyNotifier {
             .join(' ')}`,
         message: (guildId, reasons, memberId) => {
           const stops = untold(memberId).map((report) => report.stop);
-          const until = periodEndWords(news.period.end, eventAt, this.options.settings.timezone);
+          const zone = this.options.servers.zoneOf(guildId);
+          const until = periodEndWords(news.period.end, eventAt, zone);
           const links =
             link === undefined
               ? []
@@ -1494,7 +1497,7 @@ export class NotifyService implements PartyNotifier {
   }
 
   private announceRocket(news: RocketNews): void {
-    const { targetWants, wants, gameData, researchPosts, pictures, log, settings } = this.options;
+    const { targetWants, wants, gameData, researchPosts, pictures, log } = this.options;
     const { report } = news;
     const hideout = isHideoutReport(report);
     const named = isLeaderOrGiovanni(report.subjectKey);
@@ -1596,7 +1599,13 @@ export class NotifyService implements PartyNotifier {
                   catches: report.rocket.catches,
                   stop: report.stop,
                   ends: hideout
-                    ? { until: periodEndWords(report.endsAt, eventAt, settings.timezone) }
+                    ? {
+                        until: periodEndWords(
+                          report.endsAt,
+                          eventAt,
+                          this.options.servers.zoneOf(guildId),
+                        ),
+                      }
                     : { goneAt: report.endsAt },
                 },
                 this.pictureLookup,

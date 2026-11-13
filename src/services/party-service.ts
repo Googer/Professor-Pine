@@ -702,8 +702,10 @@ export const RAID_LOOK_READS = {
   eggPictures: {
     picture: 'by its name, of the boss list, and `isServed`, which is compared',
   },
+  servers: {
+    zoneOf: 'the zone of the party’s server (plan 19A-2); the look reads no time by it',
+  },
   settings: {
-    timezone: 'does not change while the bot runs; the look reads no time by it',
     showUnknownMoves: 'does not change while the bot runs, and the look shows no moves',
     emoji: 'does not change while the bot runs, and the look shows no emoji',
     lobbies: 'does not change while the bot runs, and the look shows no lobby',
@@ -749,6 +751,13 @@ export interface PartyServiceOptions {
   settings: Settings;
   /** Each server's values (plan 19A-1): the channels of the copies, the forums' ending. */
   servers: ServerSettingsLookup;
+  /**
+   * The snowflake of the server of a `Guild` row, from every row read at start or made since
+   * (`RowIds.serverOfRow`, never a bounded memory: fix round 1, K1): a party's server, whose zone
+   * its times are in (plan 19A-2). Without it, or for a row not known, the summary's learned
+   * snowflakes, else the instance's default zone (warned of once per row).
+   */
+  serverOfRow?: (row: number) => string | undefined;
   log: Logger;
   now?: () => number;
   /**
@@ -923,6 +932,8 @@ export class PartyService {
 
   /** The snowflakes of the servers by their rows, as far as known (`guilds.snowflakeOf`). */
   private readonly snowflakes = new Map<number, string>();
+  /** The `Guild` rows whose server was not known, each warned of once (`zoneOfRow`). */
+  private readonly unknownRows = new Set<number>();
 
   /** The posts of the stops (`StopPostService`), for the summary's line; none until set. */
   private stopPosts: StopPostsForSummary | undefined;
@@ -1131,9 +1142,41 @@ export class PartyService {
     return this.rendered(party).title;
   }
 
-  /** The durations in effect, with the events known at this moment. */
-  rules(): RaidDurationRules {
-    return raidDurationRules(this.options.settings, this.options.raidEvents.events());
+  /**
+   * The durations in effect in a zone, with the events known at this moment: the rules of the
+   * parties of the servers in `zone` (plan 19A-2; `rulesOf` a party's).
+   */
+  rulesIn(zone: string): RaidDurationRules {
+    return raidDurationRules(this.options.settings, this.options.raidEvents.events(), zone);
+  }
+
+  /** The durations in effect for a party: those of its server's zone (`zoneOf`). */
+  rulesOf(party: Pick<Party, 'guildId'>): RaidDurationRules {
+    return this.rulesIn(this.zoneOf(party));
+  }
+
+  /**
+   * The zone of a party's server (plan 19A-2): every time of it said or typed, its days. Its
+   * server is its `Guild` row's (`serverOfRow`, else as the summary learned it); the instance's
+   * default zone for a row not seen.
+   */
+  zoneOf(party: Pick<Party, 'guildId'>): string {
+    return this.zoneOfRow(party.guildId);
+  }
+
+  /**
+   * The zone of the server of a `Guild` row (`zoneOf`); the default for none. A row whose server
+   * is not known cannot be once every row was read at the start (`RowIds.serverOfRow`; fix round
+   * 1, K1): should one be, it is warned of once and has the default.
+   */
+  zoneOfRow(row: number | null): string {
+    const { servers, serverOfRow } = this.options;
+    const server = row === null ? undefined : (serverOfRow?.(row) ?? this.snowflakes.get(row));
+    if (server === undefined && row !== null && !this.unknownRows.has(row)) {
+      this.unknownRows.add(row);
+      this.options.log.warn({ row }, 'a party’s server is not known');
+    }
+    return server === undefined ? servers.defaultZone() : servers.zoneOf(server);
   }
 
   /**
@@ -1182,7 +1225,7 @@ export class PartyService {
       ...(egg?.file === undefined ? {} : { eggFile: egg.file }),
       catalogue,
       showUnknownMoves: settings.showUnknownMoves,
-      zone: settings.timezone,
+      zone: this.zoneOf(party),
       emoji: this.emoji(party),
       ...this.lobbiesOf(party),
     };
@@ -1239,7 +1282,7 @@ export class PartyService {
     return {
       party,
       now: this.now(),
-      zone: settings.timezone,
+      zone: this.zoneOf(party),
       archiving: {
         graceMinutes: settings.deletionGraceTime,
         warningMinutes: settings.trainOrMeetupDeletionWarningTime,
@@ -1369,12 +1412,12 @@ export class PartyService {
 
   /** Everything the renderer needs to show a max battle as it is now (plan 8X-3). */
   maxView(party: MaxParty): MaxPostView {
-    const { maxBosses, gameData, settings, wayspots } = this.options;
+    const { maxBosses, gameData, wayspots } = this.options;
     const { catalogue } = gameData;
     return {
       party,
       now: this.now(),
-      zone: settings.timezone,
+      zone: this.zoneOf(party),
       boss: shownMaxBoss(party, catalogue, maxBosses.bosses(), gameData.icons),
       catalogue,
       emoji: this.emoji(party),
@@ -1635,7 +1678,7 @@ export class PartyService {
     const forumId = region.forumChannelId;
 
     const now = this.now();
-    const rules = this.rules();
+    const rules = this.rulesOf({ guildId: region.guildId });
     const certain = certainMoves(
       report.boss && 'key' in report.boss
         ? this.options.gameData.catalogue.byKey(report.boss.key)
@@ -3918,7 +3961,7 @@ export class PartyService {
       passing: region === undefined ? [] : this.passingThrough(region),
       stops: region === undefined ? undefined : this.stopsLine(region),
       stopsBelow: where === 'board',
-      zone: this.options.settings.timezone,
+      zone: this.zoneOfRow(region?.guildId ?? null),
       trainMark: this.trainMark(),
     });
   }

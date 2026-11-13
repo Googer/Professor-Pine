@@ -48,7 +48,11 @@ export interface PartyTimeRequest {
 }
 
 export type PartyTimeResult =
-  | { kind: 'time'; at: number }
+  /**
+   * `relative`: read as a span from now (`in 30`), a moment wherever it is used, never a
+   * wall-clock time (fix round 1, M2).
+   */
+  | { kind: 'time'; at: number; relative?: true }
   /** The member asked to clear the time ("unset", "cancel", "none"). */
   | { kind: 'unset' }
   | { kind: 'unparseable' }
@@ -310,6 +314,7 @@ export function resolvePartyTime(request: PartyTimeRequest): PartyTimeResult {
   }
 
   const possible: number[] = [];
+  let relativeAt: number | undefined;
   let tooLong = false;
   let read: number | undefined;
   if (mode !== 'absolute') {
@@ -321,7 +326,8 @@ export function resolvePartyTime(request: PartyTimeRequest): PartyTimeResult {
       // every time is: `zoned` takes no fraction.
       const exact = Math.floor(now + minutes * MINUTE);
       const rounded = Math.ceil(exact / MINUTE) * MINUTE;
-      possible.push(rounded <= window.last ? rounded : exact);
+      relativeAt = rounded <= window.last ? rounded : exact;
+      possible.push(relativeAt);
     } else if (minutes !== undefined) {
       tooLong = true;
     }
@@ -346,7 +352,11 @@ export function resolvePartyTime(request: PartyTimeRequest): PartyTimeResult {
       : { kind: 'unparseable' };
   }
   const match = possible.find((time) => time >= window.first && time <= window.last);
-  if (match !== undefined) return { kind: 'time', at: match };
+  if (match !== undefined) {
+    return match === relativeAt
+      ? { kind: 'time', at: match, relative: true }
+      : { kind: 'time', at: match };
+  }
   return {
     kind: 'out-of-range',
     first: window.first,

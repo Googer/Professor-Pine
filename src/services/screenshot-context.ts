@@ -9,22 +9,23 @@ import { gymInGuild } from './region-directory.js';
  * What `screenshotReport` needs, from the bot: the bosses in effect, every Pokémon of the game
  * data (a boss the list does not have yet, by its CP), the gym search where the
  * screenshot was posted (names only: what a raid screen shows; this server's gyms only, also
- * outside a region channel), the settings' time zone and durations. `channelId` is the region
- * channel (or null outside one), `guildRow` the server's row (`ctx.guilds.idFor`), `uploadedAt`
+ * outside a region channel), the server's time zone (plan 19A-2: the phone's clock is its
+ * member's) and the settings' durations. `channelId` is the region channel (or null outside one),
+ * `guildId` the server and `guildRow` its row (`ctx.guilds.idFor`), `uploadedAt`
  * the time of the message or interaction that brought the screenshot, `fileName` the name of
  * the screenshot's file (an Android phone names it by the moment it was taken), `readAt` when it
  * is read where that is later than the upload (plan 7M, `ReportContext.now`).
  */
 export function reportContext(
-  ctx: Pick<AppContext, 'raidBosses' | 'gameData' | 'gyms' | 'regions' | 'config'>,
-  where: { channelId: string | null; guildRow: number },
+  ctx: Pick<AppContext, 'raidBosses' | 'gameData' | 'gyms' | 'regions' | 'config' | 'servers'>,
+  where: { channelId: string | null; guildId: string; guildRow: number },
   uploadedAt: number,
   fileName?: string,
   readAt?: number,
 ): ReportContext {
   const { settings } = ctx.config;
-  const fileTakenAt =
-    fileName === undefined ? undefined : takenAtFromFileName(fileName, settings.timezone);
+  const zone = ctx.servers.zoneOf(where.guildId);
+  const fileTakenAt = fileName === undefined ? undefined : takenAtFromFileName(fileName, zone);
   return {
     bosses: ctx.raidBosses.bosses(),
     pokemon: ctx.gameData.catalogue.all,
@@ -35,7 +36,7 @@ export function reportContext(
         .slice(0, GYM_HITS),
     uploadedAt,
     ...(readAt === undefined ? {} : { now: readAt }),
-    zone: settings.timezone,
+    zone,
     standardIncubate: settings.standardRaidIncubateDuration,
     standardHatched: settings.standardRaidHatchedDuration,
     maxHatched: settings.maxRaidHatchedDuration,
@@ -54,16 +55,23 @@ export function reportContext(
 export function maxReportContext(
   ctx: Pick<
     AppContext,
-    'maxBosses' | 'raidEvents' | 'wayspots' | 'regions' | 'pokemon' | 'gameData' | 'config'
+    | 'maxBosses'
+    | 'raidEvents'
+    | 'wayspots'
+    | 'regions'
+    | 'pokemon'
+    | 'gameData'
+    | 'config'
+    | 'servers'
   >,
-  where: { channelId: string | null; guildRow: number },
+  where: { channelId: string | null; guildId: string; guildRow: number },
   uploadedAt: number,
   fileName?: string,
 ): MaxReportContext {
   const { settings } = ctx.config;
   const { catalogue } = ctx.gameData;
-  const fileTakenAt =
-    fileName === undefined ? undefined : takenAtFromFileName(fileName, settings.timezone);
+  const zone = ctx.servers.zoneOf(where.guildId);
+  const fileTakenAt = fileName === undefined ? undefined : takenAtFromFileName(fileName, zone);
   const channels = [
     ...(where.channelId === null ? [] : [where.channelId]),
     ...ctx.regions
@@ -88,7 +96,7 @@ export function maxReportContext(
     events: ctx.raidEvents.maxEvents(),
     big: ctx.raidEvents.bigEvents(),
     uploadedAt,
-    zone: settings.timezone,
+    zone,
     guessOffsetSeconds: settings.screenshotMessageOffsetTime,
     ...(fileTakenAt === undefined ? {} : { fileTakenAt }),
   };

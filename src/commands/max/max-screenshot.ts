@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   ButtonStyle,
   ComponentType,
@@ -153,7 +154,9 @@ export function requireReadableEnd(
   ctx: AppContext,
 ): void {
   const text = interaction.options.getString('end');
-  if (text !== null && text.trim() !== '') typedMaxTime(ctx, 'end', text, Date.now());
+  if (text !== null && text.trim() !== '') {
+    typedMaxTime(ctx, 'end', text, Date.now(), zoneOf(interaction, ctx));
+  }
 }
 
 /** The tier the screenshot gives a boss typed without one: its heads, or its form's. */
@@ -214,7 +217,7 @@ async function answerMaxScreenshot(
   }
   if (spotText !== '') typed.spot = await readSpot(interaction, ctx, spotText);
   if (endText !== '') {
-    const end = typedMaxTime(ctx, 'end', endText, now);
+    const end = typedMaxTime(ctx, 'end', endText, now, zoneOf(interaction, ctx));
     if (end !== 'unset') typed.end = end.at;
   }
   // What was typed, in the place of what is read, decided and kept by the service (review S-5);
@@ -534,7 +537,7 @@ async function reportTyped(
   const ask = {
     boss: typed.boss,
     spot: typed.spot,
-    end: typed.end ?? reportedEnd(ctx, typed.boss.tier, null, now),
+    end: typed.end ?? reportedEnd(ctx, typed.boss.tier, null, now, zoneOf(interaction, ctx)),
     regionChannelId,
   };
   const guild = await ctx.guilds.idFor(guildIdOf(interaction));

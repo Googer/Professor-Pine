@@ -44,7 +44,7 @@ export async function changeMaxEnd(
   party: MaxParty,
   text: string,
 ): Promise<void> {
-  const typed = typedMaxTime(ctx, 'end', text, Date.now(), party);
+  const typed = typedMaxTime(ctx, 'end', text, Date.now(), ctx.partyService.zoneOf(party), party);
   // An end cannot be removed (`typedMaxTime` refuses `none`).
   if (typed === 'unset') throw new UserError('A max battle always has an end.');
   const member = { id: interaction.user.id, ...memberInfo(interaction) };

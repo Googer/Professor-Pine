@@ -300,8 +300,11 @@ export function isPinText(text: string): boolean {
   return readPin(text).kind !== 'none';
 }
 
-/** What `defaultMaxEnd` and its dialog read: the events, the hours, the zone. */
-export function maxEndInput(ctx: MaxReading, tier: MaxTier, at: number): MaxEndInput {
+/**
+ * What `defaultMaxEnd` and its dialog read: the events, the hours, and the zone of the battle's
+ * server (plan 19A-2), whose clock the hours are on.
+ */
+export function maxEndInput(ctx: MaxReading, tier: MaxTier, at: number, zone: string): MaxEndInput {
   const { settings } = ctx.config;
   return {
     tier,
@@ -309,7 +312,7 @@ export function maxEndInput(ctx: MaxReading, tier: MaxTier, at: number): MaxEndI
     events: ctx.raidEvents.maxEvents(),
     big: ctx.raidEvents.bigEvents(),
     hours: settings.maxBattles,
-    zone: settings.timezone,
+    zone,
   };
 }
 
@@ -331,17 +334,18 @@ export function typedMaxTime(
   parameter: 'end' | 'meet',
   text: string,
   now: number,
+  zone: string,
   battle?: Pick<MaxParty, 'createdAt' | 'endTime'>,
 ): { at: number } | 'unset' {
   const { settings } = ctx.config;
   const from = battle?.createdAt ?? now;
-  const last = lastBattleOn(from, settings.maxBattles, settings.timezone);
+  const last = lastBattleOn(from, settings.maxBattles, zone);
   const until = parameter === 'end' ? last : (battle?.endTime ?? last);
   const minutes = Math.max(1, Math.ceil((until - from) / MINUTE));
   const result = resolvePartyTime({
     text,
     now,
-    zone: settings.timezone,
+    zone,
     parameter,
     partyType: 'raid',
     raidKind: 'standard',
@@ -381,11 +385,12 @@ export function reportedEnd(
   tier: MaxTier,
   text: string | null,
   now: number,
+  zone: string,
 ): number {
-  const decided = defaultMaxEnd(maxEndInput(ctx, tier, now));
+  const decided = defaultMaxEnd(maxEndInput(ctx, tier, now, zone));
   if (decided.kind === 'over') throw new UserError(battlesOver(ctx));
   if (text === null || text.trim() === '') return decided.end;
-  const typed = typedMaxTime(ctx, 'end', text, now);
+  const typed = typedMaxTime(ctx, 'end', text, now, zone);
   if (typed === 'unset') return decided.end;
   return typed.at;
 }

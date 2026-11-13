@@ -155,12 +155,13 @@ export function typedTimedTime(
   parameter: 'meet' | 'end',
   text: string,
   now: number,
+  zone: string,
 ): { at: number } | 'unset' {
   const { settings } = ctx.config;
   const result = resolvePartyTime({
     text,
     now,
-    zone: settings.timezone,
+    zone,
     parameter,
     partyType: party.type,
     // Asked of every request; nothing about a timed party depends on it.
@@ -185,15 +186,13 @@ export function typedTimedTime(
     // The example shows the day after the one that was just refused, not that day again. In
     // its code span the text stands as typed: an escape (`10\.17`) would show there. A text
     // that was read as a clock time holds no backtick.
-    const day = addDays(zoned(result.read, settings.timezone), 1);
+    const day = addDays(zoned(result.read, zone), 1);
     throw new UserError(
       `"${typed}" cannot be ${what}: I read it as ${timestamp(result.read, 'F')}, and ${range}. ` +
         `For another day, give the date first, month-day: \`${day.month}-${day.day} ${text.trim()}\`.`,
     );
   }
-  throw new UserError(
-    `I could not read "${typed}" as ${what}. ${timedTimeHint(now, settings.timezone)}`,
-  );
+  throw new UserError(`I could not read "${typed}" as ${what}. ${timedTimeHint(now, zone)}`);
 }
 
 /**
@@ -208,10 +207,11 @@ export function typedNewEnd(
   startTime: number,
   text: string | null,
   now: number,
+  zone: string,
 ): number | undefined {
   if (text === null || text.trim() === '') return undefined;
   const party = { ...newPartyTimes(type, now), timed: { startTime } };
-  const typed = typedTimedTime(ctx, party, 'end', text, now);
+  const typed = typedTimedTime(ctx, party, 'end', text, now, zone);
   if (typed === 'unset') return undefined;
   if (!timesInOrder(startTime, typed.at)) {
     throw new UserError(problemText('end-before-start', ctx.attendance.limits(), type));
@@ -219,16 +219,22 @@ export function typedNewEnd(
   return typed.at;
 }
 
-/** A time as an answer names it: with its date when it is not today, and how long until then. */
-function when(ctx: Pick<AppContext, 'config'>, time: number, now: number): string {
-  return `${clockOrDay(time, now, ctx.config.settings.timezone)} (${timestamp(time, 'R')})`;
+/**
+ * A time as an answer names it: with its date when it is not today (in `zone`, the party's
+ * server's), and how long until then.
+ */
+function when(time: number, now: number, zone: string): string {
+  return `${clockOrDay(time, now, zone)} (${timestamp(time, 'R')})`;
 }
 
 /**
  * What setting a train's times needs of the bot (`setTrainTimesAs`): the timed parties, the limits
- * of the words, the settings (the zone of the times).
+ * of the words, the settings, and the party's server's zone (`PartyService.zoneOf`, plan 19A-2),
+ * in which its times are read and said.
  */
-export type TimesChanging = Pick<AppContext, 'timedParties' | 'attendance' | 'config'>;
+export type TimesChanging = Pick<AppContext, 'timedParties' | 'attendance' | 'config'> & {
+  partyService: Pick<AppContext['partyService'], 'zoneOf'>;
+};
 
 /**
  * What `/name`, `/meet`, `/cancel-meet`, `/end` (of a timed party) and `/info` need of the bot to
@@ -383,8 +389,9 @@ async function setStart(
         ? `This ${word} has no start time any more.${told}`
         : `This ${word} had no start time.`;
     }
-    if (!ok.changed) return `This ${word} already starts at ${when(ctx, start, now)}.`;
-    return `This ${word} starts at ${when(ctx, start, now)}.${told}`;
+    const zone = ctx.partyService.zoneOf(party);
+    if (!ok.changed) return `This ${word} already starts at ${when(start, now, zone)}.`;
+    return `This ${word} starts at ${when(start, now, zone)}.${told}`;
   });
   return { answer, ...toldTime(outcome, 'start') };
 }
@@ -399,7 +406,8 @@ async function setEnd(
   drawn?: number | null,
 ): Promise<TimeSet> {
   const word = partyWord(party);
-  const typed = typedTimedTime(ctx, party, 'end', text, now);
+  const zone = ctx.partyService.zoneOf(party);
+  const typed = typedTimedTime(ctx, party, 'end', text, now, zone);
   const outcome = await ctx.timedParties.setEndTime(
     party.id,
     member,
@@ -415,8 +423,8 @@ async function setEnd(
         : `This ${word} had no end time.`;
     }
     return ok.changed
-      ? `This ${word} ends at ${when(ctx, end, now)}.`
-      : `This ${word} already ends at ${when(ctx, end, now)}.`;
+      ? `This ${word} ends at ${when(end, now, zone)}.`
+      : `This ${word} already ends at ${when(end, now, zone)}.`;
   });
   return { answer, ...toldTime(outcome, 'end') };
 }
@@ -477,14 +485,15 @@ export interface TimesRead {
 
 /** Why times do not lie in order as they would stand: none where they do. */
 function timesProblem(
-  ctx: Pick<AppContext, 'config'>,
+  ctx: Pick<TimesChanging, 'config' | 'partyService'>,
   party: TimedParty,
   { start, end }: TimesRead,
   now: number,
 ): 'start-after-end' | 'end-before-start' | undefined {
   const startsAt = start === undefined ? party.timed.startTime : start;
   const read = start === undefined ? party : withTimed(party, { startTime: start });
-  const typed = end === undefined ? undefined : typedTimedTime(ctx, read, 'end', end, now);
+  const zone = ctx.partyService.zoneOf(party);
+  const typed = end === undefined ? undefined : typedTimedTime(ctx, read, 'end', end, now, zone);
   const endsAt = typed === undefined ? party.endTime : typed === 'unset' ? null : typed.at;
   if (timesInOrder(startsAt, endsAt)) return undefined;
   return end === undefined ? 'start-after-end' : 'end-before-start';
@@ -496,14 +505,21 @@ function timesProblem(
  * read and for two that would not lie in order, so that a refused pair changes nothing.
  */
 export function readTimes(
-  ctx: Pick<AppContext, 'config' | 'attendance'>,
+  ctx: Pick<TimesChanging, 'config' | 'attendance' | 'partyService'>,
   party: TimedParty,
   typed: { start?: string; end?: string },
   now: number,
 ): TimesRead {
   const read: TimesRead = {};
   if (typed.start !== undefined) {
-    const start = typedTimedTime(ctx, party, 'meet', typed.start, now);
+    const start = typedTimedTime(
+      ctx,
+      party,
+      'meet',
+      typed.start,
+      now,
+      ctx.partyService.zoneOf(party),
+    );
     read.start = start === 'unset' ? null : start.at;
   }
   if (typed.end !== undefined) read.end = typed.end;

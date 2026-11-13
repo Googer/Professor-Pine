@@ -9,6 +9,7 @@ import {
   refused,
   type Change,
   type GroupId,
+  type Party,
   type PartyProblem,
   type RaidBossRef,
   type RaidParty,
@@ -67,7 +68,7 @@ export interface RaidChangeServiceOptions {
    */
   posts: {
     changed(partyId: string): void;
-    rules(): RaidDurationRules;
+    rulesOf(party: Pick<Party, 'guildId'>): RaidDurationRules;
     relocate(
       partyId: string,
       gym: Gym,
@@ -493,7 +494,7 @@ export class RaidChangeService {
         }
         // Read here, under the locks: waiting for them may have taken a while.
         const now = this.now();
-        const changed = change(party, posts.rules(), now);
+        const changed = change(party, posts.rulesOf(party), now);
         if (!changed.ok || changed.party === party) return changed;
         const other = this.inTheWay(party, changed.party, now);
         if (other) return { ...refused('gym-taken'), other };

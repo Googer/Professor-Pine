@@ -34,14 +34,17 @@ describe('resolvePartyTime: raid hatch time', () => {
     expect(resolvePartyTime(request({ text: 'in 1', now }))).toEqual({
       kind: 'time',
       at: at('2026-10-10T14:02'),
+      relative: true,
     });
     expect(resolvePartyTime(request({ text: '20', now }))).toEqual({
       kind: 'time',
       at: at('2026-10-10T14:21'),
+      relative: true,
     });
     expect(resolvePartyTime(request({ text: 'in 59', now }))).toEqual({
       kind: 'time',
       at: at('2026-10-10T15:00'),
+      relative: true,
     });
   });
 
@@ -52,6 +55,7 @@ describe('resolvePartyTime: raid hatch time', () => {
     expect(resolvePartyTime(request({ text: 'in 0.9999999h', now }))).toEqual({
       kind: 'time',
       at: now + 3_599_999,
+      relative: true,
     });
   });
 
@@ -59,10 +63,12 @@ describe('resolvePartyTime: raid hatch time', () => {
     expect(resolvePartyTime(request({ text: 'in 20' }))).toEqual({
       kind: 'time',
       at: at('2026-10-10T14:20'),
+      relative: true,
     });
     expect(resolvePartyTime(request({ text: '20' }))).toEqual({
       kind: 'time',
       at: at('2026-10-10T14:20'),
+      relative: true,
     });
   });
 
@@ -154,12 +160,12 @@ describe('resolvePartyTime: text that only starts like a duration', () => {
       resolvePartyTime(
         request({ text: 'in 2 hours', parameter: 'meet', partyType: 'train', party: train }),
       ),
-    ).toEqual({ kind: 'time', at: at('2026-10-10T16:00') });
+    ).toEqual({ kind: 'time', at: at('2026-10-10T16:00'), relative: true });
     expect(
       resolvePartyTime(
         request({ text: 'in 1.5 hours', parameter: 'meet', partyType: 'train', party: train }),
       ),
-    ).toEqual({ kind: 'time', at: at('2026-10-10T15:30') });
+    ).toEqual({ kind: 'time', at: at('2026-10-10T15:30'), relative: true });
   });
 
   it('reads a date in front of a time as a date, not as ten minutes', () => {
@@ -282,6 +288,7 @@ describe('resolvePartyTime: raid meeting time', () => {
     expect(resolvePartyTime(request({ text: 'in 5', parameter: 'meet', party, now }))).toEqual({
       kind: 'time',
       at: at('2026-10-10T14:45'),
+      relative: true,
     });
     expect(resolvePartyTime(request({ text: '2:35pm', parameter: 'meet', party, now }))).toEqual({
       kind: 'out-of-range',
@@ -319,7 +326,7 @@ describe('resolvePartyTime: trains and meetups', () => {
   it('still accepts an explicit "in"', () => {
     expect(
       resolvePartyTime(request({ text: 'in 30', parameter: 'meet', partyType: 'train', party })),
-    ).toEqual({ kind: 'time', at: at('2026-10-10T14:30') });
+    ).toEqual({ kind: 'time', at: at('2026-10-10T14:30'), relative: true });
   });
 
   it('puts a date-less end time on the day the party starts', () => {
@@ -334,7 +341,7 @@ describe('resolvePartyTime: trains and meetups', () => {
   it('accepts a relative end time longer than the legacy unit bug allowed', () => {
     expect(
       resolvePartyTime(request({ text: 'in 120', parameter: 'end', partyType: 'train', party })),
-    ).toEqual({ kind: 'time', at: at('2026-10-10T16:00') });
+    ).toEqual({ kind: 'time', at: at('2026-10-10T16:00'), relative: true });
   });
 
   it('wraps a date into next year', () => {
@@ -791,6 +798,7 @@ describe('resolvePartyTime: duration is read before clock time', () => {
     expect(resolvePartyTime(request({ text: '0:10', now }))).toEqual({
       kind: 'time',
       at: at('2026-10-11T00:00'),
+      relative: true,
     });
   });
 });

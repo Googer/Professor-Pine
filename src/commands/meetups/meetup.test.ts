@@ -25,12 +25,15 @@ import {
 import { buttonsOf, textDisplays, textOf } from '../../../test/support/messages.js';
 import {
   ALICE,
+  at,
   BOB,
   MINUTE,
   PARTY_NOW,
   testRaid,
   testTrain,
 } from '../../../test/support/parties.js';
+import { withZones } from '../../../test/support/server-values.js';
+import { zonedAt } from '../../../test/support/time.js';
 import { DIALOG_READ_MS, SLOW_READ } from '../../discord/dialog.js';
 import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
 import type { PartyStore } from '../../services/party-store.js';
@@ -247,6 +250,15 @@ function told(used: FakeInteraction): string | undefined {
 }
 
 describe('/meetup', () => {
+  it('reads the start in the zone of the server it is used in (plan 19A-2)', async () => {
+    const berlin = await setup({ servers: withZones({ [FAKE_GUILD_ID]: 'Europe/Berlin' }) });
+    await berlin.run('Late picnic', { options: { start: '11pm' } });
+    expect(berlin.meetups()[0]?.timed.startTime).toBe(zonedAt('2026-10-13T23:00', 'Europe/Berlin'));
+    const here = await setup();
+    await here.run('Late picnic', { options: { start: '11pm' } });
+    expect(here.meetups()[0]?.timed.startTime).toBe(at('2026-10-13T23:00'));
+  });
+
   it('asks for the information in a form and makes the meetup with all of it in one post', async () => {
     const made = await setup();
     const { used, submitted } = await made.run('  Community Day   picnic ');

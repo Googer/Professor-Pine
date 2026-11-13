@@ -663,6 +663,7 @@ export function reportedTime(
   reported: ReportedBoss,
   text: string | null,
   now: number,
+  zone: string,
 ): { hatch: number } | { end: number } | undefined {
   const kind = raidDurationKind(reported.tier);
   if (text === null || text.trim() === '') {
@@ -672,7 +673,7 @@ export function reportedTime(
     return undefined;
   }
   const { settings } = ctx.config;
-  const rules = raidDurationRules(settings, ctx.raidEvents.events());
+  const rules = raidDurationRules(settings, ctx.raidEvents.events(), zone);
   // A raid reported now hatched at most its own length ago and hatches within the egg time.
   const usual = longestRaidDurations(kind, now, now, rules);
   const durations = longestRaidDurations(
@@ -685,7 +686,7 @@ export function reportedTime(
   const result = resolvePartyTime({
     text,
     now,
-    zone: settings.timezone,
+    zone,
     parameter,
     partyType: 'raid',
     raidKind: kind,
@@ -710,14 +711,14 @@ export function reportedTime(
  * the end of a raid of any tier, it is something other than unreadable (whether it fits the raid
  * is known only once the screenshot was read).
  */
-export function readableTime(ctx: RaidReading, text: string, now: number): boolean {
+export function readableTime(ctx: RaidReading, text: string, now: number, zone: string): boolean {
   const { settings } = ctx.config;
-  const rules = raidDurationRules(settings, ctx.raidEvents.events());
+  const rules = raidDurationRules(settings, ctx.raidEvents.events(), zone);
   return (['hatch', 'end'] as const).some((parameter) => {
     const result = resolvePartyTime({
       text,
       now,
-      zone: settings.timezone,
+      zone,
       parameter,
       partyType: 'raid',
       raidKind: 'standard',
@@ -749,10 +750,11 @@ export function typedPartyTime(
   parameter: 'hatch' | 'end' | 'meet',
   text: string,
   now: number,
+  zone: string,
 ): { at: number } | 'unset' {
   const { settings } = ctx.config;
   const kind = raidKindOf(party);
-  const rules = raidDurationRules(settings, ctx.raidEvents.events());
+  const rules = raidDurationRules(settings, ctx.raidEvents.events(), zone);
   // Every moment the egg can hatch or have hatched: from a raid's length before the report (or
   // before now) to the end of the egg time after it.
   const usual = longestRaidDurations(kind, party.createdAt, party.createdAt, rules);
@@ -765,7 +767,7 @@ export function typedPartyTime(
   const result = resolvePartyTime({
     text,
     now,
-    zone: settings.timezone,
+    zone,
     parameter,
     partyType: 'raid',
     raidKind: kind,

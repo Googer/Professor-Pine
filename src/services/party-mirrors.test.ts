@@ -1,7 +1,15 @@
 import { DiscordAPIError, RESTJSONErrorCodes } from 'discord.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ELITE_GYM_CHANNEL, REMOTE_CHANNEL, WEST_CHANNEL } from '../../test/support/gyms.js';
-import { ALICE, asRaid, at, BOB, MINUTE, withAttendees } from '../../test/support/parties.js';
+import {
+  ALICE,
+  asRaid,
+  at,
+  BOB,
+  MINUTE,
+  PARTY_ZONE,
+  withAttendees,
+} from '../../test/support/parties.js';
 import {
   gatewayWithMirrorChannels,
   type ServiceOverrides,
@@ -158,7 +166,12 @@ describe('the copies of a raid in other channels', () => {
     const { gateway, store, service } = made;
     const [copy] = gateway.messagesIn(REMOTE_CHANNEL);
     await store.update(made.party.id, (party) =>
-      setBoss(asRaid(party), { tier: ELITE, boss: null }, service.rules(), made.clock.now),
+      setBoss(
+        asRaid(party),
+        { tier: ELITE, boss: null },
+        service.rulesIn(PARTY_ZONE),
+        made.clock.now,
+      ),
     );
     service.changed(made.party.id);
     await service.flush();
@@ -171,7 +184,12 @@ describe('the copies of a raid in other channels', () => {
     const made = await mirrored(yveltal, { gyms: gymsWithExLibrary() });
     const { gateway, store, service, clock } = made;
     await store.update(made.party.id, (party) => ({
-      party: setEndTime(asRaid(party), at('2026-10-13T14:20'), service.rules(), clock.now),
+      party: setEndTime(
+        asRaid(party),
+        at('2026-10-13T14:20'),
+        service.rulesIn(PARTY_ZONE),
+        clock.now,
+      ),
     }));
     service.changed(made.party.id);
     await service.flush();
@@ -488,7 +506,12 @@ describe('the copies of a raid: what can go wrong on the way', () => {
     const made = await mirrored(yveltal, NO_DELAY);
     const { gateway, service, attendance, store, clock } = made;
     await store.update(made.party.id, (party) => ({
-      party: setEndTime(asRaid(party), at('2026-10-13T14:05'), service.rules(), clock.now),
+      party: setEndTime(
+        asRaid(party),
+        at('2026-10-13T14:05'),
+        service.rulesIn(PARTY_ZONE),
+        clock.now,
+      ),
     }));
     service.changed(made.party.id);
     await service.flush();
@@ -524,7 +547,12 @@ describe('the copies of a raid: what can go wrong on the way', () => {
     const made = await mirrored(yveltal, NO_DELAY);
     const { gateway, service, store, clock, entries } = made;
     await store.update(made.party.id, (party) => ({
-      party: setEndTime(asRaid(party), at('2026-10-13T14:20'), service.rules(), clock.now),
+      party: setEndTime(
+        asRaid(party),
+        at('2026-10-13T14:20'),
+        service.rulesIn(PARTY_ZONE),
+        clock.now,
+      ),
     }));
     service.changed(made.party.id);
     await service.flush();
@@ -828,7 +856,7 @@ describe('the link line in the region channel', () => {
       setBoss(
         asRaid(party),
         { tier: asRaid(party).raid.tier, boss: { key: 'yveltal' } },
-        service.rules(),
+        service.rulesIn(PARTY_ZONE),
         made.clock.now,
       ),
     );
@@ -845,7 +873,7 @@ describe('the link line in the region channel', () => {
       setBoss(
         asRaid(party),
         { tier: asRaid(party).raid.tier, boss: { key: 'yveltal' } },
-        service.rules(),
+        service.rulesIn(PARTY_ZONE),
         made.clock.now,
       ),
     );

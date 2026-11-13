@@ -422,6 +422,7 @@ export async function partyServiceWith(
       idFor: (snowflake) => Promise.resolve(snowflake === gateway.guildId ? 1 : undefined),
       snowflakeOf: (id) => Promise.resolve(id === 1 ? gateway.guildId : undefined),
     },
+    serverOfRow: (row) => (row === 1 ? gateway.guildId : undefined),
     now,
     // Long enough that nothing runs by itself during a test.
     renderDelayMs: 3_600_000,
@@ -549,7 +550,6 @@ export async function partyServiceWith(
     users,
     notify,
     log,
-    zone: settings.timezone,
     now,
     // Long enough that nothing is announced by itself during a test: `timed.flush()` does it.
     announceDelayMs: 3_600_000,

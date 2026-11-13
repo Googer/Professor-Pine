@@ -31,6 +31,7 @@ import {
   BOB,
   CAROL,
   MINUTE,
+  PARTY_ZONE,
   REPORTER,
   testRaid,
 } from '../../test/support/parties.js';
@@ -410,7 +411,12 @@ describe('PartyService: keeping posts up to date', () => {
     const { service, store, gateway, party, postId, tags, clock } = await withRaid();
     clock.now = at('2026-10-13T14:31');
     await store.update(party.id, (p) =>
-      setBoss(asRaid(p), { tier: T5, boss: { key: 'yveltal' } }, service.rules(), clock.now),
+      setBoss(
+        asRaid(p),
+        { tier: T5, boss: { key: 'yveltal' } },
+        service.rulesIn(PARTY_ZONE),
+        clock.now,
+      ),
     );
     service.changed(party.id);
     await service.flush();
@@ -426,7 +432,7 @@ describe('PartyService: keeping posts up to date', () => {
     const { service, store, gateway, party, postId, clock } = await withRaid();
     const name = async (key: string) => {
       await store.update(party.id, (p) =>
-        setBoss(asRaid(p), { tier: T5, boss: { key } }, service.rules(), clock.now),
+        setBoss(asRaid(p), { tier: T5, boss: { key } }, service.rulesIn(PARTY_ZONE), clock.now),
       );
       service.changed(party.id);
       await service.flush();
@@ -1458,7 +1464,7 @@ describe('PartyService.reportRaid: a report never leaves a raid without a post',
       setBoss(
         asRaid(p),
         { tier: T5, boss: { key: 'yveltal' } },
-        service.rules(),
+        service.rulesIn(PARTY_ZONE),
         at('2026-10-13T14:31'),
       ),
     );
@@ -1608,7 +1614,7 @@ describe('PartyService: renders, tags and the summary', () => {
     now = made.clock.now,
   ) {
     await made.store.update(made.party.id, (p) =>
-      setBoss(asRaid(p), { tier: T5, boss: { key } }, made.service.rules(), now),
+      setBoss(asRaid(p), { tier: T5, boss: { key } }, made.service.rulesIn(PARTY_ZONE), now),
     );
     made.service.changed(made.party.id);
     await made.service.flush();
@@ -1966,7 +1972,12 @@ describe('PartyService: rate limits and unchanged posts', () => {
 
   async function nameBoss(made: Awaited<ReturnType<typeof raid>>, key: string) {
     await made.store.update(made.party.id, (p) =>
-      setBoss(asRaid(p), { tier: T5, boss: { key } }, made.service.rules(), made.clock.now),
+      setBoss(
+        asRaid(p),
+        { tier: T5, boss: { key } },
+        made.service.rulesIn(PARTY_ZONE),
+        made.clock.now,
+      ),
     );
     made.service.changed(made.party.id);
     await made.service.flush();
@@ -2057,7 +2068,7 @@ describe('PartyService: rate limits and unchanged posts', () => {
       setBoss(
         asRaid(p),
         { tier: T5, boss: { key: 'yveltal' } },
-        made.service.rules(),
+        made.service.rulesIn(PARTY_ZONE),
         made.clock.now,
       ),
     );
@@ -2083,7 +2094,7 @@ describe('PartyService: rate limits and unchanged posts', () => {
       setBoss(
         asRaid(p),
         { tier: T5, boss: { key: 'yveltal' } },
-        made.service.rules(),
+        made.service.rulesIn(PARTY_ZONE),
         made.clock.now,
       ),
     );

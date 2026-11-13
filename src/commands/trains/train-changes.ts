@@ -457,7 +457,8 @@ export async function moveTrainAs(
  * What Manage… needs (plan 8M-8C): what changing a train needs, and the store, which says where
  * the train is now when a change from a form drawn elsewhere is refused.
  */
-export type TrainManaging = TrainChanging & Pick<AppContext, 'parties' | 'timedParties' | 'config'>;
+export type TrainManaging = TrainChanging &
+  Pick<AppContext, 'parties' | 'timedParties' | 'config' | 'partyService'>;
 
 /** What a Submit is told when the train moved on, or its route changed, since its form opened. */
 export const MOVED_ON = 'The train has moved on since you opened this: ';
@@ -539,12 +540,12 @@ export interface ManagePicked {
 
 /** The start typed in Manage…, as `/meet` reads it; what it cannot read is its `UserError`. */
 export function typedStartOf(
-  ctx: Pick<AppContext, 'config'>,
+  ctx: Pick<AppContext, 'config' | 'partyService'>,
   party: TrainParty,
   typed: string,
   now: number,
 ): number | null {
-  const read = typedTimedTime(ctx, party, 'meet', typed, now);
+  const read = typedTimedTime(ctx, party, 'meet', typed, now, ctx.partyService.zoneOf(party));
   return read === 'unset' ? null : read.at;
 }
 

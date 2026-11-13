@@ -110,7 +110,7 @@ function viewFor(ctx: AppContext, party: Party, memberId: string): GroupDialogVi
     party,
     memberId,
     lobbySize: ctx.attendance.lobbyOf(party),
-    zone: ctx.config.settings.timezone,
+    zone: ctx.partyService.zoneOf(party),
     now: Date.now(),
   };
 }

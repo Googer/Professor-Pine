@@ -61,7 +61,14 @@ export const NOTHING_LEFT =
 /** What a research report from a member reads and calls (`/research` and the map). */
 export type ResearchReporting = Pick<
   AppContext,
-  'stopReports' | 'stopPostLinks' | 'guilds' | 'regions' | 'wayspots' | 'config' | 'rehearsal'
+  | 'stopReports'
+  | 'stopPostLinks'
+  | 'guilds'
+  | 'regions'
+  | 'wayspots'
+  | 'config'
+  | 'rehearsal'
+  | 'servers'
 >;
 
 /** A reporter by id and the name shown (else the account's), cut to what is kept. */
@@ -224,7 +231,7 @@ export async function reportResearchAs(
       channels,
       // Only the boards recorded are named (review W4).
       boards: channelsWithBoards(channels, (id) => ctx.regions.byChannel(id)),
-      until: periodEndWords(outcome.period.end, Date.now(), ctx.config.settings.timezone),
+      until: periodEndWords(outcome.period.end, Date.now(), ctx.servers.zoneOf(serverId)),
       // Rehearsal mode makes no post of the stops (B10).
       posts: ctx.rehearsal === undefined,
       also,

@@ -79,7 +79,9 @@ const requireStartChange: Guard = (interaction, ctx) => {
     throw new UserError(problemText(refusal.reason, ctx.attendance.limits(), partyWord(party)));
   }
   const text = interaction.options.getString('time');
-  if (text !== null) typedTimedTime(ctx, party, 'meet', text, Date.now());
+  if (text !== null) {
+    typedTimedTime(ctx, party, 'meet', text, Date.now(), ctx.partyService.zoneOf(party));
+  }
 };
 
 /**
@@ -132,15 +134,22 @@ export const meet: SimpleCommand = {
     const party = commandParty(interaction, ctx);
     const text = interaction.options.getString('time', true);
     if (isTimed(party)) {
-      const start = typedTimedTime(ctx, party, 'meet', text, Date.now());
+      const start = typedTimedTime(
+        ctx,
+        party,
+        'meet',
+        text,
+        Date.now(),
+        ctx.partyService.zoneOf(party),
+      );
       await changeStart(interaction, ctx, party, start === 'unset' ? null : start.at);
       return;
     }
     // A max battle's meeting time lies between now and its end (plan 8X-3).
     const typed = isMax(party)
-      ? typedMaxTime(ctx, 'meet', text, Date.now(), party)
+      ? typedMaxTime(ctx, 'meet', text, Date.now(), ctx.partyService.zoneOf(party), party)
       : isRaid(party)
-        ? typedPartyTime(ctx, party, 'meet', text, Date.now())
+        ? typedPartyTime(ctx, party, 'meet', text, Date.now(), ctx.partyService.zoneOf(party))
         : undefined;
     if (typed === undefined) throw new UserError(notARaid(party));
     const outcome = await ctx.attendance.setMeetingTime(

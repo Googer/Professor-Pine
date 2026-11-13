@@ -56,6 +56,11 @@ export interface HelpFacts {
    */
   server?: ServerValues;
   /**
+   * The zone of the server `/help` was asked in (plan 19A-2: the dates of its examples); in a DM
+   * the instance's default. Unsaid (a test of a page alone): the instance's default.
+   */
+  zone?: string;
+  /**
    * The installation is set up for the member index of the legacy history (`LEGACY_INDEX_DIR`;
    * plan 8H-10, B6), whether or not the import has written one yet.
    */

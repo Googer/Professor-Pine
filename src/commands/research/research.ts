@@ -79,7 +79,7 @@ import {
   takeBackAs,
   type ResearchReported,
 } from './research-report.js';
-import { serverValuesOf } from '../../discord/server-values.js';
+import { serverValuesOf, zoneOf } from '../../discord/server-values.js';
 
 /** "Same task at more stops…" offers the stops within this many meters of the first one. */
 export const MORE_STOPS_METRES = 2_000;
@@ -353,7 +353,7 @@ async function askToReplace(
     periodKey: ctx.stopReports.period(countedAt).key,
   };
   const token = pending.put(interaction.user.id, waiting);
-  await interaction.showModal(replaceDialog(token, waiting, settings.timezone));
+  await interaction.showModal(replaceDialog(token, waiting, zoneOf(interaction, ctx)));
 }
 
 /**

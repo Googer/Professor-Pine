@@ -8,7 +8,7 @@ import {
   type APISelectMenuOption,
   type APIStringSelectComponent,
 } from 'discord.js';
-import type { Settings } from '../../config/settings.js';
+import { instanceZone, type Settings } from '../../config/settings.js';
 import { dateExample } from '../../domain/time/clock-input.js';
 import {
   DATE_EXAMPLE,
@@ -372,7 +372,7 @@ function helpPage(
   facts: HelpFacts = {},
 ): V2Message {
   // `DATE_EXAMPLE` is the date three days from today, in the examples and in what it says.
-  const date = dateExample(Date.now(), settings.timezone);
+  const date = dateExample(Date.now(), facts.zone ?? instanceZone(settings));
   const said = typeof help?.details === 'function' ? help.details(settings, facts) : help?.details;
   const details = said?.replaceAll(DATE_EXAMPLE, date);
   const usageText = `**Usage**\n${fitLines(usage, USAGE_ROOM)}`;

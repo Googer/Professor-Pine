@@ -605,6 +605,9 @@ export async function startApp(
     eggPictures,
     wayspots,
     servers,
+    // A party's server, whose zone its times are in (plan 19A-2): every row is read at the start,
+    // before the parties, and every row made since is added (fix round 1, K1).
+    serverOfRow: (row) => rowIds.serverOfRow(row),
     // The raids along an ended train's way, for its card (plan 8H-7A).
     raidsAlong: history,
     // What ended parties left on Discord, written with their end, swept with the upkeep.
@@ -675,10 +678,10 @@ export async function startApp(
   const notify = new NotifyService({
     store: parties,
     posts: partyService,
-    // Whether each server notifies its members (plan 19A-1), its row named by what the process
-    // has seen (every server is seen at the start).
+    // Whether each server notifies its members (plan 19A-1), its row named by every row read at
+    // the start or made since (fix round 1, K1).
     servers,
-    serverOfRow: (row) => rowIds.guildSnowflake(row),
+    serverOfRow: (row) => rowIds.serverOfRow(row),
     pictures: stopPictures,
     wants,
     targetWants,
@@ -817,7 +820,6 @@ export async function startApp(
     users,
     notify,
     log,
-    zone: config.settings.timezone,
   });
   const trains = new TrainService({
     store: parties,
@@ -1124,6 +1126,8 @@ export async function startApp(
     // after the regions and the Wayspots, which its ranks read, and the Wayspots' places,
     // which say which were asked (plan 8W-6).
     await gymUpkeep.resume();
+    // Every party's server, so its zone, known from its first moment (fix round 1, K1).
+    await guilds.loadRows();
     await parties.load();
     await access.load();
     // What a stop between storing a raid and creating its post left behind: only the store is
@@ -1296,6 +1300,7 @@ export async function startApp(
         gyms,
         regions,
         config,
+        servers,
         maxBosses,
         wayspots,
         pokemon,

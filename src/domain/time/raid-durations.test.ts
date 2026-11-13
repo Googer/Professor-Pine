@@ -104,8 +104,8 @@ describe('raidEventAt', () => {
       settings.raidEvents.weeklyRaidHour,
       ZONE,
     );
-    const feedOnly = raidDurationRules(settings, feed);
-    const both = raidDurationRules(settings, withPageRaidHours(feed, page));
+    const feedOnly = raidDurationRules(settings, feed, ZONE);
+    const both = raidDurationRules(settings, withPageRaidHours(feed, page), ZONE);
     expect(raidEventAt(at('2026-11-11T18:30'), feedOnly)?.name).toBe('Raid Hour');
     expect(raidEventAt(at('2026-11-11T18:30'), both)).toBeUndefined();
     expect(raidEventAt(at('2026-11-09T18:30'), both)?.name).toBe(
@@ -369,6 +369,6 @@ describe('resolvePartyTime with the durations of an event', () => {
       durations: { incubation: 60, hatched: 60 },
       party: { creationTime: now, hatchTime: now, hatchedDuration: 90 },
     });
-    expect(result).toEqual({ kind: 'time', at: now + 80 * MINUTE });
+    expect(result).toEqual({ kind: 'time', at: now + 80 * MINUTE, relative: true });
   });
 });

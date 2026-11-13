@@ -288,6 +288,7 @@ export type ScreenshotContext = Pick<
   | 'wayspots'
   | 'pokemon'
   | 'gameData'
+  | 'servers'
 >;
 
 /**
@@ -435,7 +436,7 @@ export class ScreenshotService implements Screenshots {
     const { store, context } = this.options;
     const reportFrom = reportContext(
       context,
-      { channelId: where.channelId, guildRow: where.guildRow },
+      { channelId: where.channelId, guildId: where.guildId, guildRow: where.guildRow },
       where.uploadedAt,
       file.fileName,
       where.readAt,
@@ -480,7 +481,11 @@ export class ScreenshotService implements Screenshots {
         raidDurationsAt(
           raidDurationKind(tier),
           hatchTime,
-          raidDurationRules(settings, context.raidEvents.events()),
+          raidDurationRules(
+            settings,
+            context.raidEvents.events(),
+            context.servers.zoneOf(where.guildId),
+          ),
         ).hatched,
       autoset: (tier: RaidTier) => context.raidBosses.autoset(tier),
     };
@@ -536,7 +541,7 @@ export class ScreenshotService implements Screenshots {
     const { context } = this.options;
     const maxFrom = maxReportContext(
       context,
-      { channelId: where.channelId, guildRow: where.guildRow },
+      { channelId: where.channelId, guildId: where.guildId, guildRow: where.guildRow },
       where.uploadedAt,
       fileName,
     );

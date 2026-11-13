@@ -56,6 +56,27 @@ describe('GuildRepository', () => {
     expect(ids.guild(last)).toBe(rows.find((row) => row.snowflake === last)?.id);
   });
 
+  it('loadRows makes the server of every row known before any is seen, and ensure, ensureAll and idFor add theirs (fix round 1, K1)', async () => {
+    const first = await guilds.ensure('412345678901234567');
+    const second = await guilds.ensure('412345678901234568');
+    // A process starting: nothing seen yet; the parties it loads next name these rows.
+    const ids = new RowIds();
+    const starting = new GuildRepository(db, ids);
+    expect(ids.serverOfRow(first)).toBeUndefined();
+    await starting.loadRows();
+    expect(ids.serverOfRow(first)).toBe('412345678901234567');
+    expect(ids.serverOfRow(second)).toBe('412345678901234568');
+    // A server joined after the start, and rows found by a read.
+    const joined = await starting.ensure('412345678901234569');
+    expect(ids.serverOfRow(joined)).toBe('412345678901234569');
+    await starting.ensureAll(['412345678901234570']);
+    const many = await guilds.idFor('412345678901234570');
+    expect(many === undefined ? undefined : ids.serverOfRow(many)).toBe('412345678901234570');
+    const elsewhere = await guilds.ensure('412345678901234571');
+    expect(await starting.idFor('412345678901234571')).toBe(elsewhere);
+    expect(ids.serverOfRow(elsewhere)).toBe('412345678901234571');
+  });
+
   it('idFor returns undefined for an unknown guild', async () => {
     expect(await guilds.idFor('999999999999999999')).toBeUndefined();
   });

@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import { SlashCommandSubcommandBuilder, type ChatInputCommandInteraction } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
@@ -618,7 +619,7 @@ export const removeOverride: SubcommandPart = {
     const typed = interaction.options.getFocused().trim().toLowerCase();
     // A number is the override of that number; anything else is looked for in the text.
     const number = /^#?(\d{1,10})$/.exec(typed)?.[1];
-    const zone = ctx.config.settings.timezone;
+    const zone = zoneOf(interaction, ctx);
     const choices = [...reportedOverrides(ctx).values()]
       .sort((a, b) => a.override.id - b.override.id)
       .map(({ override, name }) => ({

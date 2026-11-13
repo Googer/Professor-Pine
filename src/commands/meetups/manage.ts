@@ -62,7 +62,7 @@ export async function openMeetupManage(
     meetupManageDialog({
       party,
       now: Date.now(),
-      zone: ctx.config.settings.timezone,
+      zone: ctx.partyService.zoneOf(party),
     }),
   );
 }
@@ -93,8 +93,9 @@ const requireTimesChange: Guard = (interaction, ctx) => {
   const end = typedTime(interaction, MEETUP_END_INPUT);
   const party = ctx.parties.get(decodeCustomId(interaction.customId)?.id ?? '');
   if (start === '' || !party || !isMeetup(party)) return;
-  if (end === '') typedTimedTime(ctx, party, 'meet', start, Date.now());
-  else readTimes(ctx, party, { start, end }, Date.now());
+  if (end === '') {
+    typedTimedTime(ctx, party, 'meet', start, Date.now(), ctx.partyService.zoneOf(party));
+  } else readTimes(ctx, party, { start, end }, Date.now());
 };
 
 /** Both times typed, each with the value it was drawn from. */

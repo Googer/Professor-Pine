@@ -17,7 +17,10 @@ import { isHideoutReport } from '../../services/stop-reports.js';
  */
 
 /** What a Rocket report from a member reads and calls (`/rocket` and the map). */
-export type RocketReporting = Pick<AppContext, 'rocket' | 'rehearsal' | 'config' | 'regions'>;
+export type RocketReporting = Pick<
+  AppContext,
+  'rocket' | 'rehearsal' | 'config' | 'regions' | 'servers'
+>;
 
 /**
  * What a Rocket report from a member is: who (a choice of the lineups), at which stop, who
@@ -121,7 +124,7 @@ export async function reportRocketAs(
           boards: channelsWithBoards(outcome.channels, (id) => ctx.regions.byChannel(id)),
           posted: outcome.posted,
           rehearsal: ctx.rehearsal !== undefined,
-          until: periodEndWords(outcome.report.endsAt, Date.now(), ctx.config.settings.timezone),
+          until: periodEndWords(outcome.report.endsAt, Date.now(), ctx.servers.zoneOf(serverId)),
           ...(outcome.changed === true ? { changed: true } : {}),
         },
       };

@@ -42,7 +42,8 @@ export interface PartySchedulerOptions {
     PartyService,
     | 'changed'
     | 'end'
-    | 'rules'
+    | 'rulesIn'
+    | 'zoneOf'
     | 'view'
     | 'redoClosings'
     | 'sweepCopies'
@@ -287,17 +288,23 @@ export class PartyScheduler {
   private async run(): Promise<void> {
     const { store, posts, raidBosses, settings, log } = this.options;
     const now = this.now();
-    const input: TickInput = {
-      now,
-      previous: this.previous,
-      settings,
-      rules: posts.rules(),
-      autoset: tickAutoset(raidBosses),
+    const autoset = tickAutoset(raidBosses);
+    // One input per zone in use, not per party (plan 19A-2): each party ticks by the rules of
+    // its server's zone, whose days it is shown anew at.
+    const inputs = new Map<string, TickInput>();
+    const inputOf = (party: Party): TickInput => {
+      const zone = posts.zoneOf(party);
+      let input = inputs.get(zone);
+      if (input === undefined) {
+        input = { now, previous: this.previous, settings, rules: posts.rulesIn(zone), autoset };
+        inputs.set(zone, input);
+      }
+      return input;
     };
     for (const { id } of store.active()) {
       if (this.stopped) return;
       try {
-        await this.tickParty(id, input);
+        await this.tickParty(id, inputOf);
       } catch (err) {
         // A change of the party is stuck past its lock's limit, which the store logged once: the
         // next tick tries again (2026-11-07).
@@ -405,12 +412,12 @@ export class PartyScheduler {
       });
   }
 
-  private async tickParty(id: string, input: TickInput): Promise<void> {
+  private async tickParty(id: string, inputOf: (party: Party) => TickInput): Promise<void> {
     const { store, posts, notify, log } = this.options;
     const seen: { before?: Party } = {};
     const result = await store.update(id, (party) => {
       seen.before = party;
-      return partyTick(party, input);
+      return partyTick(party, inputOf(party));
     });
     if (!result) return;
     if (result.render) posts.changed(id);

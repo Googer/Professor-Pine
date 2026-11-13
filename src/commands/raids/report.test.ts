@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WEST_CHANNEL } from '../../../test/support/gyms.js';
-import { ALICE, PARTY_NOW } from '../../../test/support/parties.js';
+import { ALICE, PARTY_NOW, PARTY_ZONE } from '../../../test/support/parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
 import { gymsFixture } from '../../../test/support/providers.js';
 import { createTestContext } from '../../../test/support/test-context.js';
@@ -51,7 +51,7 @@ describe('reporting a raid, as /raid and the map share it', () => {
     const reported = reportedBoss(made.ctx, 'e:T5:0');
     const result = await reportRaidAs(made.ctx, ALICE_MEMBER, libraryGym(), {
       reported,
-      time: reportedTime(made.ctx, reported, '30', PARTY_NOW),
+      time: reportedTime(made.ctx, reported, '30', PARTY_NOW, PARTY_ZONE),
       regionChannelId: WEST_CHANNEL,
     });
     expect(result.outcome.kind).toBe('created');

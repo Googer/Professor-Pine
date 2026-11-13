@@ -31,7 +31,7 @@ import {
   renderSubcommandHelp,
   type HelpGroup,
 } from './help-render.js';
-import { serverValuesOf } from '../../discord/server-values.js';
+import { serverValuesOf, zoneOf } from '../../discord/server-values.js';
 import { commandsIn } from '../../discord/set-up.js';
 
 const MAX_CHOICES = 25;
@@ -113,6 +113,7 @@ function commandPage(
   const facts = {
     oldHistory: ctx.legacyIndex !== undefined,
     server: serverValuesOf(where, ctx),
+    zone: zoneOf(where, ctx),
   };
   const page =
     command &&

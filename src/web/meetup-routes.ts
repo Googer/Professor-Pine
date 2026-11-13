@@ -89,6 +89,8 @@ export type MeetupWebContext = Pick<
   | 'meetupSafety'
   | 'attendance'
   | 'timedParties'
+  | 'partyService'
+  | 'servers'
   | 'config'
   | 'regions'
   | 'gyms'
@@ -320,16 +322,22 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     let startTime: number;
     let endTime: number | undefined;
     try {
-      const typed = typedTimedTime(ctx, newPartyTimes('meetup', now), 'meet', body.data.start, now);
+      // The server's zone (plan 19A-2), as `/meetup` reads them there.
+      const zone = ctx.servers.zoneOf(guild);
+      const typed = typedTimedTime(
+        ctx,
+        newPartyTimes('meetup', now),
+        'meet',
+        body.data.start,
+        now,
+        zone,
+      );
       if (typed === 'unset') {
-        return refused(
-          422,
-          `Give the time the meetup starts. ${timedTimeHint(now, ctx.config.settings.timezone)}`,
-        );
+        return refused(422, `Give the time the meetup starts. ${timedTimeHint(now, zone)}`);
       }
       startTime = typed.at;
       // As `/meetup end:` reads it (`typedNewEnd`): one path, the same words.
-      endTime = typedNewEnd(ctx, 'meetup', startTime, body.data.end ?? null, now);
+      endTime = typedNewEnd(ctx, 'meetup', startTime, body.data.end ?? null, now, zone);
     } catch (err) {
       if (!(err instanceof UserError)) throw err;
       return refused(422, err.message);

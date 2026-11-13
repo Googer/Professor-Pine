@@ -6,6 +6,7 @@ import { reportedRaid } from '../../test/support/party-service.js';
 import { at, ALICE, BOB, PARTY_NOW, stops, testTrain } from '../../test/support/parties.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import { raidBossesFixture } from '../../test/support/raid-bosses.js';
+import { TestServers } from '../../test/support/server-values.js';
 import {
   partyWebWith,
   TEST_OWNER_ID,
@@ -175,6 +176,7 @@ describe('what a raid’s look reads besides the party', () => {
         eggPictures: recording('eggPictures', new EggPictures({ web: undefined }), reads),
         gyms: recording('gyms', gymsFixture(), reads),
         raidBosses: recording('raidBosses', raidBossesFixture(), reads),
+        servers: recording('servers', new TestServers(), reads),
       },
     );
     reads.clear();

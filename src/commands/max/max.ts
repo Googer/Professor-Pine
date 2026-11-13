@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
@@ -160,7 +161,7 @@ const requireMaxReport: Guard = async (interaction, ctx) => {
   );
   const spot = await readSpot(interaction, ctx, interaction.options.getString('spot', true));
   const endText = interaction.options.getString('end');
-  const end = reportedEnd(ctx, boss.tier, endText, now);
+  const end = reportedEnd(ctx, boss.tier, endText, now, zoneOf(interaction, ctx));
   const guild = await ctx.guilds.idFor(guildIdOf(interaction));
   const there = battleThere(ctx, { guild, spot }, now);
   if (there && otherBoss(there, boss)) throw new UserError(takenWords(ctx, there, boss.tier));
@@ -306,20 +307,20 @@ function maxCommand(screenshots: boolean): SimpleCommand {
       // Nothing is read for the dialog, but the guard's reads must have left Discord's three
       // seconds for it (the slow-read rule): past them no dialog opens.
       await readInTime(ctx.log, interaction, () => Promise.resolve());
-      const next = nextRotationEnd(ask.end, maxEndInput(ctx, ask.boss.tier, now));
+      const zone = zoneOf(interaction, ctx);
+      const next = nextRotationEnd(ask.end, maxEndInput(ctx, ask.boss.tier, now, zone));
       const token = pending.put(interaction.user.id, {
         ...ask,
         countedAt: whenCounted(interaction) ?? now,
         ...(next === undefined ? {} : { next }),
       });
-      const { settings } = ctx.config;
       await interaction.showModal(
         endingSoonDialog({
           customId: encodeCustomId({ kind: MAX_KIND, id: token, action: 'report', args: [] }),
           end: ask.end,
           next,
           now,
-          zone: settings.timezone,
+          zone,
         }),
       );
     },

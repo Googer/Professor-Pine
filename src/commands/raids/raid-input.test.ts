@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EAST_CHANNEL, testGyms, testRegions, WEST_CHANNEL } from '../../../test/support/gyms.js';
-import { at, PARTY_NOW } from '../../../test/support/parties.js';
+import { at, PARTY_NOW, PARTY_ZONE } from '../../../test/support/parties.js';
 import { catalogueFixture } from '../../../test/support/game-data.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { UserError } from '../../discord/errors.js';
@@ -301,8 +301,8 @@ describe('reportedTime', () => {
   const boss: ReportedBoss = { tier: T5, boss: { key: 'yveltal' }, label: 'Yveltal (T5)' };
 
   it('is nothing for no text', () => {
-    expect(reportedTime(ctx, egg, null, PARTY_NOW)).toBeUndefined();
-    expect(reportedTime(ctx, egg, '  ', PARTY_NOW)).toBeUndefined();
+    expect(reportedTime(ctx, egg, null, PARTY_NOW, PARTY_ZONE)).toBeUndefined();
+    expect(reportedTime(ctx, egg, '  ', PARTY_NOW, PARTY_ZONE)).toBeUndefined();
   });
 
   // Review 8E-1: an elite egg without its time would stand a day at its gym and block it.
@@ -311,12 +311,12 @@ describe('reportedTime', () => {
     const eliteEgg: ReportedBoss = { tier: elite, boss: null, label: 'Elite egg' };
     const hatched: ReportedBoss = { tier: elite, boss: { name: 'unknown' }, label: '' };
     for (const text of [null, '  ']) {
-      expect(() => reportedTime(ctx, eliteEgg, text, PARTY_NOW)).toThrow(
+      expect(() => reportedTime(ctx, eliteEgg, text, PARTY_NOW, PARTY_ZONE)).toThrow(
         new UserError(ELITE_EGG_WORDS),
       );
-      expect(reportedTime(ctx, hatched, text, PARTY_NOW)).toBeUndefined();
+      expect(reportedTime(ctx, hatched, text, PARTY_NOW, PARTY_ZONE)).toBeUndefined();
     }
-    expect(reportedTime(ctx, eliteEgg, '6:15pm', PARTY_NOW)).toEqual({
+    expect(reportedTime(ctx, eliteEgg, '6:15pm', PARTY_NOW, PARTY_ZONE)).toEqual({
       hatch: at('2026-10-13T18:15'),
     });
   });
@@ -325,8 +325,8 @@ describe('reportedTime', () => {
     const elite = { level: 'Elite', shadow: false } as const;
     const eliteEgg: ReportedBoss = { tier: elite, boss: null, label: 'Elite egg' };
     const evening = at('2026-10-13T22:00');
-    expect(() => reportedTime(ctx, eliteEgg, '12am', evening)).toThrow(UserError);
-    expect(reportedTime(ctx, eliteEgg, 'tomorrow 12am', evening)).toEqual({
+    expect(() => reportedTime(ctx, eliteEgg, '12am', evening, PARTY_ZONE)).toThrow(UserError);
+    expect(reportedTime(ctx, eliteEgg, 'tomorrow 12am', evening, PARTY_ZONE)).toEqual({
       hatch: at('2026-10-14T00:00'),
     });
     const help = raid.help?.details;
@@ -334,19 +334,25 @@ describe('reportedTime', () => {
   });
 
   it('reads the hatch time of an egg and the end time of a boss', () => {
-    expect(reportedTime(ctx, egg, '20', PARTY_NOW)).toEqual({ hatch: at('2026-10-13T14:20') });
-    expect(reportedTime(ctx, egg, 'at 2:45pm', PARTY_NOW)).toEqual({
+    expect(reportedTime(ctx, egg, '20', PARTY_NOW, PARTY_ZONE)).toEqual({
+      hatch: at('2026-10-13T14:20'),
+    });
+    expect(reportedTime(ctx, egg, 'at 2:45pm', PARTY_NOW, PARTY_ZONE)).toEqual({
       hatch: at('2026-10-13T14:45'),
     });
-    expect(reportedTime(ctx, boss, 'in 30', PARTY_NOW)).toEqual({ end: at('2026-10-13T14:30') });
+    expect(reportedTime(ctx, boss, 'in 30', PARTY_NOW, PARTY_ZONE)).toEqual({
+      end: at('2026-10-13T14:30'),
+    });
   });
 
   it('allows no more than the usual time on a Raid Day, whose bosses stay 30 minutes', () => {
     // Saturday 31 October 2026, Raid Day 14:00 to 17:00: an egg seen now can end up to 105 minutes
     // from now, as on any other day (a boss that hatched before the day stays 45).
     const now = at('2026-10-31T14:30');
-    expect(reportedTime(ctx, boss, '100', now)).toEqual({ end: at('2026-10-31T16:10') });
-    expect(() => reportedTime(ctx, boss, '110', now)).toThrow(UserError);
+    expect(reportedTime(ctx, boss, '100', now, PARTY_ZONE)).toEqual({
+      end: at('2026-10-31T16:10'),
+    });
+    expect(() => reportedTime(ctx, boss, '110', now, PARTY_ZONE)).toThrow(UserError);
   });
 
   it('allows the longer raids of a Raid Day when the rules say a boss stays longer', () => {
@@ -365,15 +371,17 @@ describe('reportedTime', () => {
         },
       },
     }).ctx;
-    expect(reportedTime(long, boss, '110', now)).toEqual({ end: at('2026-10-31T16:20') });
-    expect(() => reportedTime(long, boss, '110', PARTY_NOW)).toThrow(UserError);
+    expect(reportedTime(long, boss, '110', now, PARTY_ZONE)).toEqual({
+      end: at('2026-10-31T16:20'),
+    });
+    expect(() => reportedTime(long, boss, '110', PARTY_NOW, PARTY_ZONE)).toThrow(UserError);
   });
 
   it('says what a time must be when it cannot be right, and when it is no time', () => {
-    expect(() => reportedTime(ctx, egg, '90', PARTY_NOW)).toThrow(
+    expect(() => reportedTime(ctx, egg, '90', PARTY_NOW, PARTY_ZONE)).toThrow(
       /cannot be the time the egg hatches: it must be between <t:\d+:t> and <t:\d+:t>\./,
     );
-    expect(() => reportedTime(ctx, boss, 'soon', PARTY_NOW)).toThrow(
+    expect(() => reportedTime(ctx, boss, 'soon', PARTY_NOW, PARTY_ZONE)).toThrow(
       'I could not read "soon" as the time the raid ends.',
     );
   });

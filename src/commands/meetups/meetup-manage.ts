@@ -58,7 +58,7 @@ export function meetupDrawnOf(party: MeetupParty, change: MeetupChange): string 
  * time `/meet`'s guard cannot read. The start as read where it passes.
  */
 export async function meetupChangeCheck(
-  ctx: Pick<AppContext, 'meetupSafety' | 'config'>,
+  ctx: Pick<AppContext, 'meetupSafety' | 'config' | 'partyService'>,
   serverId: string,
   party: MeetupParty,
   userId: string,
@@ -73,7 +73,14 @@ export async function meetupChangeCheck(
   }
   if (input.change !== 'start') return { start: null };
   try {
-    const typed = typedTimedTime(ctx, party, 'meet', input.time, now);
+    const typed = typedTimedTime(
+      ctx,
+      party,
+      'meet',
+      input.time,
+      now,
+      ctx.partyService.zoneOf(party),
+    );
     return { start: typed === 'unset' ? null : typed.at };
   } catch (err) {
     if (!(err instanceof UserError)) throw err;
@@ -87,7 +94,7 @@ export async function meetupChangeCheck(
  * of order refused, nothing changed).
  */
 export async function meetupTimesCheck(
-  ctx: Pick<AppContext, 'meetupSafety' | 'config' | 'attendance'>,
+  ctx: Pick<AppContext, 'meetupSafety' | 'config' | 'attendance' | 'partyService'>,
   serverId: string,
   party: MeetupParty,
   userId: string,

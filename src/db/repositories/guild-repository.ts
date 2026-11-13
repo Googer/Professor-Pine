@@ -46,6 +46,7 @@ export class GuildRepository implements GuildStore {
       this.ids.forgetGuild(snowflake);
       throw new Error(`Guild row for ${snowflake} vanished after insert`);
     }
+    this.ids.knowGuildRow(snowflake, row.id);
     if (!this.db.isTransaction) this.ids.sawGuild(snowflake, row.id);
     return row.id;
   }
@@ -72,6 +73,8 @@ export class GuildRepository implements GuildStore {
           .select(['id', 'snowflake'])
           .where('snowflake', 'in', chunk)
           .execute();
+        for (const row of rows)
+          if (row.snowflake !== null) this.ids.knowGuildRow(row.snowflake, row.id);
         if (this.db.isTransaction) continue;
         for (const row of rows)
           if (row.snowflake !== null) this.ids.sawGuild(row.snowflake, row.id);
@@ -100,8 +103,20 @@ export class GuildRepository implements GuildStore {
       .where('id', '=', id)
       .executeTakeFirst();
     const snowflake = row?.snowflake ?? undefined;
+    if (snowflake !== undefined) this.ids.knowGuildRow(snowflake, id);
     if (snowflake !== undefined && !this.db.isTransaction) this.ids.sawGuild(snowflake, id);
     return snowflake;
+  }
+
+  /**
+   * Makes the server of every row known (`RowIds.serverOfRow`; fix round 1, K1): read once at
+   * start, before the parties are loaded, so that a party's server, and so its zone, is known
+   * from its first moment on, whatever the bounded memory of seen rows holds.
+   */
+  async loadRows(): Promise<void> {
+    const rows = await this.db.selectFrom('Guild').select(['id', 'snowflake']).execute();
+    for (const row of rows)
+      if (row.snowflake !== null) this.ids.knowGuildRow(row.snowflake, row.id);
   }
 
   /**
@@ -124,6 +139,7 @@ export class GuildRepository implements GuildStore {
       .select('id')
       .where('snowflake', '=', snowflake)
       .executeTakeFirst();
+    if (row) this.ids.knowGuildRow(snowflake, row.id);
     if (row && !this.db.isTransaction) this.ids.sawGuild(snowflake, row.id);
     return row?.id;
   }

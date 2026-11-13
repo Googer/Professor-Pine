@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
+import { withZones } from '../../test/support/server-values.js';
+import { zonedAt } from '../../test/support/time.js';
 import { OTHER_GUILD_ROW, testGym, WEST_CHANNEL } from '../../test/support/gyms.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import { MAX_FEED_READ_AT } from '../../test/support/max-bosses.js';
@@ -12,11 +15,17 @@ import { maxReportContext, reportContext } from './screenshot-context.js';
 
 /** The row of the server the invented regions belong to. */
 const GUILD_ROW = 1;
+/** Another server, in a zone of its own. */
+const OTHER_SERVER = '412345678901234599';
 
 describe('reportContext', () => {
   it('gives the report the bosses, the gym search by names where it was posted, and the settings', () => {
     const { ctx } = createTestContext();
-    const context = reportContext(ctx, { channelId: WEST_CHANNEL, guildRow: GUILD_ROW }, 1_000);
+    const context = reportContext(
+      ctx,
+      { channelId: WEST_CHANNEL, guildId: FAKE_GUILD_ID, guildRow: GUILD_ROW },
+      1_000,
+    );
     expect(context.bosses).toEqual(ctx.raidBosses.bosses());
     expect(context.searchGym('Old Stone Fountain')[0]?.gym.id).toBe(2);
     // A gym's nickname and description are not on a raid screen: names only.
@@ -32,9 +41,42 @@ describe('reportContext', () => {
     });
   });
 
+  it('reads the phone’s clock and the file’s name in the zone of the server it was posted in (plan 19A-2)', () => {
+    const { ctx } = createTestContext({
+      servers: withZones({ [OTHER_SERVER]: 'Asia/Kolkata' }),
+    });
+    const file = 'Screenshot_20261013-180500.png';
+    const there = reportContext(
+      ctx,
+      { channelId: null, guildId: OTHER_SERVER, guildRow: GUILD_ROW },
+      1_000,
+      file,
+    );
+    const here = reportContext(
+      ctx,
+      { channelId: null, guildId: FAKE_GUILD_ID, guildRow: GUILD_ROW },
+      1_000,
+      file,
+    );
+    expect(there.zone).toBe('Asia/Kolkata');
+    expect(there.fileTakenAt).toBe(zonedAt('2026-10-13T18:05', 'Asia/Kolkata'));
+    expect(here.fileTakenAt).toBe(zonedAt('2026-10-13T18:05', 'America/New_York'));
+    const max = maxReportContext(
+      ctx,
+      { channelId: null, guildId: OTHER_SERVER, guildRow: GUILD_ROW },
+      1_000,
+      file,
+    );
+    expect(max.fileTakenAt).toBe(zonedAt('2026-10-13T18:05', 'Asia/Kolkata'));
+  });
+
   it('finds only this server’s gyms, also outside a region channel', () => {
     const { ctx } = createTestContext();
-    const here = reportContext(ctx, { channelId: null, guildRow: GUILD_ROW }, 1_000);
+    const here = reportContext(
+      ctx,
+      { channelId: null, guildId: FAKE_GUILD_ID, guildRow: GUILD_ROW },
+      1_000,
+    );
     expect(here.searchGym('Old Stone Fountain')[0]?.gym.id).toBe(2);
     // Several hits are looked at: both gyms of this name.
     expect(
@@ -45,7 +87,11 @@ describe('reportContext', () => {
     ).toEqual([5, 9]);
     // Gym 10 lies in no region of any server.
     expect(here.searchGym('Lakeview Trailhead')).toEqual([]);
-    const elsewhere = reportContext(ctx, { channelId: null, guildRow: OTHER_GUILD_ROW }, 1_000);
+    const elsewhere = reportContext(
+      ctx,
+      { channelId: null, guildId: FAKE_GUILD_ID, guildRow: OTHER_GUILD_ROW },
+      1_000,
+    );
     expect(elsewhere.searchGym('Old Stone Fountain')).toEqual([]);
   });
 
@@ -56,7 +102,11 @@ describe('reportContext', () => {
       (name, i) => testGym(60 + i, name, 40.05, -80.05),
     );
     const { ctx } = createTestContext({ gyms: gymsFixture(halls) });
-    const here = reportContext(ctx, { channelId: WEST_CHANNEL, guildRow: GUILD_ROW }, 1_000);
+    const here = reportContext(
+      ctx,
+      { channelId: WEST_CHANNEL, guildId: FAKE_GUILD_ID, guildRow: GUILD_ROW },
+      1_000,
+    );
     expect(
       here
         .searchGym('Cedar Hall')
@@ -101,7 +151,7 @@ describe('maxReportContext', () => {
     };
     const context = maxReportContext(
       withKingdra,
-      { channelId: WEST_CHANNEL, guildRow: GUILD_ROW },
+      { channelId: WEST_CHANNEL, guildId: FAKE_GUILD_ID, guildRow: GUILD_ROW },
       MAX_FEED_READ_AT,
     );
     const report = maxScreenshotReport(maxReading('GAZEBO', { species: 'KINGDR' }, {}, 3), context);

@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -332,7 +333,7 @@ async function answerScreenshot(
   // is reported, or, when several gyms fit what they typed, they choose among those.
   const typedOnly = async (): Promise<boolean> => {
     if (!reported || gymAnswer === undefined) return false;
-    const time = reportedTime(ctx, reported, typedTime, now);
+    const time = reportedTime(ctx, reported, typedTime, now, zoneOf(interaction, ctx));
     const request: PendingReport = {
       reported,
       time,
@@ -371,6 +372,7 @@ async function answerScreenshot(
               reported ?? stageOnly(report.tier, report.stage === 'hatched'),
               typedTime,
               now,
+              zoneOf(interaction, ctx),
             );
       // Only a gym the screenshot named clearly, never its guess.
       const readGym = report.gym.clear ? report.gym.gymId : null;
@@ -520,7 +522,11 @@ const requireWhatToReport: Guard = (interaction, ctx) => {
     // Beside a screenshot the time is read once the screenshot is: a text that is no time at
     // all is refused now.
     const time = interaction.options.getString('time');
-    if (time !== null && time.trim() !== '' && !readableTime(ctx, time, Date.now())) {
+    if (
+      time !== null &&
+      time.trim() !== '' &&
+      !readableTime(ctx, time, Date.now(), zoneOf(interaction, ctx))
+    ) {
       throw new UserError(
         `I could not read "${plain(truncate(time, 80))}" as a time. Try \`20\` (minutes from now) or \`6:15pm\`.`,
       );
@@ -638,7 +644,13 @@ function raidCommand(screenshots: boolean): SimpleCommand {
         return;
       }
       const reported = reportedBoss(ctx, interaction.options.getString('boss', true));
-      const time = reportedTime(ctx, reported, interaction.options.getString('time'), Date.now());
+      const time = reportedTime(
+        ctx,
+        reported,
+        interaction.options.getString('time'),
+        Date.now(),
+        zoneOf(interaction, ctx),
+      );
       const typedGym = interaction.options.getString('gym', true);
       const answer = reportedGym(ctx, regionChannelId, typedGym);
       const request: PendingReport = {

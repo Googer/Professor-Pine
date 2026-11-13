@@ -38,6 +38,13 @@ export class RowIds {
   private readonly guilds = new BoundedMap<string, number>(MAX_GUILDS);
   private readonly guildSnowflakes = new BoundedMap<number, string>(MAX_GUILDS);
   private readonly users = new BoundedMap<string, number>(MAX_USERS);
+  /**
+   * The server of every `Guild` row known (fix round 1, K1): read whole at start
+   * (`GuildRepository.loadRows`, before the parties), added to by every row made or read. Never
+   * bounded and never forgotten: rows are servers, and a row id is never another server's. A
+   * party's zone is its server's, so it must never miss because a memory dropped the row.
+   */
+  private readonly serversOfRows = new Map<number, string>();
 
   constructor(private readonly remembering = true) {}
 
@@ -49,6 +56,22 @@ export class RowIds {
   /** The snowflake of the server with a row id that was seen. */
   guildSnowflake(id: number): string | undefined {
     return this.guildSnowflakes.get(id);
+  }
+
+  /**
+   * The server of a `Guild` row, from every row known since the start (`knowGuildRow`), however
+   * many: undefined only for a row this process never read or made.
+   */
+  serverOfRow(id: number): string | undefined {
+    return this.serversOfRows.get(id);
+  }
+
+  /**
+   * A `Guild` row is (or was) this server's: what the start reads of the table and every row made
+   * or read, also inside a transaction (a row rolled back is no party's).
+   */
+  knowGuildRow(snowflake: string, id: number): void {
+    if (this.remembering) this.serversOfRows.set(id, snowflake);
   }
 
   /** The row id of a member that was seen; undefined for one that was not. */
@@ -64,6 +87,7 @@ export class RowIds {
     if (before !== undefined && before !== id) this.guildSnowflakes.delete(before);
     this.guilds.set(snowflake, id);
     this.guildSnowflakes.set(id, snowflake);
+    this.serversOfRows.set(id, snowflake);
   }
 
   /**

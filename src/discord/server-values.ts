@@ -13,3 +13,16 @@ export function serverValuesOf(
     ? ctx.servers.defaults()
     : ctx.servers.of(interaction.guildId);
 }
+
+/**
+ * The zone of the server an interaction came from (plan 19A-2): every time its member types or
+ * reads there; in a DM, the instance's default (`ServerSettingsLookup.defaultZone`).
+ */
+export function zoneOf(
+  interaction: { guildId: string | null },
+  ctx: Pick<AppContext, 'servers'>,
+): string {
+  return interaction.guildId === null
+    ? ctx.servers.defaultZone()
+    : ctx.servers.zoneOf(interaction.guildId);
+}
