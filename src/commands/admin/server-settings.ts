@@ -43,6 +43,7 @@ import {
   CONFIRM,
   DIALOGS,
   isSection,
+  isWordList,
   KEEP,
   LEFT_UNSET,
   OFF,
@@ -61,6 +62,7 @@ import {
   type DialogKey,
   type Instance,
   type SectionName,
+  type WordListKey,
   wordsTooMany,
 } from './server-settings-panel.js';
 
@@ -310,6 +312,28 @@ const FIELDS = {
   invite: 'invite',
 } as const;
 
+/** The words of a list's dialogs: its title, what it does, what empty means, its words in a sentence. */
+const WORDS_DIALOG: Readonly<
+  Record<WordListKey, { title: string; text: string; empty: string; many: string }>
+> = {
+  flaggedWords: {
+    title: 'Flagged words',
+    text:
+      'Words and phrases that send a meetup at a place whose name has one to the moderators ' +
+      'first, besides Pine’s own list. One a line.',
+    empty: 'Empty: Pine’s own list alone',
+    many: 'flagged words',
+  },
+  blacklistWords: {
+    title: 'Words gym search ignores',
+    text:
+      'Words that gym search skips in gym names and in what members type, such as “gym” or ' +
+      '“raid”, besides common English words. One a line.',
+    empty: 'Empty: common English words alone',
+    many: 'words gym search ignores',
+  },
+};
+
 /** How long a zone's name typed may be (the zone database's longest is 32). */
 const ZONE_ROOM = 64;
 
@@ -324,9 +348,8 @@ function settingDialog(
   now: number,
   removing = false,
 ) {
-  // The flagged words too many to show are added or removed, never typed anew (review G5).
-  const words =
-    key !== 'flaggedWords' || !wordsTooMany(values.flaggedWords) ? SET : removing ? REMOVE : ADD;
+  // A list of words too many to show is added to or taken from, never typed anew (review G5).
+  const words = !isWordList(key) || !wordsTooMany(values[key]) ? SET : removing ? REMOVE : ADD;
   const customId = encodeCustomId({
     kind: SERVER_KIND,
     id: key,
@@ -379,16 +402,18 @@ function settingDialog(
         ],
       });
     }
-    case 'flaggedWords': {
+    case 'flaggedWords':
+    case 'blacklistWords': {
+      const list = WORDS_DIALOG[key];
       if (words !== SET) {
         const adding = words === ADD;
         return dialog({
           customId,
           title: adding ? 'Words to add' : 'Words to remove',
           text: adding
-            ? `The flagged words are too many to show here (${String(values.flaggedWords.length)}). ` +
+            ? `The ${list.many} are too many to show here (${String(values[key].length)}). ` +
               'What you type is added to them, one a line; Remove… on the panel takes some off.'
-            : 'What you type is taken off the flagged words, one a line, whatever its letter case.',
+            : `What you type is taken off the ${list.many}, one a line, whatever its letter case.`,
           field: {
             id: FIELDS.words,
             label: adding ? 'Words to add' : 'Words to remove',
@@ -398,19 +423,17 @@ function settingDialog(
           },
         });
       }
-      const shown = values.flaggedWords.join('\n');
+      const shown = values[key].join('\n');
       return dialog({
         customId,
-        title: 'Flagged words',
-        text:
-          'Words and phrases that send a meetup at a place whose name has one to the moderators ' +
-          'first, besides Pine’s own list. One a line.',
+        title: list.title,
+        text: list.text,
         field: {
           id: FIELDS.words,
           label: 'Words',
           maxLength: TEXT_ROOM,
           paragraph: true,
-          placeholder: 'Empty: Pine’s own list alone',
+          placeholder: list.empty,
           ...(shown === '' ? {} : { value: shown }),
         },
       });
@@ -497,11 +520,12 @@ function submitted(
   if (action === ADD || action === REMOVE) {
     const typed = typedWords(line(interaction, FIELDS.words));
     const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+    if (!isWordList(key)) throw new UserError(STALE_COMPONENT);
     return (values) => {
-      const kept = values.flaggedWords;
+      const kept = values[key];
       return {
         ...values,
-        flaggedWords:
+        [key]:
           action === ADD
             ? [...kept, ...typed.filter((word) => !kept.some((one) => same(one, word)))]
             : kept.filter((one) => !typed.some((word) => same(one, word))),
@@ -541,9 +565,10 @@ function submitted(
       if (typeof refused === 'string') return refused;
       return (values) => ({ ...values, eventsForum: numbers as ServerValues['eventsForum'] });
     }
-    case 'flaggedWords': {
+    case 'flaggedWords':
+    case 'blacklistWords': {
       const words = typedWords(line(interaction, FIELDS.words));
-      return (values) => ({ ...values, flaggedWords: words });
+      return (values) => ({ ...values, [key]: words });
     }
     case 'regionForumSuffix': {
       const suffix = line(interaction, FIELDS.suffix) || '-board';
@@ -580,7 +605,7 @@ export const serverSettingsControls: ComponentHandler = {
       );
       return;
     }
-    if (id.action === ASK && id.id === 'flaggedWords' && id.args.join(':') === REMOVE) {
+    if (id.action === ASK && isWordList(id.id) && id.args.join(':') === REMOVE) {
       await interaction.showModal(
         settingDialog(
           id.id,
@@ -603,7 +628,7 @@ export const serverSettingsControls: ComponentHandler = {
     await picked(interaction, id, ctx);
   },
   async modal(interaction, id, ctx) {
-    const words = id.id === 'flaggedWords' && (id.action === ADD || id.action === REMOVE);
+    const words = isWordList(id.id) && (id.action === ADD || id.action === REMOVE);
     if (
       (id.action !== SET && !words) ||
       !isDialogKey(id.id) ||
@@ -633,8 +658,9 @@ export const serverSettings: SubcommandPart = {
       'change them: the channels Pine uses by their role, the PvP category, the Unown role and ' +
       'the map’s member role, and the features.\n\nUnder Text and numbers: the time zone (every ' +
       'time members type and Pine shows in this server, and its days), the distance units, ' +
-      'the events forum’s numbers, the flagged words of meetup safety, the ending of region ' +
-      'forums, the region map link and the invite of the web map.\n\nEvery change is logged with who made it and when: **Recent ' +
+      'the events forum’s numbers, the flagged words of meetup safety, the words gym search ' +
+      'ignores, the ending of region forums, the region map link and the invite of the web ' +
+      'map.\n\nEvery change is logged with who made it and when: **Recent ' +
       'changes** shows the last ones, and `/audit member:` lists a member’s. The log keeps 30 ' +
       'days.',
     examples: ['/admin settings'],

@@ -407,4 +407,26 @@ describe('GymRepository', () => {
     expect(await gyms.get(gym.id)).toBeUndefined();
     expect(await db.selectFrom('GymMeta').selectAll().execute()).toHaveLength(0);
   });
+
+  it('reads the servers of every gym and of one (plan 19B-2)', async () => {
+    const home = await new GuildRepository(db).ensure('412345678901234567');
+    const away = await new GuildRepository(db).ensure('412345678901234568');
+    const shared = await gyms.create({ name: 'Shared', lat: 40.45, lon: -80 });
+    const own = await gyms.create({ name: 'Own', lat: 40.46, lon: -80 });
+    await db
+      .insertInto('GymServer')
+      .values([
+        { gymId: shared.id, guildId: away },
+        { gymId: shared.id, guildId: home },
+        { gymId: own.id, guildId: away },
+      ])
+      .execute();
+    expect(await gyms.links()).toEqual([
+      { gymId: shared.id, guildId: home },
+      { gymId: shared.id, guildId: away },
+      { gymId: own.id, guildId: away },
+    ]);
+    expect(await gyms.linksOf(shared.id)).toEqual([home, away]);
+    expect(await gyms.linksOf(own.id + 1)).toEqual([]);
+  });
 });

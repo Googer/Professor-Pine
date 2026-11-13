@@ -198,7 +198,9 @@ export const editForms: Readonly<Record<string, FormAnswer>> = {
         await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, place, gym, [
           `Changed ${fieldList(names)} of ${gymWithId(gym)}.`,
           note,
-          names.includes('name') || !findable ? nameNote(ctx, gym) : undefined,
+          names.includes('name') || !findable
+            ? nameNote(serverValuesOf(interaction, ctx), gym)
+            : undefined,
           names.includes('name') || names.includes('nickname') ? namesakeNote(ctx, gym) : undefined,
         ]),
       );

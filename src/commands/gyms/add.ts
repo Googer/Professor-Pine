@@ -152,7 +152,7 @@ async function addAnswered(
     await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, place, gym, [
       `Added ${gymWithId(gym)}.`,
       fetchNote(ctx),
-      nameNote(ctx, gym),
+      nameNote(serverValuesOf(interaction, ctx), gym),
       namesakeNote(ctx, gym),
     ]),
   );

@@ -156,6 +156,16 @@ export const eventsForumSchema = z
   })
   .default(() => ({ ...EVENTS_FORUM_DEFAULTS }));
 export const flaggedWordsSchema = z.array(z.string().trim().min(1).max(100)).max(500).default([]);
+/**
+ * The words gym search ignores (`blacklistWords`, plan 19B-2): each trimmed, a blank one dropped
+ * as none (the legacy list was never checked: a stray empty word must not refuse a file or make
+ * a server's row unreadable), then the flagged words' limits, which are refusals.
+ */
+export const ignoredWordsSchema = z
+  .array(z.string())
+  .transform((words) => words.map((word) => word.trim()).filter((word) => word !== ''))
+  .pipe(z.array(z.string().max(100)).max(500))
+  .default([]);
 /** What a region's forum's name adds to its channel's unless set: its board. */
 export const DEFAULT_REGION_FORUM_SUFFIX = '-board';
 export const regionForumSuffixSchema = z
@@ -332,7 +342,13 @@ export const settingsObject = z.strictObject({
     })
     .optional(),
   helpGroups: z.array(z.string().min(1)),
-  blacklistWords: z.array(z.string()),
+  /**
+   * The words gym search ignores in gym names and in what members type ("gym", "raid"), besides
+   * common English words: the default of a server's first row (plan 19B-2), which its staff change
+   * in `/admin settings`. A blank word is none; the flagged words' limits, by which a server's
+   * row is checked too (`ignoredWordsSchema`).
+   */
+  blacklistWords: ignoredWordsSchema,
   /**
    * The species that can be reported with `/wild` although the game calls them legendary,
    * mythical or an ultra beast: each by its catalogue key or its name. A text the game data

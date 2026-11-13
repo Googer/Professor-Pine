@@ -16,7 +16,11 @@ import {
 import { EAST_CHANNEL, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { ANSWERED_BELOW } from '../../discord/late-reply.js';
 import { PENDING_HOURS } from './shared.js';
-import { changeServers } from '../../../test/support/server-values.js';
+import {
+  changeServers,
+  TestServers,
+  testServerValues,
+} from '../../../test/support/server-values.js';
 
 const choices = (interaction: { respond: { mock: { calls: unknown[][] } } }) =>
   interaction.respond.mock.calls[0]?.[0] as { name: string; value: string }[];
@@ -775,6 +779,29 @@ describe('/gym add', () => {
     expect(said(question)).toContain('It would lie in no region of this server.');
     const answer = answerOf(await made.press(buttonId(question, 'Add')));
     expect(gymViewOf(answer).lines.at(-1)).toBe('It lies in no region of this server.');
+  });
+
+  it('notes a name by the words this server’s search ignores (plan 19B-2)', async () => {
+    // This server's search ignores "lodge", not "gym".
+    const made = await gymCommandsWith([], {
+      servers: new TestServers(testServerValues({ blacklistWords: ['lodge'] })),
+    });
+    made.geo.enabled = false;
+    const searched = answerOf(
+      await made.press(
+        buttonId(answerOf(await made.use('add', { location: FREE, name: 'The Gym' })), 'Add'),
+      ),
+    );
+    expect(said(searched)).not.toContain('words the search ignores');
+    const ignored = answerOf(
+      await made.press(
+        buttonId(
+          answerOf(await made.use('add', { location: '40.031, -80.031', name: 'The Lodge' })),
+          'Add',
+        ),
+      ),
+    );
+    expect(said(ignored)).toContain('Its name consists only of words the search ignores');
   });
 
   it('notes a name the search ignores, and that nothing is fetched without a key', async () => {

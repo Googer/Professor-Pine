@@ -82,6 +82,20 @@ export function boardedRegions(): Region[] {
 
 export const OTHER_GUILD_ID = '412345678901234568';
 export const OTHER_GUILD_ROW = 2;
+/** The row of the test server (`FAKE_GUILD_ID`), whose regions `testRegions()` are. */
+export const TEST_GUILD_ROW = 1;
+
+/**
+ * The servers of the gyms (plan 19B-2): every gym given (the invented ones unless told
+ * otherwise) belongs to the test server, as an installation of one server has them after the
+ * upgrade (gym 10, in no region, too: nobody else's).
+ */
+export function testLinks(
+  gyms: readonly { id: number }[] = testGyms(),
+  guildId = TEST_GUILD_ROW,
+): { gymId: number; guildId: number }[] {
+  return gyms.map((gym) => ({ gymId: gym.id, guildId }));
+}
 export const NORTH_CHANNEL = '100000000000000004';
 /** A place in North, far from every invented gym. */
 export const NORTH_PLACE: LatLon = { lat: 40.25, lon: -80.05 };

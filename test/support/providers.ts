@@ -12,16 +12,60 @@ import type { PokemonCatalogue } from '../../src/domain/pogo/catalogue.js';
 import type { PokemonEntry } from '../../src/domain/pogo/game-master.js';
 import type { GameDataProvider } from '../../src/services/game-data-service.js';
 import { catalogueFixture } from './game-data.js';
-import { testGyms, testRegions } from './gyms.js';
+import type { GymLink } from '../../src/domain/gyms/gym-server.js';
+import { ServerGyms } from '../../src/services/server-gyms.js';
+import { testGyms, testLinks, testRegions } from './gyms.js';
 import { TEST_SETTINGS_PATH } from './test-settings.js';
 
 /**
  * The invented gyms and regions, searchable, with the words the test settings ignore; `extra`
  * gyms beside them for a test that needs more.
  */
-export function gymsFixture(extra: readonly Gym[] = []): GymProvider {
+export function gymsFixture(
+  extra: readonly Gym[] = [],
+  options: { links?: readonly GymLink[]; regions?: readonly Region[] } = {},
+): TestGyms {
+  return gymsOf([...testGyms(), ...extra], options);
+}
+
+/**
+ * These gyms, searchable, with the words the test settings ignore, each the test server's
+ * unless `links` say otherwise, in the invented regions unless `regions` are given.
+ */
+export function gymsOf(
+  gyms: readonly Gym[],
+  options: { links?: readonly GymLink[]; regions?: readonly Region[] } = {},
+): TestGyms {
   const { blacklistWords } = loadSettings(TEST_SETTINGS_PATH);
-  return new GymLookup([...testGyms(), ...extra], testRegions(), blacklistWords);
+  const regions = options.regions ?? testRegions();
+  const everything = new GymLookup(gyms, regions, blacklistWords);
+  const servers = new ServerGyms(
+    gyms,
+    options.links ?? testLinks(gyms),
+    regions,
+    () => blacklistWords,
+  );
+  return {
+    get: (id) => everything.get(id),
+    isRegion: (channelId) => everything.isRegion(channelId),
+    regionsOf: (gymId) => everything.regionsOf(gymId),
+    inRegion: (channelId) => everything.inRegion(channelId),
+    search: (channelId, text, searchOptions) => everything.search(channelId, text, searchOptions),
+    of: (guildId) => servers.of(guildId),
+    stored: (id) => servers.stored(id),
+    serversOf: (gymId) => servers.serversOf(gymId),
+    remove: (id) => {
+      const known = everything.remove(id);
+      servers.remove(id);
+      return known;
+    },
+  };
+}
+
+/** The gyms of a test, which a test may take a gym out of as a deletion does (`remove`). */
+export interface TestGyms extends GymProvider {
+  /** Takes the gym out of every view at once. False when there was none. */
+  remove(id: number): boolean;
 }
 
 /**

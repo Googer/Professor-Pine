@@ -3,6 +3,7 @@ import {
   distanceUnitsSchema,
   eventsForumSchema,
   flaggedWordsSchema,
+  ignoredWordsSchema,
   inviteSchema,
   regionForumSuffixSchema,
   regionMapLinkSchema,
@@ -116,8 +117,12 @@ export const serverValuesSchema = z.strictObject({
   /** `meetupSafety.flaggedWords` of the file. */
   flaggedWords: flaggedWordsSchema,
   regionForumSuffix: regionForumSuffixSchema,
-  /** Stored; read from the file until plan B makes gym search a server's. */
-  blacklistWords: z.array(z.string()).default([]),
+  /**
+   * The words the server's gym search ignores (`blacklistWords` of the file; plan 19B-2): its
+   * gym directory's view reads them. A blank word is none, so that a row holding one stays
+   * readable; the flagged words' limits (`ignoredWordsSchema`).
+   */
+  blacklistWords: ignoredWordsSchema,
   postNewGyms: z.boolean().default(false),
   regionMapLink: regionMapLinkSchema,
   /** The server's invite for a visitor of its map who is not in it (`web.invites` of the file). */

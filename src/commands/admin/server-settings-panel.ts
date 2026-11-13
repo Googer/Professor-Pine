@@ -41,9 +41,10 @@ import {
  * `server:panel:show` is the menu of the sections; `server:<key>:set` a channel, category, role
  * or units menu (the value picked; none clears it); `server:<key>:set:on|off` a feature's button
  * (what it sets, never a toggle); `server:<key>:ask` opens a dialog, whose Submit is
- * `server:<key>:set:~<token>`. The flagged words too many to show in a dialog (`wordsTooMany`):
- * `server:flaggedWords:ask` opens the words to add (`server:flaggedWords:add:~<token>`),
- * `server:flaggedWords:ask:remove` those to remove (`server:flaggedWords:remove:~<token>`).
+ * `server:<key>:set:~<token>`. A list of words (`WORD_LISTS`: `flaggedWords`, `blacklistWords`)
+ * too many to show in a dialog (`wordsTooMany`): `server:<key>:ask` opens the words to add
+ * (`server:<key>:add:~<token>`), `server:<key>:ask:remove` those to remove
+ * (`server:<key>:remove:~<token>`).
  * `server:<key>:unset` (Leave unset, of a setting the settings file named and the fill did not
  * find: `channels.moderation`, `roles.mapMember`; fix round 3, H9) asks whether to, in that
  * setting's place; `server:<key>:unset:confirm` leaves it unset, `server:<key>:keep` (Keep it
@@ -65,12 +66,22 @@ export const CONFIRM = 'confirm';
 export const KEEP = 'keep';
 
 /**
- * Whether the flagged words are too many to show in a dialog's line of text (Discord's 4,000
+ * Whether a list of words is too many to show in a dialog's line of text (Discord's 4,000
  * characters), so that a dialog adds or removes words rather than replacing them (review G5).
  */
 export function wordsTooMany(words: readonly string[]): boolean {
   return words.join('\n').length > TEXT_ROOM;
 }
+
+/**
+ * The lists of words, each changed in a dialog of one a line and added to or taken from where
+ * too many to show (`wordsTooMany`): meetup safety's flagged words and the words the server's gym
+ * search ignores (plan 19B-2).
+ */
+export const WORD_LISTS = ['flaggedWords', 'blacklistWords'] as const;
+export type WordListKey = (typeof WORD_LISTS)[number];
+export const isWordList = (key: string): key is WordListKey =>
+  (WORD_LISTS as readonly string[]).includes(key);
 /** The id of the sections' menu. */
 export const PANEL = 'panel';
 
@@ -173,6 +184,7 @@ export const DIALOGS = [
   'timezone',
   'eventsForum',
   'flaggedWords',
+  'blacklistWords',
   'regionForumSuffix',
   'regionMapLink',
   'invite',
@@ -495,13 +507,56 @@ function zoneLine(timezone: string, now: number): string {
   );
 }
 
+/** A list of words on the panel: its name, what it does, what it holds when empty. */
+const WORDS_SHOWN: Readonly<Record<WordListKey, { name: string; about: string; none: string }>> = {
+  flaggedWords: {
+    name: 'Flagged words',
+    about: 'a meetup at a place whose name has one asks the moderators first',
+    none: 'none besides Pine’s own',
+  },
+  blacklistWords: {
+    name: 'Words gym search ignores',
+    about: 'in gym names and in what members type, besides common English words',
+    none: 'none',
+  },
+};
+
+/**
+ * A list of words with its Change… (Add… where too many to show in a dialog, and a line of its
+ * own with Remove…: added and removed, never typed anew; review G5).
+ */
+function wordsLines(values: ServerValues, key: WordListKey): APIComponentInContainer[] {
+  const words = values[key];
+  const shown = WORDS_SHOWN[key];
+  const many = wordsTooMany(words);
+  return [
+    section(
+      `**${shown.name}** · ${shown.about}: ` +
+        (words.length === 0
+          ? shown.none
+          : `${count(words.length, 'word')} (${fitItems(
+              words.map((word) => `“${plain(word)}”`),
+              WORDS_ROOM,
+            )})`),
+      many ? changeButton(key, 'Add…') : changeButton(key),
+    ),
+    ...(many
+      ? [
+          section(
+            `Take some of the ${shown.name.toLowerCase()} off the list`,
+            changeButton(key, 'Remove…', [REMOVE]),
+          ),
+        ]
+      : []),
+  ];
+}
+
 function textSection(
   values: ServerValues,
   timezone: string,
   now: number,
 ): APIComponentInContainer[] {
   const forum = values.eventsForum;
-  const words = values.flaggedWords;
   return [
     section(zoneLine(timezone, now), changeButton('timezone')),
     textDisplay('**Distance units** · how Pine says distances'),
@@ -524,25 +579,8 @@ function textSection(
         `**${String(forum.onThisDay)}** big days “On this day”`,
       changeButton('eventsForum'),
     ),
-    section(
-      `**Flagged words** · a meetup at a place whose name has one asks the moderators first: ` +
-        (words.length === 0
-          ? 'none besides Pine’s own'
-          : `${count(words.length, 'word')} (${fitItems(
-              words.map((word) => `“${plain(word)}”`),
-              WORDS_ROOM,
-            )})`),
-      wordsTooMany(words) ? changeButton('flaggedWords', 'Add…') : changeButton('flaggedWords'),
-    ),
-    // Too many to show in a dialog: added and removed, never typed anew (review G5).
-    ...(wordsTooMany(words)
-      ? [
-          section(
-            'Take some of the flagged words off the list',
-            changeButton('flaggedWords', 'Remove…', [REMOVE]),
-          ),
-        ]
-      : []),
+    ...wordsLines(values, 'flaggedWords'),
+    ...wordsLines(values, 'blacklistWords'),
     section(
       `**Ending of region forums** · ${code(values.regionForumSuffix)}`,
       changeButton('regionForumSuffix'),

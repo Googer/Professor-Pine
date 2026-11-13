@@ -476,6 +476,12 @@ export async function startApp(
     gyms: gymRepository,
     regions: new RegionRepository(db),
     ignoredWords: config.settings.blacklistWords,
+    // Each server's search ignores the words its staff set (plan 19B-2); a row whose server is
+    // not known yet has the file's defaults until it is.
+    wordsOf: (row) => {
+      const server = rowIds.serverOfRow(row);
+      return (server === undefined ? servers.defaults() : servers.of(server)).blacklistWords;
+    },
     log,
   });
   // The kept Wayspots of the Wayfarer imports, placed in the regions by their outlines.

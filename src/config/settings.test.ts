@@ -299,6 +299,22 @@ describe('loadSettings', () => {
     });
   });
 
+  it('loads a file whose words gym search ignores hold a blank one, which is none (plan 19B-2)', () => {
+    const loaded = loadSettings(
+      writeSettings((s) => {
+        s.blacklistWords = ['gym', '', ' raid '];
+      }),
+    );
+    expect(loaded.blacklistWords).toEqual(['gym', 'raid']);
+    expect(() =>
+      loadSettings(
+        writeSettings((s) => {
+          s.blacklistWords = ['x'.repeat(101)];
+        }),
+      ),
+    ).toThrow(/blacklistWords/);
+  });
+
   it('has no moderators’ channel and no flagged words unless the file names them', () => {
     const settings = loadSettings(REPO_SETTINGS);
     expect(settings.channels.moderation).toBeUndefined();

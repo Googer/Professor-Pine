@@ -9,6 +9,7 @@ import {
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import { BoundedMap } from '../../bounded-map.js';
+import type { ServerValues } from '../../config/server-settings.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import { storedTextLength } from '../../db/repositories/gym-repository.js';
 import type { GuardableInteraction, LocatedInteraction } from '../../discord/command.js';
@@ -404,10 +405,14 @@ export async function answerForm(
 
 /**
  * What staff are told of a gym whose whole name consists of words the search ignores ("The
- * Gym"): a note, not a refusal. Undefined for any other name.
+ * Gym"), the words of the server's search (`blacklistWords` of its values, plan 19B-2): a note,
+ * not a refusal. Undefined for any other name.
  */
-export function nameNote(ctx: AppContext, gym: Pick<Gym, 'id' | 'name'>): string | undefined {
-  if (searchedWords(gym.name, ctx.config.settings.blacklistWords).length > 0) return undefined;
+export function nameNote(
+  values: Pick<ServerValues, 'blacklistWords'>,
+  gym: Pick<Gym, 'id' | 'name'>,
+): string | undefined {
+  if (searchedWords(gym.name, values.blacklistWords).length > 0) return undefined;
   return (
     'Its name consists only of words the search ignores, so members will not find it by name: ' +
     `only by its number (#${gym.id}), or by a nickname or keywords you give it.`

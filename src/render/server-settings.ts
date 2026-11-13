@@ -223,6 +223,10 @@ function problemWords({ key, message, same }: ValuesProblem): string {
   if (bounds !== undefined) return `${label} ${bounds}`;
   if (/^flaggedWords\.\d+$/u.test(key)) return 'a flagged word is longer than 100 characters';
   if (key === 'flaggedWords') return 'there may be at most 500 flagged words';
+  if (/^blacklistWords\.\d+$/u.test(key)) {
+    return 'a word gym search ignores is longer than 100 characters';
+  }
+  if (key === 'blacklistWords') return 'there may be at most 500 words gym search ignores';
   if (key === 'regionMapLink') return `${label} must be an https:// address`;
   if (key === 'distanceUnits') return `${label} must be imperial or metric`;
   if (OWN_WORDS.has(key)) return `${label} ${own}`;

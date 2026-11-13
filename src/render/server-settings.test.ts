@@ -178,6 +178,16 @@ describe('the words of a refused change', () => {
     expect(refused((values) => ({ ...values, flaggedWords: ['condo', 'x'.repeat(101)] }))).toBe(
       'Not changed: a flagged word is longer than 100 characters.',
     );
+    // The words gym search ignores have the flagged words' limits (plan 19B-2).
+    expect(refused((values) => ({ ...values, blacklistWords: ['mall', 'x'.repeat(101)] }))).toBe(
+      'Not changed: a word gym search ignores is longer than 100 characters.',
+    );
+    expect(
+      refused((values) => ({
+        ...values,
+        blacklistWords: Array.from({ length: 501 }, (_, i) => `w${String(i)}`),
+      })),
+    ).toBe('Not changed: there may be at most 500 words gym search ignores.');
     const lab = '500000000000000001';
     expect(refused((values) => ({ ...values, channels: { unown: lab, moderation: lab } }))).toBe(
       'Not changed: the moderators’ channel must be a channel of its own, not the same as the Unown channel.',

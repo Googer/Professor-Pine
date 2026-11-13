@@ -73,9 +73,9 @@
  * plan 19A-1), with a setting's key as the id: `server:panel:show` (the menu of the sections),
  * `server:<key>:set` (a channel, category, role or units menu: the value picked, none clears),
  * `server:<key>:set:on|off` (a feature's button: what it sets), `server:<key>:ask` (opens the
- * dialog `server:<key>:set:~<token>`); the flagged words too many to show in a dialog
- * `server:flaggedWords:ask` (the dialog `server:flaggedWords:add:~<token>`) and
- * `server:flaggedWords:ask:remove` (`server:flaggedWords:remove:~<token>`); `server:<key>:unset`
+ * dialog `server:<key>:set:~<token>`); a list of words (`flaggedWords`, `blacklistWords`) too
+ * many to show in a dialog `server:<key>:ask` (the dialog `server:<key>:add:~<token>`) and
+ * `server:<key>:ask:remove` (`server:<key>:remove:~<token>`); `server:<key>:unset`
  * (Leave unset, of a setting the settings file named and the fill did not find, which asks),
  * `server:<key>:unset:confirm` (which writes) and `server:<key>:keep` (Keep it closed). The server
  * is the interaction's.

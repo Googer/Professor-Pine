@@ -14,16 +14,14 @@ import {
   WEST_CHANNEL,
   WEST_FORUM,
 } from '../../../test/support/gyms.js';
-import { gymsFixture } from '../../../test/support/providers.js';
+import { gymsFixture, type TestGyms } from '../../../test/support/providers.js';
 import { ALICE, at, BOB, PARTY_NOW, testRaid } from '../../../test/support/parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { MemoryUsers } from '../../../test/support/users.js';
-import type { Gym } from '../../db/repositories/gym-repository.js';
 import { InteractionRouter, type RouterOptions } from '../../discord/router.js';
 import { Throttles } from '../../discord/throttle.js';
 import type { GymProvider } from '../../services/gym-directory.js';
-import type { GymLookup } from '../../domain/search/gym-lookup.js';
 import { PartyStatus, RaidPrivacy } from '../../domain/party/status.js';
 import { NO_POST_MADE } from '../../render/activity.js';
 import { FORUM_TAGS } from '../../render/party-post.js';
@@ -132,7 +130,7 @@ describe('/raid', () => {
   it('says so when the gym was deleted from the gym list a moment before', async () => {
     const { run, store, gateway, gyms } = await setup();
     // The member still had the gym in their list; the services no longer have it.
-    (gyms as GymLookup<Gym>).remove(2);
+    (gyms as TestGyms).remove(2);
     const used = await run({ boss: 'yveltal', gym: 'stone fountain' });
     expect(sent(used.editReply)).toEqual({
       content:

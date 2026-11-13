@@ -97,6 +97,24 @@ describe("a server's values", () => {
   });
 });
 
+describe('the words gym search ignores (plan 19B-2)', () => {
+  it('reads a blank word as none, never as a reason to refuse the row', () => {
+    expect(
+      parseServerValues({ blacklistWords: [' gym ', '', '   ', 'raid'] }).blacklistWords,
+    ).toEqual(['gym', 'raid']);
+    // The limits are refusals still, counted without the blank words.
+    expect(
+      parseServerValues({
+        blacklistWords: [...Array.from({ length: 500 }, (_, i) => `w${String(i)}`), ' '],
+      }).blacklistWords,
+    ).toHaveLength(500);
+    expect(problems({ blacklistWords: ['x'.repeat(101)] })).toEqual(['blacklistWords.0']);
+    expect(
+      problems({ blacklistWords: Array.from({ length: 501 }, (_, i) => `w${String(i)}`) }),
+    ).toEqual(['blacklistWords']);
+  });
+});
+
 describe('the settings the file named and the fill could not find', () => {
   const ROLE = '300000000000000031';
 

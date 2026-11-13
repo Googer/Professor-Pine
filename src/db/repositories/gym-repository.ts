@@ -1,6 +1,7 @@
 import * as he from 'he';
 import { sql, type Kysely, type Updateable } from 'kysely';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
+import type { GymLink } from '../../domain/gyms/gym-server.js';
 import { snowflakeParam } from '../snowflake.js';
 import { polygonWkt } from '../spatial.js';
 import { inTransaction } from '../transaction.js';
@@ -209,6 +210,10 @@ async function insertGym(trx: Kysely<DB>, gym: NewGym): Promise<number> {
 export interface GymStorage {
   get(id: number): Promise<Gym | undefined>;
   listAll(): Promise<Gym[]>;
+  /** Every gym's servers (`GymServer`). */
+  links(): Promise<GymLink[]>;
+  /** The servers one gym belongs to, in order. */
+  linksOf(gymId: number): Promise<number[]>;
   create(gym: NewGym): Promise<Gym>;
   /**
    * Creates gyms as one (plan 8W-6: a block of a Wayfarer import), with the nearest gyms that
@@ -261,6 +266,27 @@ export class GymRepository implements GymStorage {
 
   async listAll(): Promise<Gym[]> {
     return toGyms(await this.select().orderBy('Gym.id').execute());
+  }
+
+  /** Every gym's servers (`GymServer`, plan 19B-2): the server by its `Guild` row. */
+  async links(): Promise<GymLink[]> {
+    return this.db
+      .selectFrom('GymServer')
+      .select(['gymId', 'guildId'])
+      .orderBy('gymId')
+      .orderBy('guildId')
+      .execute();
+  }
+
+  /** The servers one gym belongs to, in order. */
+  async linksOf(gymId: number): Promise<number[]> {
+    const rows = await this.db
+      .selectFrom('GymServer')
+      .select('guildId')
+      .where('gymId', '=', gymId)
+      .orderBy('guildId')
+      .execute();
+    return rows.map((row) => row.guildId);
   }
 
   /** Gyms inside the region of the given channel. Empty when the channel is not a region. */

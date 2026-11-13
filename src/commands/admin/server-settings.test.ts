@@ -688,24 +688,70 @@ describe('/admin settings', () => {
     expect(servers.of(FAKE_GUILD_ID).flaggedWords).toEqual(['garden']);
   });
 
-  it('adds and removes flagged words where they are too many to show, never dropping the list (review G5)', async () => {
-    const many = Array.from({ length: 50 }, (_, i) => `${String(i)}-${'w'.repeat(90)}`);
-    const { press, submit, servers, panel, pick } = await setup({
-      values: testServerValues({ flaggedWords: many }),
+  it('changes the words gym search ignores in a dialog, shown under Text and numbers (plan 19B-2)', async () => {
+    const { press, submit, servers, pick, store } = await setup({
+      values: testServerValues({ blacklistWords: ['gym', 'raid'] }),
     });
-    const add = shownDialog(await press('server:flaggedWords:ask'));
-    expect(add.title).toBe('Words to add');
-    expect(dialogField(add, 'Words to add').value).toBeUndefined();
-    await submit(add, { words: 'garden\ncondo' });
-    expect(servers.of(FAKE_GUILD_ID).flaggedWords).toEqual([...many, 'garden', 'condo']);
-    // The panel offers the removal beside the addition.
-    await panel();
+    const text = textOf(shownAfter(await pick('server:panel:show', ['text'])));
+    expect(text).toContain('**Words gym search ignores**');
+    expect(text).toContain('“gym”, “raid”');
+    const form = shownDialog(await press('server:blacklistWords:ask'));
+    expect(dialogField(form, 'Words').value).toBe('gym\nraid');
+    const set = await submit(form, { words: 'gym\n raid \nMall\nmall\n\n' });
+    expect(textOf(shownAfter(set))).toContain('added “Mall”');
+    expect(servers.of(FAKE_GUILD_ID).blacklistWords).toEqual(['gym', 'raid', 'Mall']);
+    // Logged as any change, by the staff member who made it.
+    expect(store.audit.rows).toMatchObject([
+      {
+        key: 'blacklistWords',
+        actor: { id: STAFF },
+        before: ['gym', 'raid'],
+        after: ['gym', 'raid', 'Mall'],
+      },
+    ]);
+    // A word over the limits is refused, nothing changed.
+    const refused = await submit(shownDialog(await press('server:blacklistWords:ask')), {
+      words: 'x'.repeat(101),
+    });
+    expect(textOf(shownAfter(refused))).toContain(
+      'Not changed: a word gym search ignores is longer than 100 characters.',
+    );
+    expect(servers.of(FAKE_GUILD_ID).blacklistWords).toEqual(['gym', 'raid', 'Mall']);
+  });
+
+  it.each(['flaggedWords', 'blacklistWords'] as const)(
+    'adds and removes %s where they are too many to show, never dropping the list (review G5)',
+    async (key) => {
+      const many = Array.from({ length: 50 }, (_, i) => `${String(i)}-${'w'.repeat(90)}`);
+      const { press, submit, servers, panel, pick } = await setup({
+        values: testServerValues({ [key]: many }),
+      });
+      const add = shownDialog(await press(`server:${key}:ask`));
+      expect(add.title).toBe('Words to add');
+      expect(dialogField(add, 'Words to add').value).toBeUndefined();
+      await submit(add, { words: 'garden\ncondo' });
+      expect(servers.of(FAKE_GUILD_ID)[key]).toEqual([...many, 'garden', 'condo']);
+      // The panel offers the removal beside the addition.
+      await panel();
+      const text = shownAfter(await pick('server:panel:show', ['text']));
+      expectV2Sendable(text);
+      expect(componentCount(text)).toBeLessThanOrEqual(40);
+      expect(buttonsOf(text).map((one) => one.customId)).toContain(`server:${key}:ask:remove`);
+      const remove = shownDialog(await press(`server:${key}:ask:remove`));
+      expect(remove.title).toBe('Words to remove');
+      await submit(remove, { words: `GARDEN\n${many[0] ?? ''}` });
+      expect(servers.of(FAKE_GUILD_ID)[key]).toEqual([...many.slice(1), 'condo']);
+    },
+  );
+
+  it('keeps the Text and numbers section within what Discord takes with both lists too many to show', async () => {
+    const many = Array.from({ length: 50 }, (_, i) => `${String(i)}-${'w'.repeat(90)}`);
+    const { pick } = await setup({
+      values: testServerValues({ flaggedWords: many, blacklistWords: many }),
+    });
     const text = shownAfter(await pick('server:panel:show', ['text']));
-    expect(buttonsOf(text).map((one) => one.customId)).toContain('server:flaggedWords:ask:remove');
-    const remove = shownDialog(await press('server:flaggedWords:ask:remove'));
-    expect(remove.title).toBe('Words to remove');
-    await submit(remove, { words: `GARDEN\n${many[0] ?? ''}` });
-    expect(servers.of(FAKE_GUILD_ID).flaggedWords).toEqual([...many.slice(1), 'condo']);
+    expectV2Sendable(text);
+    expect(componentCount(text)).toBeLessThanOrEqual(40);
   });
 
   it('sets and clears the map link and the invite in dialogs', async () => {

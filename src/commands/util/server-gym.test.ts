@@ -5,20 +5,17 @@ import {
   type FakeInteraction,
 } from '../../../test/support/fake-interactions.js';
 import { gymViewOf } from '../../../test/support/gym-commands.js';
-import { testGyms, testRegions, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { testGyms, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { gymsOf } from '../../../test/support/providers.js';
 import { createTestContext } from '../../../test/support/test-context.js';
-import { TEST_SETTINGS_PATH } from '../../../test/support/test-settings.js';
-import { loadSettings } from '../../config/settings.js';
 import { InteractionRouter } from '../../discord/router.js';
-import { GymLookup } from '../../domain/search/gym-lookup.js';
 import { findGym } from './find-gym.js';
 
 /** `/find-gym` over these gyms (the invented ones unless a test changes them), from West. */
 function setup(change: (gyms: ReturnType<typeof testGyms>) => void = () => undefined) {
   const gyms = testGyms();
   change(gyms);
-  const { blacklistWords } = loadSettings(TEST_SETTINGS_PATH);
-  const { ctx } = createTestContext({ gyms: new GymLookup(gyms, testRegions(), blacklistWords) });
+  const { ctx } = createTestContext({ gyms: gymsOf(gyms) });
   const router = new InteractionRouter(ctx, [findGym], []);
   return async (gym: string): Promise<FakeInteraction> => {
     const interaction = fakeChatInput({

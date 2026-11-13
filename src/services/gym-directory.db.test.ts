@@ -50,6 +50,7 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
       gyms,
       regions,
       ignoredWords: ['gym', 'raid'],
+      wordsOf: () => ['gym', 'raid'],
       log: createTestLogger().log,
     });
     await directory.load();

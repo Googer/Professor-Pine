@@ -22,6 +22,7 @@ import { FakeAttachments } from './attachments.js';
 import { OTHER_STAFF } from './gym-admin.js';
 import { NORTH_CHANNEL, OTHER_GUILD_ID, OTHER_GUILD_ROW, WEST_CHANNEL } from './gyms.js';
 import { MapBudget } from '../../src/services/map-budget.js';
+import type { TestServers } from './server-values.js';
 import { createTestContext } from './test-context.js';
 import { createTestLogger } from './test-logger.js';
 import { wayfarerImportWith } from './wayfarer-import.js';
@@ -179,10 +180,14 @@ export function answerOf(interaction: FakeInteraction): SentPayload {
  * interaction to read back. `file` puts a file where an attachment option finds it
  * (`attachments`).
  */
-export async function gymCommandsWith(parties: readonly Party[] = []) {
+export async function gymCommandsWith(
+  parties: readonly Party[] = [],
+  options: { servers?: TestServers } = {},
+) {
   const made = await wayfarerImportWith(parties);
   const attachments = new FakeAttachments();
   const { ctx, entries } = createTestContext({
+    ...(options.servers ? { servers: options.servers } : {}),
     // The month's maps of places, over the counts `/gym google` reads (`made.googleUse`).
     mapBudget: new MapBudget({
       use: made.googleUse,
