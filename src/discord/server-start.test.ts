@@ -1,3 +1,4 @@
+import { RecordingNotices } from '../../test/support/server-notices.js';
 import { EventEmitter } from 'node:events';
 import { Events, type Client } from 'discord.js';
 import { describe, expect, it } from 'vitest';
@@ -86,7 +87,7 @@ async function start(count = 1) {
   const { log } = createTestLogger();
   const servers = new ServerSettings({ store, settings, log });
   await servers.load();
-  const fill = new ServerFill({ servers, settings, log, tell: () => Promise.resolve() });
+  const fill = new ServerFill({ servers, settings, log, notices: new RecordingNotices() });
   const client = new EventEmitter();
   const cache = new Map<string, FakeGuild>();
   /** What the start-up work did, in order; each sync of `Guild` rows waits for the test (`sync`). */

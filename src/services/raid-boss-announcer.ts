@@ -2,43 +2,61 @@ import type { Settings } from '../config/settings.js';
 import type { PartyGateway } from '../discord/party-gateway.js';
 import type { Logger } from '../log.js';
 import { bossChangeAnnouncement, staleWarning } from '../render/boss-changes.js';
+import { BOT_UPDATES_GONE, botUpdatesRefusedWords } from '../render/server-notices.js';
+import { DM_PRIORITY, type DmSender } from './dm-sender.js';
 import type { FeedChange, RaidBossService, StaleFeed } from './raid-boss-service.js';
-import type { ServerChannelRole } from '../config/server-settings.js';
+import type { ServerNotices } from './server-notices.js';
 import type { ServerSettingsLookup } from './server-settings.js';
 
 /** At most this many announcements wait for Discord; older ones are dropped first. */
 const MAX_WAITING = 10;
 
+/** How long the owner's DM of a stale list is worth sending: a day, the spell may be over. */
+const STALE_DM_MS = 24 * 3_600_000;
+
 export interface RaidBossAnnouncerOptions {
-  gateway: Pick<PartyGateway, 'serverChannels' | 'mayPost' | 'sendMessage'>;
+  gateway: Pick<PartyGateway, 'serverChannels' | 'serverAvailable' | 'mayPost' | 'sendMessage'>;
   /** The servers (snowflakes) the bot is in, as the client knows them once it is ready. */
   serverIds: () => readonly string[];
-  /** Each server's values: its channels for bot updates and of its moderators (plan 19A-1). */
+  /** Each server's values: its channel for bot updates (plan 19A-1). */
   servers: ServerSettingsLookup;
   settings: Pick<Settings, 'raidBosses'>;
   log: Logger;
+  /** The DM queue, for the owner's warning of a stale list (plan 19B-1). */
+  dms: DmSender;
+  /** `OWNER_ID`; blank: nobody is told of a stale list. */
+  ownerId: string;
+  /** What is wrong with a server's bot updates channel, told to its staff (plan 19B-1). */
+  notices: Pick<ServerNotices, 'tell'>;
 }
 
-interface Announcement {
-  /** The channel it goes to in every server, by its role (each server's own, by id). */
-  channel: ServerChannelRole;
-  content: string;
-  /** For the log. */
-  what: 'change' | 'stale';
-  /**
-   * The zone whose list changed (`FeedChange.zone`, plan 19A-2): only the servers in it are told.
-   * None: every server.
-   */
-  zone?: string;
-}
+type Announcement =
+  | {
+      /** A change of the list, to every server's channel for bot updates. */
+      to: 'bot-updates';
+      content: string;
+      /**
+       * The zone whose list changed (`FeedChange.zone`, plan 19A-2): only the servers in it are
+       * told. None: every server.
+       */
+      zone?: string;
+    }
+  | {
+      /** A list out of date, to the owner: the feed is the instance's (plan 19B-1). */
+      to: 'owner';
+      content: string;
+      at: number;
+    };
 
 /**
- * Tells the servers of the bot about the raid boss list: a change of the list as members see it
- * (the feed's list with the overrides in force; plan 19A-2: each zone's change to the servers in
- * that zone, `FeedChange.zone`, so that each server is told of its own once) in the channel for bot updates (where
- * `settings.raidBosses.announceChanges` is on), and a list that is out of date in the
- * moderators' bot channel: in each server the text channel its staff set (plan 19A-1, by id),
- * where the bot may post embeds; a message pings nobody.
+ * Tells about the raid boss list: a change of the list as members see it (the feed's list with
+ * the overrides in force; plan 19A-2: each zone's change to the servers in that zone,
+ * `FeedChange.zone`, so that each server is told of its own once) in each server's channel for
+ * bot updates (where `settings.raidBosses.announceChanges` is on), the text channel its staff set
+ * (plan 19A-1, by id), where the bot may post embeds; and a list that is out of date to the
+ * owner by DM (plan 19B-1: an alert about the instance, once per stale spell as the service
+ * reports it; no server's lab hears of it). A bot updates channel set and gone, or one the bot
+ * may not post in, is told to that server's staff (`ServerNotices`). A message pings nobody.
  *
  * What the service reports before the client is ready waits (`ready`). A message is worded when
  * the event comes. Nobody waits for the sending, and a failure is logged.
@@ -81,19 +99,16 @@ export class RaidBossAnnouncer {
     const content = bossChangeAnnouncement(change.seen);
     if (content === undefined) return;
     this.announce({
-      channel: 'bot-updates',
+      to: 'bot-updates',
       content,
-      what: 'change',
       ...(change.zone === undefined ? {} : { zone: change.zone }),
     });
   }
 
+  /** The list is out of date: the owner is told (none without `OWNER_ID`). */
   stale(event: StaleFeed): void {
-    this.announce({
-      channel: 'mod-bot-lab',
-      content: staleWarning(event.lastSyncedAt),
-      what: 'stale',
-    });
+    if (this.options.ownerId.trim() === '') return;
+    this.announce({ to: 'owner', content: staleWarning(event.lastSyncedAt), at: Date.now() });
   }
 
   /** Waits for the messages that are on their way. For tests. */
@@ -122,23 +137,43 @@ export class RaidBossAnnouncer {
   }
 
   private send(announcement: Announcement): void {
-    const { gateway, serverIds, servers, log } = this.options;
+    if (announcement.to === 'owner') {
+      this.options.dms.send({
+        userId: this.options.ownerId.trim(),
+        message: { content: announcement.content },
+        priority: DM_PRIORITY.normal,
+        eventAt: announcement.at,
+        expiresAt: announcement.at + STALE_DM_MS,
+      });
+      return;
+    }
+    const { gateway, serverIds, servers, log, notices } = this.options;
     for (const guildId of serverIds()) {
       if (announcement.zone !== undefined && servers.zoneOf(guildId) !== announcement.zone)
         continue;
-      const id = servers.of(guildId).channels[announcement.channel];
+      const id = servers.of(guildId).channels['bot-updates'];
       if (id === undefined) continue;
-      const channel = (gateway.serverChannels(guildId) ?? []).find(
-        (one) => one.kind === 'text' && one.id === id && gateway.mayPost(one.id),
-      );
-      if (!channel) continue;
+      // Unavailable (its channels may be out of date), or left: nothing is sent, and nothing is
+      // said to be gone (plan 19B-1).
+      if (!gateway.serverAvailable(guildId)) continue;
+      const channels = gateway.serverChannels(guildId);
+      if (channels === undefined) continue;
+      const channel = channels.find((one) => one.kind === 'text' && one.id === id);
+      if (!channel) {
+        notices.tell(guildId, 'bot-updates:gone', BOT_UPDATES_GONE);
+        continue;
+      }
+      if (!gateway.mayPost(channel.id)) {
+        notices.tell(guildId, 'bot-updates:cannot-post', botUpdatesRefusedWords(channel.id));
+        continue;
+      }
       const sent: Promise<void> = gateway
         .sendMessage(channel.id, { content: announcement.content })
         .then(
           () => undefined,
           (err: unknown) => {
             log.warn(
-              { err, guild: guildId, what: announcement.what },
+              { err, guild: guildId, what: 'change' },
               'could not announce the raid boss list',
             );
           },

@@ -6,6 +6,7 @@ import { MemoryServerSettings } from '../../test/support/server-settings.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
 import { FILL_TRIES, ServerFill, type ServerNames } from './server-fill.js';
+import { ServerNotices } from './server-notices.js';
 import { ServerSettings, SETTINGS_LOADING } from './server-settings.js';
 
 const fileSettings = loadSettings(TEST_SETTINGS_PATH);
@@ -64,24 +65,35 @@ const pittsburgh = serverNamed(SERVER, {
 async function fillWith(
   rows = [] as ReturnType<typeof filledRow>[],
   settings: Settings = fileSettings,
-  more: Partial<Pick<ConstructorParameters<typeof ServerFill>[0], 'recordedForum' | 'tell'>> = {},
+  more: Partial<Pick<ConstructorParameters<typeof ServerFill>[0], 'recordedForum'>> & {
+    /** What sends a notice into the lab (plan 19B-1, `ServerNotices`); recorded unless given. */
+    send?: (channelId: string, text: string) => Promise<void>;
+  } = {},
 ) {
   const store = new MemoryServerSettings(rows);
   const { log, entries } = createTestLogger();
   const servers = new ServerSettings({ store, settings, log, now: () => NOW });
   await servers.load();
   const told: Array<{ channelId: string; text: string }> = [];
+  // The staff's notices as the bot sends them (plan 19B-1): into the server's moderators' bot lab.
+  const notices = new ServerNotices({
+    servers,
+    log,
+    send:
+      more.send ??
+      ((channelId, text) => {
+        told.push({ channelId, text });
+        return Promise.resolve();
+      }),
+  });
   const fill = new ServerFill({
     servers,
     settings,
     log,
-    tell: (channelId, text) => {
-      told.push({ channelId, text });
-      return Promise.resolve();
-    },
-    ...more,
+    notices,
+    ...(more.recordedForum === undefined ? {} : { recordedForum: more.recordedForum }),
   });
-  return { store, servers, fill, told, entries };
+  return { store, servers, fill, told, entries, notices };
 }
 
 /** The fills of servers present at the login (`wireServerStart` begins each), until all are done. */
@@ -172,12 +184,14 @@ describe('the fill: rows for servers that have none', () => {
     const { fill, told, entries } = await fillWith();
     await fillPresent(fill, [serverNamed(JOINED, { roles: ['unown'] })]);
     expect(told).toEqual([]);
+    // Plan 19B-1: said as every notice for a server's staff is, through `ServerNotices`.
     expect(entries).toContainEqual(
       expect.objectContaining({
         level: 40,
         server: JOINED,
-        unmatched: expect.arrayContaining(['the bot lab #the-bot-lab']) as unknown,
-        msg: 'settings of the file not found in a server: they are unset until its staff set them',
+        notice: 'unmatched-settings',
+        text: expect.stringContaining('the bot lab #the-bot-lab') as unknown,
+        msg: 'a server has no moderators’ bot lab: a notice for its staff is only logged',
       }),
     );
   });
@@ -265,7 +279,7 @@ describe('the fill: rows for servers that have none', () => {
     });
     const { servers, fill } = await fillWith([], fileSettings, {
       // A message that does not go out until the fill is done: awaited, it would never be.
-      tell: () => {
+      send: () => {
         told();
         return fill.whenFilled(SERVER);
       },

@@ -339,6 +339,19 @@ describe('FakePartyGateway: the channels of a server', () => {
     expect(fake.serverChannels(fake.guildId)?.map((channel) => channel.id)).not.toContain('c1');
   });
 
+  // Fix round 3, J2: as the real one, a server the bot is not in is not available either.
+  it('says a server available only where the bot is in it and Discord does not say it is unavailable', () => {
+    const fake = new FakePartyGateway();
+    fake.addChannel('x1', 'north', { guildId: OTHER_GUILD });
+    expect(fake.serverAvailable(fake.guildId)).toBe(true);
+    expect(fake.serverAvailable(OTHER_GUILD)).toBe(true);
+    expect(fake.serverAvailable('999')).toBe(false);
+    fake.unavailableServers.add(OTHER_GUILD);
+    expect(fake.serverAvailable(OTHER_GUILD)).toBe(false);
+    // Its channels are still listed, as the real cache keeps them.
+    expect(fake.serverChannels(OTHER_GUILD)).toHaveLength(1);
+  });
+
   it('creates categories and text channels, and writes a text channel’s name as Discord does', async () => {
     const fake = new FakePartyGateway();
     const category = await fake.createCategory(fake.guildId, 'North Hills');

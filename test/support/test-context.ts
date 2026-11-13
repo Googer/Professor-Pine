@@ -1,3 +1,4 @@
+import { RecordingNotices } from './server-notices.js';
 import type { Kysely } from 'kysely';
 import type { AppContext } from '../../src/app-context.js';
 import { Throttles } from '../../src/discord/throttle.js';
@@ -308,6 +309,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       guilds: ctx.guilds,
       settings: ctx.config.settings,
       servers: ctx.servers,
+      notices: new RecordingNotices(),
       log,
     });
   }

@@ -80,9 +80,10 @@ export interface ShardStartWork {
  * the bot while its shard was away comes in the new session's READY, and discord.js then says
  * `GuildAvailable` of it, never `GuildCreate`, so nothing else would record it. Only at the
  * shard's first ready (the start): the warnings of meetup safety (lines of the log at the start,
- * which a new session, several a day, would only repeat; not of a server Discord said unavailable,
- * whose channels are not known yet) and the pictures of the spawns that stood through the restart
- * (after a new session nothing restarted, and later spawns had theirs made when reported).
+ * which a new session, several a day, would only repeat; a server Discord said unavailable, whose
+ * channels are not known yet, is only named there as such, fix round 2, G5) and the pictures of
+ * the spawns that stood through the restart (after a new session nothing restarted, and later
+ * spawns had theirs made when reported).
  * Servers a new session's READY no longer names (`ShardStart.gone`) are not recorded; nothing
  * acts on them yet (plan C marks them left).
  *
@@ -103,12 +104,14 @@ export function shardStartWork(work: ShardStartWork): {
 } {
   let recorded: Set<string> | undefined = new Set();
   return {
-    shardReady: async ({ servers, unavailable, first }, filled) => {
+    shardReady: async ({ servers, first }, filled) => {
       const synced = work.syncServers(servers);
       for (const server of servers) recorded?.add(server);
       await Promise.all([synced, filled]);
       if (!first) return;
-      work.warnAtStart(servers.filter((server) => !unavailable.has(server)));
+      // Every server: meetup safety passes over those Discord says are unavailable (the READY's
+      // `unavailable`, which the cache marks so) and names them (fix round 2, G5).
+      work.warnAtStart(servers);
       work.prepareStanding(servers);
     },
     clientReady: async (cached) => {
@@ -142,11 +145,33 @@ export interface Stopping {
 }
 
 /**
+ * The shutdown's step of the raid and the max boss syncs (`BossFeedService`; fix round 3, J1):
+ * five seconds, as each had one of its own, so that the stack's limits keep a margin (143 s with
+ * every optional step, `operations.md`). Both are stopped first (no read starts; one under way is
+ * aborted), then both are waited for at once: a sync in flight may be writing its list, which
+ * finishes before the pool closes.
+ */
+export function bossSyncStep(syncs: {
+  raid: Stopping & { whenIdle(): Promise<void> };
+  max: Stopping & { whenIdle(): Promise<void> };
+}): ShutdownStep {
+  return {
+    name: 'boss syncs',
+    timeoutMs: 5_000,
+    run: async () => {
+      syncs.raid.stop();
+      syncs.max.stop();
+      await Promise.all([syncs.raid.whenIdle(), syncs.max.whenIdle()]);
+    },
+  };
+}
+
+/**
  * The shutdown's step of the events feed and the events forum (plan 8V-1, branch review BR-2):
- * one second, as the feed's alone was, so the stack's limits still add up to 145 s
- * (`operations.md`). The forum is stopped first (no draw starts; one under way ends at its next
- * post, re-review RR-3), then the feed (a read under way is aborted); both are waited for. No
- * forum in rehearsal mode.
+ * one second, as the feed's alone was (the stack's limits add up to 143 s with every optional
+ * step, `operations.md`). The forum is stopped first (no draw starts; one under way ends at its
+ * next post, re-review RR-3), then the feed (a read under way is aborted); both are waited for.
+ * No forum in rehearsal mode.
  */
 export function eventsFeedStep(parts: {
   events: Stopping & { whenIdle(): Promise<void> };
@@ -163,6 +188,28 @@ export function eventsFeedStep(parts: {
   };
 }
 
+/** How long direct messages that wait at shutdown are still sent (spec 9). */
+const DM_DRAIN_MS = 10_000;
+
+/**
+ * The shutdown's step of the direct messages (spec 9): the queued DMs go on at their usual rate
+ * for ten seconds, the rest is dropped; within the step's twelve. What a server's staff are told
+ * on its way (`ServerNotices.flush`, plan 19B-1) is sent beside them while Discord is connected,
+ * within the same twelve seconds, so the stack's limits gain no step (fix round 2, G3).
+ */
+export function directMessagesStep(parts: {
+  dms: { drain(ms: number): Promise<void> };
+  notices: { flush(): Promise<void> };
+}): ShutdownStep {
+  return {
+    name: 'direct messages',
+    timeoutMs: 12_000,
+    run: async () => {
+      await Promise.all([parts.dms.drain(DM_DRAIN_MS), parts.notices.flush()]);
+    },
+  };
+}
+
 /**
  * The shutdown's steps of the reports at stops, in their order, after the spawn reports: the
  * pictures first, so that no picture is fetched any more (the fetches on their way are aborted,
@@ -170,8 +217,8 @@ export function eventsFeedStep(parts: {
  * grunts' messages, which stand on with their reports (the next start's sweep deletes them); then
  * the lines of the region channels on their way (plan 8R-9, which wait for the posts' links) and
  * what waits to be drawn in the posts of the stops, in one step. Ten seconds in all (the stack's
- * limits add up to 145 s, `operations.md`). The grunts' messages, the lines and the posts are none
- * in rehearsal mode.
+ * limits add up to 143 s with every optional step, `operations.md`). The grunts' messages, the
+ * lines and the posts are none in rehearsal mode.
  */
 export function stopReportSteps(parts: {
   pictures: Closing;

@@ -74,6 +74,7 @@ async function setup(
           settings: loaded,
           servers: made.servers,
           forumName: 'events',
+          notices: made.notices,
           log: made.log,
         })
       : undefined;

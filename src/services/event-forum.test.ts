@@ -1,3 +1,4 @@
+import { labNotices, RecordingNotices, setLab } from '../../test/support/server-notices.js';
 import { describe, expect, it, vi } from 'vitest';
 import { OverwriteType, PermissionFlagsBits } from 'discord.js';
 import { partyStoreWith, testMeetup, testRaid, testTrain } from '../../test/support/parties.js';
@@ -16,7 +17,7 @@ import {
 } from '../domain/time/event-listing.js';
 import { parseBigEventFeed, parseMaxEventFeed } from '../domain/time/max-events.js';
 import { readSpawnEventFeed } from '../../test/support/spawn-events.js';
-import type { OutgoingMessage } from '../discord/party-gateway.js';
+import { PostsRefusedError, type OutgoingMessage } from '../discord/party-gateway.js';
 import { listedEvent } from '../../test/support/event-forum-store-cases.js';
 import { eventPostMessage } from '../render/events-forum.js';
 import { activityDay } from '../../test/support/activity-cases.js';
@@ -62,6 +63,8 @@ function eventForumWith(
     eventsForum?: string;
     /** The server's numbers of its events forum (`eventsForum` of its values). */
     numbers?: ServerValues['eventsForum'];
+    /** The notices over the test's servers (`labNotices`); `RecordingNotices` unless given. */
+    notices?: (servers: TestServers) => EventForumOptions['notices'];
   } = {},
 ) {
   const gateway = new FakePartyGateway();
@@ -90,7 +93,10 @@ function eventForumWith(
   const clock = { now: options.now ?? at('2026-11-10T12:00') };
   const timers: { run: () => void; ms: number; cancelled: boolean }[] = [];
   const { log, entries } = createTestLogger();
+  // What is wrong with the server's setup, told to its staff (plan 19B-1), recorded.
+  const notices = new RecordingNotices();
   const deps: ConstructorParameters<typeof EventForumService>[0] = {
+    notices: options.notices?.(servers) ?? notices,
     gateway,
     store,
     events: {
@@ -162,6 +168,7 @@ function eventForumWith(
     listeners,
     restarted,
     another,
+    notices,
   };
 }
 
@@ -500,7 +507,7 @@ describe('EventForumService: the listing "Events" (plan 8V-1)', () => {
   });
 
   it('says once that a forum is gone, and does nothing for that server until it is back', async () => {
-    const { read, gateway, forumId, entries } = await drawn();
+    const { read, gateway, forumId, entries, notices } = await drawn();
     gateway.gone.add(forumId);
     const posts = gateway.posts.size;
     await read([COMMUNITY_DAY, FAR_OFF]);
@@ -509,6 +516,34 @@ describe('EventForumService: the listing "Events" (plan 8V-1)', () => {
     expect(entries.filter((entry) => entry.msg === 'the events forum is gone')).toEqual([
       expect.objectContaining({ level: 40, guild: SERVER, forum: forumId }),
     ]);
+    // Plan 19B-1: and to the server's staff, who must choose another; asked at each draw while
+    // it is gone (fix round 2, G2), which `ServerNotices` says once.
+    const gone = {
+      server: SERVER,
+      key: 'events-forum:gone',
+      text:
+        'The events forum set for this server is gone, so I post no events. Staff choose ' +
+        'another in /admin settings, or make one with /admin setup-forums.',
+    };
+    expect(notices.told).toEqual([gone, gone]);
+  });
+
+  // Fix round 2, G4: during an outage the cache may not show the forum; nothing is said gone.
+  it('draws nothing and says nothing gone in a server Discord says is unavailable', async () => {
+    const { read, gateway, forumId, entries, notices } = await drawn();
+    gateway.unavailableServers.add(SERVER);
+    gateway.gone.add(forumId);
+    const posts = gateway.posts.size;
+    const calls = gateway.calls.length;
+    await read([COMMUNITY_DAY, FAR_OFF]);
+    expect(gateway.posts.size).toBe(posts);
+    expect(gateway.calls.slice(calls)).toEqual([]);
+    expect(entries.filter((entry) => entry.msg === 'the events forum is gone')).toEqual([]);
+    expect(notices.told).toEqual([]);
+    // Back, and the forum still not there: now it is gone.
+    gateway.unavailableServers.delete(SERVER);
+    await read([COMMUNITY_DAY, FAR_OFF]);
+    expect(notices.told.map((one) => one.key)).toEqual(['events-forum:gone']);
   });
 });
 
@@ -772,6 +807,15 @@ describe('EventForumService: the review’s fixes (plan 8V-1, round 1)', () => {
     expect(
       made.entries.filter((entry) => entry.msg === 'could not pin the events listing'),
     ).toHaveLength(1);
+    // Plan 19B-1: and to the server's staff, at each refusal (fix round 2, G2).
+    const unpinned = {
+      server: SERVER,
+      key: 'events-forum:pin',
+      text:
+        'I could not pin the events listing in <#600000000000000001>, the events forum. Staff ' +
+        'give me Manage Posts there, or unpin the post that holds the forum’s one pin.',
+    };
+    expect(made.notices.told).toEqual([unpinned, unpinned]);
   });
 
   // V5: a post a moderator deleted follows its event's move, so it is not made under the new id.
@@ -825,7 +869,7 @@ describe('EventForumService: the re-review’s fixes (plan 8V-1, round 2)', () =
 
   // W1: a rename that keeps failing does not have the unchanged message sent again each draw.
   it('edits a renamed event’s message once, and retries only the rename while it is refused', async () => {
-    const { postOf, read, gateway } = await drawn();
+    const { postOf, read, gateway, forumId, notices } = await drawn();
     const post = await postOf(COMMUNITY_DAY.id);
     gateway.failing.set('renamePost', missingPermissions('PATCH'));
     const renamed = { ...COMMUNITY_DAY, name: 'Pawniard and Bisharp Community Day' };
@@ -835,6 +879,16 @@ describe('EventForumService: the re-review’s fixes (plan 8V-1, round 2)', () =
     expect(post?.edits).toBe(edits + 1);
     expect(gateway.calls.filter((call) => call === `renamePost ${post?.id ?? ''}`)).toHaveLength(2);
     expect(post?.title).toBe('Pawniard Community Day');
+    // Plan 19B-1: the server's staff are told what the bot lacks there, at each refusal (fix
+    // round 2, G2).
+    const refused = {
+      server: SERVER,
+      key: 'events-forum:manage-posts',
+      text:
+        `I may not manage the posts of <#${forumId}>, the events forum, so I cannot close or ` +
+        'rename the posts of events that ended. Staff give me Manage Posts there.',
+    };
+    expect(notices.told).toEqual([refused, refused]);
   });
 
   // W2: no draw straddles setup's change of forum: a draw under way ends first.
@@ -1131,6 +1185,36 @@ describe('EventForumService: how many posts a feed may make (plan 8Z-2)', () => 
     expect(await posted()).toEqual(ids);
     // Nothing is left: no draw is set for more.
     expect(later()).toEqual([]);
+  });
+
+  // Plan 19B-1: a permission missing needs the staff; another refusal is only logged.
+  it('tells the server’s staff that it may not make posts in the events forum, only for a permission', async () => {
+    const { read, gateway, notices, servers } = await empty();
+    const forumId = servers.of(SERVER).channels.events ?? '';
+    gateway.failing.set('createPost', new Error('blocked by AutoMod'));
+    await read(events(2));
+    expect(notices.told).toEqual([]);
+    gateway.failing.set('createPost', new PostsRefusedError(forumId, ['Send Messages in Posts']));
+    await read(events(3));
+    gateway.failing.set('createPost', missingPermissions('POST'));
+    await read(events(4));
+    expect(notices.told).toEqual([
+      {
+        server: SERVER,
+        key: 'events-forum:cannot-post',
+        text:
+          `I may not make posts in <#${forumId}>, the events forum: I lack the permission Send ` +
+          'Messages in Posts there, so I post no events. Staff give me what it needs in the ' +
+          'forum’s settings.',
+      },
+      {
+        server: SERVER,
+        key: 'events-forum:cannot-post',
+        text:
+          `I may not make posts in <#${forumId}>, the events forum: Discord does not let me make ` +
+          'posts there, so I post no events. Staff give me what it needs in the forum’s settings.',
+      },
+    ]);
   });
 
   it('counts a post Discord refused among the ten, and sets no draw for more where it refused all', async () => {
@@ -1905,7 +1989,8 @@ describe('EventForumService in each server’s zone (plan 19A-2)', () => {
   /** Two servers with their forums drawn: this one in New York, `OTHER` in Berlin. */
   async function twoServers(now = at('2026-11-10T12:00')) {
     const made = eventForumWith({ events: [LOCAL_DAY], now });
-    made.gateway.addChannel(OTHER_FORUM, 'events', { kind: 'forum' });
+    // In `OTHER`, so that the bot is in that server (fix round 3, J2).
+    made.gateway.addChannel(OTHER_FORUM, 'events', { kind: 'forum', guildId: OTHER });
     made.gateway.addForum(OTHER_FORUM, [], 'events');
     await made.store.setForum(OTHER, OTHER_FORUM);
     const values = made.servers.of(SERVER);
@@ -1974,5 +2059,93 @@ describe('EventForumService in each server’s zone (plan 19A-2)', () => {
     const live = timers.filter((one) => !one.cancelled).map((one) => one.ms);
     expect(live).toContain(kolkata('2026-11-11T00:00') - clock.now + 1_000);
     expect(live).not.toContain(berlin('2026-11-11T00:00') - clock.now + 1_000);
+  });
+});
+
+// Fix round 2, G2: the once per server is the log's; a notice is asked at every occasion, so the
+// staff of a server that had no moderators' bot lab hear of it once they set one.
+describe('EventForumService: a notice told at the next occasion once the server has a lab', () => {
+  const LAB = '300000000000000099';
+  /** The service whose notices go through a real `ServerNotices`; the server has no lab. */
+  const withLabs = (options: Parameters<typeof eventForumWith>[0] = {}) => {
+    const held: { lab?: ReturnType<typeof labNotices> } = {};
+    const made = eventForumWith({
+      ...options,
+      notices: (servers) => (held.lab = labNotices(servers)).notices,
+    });
+    const { lab } = held;
+    if (!lab) throw new Error('no notices made');
+    /** What the server's lab was sent, once the notices on their way are. */
+    const sent = async () => {
+      await lab.notices.flush();
+      return lab.sent.map((one) => `${one.channelId} ${one.text}`);
+    };
+    return { ...made, sent };
+  };
+  const drawn = async () => {
+    const made = withLabs({ events: [COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD] });
+    const setup = await made.service.setup(SERVER, STAFF);
+    made.service.start();
+    await made.service.flush();
+    return { ...made, forumId: setup.forum === 'created' ? setup.forumId : '' };
+  };
+
+  it('tells that the events forum is gone at the next draw, said once in the log', async () => {
+    const { read, gateway, forumId, entries, servers, sent } = await drawn();
+    gateway.gone.add(forumId);
+    await read([COMMUNITY_DAY, FAR_OFF]);
+    expect(await sent()).toEqual([]);
+    setLab(servers, SERVER, LAB);
+    await read([COMMUNITY_DAY]);
+    await read([COMMUNITY_DAY, FAR_OFF]);
+    expect(await sent()).toEqual([
+      `${LAB} The events forum set for this server is gone, so I post no events. Staff choose ` +
+        'another in /admin settings, or make one with /admin setup-forums.',
+    ]);
+    expect(entries.filter((entry) => entry.msg === 'the events forum is gone')).toHaveLength(1);
+  });
+
+  it('tells that it may not manage the posts at the next refusal, said once in the log', async () => {
+    const { read, gateway, entries, servers, sent } = await drawn();
+    gateway.failing.set('renamePost', missingPermissions('PATCH'));
+    const renamed = { ...COMMUNITY_DAY, name: 'Pawniard and Bisharp Community Day' };
+    await read([renamed, RAID_HOUR, INTO_THE_WILD]);
+    expect(await sent()).toEqual([]);
+    setLab(servers, SERVER, LAB);
+    await read([renamed, RAID_HOUR, INTO_THE_WILD]);
+    expect((await sent()).map((text) => text.slice(0, LAB.length + 33))).toEqual([
+      `${LAB} I may not manage the posts of <#`,
+    ]);
+    expect(
+      entries.filter(
+        (entry) => entry.msg === 'the bot may not do this in the events forum (Manage Posts)',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('tells that it could not pin the listing at the next try, said once in the log', async () => {
+    const FORUM = '600000000000000001';
+    const made = withLabs({ events: [COMMUNITY_DAY], eventsForum: FORUM });
+    made.gateway.addChannel(FORUM, 'events', { kind: 'forum' });
+    made.gateway.addForum(FORUM, [], 'events');
+    const other =
+      (await made.gateway.createPost(FORUM, {
+        title: 'Rules',
+        message: { content: 'Be kind.' },
+        tagIds: [],
+      })) ?? '';
+    await made.gateway.pinPost(other);
+    await made.service.setup(SERVER, STAFF);
+    expect(await made.sent()).toEqual([]);
+    setLab(made.servers, SERVER, LAB);
+    made.service.start();
+    await made.read([COMMUNITY_DAY, RAID_HOUR]);
+    expect(await made.sent()).toEqual([
+      `${LAB} I could not pin the events listing in <#${FORUM}>, the events forum. Staff give me ` +
+        'Manage Posts there, or unpin the post that holds the forum’s one pin.',
+    ]);
+    expect(
+      made.entries.filter((entry) => entry.msg === 'could not pin the events listing'),
+    ).toHaveLength(1);
   });
 });

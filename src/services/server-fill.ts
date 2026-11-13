@@ -1,3 +1,4 @@
+import type { ServerNotices } from './server-notices.js';
 import {
   CHANNEL_LABELS,
   fileCategoryAndRoleNames,
@@ -195,8 +196,11 @@ export class ServerFill {
       servers: Pick<ServerSettings, 'has' | 'of' | 'create' | 'upgrading' | 'filling'>;
       settings: Settings;
       log: Logger;
-      /** Sends a plain message into a channel (the moderators' bot lab); never throws. */
-      tell: (channelId: string, text: string) => Promise<void>;
+      /**
+       * Tells a server's staff in its moderators' bot lab, or logs it without one (plan 19B-1,
+       * `ServerNotices`); returns at once and never throws.
+       */
+      notices: Pick<ServerNotices, 'tell'>;
       /** The events forum recorded for a server (`EventForumRepository.forum`), if any. */
       recordedForum?: (serverId: string) => Promise<string | undefined>;
     },
@@ -242,7 +246,7 @@ export class ServerFill {
   /**
    * One try of a server's fill. Never rejects (fix round 3, H5): whatever fails, the names read
    * from the cache as well as the write, is tried again (`tryAgain`). Done once the row is
-   * written: the bot lab is told on the side (H4; `tell` never throws).
+   * written: the bot lab is told on the side (H4; `ServerNotices.tell` never throws).
    */
   private async fill(
     names: ServerNames,
@@ -261,22 +265,12 @@ export class ServerFill {
       if (!made) return;
       log.info({ server: names.serverId, setUp }, "server's settings filled");
       if (unmatched.length === 0 && closed.length === 0 && several.length === 0) return;
-      const lab = servers.of(names.serverId).channels['mod-bot-lab'];
-      if (lab === undefined) {
-        log.warn(
-          {
-            server: names.serverId,
-            unmatched,
-            closed: closed.map((one) => one.key),
-            several: several.map((one) => one.setting),
-          },
-          unmatched.length === 0 && closed.length === 0
-            ? 'names of the file match several channels in a server: one of each was taken'
-            : 'settings of the file not found in a server: they are unset until its staff set them',
-        );
-        return;
-      }
-      void this.options.tell(lab, unmatchedWords(unmatched, closed, several));
+      // In the server's moderators' bot lab, or the log without one (plan 19B-1).
+      this.options.notices.tell(
+        names.serverId,
+        'unmatched-settings',
+        unmatchedWords(unmatched, closed, several),
+      );
     } catch (err) {
       this.tryAgain(names, how, attempt, err);
     }

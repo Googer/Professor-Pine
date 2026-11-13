@@ -655,9 +655,19 @@ describe('MeetupSafety.warnAtStart', () => {
   const warnedOf = (made: Awaited<ReturnType<typeof meetupSafetyWith>>) =>
     made.entries.filter((entry) => entry.level === 40).map((entry) => [entry.msg, entry.servers]);
   const THIRD_SERVER = '412345678901234569';
+  // A server the bot is in has a channel in the fake gateway (fix round 3, J2: one it has none of
+  // is not available, as the real one says of a server the bot is not in).
+  const present = (made: Awaited<ReturnType<typeof meetupSafetyWith>>, servers: string[]) => {
+    servers.forEach((server, i) => {
+      made.gateway.addChannel(`70000000000000${String(i).padStart(4, '0')}`, 'general', {
+        guildId: server,
+      });
+    });
+  };
 
   it("says in one line which servers have no moderators' channel", async () => {
     const made = await meetupSafetyWith();
+    present(made, [OTHER_SERVER, THIRD_SERVER]);
     made.servers.changed.set(OTHER_SERVER, testServerValues());
     made.servers.changed.set(THIRD_SERVER, testServerValues());
     made.safety.warnAtStart([SERVER, OTHER_SERVER, THIRD_SERVER]);
@@ -676,7 +686,9 @@ describe('MeetupSafety.warnAtStart', () => {
       OTHER_SERVER,
       testServerValues({ unmatched: ['channels.moderation'] }),
     );
+    present(made, [OTHER_SERVER]);
     // THIRD_SERVER: the test's moderators' channel, which is not among its channels.
+    made.gateway.addChannel('700000000000000071', 'general', { guildId: THIRD_SERVER });
     made.safety.warnAtStart([SERVER, OTHER_SERVER, THIRD_SERVER]);
     expect(warnedOf(made)).toEqual([
       [
@@ -698,11 +710,71 @@ describe('MeetupSafety.warnAtStart', () => {
     const made = await meetupSafetyWith();
     made.safety.warnAtStart([SERVER]);
     expect(warnedOf(made)).toEqual([]);
+    expect(made.notices.told).toEqual([]);
+  });
+
+  // Plan 19B-1: what is wrong with a server's setup goes to its own staff, in words for them.
+  it('tells each server’s staff in their moderators’ bot lab what keeps meetup safety from working', async () => {
+    const made = await meetupSafetyWith();
+    made.gateway.noEmbeds.add(MOD_CHANNEL);
+    // Named in the file and not found: the fill told the server already (its marker).
+    made.servers.changed.set(
+      OTHER_SERVER,
+      testServerValues({ unmatched: ['channels.moderation'] }),
+    );
+    // No moderators' channel chosen: the staff's choice, only logged.
+    const OFF = '412345678901234570';
+    made.servers.changed.set(OFF, testServerValues());
+    // A server Discord says is unavailable: its channels may be out of date, nothing is told.
+    const AWAY = '412345678901234571';
+    present(made, [OTHER_SERVER, THIRD_SERVER, OFF, AWAY]);
+    made.gateway.unavailableServers.add(AWAY);
+    made.safety.warnAtStart([SERVER, OTHER_SERVER, THIRD_SERVER, OFF, AWAY]);
+    expect(made.notices.told).toEqual([
+      {
+        server: SERVER,
+        key: 'meetup-safety:cannot-post',
+        text:
+          `I may not post in <#${MOD_CHANNEL}>, the moderators’ channel, so meetups that need a ` +
+          'moderator’s approval cannot be made here. Staff give me View Channel, Send Messages ' +
+          'and Embed Links there.',
+      },
+      {
+        server: THIRD_SERVER,
+        key: 'meetup-safety:gone',
+        text:
+          'The moderators’ channel set for this server is gone, so meetups that need a ' +
+          'moderator’s approval cannot be made here. Staff choose another in /admin settings.',
+      },
+    ]);
+    expect(made.notices.of(AWAY)).toEqual([]);
+  });
+
+  // Fix round 2, G5: the servers passed over are said, so that nobody takes them for checked.
+  it('says in one line which servers it could not check, Discord saying they are unavailable', async () => {
+    const made = await meetupSafetyWith();
+    const AWAY = '412345678901234571';
+    const ALSO_AWAY = '412345678901234572';
+    // Without a moderators' channel, as the row says: named among the unavailable alone.
+    made.servers.changed.set(ALSO_AWAY, testServerValues());
+    for (const server of [AWAY, ALSO_AWAY]) made.gateway.unavailableServers.add(server);
+    made.safety.warnAtStart([SERVER, AWAY, ALSO_AWAY]);
+    expect(warnedOf(made)).toEqual([
+      [
+        "could not check the moderators' channel of these servers: Discord says they are unavailable",
+        [AWAY, ALSO_AWAY],
+      ],
+    ]);
   });
 
   it('lists the first 50 servers of a reason and how many more', async () => {
     const made = await meetupSafetyWith();
     const many = Array.from({ length: 53 }, (_, i) => `4123456789012${String(i).padStart(5, '0')}`);
+    many.forEach((server, i) => {
+      made.gateway.addChannel(`70000000000001${String(i).padStart(4, '0')}`, 'general', {
+        guildId: server,
+      });
+    });
     made.safety.warnAtStart(many);
     expect(warnedOf(made)).toEqual([
       [

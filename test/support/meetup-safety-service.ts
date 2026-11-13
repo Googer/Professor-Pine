@@ -60,6 +60,8 @@ export async function meetupSafetyWith(
     },
     settings,
     servers: made.servers,
+    // The notices of the party services' world (plan 19B-1): `made.notices`.
+    notices: made.notices,
     log: made.log,
     now: () => made.clock.now,
   });

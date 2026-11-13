@@ -49,6 +49,8 @@ import type { PartyListener, PartyProvider } from './party-store.js';
 import type { RegionProvider } from './region-directory.js';
 import { moderatorsNamed } from '../config/server-settings.js';
 import type { ServerSettingsLookup } from './server-settings.js';
+import { DM_PRIORITY, type DmSender } from './dm-sender.js';
+import { listTierOwnerDm } from '../render/shared-change-dm.js';
 
 /** A member's report of a party, as `/report` (or the Apps menu) gives it. */
 export interface PartyReportAsk {
@@ -141,7 +143,7 @@ export interface ModerationReportsOptions {
   /** Meetup safety's gateway (its own in rehearsal mode): the moderators' posts go through it. */
   gateway: Pick<
     PartyGateway,
-    'findChannel' | 'sendMessage' | 'editMessage' | 'deleteMessage' | 'deleteReported'
+    'findChannel' | 'sendMessage' | 'editMessage' | 'deleteMessage' | 'deleteReported' | 'guildName'
   >;
   parties: Pick<
     PartyService,
@@ -159,6 +161,16 @@ export interface ModerationReportsOptions {
   settings: Settings;
   /** Each server's values: its moderators' channel, which reports go to (plan 19A-1). */
   servers: ServerSettingsLookup;
+  /**
+   * Whether a server's staff change what every server shares from it (plan 19B-1,
+   * `serverStaffShareData`: the operators' tiers): where they may not, a note of screenshots
+   * against the boss list names no command, and the owner is told. Unless given, they may.
+   */
+  staffChangeShared?: (serverId: string) => boolean;
+  /** `OWNER_ID`, told through `dms`; blank or none: nobody is. */
+  ownerId?: string;
+  /** The DM queue, for the owner's note of screenshots against the boss list (plan 19B-1). */
+  dms?: DmSender;
   log: Logger;
   now?: () => number;
   /**
@@ -222,6 +234,8 @@ export class ModerationReports {
 
   /** By server and Power Spot name (`spotNameKey`): when the moderators were told it is missing. */
   private readonly spotsNoted = new BoundedMap<string, number>(1_000);
+  /** By sighting (`sightingKey`), of any server: when the owner was told the list disagrees. */
+  private readonly ownerNoted = new BoundedMap<string, number>(1_000);
   /** By server and sighting (`sightingKey`): when the moderators were told the list disagrees. */
   private readonly tiersNoted = new BoundedMap<string, number>(1_000);
 
@@ -336,11 +350,18 @@ export class ModerationReports {
    * `LIST_TIER_NOTE_DAYS` (review M4; in memory: a restart may tell once more). True when the
    * staff were told, now or before; false without the moderators' channel, which is a log line
    * only (the server and the channel). Sent on the side; one not sent or refused is forgotten,
-   * so the next screenshot sends it.
+   * so the next screenshot sends it. Where the server's staff may not change the list (plan
+   * 19B-1, `staffChangeShared`), the note names no command, and the owner is told by DM instead
+   * (`listTierOwnerDm`), once per sighting of any server in `LIST_TIER_NOTE_DAYS`.
    */
   listTier(notice: ListTierNotice): boolean {
     const { gateway, log } = this.options;
     const about = { server: notice.serverId, channel: notice.channelId };
+    const operatorsDecide = this.options.staffChangeShared?.(notice.serverId) === false;
+    const who = {
+      operatorsDecide,
+      operatorsTold: operatorsDecide && this.tellOwnerOfListTier(notice),
+    };
     const channelId = this.channelOf(notice.serverId, notice.channelId);
     if (channelId === undefined) {
       log.info(about, 'screenshots disagree with the boss list');
@@ -354,12 +375,37 @@ export class ModerationReports {
     const work = async (): Promise<void> => {
       let sent: string | undefined;
       try {
-        sent = await gateway.sendMessage(channelId, { content: listTierNote(notice) });
+        sent = await gateway.sendMessage(channelId, { content: listTierNote(notice, who) });
       } finally {
         if (sent === undefined) this.tiersNoted.delete(key);
       }
     };
     this.aside(work(), about, 'could not tell the moderators of screenshots against the boss list');
+    return true;
+  }
+
+  /**
+   * Tells the owner by DM of screenshots against the boss list where the server's staff may not
+   * change it (plan 19B-1), through the queue as the other DMs about shared data, once per
+   * sighting in `LIST_TIER_NOTE_DAYS` whichever server it came from. True where there is an owner
+   * to tell (told now or before).
+   */
+  private tellOwnerOfListTier(notice: ListTierNotice): boolean {
+    const { dms, gateway } = this.options;
+    const ownerId = this.options.ownerId?.trim() ?? '';
+    if (ownerId === '' || dms === undefined) return false;
+    const key = sightingKey(notice);
+    const now = this.now();
+    const noted = this.ownerNoted.get(key);
+    if (noted !== undefined && now - noted < LIST_TIER_NOTE_DAYS * DAY) return true;
+    this.ownerNoted.set(key, now);
+    dms.send({
+      userId: ownerId,
+      message: listTierOwnerDm(notice, gateway.guildName(notice.serverId)),
+      priority: DM_PRIORITY.normal,
+      eventAt: now,
+      expiresAt: now + DAY,
+    });
     return true;
   }
 

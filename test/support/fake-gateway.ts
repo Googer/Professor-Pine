@@ -473,6 +473,11 @@ export class FakePartyGateway implements PartyGateway {
     string,
     { name: string; kind: ServerChannel['kind']; categoryId: string | null; guildId: string }
   >();
+  /**
+   * The servers (by snowflake) Discord says are unavailable (`serverAvailable`, plan 19B-1); their
+   * channels are still listed, as the real one's cache keeps them.
+   */
+  readonly unavailableServers = new Set<string>();
   /** The servers (by snowflake) in which the bot may not create channels. */
   readonly noCreating = new Set<string>();
   /** The ids of the channels and categories that were created, in order. */
@@ -2059,6 +2064,14 @@ export class FakePartyGateway implements PartyGateway {
       }
     }
     return listed.length === 0 && guildId !== this.guildId ? undefined : listed;
+  }
+
+  /**
+   * A server the bot is in (one `serverChannels` lists) and not in `unavailableServers` (plan
+   * 19B-1; fix round 3, J2: as the real one, false for a server the bot is not in).
+   */
+  serverAvailable(guildId: string): boolean {
+    return !this.unavailableServers.has(guildId) && this.serverChannels(guildId) !== undefined;
   }
 
   /** A forum of the fake, a channel given with `addChannel`; none that is gone. */

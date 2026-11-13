@@ -424,8 +424,17 @@ function noteTier(tier: RaidTier | MaxTier): string {
  * M3), every add with `days:7` (I6), the tier by its choice's name as Discord shows it (`Dynamax
  * 2★`, `Shadow T5`; review J4: Discord finds a choice by its name), and where
  * an add puts the boss at the list's tier, its removal instead (M7). Member ids are never in it.
+ * Where the server's staff may not change the list (plan 19B-1, `operatorsDecide`: an open
+ * instance, or a server it does not list), no command: the operators of this Pine decide it,
+ * and the note says they were told where they were (`operatorsTold`).
  */
-export function listTierNote(notice: ListTierNotice): string {
+export function listTierNote(
+  notice: ListTierNotice,
+  who: { operatorsDecide: boolean; operatorsTold: boolean } = {
+    operatorsDecide: false,
+    operatorsTold: false,
+  },
+): string {
   const name = plain(truncate(notice.name, 80));
   const boss = notice.family === 'max' ? `Dynamax ${name}` : name;
   const heads = headsOf(notice.headsTier);
@@ -433,11 +442,18 @@ export function listTierNote(notice: ListTierNotice): string {
     `Screenshots show **${boss}** with ${count(heads, 'head')} (${noteTier(notice.headsTier)}) ` +
     `${count(notice.count, 'time')} since yesterday, but the boss list has it at ` +
     noteTier(notice.listTier);
+  const by = notice.overrideId === undefined ? '' : `, by override #${String(notice.overrideId)}`;
+  if (who.operatorsDecide) {
+    return (
+      `${shown}${by}. The boss list is the same in every server of this Pine, and its ` +
+      `operators decide it${who.operatorsTold ? ': they have been told' : ''}.`
+    );
+  }
   const then = `If the game has it at ${noteTier(notice.headsTier)}`;
   if (notice.overrideId !== undefined) {
     const id = String(notice.overrideId);
     return (
-      `${shown}, by override #${id}. ${then}, that override may be wrong: ` +
+      `${shown}${by}. ${then}, that override may be wrong: ` +
       `\`/operator boss remove override:${id}\``
     );
   }

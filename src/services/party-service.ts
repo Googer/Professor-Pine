@@ -1,3 +1,5 @@
+import { forumRefusedWords } from '../render/server-notices.js';
+import type { ServerNotices } from './server-notices.js';
 import { DiscordAPIError } from 'discord.js';
 import { isNetworkError } from './network-error.js';
 import type { Settings } from '../config/settings.js';
@@ -758,6 +760,11 @@ export interface PartyServiceOptions {
    * snowflakes, else the instance's default zone (warned of once per row).
    */
   serverOfRow?: (row: number) => string | undefined;
+  /**
+   * What is wrong with a server's setup, told to its staff in its moderators' bot lab (plan
+   * 19B-1, `ServerNotices`): a forum the bot may not make posts in.
+   */
+  notices: Pick<ServerNotices, 'tell'>;
   log: Logger;
   now?: () => number;
   /**
@@ -2428,7 +2435,7 @@ export class PartyService {
       await this.abandon(fresh.id, NO_POST);
       if (err instanceof PostLostError) return { kind: 'no-post' };
       if (err instanceof PostsRefusedError) {
-        this.postsRefusedIn(err);
+        this.postsRefusedIn(err, region);
         return { kind: 'no-post', refused: { forumId: err.forumId, missing: err.missing } };
       }
       throw err;
@@ -2486,15 +2493,26 @@ export class PartyService {
   }
 
   /**
-   * Logs, once per forum while the bot runs, that it may not make posts there (the owner reads
-   * the log; the member is told by the command): staff must give it what it lacks.
+   * Says that the bot may not make posts in a forum (the member is told by the command): in the
+   * log with the server, once per forum while the bot runs, and to the server's staff in its
+   * moderators' bot lab (plan 19B-1), who must give it what it lacks, asked at every refusal
+   * (fix round 2, G2: `ServerNotices` says it once, and again at the next refusal where it could
+   * not, so a lab set later hears of it).
    */
-  private postsRefusedIn(refusal: PostsRefusedError): void {
-    if (this.refusedForums.has(refusal.forumId)) return;
-    this.refusedForums.set(refusal.forumId, true);
-    this.options.log.warn(
-      { forum: refusal.forumId, missing: refusal.missing },
-      'the bot may not make posts in a forum: staff must give it the permissions',
+  private postsRefusedIn(refusal: PostsRefusedError, region: Pick<Region, 'guildId'>): void {
+    const server = this.serverOfRow(region.guildId);
+    if (!this.refusedForums.has(refusal.forumId)) {
+      this.refusedForums.set(refusal.forumId, true);
+      this.options.log.warn(
+        { server, forum: refusal.forumId, missing: refusal.missing },
+        'the bot may not make posts in a forum: staff must give it the permissions',
+      );
+    }
+    if (server === undefined) return;
+    this.options.notices.tell(
+      server,
+      `forum-posts:${refusal.forumId}`,
+      forumRefusedWords(refusal.forumId, refusal.missing),
     );
   }
 

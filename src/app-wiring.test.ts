@@ -8,7 +8,10 @@ import {
 } from '../test/support/stop-report-cases.js';
 import { reportedRaid } from '../test/support/party-service.js';
 import { TestServers, testServerValues, withZones } from '../test/support/server-values.js';
+import { heldCall } from '../test/support/held-call.js';
 import {
+  bossSyncStep,
+  directMessagesStep,
   eventsFeedStep,
   followZones,
   liveSources,
@@ -184,7 +187,8 @@ describe('the wiring of the pictures and the reports at stops (plan 8R-6)', () =
     expect(
       entries.filter((entry) => entry.msg === 'shutdown step finished').map((e) => e.step),
     ).toEqual(['pictures of the stops', 'grunt reports', 'posts of the stops']);
-    // Ten seconds in all: the stack's limits add up to 145 s (`operations.md`).
+    // Ten seconds in all: the stack's limits add up to 143 s with every optional step
+    // (`operations.md`).
     expect(steps.reduce((sum, step) => sum + step.timeoutMs, 0)).toBe(10_000);
   });
 
@@ -201,6 +205,60 @@ describe('the wiring of the pictures and the reports at stops (plan 8R-6)', () =
       log,
     )();
     expect(closed).toEqual(['pictures']);
+  });
+});
+
+describe('the shutdown step of the direct messages and the server notices (plan 19B-1)', () => {
+  it('sends the notices on their way beside the queued DMs, in the DMs’ twelve seconds', async () => {
+    const { log } = createTestLogger();
+    const done: string[] = [];
+    const draining = heldCall('the DMs’ drain');
+    const step = directMessagesStep({
+      dms: {
+        drain: (ms) => {
+          done.push(`drain ${String(ms)}`);
+          draining.arrive();
+          return draining.released;
+        },
+      },
+      notices: { flush: () => Promise.resolve(void done.push('notices sent')) },
+    });
+    expect(step.timeoutMs).toBe(12_000);
+    const stopping = createShutdown([step], log)();
+    await draining.reached;
+    // Not one after the other: the notices go while the DMs drain.
+    expect(done).toEqual(['drain 10000', 'notices sent']);
+    draining.release();
+    await stopping;
+  });
+});
+
+describe('the shutdown step of the boss syncs (fix round 3, J1)', () => {
+  it('stops both syncs in one step of five seconds, then waits for both at once', async () => {
+    const { log } = createTestLogger();
+    const done: string[] = [];
+    const raidSync = heldCall('the raid boss sync');
+    const step = bossSyncStep({
+      raid: {
+        stop: () => void done.push('raid stopped'),
+        whenIdle: () => {
+          done.push('raid waited for');
+          raidSync.arrive();
+          return raidSync.released;
+        },
+      },
+      max: {
+        stop: () => void done.push('max stopped'),
+        whenIdle: () => Promise.resolve(void done.push('max waited for')),
+      },
+    });
+    expect(step.timeoutMs).toBe(5_000);
+    const stopping = createShutdown([step], log)();
+    await raidSync.reached;
+    // Not one after the other: the max sync is waited for while the raid sync's write finishes.
+    expect(done).toEqual(['raid stopped', 'max stopped', 'raid waited for', 'max waited for']);
+    raidSync.release();
+    await stopping;
   });
 });
 
@@ -269,8 +327,8 @@ describe('the start-up work of a shard (plan 19D)', () => {
     });
     expect(done).toEqual([
       ['sync', [SERVER_A, SERVER_B]],
-      // An unavailable server's channels are not known: no warning of a channel it lacks.
-      ['warn', [SERVER_A]],
+      // Every server: meetup safety passes over an unavailable one and names it (fix round 2, G5).
+      ['warn', [SERVER_A, SERVER_B]],
       ['spawns', [SERVER_A, SERVER_B]],
     ]);
   });

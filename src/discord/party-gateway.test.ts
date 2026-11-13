@@ -1742,6 +1742,35 @@ describe('DiscordPartyGateway: a post where the bot may not make one', () => {
   });
 });
 
+describe('DiscordPartyGateway: whether a server is available (plan 19B-1)', () => {
+  it('says a server Discord says is unavailable, or one the bot is not in, is not; its channels stay listed', () => {
+    const channel = { id: 'c1', name: 'bot-updates', type: ChannelType.GuildText, parentId: null };
+    const guildOf = (available: boolean) => ({
+      available,
+      channels: {
+        cache: new Map([['c1', { ...channel, isThread: () => false, createdTimestamp: 1 }]]),
+      },
+    });
+    const gateway = new DiscordPartyGateway(createTestLogger().log);
+    gateway.use({
+      guilds: {
+        cache: new Map([
+          ['up', guildOf(true)],
+          ['down', guildOf(false)],
+        ]),
+      },
+    } as unknown as Client);
+    expect(gateway.serverAvailable('up')).toBe(true);
+    expect(gateway.serverAvailable('down')).toBe(false);
+    expect(gateway.serverAvailable('gone')).toBe(false);
+    // The web map, the editor and the regions' removal read the channels during an outage too.
+    const listed = [{ id: 'c1', name: 'bot-updates', kind: 'text', categoryId: null }];
+    expect(gateway.serverChannels('up')).toEqual(listed);
+    expect(gateway.serverChannels('down')).toEqual(listed);
+    expect(gateway.serverChannels('gone')).toBeUndefined();
+  });
+});
+
 describe('DiscordPartyGateway: a category that continues another (plan 8S-4)', () => {
   /**
    * A server whose category `k1` (at position 4) keeps everyone out; what `channels.create` was

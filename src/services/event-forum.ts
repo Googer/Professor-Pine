@@ -1,3 +1,10 @@
+import {
+  EVENTS_FORUM_GONE,
+  eventsForumCannotPostWords,
+  eventsForumRefusedWords,
+  eventsListingUnpinnedWords,
+} from '../render/server-notices.js';
+import type { ServerNotices } from './server-notices.js';
 import { SnowflakeUtil } from 'discord.js';
 import type { Settings } from '../config/settings.js';
 import { fileChannelNames } from '../config/server-settings.js';
@@ -9,6 +16,7 @@ import type {
 } from '../db/repositories/event-forum-repository.js';
 import {
   isMissingPermission,
+  PostsRefusedError,
   rateLimitWaitMs,
   type OutgoingMessage,
   type PartyGateway,
@@ -178,6 +186,12 @@ export interface EventForumOptions {
   events: ListedEventProvider;
   settings: Pick<Settings, 'web'>;
   /**
+   * What keeps the forum from being drawn as it should, told to the server's staff in its
+   * moderators' bot lab (plan 19B-1, `ServerNotices`): the forum gone, Manage Posts refused, the
+   * listing not pinned.
+   */
+  notices: Pick<ServerNotices, 'tell'>;
+  /**
    * Each server's values (plan 19A-1): its events forum, by id (set by `setup` when it makes
    * one), its channel for bot updates, the map's member role; its zone and the zones in use
    * (plan 19A-2), in which its forum is drawn and its midnights come.
@@ -263,9 +277,9 @@ export class EventForumService {
   private readonly refusedPosts = new BoundedMap<string, number>(POSTS_SENT_KEPT);
   /** The setup under way of each server (`setup`, BR-6). */
   private readonly setups = new Map<string, Promise<unknown>>();
-  /** The servers whose forum is gone, said once each until it is back. */
+  /** The servers whose forum is gone, logged once each until it is back. */
   private readonly forumGoneTold = new Set<string>();
-  /** What Discord refused, said once per server and what (`pin`, `lock`, `archive`). */
+  /** What Discord refused, logged once per server and what (`pin`, `lock`, `archive`). */
   private readonly refusedTold = new Set<string>();
   /** The servers whose forum has as many event posts as it may, said once each (`tellFull`). */
   private readonly fullTold = new Set<string>();
@@ -586,11 +600,17 @@ export class EventForumService {
     // Only the forum the server's staff chose (plan 19A-1): none chosen, or another one not set
     // up yet (`/admin setup-forums` records it), nothing is drawn.
     if (servers.of(serverId).channels.events !== forumId) return 'failed';
+    // A server Discord says is unavailable (an outage) is not drawn, and its forum, which the
+    // cache may not show, is not said to be gone (fix round 2, G4); the next draw tries again.
+    if (!gateway.serverAvailable(serverId)) return 'failed';
     if (gateway.channelKind(forumId) !== 'forum') {
       if (!this.forumGoneTold.has(serverId)) {
         this.forumGoneTold.add(serverId);
         log.warn({ guild: serverId, forum: forumId }, 'the events forum is gone');
       }
+      // At every draw (fix round 2, G2): `ServerNotices` says it once, and again at the next
+      // draw where it could not, so a lab set later hears of it.
+      this.options.notices.tell(serverId, 'events-forum:gone', EVENTS_FORUM_GONE);
       return 'failed';
     }
     this.forumGoneTold.delete(serverId);
@@ -612,6 +632,8 @@ export class EventForumService {
       const where = { err, guild: serverId, forum: forumId };
       if (isNetworkError(err)) log.warn(where, 'could not draw the events forum');
       else log.error(where, 'could not draw the events forum');
+      // The listing's post refused for a permission: the staff must give it (plan 19B-1).
+      this.tellIfPostsRefused(serverId, forumId, err);
       return 'failed';
     }
   }
@@ -862,6 +884,7 @@ export class EventForumService {
           return await this.makePost(forum, event, zone, planned.get(event.id));
         } catch (err) {
           refused = true;
+          this.tellIfPostsRefused(serverId, forum.forumId, err);
           throw err;
         }
       });
@@ -1249,31 +1272,72 @@ export class EventForumService {
     return true;
   }
 
-  /** Pins a post; a refused permission is said once per server (a moderator can pin it). */
+  /**
+   * Pins a post; a refusal is logged once per server (a moderator can pin it), and the server's
+   * staff are told at every refusal (fix round 2, G2: `ServerNotices` says it once).
+   */
   private async pin(serverId: string, postId: string): Promise<void> {
     try {
       await this.options.gateway.pinPost(postId);
     } catch (err) {
       // Whatever it is (Manage Posts refused, another post holding the forum's one pin, 30047):
-      // said once per server, and the lock, the record and the draw carry on (review V4).
+      // logged once per server, and the lock, the record and the draw carry on (review V4).
       const key = `${serverId}:pin`;
-      if (this.refusedTold.has(key)) return;
+      if (!this.refusedTold.has(key)) {
+        this.refusedTold.add(key);
+        this.options.log.warn(
+          { err, guild: serverId, post: postId },
+          'could not pin the events listing',
+        );
+      }
+      const forumId = this.options.servers.of(serverId).channels.events;
+      if (forumId !== undefined) {
+        this.options.notices.tell(
+          serverId,
+          'events-forum:pin',
+          eventsListingUnpinnedWords(forumId),
+        );
+      }
+    }
+  }
+
+  /**
+   * Says that Discord refused the bot a permission: in the log once per server and what, to the
+   * server's staff at every refusal (fix round 2, G2: `ServerNotices` says it once).
+   */
+  private refused(serverId: string, what: 'lock' | 'archive' | 'rename', err: unknown): void {
+    const key = `${serverId}:${what}`;
+    if (!this.refusedTold.has(key)) {
       this.refusedTold.add(key);
       this.options.log.warn(
-        { err, guild: serverId, post: postId },
-        'could not pin the events listing',
+        { err, guild: serverId, what },
+        'the bot may not do this in the events forum (Manage Posts)',
+      );
+    }
+    // One notice for the three: each needs Manage Posts (plan 19B-1).
+    const forumId = this.options.servers.of(serverId).channels.events;
+    if (forumId !== undefined) {
+      this.options.notices.tell(
+        serverId,
+        'events-forum:manage-posts',
+        eventsForumRefusedWords(forumId),
       );
     }
   }
 
-  /** Says once per server and what that Discord refused the bot a permission. */
-  private refused(serverId: string, what: 'lock' | 'archive' | 'rename', err: unknown): void {
-    const key = `${serverId}:${what}`;
-    if (this.refusedTold.has(key)) return;
-    this.refusedTold.add(key);
-    this.options.log.warn(
-      { err, guild: serverId, what },
-      'the bot may not do this in the events forum (Manage Posts)',
+  /**
+   * Tells the server's staff that the bot may not make posts in the events forum (plan 19B-1),
+   * where Discord refused a post for a permission (`PostsRefusedError`, a missing permission or
+   * access): they must give it. Any other refusal (AutoMod, an outage) is only logged, as it is.
+   */
+  private tellIfPostsRefused(serverId: string, forumId: string, err: unknown): void {
+    const missing =
+      err instanceof PostsRefusedError ? err.missing : isMissingPermission(err) ? [] : undefined;
+    if (missing === undefined) return;
+    this.options.notices.tell(
+      serverId,
+      'events-forum:cannot-post',
+      eventsForumCannotPostWords(forumId, missing),
     );
   }
 

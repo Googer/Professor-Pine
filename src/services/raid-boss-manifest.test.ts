@@ -1,3 +1,5 @@
+import { RecordingDms } from '../../test/support/dms.js';
+import { RecordingNotices } from '../../test/support/server-notices.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakePartyGateway } from '../../test/support/fake-gateway.js';
 import { catalogueFixture } from '../../test/support/game-data.js';
@@ -880,6 +882,9 @@ describe('RaidBossService with Leek Duck’s raid manifest', () => {
         servers,
         settings: { raidBosses: { ...base.raidBosses, announceChanges: true } },
         log: createTestLogger().log,
+        dms: new RecordingDms(),
+        ownerId: '',
+        notices: new RecordingNotices(),
       });
       // 09:59 in Chicago, 10:59 in New York: Halloween Part I is on in New York only.
       now = zonedAt('2026-10-27T09:59', CHICAGO);

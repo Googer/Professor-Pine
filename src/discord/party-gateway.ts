@@ -591,6 +591,12 @@ export interface PartyGateway {
    */
   serverChannels(guildId: string): ServerChannel[] | undefined;
   /**
+   * Whether Discord says a server is available, from the cache: false during an outage of its
+   * (when its channels may be out of date, so none can be said to be gone) and for a server the
+   * bot is not in (plan 19B-1). What tells a server's staff that a channel is gone asks it first.
+   */
+  serverAvailable(guildId: string): boolean;
+  /**
    * What kind of channel an id is, from the cache (which follows every channel of the bot's
    * servers with the Guilds intent); undefined for one the bot does not know (gone, or never
    * seen). Threads are `other`.
@@ -2446,6 +2452,10 @@ export class DiscordPartyGateway implements PartyGateway {
         kind: DiscordPartyGateway.kindOf(channel.type),
         categoryId: channel.type === ChannelType.GuildCategory ? null : channel.parentId,
       }));
+  }
+
+  serverAvailable(guildId: string): boolean {
+    return this.client.guilds.cache.get(guildId)?.available === true;
   }
 
   channelKind(channelId: string): ServerChannel['kind'] | undefined {

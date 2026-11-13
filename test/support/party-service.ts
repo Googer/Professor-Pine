@@ -1,3 +1,4 @@
+import { RecordingNotices } from './server-notices.js';
 import { MemoryTargetWants } from './target-wants.js';
 import { gymStop, stopHandle, stopKey, type StopRef } from '../../src/domain/party/stops.js';
 import { loadSettings } from '../../src/config/settings.js';
@@ -405,6 +406,8 @@ export async function partyServiceWith(
   // One list of gyms for all the services, as in the bot; a test of gym administration passes
   // its own (a directory that changes).
   const gyms = forService.gyms ?? gymsFixture();
+  // What is wrong with a server's setup, told to its staff (plan 19B-1), recorded.
+  const notices = new RecordingNotices();
   const service = new PartyService({
     store,
     gateway,
@@ -429,6 +432,7 @@ export async function partyServiceWith(
     // Long enough that nothing runs by itself during a test.
     renderDelayMs: 3_600_000,
     sharedDelayMs: 3_600_000,
+    notices,
     // The raids along an ended train's way (plan 8H-7A), from the records in memory.
     raidsAlong: history,
     // What ended parties left, kept by the storage the store writes to.
@@ -607,6 +611,7 @@ export async function partyServiceWith(
     now,
   });
   return {
+    notices,
     service,
     attendance,
     access,

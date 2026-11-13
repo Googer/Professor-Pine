@@ -1,4 +1,5 @@
 import type { V2Message } from '../discord/party-gateway.js';
+import { listTierNote, type ListTierNotice } from './moderation.js';
 import { plainNoLinks } from './text.js';
 import { textMessage } from './v2.js';
 
@@ -28,10 +29,6 @@ export interface SharedChangeView {
  * id), and what changed. Nothing on it to press.
  */
 export function sharedChangeDm(view: SharedChangeView): V2Message {
-  const named = (name: string | undefined, fallback: string): string => {
-    const shown = name === undefined ? '' : plainNoLinks(name).trim();
-    return shown === '' ? fallback : shown;
-  };
   return textMessage(SHARED_ACCENT, [
     `### ${view.title ?? 'Shared data changed'}`,
     `**${named(view.by.name, 'A member')}** · ${view.by.id}\n` +
@@ -40,4 +37,24 @@ export function sharedChangeDm(view: SharedChangeView): V2Message {
         : `from **${named(view.server.name, 'a server')}** · ${view.server.id}`),
     view.change,
   ]);
+}
+
+/**
+ * The DM to the bot's owner about screenshots that keep disagreeing with the boss list in a server
+ * whose staff may not change it (plan 19B-1; `ModerationReports.listTier`): the server (its name
+ * through `plainNoLinks`, and its id), and the note the staff would have had, the command
+ * included (`listTierNote`): the boss, its tiers, what the screenshots showed. No member.
+ */
+export function listTierOwnerDm(notice: ListTierNotice, serverName: string | undefined): V2Message {
+  return textMessage(SHARED_ACCENT, [
+    '### Screenshots disagree with the boss list',
+    `from **${named(serverName, 'a server')}** · ${notice.serverId}`,
+    listTierNote(notice),
+  ]);
+}
+
+/** A name as the owner's DMs show it, plain and without links; `fallback` for none. */
+function named(name: string | undefined, fallback: string): string {
+  const shown = name === undefined ? '' : plainNoLinks(name).trim();
+  return shown === '' ? fallback : shown;
 }

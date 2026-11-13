@@ -16,8 +16,13 @@ import type { RaidTier } from '../domain/pogo/raid-tier.js';
 import { RaidBossAnnouncer } from './raid-boss-announcer.js';
 import type { FeedChange } from './raid-boss-service.js';
 import { TestServers, testServerValues, withZones } from '../../test/support/server-values.js';
+import { RecordingDms } from '../../test/support/dms.js';
+import { RecordingNotices } from '../../test/support/server-notices.js';
+import { TEST_ENV } from '../../test/support/test-env.js';
+import { DM_PRIORITY } from './dm-sender.js';
 
 const HOUR = 60 * 60_000;
+const OWNER = TEST_ENV.OWNER_ID ?? '';
 const OTHER_GUILD = '412345678901234599';
 const UPDATES = '700000000000000001';
 const OTHER_UPDATES = '700000000000000003';
@@ -56,7 +61,7 @@ const ZEKROM_OVERRIDE: NewBossOverride = {
   createdBy: '123456789012345678',
 };
 
-function setup(options: { announceChanges?: boolean; servers?: string[] } = {}) {
+function setup(options: { announceChanges?: boolean; servers?: string[]; ownerId?: string } = {}) {
   const gateway = new FakePartyGateway();
   const base = loadSettings(TEST_SETTINGS_PATH);
   const settings = {
@@ -74,18 +79,25 @@ function setup(options: { announceChanges?: boolean; servers?: string[] } = {}) 
     testServerValues({ channels: { 'bot-updates': OTHER_UPDATES } }),
   );
   servers.changed.set('412345678901234500', testServerValues({ channels: {} }));
+  const dms = new RecordingDms();
+  const notices = new RecordingNotices();
   const announcer = new RaidBossAnnouncer({
     gateway,
     serverIds: () => options.servers ?? [gateway.guildId],
     servers,
     settings,
     log,
+    dms,
+    ownerId: options.ownerId ?? OWNER,
+    notices,
   });
   const sentTo = (channelId: string) =>
     gateway.messages
       .filter((message) => message.channelId === channelId)
       .map((message) => message.message.content);
-  return { gateway, announcer, entries, sentTo, servers };
+  /** The owner's DMs, as plain text. */
+  const toOwner = () => dms.to(OWNER).map((message) => (message as { content: string }).content);
+  return { gateway, announcer, entries, sentTo, servers, dms, notices, toOwner };
 }
 
 /** The feed as downloaded, without Yveltal and with Zekrom. */
@@ -206,16 +218,61 @@ describe('RaidBossAnnouncer', () => {
   });
 
   it('keeps the ten newest announcements while it waits for the client', async () => {
-    const { gateway, announcer, sentTo } = setup();
-    gateway.addChannel('700000000000000005', 'mod-bot-only');
+    const { announcer, toOwner } = setup();
     for (let hour = 1; hour <= 11; hour++) {
       announcer.stale({ lastSyncedAt: hour * HOUR, reason: 'down' });
     }
+    expect(toOwner()).toEqual([]);
     announcer.ready();
     await announcer.flush();
-    const sent = sentTo('700000000000000005');
+    const sent = toOwner();
     expect(sent).toHaveLength(10);
     expect(sent[0]).toContain(`<t:${String((2 * HOUR) / 1000)}:f>`);
+  });
+
+  // Plan 19B-1: what is wrong with one server's setup goes to its own staff.
+  it('tells a server’s staff that its bot updates channel is gone or takes no post', async () => {
+    const { gateway, announcer, notices } = setup({
+      servers: ['412345678901234567', OTHER_GUILD, '412345678901234500'],
+    });
+    // The main server's channel is gone; the other's takes no embeds; the third set none.
+    gateway.addChannel('700000000000000003', 'bot-updates', { guildId: OTHER_GUILD });
+    gateway.noEmbeds.add('700000000000000003');
+    announcer.ready();
+    announcer.changed(change([], [zekrom]));
+    await announcer.flush();
+    expect(gateway.messages).toEqual([]);
+    expect(notices.told).toEqual([
+      {
+        server: '412345678901234567',
+        key: 'bot-updates:gone',
+        text:
+          'The bot updates channel set for this server is gone, so I could not announce a ' +
+          'change of the raid bosses. Staff choose another in /admin settings.',
+      },
+      {
+        server: OTHER_GUILD,
+        key: 'bot-updates:cannot-post',
+        text:
+          `I may not post in <#700000000000000003>, the bot updates channel, so I could not ` +
+          'announce a change of the raid bosses. Staff give me View Channel, Send Messages ' +
+          'and Embed Links there.',
+      },
+    ]);
+  });
+
+  it('tells nothing of a server Discord says is unavailable', async () => {
+    const AWAY = '412345678901234599';
+    const { announcer, notices, servers, gateway } = setup({ servers: [AWAY] });
+    servers.changed.set(AWAY, testServerValues({ channels: { 'bot-updates': OTHER_UPDATES } }));
+    // Its channels as the cache kept them, without the bot updates channel: not said to be gone.
+    gateway.addChannel('700000000000000071', 'general', { guildId: AWAY });
+    gateway.unavailableServers.add(AWAY);
+    announcer.ready();
+    announcer.changed(change([], [zekrom]));
+    await announcer.flush();
+    expect(gateway.messages).toEqual([]);
+    expect(notices.told).toEqual([]);
   });
 
   it('passes over a server it has left, and a server without the channel', async () => {
@@ -231,7 +288,7 @@ describe('RaidBossAnnouncer', () => {
   });
 
   it('waits in flush for the messages on their way, and sends nothing once closed', async () => {
-    const { gateway, announcer } = setup();
+    const { gateway, announcer, dms } = setup();
     gateway.addChannel('700000000000000001', 'bot-updates');
     announcer.ready();
     announcer.changed(change([], [zekrom]));
@@ -243,10 +300,13 @@ describe('RaidBossAnnouncer', () => {
     announcer.stale({ lastSyncedAt: HOUR, reason: 'down' });
     await announcer.flush();
     expect(gateway.messages).toHaveLength(1);
+    expect(dms.jobs).toEqual([]);
   });
 
-  it('warns the moderators of a stale list once, without the error, whatever the setting', async () => {
-    const { gateway, announcer, sentTo } = setup({ announceChanges: false });
+  it('warns the owner of a stale list once, without the error, whatever the setting (plan 19B-1)', async () => {
+    const { gateway, announcer, sentTo, dms, toOwner, notices } = setup({
+      announceChanges: false,
+    });
     gateway.addChannel('700000000000000005', 'mod-bot-only');
     gateway.addChannel('700000000000000001', 'bot-updates');
     const bosses = await raidBossServiceWith({ staleAfterMs: 48 * HOUR });
@@ -259,11 +319,25 @@ describe('RaidBossAnnouncer', () => {
     bosses.state.now += HOUR;
     await bosses.service.sync();
     await announcer.flush();
-    const [warning, ...more] = sentTo('700000000000000005');
+    const [warning, ...more] = toOwner();
     expect(more).toEqual([]);
     expect(warning).toContain(`since <t:${String(readAt / 1000)}:f>`);
     expect(warning).not.toContain('500');
     expect(warning).not.toContain('secret');
+    expect(dms.jobs[0]).toMatchObject({ userId: OWNER, priority: DM_PRIORITY.normal });
+    // The feed is the instance's: no server's channel hears of it.
+    expect(sentTo('700000000000000005')).toEqual([]);
     expect(sentTo('700000000000000001')).toEqual([]);
+    expect(notices.told).toEqual([]);
+  });
+
+  it('tells nobody of a stale list without an owner', async () => {
+    const { announcer, dms, gateway } = setup({ ownerId: ' ' });
+    gateway.addChannel('700000000000000005', 'mod-bot-only');
+    announcer.ready();
+    announcer.stale({ lastSyncedAt: HOUR, reason: 'down' });
+    await announcer.flush();
+    expect(dms.jobs).toEqual([]);
+    expect(gateway.messages).toEqual([]);
   });
 });

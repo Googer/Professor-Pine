@@ -1,6 +1,9 @@
 import type { ModerationReport } from '../../src/domain/moderation/reports.js';
 import type { Party } from '../../src/domain/party/party.js';
-import { ModerationReports } from '../../src/services/moderation-reports.js';
+import {
+  ModerationReports,
+  type ModerationReportsOptions,
+} from '../../src/services/moderation-reports.js';
 import { meetupSafetyWith, MOD_CHANNEL, type SafetyOptions } from './meetup-safety-service.js';
 import type { ServiceOverrides } from './party-service.js';
 import { MemoryReports } from './reports.js';
@@ -18,6 +21,8 @@ export async function reportsWith(
   options: SafetyOptions = {},
   parties: readonly Party[] = [],
   overrides: ServiceOverrides = {},
+  /** The owner and whether a server's staff change the boss list (plan 19B-1); DMs in `dms`. */
+  shared: Pick<ModerationReportsOptions, 'ownerId' | 'staffChangeShared'> = {},
 ) {
   const made = await meetupSafetyWith(options, parties, overrides);
   const reportStore = new MemoryReports();
@@ -33,6 +38,8 @@ export async function reportsWith(
     servers: made.servers,
     log: made.log,
     now: () => made.clock.now,
+    dms: made.dms,
+    ...shared,
   });
   reports.watch(made.store);
   const reportPostOf = (report: Pick<ModerationReport, 'messageId'>) =>

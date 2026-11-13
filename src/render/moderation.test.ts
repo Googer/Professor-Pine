@@ -395,6 +395,22 @@ describe('listTierNote (plan 8X-J)', () => {
     );
   });
 
+  // Plan 19B-1: where the server's staff may not change the list, no command is theirs to run.
+  it('says that the operators decide where the staff may not, with no command', () => {
+    expect(listTierNote(max, { operatorsDecide: true, operatorsTold: false })).toBe(
+      'Screenshots show **Dynamax Sneasel** with 2 heads (2★) 3 times since yesterday, but the ' +
+        'boss list has it at 1★. The boss list is the same in every server of this Pine, and ' +
+        'its operators decide it.',
+    );
+    expect(
+      listTierNote({ ...max, overrideId: 4 }, { operatorsDecide: true, operatorsTold: true }),
+    ).toBe(
+      'Screenshots show **Dynamax Sneasel** with 2 heads (2★) 3 times since yesterday, but the ' +
+        'boss list has it at 1★, by override #4. The boss list is the same in every server of ' +
+        'this Pine, and its operators decide it: they have been told.',
+    );
+  });
+
   it('names a boss the game data lacks by its ids and its name made plain', () => {
     const note = listTierNote({ ...max, name: 'New*mon*', pokemon: 'ids:NEWMON' });
     expect(note).toContain(`**Dynamax ${plain('New*mon*')}**`);

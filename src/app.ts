@@ -51,7 +51,7 @@ import { DiscordDmGateway } from './discord/dm-gateway.js';
 import { attachGatewayHandlers, catchUpOnReturn, GatewayWatch } from './discord/gateway-events.js';
 import { ShardReadiness } from './discord/shard-readiness.js';
 import { DiscordMemberDirectory } from './discord/member-directory.js';
-import { managementRoleIdsOf } from './discord/guards.js';
+import { managementRoleIdsOf, serverStaffShareData } from './discord/guards.js';
 import { DiscordRegionStaff } from './discord/web-staff.js';
 import { DiscordWebMembers } from './discord/web-members.js';
 import { MAP_WRITES_PER_MINUTE } from './web/acting.js';
@@ -66,6 +66,7 @@ import { DiscordPartyGateway } from './discord/party-gateway.js';
 import { syncGuilds } from './discord/guild-sync.js';
 import { ServerSettings } from './services/server-settings.js';
 import { ServerFill } from './services/server-fill.js';
+import { noticeSender, ServerNotices } from './services/server-notices.js';
 import { serverNamesOf } from './discord/server-names.js';
 import { wireServerStart } from './discord/server-start.js';
 import { ServerSettingsRepository } from './db/repositories/server-settings-repository.js';
@@ -189,6 +190,8 @@ import { healthFiles } from './ops/health.js';
 import { GatewayProbe, Heartbeat } from './ops/heartbeat.js';
 import { startCheckpoint } from './ops/start-stop.js';
 import {
+  bossSyncStep,
+  directMessagesStep,
   eventsFeedStep,
   followZones,
   liveSources,
@@ -229,8 +232,6 @@ const EVENTS_WAIT_MS = 15_000;
 const HOUR_MS = 60 * MINUTE_MS;
 /** After this long without a read of the max boss feed, a warning is logged once (no setting). */
 const MAX_BOSSES_STALE_AFTER_HOURS = 48;
-/** How long direct messages that wait at shutdown are still sent. */
-const DM_DRAIN_MS = 10_000;
 
 export interface StartOptions {
   /**
@@ -433,17 +434,20 @@ export async function startApp(
   // the names it cannot find are told in the server's moderators' bot lab. The events forum is
   // the one its record names (review F3), whether the events forum is drawn here or not.
   const eventForumRecords = new EventForumRepository(db);
+  // What is wrong with one server's setup, told to its own staff in its moderators' bot lab, once
+  // per server and what while the bot runs (plan 19B-1; never the owner's). A send that sent
+  // nothing (the lab gone) counts as refused (fix round 2, G1). The party gateway is made below:
+  // asked only once a notice is told.
+  const serverNotices = new ServerNotices({
+    servers,
+    log,
+    send: (channelId, text) => noticeSender(partyGateway)(channelId, text),
+  });
   const serverFill = new ServerFill({
     servers,
     settings: config.settings,
     log,
-    tell: (channelId, content) =>
-      partyGateway
-        .sendMessage(channelId, { content })
-        .then(() => undefined)
-        .catch((err: unknown) => {
-          log.warn({ err, channel: channelId }, 'could not say which settings were not found');
-        }),
+    notices: serverNotices,
     recordedForum: async (serverId) => (await eventForumRecords.forum(serverId))?.forumId,
   });
   const regionRepository = new RegionRepository(db);
@@ -576,14 +580,22 @@ export async function startApp(
   const appEmoji = new ApplicationEmoji(appEmojiSource, log);
   // The servers of the client that ended up connected, once it is ready.
   let botServers: () => readonly string[] = () => [];
-  // Changes of the boss list and a list that is out of date, told to the servers once the client
-  // is ready (what comes earlier waits). Listening from here on: before the first sync.
+  const dmGateway = new DiscordDmGateway();
+  const dms = new QueuedDmSender({ gateway: dmGateway, log });
+  // In rehearsal mode only the allowlist is written to; the queue itself is drained at shutdown.
+  const memberDms = rehearsal ? new RehearsalDms(dms, rehearsal, log) : dms;
+  // Changes of the boss list told to the servers, and a list that is out of date to the owner
+  // (plan 19B-1), once the client is ready (what comes earlier waits). Listening from here on:
+  // before the first sync. The owner's DM goes through the queue itself, also in rehearsal mode.
   const bossAnnouncer = new RaidBossAnnouncer({
     gateway: partyGateway,
     serverIds: () => botServers(),
     servers,
     settings: config.settings,
     log,
+    dms,
+    ownerId: config.env.OWNER_ID,
+    notices: serverNotices,
   });
   bossAnnouncer.attach(raidBosses);
   const members = new DiscordMemberDirectory({ log });
@@ -596,10 +608,6 @@ export async function startApp(
     gateway: roleGateway,
     log,
   });
-  const dmGateway = new DiscordDmGateway();
-  const dms = new QueuedDmSender({ gateway: dmGateway, log });
-  // In rehearsal mode only the allowlist is written to; the queue itself is drained at shutdown.
-  const memberDms = rehearsal ? new RehearsalDms(dms, rehearsal, log) : dms;
   // Listens to the store: whoever signs up for a party in a forum they cannot see is let in.
   const access = new AccessService({
     store: parties,
@@ -642,6 +650,8 @@ export async function startApp(
     // A party's server, whose zone its times are in (plan 19A-2): every row is read at the start,
     // before the parties, and every row made since is added (fix round 1, K1).
     serverOfRow: (row) => rowIds.serverOfRow(row),
+    // A forum the bot may not make posts in, told to the server's staff (plan 19B-1).
+    notices: serverNotices,
     // The raids along an ended train's way, for its card (plan 8H-7A).
     raidsAlong: history,
     // What ended parties left on Discord, written with their end, swept with the upkeep.
@@ -796,6 +806,8 @@ export async function startApp(
         settings: config.settings,
         servers,
         forumName: newEventsForumName(config.settings),
+        // The forum gone or a permission missing, told to the server's staff (plan 19B-1).
+        notices: serverNotices,
         log,
         days: historyDays,
         // The trains and meetups planned during the events (Matt, 2026-11-07).
@@ -1030,6 +1042,8 @@ export async function startApp(
     guilds,
     settings: config.settings,
     servers,
+    // What keeps it from working in a server, told to that server's staff (plan 19B-1).
+    notices: serverNotices,
     log,
   });
   // Reports to the moderators (plan 8S-2): their posts go into meetup safety's channel, through
@@ -1045,6 +1059,11 @@ export async function startApp(
     wayspots,
     settings: config.settings,
     servers,
+    // Where a server's staff may not change the boss list, its operators decide (plan 19B-1):
+    // the owner is told of screenshots against it, through the queue, also in rehearsal mode.
+    staffChangeShared: (serverId) => serverStaffShareData(serverId, { config }),
+    ownerId: config.env.OWNER_ID,
+    dms,
     log,
   });
   reports.watch(parties);
@@ -1954,10 +1973,15 @@ export async function startApp(
       // The catch-up starts no job more (plan 8X-H); the clock's stop waits for the upkeep it may
       // have started, which starts no step more and whose closings end between parties. A job of
       // the catch-up's under way that reads a feed ends with that feed's stop below, one that
-      // draws the posts of the stops with theirs (review r0 B6). The steps add up to 145 s, 5 s
-      // within the stop's 2m30s (review r1 C4: 6 s here and 12 s for the direct messages; plan
+      // draws the posts of the stops with theirs (review r0 B6). The steps' limits add up to 139 s
+      // without the optional ones, 143 s with every one (the web server's 3 s, the rehearsal
+      // count's 1 s), 142 s as production runs (the web server, no rehearsal): 7 s within the
+      // stop's 2m30s, `stop_grace_period` of compose.yaml, 8 s in production (review r1 C4: 6 s
+      // here and 12 s for the direct messages, the server notices among them, plan 19B-1; plan
       // 8R-6: the reports at stops' ten, `stopReportSteps`, the pictures' second taken from the
-      // grunts' messages).
+      // grunts' messages; fix round 3, J1: the two boss syncs in one step of 5 s, `bossSyncStep`,
+      // and the server fill's stop in this one). A new step means checking that sum
+      // (`operations.md`).
       {
         name: 'party clock',
         timeoutMs: 6_000,
@@ -1967,6 +1991,9 @@ export async function startApp(
           eventForum?.stop();
           wantCounts.stop();
           legacyFillIns?.stop();
+          // A server's fill that waits to be tried again is not (plan 19A-1): synchronous, it
+          // clears the retries' timers and never throws (fix round 3, J1).
+          serverFill.stop();
           await scheduler.stop();
         },
       },
@@ -1983,23 +2010,9 @@ export async function startApp(
           await gameData.whenIdle();
         },
       },
-      {
-        name: 'raid boss sync',
-        // A sync in flight may be writing the list; give it time to finish before the pool closes.
-        timeoutMs: 5_000,
-        run: async () => {
-          raidBosses.stop();
-          await raidBosses.whenIdle();
-        },
-      },
-      {
-        name: 'max boss sync',
-        timeoutMs: 5_000,
-        run: async () => {
-          maxBosses.stop();
-          await maxBosses.whenIdle();
-        },
-      },
+      // A sync in flight may be writing its list: both are waited for at once, before the pool
+      // closes (fix round 3, J1).
+      bossSyncStep({ raid: raidBosses, max: maxBosses }),
       // The events feed and the events forum in one second (branch review BR-2).
       eventsFeedStep({ events: raidEvents, forum: eventForum }),
       {
@@ -2038,15 +2051,6 @@ export async function startApp(
           wayspotPlaces.stop();
         },
       },
-      // A server's fill that waits to be tried again is not (plan 19A-1).
-      {
-        name: 'server fill',
-        timeoutMs: 1_000,
-        run: () => {
-          serverFill.stop();
-          return Promise.resolve();
-        },
-      },
       { name: 'gym announcements', timeoutMs: 3_000, run: () => gymAdmin.flush() },
       { name: 'raid boss announcements', timeoutMs: 3_000, run: () => bossAnnouncer.close() },
       // A change of gyms or regions that has begun is finished while the database is open.
@@ -2080,7 +2084,9 @@ export async function startApp(
       // Whoever is still being looked up for an event is put in line before the line is drained.
       { name: 'notifications', timeoutMs: 5_000, run: () => notify.close() },
       // Direct messages go on at their usual rate for ten seconds (spec 9); the rest is dropped.
-      { name: 'direct messages', timeoutMs: 12_000, run: () => dms.drain(DM_DRAIN_MS) },
+      // What a server's staff are told on its way is sent beside them, in the same step, while
+      // Discord is connected (plan 19B-1; fix round 2, G3).
+      directMessagesStep({ dms, notices: serverNotices }),
       { name: 'discord', timeoutMs: 5_000, run: () => client.destroy() },
       // The last count of what the rehearsal dropped, once the client is down and nothing more
       // can be sent.
@@ -2093,7 +2099,7 @@ export async function startApp(
             },
           ]
         : []),
-      // The want counts' second is the Unown wants' (plan 8H-3): the limits still add up to 145 s.
+      // The want counts' second is the Unown wants' (plan 8H-3): the sum above stays as it was.
       { name: 'unown wants', timeoutMs: 4_000, run: () => unownWants.flush() },
       // A day's count under way writes its server's day, or none of it, before the pool closes
       // (review P3); one cut short is counted again at the next start.

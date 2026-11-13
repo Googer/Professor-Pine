@@ -1,3 +1,5 @@
+import { meetupSafetyWords } from '../render/server-notices.js';
+import type { ServerNotices } from './server-notices.js';
 import { closedEnd, type PartyEnd } from '../domain/history/party-history.js';
 import { randomUUID } from 'node:crypto';
 import type { Settings } from '../config/settings.js';
@@ -172,6 +174,7 @@ export interface MeetupSafetyOptions {
     | 'editMessage'
     | 'deleteMessage'
     | 'serverChannels'
+    | 'serverAvailable'
     | 'mayPost'
   >;
   /**
@@ -194,6 +197,11 @@ export interface MeetupSafetyOptions {
   settings: Settings;
   /** Each server's values: its moderators' channel, which turns the safety on (plan 19A-1). */
   servers: ServerSettingsLookup;
+  /**
+   * What keeps meetup safety from working in a server, told to its staff in its moderators' bot
+   * lab at the start (plan 19B-1, `ServerNotices`).
+   */
+  notices: Pick<ServerNotices, 'tell'>;
   log: Logger;
   now?: () => number;
 }
@@ -256,18 +264,33 @@ export class MeetupSafety {
    * shard's first ready for that shard's servers (plan 19D), so once per server in the process
    * (the setting being a server's since plan 19A-1, no line is the instance's): one line per
    * reason for the servers of that call, their ids listed (`listedServers`: the first 50 and how
-   * many more; fix round 4, I5). Never throws.
+   * many more; fix round 4, I5). A channel gone or not postable is told to the server's staff
+   * too, in words for them, in its moderators' bot lab (plan 19B-1, `ServerNotices`: once per
+   * server and reason while the bot runs); not the rest: no channel chosen is the staff's choice,
+   * a channel of the file not found was told by the fill (the row's marker), and a lookup that
+   * failed is the bot's own. A server Discord says is unavailable (`serverAvailable`; those its
+   * shard's READY said unavailable among them) is passed over, nothing of it checked or said gone,
+   * and named in a line of its own (fix round 2, G5). Never throws.
    */
   warnAtStart(guildIds: readonly string[]): void {
-    const { gateway, servers, log } = this.options;
+    const { gateway, servers, notices, log } = this.options;
     const by = new Map<StartWarning, string[]>();
     let lookupErr: unknown;
-    const add = (reason: StartWarning, server: string) => {
+    const add = (reason: StartWarning, server: string, channelId?: string) => {
       const list = by.get(reason);
       if (list === undefined) by.set(reason, [server]);
       else list.push(server);
+      if (reason === 'gone' || reason === 'cannot-post') {
+        notices.tell(server, `meetup-safety:${reason}`, meetupSafetyWords(reason, channelId));
+      }
     };
     for (const server of guildIds) {
+      // Unavailable (an outage of Discord's): its channels, and what the fill found of them, may
+      // be out of date; it is only named (fix round 2, G5).
+      if (!gateway.serverAvailable(server)) {
+        add('unavailable', server);
+        continue;
+      }
       const values = servers.of(server);
       const name = values.channels.moderation;
       if (name === undefined) {
@@ -280,7 +303,7 @@ export class MeetupSafety {
           .serverChannels(server)
           ?.find((channel) => channel.kind === 'text' && channel.id === name)?.id;
         if (found === undefined) add('gone', server);
-        else if (!gateway.mayPost(found)) add('cannot-post', server);
+        else if (!gateway.mayPost(found)) add('cannot-post', server, found);
       } catch (err) {
         // Only a warning was to be said: it never stands in the way of the start.
         lookupErr ??= err;
@@ -1708,7 +1731,14 @@ export class MeetupSafety {
  * Why meetup safety cannot work in a server, as the start says it (`warnAtStart`), in the order
  * the lines are said.
  */
-const START_WARNINGS = ['off', 'unreachable', 'gone', 'cannot-post', 'lookup-failed'] as const;
+const START_WARNINGS = [
+  'off',
+  'unreachable',
+  'gone',
+  'cannot-post',
+  'unavailable',
+  'lookup-failed',
+] as const;
 type StartWarning = (typeof START_WARNINGS)[number];
 
 const START_WORDS: Readonly<Record<StartWarning, string>> = {
@@ -1718,6 +1748,8 @@ const START_WORDS: Readonly<Record<StartWarning, string>> = {
   gone: "the moderators' channel of these servers is gone: meetups that need a moderator's approval cannot be made there",
   'cannot-post':
     "the bot cannot post in the moderators' channel of these servers (View Channel, Send Messages, Embed Links): meetups that need a moderator's approval cannot be made there",
+  unavailable:
+    "could not check the moderators' channel of these servers: Discord says they are unavailable",
   'lookup-failed': "could not look for the moderators' channel of these servers",
 };
 
