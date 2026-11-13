@@ -63,7 +63,7 @@ export const PARTY_NOW = at('2026-10-13T14:00');
 export function testRaidRules(): RaidDurationRules {
   return raidDurationRules(
     loadSettings(TEST_SETTINGS_PATH),
-    raidEventsFixture().events(),
+    raidEventsFixture().events(PARTY_ZONE),
     PARTY_ZONE,
   );
 }

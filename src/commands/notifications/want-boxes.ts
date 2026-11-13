@@ -247,10 +247,13 @@ function entriesOf(
   return entry?.dex === subject.dex ? [entry] : [];
 }
 
-/** Whether today's task list has a Pokémon of this number as a reward (`researchTasks`). */
-function rewardedToday(ctx: AppContext, dex: number): boolean {
+/**
+ * Whether today's task list has a Pokémon of this number as a reward (`researchTasks`), as offered
+ * in `zone` (the server's, plan 19A-2).
+ */
+function rewardedToday(ctx: AppContext, dex: number, zone: string): boolean {
   return ctx.researchTasks
-    .tasks()
+    .tasks(zone)
     .some((task) =>
       task.rewards.some((reward) => reward.kind === 'encounter' && reward.dex === dex),
     );
@@ -268,7 +271,7 @@ export function shownBoxes(ctx: AppContext, subject: BoxSubject, zone: string): 
   if (subject.kind === 'tier') return tierBoxes(subject.level);
   const boxes = pokemonShownBoxes(ctx, subject, zone);
   const special = entriesOf(ctx, subject).every((entry) => entry.class !== null);
-  return special && !rewardedToday(ctx, subject.dex)
+  return special && !rewardedToday(ctx, subject.dex, zone)
     ? boxes.filter((box) => box !== 'research')
     : boxes;
 }
@@ -316,13 +319,13 @@ export function costumesShown(ctx: AppContext, subject: BoxSubject, zone: string
   }
   if (
     ctx.eventSpawns
-      .sightingsAt(Date.now())
+      .sightingsAt(Date.now(), zone)
       .some((sighting) => sighting.costumed && sighting.dex === subject.dex)
   ) {
     return true;
   }
   return ctx.researchTasks
-    .tasks()
+    .tasks(zone)
     .some((task) =>
       task.rewards.some(
         (reward) =>

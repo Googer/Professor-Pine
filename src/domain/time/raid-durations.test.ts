@@ -22,7 +22,7 @@ const settings = loadSettings(TEST_SETTINGS_PATH);
 const at = (iso: string): number => zonedAt(iso, ZONE);
 
 /** The fixture's events: Raid Hours on 14, 21 and 28 October, Raid Days on 31 October and 28 November. */
-const rules: RaidDurationRules = { settings, zone: ZONE, events: raidEventsFixture().events() };
+const rules: RaidDurationRules = { settings, zone: ZONE, events: raidEventsFixture().events(ZONE) };
 const withoutFeed: RaidDurationRules = { ...rules, events: [] };
 const withoutWeekly: RaidDurationRules = {
   ...rules,

@@ -59,6 +59,23 @@ describe('a party in its server’s zone (plan 19A-2)', () => {
     expect(raidDurationsAt('standard', hatch, there).event?.name).toBe('Raid Hour');
     expect(raidDurationsAt('standard', hatch, here).event).toBeUndefined();
   });
+
+  it('gives a party the feed’s Raid Hour at its local time on its own server’s clock', async () => {
+    const made = await partyServiceWith([], {
+      servers: withZones({ [OTHER]: 'Europe/Berlin' }),
+      serverOfRow,
+    });
+    // The feed's Dialga Raid Hour, Wednesday 2026-10-14 18:00 to 19:00 local: at 18:10 in
+    // Berlin (12:10 in New York) it is on there, not here; at 18:10 in New York the other way.
+    const there = made.service.rulesOf(testMeetup({ guildId: 2 }));
+    const here = made.service.rulesOf(testMeetup());
+    const berlin = zonedAt('2026-10-14T18:10', 'Europe/Berlin');
+    expect(raidDurationsAt('standard', berlin, there).event?.name).toBe('Dialga Raid Hour');
+    expect(raidDurationsAt('standard', berlin, here).event).toBeUndefined();
+    const newYork = at('2026-10-14T18:10');
+    expect(raidDurationsAt('standard', newYork, here).event?.name).toBe('Dialga Raid Hour');
+    expect(raidDurationsAt('standard', newYork, there).event).toBeUndefined();
+  });
 });
 
 describe('PartyScheduler in each server’s zone (plan 19A-2)', () => {

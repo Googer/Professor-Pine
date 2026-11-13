@@ -9,11 +9,21 @@ import { addDays, zoned } from './zoned.js';
  * whose battles rotate every 30 minutes, as on a Max Battle Day, while neither ScrapedDuck's feed
  * nor Leek Duck's page says so. Staff set it (`/admin event-window`); one at a time per
  * installation. Times are epoch milliseconds.
+ *
+ * Plan 19A-2: a time staff typed is local time in every server's zone, as the game's events are
+ * (`FeedTimed`): `startLocal` and `endLocal` are the truth, `start` and `end` their moments in the
+ * instance's default zone (what 2.0 reads), and `timedIn(window, zone)` the window in a server's
+ * zone. A time that is a moment (a start of now, an end of now: `/admin event-window end`) has
+ * no `…Local`, the same moment everywhere; a window kept before 2.1 has none either.
  */
 export interface EventWindow {
   start: number;
   /** The first moment after it. */
   end: number;
+  /** The start as wall-clock time, where it was typed. */
+  startLocal?: string;
+  /** The end as wall-clock time, where it was typed. */
+  endLocal?: string;
   /** The snowflake of the staff member who set it. */
   setBy: string;
   /** When it was set. */

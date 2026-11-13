@@ -321,7 +321,11 @@ export class StopPostService {
     if (this.closed) return;
     if (this.timer) clearTimeout(this.timer);
     const now = this.now();
-    const next = nextPeriodChange(this.options.events.researchEvents(), now, this.options.zone);
+    const next = nextPeriodChange(
+      this.options.events.researchEvents(this.options.zone),
+      now,
+      this.options.zone,
+    );
     this.timer = setTimeout(
       () => {
         this.timer = undefined;

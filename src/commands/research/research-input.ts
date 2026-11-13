@@ -216,11 +216,13 @@ export function versionChoice(task: ResearchTask, label: string, value: string):
 export function taskChoices(
   ctx: Pick<AppContext, 'researchTasks' | 'gameData'>,
   typed: string,
+  zone: string,
 ): Choice[] {
   const words = searchTokens(typed);
   const byText: Choice[] = [];
   const byReward: Choice[] = [];
-  for (const task of ctx.researchTasks.tasks()) {
+  // The tasks offered in the server's zone (plan 19A-2: an event's end on its clock).
+  for (const task of ctx.researchTasks.tasks(zone)) {
     const whole = hasWords(task.text, words);
     for (const version of ctx.researchTasks.versions(task)) {
       const names = version.rewards.map((reward) => reward.name);
@@ -359,11 +361,14 @@ export const PICK_THE_REWARD =
  * that is the list's task of the same folded text (`listedVersion`: its version by `reward`),
  * else a task typed in full (at most `MAX_TYPED_TASK` characters), whose `reward` is the only
  * reward that makes wants fire: `typed:<text key>`, with the reward's hash after it (R11).
+ * Whether a task is still offered is decided in `zone` (the server's, plan 19A-2; the instance's
+ * default without one).
  */
 export function readTask(
   ctx: Pick<AppContext, 'researchTasks' | 'pokemon' | 'gameData'>,
   value: string,
   reward: string | null,
+  zone?: string,
 ): ResearchSubject {
   const text = tidyLine(value);
   const subject = researchSubjectOf(text);
@@ -382,7 +387,7 @@ export function readTask(
   const key = taskKeyOf(text);
   const known = ctx.researchTasks.byKey(key);
   // Past its event's end the list no longer has it: "pick it from the list" would be a dead end.
-  if (known && taskOffered(known, Date.now())) return listedVersion(ctx, known, reward);
+  if (known && taskOffered(known, Date.now(), zone)) return listedVersion(ctx, known, reward);
   if (text.length > MAX_TYPED_TASK) {
     throw new UserError(
       `A task you type may have ${String(MAX_TYPED_TASK)} characters: pick it from the list ` +

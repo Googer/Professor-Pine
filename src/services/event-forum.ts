@@ -342,7 +342,7 @@ export class EventForumService {
       planned.parties.onChange((before, after) => {
         if (!changesPlanned(before, after)) return;
         // Only where it started, or starts, within a listed event (review EP-4).
-        const events = this.options.events.listedEvents();
+        const events = this.options.events.listedEvents(this.options.settings.timezone);
         if (startsDuringAny(before, events) || startsDuringAny(after, events)) this.redrawSoon();
       });
     }
@@ -582,7 +582,7 @@ export class EventForumService {
     // nothing: no post is made, dropped or drawn, and the listing stands (review V1).
     if (!this.options.events.listingKnown()) return 'waiting';
     try {
-      const events = this.options.events.listedEvents();
+      const events = this.options.events.listedEvents(this.options.settings.timezone);
       const planned = await this.plannedOf(forum, events);
       const posts = await this.drawPosts(forum, events, reopen, planned);
       // Nor the listing after a stop (RR-3).
@@ -1301,7 +1301,7 @@ export class EventForumService {
       ).values(),
     ];
     const times = this.options.events
-      .listedEvents()
+      .listedEvents(this.options.settings.timezone)
       .flatMap((event) =>
         numbers.flatMap(({ horizonDays, postDaysAhead }) => [
           // Every move of its line between sections (BR-9), and its post's opening.

@@ -33,6 +33,7 @@ import {
 import { BoundedMap } from '../bounded-map.js';
 import { editionsWithoutGlobal } from '../domain/time/event-reach.js';
 import { parseSpawnEventFeed, type SpawnEvent } from '../domain/time/spawn-events.js';
+import { allIn, type FeedTimed } from '../domain/time/feed-times.js';
 import { isoDate } from '../domain/time/zoned.js';
 import type { ResearchEventStorage } from '../db/repositories/research-event-repository.js';
 import type { KeptMaxEvents, MaxEventStorage } from '../db/repositories/max-event-repository.js';
@@ -58,6 +59,8 @@ const UNREAD_TYPES_TOLD_MAX = 100;
 const WITHOUT_GLOBAL_TOLD_MAX = 100;
 /** How many event types the events forum does not know the log remembers having named. */
 const UNKNOWN_KINDS_TOLD_MAX = 100;
+/** How many zones' lists are kept worked out per list (`inZone`): far more than the zones in use. */
+const ZONES_KEPT = 100;
 
 /** One max event by its feed id, whatever the feed renamed or moved; else by kind, name, start. */
 function sameMaxEvent(a: MaxEvent, b: MaxEvent): boolean {
@@ -85,7 +88,11 @@ export interface RaidEventOptions {
   url: string;
   /** How often the feed is read. */
   refreshMs: number;
-  /** IANA zone in which the feed's local times are read (settings.timezone). */
+  /**
+   * IANA zone in which the feed's local times are read and kept (the instance's default zone,
+   * `instanceZone`): every list is that zone's, and a reader that names another zone (a server's,
+   * plan 19A-2) has its wall-clock times on that zone's clock (`allIn`).
+   */
   zone: string;
   fetch: FetchEvents;
   log: Logger;
@@ -124,22 +131,42 @@ export interface RaidEventOptions {
    */
   pageMaxHours?: () => readonly MaxEvent[];
   /**
-   * The event window staff set (`EventWindowService.current`, `/admin event-window`; 2026-11-09), asked
-   * at each call: `events()` gives it as a Raid Hour and `maxEvents()` as a Max Battle Day
-   * (`withEventWindowRaid`, `withEventWindowMax`); never kept with the max events, never listed in the
-   * events forum. Without it none.
+   * The event window staff set (`EventWindowService.current`, `/admin event-window`; 2026-11-09),
+   * asked at each call with the zone asked for (plan 19A-2: its wall-clock times on that zone's
+   * clock): `events()` gives it as a Raid Hour and `maxEvents()` as a Max Battle Day
+   * (`withEventWindowRaid`, `withEventWindowMax`); never kept with the max events, never listed
+   * in the events forum. Without it none.
    */
-  eventWindow?: () => EventWindow | undefined;
+  eventWindow?: (zone: string) => EventWindow | undefined;
+}
+
+/*
+ * Every list below is given in a zone (plan 19A-2): a server's (`ServerSettings.zoneOf`,
+ * `zoneOf(interaction, ctx)`, `PartyService.zoneOf`), the feed's wall-clock times on its clock
+ * (Raid Hour at 18:00 is 18:00 there), the feed's moments as they are. The zone is required
+ * (fix round 2, P6, as M7 ruled): what has no server reads the lists as kept, in the instance's
+ * default zone, only through the forms named for them (`StoredEventLists`).
+ */
+
+/**
+ * The lists as kept, in the instance's default zone (fix round 2, P6): for what reads them with no
+ * server in hand, the events' pages (`EventPageService`: which events there are, and those near).
+ */
+export interface StoredEventLists {
+  /** `pagedEvents` as kept. */
+  storedPagedEvents(): readonly PagedEvent[];
+  /** `spawnEvents` as kept. */
+  storedSpawnEvents(): readonly SpawnEvent[];
 }
 
 /** What handlers need: the Raid Hours and Raid Days known from the feed. */
 export interface RaidEventProvider {
   /**
    * In order of time: the feed's, with the Raid Hours of the events' pages
-   * (`withPageRaidHours`: a page's at the start of one of the feed's left out). Empty until
-   * either was read.
+   * (`withPageRaidHours`: a page's at the start of one of the feed's left out), in `zone`. Empty
+   * until either was read.
    */
-  events(): readonly RaidEvent[];
+  events(zone: string): readonly RaidEvent[];
 }
 
 /**
@@ -147,8 +174,8 @@ export interface RaidEventProvider {
  * `EventPageService` reads for their Raid Hours.
  */
 export interface PagedEventProvider {
-  /** In order of their start; empty until the feed was read once. */
-  pagedEvents(): readonly PagedEvent[];
+  /** In order of their start, in `zone`; empty until the feed was read once. */
+  pagedEvents(zone: string): readonly PagedEvent[];
 }
 
 /**
@@ -159,16 +186,16 @@ export interface PagedEventProvider {
 export interface MaxEventProvider {
   /**
    * In order of their start: the feed's, with the Max Battle hours of the events' pages
-   * (`withPageMaxHours`: a page's at the start of a Max Battle Day of the feed left out). Empty
-   * until either was read.
+   * (`withPageMaxHours`: a page's at the start of a Max Battle Day of the feed left out), in
+   * `zone`. Empty until either was read.
    */
-  maxEvents(): readonly MaxEvent[];
+  maxEvents(zone: string): readonly MaxEvent[];
   /**
    * The big events with Gigantamax battles all day (plan 8X-3: Wild Area, GO Tour, GO Fest; the
    * editions for everyone, at local times), of the last good read with those on now that the feed has dropped since
-   * (`mergedBig`), in order of their start: a max battle's default end.
+   * (`mergedBig`), in order of their start, in `zone`: a max battle's default end.
    */
-  bigEvents(): readonly BigEvent[];
+  bigEvents(zone: string): readonly BigEvent[];
 }
 
 /**
@@ -176,8 +203,8 @@ export interface MaxEventProvider {
  * from them (`periodAt`).
  */
 export interface ResearchEventProvider {
-  /** Those kept and those read since, in order of their start; empty until either. */
-  researchEvents(): readonly ResearchEvent[];
+  /** Those kept and those read since, in order of their start, in `zone`; empty until either. */
+  researchEvents(zone: string): readonly ResearchEvent[];
   /**
    * Calls `listener` whenever the research events change (a read, the kept ones loaded): the
    * posts' timer and their periods follow (review A5). A listener must not throw.
@@ -190,8 +217,8 @@ export interface ResearchEventProvider {
  * now lists it costumed (`EventPageService`).
  */
 export interface SpawnEventProvider {
-  /** Those of the last good read, with those on now that the feed has dropped since. */
-  spawnEvents(): readonly SpawnEvent[];
+  /** Those of the last good read, with those on now that the feed has dropped since, in `zone`. */
+  spawnEvents(zone: string): readonly SpawnEvent[];
 }
 
 /**
@@ -199,8 +226,11 @@ export interface SpawnEventProvider {
  * merged with those kept (`mergeListed`), from the same read as the raid and max events (R4).
  */
 export interface ListedEventProvider {
-  /** In order of their start; empty until the feed was read or the kept ones loaded. */
-  listedEvents(): readonly ListedEvent[];
+  /**
+   * In order of their start, in `zone` (the events forum of a server in it); empty until the feed
+   * was read or the kept ones loaded.
+   */
+  listedEvents(zone: string): readonly ListedEvent[];
   /**
    * Calls `listener` after each good read and after the kept ones are loaded, changed or not:
    * the forum draws after each read (an unchanged message is not edited). Must not throw.
@@ -245,7 +275,8 @@ export class RaidEventService
     ResearchEventProvider,
     SpawnEventProvider,
     ListedEventProvider,
-    PagedEventProvider
+    PagedEventProvider,
+    StoredEventLists
 {
   private current: readonly RaidEvent[] = [];
   private research: readonly ResearchEvent[] = [];
@@ -263,6 +294,8 @@ export class RaidEventService
   private currentSpawns: readonly SpawnEvent[] = [];
   private currentPaged: readonly PagedEvent[] = [];
   private currentListed: readonly ListedEvent[] = [];
+  /** Each list of a read in each zone asked (`inZone`, plan 19A-2), by the list. */
+  private readonly placed = new WeakMap<object, BoundedMap<string, readonly FeedTimed[]>>();
   private readonly listedListeners: (() => void)[] = [];
   /** Whether the listing is known (`listingKnown`). */
   private listedKnown = false;
@@ -284,44 +317,77 @@ export class RaidEventService
     this.retryMs = Math.min(options.retryMs ?? 15 * MINUTE_MS, options.refreshMs);
   }
 
-  events(): readonly RaidEvent[] {
-    return withEventWindowRaid(this.feedAndPageEvents(), this.options.eventWindow?.());
+  events(zone: string): readonly RaidEvent[] {
+    return withEventWindowRaid(this.feedAndPageEvents(zone), this.options.eventWindow?.(zone));
   }
 
-  /** The feed's raid events with the pages' Raid Hours (`withPageRaidHours`), without the window. */
-  private feedAndPageEvents(): readonly RaidEvent[] {
-    return withPageRaidHours(this.current, this.options.pageRaidHours?.() ?? []);
+  /**
+   * The feed's raid events with the pages' Raid Hours (`withPageRaidHours`), without the window,
+   * in `zone` (both placed there first, so that a page's at the start of one of the feed's is
+   * left out there too).
+   */
+  private feedAndPageEvents(zone: string): readonly RaidEvent[] {
+    const pages = this.options.pageRaidHours?.() ?? [];
+    return withPageRaidHours(this.inZone(this.current, zone), allIn(pages, zone));
   }
 
-  pagedEvents(): readonly PagedEvent[] {
-    return this.currentPaged;
+  pagedEvents(zone: string): readonly PagedEvent[] {
+    return this.inZone(this.currentPaged, zone);
   }
 
   /**
    * The max events of the last good read, with those of the last eight days the feed has dropped
    * since (`mergedMax`), with the Max Battle hours of the events' pages (`pageMaxHours`) and the
-   * event window (`eventWindow`), in order of their start.
+   * event window (`eventWindow`), in order of their start, in `zone`.
    */
-  maxEvents(): readonly MaxEvent[] {
-    return withEventWindowMax(this.feedAndPageMaxEvents(), this.options.eventWindow?.());
+  maxEvents(zone: string): readonly MaxEvent[] {
+    return withEventWindowMax(this.feedAndPageMaxEvents(zone), this.options.eventWindow?.(zone));
   }
 
-  /** The feed's max events with the pages' Max Battle hours, without the window. */
-  private feedAndPageMaxEvents(): readonly MaxEvent[] {
+  /** The feed's max events with the pages' Max Battle hours, without the window, in `zone`. */
+  private feedAndPageMaxEvents(zone: string): readonly MaxEvent[] {
     const pages = this.options.pageMaxHours?.() ?? [];
-    return withPageMaxHours(this.currentMax, pages, this.options.zone);
+    return withPageMaxHours(this.inZone(this.currentMax, zone), allIn(pages, zone), zone);
   }
 
-  bigEvents(): readonly BigEvent[] {
-    return this.currentBig;
+  bigEvents(zone: string): readonly BigEvent[] {
+    return this.inZone(this.currentBig, zone);
   }
 
-  researchEvents(): readonly ResearchEvent[] {
-    return this.research;
+  researchEvents(zone: string): readonly ResearchEvent[] {
+    return this.inZone(this.research, zone);
   }
 
-  spawnEvents(): readonly SpawnEvent[] {
+  spawnEvents(zone: string): readonly SpawnEvent[] {
+    return this.inZone(this.currentSpawns, zone);
+  }
+
+  storedPagedEvents(): readonly PagedEvent[] {
+    return this.currentPaged;
+  }
+
+  storedSpawnEvents(): readonly SpawnEvent[] {
     return this.currentSpawns;
+  }
+
+  /**
+   * A list of the last read (or kept) in `zone` (plan 19A-2: `allIn`, each wall-clock time on
+   * that zone's clock), worked out once per list and zone (`placed`: a read's lists are new
+   * objects, so a zone's is worked out again after each read). The list itself in the zone it was
+   * read in.
+   */
+  private inZone<T extends FeedTimed>(list: readonly T[], zone: string): readonly T[] {
+    if (zone === this.options.zone) return list;
+    let byZone = this.placed.get(list);
+    if (!byZone) {
+      byZone = new BoundedMap(ZONES_KEPT);
+      this.placed.set(list, byZone);
+    }
+    const kept = byZone.get(zone) as readonly T[] | undefined;
+    if (kept) return kept;
+    const placed = allIn(list, zone);
+    byZone.set(zone, placed);
+    return placed;
   }
 
   onResearchChange(listener: () => void): void {
@@ -334,10 +400,12 @@ export class RaidEventService
    * listed). The pages' lines are never kept (`listed`): the pages are read again after a
    * restart. The event window is no event of the forum: it is left out.
    */
-  listedEvents(): readonly ListedEvent[] {
-    const raid = this.feedAndPageEvents();
-    const lines = pageHoursListed(raid, this.feedAndPageMaxEvents(), this.options.zone);
-    return lines.length === 0 ? this.currentListed : inOrder([...this.currentListed, ...lines]);
+  listedEvents(zone: string): readonly ListedEvent[] {
+    const raid = this.feedAndPageEvents(zone);
+    const max = this.feedAndPageMaxEvents(zone);
+    const lines = pageHoursListed(raid, max, zone);
+    const listed = this.inZone(this.currentListed, zone);
+    return lines.length === 0 ? listed : inOrder([...listed, ...lines]);
   }
 
   /**

@@ -484,7 +484,7 @@ export class ScreenshotService implements Screenshots {
           hatchTime,
           raidDurationRules(
             settings,
-            context.raidEvents.events(),
+            context.raidEvents.events(context.servers.zoneOf(where.guildId)),
             context.servers.zoneOf(where.guildId),
           ),
         ).hatched,

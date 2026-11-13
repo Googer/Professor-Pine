@@ -9,6 +9,7 @@ import { textAnswer } from '../../test/support/responses.js';
 import { readSpawnEventFeed } from '../../test/support/spawn-events.js';
 import { MAX_FINALE, readEveryoneFeed } from '../../test/support/event-reach.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
+import { wallClock, zonedAt } from '../../test/support/time.js';
 import { RaidEventService, type FetchEvents } from './raid-event-service.js';
 import type { ResearchEventStorage } from '../db/repositories/research-event-repository.js';
 import { MemoryResearchEvents } from '../../test/support/research-store.js';
@@ -19,6 +20,8 @@ import { MemoryListedEvents } from '../../test/support/event-forum-store.js';
 import { INTO_THE_WILD, PAWNIARD_DAY } from '../../test/support/research-store-cases.js';
 
 const URL = 'https://example.test/events.json';
+/** The instance's default zone, in which the lists are kept. */
+const ZONE = 'America/New_York';
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY_MS = 24 * HOUR;
@@ -39,7 +42,7 @@ function service(
     research?: ResearchEventStorage;
     maxEvents?: MaxEventStorage;
     listed?: ListedEventStorage;
-    eventWindow?: () => EventWindow | undefined;
+    eventWindow?: (zone?: string) => EventWindow | undefined;
   } = {},
 ) {
   const { log, entries } = createTestLogger();
@@ -65,9 +68,9 @@ describe('RaidEventService', () => {
   it('has no events until the feed was read, then the Raid Hours and Raid Days of the feed', async () => {
     const fetch = vi.fn<FetchEvents>(() => Promise.resolve(reply(200, downloaded)));
     const { events, entries } = service(fetch);
-    expect(events.events()).toEqual([]);
+    expect(events.events(ZONE)).toEqual([]);
     await expect(events.refresh()).resolves.toEqual({ status: 'updated', events: 5 });
-    expect(events.events().map((event) => event.kind)).toEqual([
+    expect(events.events(ZONE).map((event) => event.kind)).toEqual([
       'raid-hour',
       'raid-hour',
       'raid-hour',
@@ -80,8 +83,8 @@ describe('RaidEventService', () => {
     );
     expect(entries.find((entry) => entry.msg === 'raid events read')).toMatchObject({
       events: 5,
-      max: events.maxEvents().length,
-      big: events.bigEvents().length,
+      max: events.maxEvents(ZONE).length,
+      big: events.bigEvents(ZONE).length,
     });
     expect(entries.some((entry) => entry.msg === 'raid events read' && entry.events === 5)).toBe(
       true,
@@ -91,12 +94,12 @@ describe('RaidEventService', () => {
   it('knows the events with a Leek Duck page of the last good read', async () => {
     let next = () => Promise.resolve(reply(200, JSON.stringify(readEveryoneFeed())));
     const { events } = service(() => next());
-    expect(events.pagedEvents()).toEqual([]);
+    expect(events.pagedEvents(ZONE)).toEqual([]);
     await events.refresh();
-    expect(events.pagedEvents().map((event) => event.id)).toContain('into-the-wild-2026');
+    expect(events.pagedEvents(ZONE).map((event) => event.id)).toContain('into-the-wild-2026');
     next = () => Promise.resolve(reply(503));
     await events.refresh();
-    expect(events.pagedEvents().map((event) => event.id)).toContain('into-the-wild-2026');
+    expect(events.pagedEvents(ZONE).map((event) => event.id)).toContain('into-the-wild-2026');
   });
 
   it('gives the Raid Hours of the events’ pages with the feed’s, the feed’s winning', async () => {
@@ -120,12 +123,12 @@ describe('RaidEventService', () => {
       pageRaidHours: () => pages,
     });
     // Before the feed: the pages' alone, in order.
-    expect(events.events().map((event) => event.name)).toEqual([
+    expect(events.events(ZONE).map((event) => event.name)).toEqual([
       'Other Raid Hour',
       'Zacian Raid Hour',
     ]);
     await events.refresh();
-    const names = events.events().map((event) => event.name);
+    const names = events.events(ZONE).map((event) => event.name);
     expect(names.slice(0, 2)).toEqual(['Dialga Raid Hour', 'Zacian Raid Hour']);
     expect(names).not.toContain('Other Raid Hour');
     expect(names).toHaveLength(6);
@@ -135,7 +138,7 @@ describe('RaidEventService', () => {
     let next = () => Promise.resolve(reply(503));
     const { events, entries } = service(() => next());
     const reads: number[] = [];
-    events.onRead(() => reads.push(events.events().length));
+    events.onRead(() => reads.push(events.events(ZONE).length));
     events.onRead(() => {
       throw new Error('a broken listener');
     });
@@ -164,7 +167,7 @@ describe('RaidEventService', () => {
     next = () => Promise.resolve(reply(200, downloaded));
     expect(await events.catchUp()).toBe('done');
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(events.events()).toHaveLength(5);
+    expect(events.events(ZONE)).toHaveLength(5);
     expect(await events.catchUp()).toBe('not-owed');
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(vi.getTimerCount()).toBe(1);
@@ -194,7 +197,7 @@ describe('RaidEventService', () => {
       const result = await events.refresh();
       expect(result).toMatchObject({ status: 'failed' });
       expect((result as { reason: string }).reason).toContain(reason);
-      expect(events.events()).toHaveLength(5);
+      expect(events.events(ZONE)).toHaveLength(5);
     }
     expect(entries.filter((entry) => entry.msg === 'could not read the events feed')).toHaveLength(
       failures.length,
@@ -228,14 +231,14 @@ describe('RaidEventService', () => {
       const { events } = service(feeds([old, kept], [kept], [kept]), { now: () => now });
       await events.refresh();
       await events.refresh();
-      expect(events.events().map((event) => event.name)).toEqual([
+      expect(events.events(ZONE).map((event) => event.name)).toEqual([
         'Old Raid Hour',
         'Kept Raid Hour',
       ]);
 
       now = endOf(old) + 8 * DAY + 1;
       await events.refresh();
-      expect(events.events().map((event) => event.name)).toEqual(['Kept Raid Hour']);
+      expect(events.events(ZONE).map((event) => event.name)).toEqual(['Kept Raid Hour']);
     });
 
     it('drops an event that has not begun when the feed no longer lists it, and keeps one that has', async () => {
@@ -250,11 +253,11 @@ describe('RaidEventService', () => {
       const other = raidHour('Other', '2026-10-28T18:00:00.000', '2026-10-28T19:00:00.000');
       const { events } = service(feeds([yesterday, old, kept], [other]), { now: () => now });
       await events.refresh();
-      expect(events.events()).toHaveLength(3);
+      expect(events.events(ZONE)).toHaveLength(3);
       await events.refresh();
       // The feed now lists only a different event; of the three known before, the one that is
       // still to come is gone, and the finished and the running one stay.
-      expect(events.events().map((event) => event.name)).toEqual([
+      expect(events.events(ZONE).map((event) => event.name)).toEqual([
         'Yesterday Raid Hour',
         'Old Raid Hour',
         'Other',
@@ -266,8 +269,8 @@ describe('RaidEventService', () => {
       const { events } = service(feeds([kept], [moved]), { now: () => endOf(old) });
       await events.refresh();
       await events.refresh();
-      expect(events.events()).toHaveLength(1);
-      expect(events.events()[0]?.start).toBe(Date.parse('2026-10-21T19:00:00.000-04:00'));
+      expect(events.events(ZONE)).toHaveLength(1);
+      expect(events.events(ZONE)[0]?.start).toBe(Date.parse('2026-10-21T19:00:00.000-04:00'));
     });
 
     it('lists an event that is still in the feed once, with the name the feed gives now', async () => {
@@ -275,7 +278,7 @@ describe('RaidEventService', () => {
       const { events } = service(feeds([old], [renamed]), { now: () => endOf(old) + DAY });
       await events.refresh();
       await events.refresh();
-      expect(events.events().map((event) => event.name)).toEqual(['Old Raid Hour (renamed)']);
+      expect(events.events(ZONE).map((event) => event.name)).toEqual(['Old Raid Hour (renamed)']);
     });
 
     it('does not add events when a read fails', async () => {
@@ -287,7 +290,7 @@ describe('RaidEventService', () => {
       await events.refresh();
       fail = true;
       await events.refresh();
-      expect(events.events()).toHaveLength(1);
+      expect(events.events(ZONE)).toHaveLength(1);
     });
   });
 
@@ -352,7 +355,7 @@ describe('RaidEventService', () => {
     await events.whenIdle();
     expect(entries.filter((entry) => entry.level === 40)).toEqual([]);
     await vi.advanceTimersByTimeAsync(24 * HOUR);
-    expect(events.events()).toEqual([]);
+    expect(events.events(ZONE)).toEqual([]);
   });
 
   // Plan 8X-2: the max events of the same feed, kept apart from the raid events.
@@ -388,21 +391,21 @@ describe('RaidEventService', () => {
         maxEvents: kept,
         pageMaxHours: () => pages,
       });
-      expect(events.maxEvents().map((event) => event.name)).toEqual([
+      expect(events.maxEvents(ZONE).map((event) => event.name)).toEqual([
         'Page at the trio’s start',
         'Page Registeel',
       ]);
       await events.refresh();
-      const names = events.maxEvents().map((event) => event.name);
+      const names = events.maxEvents(ZONE).map((event) => event.name);
       expect(names).toHaveLength(8);
       expect(names).toContain('Page Registeel');
       expect(names).not.toContain('Page at the trio’s start');
-      const starts = events.maxEvents().map((event) => event.start);
+      const starts = events.maxEvents(ZONE).map((event) => event.start);
       expect(starts).toEqual([...starts].sort((a, b) => a - b));
       // Pine keeps the feed's alone: the pages are read again after a restart.
       expect((await kept.all()).max.map((event) => event.name)).not.toContain('Page Registeel');
       expect(
-        featuredAt(events.maxEvents(), at('2026-11-11T18:30'), 'America/New_York').map(
+        featuredAt(events.maxEvents(ZONE), at('2026-11-11T18:30'), 'America/New_York').map(
           ({ event }) => event.name,
         ),
       ).toContain('Page Registeel');
@@ -411,10 +414,10 @@ describe('RaidEventService', () => {
     it('keeps the max events of a read apart, and says once a read which hours it assumed', async () => {
       const fetch = vi.fn<FetchEvents>(() => Promise.resolve(reply(200, maxFeed)));
       const { events, entries } = service(fetch, { now: () => at('2026-10-20T22:00') });
-      expect(events.maxEvents()).toEqual([]);
+      expect(events.maxEvents(ZONE)).toEqual([]);
       await expect(events.refresh()).resolves.toEqual({ status: 'updated', events: 1 });
-      expect(events.events().map((event) => event.name)).toEqual(['Palkia Raid Hour']);
-      expect(events.maxEvents()).toHaveLength(7);
+      expect(events.events(ZONE).map((event) => event.name)).toEqual(['Palkia Raid Hour']);
+      expect(events.maxEvents(ZONE)).toHaveLength(7);
       const assumed = entries.filter((entry) => entry.msg === 'max event hours assumed');
       expect(assumed).toHaveLength(1);
       expect(assumed[0]).toMatchObject({ events: ['Dynamax Sneasel during Max Monday'] });
@@ -454,7 +457,7 @@ describe('RaidEventService', () => {
       );
       expect(warned).toHaveLength(1);
       expect(warned[0]).toMatchObject({ events: ['Dynamax Ralts during Max Monday'] });
-      expect(events.maxEvents()).toEqual([]);
+      expect(events.maxEvents(ZONE)).toEqual([]);
     });
 
     it('keeps the max events it has when a read fails', async () => {
@@ -466,7 +469,7 @@ describe('RaidEventService', () => {
       await events.refresh();
       fail = true;
       await events.refresh();
-      expect(events.maxEvents()).toHaveLength(7);
+      expect(events.maxEvents(ZONE)).toHaveLength(7);
     });
 
     it('keeps one copy of a running event the feed renames or moves: the newest', async () => {
@@ -489,11 +492,13 @@ describe('RaidEventService', () => {
         ),
       );
       await events.refresh();
-      const sableye = events.maxEvents().filter((event) => event.id === 'max-mondays-2026-10-26');
+      const sableye = events
+        .maxEvents(ZONE)
+        .filter((event) => event.id === 'max-mondays-2026-10-26');
       expect(sableye.map((event) => event.name)).toEqual([
         'Dynamax Sableye and Machop during Max Monday',
       ]);
-      expect(featuredAt(events.maxEvents(), now, 'America/New_York')).toEqual([
+      expect(featuredAt(events.maxEvents(ZONE), now, 'America/New_York')).toEqual([
         { event: sableye[0], until: at('2026-11-02T06:00') },
       ]);
     });
@@ -511,19 +516,19 @@ describe('RaidEventService', () => {
       now = at('2026-10-28T12:00');
       body = without('Dynamax Sableye during Max Monday', 'Dynamax Machop during Max Monday');
       await events.refresh();
-      const names = events.maxEvents().map((event) => event.name);
+      const names = events.maxEvents(ZONE).map((event) => event.name);
       expect(names).toContain('Dynamax Sableye during Max Monday');
       expect(names).not.toContain('Dynamax Machop during Max Monday');
-      const starts = events.maxEvents().map((event) => event.start);
+      const starts = events.maxEvents(ZONE).map((event) => event.start);
       expect([...starts].sort((a, b) => a - b)).toEqual(starts);
       expect(
-        featuredAt(events.maxEvents(), now, 'America/New_York').map(({ event }) => event.name),
+        featuredAt(events.maxEvents(ZONE), now, 'America/New_York').map(({ event }) => event.name),
       ).toEqual(['Dynamax Sableye during Max Monday']);
       // Eight days after its start it is forgotten.
       now = at('2026-11-03T06:00');
       body = without('Dynamax Sableye during Max Monday', 'Dynamax Sneasel during Max Monday');
       await events.refresh();
-      expect(events.maxEvents().map((event) => event.name)).not.toContain(
+      expect(events.maxEvents(ZONE).map((event) => event.name)).not.toContain(
         'Dynamax Sableye during Max Monday',
       );
     });
@@ -544,17 +549,20 @@ describe('RaidEventService', () => {
         now: () => at('2026-10-20T22:00'),
       });
       await events.refresh();
-      expect(await store.all()).toEqual({ max: events.maxEvents(), big: events.bigEvents() });
-      expect(events.maxEvents()).toHaveLength(7);
+      expect(await store.all()).toEqual({
+        max: events.maxEvents(ZONE),
+        big: events.bigEvents(ZONE),
+      });
+      expect(events.maxEvents(ZONE)).toHaveLength(7);
 
       const again = service(() => Promise.reject(new Error('down')), { maxEvents: store });
       await again.events.loadMax();
-      expect(again.events.maxEvents()).toEqual(events.maxEvents());
-      expect(again.events.bigEvents()).toEqual(events.bigEvents());
+      expect(again.events.maxEvents(ZONE)).toEqual(events.maxEvents(ZONE));
+      expect(again.events.bigEvents(ZONE)).toEqual(events.bigEvents(ZONE));
       // Plan 8X-G (staging of 8X-F, M3): a load says what it loaded, as the other loads do.
       expect(again.entries.find((entry) => entry.msg === 'max events loaded')).toMatchObject({
         max: 7,
-        big: events.bigEvents().length,
+        big: events.bigEvents(ZONE).length,
       });
     });
 
@@ -572,14 +580,16 @@ describe('RaidEventService', () => {
       await events.loadMax();
       await events.refresh();
       expect(
-        featuredAt(events.maxEvents(), now, 'America/New_York').map(({ event }) => event.name),
+        featuredAt(events.maxEvents(ZONE), now, 'America/New_York').map(({ event }) => event.name),
       ).toEqual(['Dynamax Sableye during Max Monday']);
       // Eight days after its start it is forgotten, also by the store.
       now = at('2026-11-03T06:00');
       await events.refresh();
       const kept = (await store.all()).max.map((event) => event.id);
       expect(kept).not.toContain('max-mondays-2026-10-26');
-      expect(events.maxEvents().map((event) => event.id)).not.toContain('max-mondays-2026-10-26');
+      expect(events.maxEvents(ZONE).map((event) => event.id)).not.toContain(
+        'max-mondays-2026-10-26',
+      );
     });
 
     it('forgets a kept event not begun that the read no longer lists, and a big one once over', async () => {
@@ -597,8 +607,8 @@ describe('RaidEventService', () => {
       const { events } = service(fetch, { maxEvents: store, now: () => now });
       await events.loadMax();
       await events.refresh();
-      expect(events.maxEvents().map((event) => event.id)).not.toContain(cryogonal);
-      expect(events.bigEvents().map((event) => event.id)).toContain(wild);
+      expect(events.maxEvents(ZONE).map((event) => event.id)).not.toContain(cryogonal);
+      expect(events.bigEvents(ZONE).map((event) => event.id)).toContain(wild);
       expect((await store.all()).big.map((event) => event.id)).toContain(wild);
       // Once the Wild Area is over, a read forgets it.
       now = at('2026-11-15T19:00');
@@ -615,10 +625,10 @@ describe('RaidEventService', () => {
         now: () => at('2026-10-20T22:00'),
       });
       await events.refresh();
-      const read = events.maxEvents();
+      const read = events.maxEvents(ZONE);
       await store.replace({ max: [], big: [] });
       await events.loadMax();
-      expect(events.maxEvents()).toEqual(read);
+      expect(events.maxEvents(ZONE)).toEqual(read);
     });
 
     it('keeps the events of a read that cannot be stored, and says so', async () => {
@@ -630,7 +640,7 @@ describe('RaidEventService', () => {
         now: () => at('2026-10-20T22:00'),
       });
       await expect(events.refresh()).resolves.toMatchObject({ status: 'updated' });
-      expect(events.maxEvents()).toHaveLength(7);
+      expect(events.maxEvents(ZONE)).toHaveLength(7);
       expect(
         entries.some(
           (entry) =>
@@ -646,7 +656,7 @@ describe('RaidEventService', () => {
         maxEvents: store,
       });
       await events.loadMax();
-      expect(events.maxEvents()).toEqual([]);
+      expect(events.maxEvents(ZONE)).toEqual([]);
       expect(entries.some((entry) => entry.msg === 'could not read the kept max events')).toBe(
         true,
       );
@@ -665,7 +675,7 @@ describe('RaidEventService', () => {
         eventWindow: () => window,
       });
       await events.refresh();
-      const before = { raid: events.events(), max: events.maxEvents() };
+      const before = { raid: events.events(ZONE), max: events.maxEvents(ZONE) };
       window = {
         start: at('2026-11-09T10:00'),
         end: at('2026-11-13T20:00'),
@@ -673,24 +683,106 @@ describe('RaidEventService', () => {
         setAt: at('2026-11-09T09:00'),
       };
       // At once, without a read: the window is asked each time.
-      const raid = events.events().filter((event) => event.eventWindow === true);
+      const raid = events.events(ZONE).filter((event) => event.eventWindow === true);
       expect(raid.map((event) => [event.kind, event.start, event.end])).toEqual([
         ['raid-hour', window.start, window.end],
       ]);
-      const battle = events.maxEvents().filter((event) => event.eventWindow === true);
+      const battle = events.maxEvents(ZONE).filter((event) => event.eventWindow === true);
       expect(battle).toMatchObject([
         { kind: 'max-battle', short: true, featured: undefined, id: undefined },
       ]);
-      expect(events.events()).toHaveLength(before.raid.length + 1);
-      expect(events.maxEvents()).toHaveLength(before.max.length + 1);
+      expect(events.events(ZONE)).toHaveLength(before.raid.length + 1);
+      expect(events.maxEvents(ZONE)).toHaveLength(before.max.length + 1);
       // Never kept with the max events, after a read too. (The events forum lists only hours an
       // event's page named, `pageHoursListed`, and the window names none: review LW-3 found that
       // no test could tell it listed or not, so none claims it.)
       await events.refresh();
       expect((await max.all()).max.some((event) => event.name === EVENT_WINDOW_NAME)).toBe(false);
       window = undefined;
-      expect(events.events()).toEqual(before.raid);
-      expect(events.maxEvents()).toEqual(before.max);
+      expect(events.events(ZONE)).toEqual(before.raid);
+      expect(events.maxEvents(ZONE)).toEqual(before.max);
+    });
+  });
+
+  // Plan 19A-2: a feed's wall-clock time is a moment in each server's zone, the same list for
+  // every reader of one zone; the feed's moments stay moments.
+  describe('in each server’s zone (plan 19A-2)', () => {
+    const BERLIN = 'Europe/Berlin';
+    const KOLKATA = 'Asia/Kolkata';
+    const inBerlin = (local: string) => zonedAt(local, BERLIN);
+
+    it('gives the raid, max, big, research, spawn and listed events on each zone’s clock', async () => {
+      const feed = JSON.stringify(readMaxEventFeed());
+      const { events } = service(() => Promise.resolve(reply(200, feed)), {
+        now: () => at('2026-10-21T22:00'),
+      });
+      await events.refresh();
+      // The Max Battle Day of the lake trio, 14:00 to 17:00 local, is 14:00 in Berlin.
+      const trio = (list: readonly MaxEvent[]) =>
+        list.find((event) => event.name.includes('Azelf Max Battle Day'));
+      expect(trio(events.maxEvents(ZONE))?.start).toBe(at('2026-10-24T14:00'));
+      expect(trio(events.maxEvents(BERLIN))?.start).toBe(inBerlin('2026-10-24T14:00'));
+      expect(trio(events.maxEvents(KOLKATA))?.end).toBe(zonedAt('2026-10-24T17:00', KOLKATA));
+      // The default zone's list is the stored list itself (fix round 2, P6), and a zone's is the
+      // same list each time.
+      expect(events.spawnEvents(ZONE)).toBe(events.storedSpawnEvents());
+      expect(events.bigEvents(BERLIN)).toBe(events.bigEvents(BERLIN));
+      // Pawniard's Community Day, research of its own, and its line in the events forum.
+      const pawniard = (list: readonly { id?: string; start: number }[]) =>
+        list.find((event) => event.id === PAWNIARD_DAY.id)?.start;
+      expect(pawniard(events.researchEvents(BERLIN))).toBe(inBerlin('2026-11-21T14:00'));
+      expect(pawniard(events.listedEvents(BERLIN))).toBe(inBerlin('2026-11-21T14:00'));
+      expect(pawniard(events.listedEvents(ZONE))).toBe(PAWNIARD_DAY.start);
+    });
+
+    it('gives the Raid Hours of the feed and of the pages on each zone’s clock', async () => {
+      const pages = [
+        {
+          kind: 'raid-hour' as const,
+          name: 'Zacian Raid Hour',
+          start: at('2026-10-15T18:00'),
+          end: at('2026-10-15T19:00'),
+          ...wallClock(at('2026-10-15T18:00'), at('2026-10-15T19:00'), 'America/New_York'),
+        },
+      ];
+      const { log } = createTestLogger();
+      const events = new RaidEventService({
+        url: URL,
+        refreshMs: 6 * HOUR,
+        zone: 'America/New_York',
+        fetch: () => Promise.resolve(reply(200, downloaded)),
+        log,
+        pageRaidHours: () => pages,
+      });
+      await events.refresh();
+      const starts = (zone: string = ZONE) =>
+        events
+          .events(zone)
+          .filter((event) => event.kind === 'raid-hour')
+          .slice(0, 2)
+          .map((event) => [event.name, event.start]);
+      expect(starts()).toEqual([
+        ['Dialga Raid Hour', at('2026-10-14T18:00')],
+        ['Zacian Raid Hour', at('2026-10-15T18:00')],
+      ]);
+      expect(starts(BERLIN)).toEqual([
+        ['Dialga Raid Hour', inBerlin('2026-10-14T18:00')],
+        ['Zacian Raid Hour', inBerlin('2026-10-15T18:00')],
+      ]);
+    });
+
+    it('asks the event window of the zone asked for', () => {
+      const asked: (string | undefined)[] = [];
+      const { events } = service(() => Promise.resolve(reply(200, downloaded)), {
+        eventWindow: (zone) => {
+          asked.push(zone);
+          return undefined;
+        },
+      });
+      events.events(BERLIN);
+      events.maxEvents(KOLKATA);
+      events.events(ZONE);
+      expect(asked).toEqual([BERLIN, KOLKATA, ZONE]);
     });
   });
 
@@ -705,16 +797,16 @@ describe('RaidEventService', () => {
         now: () => at('2026-10-22T12:00'),
       });
       const told: number[] = [];
-      events.onListedChange(() => told.push(events.listedEvents().length));
-      expect(events.listedEvents()).toEqual([]);
+      events.onListedChange(() => told.push(events.listedEvents(ZONE).length));
+      expect(events.listedEvents(ZONE)).toEqual([]);
       await events.refresh();
-      const ids = events.listedEvents().map((event) => event.id);
+      const ids = events.listedEvents(ZONE).map((event) => event.id);
       expect(ids).toContain('november-communityday2026');
       expect(ids).not.toContain('pokemon-tcg-30th-celebration');
-      const monday = events.maxEvents().find((event) => event.id === 'max-mondays-2026-10-26');
-      const line = events.listedEvents().find((event) => event.id === 'max-mondays-2026-10-26');
+      const monday = events.maxEvents(ZONE).find((event) => event.id === 'max-mondays-2026-10-26');
+      const line = events.listedEvents(ZONE).find((event) => event.id === 'max-mondays-2026-10-26');
       expect(line && [line.start, line.end]).toEqual(monday && [monday.start, monday.end]);
-      expect(await store.all()).toEqual(events.listedEvents());
+      expect(await store.all()).toEqual(events.listedEvents(ZONE));
       // Each read tells, changed or not: the forum draws after each read.
       await events.refresh();
       expect(told).toEqual([ids.length, ids.length]);
@@ -762,12 +854,12 @@ describe('RaidEventService', () => {
       const told: number[] = [];
       events.onListedChange(() => told.push(told.length));
       await events.refresh();
-      const lines = events.listedEvents().filter((event) => event.id.includes(':'));
+      const lines = events.listedEvents(ZONE).filter((event) => event.id.includes(':'));
       expect(lines.map((line) => [line.id, line.eventType, line.link])).toEqual([
         ['into-the-wild-2026:raid-hour:2026-11-09', 'raid-hour', WILD.link],
         ['into-the-wild-2026:max-battle-hour:2026-11-11', 'max-battle-hour', WILD.link],
       ]);
-      const starts = events.listedEvents().map((event) => event.start);
+      const starts = events.listedEvents(ZONE).map((event) => event.start);
       expect(starts).toEqual([...starts].sort((a, b) => a - b));
       // Never kept: the pages are read again after a restart.
       expect((await store.all()).some((event) => event.id.includes(':'))).toBe(false);
@@ -790,10 +882,10 @@ describe('RaidEventService', () => {
       down.events.onListedChange(() => told.push('loaded'));
       await down.events.loadListed();
       await down.events.refresh();
-      expect(down.events.listedEvents()).toEqual(first.events.listedEvents());
+      expect(down.events.listedEvents(ZONE)).toEqual(first.events.listedEvents(ZONE));
       expect(told).toEqual(['loaded']);
       expect(down.entries.find((entry) => entry.msg === 'listed events loaded')).toMatchObject({
-        events: first.events.listedEvents().length,
+        events: first.events.listedEvents(ZONE).length,
       });
       // Into the Wild is on and the feed lists it without times; the Community Day is dropped.
       now = at('2026-11-11T12:00');
@@ -807,7 +899,7 @@ describe('RaidEventService', () => {
       const { events, entries } = service(fetch, { listed: store, now: () => now });
       await events.loadListed();
       await events.refresh();
-      const ids = events.listedEvents().map((event) => event.id);
+      const ids = events.listedEvents(ZONE).map((event) => event.id);
       expect(ids).toContain('into-the-wild-2026');
       expect(ids).not.toContain('november-communityday2026');
       expect(
@@ -829,7 +921,7 @@ describe('RaidEventService', () => {
       });
       await events.refresh();
       await events.refresh();
-      expect(events.listedEvents().map((event) => event.id)).toContain(showcase.eventID);
+      expect(events.listedEvents(ZONE).map((event) => event.id)).toContain(showcase.eventID);
       expect(
         entries.filter((entry) => entry.msg === 'an event type the events forum does not know'),
       ).toEqual([
@@ -852,7 +944,7 @@ describe('RaidEventService', () => {
       });
       await events.loadListed();
       await expect(events.refresh()).resolves.toMatchObject({ status: 'updated' });
-      expect(events.listedEvents().length).toBeGreaterThan(5);
+      expect(events.listedEvents(ZONE).length).toBeGreaterThan(5);
       const said = entries.map((entry) => entry.msg);
       expect(said).toContain('could not read the kept listed events');
       expect(said).toContain('could not keep the listed events of the feed');
@@ -889,7 +981,7 @@ describe('RaidEventService', () => {
         now: () => at('2026-11-10T12:00'),
       });
       await events.refresh();
-      const before = events.listedEvents();
+      const before = events.listedEvents(ZONE);
       expect(before.length).toBeGreaterThan(3);
       // Only what nobody lists.
       body = JSON.stringify(
@@ -898,12 +990,12 @@ describe('RaidEventService', () => {
         ),
       );
       await events.refresh();
-      expect(events.listedEvents()).toEqual(before);
+      expect(events.listedEvents(ZONE)).toEqual(before);
       expect(events.droppedIds()).toEqual(new Set());
       // Only what is on now: every coming event would be dropped.
       body = JSON.stringify(spawnFeed().filter((event) => event.eventID === 'into-the-wild-2026'));
       await events.refresh();
-      expect(events.listedEvents()).toEqual(before);
+      expect(events.listedEvents(ZONE)).toEqual(before);
       expect(events.droppedIds()).toEqual(new Set());
       expect(await store.all()).toEqual(before);
       expect(
@@ -939,7 +1031,7 @@ describe('RaidEventService', () => {
       await events.refresh();
       body = JSON.stringify([on, added]);
       await events.refresh();
-      expect(events.listedEvents().map((event) => event.id)).toEqual([
+      expect(events.listedEvents(ZONE).map((event) => event.id)).toEqual([
         'on-now',
         'the-day',
         'added',
@@ -972,7 +1064,7 @@ describe('RaidEventService', () => {
         now: () => now,
       });
       await first.events.refresh();
-      const kept = new MemoryMaxEvents({ big: [...first.events.bigEvents()] });
+      const kept = new MemoryMaxEvents({ big: [...first.events.bigEvents(ZONE)] });
       const untimed = full.map((event) =>
         event.eventID === wild ? { ...event, start: null, end: null } : event,
       );
@@ -984,8 +1076,8 @@ describe('RaidEventService', () => {
       await events.loadMax();
       await events.loadListed();
       await events.refresh();
-      const big = events.bigEvents().find((event) => event.id === wild);
-      const line = events.listedEvents().find((event) => event.id === wild);
+      const big = events.bigEvents(ZONE).find((event) => event.id === wild);
+      const line = events.listedEvents(ZONE).find((event) => event.id === wild);
       expect(big).toBeDefined();
       expect(line && [line.start, line.end]).toEqual(big && [big.start, big.end]);
     });
@@ -998,16 +1090,16 @@ describe('RaidEventService', () => {
       const feed = JSON.stringify(readMaxEventFeed());
       const fetch = vi.fn<FetchEvents>(() => Promise.resolve(fail ? reply(500) : reply(200, feed)));
       const { events } = service(fetch, { now: () => at('2026-10-20T22:00') });
-      expect(events.bigEvents()).toEqual([]);
+      expect(events.bigEvents(ZONE)).toEqual([]);
       await events.refresh();
-      const names = events.bigEvents().map((event) => event.name);
+      const names = events.bigEvents(ZONE).map((event) => event.name);
       expect(names).toEqual([
         'Pokémon GO Wild Area 2026: Global',
         'Pokémon GO Tour: Alola - Global 2027',
       ]);
       fail = true;
       await events.refresh();
-      expect(events.bigEvents().map((event) => event.name)).toEqual(names);
+      expect(events.bigEvents(ZONE).map((event) => event.name)).toEqual(names);
     });
 
     // Review A of 8X-3, X3-B-5: ScrapedDuck may drop an event while it is on, as `mergedMax` keeps.
@@ -1019,7 +1111,7 @@ describe('RaidEventService', () => {
       const fetch = vi.fn<FetchEvents>(() => Promise.resolve(reply(200, JSON.stringify(feed))));
       const { events } = service(fetch, { now: () => now });
       await events.refresh();
-      const ids = () => events.bigEvents().map((event) => event.id);
+      const ids = () => events.bigEvents(ZONE).map((event) => event.id);
       expect(ids()).toContain(wild);
       // Dropped by the feed while it is on: still on.
       feed = full.filter((item) => item.eventID !== wild);
@@ -1042,14 +1134,14 @@ describe('RaidEventService', () => {
   });
 
   describe('the events with spawns (plan 8R-4)', () => {
-    const ids = (events: RaidEventService) => events.spawnEvents().map((event) => event.id);
+    const ids = (events: RaidEventService) => events.spawnEvents(ZONE).map((event) => event.id);
 
     it('gives the global events with spawns of each read, in memory', async () => {
       const fetch = vi.fn<FetchEvents>(() =>
         Promise.resolve(reply(200, JSON.stringify(readSpawnEventFeed()))),
       );
       const { events } = service(fetch, { now: () => at('2026-10-22T12:00') });
-      expect(events.spawnEvents()).toEqual([]);
+      expect(events.spawnEvents(ZONE)).toEqual([]);
       await events.refresh();
       expect(ids(events)).toEqual(
         expect.arrayContaining([
@@ -1088,14 +1180,14 @@ describe('RaidEventService', () => {
       const fetch = vi.fn<FetchEvents>(() => Promise.resolve(reply(200, body)));
       const { events } = service(fetch, { now: () => at('2026-10-28T12:00') });
       await events.refresh();
-      const before = events.spawnEvents();
+      const before = events.spawnEvents(ZONE);
       expect(before.length).toBeGreaterThan(0);
       body = JSON.stringify(full.map(({ extraData: _dropped, ...rest }) => rest));
       await events.refresh();
-      expect(events.spawnEvents()).toEqual(before);
+      expect(events.spawnEvents(ZONE)).toEqual(before);
       body = 'not json';
       await events.refresh();
-      expect(events.spawnEvents()).toEqual(before);
+      expect(events.spawnEvents(ZONE)).toEqual(before);
     });
   });
 
@@ -1107,13 +1199,13 @@ describe('RaidEventService', () => {
       const now = at('2026-10-21T22:00');
       const { events } = service(fetch, { research: store, now: () => now });
       await events.refresh();
-      expect(events.researchEvents()).toEqual([INTO_THE_WILD, PAWNIARD_DAY]);
+      expect(events.researchEvents(ZONE)).toEqual([INTO_THE_WILD, PAWNIARD_DAY]);
       expect(await store.all()).toEqual([INTO_THE_WILD, PAWNIARD_DAY]);
 
       // A restart without the network: the kept ones.
       const again = service(() => Promise.reject(new Error('down')), { research: store });
       await again.events.loadResearch();
-      expect(again.events.researchEvents()).toEqual([INTO_THE_WILD, PAWNIARD_DAY]);
+      expect(again.events.researchEvents(ZONE)).toEqual([INTO_THE_WILD, PAWNIARD_DAY]);
     });
 
     it('keeps one the feed dropped once it ended, and forgets it a month after its end', async () => {
@@ -1127,10 +1219,10 @@ describe('RaidEventService', () => {
       feed = full.filter((item) => item.eventID !== PAWNIARD_DAY.id);
       now = at('2026-11-21T18:00');
       await events.refresh();
-      expect(events.researchEvents().map((event) => event.id)).toContain(PAWNIARD_DAY.id);
+      expect(events.researchEvents(ZONE).map((event) => event.id)).toContain(PAWNIARD_DAY.id);
       now = at('2026-12-22T18:00');
       await events.refresh();
-      expect(events.researchEvents().map((event) => event.id)).not.toContain(PAWNIARD_DAY.id);
+      expect(events.researchEvents(ZONE).map((event) => event.id)).not.toContain(PAWNIARD_DAY.id);
       expect((await store.all()).map((event) => event.id)).not.toContain(PAWNIARD_DAY.id);
     });
 
@@ -1141,7 +1233,7 @@ describe('RaidEventService', () => {
       const fetch = vi.fn<FetchEvents>(() => Promise.resolve(reply(200, JSON.stringify(feed))));
       const { events } = service(fetch, { research: store, now: () => at('2026-10-21T22:00') });
       const heard: string[][] = [];
-      events.onResearchChange(() => heard.push(events.researchEvents().map((one) => one.id)));
+      events.onResearchChange(() => heard.push(events.researchEvents(ZONE).map((one) => one.id)));
       await events.refresh();
       expect(heard).toEqual([[INTO_THE_WILD.id, PAWNIARD_DAY.id]]);
       // The same read again changes nothing: nobody is told.
@@ -1149,7 +1241,7 @@ describe('RaidEventService', () => {
       expect(heard).toHaveLength(1);
       feed = full.filter((item) => item.eventID !== PAWNIARD_DAY.id);
       await events.refresh();
-      expect(events.researchEvents()).toEqual([INTO_THE_WILD]);
+      expect(events.researchEvents(ZONE)).toEqual([INTO_THE_WILD]);
       expect(await store.all()).toEqual([INTO_THE_WILD]);
       expect(heard).toEqual([[INTO_THE_WILD.id, PAWNIARD_DAY.id], [INTO_THE_WILD.id]]);
     });
@@ -1168,7 +1260,7 @@ describe('RaidEventService', () => {
       await events.loadResearch();
       await events.refresh();
       await events.refresh();
-      expect(events.researchEvents()).toEqual([INTO_THE_WILD]);
+      expect(events.researchEvents(ZONE)).toEqual([INTO_THE_WILD]);
       expect(await store.all()).toEqual([INTO_THE_WILD]);
       expect(
         entries.filter((entry) => entry.msg === 'the events feed has no research flags; kept'),
@@ -1196,7 +1288,7 @@ describe('RaidEventService', () => {
         'https://example.test/events.min.json',
         'https://example.test/events.json',
       ]);
-      expect(events.researchEvents()).toEqual([INTO_THE_WILD, PAWNIARD_DAY]);
+      expect(events.researchEvents(ZONE)).toEqual([INTO_THE_WILD, PAWNIARD_DAY]);
     });
 
     it('uses no stored in-person event, such as a City Safari kept before plan 8R-7 (F1)', async () => {
@@ -1222,7 +1314,7 @@ describe('RaidEventService', () => {
       await events.loadResearch();
       // A Wild Area's row counts since Matt's rule of 2026-10-24 (review W1): rows are kept only
       // after the zone test, so this one had local times, which are enough for its type.
-      expect(events.researchEvents()).toEqual(
+      expect(events.researchEvents(ZONE)).toEqual(
         [INTO_THE_WILD, sendai].sort((a, b) => a.start - b.start || a.id.localeCompare(b.id)),
       );
     });
@@ -1243,7 +1335,7 @@ describe('RaidEventService', () => {
       });
       await events.refresh();
       await events.refresh();
-      expect(events.bigEvents().map((event) => event.id)).toContain(MAX_FINALE.eventID);
+      expect(events.bigEvents(ZONE).map((event) => event.id)).toContain(MAX_FINALE.eventID);
       const told = entries.filter(
         (entry) =>
           entry.msg === 'a Wild Area, GO Tour or GO Fest without global in its name is read',
@@ -1274,7 +1366,7 @@ describe('RaidEventService', () => {
       });
       await events.refresh();
       await events.refresh();
-      expect(events.researchEvents()).toEqual([INTO_THE_WILD, PAWNIARD_DAY]);
+      expect(events.researchEvents(ZONE)).toEqual([INTO_THE_WILD, PAWNIARD_DAY]);
       const warned = entries.filter(
         (entry) => entry.msg === 'an event type with field research is not read',
       );

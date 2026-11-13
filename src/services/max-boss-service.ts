@@ -85,7 +85,7 @@ export function currentMaxBossChoices(
   },
   now: number,
 ): MaxBossChoice[] {
-  const events = deps.maxEvents.maxEvents();
+  const events = deps.maxEvents.maxEvents(deps.zone);
   const exact = (text: string) => deps.pokemon.exact(text);
   const choices = maxBossChoices(
     withoutEndedUpcoming(
@@ -105,7 +105,7 @@ export function currentMaxBossChoices(
       hidden: deps.maxBosses.hidden(),
     },
   );
-  if (!bigEventAt(deps.maxEvents.bigEvents(), now)) return choices;
+  if (!bigEventAt(deps.maxEvents.bigEvents(deps.zone), now)) return choices;
   const gigantamax = (choice: MaxBossChoice): boolean => choice.boss.tier === 'G';
   return [...choices.filter(gigantamax), ...choices.filter((choice) => !gigantamax(choice))];
 }

@@ -1,5 +1,6 @@
 import { wornBy } from '../pogo/raid-boss-feed.js';
 import { foldText } from '../search/text.js';
+import { momentIn } from '../time/zoned.js';
 
 /*
  * Field research tasks (plan 8R-1; design `2026-10-21-stop-reports-design.md`, 4.1): what a
@@ -64,9 +65,21 @@ export interface ResearchTask {
   endsLocal?: string;
 }
 
-/** Whether a task is offered at `now`: not past its event's end. */
-export function taskOffered(task: Pick<ResearchTask, 'endsAt'>, now: number): boolean {
-  return task.endsAt === undefined || now < task.endsAt;
+/**
+ * Whether a task is offered at `now`: not past its event's end, in `zone` (plan 19A-2: a server's;
+ * an end the page gave as local time is on its clock there), without one the end kept.
+ */
+export function taskOffered(
+  task: Pick<ResearchTask, 'endsAt' | 'endsLocal'>,
+  now: number,
+  zone?: string,
+): boolean {
+  if (task.endsAt === undefined) return true;
+  const end =
+    zone === undefined || task.endsLocal === undefined
+      ? task.endsAt
+      : momentIn({ local: task.endsLocal }, zone).epochMilliseconds;
+  return now < end;
 }
 
 /**

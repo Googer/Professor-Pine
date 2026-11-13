@@ -325,11 +325,18 @@ export async function startApp(
     log,
   });
   // The event window staff set (`/admin event-window`, 2026-11-09), kept in the database.
-  const eventWindows = new EventWindowService({ store: new EventWindowRepository(db), log });
+  const eventWindows = new EventWindowService({
+    store: new EventWindowRepository(db, instanceZone(config.settings)),
+    log,
+    // Where an end finds the window still on (fix round 1, M4). Late: the servers' settings are
+    // made below, and asked only by an end.
+    zones: () => servers.zonesInUse(),
+  });
   const raidEvents = new RaidEventService({
     url: config.settings.raidEvents.url,
     refreshMs: config.settings.raidEvents.refreshHours * HOUR_MS,
-    zone: config.settings.timezone,
+    // Kept in the instance's default zone; each reader asks in its server's (plan 19A-2).
+    zone: instanceZone(config.settings),
     fetch: (url, init) => fetch(url, init),
     // The events with field research of their own, kept as seen (plan 8R-1).
     research: new ResearchEventRepository(db, instanceZone(config.settings)),
@@ -342,8 +349,9 @@ export async function startApp(
     pageRaidHours: (): readonly RaidEvent[] => eventPages.raidHours(),
     // Their Max Battle hours, with the feed's max events for every reader of `maxEvents()`.
     pageMaxHours: (): readonly MaxEvent[] => eventPages.maxHours(),
-    // A Raid Hour and a Max Battle Day to every reader while staff's event window is on.
-    eventWindow: () => eventWindows.current(),
+    // A Raid Hour and a Max Battle Day to every reader while staff's event window is on, on
+    // the clock of the zone asked (plan 19A-2: typed as local time).
+    eventWindow: (zone) => eventWindows.current(zone),
     log,
   });
   // The events' Leek Duck pages: the spawns of the events on (plan 8R-4: a community day's from
@@ -353,7 +361,9 @@ export async function startApp(
     events: raidEvents,
     gameData,
     fetch: (url, init) => fetch(url, init),
-    zone: config.settings.timezone,
+    zone: instanceZone(config.settings),
+    // A page is read once its event is on in any zone in use (plan 19A-2); asked at each look.
+    zones: () => servers.zonesInUse(),
     weeklyRaidHour: config.settings.raidEvents.weeklyRaidHour,
     // The events forum lists the pages' hours: it draws again when a read changed them.
     onHoursChange: () => {
@@ -375,7 +385,7 @@ export async function startApp(
   const researchTasks = new ResearchTaskService({
     pictures: stopPictures,
     url: config.settings.research.url,
-    zone: config.settings.timezone,
+    zone: instanceZone(config.settings),
     refreshMs: config.settings.research.refreshHours * HOUR_MS,
     staleAfterMs: config.settings.research.staleAfterHours * HOUR_MS,
     store: new ResearchTaskRepository(db, log, instanceZone(config.settings)),

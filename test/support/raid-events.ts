@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseRaidEventFeed, type RaidEvent } from '../../src/domain/time/raid-events.js';
 import type { BigEvent, MaxEvent } from '../../src/domain/time/max-events.js';
+import { allIn, type FeedTimed } from '../../src/domain/time/feed-times.js';
 import type {
   MaxEventProvider,
   RaidEventProvider,
@@ -37,10 +38,13 @@ export function raidEventsFixture(
   const max = extra.max ?? [];
   const big = extra.big ?? [];
   const research = extra.research ?? [];
+  // In another zone, as `RaidEventService` gives them (plan 19A-2: wall-clock times on its clock).
+  const inZone = <T extends FeedTimed>(list: readonly T[], asked?: string): readonly T[] =>
+    asked === undefined || asked === zone ? list : allIn(list, asked);
   return {
-    events: () => events,
-    maxEvents: () => max,
-    bigEvents: () => big,
-    researchEvents: () => research,
+    events: (asked) => inZone(events, asked),
+    maxEvents: (asked) => inZone(max, asked),
+    bigEvents: (asked) => inZone(big, asked),
+    researchEvents: (asked) => inZone(research, asked),
   };
 }

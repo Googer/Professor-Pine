@@ -5,6 +5,7 @@ import { readEventPage, readSpawnEventFeed } from '../../test/support/spawn-even
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { parseSpawnEventFeed, type SpawnEvent } from '../domain/time/spawn-events.js';
 import { parsePagedEventFeed, type PagedEvent } from '../domain/time/event-pages.js';
+import { allIn } from '../domain/time/feed-times.js';
 import { readEveryoneFeed } from '../../test/support/event-reach.js';
 import {
   EventPageService,
@@ -41,8 +42,13 @@ function serviceWith(
   const clock = { now: at('2026-10-28T12:00') };
   const asked: { url: string; headers: Record<string, string>; redirect: string }[] = [];
   const service = new EventPageService({
+    events: {
+      spawnEvents: () => events,
+      pagedEvents: () => paged.now,
+      storedSpawnEvents: () => events,
+      storedPagedEvents: () => paged.now,
+    },
     ...more,
-    events: { spawnEvents: () => events, pagedEvents: () => paged.now },
     zone: ZONE,
     weeklyRaidHour,
     gameData: { catalogue: catalogueFixture() },
@@ -90,6 +96,48 @@ describe('EventPageService (plan 8R-4)', () => {
     // Not on before it starts, nor after it ends.
     expect(service.sightingsAt(at('2026-10-27T09:59'))).toEqual([]);
     expect(service.sightingsAt(at('2026-11-01T10:00'))).toEqual([]);
+  });
+
+  // Plan 19A-2: an event at local times is on first in the zones east of the default; its page
+  // is read once it is on in any zone in use, and its spawns are on each server's clock.
+  it('reads the page once the event is on in any zone in use, and places spawns per zone', async () => {
+    const BERLIN = 'Europe/Berlin';
+    const halloween = readEventPage('leekduck-event-halloween-2026-part-1.html');
+    const placed = (zone: string) => (zone === ZONE ? FEED_EVENTS : allIn(FEED_EVENTS, zone));
+    const { service, clock, asked } = serviceWith(
+      () => page(halloween),
+      FEED_EVENTS,
+      undefined,
+      undefined,
+      {
+        events: {
+          spawnEvents: placed,
+          pagedEvents: () => [],
+          storedSpawnEvents: () => FEED_EVENTS,
+          storedPagedEvents: () => [],
+        },
+        zones: () => [ZONE, BERLIN],
+      },
+    );
+    // 10:00 in Berlin is 05:00 in New York: Halloween is on in Berlin only.
+    clock.now = zonedAt('2026-10-27T10:00', BERLIN);
+    await service.refresh();
+    expect(asked.map((one) => one.url)).toEqual([HALLOWEEN]);
+    expect(
+      service
+        .sightingsAt(clock.now, BERLIN)
+        .filter((one) => one.costumed)
+        .map((one) => one.key),
+    ).toContain('zubat');
+    expect(service.sightingsAt(clock.now, ZONE)).toEqual([]);
+    expect(service.sightingsAt(clock.now)).toEqual([]);
+    // Read since it began in Berlin: not read again at the next look (fix round 1, M5), nor
+    // as it begins in New York.
+    clock.now = zonedAt('2026-10-27T10:30', BERLIN);
+    await service.refresh();
+    clock.now = at('2026-10-27T10:30');
+    await service.refresh();
+    expect(asked.map((one) => one.url)).toEqual([HALLOWEEN]);
   });
 
   it('reads a page again only after six hours, and keeps the last good read when one fails', async () => {
@@ -744,7 +792,7 @@ describe('startAfterFeed (ER-1, ER-5)', () => {
       await feed.refresh();
       await pages.whenIdle();
       expect(asked).toContain(INTO_THE_WILD);
-      expect(feed.events().map((event) => event.name)).toContain(
+      expect(feed.events(ZONE).map((event) => event.name)).toContain(
         'Zacian (Crowned Sword) Raid Hour',
       );
       // Stopped: a later good read reads no page.

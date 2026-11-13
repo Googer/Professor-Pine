@@ -1147,7 +1147,7 @@ export class PartyService {
    * parties of the servers in `zone` (plan 19A-2; `rulesOf` a party's).
    */
   rulesIn(zone: string): RaidDurationRules {
-    return raidDurationRules(this.options.settings, this.options.raidEvents.events(), zone);
+    return raidDurationRules(this.options.settings, this.options.raidEvents.events(zone), zone);
   }
 
   /** The durations in effect for a party: those of its server's zone (`zoneOf`). */

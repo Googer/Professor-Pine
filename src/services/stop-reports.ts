@@ -363,7 +363,7 @@ export class StopReportService {
 
   /** The research period on now (or at `at`). */
   period(at = this.now()): ResearchPeriod {
-    return periodAt(this.options.events.researchEvents(), at, this.options.zone);
+    return periodAt(this.options.events.researchEvents(this.options.zone), at, this.options.zone);
   }
 
   /** The reports of a server that have not ended, oldest first. */

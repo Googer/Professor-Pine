@@ -1,4 +1,4 @@
-import { momentIn, type FeedTime } from './zoned.js';
+import { momentIn, zoned, type FeedTime } from './zoned.js';
 
 /*
  * The times of a feed's event in each server's zone (plan 19A-2). A feed gives most times as
@@ -41,6 +41,14 @@ export function localsOf(
     ...('local' in start ? { startLocal: start.local } : {}),
     ...('local' in end ? { endLocal: end.local } : {}),
   };
+}
+
+/**
+ * The wall-clock time of a moment on `zone`'s clock (`FeedTime`'s `local`), so that a time typed
+ * in one server's zone is kept as local time in every server's (the event window, plan 19A-2).
+ */
+export function wallClockAt(at: number, zone: string): string {
+  return zoned(at, zone).toPlainDateTime().toString();
 }
 
 /** The wall-clock fields of times computed on `zone`'s clock (a page's Raid Hour on its day). */

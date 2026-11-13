@@ -22,7 +22,11 @@ import type { Logger } from '../log.js';
 import { failureReason } from './failure-reason.js';
 import type { GameDataProvider } from './game-data-service.js';
 import { readLimitedText } from './limited-json.js';
-import type { PagedEventProvider, SpawnEventProvider } from './raid-event-service.js';
+import type {
+  PagedEventProvider,
+  SpawnEventProvider,
+  StoredEventLists,
+} from './raid-event-service.js';
 import type { LimitedResponse } from './limited-json.js';
 import { PINE_USER_AGENT } from './research-task-service.js';
 
@@ -79,7 +83,7 @@ export interface EventSpawnProvider {
    * or not (`costumedSpawn` says whether a report is costumed). Empty for an event whose page was
    * never read.
    */
-  sightingsAt(at: number): SpawnSightingOf;
+  sightingsAt(at: number, zone?: string): SpawnSightingOf;
 }
 
 /**
@@ -94,14 +98,24 @@ export type FetchEventPage = (
 export interface EventPageOptions {
   /**
    * The global events with spawns of the events feed, and its events with a Leek Duck page
-   * (`RaidEventService`).
+   * (`RaidEventService`): in a zone in use, or as kept, in the default zone (`StoredEventLists`,
+   * fix round 2, P6).
    */
-  events: SpawnEventProvider & PagedEventProvider;
+  events: SpawnEventProvider & PagedEventProvider & StoredEventLists;
   gameData: Pick<GameDataProvider, 'catalogue'>;
   fetch: FetchEventPage;
   log: Logger;
-  /** IANA zone of the pages' days (settings.timezone). */
+  /**
+   * IANA zone of the pages' days: the instance's default (`instanceZone`), in which the feed's
+   * lists are kept; a page's hours are wall-clock time, a moment in each server's zone.
+   */
   zone: string;
+  /**
+   * The zones in use (plan 19A-2, `ServerSettings.zonesInUse`): an event's page is read once the
+   * event is on in any of them (one at local times begins first in the zones furthest east).
+   * Without it the default zone's alone.
+   */
+  zones?: () => readonly string[];
   /**
    * The weekly Raid Hour of the settings (`raidEvents.weeklyRaidHour`): a page's Raid Hour is at
    * its hour and lasts as long where the page's Raids section gives no one time of its own
@@ -189,13 +203,14 @@ export class EventPageService implements EventSpawnProvider {
     this.timeoutMs = options.timeoutMs ?? 30_000;
   }
 
-  sightingsAt(at: number): SpawnSightingOf {
+  sightingsAt(at: number, zone?: string): SpawnSightingOf {
     const { catalogue } = this.options.gameData;
-    return spawnEventsAt(this.options.events.spawnEvents(), at).flatMap((event) =>
-      (event.spawns ?? this.pages.get(event.id)?.spawns ?? []).flatMap((spawn) => {
-        const sighting = costumedSighting(catalogue, spawn.name, spawn.image);
-        return sighting === undefined ? [] : [sighting];
-      }),
+    return spawnEventsAt(this.options.events.spawnEvents(zone ?? this.options.zone), at).flatMap(
+      (event) =>
+        (event.spawns ?? this.pages.get(event.id)?.spawns ?? []).flatMap((spawn) => {
+          const sighting = costumedSighting(catalogue, spawn.name, spawn.image);
+          return sighting === undefined ? [] : [sighting];
+        }),
     );
   }
 
@@ -225,7 +240,7 @@ export class EventPageService implements EventSpawnProvider {
     const { events } = this.options;
     const now = this.now();
     const listed = new Set(
-      [...events.pagedEvents(), ...events.spawnEvents()].map((event) => event.id),
+      [...events.storedPagedEvents(), ...events.storedSpawnEvents()].map((event) => event.id),
     );
     return this.pages.keys().flatMap((id) => {
       const read = this.pages.get(id);
@@ -287,6 +302,11 @@ export class EventPageService implements EventSpawnProvider {
     this.tick();
   }
 
+  /** The zones whose events are looked at: the default zone and every zone in use. */
+  private zones(): string[] {
+    return [...new Set([this.options.zone, ...(this.options.zones?.() ?? [])])];
+  }
+
   /** Cancels the next look and ends a read in flight. */
   stop(): void {
     this.stopped = true;
@@ -299,7 +319,10 @@ export class EventPageService implements EventSpawnProvider {
   private tick(): void {
     void this.refresh().then(() => {
       if (this.stopped) return;
-      const wait = nextReadIn(this.options.events.spawnEvents(), this.now());
+      const now = this.now();
+      const wait = Math.min(
+        ...this.zones().map((zone) => nextReadIn(this.options.events.spawnEvents(zone), now)),
+      );
       this.timer = setTimeout(() => {
         this.timer = undefined;
         this.tick();
@@ -316,7 +339,21 @@ export class EventPageService implements EventSpawnProvider {
   private pagesNow(now: number): Map<string, PageToRead> {
     const { events, log } = this.options;
     const due = new Map<string, PageToRead>();
-    for (const event of spawnEventsAt(events.spawnEvents(), now)) {
+    // On now in any zone in use (plan 19A-2), each event once, as the default zone has it (its
+    // span, from which a page's days are placed, the days of its feed's own times).
+    const kept = new Map(events.storedSpawnEvents().map((event) => [event.id, event]));
+    // Each event's earliest start among the zones it is on in now (fix round 1, M5): its page,
+    // read since then, is not read again at every look until the default zone's start.
+    const begun = new Map<string, number>();
+    const onNow = new Map(
+      this.zones()
+        .flatMap((zone) => spawnEventsAt(events.spawnEvents(zone), now))
+        .map((event) => {
+          begun.set(event.id, Math.min(begun.get(event.id) ?? event.start, event.start));
+          return [event.id, kept.get(event.id) ?? event] as const;
+        }),
+    );
+    for (const event of onNow.values()) {
       const { page } = event;
       if (page === undefined || event.spawns !== undefined) continue;
       if (!isEventPage(page)) {
@@ -329,9 +366,9 @@ export class EventPageService implements EventSpawnProvider {
         }
         continue;
       }
-      due.set(event.id, { url: page, span: event, spawnsFrom: event.start });
+      due.set(event.id, { url: page, span: event, spawnsFrom: begun.get(event.id) ?? event.start });
     }
-    for (const event of pagedEventsNear(events.pagedEvents(), now)) {
+    for (const event of pagedEventsNear(events.storedPagedEvents(), now)) {
       if (!due.has(event.id)) due.set(event.id, { url: event.page, span: event });
     }
     return due;

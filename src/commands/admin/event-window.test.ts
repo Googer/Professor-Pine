@@ -9,6 +9,7 @@ import {
 } from '../../../test/support/fake-interactions.js';
 import type { RecordingDms } from '../../../test/support/dms.js';
 import { buttonsOf, textDisplays, textOf } from '../../../test/support/messages.js';
+import { withZones } from '../../../test/support/server-values.js';
 import { TEST_ENV } from '../../../test/support/test-env.js';
 import { zonedAt } from '../../../test/support/time.js';
 import { createTestLogger } from '../../../test/support/test-logger.js';
@@ -34,11 +35,20 @@ function answerOf(interaction: FakeInteraction): string {
   return textOf(asV2(payload));
 }
 
-async function commands(store = new MemoryEventWindows()) {
+/** The commands in the fakes' server, in `zone`; `others`: zones of other servers in use. */
+async function commands(
+  store = new MemoryEventWindows(),
+  zone?: string,
+  others: readonly string[] = [],
+) {
   const { log } = createTestLogger();
-  const eventWindows = new EventWindowService({ store, log });
+  const servers = withZones({
+    ...(zone === undefined ? {} : { [FAKE_GUILD_ID]: zone }),
+    ...Object.fromEntries(others.map((other, n) => [`41234567890123459${String(n)}`, other])),
+  });
+  const eventWindows = new EventWindowService({ store, log, zones: () => servers.zonesInUse() });
   await eventWindows.load();
-  const made = await bossCommandsWith({ context: { eventWindows } });
+  const made = await bossCommandsWith({ context: { eventWindows, servers } });
   return { ...made, eventWindows, store };
 }
 
@@ -68,9 +78,11 @@ describe('/admin event-window', () => {
         'Raids and battles already reported keep their times.',
     );
     expect(asV2(used.editReply.mock.calls[0]?.[0] as SentPayload).v2).toBe(true);
+    // Plan 19A-2: the end typed is local time, kept so; the start of now is a moment.
     const window = {
       start: NOW,
       end: at('2026-11-13T20:00'),
+      endLocal: '2026-11-13T20:00:00',
       setBy: made.staff.userId,
       setAt: NOW,
     };
@@ -214,6 +226,131 @@ describe('/admin event-window', () => {
     expect(made.eventWindows.current()).toBeUndefined();
   });
 
+  // Plan 19A-2: times are typed in the zone of the server of whoever types them, kept as local
+  // time, and on at those hours on every server's clock.
+  describe('in each server’s zone (plan 19A-2)', () => {
+    const BERLIN = 'Europe/Berlin';
+    const inBerlin = (local: string): number => zonedAt(local, BERLIN);
+
+    it('reads and says the times in the server’s zone, and keeps them as local time', async () => {
+      const made = await commands(undefined, BERLIN);
+      const used = await made.use('event-window', 'set', {
+        from: '11-10 10am',
+        until: '11-13 8pm',
+      });
+      expect(answerOf(used)).toMatch(
+        /^From Tuesday, November 10 at 10:00 AM until Friday, November 13 at 8:00 PM, raids last/,
+      );
+      expect(await made.store.current()).toEqual({
+        start: at('2026-11-10T10:00'),
+        end: at('2026-11-13T20:00'),
+        startLocal: '2026-11-10T10:00:00',
+        endLocal: '2026-11-13T20:00:00',
+        setBy: made.staff.userId,
+        setAt: NOW,
+      });
+      expect(made.eventWindows.current(BERLIN)).toMatchObject({
+        start: inBerlin('2026-11-10T10:00'),
+        end: inBerlin('2026-11-13T20:00'),
+      });
+      expect(made.eventWindows.current(ZONE)).toMatchObject({
+        start: at('2026-11-10T10:00'),
+        end: at('2026-11-13T20:00'),
+      });
+      expect(textDisplays((made.ctx.dms as RecordingDms).jobs[0]?.message).at(-1)).toBe(
+        'Set the event window, for every server: from Tuesday, November 10 at 10:00 AM until ' +
+          'Friday, November 13 at 8:00 PM, local time in every server’s zone.',
+      );
+    });
+
+    it('counts the 14 days and an end in the past on the server’s clock', async () => {
+      const made = await commands(undefined, BERLIN);
+      // 09:00 in New York is 15:00 in Berlin: 2pm there is gone, 4pm is not.
+      expect(answerOf(await made.use('event-window', 'set', { until: '2pm' }))).toBe(
+        'The event window must end in the future.',
+      );
+      expect(answerOf(await made.use('event-window', 'set', { until: '11-30 8pm' }))).toBe(
+        'An event window lasts at most 14 days: end it by Monday, November 23 at 3:00 PM.',
+      );
+      await made.use('event-window', 'set', { until: '4pm' });
+      expect(made.eventWindows.current(BERLIN)?.end).toBe(inBerlin('2026-11-09T16:00'));
+    });
+
+    it('keeps a time typed as a span from now as a moment, the same in every zone (fix round 1, M2)', async () => {
+      const made = await commands(undefined, BERLIN);
+      await made.use('event-window', 'set', { from: 'in 30', until: '11-13 8pm' });
+      const kept = await made.store.current();
+      expect(kept?.start).toBe(NOW + 30 * 60_000);
+      expect(kept?.startLocal).toBeUndefined();
+      expect(made.eventWindows.current(ZONE)?.start).toBe(NOW + 30 * 60_000);
+      expect(made.eventWindows.current(BERLIN)?.start).toBe(NOW + 30 * 60_000);
+    });
+
+    it('ends a window on in another zone only, keeping what ran there (fix round 1, M1)', async () => {
+      const made = await commands(undefined, undefined, [BERLIN]);
+      await made.use('event-window', 'set', { from: '11-10 10am', until: '11-13 8pm' });
+      // 09:00 on Tuesday in New York, 15:00 in Berlin: begun there, not here.
+      const now = at('2026-11-10T09:00');
+      vi.setSystemTime(now);
+      const used = await made.use('event-window', 'end');
+      expect(answerOf(used)).toBe(
+        'The event window that was to begin Tuesday, November 10 at 10:00 AM is called off.',
+      );
+      expect(made.eventWindows.current(BERLIN)).toMatchObject({
+        start: inBerlin('2026-11-10T10:00'),
+        end: now,
+      });
+      expect(made.eventWindows.current(ZONE)).toBeUndefined();
+      // It ran in Berlin: the owner is never told it was called off for every server.
+      expect(textDisplays((made.ctx.dms as RecordingDms).jobs.at(-1)?.message).at(-1)).toMatch(
+        /^Ended the event window, for every server: it had run since /u,
+      );
+    });
+
+    it('ends a window over here that is still on elsewhere, and says so (fix round 1, M4)', async () => {
+      const made = await commands(undefined, BERLIN);
+      await made.use('event-window', 'set', { from: '11-10 10am', until: '11-13 8pm' });
+      // 21:00 on Friday in Berlin, over there; 15:00 in New York, still on.
+      const now = inBerlin('2026-11-13T21:00');
+      vi.setSystemTime(now);
+      const used = await made.use('event-window', 'end');
+      expect(answerOf(used)).toBe('Ended the event window in the servers where it was still on.');
+      expect(made.eventWindows.current(ZONE)?.end).toBe(now);
+    });
+
+    it('keeps the start of a window ended in Berlin when Berlin sets it again (fix round 1, M3)', async () => {
+      const made = await commands(undefined, BERLIN);
+      await made.use('event-window', 'set', { from: '11-10 10am', until: '11-13 8pm' });
+      vi.setSystemTime(inBerlin('2026-11-10T15:00'));
+      await made.use('event-window', 'end');
+      vi.setSystemTime(inBerlin('2026-11-10T15:30'));
+      await made.use('event-window', 'set', { until: '11-13 8pm' });
+      expect(made.eventWindows.current(BERLIN)?.start).toBe(inBerlin('2026-11-10T10:00'));
+    });
+
+    it('keeps the start of a window on in Berlin when New York sets it again (fix round 1, M3)', async () => {
+      const made = await commands(undefined, undefined, [BERLIN]);
+      await made.use('event-window', 'set', { from: '11-10 10am', until: '11-13 8pm' });
+      // 09:00 in New York, 15:00 in Berlin: on there.
+      vi.setSystemTime(at('2026-11-10T09:00'));
+      await made.use('event-window', 'set', { until: '11-14 8pm' });
+      expect(made.eventWindows.current(BERLIN)?.start).toBe(inBerlin('2026-11-10T10:00'));
+      expect(made.eventWindows.current(ZONE)?.start).toBe(at('2026-11-10T10:00'));
+    });
+
+    it('ends a window begun on the server’s clock now, for every server', async () => {
+      const made = await commands(undefined, BERLIN);
+      await made.use('event-window', 'set', { from: '11-10 10am', until: '11-13 8pm' });
+      // 09:00 on Tuesday in New York, 15:00 in Berlin: begun there, not in New York.
+      const now = at('2026-11-10T09:00');
+      vi.setSystemTime(now);
+      const used = await made.use('event-window', 'end');
+      expect(answerOf(used)).toMatch(/^The event window is over/);
+      expect(made.eventWindows.current(BERLIN)).toMatchObject({ end: now });
+      expect(made.eventWindows.current(ZONE)).toBeUndefined();
+    });
+  });
+
   it('is for staff only', async () => {
     const made = await commands();
     const used = await made.use(
@@ -249,7 +386,7 @@ describe('/admin event-window', () => {
         '### Shared data changed',
         `**Morgan** · ${made.staff.userId ?? ''}\nin **Test Server** · ${FAKE_GUILD_ID}`,
         'Set the event window, for every server: from Monday, November 9 at 10:00 AM until ' +
-          'Friday, November 13 at 8:00 PM.',
+          'Friday, November 13 at 8:00 PM, local time in every server’s zone.',
       ]);
       // Nobody is pinged, and nothing is on it to press.
       expect(job?.message.mention).toBeUndefined();
@@ -266,10 +403,11 @@ describe('/admin event-window', () => {
       expect(told(made).map((job) => textDisplays(job.message).at(-1))).toEqual([
         expect.stringMatching(/^Set the event window, for every server: from /u),
         'Ended the event window, for every server: it had run since Monday, November 9 at ' +
-          '9:00 AM and was to last until Friday, November 13 at 8:00 PM.',
+          '9:00 AM (America/New_York) and was to last until Friday, November 13 at 8:00 PM, ' +
+          'local time in every server’s zone.',
         expect.stringMatching(/^Set the event window, for every server: from /u),
         'Called off the event window that was to begin Thursday, November 12 at 10:00 AM, ' +
-          'for every server.',
+          'local time in every server’s zone, for every server.',
       ]);
     });
 

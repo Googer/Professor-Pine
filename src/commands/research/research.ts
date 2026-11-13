@@ -386,6 +386,7 @@ const requireResearchReport: Guard = async (interaction, ctx) => {
       ctx,
       interaction.options.getString('task', true),
       interaction.options.getString('reward'),
+      zoneOf(interaction, ctx),
     );
     const stops = await namedStops(interaction, ctx);
     // Not at a stop of a region the member is kept out of (plan 8Z-2), before anything is asked.
@@ -419,7 +420,7 @@ const stopOption = (name: string, required: boolean) => (option: SlashCommandStr
  */
 async function researchChoices(interaction: AutocompleteInteraction, ctx: AppContext) {
   const focused = interaction.options.getFocused(true);
-  if (focused.name === 'task') return taskChoices(ctx, focused.value);
+  if (focused.name === 'task') return taskChoices(ctx, focused.value, zoneOf(interaction, ctx));
   if (focused.name === 'reward') return rewardChoices(ctx, focused.value);
   const others = STOP_OPTIONS.filter((name) => name !== focused.name).map((name) =>
     interaction.options.getString(name),

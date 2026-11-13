@@ -31,7 +31,7 @@ import {
   type SpawnView,
 } from '../render/spawn.js';
 import { DELETE_AGAIN_MS, SpawnService, UNOWN_DEX, type SpawnReport } from './spawn-service.js';
-import { TEST_SERVER_CHANNELS } from '../../test/support/server-values.js';
+import { TEST_SERVER_CHANNELS, withZones } from '../../test/support/server-values.js';
 
 const report = (guildId: string, more: Partial<SpawnReport> = {}): SpawnReport => ({
   guildId,
@@ -411,8 +411,10 @@ describe('SpawnService', () => {
 
   it('calls a report costumed where an event on lists it costumed, in the report and to the notifier', async () => {
     const made = await partyServiceWith();
+    // Plan 19A-2: the events on in the server's zone (Berlin's), its clock the event's.
+    withZones({ [made.gateway.guildId]: 'Europe/Berlin' }, made.servers);
     const told: { costumed?: boolean; view: SpawnView }[] = [];
-    const asked: number[] = [];
+    const asked: [number, string | undefined][] = [];
     const service = new SpawnService({
       gateway: made.gateway,
       raidBosses: { bosses: () => [] },
@@ -420,8 +422,8 @@ describe('SpawnService', () => {
       notify: { spawnReported: (news) => told.push(news) },
       // Dratini costumed and plain (plan 8R-4: then costumed), Pikachu plain only.
       costumes: {
-        sightingsAt: (moment) => {
-          asked.push(moment);
+        sightingsAt: (moment, zone) => {
+          asked.push([moment, zone]);
           return [
             { key: 'dratini', dex: 147, costumed: false },
             { key: 'dratini', dex: 147, costumed: true },
@@ -436,7 +438,7 @@ describe('SpawnService', () => {
     });
     const outcome = await service.report(report(made.gateway.guildId));
     expect(outcome).toMatchObject({ kind: 'posted', costumed: true });
-    expect(asked).toEqual([made.clock.now]);
+    expect(asked).toEqual([[made.clock.now, 'Europe/Berlin']]);
     expect(told[0]?.costumed).toBe(true);
     expect(told[0]?.view.costumed).toBe(true);
     const [posted] = made.gateway.messagesIn(WEST_CHANNEL);

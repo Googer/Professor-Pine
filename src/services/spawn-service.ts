@@ -226,13 +226,14 @@ export class SpawnService {
   }
 
   /**
-   * Whether an event on at `at` lists the Pokémon costumed (plan 8R-4); a provider that fails
-   * is logged, and the report goes out plain.
+   * Whether an event on at `at` in the server's zone (plan 19A-2) lists the Pokémon costumed
+   * (plan 8R-4); a provider that fails is logged, and the report goes out plain.
    */
-  private costumed(key: string, at: number): boolean {
-    const { costumes, log } = this.options;
+  private costumed(key: string, at: number, serverId: string): boolean {
+    const { costumes, log, servers } = this.options;
     try {
-      return costumes !== undefined && costumedSpawn(costumes.sightingsAt(at), { key });
+      const zone = servers.zoneOf(serverId);
+      return costumes !== undefined && costumedSpawn(costumes.sightingsAt(at, zone), { key });
     } catch (err) {
       log.warn({ err, pokemon: key }, 'could not tell whether a spawn is costumed');
       return false;
@@ -242,7 +243,7 @@ export class SpawnService {
   private async post(report: SpawnReport): Promise<SpawnOutcome> {
     const { gateway, notify, log } = this.options;
     const eventAt = this.now();
-    const costumed = this.costumed(report.pokemon.key, eventAt);
+    const costumed = this.costumed(report.pokemon.key, eventAt, report.guildId);
     const view: SpawnView = {
       pokemon: report.pokemon.name,
       iv: report.iv,

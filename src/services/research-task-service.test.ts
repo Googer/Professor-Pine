@@ -187,6 +187,21 @@ describe('ResearchTaskService', () => {
       expect(offered(service)).toEqual(all.filter((text) => text !== GHOST));
     });
 
+    // Plan 19A-2: the page's end is local time, so each server stops offering the task at 10:00
+    // on its own clock (Berlin's 10:00 is 09:00 UTC, New York's 15:00 UTC).
+    it('stops offering its tasks at the end on each server’s clock', async () => {
+      const { service, clock } = serviceWith(() => page(withEvent()));
+      await service.refresh();
+      const inBerlin = (service: ResearchTaskService) =>
+        service.tasks('Europe/Berlin').map((task) => task.text);
+      clock.now = Date.UTC(2026, 10, 1, 9) - 1;
+      expect(inBerlin(service)).toContain(GHOST);
+      clock.now = Date.UTC(2026, 10, 1, 9);
+      expect(inBerlin(service)).not.toContain(GHOST);
+      expect(offered(service)).toContain(GHOST);
+      expect(service.tasks('America/New_York').map((task) => task.text)).toContain(GHOST);
+    });
+
     it('still knows the task by its key: a report made from a list open at the end, a report standing', async () => {
       const { service, clock } = serviceWith(() => page(withEvent()));
       await service.refresh();

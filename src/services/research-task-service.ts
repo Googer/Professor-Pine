@@ -40,7 +40,10 @@ export type FetchPage = (
 export interface ResearchTaskOptions {
   /** Leek Duck's research page (`settings.research.url`). */
   url: string;
-  /** The server's zone (`settings.timezone`): an event's end on the page is a local time in it. */
+  /**
+   * The instance's default zone (`instanceZone`): an event's end on the page is a local time,
+   * kept as such (`endsLocal`) with its moment in this zone (plan 19A-2).
+   */
   zone: string;
   refreshMs: number;
   /** A list not read anew for this long is out of date (logged once). */
@@ -74,10 +77,11 @@ export interface PictureMaking {
 export interface ResearchTaskProvider {
   /**
    * The tasks of the last good read as they are offered now, an event's first (plan 8R-8), each
-   * part in the page's order, none past its event's end (Leek Duck's page may still list them);
+   * part in the page's order, none past its event's end (Leek Duck's page may still list them)
+   * in `zone` (a server's, plan 19A-2: the end on its clock; the instance's default without one);
    * empty while none was ever read.
    */
-  tasks(): readonly ResearchTask[];
+  tasks(zone?: string): readonly ResearchTask[];
   /** A task by its key, if the list has it, its event over or not: what was picked or reported. */
   byKey(key: string): ResearchTask | undefined;
   /** When the list in use was read, epoch milliseconds; undefined while none was. */
@@ -146,11 +150,11 @@ export class ResearchTaskService implements ResearchTaskProvider {
     this.now = options.now ?? (() => Date.now());
   }
 
-  tasks(): readonly ResearchTask[] {
+  tasks(zone?: string): readonly ResearchTask[] {
     const now = this.now();
-    return this.current.every((task) => taskOffered(task, now))
+    return this.current.every((task) => taskOffered(task, now, zone))
       ? this.current
-      : this.current.filter((task) => taskOffered(task, now));
+      : this.current.filter((task) => taskOffered(task, now, zone));
   }
 
   byKey(key: string): ResearchTask | undefined {

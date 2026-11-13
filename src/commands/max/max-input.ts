@@ -312,8 +312,8 @@ export function maxEndInput(ctx: MaxReading, tier: MaxTier, at: number, zone: st
   return {
     tier,
     at,
-    events: ctx.raidEvents.maxEvents(),
-    big: ctx.raidEvents.bigEvents(),
+    events: ctx.raidEvents.maxEvents(zone),
+    big: ctx.raidEvents.bigEvents(zone),
     hours: settings.maxBattles,
     zone,
   };
