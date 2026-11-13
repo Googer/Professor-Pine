@@ -78,7 +78,7 @@ async function researchWith(
   const reports = new StopReportService({
     store,
     events: { researchEvents: () => events },
-    zone: made.settings.timezone,
+    zoneOf: (serverId) => made.servers.zoneOf(serverId),
     log: made.log,
     now: () => made.clock.now,
     rewardHash: (reward) => rewardHash(reward, catalogueFixture()),
@@ -777,6 +777,31 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
         expect(made.notify.reportsRemembered).toBe(1);
       });
     });
+  });
+
+  it('tells a report after a stale one of the same key to who was told of the stale one, once (fix round 3, Q5)', async () => {
+    const made = await researchWith();
+    await made.want(ALICE, RESEARCH_DRATINI);
+    const reported = () =>
+      made.dms
+        .to(ALICE)
+        .map(dmSentence)
+        .filter((sentence) => sentence.startsWith('Field research has been reported'));
+    // 00:30 on the 22nd in Berlin: a report of Berlin's 22nd, standing until Berlin's midnight.
+    made.servers.values = { ...made.servers.values, timezone: 'Europe/Berlin' };
+    made.clock.now = zonedAt('2026-11-22T00:30', 'Europe/Berlin');
+    await made.report(DRAGON, [west(1)]);
+    expect(reported()).toHaveLength(1);
+    // The server moves to New York: at 00:30 on its own 22nd that report is stale, and the task
+    // reported there again is a new report of the same key, news to Alice.
+    made.servers.values = { ...made.servers.values, timezone: 'America/New_York' };
+    made.clock.now = at('2026-11-22T00:30');
+    const fresh = await made.report(DRAGON, [west(1)], { id: BOB, name: 'Bob' });
+    expect(fresh.saved).toHaveLength(1);
+    expect(reported()).toHaveLength(2);
+    // That report again tells nobody twice.
+    await made.report(DRAGON, [west(1)], { id: CAROL, name: 'Carol' });
+    expect(reported()).toHaveLength(2);
   });
 
   it('tells nobody where notifications are off', async () => {

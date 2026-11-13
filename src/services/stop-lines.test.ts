@@ -13,6 +13,7 @@ import { feedChoice } from '../../test/support/rocket.js';
 import { reportedStop } from '../../test/support/stop-report-cases.js';
 import { MemoryStopLines } from '../../test/support/stop-lines.js';
 import { MemoryStopReports, fixtureRewardHash } from '../../test/support/stop-reports.js';
+import { TestServers, withZones } from '../../test/support/server-values.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import type { ResearchTask } from '../domain/research/task.js';
 import type { TaskVersion } from '../domain/research/versions.js';
@@ -35,7 +36,8 @@ const BOARDS: Record<string, string> = {
 const link = (channelId: string, key: string): string =>
   `https://discord.com/channels/${FAKE_GUILD_ID}/${BOARDS[channelId] ?? ''}/${String(key.length)}`;
 
-function linesWith() {
+/** The lines over fakes; every server in the test settings' zone unless `servers` say otherwise. */
+function linesWith(servers = new TestServers()) {
   const clock = { now: at('2026-11-21T10:00') };
   const { log, entries } = createTestLogger();
   const gateway = new FakePartyGateway();
@@ -44,7 +46,7 @@ function linesWith() {
     rewardHash: fixtureRewardHash,
     store: new MemoryStopReports(),
     events: { researchEvents: () => [] },
-    zone: ZONE,
+    zoneOf: (serverId) => servers.zoneOf(serverId),
     log,
     now: () => clock.now,
   });
@@ -96,7 +98,7 @@ function linesWith() {
       regions: { all: regions },
       guilds: { idFor: (id) => Promise.resolve(id === FAKE_GUILD_ID ? 1 : undefined) },
       gateway: held,
-      zone: ZONE,
+      servers,
       log,
       now: () => clock.now,
     });
@@ -345,6 +347,50 @@ describe('StopLineService (plan 8R-9, B9)', () => {
     expect(made.storage.rows.size).toBe(0);
   });
 
+  it('keeps each server’s lines under its own day and deletes them at its own midnight (plan 19A-2)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const berlin = (local: string) => zonedAt(local, 'Europe/Berlin');
+    // The fakes' server in Berlin; another in New York, the test settings' zone.
+    const other = '412345678901234599';
+    made = linesWith(withZones({ [FAKE_GUILD_ID]: 'Europe/Berlin' }));
+    // 19:00 in New York is 01:00 the next day in Berlin.
+    made.clock.now = at('2026-11-21T19:00');
+    await made.lines.start();
+    await made.report(pageTask('Catch 7 Pokémon'));
+    await made.lines.flush();
+    const [line] = made.gateway.messagesIn(WEST_CHANNEL);
+    expect([...made.storage.rows.values()].map((row) => row.day)).toEqual(['2026-11-22']);
+    await made.storage.claim({
+      serverId: other,
+      regionChannelId: '600000000000000001',
+      day: '2026-11-21',
+      key: 'research:catch',
+      createdAt: made.clock.now,
+    });
+    // New York's midnight: the other server's day ended, not Berlin's.
+    made.clock.now = at('2026-11-22T00:00:01');
+    await vi.advanceTimersByTimeAsync(at('2026-11-22T00:00:02') - at('2026-11-21T19:00'));
+    await made.lines.flush();
+    expect([...made.storage.rows.values()].map((row) => row.serverId)).toEqual([FAKE_GUILD_ID]);
+    expect(made.gateway.deleted).toEqual([]);
+    // A line of New York's 22nd, which Berlin's midnight leaves alone (fix round 2, N7 b).
+    await made.storage.claim({
+      serverId: other,
+      regionChannelId: '600000000000000001',
+      day: '2026-11-22',
+      key: 'research:catch',
+      createdAt: made.clock.now,
+    });
+    // Berlin's midnight, 18:00 in New York: its line goes.
+    made.clock.now = berlin('2026-11-23T00:00:01');
+    await vi.advanceTimersByTimeAsync(berlin('2026-11-23T00:00:02') - at('2026-11-22T00:00:02'));
+    await made.lines.flush();
+    expect(made.gateway.deleted).toEqual([{ channelId: WEST_CHANNEL, messageId: line?.id }]);
+    expect([...made.storage.rows.values()].map((row) => [row.serverId, row.day])).toEqual([
+      [other, '2026-11-22'],
+    ]);
+  });
+
   it('sends no line claimed before midnight whose day ended on its way (review W1)', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     made = linesWith();
@@ -465,7 +511,7 @@ describe('StopLineService over the posts of the stops (review P9)', () => {
       rewardHash: fixtureRewardHash,
       store: new MemoryStopReports(),
       events,
-      zone: ZONE,
+      zoneOf: () => ZONE,
       log,
       now: () => clock.now,
     });
@@ -480,7 +526,7 @@ describe('StopLineService over the posts of the stops (review P9)', () => {
       regions: { all: () => regions },
       guilds,
       gateway,
-      zone: ZONE,
+      servers: new TestServers(),
       log,
       now: () => clock.now,
       delayMs: 0,
@@ -492,7 +538,7 @@ describe('StopLineService over the posts of the stops (review P9)', () => {
       regions: { all: () => regions },
       guilds,
       gateway,
-      zone: ZONE,
+      servers: new TestServers(),
       log,
       now: () => clock.now,
     });

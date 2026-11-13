@@ -354,7 +354,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     (ctx as { stopReports: StopReportService }).stopReports = new StopReportService({
       store: new MemoryStopReports(),
       events: ctx.raidEvents,
-      zone: ctx.config.settings.timezone,
+      zoneOf: (serverId) => ctx.servers.zoneOf(serverId),
       log,
       rewardHash: (reward) => rewardHash(reward, ctx.gameData.catalogue),
     });

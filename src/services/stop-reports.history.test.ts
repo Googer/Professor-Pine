@@ -88,7 +88,7 @@ function historyServiceWith(options: { start?: number; failing?: Error } = {}) {
     rewardHash: fixtureRewardHash,
     store,
     events: { researchEvents: () => [] },
-    zone: ZONE,
+    zoneOf: () => ZONE,
     log,
     now: () => clock.now,
     guilds: {

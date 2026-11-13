@@ -128,7 +128,7 @@ describe('periodAt', () => {
       start: PAWNIARD_DAY.start,
       end: PAWNIARD_DAY.end,
       event: { id: PAWNIARD_DAY.id, name: 'Pawniard Community Day' },
-      waiting: { key: 'day:2026-11-21', at: PAWNIARD_DAY.end },
+      waiting: { key: 'day:2026-11-21', at: PAWNIARD_DAY.end, from: at('2026-11-21T00:00') },
     });
     expect(periodAt(EVENTS, at('2026-11-21T17:00'), ZONE).key).toBe('day:2026-11-21');
   });

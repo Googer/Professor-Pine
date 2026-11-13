@@ -41,8 +41,11 @@ export interface BoardKeeperOptions {
     'deleteReported' | 'boardMessages' | 'bulkDelete' | 'managesMessages' | 'clearReactions'
   >;
   dms: DmSender;
-  /** `settings.timezone`: a member is told once per local day (Q2). */
-  zone: string;
+  /**
+   * The zone of the server of a region's `Guild` row (`PartyService.zoneOfRow`, plan 19A-2): a
+   * member is told once per local day of that server (Q2).
+   */
+  zoneOfRow: (row: number | null) => string;
   log: Logger;
   /**
    * Told of every message in a region's board that is neither the bot's own nor Discord's, as it
@@ -283,7 +286,7 @@ export class BoardKeeper {
    */
   private deletedFrom(region: Region, messages: readonly BoardMessage[]): void {
     const boardId = region.summaryMessageId ?? '';
-    const day = isoDate(this.now(), this.options.zone);
+    const day = isoDate(this.now(), this.options.zoneOfRow(region.guildId));
     for (const message of messages) {
       if (message.by !== 'member') continue;
       const key = `${String(region.guildId)}:${message.authorId}`;

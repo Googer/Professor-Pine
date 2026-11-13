@@ -2235,10 +2235,13 @@ function lineOf(report: StopReport): string {
 
 /**
  * A member told of research at a stop in its period (`researchTold`): by the version's subject,
- * or the task's key alone, which a "one of" is and what its narrowings confirm (R5).
+ * or the task's key alone, which a "one of" is and what its narrowings confirm (R5). The period
+ * by its key and its end (fix round 3, Q5): after a change of the server's zone a report of the
+ * same key on the new clock ends at another moment than the stale one, and is news.
  */
 function researchToldKey(memberId: string, report: StopReport, subject: string): string {
-  return `${report.serverId} ${memberId} ${report.periodKey} ${subject} ${report.stop.key}`;
+  const period = `${report.periodKey}@${String(report.endsAt)}`;
+  return `${report.serverId} ${memberId} ${period} ${subject} ${report.stop.key}`;
 }
 
 /** A member told of a hideout at a stop in its day (`rocketTold`). */

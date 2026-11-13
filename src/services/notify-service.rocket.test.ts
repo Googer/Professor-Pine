@@ -54,7 +54,7 @@ async function rocketWith(notifying: Partial<NotifyServiceOptions> = {}, rehears
     rewardHash: fixtureRewardHash,
     store: new MemoryStopReports(),
     events: { researchEvents: () => [] },
-    zone: made.settings.timezone,
+    zoneOf: (serverId) => made.servers.zoneOf(serverId),
     log: made.log,
     now: () => made.clock.now,
   });

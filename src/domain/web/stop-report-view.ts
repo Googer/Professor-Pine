@@ -8,7 +8,7 @@ import {
   type RocketReport,
   type StopReport,
 } from '../stops/report.js';
-import type { ResearchPeriod } from '../time/research-periods.js';
+import { inPeriod, waitsIn, type ResearchPeriod } from '../time/research-periods.js';
 import { AS_FED, researchPicture, rocketPicture, type PictureLookup } from '../stops/pictures.js';
 import { reportSearch, type SearchFacts } from '../stops/report-search.js';
 import { allowedPicture } from './picture.js';
@@ -26,7 +26,7 @@ export interface StopReportViewInput {
   /** The server's reports that have not ended (`StopReportService.standing`), oldest first. */
   reports: readonly StopReport[];
   /** The research period on now: its reports are shown, those waiting under it counted. */
-  period: Pick<ResearchPeriod, 'key' | 'event' | 'waiting'>;
+  period: Pick<ResearchPeriod, 'key' | 'start' | 'event' | 'waiting'>;
   now: number;
   /** `settings.timezone`, sent with the view. */
   zone: string;
@@ -250,14 +250,12 @@ export function stopReportView(input: StopReportViewInput): StopReportsView {
   const research = standing.filter(isResearchReport);
   const rocket = standing.filter(isRocketReport);
   const waiting =
-    period.waiting === undefined
-      ? 0
-      : research.filter((report) => report.periodKey === period.waiting?.key).length;
+    period.waiting === undefined ? 0 : research.filter((report) => waitsIn(report, period)).length;
   return {
     zone: input.zone,
     event: period.event?.name ?? null,
     research: research
-      .filter((report) => report.periodKey === period.key)
+      .filter((report) => inPeriod(report, period))
       .map((report) => mapResearch(report, input)),
     waiting:
       period.waiting !== undefined && waiting > 0

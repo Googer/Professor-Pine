@@ -40,7 +40,31 @@ export interface ResearchPeriod {
    * Of a window: the period whose reports wait under it, and when they come back (the window's
    * end); undefined when that period ends with the window, or before.
    */
-  waiting?: { key: string; at: number } | undefined;
+  waiting?: { key: string; at: number; from: number } | undefined;
+}
+
+/** What a report keeps of its period: the key, and when it was made. */
+interface PeriodMark {
+  periodKey: string;
+  madeAt: number;
+}
+
+/**
+ * Whether a report counts for `period` (fix round 1, N4): of its key, and made since it began. A
+ * key is a local date: after a change of the server's zone, a report of that date on the old
+ * clock, made before the period began on the new one, is no report of it.
+ */
+export function inPeriod(
+  report: PeriodMark,
+  period: Pick<ResearchPeriod, 'key' | 'start'>,
+): boolean {
+  return report.periodKey === period.key && report.madeAt >= period.start;
+}
+
+/** Whether a report waits under `period`'s window (`waiting`), by the same rule as `inPeriod`. */
+export function waitsIn(report: PeriodMark, period: Pick<ResearchPeriod, 'waiting'>): boolean {
+  const { waiting } = period;
+  return waiting !== undefined && report.periodKey === waiting.key && report.madeAt >= waiting.from;
 }
 
 /** A window of hours an event's research holds, as a period. */
@@ -173,7 +197,8 @@ export function periodAt(
     start: window.start,
     end: window.end,
     event: { id: window.event.id, name: window.event.name },
-    waiting: base.end > window.end ? { key: base.key, at: window.end } : undefined,
+    waiting:
+      base.end > window.end ? { key: base.key, at: window.end, from: base.start } : undefined,
   };
 }
 

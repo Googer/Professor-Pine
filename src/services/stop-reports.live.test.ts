@@ -45,7 +45,7 @@ function serviceWith() {
     rewardHash: fixtureRewardHash,
     store: new MemoryStopReports(),
     events: { researchEvents: () => [] },
-    zone: 'America/New_York',
+    zoneOf: () => 'America/New_York',
     log: createTestLogger().log,
     now: () => clock.now,
   });

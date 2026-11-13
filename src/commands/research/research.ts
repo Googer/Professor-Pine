@@ -27,6 +27,7 @@ import { memberInfo } from '../../discord/member-info.js';
 import { STALE_COMPONENT, whenCounted } from '../../discord/router.js';
 import { MEMBER_WRITE_THROTTLE, type Throttle } from '../../discord/throttle.js';
 import { holdsSubject, isOneOf } from '../../domain/research/reports.js';
+import { inPeriod, type ResearchPeriod } from '../../domain/time/research-periods.js';
 import { rewardsInShort, type TaskReward } from '../../domain/research/task.js';
 import {
   isResearchReport,
@@ -112,7 +113,7 @@ async function moreStops(
   ctx: AppContext,
   first: ReportedStop,
   subject: ResearchSubject,
-  periodKey: string,
+  period: Pick<ResearchPeriod, 'key' | 'start'>,
 ): Promise<MoreStop[]> {
   const row = await ctx.guilds.idFor(guildIdOf(interaction));
   const ours = new Set(
@@ -128,7 +129,7 @@ async function moreStops(
       .filter(
         (report) =>
           report.kind === 'research' &&
-          report.periodKey === periodKey &&
+          inPeriod(report, period) &&
           holdsSubject(report.subjectKey, held),
       )
       .map((report) => report.stop.key),
@@ -167,7 +168,7 @@ async function answerOf(
     more:
       first === undefined
         ? []
-        : await moreStops(interaction, ctx, first.report.stop, subject, outcome.period.key),
+        : await moreStops(interaction, ctx, first.report.stop, subject, outcome.period),
   });
 }
 
@@ -201,20 +202,24 @@ async function moreSubject(
   version: string | undefined,
   shownAt: number,
 ): Promise<ResearchSubject> {
-  const period = ctx.stopReports.period().key;
+  const period = ctx.stopReports.period(serverId);
   const ended = new UserError(REPORT_ENDED, { givesBack: true });
   const base = await ctx.stopReports.kept(serverId, baseId);
-  if (base !== undefined && (base.kind !== 'research' || base.periodKey !== period)) throw ended;
+  // Of the period on now by the one rule (fix round 2, P4: `inPeriod`, its key and made since it
+  // began): a report of that date on the clock of the server's zone before is no report of it.
+  if (base !== undefined && (base.kind !== 'research' || !inPeriod(base, period))) throw ended;
   if (base?.kind === 'research' && (version === undefined || base.subjectKey === version)) {
     return { subjectKey: base.subjectKey, research: base.research };
   }
   if (version === undefined) throw ended;
-  if (base === undefined && ctx.stopReports.period(shownAt).key !== period) throw ended;
+  if (base === undefined && ctx.stopReports.period(serverId, shownAt).key !== period.key) {
+    throw ended;
+  }
   const found = ctx.researchTasks.byVersion(version);
   if (found) return versionSubject(found.task, found.version);
   const same = (await ctx.stopReports.standing(serverId))
     .filter(isResearchReport)
-    .find((report) => report.periodKey === period && report.subjectKey === version);
+    .find((report) => inPeriod(report, period) && report.subjectKey === version);
   if (!same) throw ended;
   return { subjectKey: same.subjectKey, research: same.research };
 }
@@ -350,7 +355,7 @@ async function askToReplace(
     countedAt,
     throttle: researchThrottle(settings),
     window: researchWindow(settings),
-    periodKey: ctx.stopReports.period(countedAt).key,
+    periodKey: ctx.stopReports.period(guildIdOf(interaction), countedAt).key,
   };
   const token = pending.put(interaction.user.id, waiting);
   await interaction.showModal(replaceDialog(token, waiting, zoneOf(interaction, ctx)));
@@ -638,7 +643,7 @@ export const researchControls: ComponentHandler = {
     }
     const use = taken.value;
     // The period asked in ended since the dialog opened (review W2): nothing is reported.
-    if (ctx.stopReports.period().key !== use.periodKey) {
+    if (ctx.stopReports.period(guildIdOf(interaction)).key !== use.periodKey) {
       throw new UserError(PERIOD_ENDED, { givesBack: true });
     }
     // The version asked about left the list since the dialog opened (review L8).

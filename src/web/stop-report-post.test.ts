@@ -14,6 +14,8 @@ import { pageTask, researchTasksFixture } from '../../test/support/research.js';
 import { feedChoice } from '../../test/support/rocket.js';
 import { STOP_NOON, STOP_ROWS, stopReportingWith } from '../../test/support/stop-reporting.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
+import { changeServers } from '../../test/support/server-values.js';
+import { zonedAt } from '../../test/support/time.js';
 import {
   FakeActingMembers,
   partyWebWith,
@@ -570,6 +572,31 @@ describe('reports at stops from the map', () => {
       expect(
         (await made.post('/research', { task: DRAGON.key, stops: [wayspotId(2)] })).status,
       ).toBe(429);
+    });
+
+    it('refuses sameAs of a report of that date made on the clock of the zone before (fix round 2, P4)', async () => {
+      const made = await setup();
+      web = made.web;
+      // 00:30 on the 23rd in Berlin: a report of Berlin's 23rd.
+      changeServers(made.ctx, { timezone: 'Europe/Berlin' });
+      vi.setSystemTime(zonedAt('2026-10-23T00:30', 'Europe/Berlin'));
+      const stale = await made.ctx.stopReports.reportResearch({
+        serverId: FAKE_GUILD_ID,
+        stops: await stopsByKey(made.ctx, FAKE_GUILD_ID, [wayspotId(1)]),
+        subject: readTask(made.ctx, DRAGON.key, null),
+        reporter: { id: BOB, name: 'Bob' },
+      });
+      // The server moves to New York: at 00:30 on its own 23rd, that report is not of the day.
+      changeServers(made.ctx, { timezone: 'America/New_York' });
+      const now = zonedAt('2026-10-23T00:30', 'America/New_York');
+      vi.setSystemTime(now);
+      made.web.clock.now = now;
+      const answer = await made.post('/research', {
+        sameAs: stale.saved[0]?.report.id,
+        stops: [wayspotId(2)],
+      });
+      expect(answer.status).toBe(409);
+      expect(answer.json).toMatchObject({ reason: 'ended' });
     });
 
     it('says where no PokéStop is known at all', async () => {

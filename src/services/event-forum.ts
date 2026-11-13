@@ -30,7 +30,7 @@ import { channelNameFor } from '../domain/regions/region-import.js';
 import { BoundedMap } from '../bounded-map.js';
 import type { Logger } from '../log.js';
 import type { CatchUpOutcome } from './catch-up.js';
-import { everyLocalMidnight } from './local-midnight.js';
+import { everyLocalMidnightIn, type ZonesMidnight } from './local-midnight.js';
 import { isNetworkError } from './network-error.js';
 import type { ListedEventProvider } from './raid-event-service.js';
 import type { HistoryDays } from './history-days.js';
@@ -176,10 +176,11 @@ export interface EventForumOptions {
   gateway: PartyGateway;
   store: EventForumStorage;
   events: ListedEventProvider;
-  settings: Pick<Settings, 'timezone' | 'web'>;
+  settings: Pick<Settings, 'web'>;
   /**
    * Each server's values (plan 19A-1): its events forum, by id (set by `setup` when it makes
-   * one), its channel for bot updates, the map's member role.
+   * one), its channel for bot updates, the map's member role; its zone and the zones in use
+   * (plan 19A-2), in which its forum is drawn and its midnights come.
    */
   servers: ServerSettingsService;
   /** The name a new events forum is given (the file's `channels.events`, else `events`). */
@@ -300,7 +301,8 @@ export class EventForumService {
   private readonly plannedWarned = new Set<string>();
   /** The ends of the trains and meetups the draw under way counted, for the next timer (EP-5). */
   private plannedEnds: number[] = [];
-  private midnight: { cancel(): void } | undefined;
+  /** The timers of the midnights of the zones in use (plan 19A-2). */
+  private midnights: ZonesMidnight | undefined;
   /** The timers of draws after a wait Discord named (`drawLater`). */
   private readonly waits = new Set<() => void>();
   private stopped = false;
@@ -319,17 +321,18 @@ export class EventForumService {
   }
 
   /**
-   * Draws after each read of the feed and a second after each local midnight from now on, and
-   * once now. Once Discord is there (`app.ts`); nothing after `stop`.
+   * Draws after each read of the feed and a second after each local midnight of every zone in use
+   * from now on (plan 19A-2), and once now. Once Discord is there (`app.ts`); nothing after
+   * `stop`.
    */
   start(): void {
     if (this.stopped) return;
     this.options.events.onListedChange(() => {
       this.request();
     });
-    this.midnight?.cancel();
-    this.midnight = everyLocalMidnight({
-      zone: this.options.settings.timezone,
+    this.midnights?.cancel();
+    this.midnights = everyLocalMidnightIn({
+      zones: () => this.options.servers.zonesInUse(),
       now: this.now,
       setTimer: this.setTimer,
       run: () => {
@@ -341,11 +344,26 @@ export class EventForumService {
       this.partiesWatched = true;
       planned.parties.onChange((before, after) => {
         if (!changesPlanned(before, after)) return;
-        // Only where it started, or starts, within a listed event (review EP-4).
-        const events = this.options.events.listedEvents(this.options.settings.timezone);
-        if (startsDuringAny(before, events) || startsDuringAny(after, events)) this.redrawSoon();
+        // Only where it started, or starts, within a listed event (review EP-4), in any zone in
+        // use: the party names its server's row, not its zone, and a draw too many is cheap.
+        const during = this.options.servers.zonesInUse().some((zone) => {
+          const events = this.options.events.listedEvents(zone);
+          return startsDuringAny(before, events) || startsDuringAny(after, events);
+        });
+        if (during) this.redrawSoon();
       });
     }
+    this.request();
+  }
+
+  /**
+   * A server's zone changed (plan 19A-2; `ServerSettings.onZoneChange`): the midnights follow the
+   * zones in use, and every forum is drawn anew (its times, its sections, "On this day" on the
+   * new clock). Nothing after `stop`.
+   */
+  zonesChanged(): void {
+    if (this.stopped) return;
+    this.midnights?.refresh();
     this.request();
   }
 
@@ -364,7 +382,7 @@ export class EventForumService {
   /** Stops the timers; a draw under way ends, and none starts after it. */
   stop(): void {
     this.stopped = true;
-    this.midnight?.cancel();
+    this.midnights?.cancel();
     this.cancelNext?.();
     this.cancelNext = undefined;
     this.cancelPartyRedraw?.();
@@ -582,12 +600,14 @@ export class EventForumService {
     // nothing: no post is made, dropped or drawn, and the listing stands (review V1).
     if (!this.options.events.listingKnown()) return 'waiting';
     try {
-      const events = this.options.events.listedEvents(this.options.settings.timezone);
+      // The events on the server's clock (plan 19A-2): a feed's local times in its zone.
+      const zone = servers.zoneOf(serverId);
+      const events = this.options.events.listedEvents(zone);
       const planned = await this.plannedOf(forum, events);
-      const posts = await this.drawPosts(forum, events, reopen, planned);
+      const posts = await this.drawPosts(forum, events, zone, reopen, planned);
       // Nor the listing after a stop (RR-3).
       if (this.stopped) return 'failed';
-      return await this.drawListing(forum, events, posts, planned);
+      return await this.drawListing(forum, events, zone, posts, planned);
     } catch (err) {
       const where = { err, guild: serverId, forum: forumId };
       if (isNetworkError(err)) log.warn(where, 'could not draw the events forum');
@@ -616,10 +636,11 @@ export class EventForumService {
   private async drawOnThisDay(forum: EventForumRecord): Promise<void> {
     // Nothing after a stop, nor a post once one came while the days were read (review W7).
     if (this.stopped) return;
-    const { days, settings, store, gateway, log } = this.options;
-    const count = this.options.servers.of(forum.serverId).eventsForum.onThisDay;
+    const { days, settings, store, gateway, log, servers } = this.options;
+    const count = servers.of(forum.serverId).eventsForum.onThisDay;
     const now = this.now();
-    const zone = settings.timezone;
+    // 10:00 and today on the server's clock (plan 19A-2).
+    const zone = servers.zoneOf(forum.serverId);
     if (days === undefined || count <= 0 || !onThisDayDue(now, zone)) return;
     const { serverId, forumId } = forum;
     const today = localDay(now, zone);
@@ -788,13 +809,13 @@ export class EventForumService {
   private async drawPosts(
     forum: EventForumRecord,
     events: readonly ListedEvent[],
+    zone: string,
     reopen: boolean,
     planned: ReadonlyMap<string, EventPlannedView> = new Map(),
   ): Promise<Map<string, string>> {
-    const { store, settings } = this.options;
+    const { store } = this.options;
     const { serverId } = forum;
     const now = this.now();
-    const zone = settings.timezone;
     const byId = new Map(events.map((event) => [event.id, event]));
     // The server's numbers (plan 19A-1).
     const { postDaysAhead } = this.options.servers.of(serverId).eventsForum;
@@ -838,7 +859,7 @@ export class EventForumService {
       let refused = false;
       const row = await this.perPost(serverId, event.id, undefined, stage, async () => {
         try {
-          return await this.makePost(forum, event, planned.get(event.id));
+          return await this.makePost(forum, event, zone, planned.get(event.id));
         } catch (err) {
           refused = true;
           throw err;
@@ -860,7 +881,7 @@ export class EventForumService {
       // One post Discord refuses keeps neither the others nor the listing from the draw (BR-5).
       const stage = new PostStage('edit');
       await this.perPost(serverId, row.eventId, row.postId, stage, () =>
-        this.drawPost(row, event, now, reopen, stage, event && planned.get(event.id)),
+        this.drawPost(row, event, zone, now, reopen, stage, event && planned.get(event.id)),
       );
     }
     // A dropped post is never linked (BR-1, revised ruling R2).
@@ -923,10 +944,11 @@ export class EventForumService {
   private async makePost(
     forum: EventForumRecord,
     event: ListedEvent,
+    zone: string,
     planned?: EventPlannedView,
   ): Promise<EventPostRecord | undefined> {
     const { gateway, store, log } = this.options;
-    const message = this.postMessage(event, planned);
+    const message = this.postMessage(event, zone, planned);
     const postId = await gateway.createPost(forum.forumId, {
       title: eventPostTitle(event.name),
       message,
@@ -963,19 +985,19 @@ export class EventForumService {
   private async drawPost(
     row: EventPostRecord,
     event: ListedEvent | undefined,
+    zone: string,
     now: number,
     reopen: boolean,
     stage: PostStage,
     planned?: EventPlannedView,
   ): Promise<void> {
-    const { gateway, store, settings } = this.options;
-    const zone = settings.timezone;
+    const { gateway, store } = this.options;
     const { serverId, eventId } = row;
     if (row.dropped) {
       // Listed again under its id before its end (BR-1, revised ruling R2): restored, its body
       // drawn anew (the edit opens it); otherwise it stays dropped.
       if (!(row.endedAt === null && event && event.end > now)) return;
-      if (!(await this.editEventPost(row, this.postMessage(event, planned)))) {
+      if (!(await this.editEventPost(row, this.postMessage(event, zone, planned)))) {
         return this.postGone(row);
       }
       const restored = { dropped: false, archivedAt: null, start: event.start, end: event.end };
@@ -989,7 +1011,7 @@ export class EventForumService {
     if (row.endedAt === null && event && event.end > now) {
       const named = event.name === row.name;
       if (named && event.start === row.start && event.end === row.end) {
-        const message = this.postMessage(event, planned);
+        const message = this.postMessage(event, zone, planned);
         // Its message may differ though its event did not (plan 8M-15, V1: a multi-day event's
         // post loses the Campfire line): brought to it, once; after a restart, which knows
         // nothing it sent, once per open post. Otherwise only the hourly draw asks Discord.
@@ -1021,7 +1043,7 @@ export class EventForumService {
       }
       // Only where the message would show something else than was sent (re-review W1): a
       // rename Discord keeps refusing has the rename tried again alone.
-      if (!(await this.editEventPost(row, this.postMessage(event, planned)))) {
+      if (!(await this.editEventPost(row, this.postMessage(event, zone, planned)))) {
         return this.postGone(row);
       }
       const drawn = { start: event.start, end: event.end };
@@ -1073,12 +1095,8 @@ export class EventForumService {
   }
 
   /** An event's post's message, with the trains and meetups planned during it. */
-  private postMessage(event: ListedEvent, planned: EventPlannedView | undefined) {
-    return eventPostMessage(
-      event,
-      this.options.settings.timezone,
-      planned === undefined ? {} : { planned },
-    );
+  private postMessage(event: ListedEvent, zone: string, planned: EventPlannedView | undefined) {
+    return eventPostMessage(event, zone, planned === undefined ? {} : { planned });
   }
 
   /**
@@ -1166,21 +1184,22 @@ export class EventForumService {
   private async drawListing(
     forum: EventForumRecord,
     events: readonly ListedEvent[],
+    zone: string,
     posts: ReadonlyMap<string, string>,
     planned: ReadonlyMap<string, EventPlannedView> = new Map(),
   ): Promise<ListingOutcome> {
-    const { gateway, store, settings, log } = this.options;
+    const { gateway, store, log } = this.options;
     const { serverId, forumId } = forum;
     const sections = listingSections(
       events,
       this.now(),
-      settings.timezone,
+      zone,
       this.options.servers.of(serverId).eventsForum.horizonDays,
     );
     const message = listingMessage(
       sections,
       (id) => posts.get(id),
-      settings.timezone,
+      zone,
       (id) => planned.get(id)?.counts,
     );
     const text = JSON.stringify(message);
@@ -1288,35 +1307,38 @@ export class EventForumService {
     this.cancelNext?.();
     this.cancelNext = undefined;
     if (this.stopped) return;
-    const { settings, servers } = this.options;
+    const { servers } = this.options;
     const now = this.now();
-    // The numbers of every server drawn (plan 19A-1: each its own), each pair once.
-    const drawn = this.drawnServers.map((serverId) => servers.of(serverId).eventsForum);
+    // The numbers and the zone of every server drawn (plan 19A-1: each its own; plan 19A-2: its
+    // zone), each triple once.
+    const drawn = this.drawnServers.map((serverId) => ({
+      ...servers.of(serverId).eventsForum,
+      zone: servers.zoneOf(serverId),
+    }));
     const numbers = [
       ...new Map(
-        drawn.map(({ horizonDays, postDaysAhead }) => [
-          `${String(horizonDays)}:${String(postDaysAhead)}`,
-          { horizonDays, postDaysAhead },
+        drawn.map(({ horizonDays, postDaysAhead, zone }) => [
+          `${String(horizonDays)}:${String(postDaysAhead)}:${zone}`,
+          { horizonDays, postDaysAhead, zone },
         ]),
       ).values(),
     ];
-    const times = this.options.events
-      .listedEvents(this.options.settings.timezone)
-      .flatMap((event) =>
-        numbers.flatMap(({ horizonDays, postDaysAhead }) => [
+    const times = numbers
+      .flatMap(({ horizonDays, postDaysAhead, zone }) =>
+        this.options.events.listedEvents(zone).flatMap((event) => [
           // Every move of its line between sections (BR-9), and its post's opening.
-          ...sectionChangesAt(event, horizonDays, settings.timezone),
-          ...(isPosted(event) ? [postOpensAt(event, postDaysAhead, settings.timezone)] : []),
+          ...sectionChangesAt(event, horizonDays, zone),
+          ...(isPosted(event) ? [postOpensAt(event, postDaysAhead, zone)] : []),
         ]),
       )
       .filter((time) => time > now);
     // A counted train or meetup over by the clock leaves its event's count (review EP-5).
     times.push(...this.plannedEnds.filter((time) => time > now));
-    // The next 10:00 of "On this day" (plan 8H-8).
-    // Of every server drawn, not of the pairs above (review F12): two servers of one pair may
-    // differ in it.
-    if (this.options.days !== undefined && drawn.some((one) => one.onThisDay > 0)) {
-      times.push(nextOnThisDayAt(now, settings.timezone));
+    // The next 10:00 of "On this day" (plan 8H-8), on the clock of each server drawn that posts
+    // its days, not of the triples above (review F12): two servers of one triple may differ in it.
+    if (this.options.days !== undefined) {
+      const zones = new Set(drawn.filter((one) => one.onThisDay > 0).map((one) => one.zone));
+      for (const zone of zones) times.push(nextOnThisDayAt(now, zone));
     }
     if (times.length === 0) return;
     const next = Math.min(...times);

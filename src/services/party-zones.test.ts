@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { WEST_CHANNEL } from '../../test/support/gyms.js';
+import { textOf } from '../../test/support/messages.js';
 import { at, REPORTER, testMeetup } from '../../test/support/parties.js';
 import { partyServiceWith, reportedRaid } from '../../test/support/party-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
@@ -75,6 +77,166 @@ describe('a party in its server’s zone (plan 19A-2)', () => {
     const newYork = at('2026-10-14T18:10');
     expect(raidDurationsAt('standard', newYork, here).event?.name).toBe('Dialga Raid Hour');
     expect(raidDurationsAt('standard', newYork, there).event).toBeUndefined();
+  });
+});
+
+describe('the region summaries in their server’s zone (plan 19A-2)', () => {
+  const BERLIN = 'Europe/Berlin';
+  const berlin = (local: string) => zonedAt(local, BERLIN);
+
+  /** A party service whose server is in Berlin, with its timers kept, and West's summary made. */
+  async function inBerlin() {
+    const timers: { run: () => void; ms: number; cancelled: boolean }[] = [];
+    const servers = withZones({ [SERVER]: BERLIN });
+    const made = await partyServiceWith([], {
+      servers,
+      serverOfRow,
+      setTimer: (run, ms) => {
+        const timer = { run, ms, cancelled: false };
+        timers.push(timer);
+        return () => {
+          timer.cancelled = true;
+        };
+      },
+    });
+    const west = made.regions.rows[0]!;
+    await made.service.ensureSummary(west);
+    // 19:00 tomorrow in Berlin, 13:00 in New York.
+    const outcome = await made.service.createMeetup({
+      name: 'Community Day picnic',
+      creatorId: REPORTER,
+      regionChannelId: WEST_CHANNEL,
+      startTime: berlin('2026-10-14T19:00'),
+    });
+    if (outcome.kind !== 'created') throw new Error(outcome.kind);
+    await made.service.flush();
+    const board = made.gateway.posts.get(west.summaryMessageId ?? '')!;
+    return { ...made, servers, timers, board };
+  }
+
+  it('draws a server’s summaries anew at its own midnight, not at another zone’s', async () => {
+    const made = await inBerlin();
+    const { service, timers, clock, board } = made;
+    expect(textOf(board.message)).toMatch(/^### Today and coming up\n1 coming up/);
+    service.watchMidnight();
+    // One timer per zone in use: Berlin's, and New York's, the instance's default.
+    const berlinMidnight = timers.find(
+      (one) => one.ms === berlin('2026-10-14T00:00') - clock.now + 1_000,
+    );
+    const newYorkMidnight = timers.find(
+      (one) => one.ms === at('2026-10-14T00:00') - clock.now + 1_000,
+    );
+    expect(berlinMidnight).toBeDefined();
+    expect(newYorkMidnight).toBeDefined();
+    // Berlin's midnight is 18:00 in New York: the meetup is today there.
+    clock.now = berlin('2026-10-14T00:00:01');
+    berlinMidnight?.run();
+    await service.flush();
+    expect(textOf(board.message)).toMatch(/^### Today and coming up\n1 meetup/);
+    // New York's midnight asks nothing of a server in Berlin.
+    clock.now = at('2026-10-14T00:00:01');
+    const calls = made.gateway.calls.length;
+    newYorkMidnight?.run();
+    await service.flush();
+    expect(made.gateway.calls.slice(calls)).toEqual([]);
+  });
+
+  it('waits for the midnight of a server that joins in a zone of its own (fix round 1, N5)', async () => {
+    const made = await inBerlin();
+    const { service, servers, timers, clock } = made;
+    // Only the server in New York is there: Berlin is no zone in use.
+    servers.present = ['412345678901234500'];
+    servers.onZonesInUseChange(() => {
+      service.zonesChanged();
+    });
+    service.watchMidnight();
+    const berlinMidnight = berlin('2026-10-14T00:00') - clock.now + 1_000;
+    expect(timers.some((one) => one.ms === berlinMidnight && !one.cancelled)).toBe(false);
+    // The server in Berlin joins.
+    servers.presenceChanged(['412345678901234500', SERVER]);
+    expect(timers.some((one) => one.ms === berlinMidnight && !one.cancelled)).toBe(true);
+  });
+
+  it('draws a server’s summaries at the midnight of its own spelling of a zone (fix round 2, P1)', async () => {
+    const made = await inBerlin();
+    const { service, servers, timers, clock, board } = made;
+    // Another server in Chicago; this one's staff change Berlin for another name of that zone.
+    withZones({ [OTHER]: 'America/Chicago' }, servers);
+    servers.present = [OTHER, SERVER];
+    await servers.set(SERVER, (values) => ({ ...values, timezone: 'US/Central' }), {
+      id: REPORTER,
+    });
+    service.watchMidnight();
+    // The meetup at 19:00 tomorrow in Berlin is 12:00 tomorrow in Chicago.
+    expect(textOf(board.message)).toMatch(/^### Today and coming up\n1 coming up/);
+    const midnight = zonedAt('2026-10-14T00:00', 'America/Chicago');
+    const due = timers.filter((one) => !one.cancelled && one.ms === midnight - clock.now + 1_000);
+    clock.now = midnight + 1_000;
+    for (const timer of due) timer.run();
+    await service.flush();
+    expect(textOf(board.message)).toMatch(/^### Today and coming up\n1 meetup/);
+  });
+
+  it('draws a server’s summaries and posts anew when its zone changes', async () => {
+    const made = await inBerlin();
+    const { service, servers, board, gateway, clock } = made;
+    service.watchMidnight();
+    expect(textOf(board.message)).toMatch(/^### Today and coming up\n1 coming up/);
+    const party = made.store.active()[0]!;
+    const post = gateway.posts.get(party.forumPostId ?? '')!;
+    const shown = textOf(post.message);
+    // 21:00 in Berlin is 00:30 the next day in Kolkata: the meetup at 19:00 tomorrow in Berlin
+    // is 22:30 today in Kolkata.
+    clock.now = berlin('2026-10-13T21:00');
+    const timersBefore = made.timers.length;
+    await servers.set(SERVER, (values) => ({ ...values, timezone: 'Asia/Kolkata' }), {
+      id: REPORTER,
+    });
+    service.zoneChanged(SERVER);
+    await service.flush();
+    // Its post and the summary say it on the new clock: today, without a date (fix round 1, N7).
+    const moment = String(berlin('2026-10-14T19:00') / 1000);
+    expect(shown).toContain(`<t:${moment}:F>`);
+    expect(textOf(post.message)).not.toBe(shown);
+    expect(textOf(post.message)).toContain(`<t:${moment}:t>`);
+    expect(textOf(board.message)).toMatch(/^### Today and coming up\n1 meetup/);
+    // Kolkata's midnight is waited for now, Berlin's no more.
+    const kolkataMidnight = made.timers
+      .slice(timersBefore)
+      .find((one) => one.ms === zonedAt('2026-10-15T00:00', 'Asia/Kolkata') - clock.now + 1_000);
+    expect(kolkataMidnight).toBeDefined();
+    expect(
+      made.timers.find(
+        (one) => one.ms === berlin('2026-10-14T00:00') - at('2026-10-13T14:00') + 1_000,
+      )?.cancelled,
+    ).toBe(true);
+  });
+
+  it('queues every active post of the server once, a post already waiting no twice (fix round 1, N7)', async () => {
+    const made = await inBerlin();
+    const { service, servers, gateway } = made;
+    const second = await service.createMeetup({
+      name: 'Raid night',
+      creatorId: REPORTER,
+      regionChannelId: WEST_CHANNEL,
+      startTime: berlin('2026-10-14T20:00'),
+    });
+    if (second.kind !== 'created') throw new Error(second.kind);
+    await service.flush();
+    expect(made.store.active()).toHaveLength(2);
+    // 21:00 in Berlin, 00:30 the next day in Kolkata: both meetups are today there.
+    made.clock.now = berlin('2026-10-13T21:00');
+    const before = gateway.calls.length;
+    await servers.set(SERVER, (values) => ({ ...values, timezone: 'Asia/Kolkata' }), {
+      id: REPORTER,
+    });
+    // Told twice before the queue drains: each post is queued once.
+    service.zoneChanged(SERVER);
+    service.zoneChanged(SERVER);
+    await service.flush();
+    const edits = gateway.calls.slice(before).filter((call) => call.startsWith('editPost '));
+    expect(edits).toHaveLength(2);
+    expect(new Set(edits).size).toBe(2);
   });
 });
 

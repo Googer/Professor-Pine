@@ -44,7 +44,7 @@ export async function stopReportingWith(rows: readonly WayspotRow[] = STOP_ROWS)
   const stopReports = new StopReportService({
     store,
     events: ctx.raidEvents,
-    zone: ctx.config.settings.timezone,
+    zoneOf: (serverId) => ctx.servers.zoneOf(serverId),
     log: ctx.log,
     rewardHash: (reward) => rewardHash(reward, ctx.gameData.catalogue),
   });

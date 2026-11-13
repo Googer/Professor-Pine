@@ -413,11 +413,16 @@ export async function startApp(
   // The staff's log of the servers' settings (plan 19A-1): written with each change of a server's
   // values, read by `/admin settings` and `/audit`, swept after 30 days with the upkeep.
   const serverSettingsAudit = new ServerSettingsAuditRepository(db);
+  // The servers the bot is in, once the client is ready (fix round 1, K5).
+  let serversPresent: (() => readonly string[]) | undefined;
   const servers = new ServerSettings({
     store: new ServerSettingsRepository(db),
     audit: serverSettingsAudit,
     settings: config.settings,
     log,
+    // The zones in use are those of the servers the bot is in, once the client is ready; every
+    // server with a row until then (fix round 1, K5).
+    present: () => serversPresent?.(),
   });
   // A zone in use came or went (plan 19A-2): the raid bosses are read again for the zones now
   // in use, their own rotations and the soonest change among them; also when a server joins or
@@ -447,7 +452,8 @@ export async function startApp(
   const stopReports = new StopReportService({
     store: stopReportStore,
     events: raidEvents,
-    zone: config.settings.timezone,
+    // Each server's periods and days on its own clock (plan 19A-2).
+    zoneOf: (serverId) => servers.zoneOf(serverId),
     // A grunt's report (plan 8R-2) stands as long as its message.
     gruntMs: config.settings.rocket.gruntMinutes * 60_000,
     // A costume is told by the game data (plan 8R-5): a costumed reward's version is its own.
@@ -678,7 +684,7 @@ export async function startApp(
       db,
       formReader(() => gameData.catalogue),
     ),
-    zone: config.settings.timezone,
+    servers,
     log,
   });
   // The legacy fill-ins members ask for in /settings (plan 8H-10): only where the installation
@@ -1359,7 +1365,7 @@ export async function startApp(
     regions,
     gateway: partyGateway,
     dms: memberDms,
-    zone: config.settings.timezone,
+    zoneOfRow: (row) => partyService.zoneOfRow(row),
     log,
     changed: (regionId) => {
       partyService.summaryChanged(regionId, true);
@@ -1451,6 +1457,9 @@ export async function startApp(
           'connected to Discord',
         );
         botServers = () => [...ready.guilds.cache.keys()];
+        // The zones in use are those of the servers present from now on (fix round 1, K5).
+        serversPresent = botServers;
+        servers.presenceChanged();
       });
       // The servers' rows (plan 19A-1, `wireServerStart`): each server's fill begun in the
       // client's own events, before discord.js hands on any interaction of it, every interaction
@@ -1479,11 +1488,14 @@ export async function startApp(
         guilds
           .ensure(guild.id)
           .catch((err: unknown) => log.error({ err, guild: guild.id }, 'could not record guild'));
+        // A server joining may bring a zone of its own (fix round 1, N5).
+        servers.presenceChanged();
       });
       client.on(Events.GuildDelete, (guild) => {
         guilds
           .remove(guild.id)
           .catch((err: unknown) => log.error({ err, guild: guild.id }, 'could not remove guild'));
+        servers.presenceChanged();
       });
       // A party's post deleted by hand ends its party at once (the `Guilds` intent delivers it;
       // discord.js emits it only for a thread in its cache, otherwise the next render notices);
@@ -1571,7 +1583,7 @@ export async function startApp(
         regions,
         guilds,
         gateway: partyGateway,
-        zone: config.settings.timezone,
+        servers,
         log,
         // The region's summary links the post with its counts (plan 8X-G); a draw in the board
         // may have opened it, so its pin is checked too (plan 8R-9, B4).
@@ -1593,7 +1605,7 @@ export async function startApp(
         regions,
         guilds,
         gateway: partyGateway,
-        zone: config.settings.timezone,
+        servers,
         log,
       })
     : undefined;
@@ -1648,6 +1660,25 @@ export async function startApp(
   void connected.then(() => {
     wantCounts.start();
   });
+  // A server's zone changed (plan 19A-2): its summaries and active posts drawn anew on the new
+  // clock, the events forums and the posts of the stops too, and every midnight timer following
+  // the zones now in use. Moments stored stay the same moments.
+  // A server joining or leaving with a zone of its own changes the zones in use too: every
+  // midnight timer follows them (fix round 1, N5).
+  followZones(
+    servers,
+    {
+      server: [(serverId) => partyService.zoneChanged(serverId)],
+      zones: [
+        () => partyService.zonesChanged(),
+        () => eventForum?.zonesChanged(),
+        () => wantCounts.zonesChanged(),
+        () => stopPosts?.zonesChanged(),
+        () => stopLines?.zonesChanged(),
+      ],
+    },
+    log,
+  );
   void connected.then(() =>
     stopPosts
       ?.start()

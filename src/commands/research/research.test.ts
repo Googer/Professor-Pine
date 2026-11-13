@@ -89,7 +89,7 @@ async function setup(rows: readonly WayspotRow[] = STOPS) {
       rewardHash: fixtureRewardHash,
       store,
       events: ctx.raidEvents,
-      zone: ctx.config.settings.timezone,
+      zoneOf: (serverId) => ctx.servers.zoneOf(serverId),
       log: ctx.log,
     }),
     partyService: {
@@ -1197,5 +1197,34 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
     expect(() => readTask(ctx, candies.key, 'rare candy')).toThrow(PICK_THE_REWARD);
     const plain = ctx.researchTasks.versions(electric).find((one) => !one.costumed);
     expect(readTask(ctx, electric.key, 'pikachu').subjectKey).toBe(plain?.value);
+  });
+});
+
+describe('/research report after a change of the server’s zone (fix round 2, P4)', () => {
+  it('reports, shows and offers a stop whose report of that date was made on the old clock', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const made = await setup();
+      // 00:30 on the 22nd in Berlin (18:30 on the 21st in New York): Misty reports at Little
+      // Bench, a report of Berlin's 22nd, standing until Berlin's midnight.
+      changeServers(made.ctx, { timezone: 'Europe/Berlin' });
+      vi.setSystemTime(zonedAt('2026-11-22T00:30', 'Europe/Berlin'));
+      await made.report({ task: DRAGON.key, stop: stop(3) }, made.as(MISTY));
+      // The server moves to New York; at 00:30 on its own 22nd that report is not of the day.
+      changeServers(made.ctx, { timezone: 'America/New_York' });
+      vi.setSystemTime(zonedAt('2026-11-22T00:30', 'America/New_York'));
+      const answer = answerOf(await made.report({ task: DRAGON.key, stop: stop(1) }));
+      const [menu] = selectsOf(asV2(answer));
+      // "Same task at more stops…" offers Little Bench: nothing of the day holds the task there.
+      expect(menu?.options.map((option) => option.label)).toContain('Little Bench');
+      // Reported there, it is stored and shown, not "Already reported".
+      const there = said(answerOf(await made.report({ task: DRAGON.key, stop: stop(3) })));
+      expect(there).toContain('### Field research reported');
+      expect(there).not.toContain('(was:');
+      const shown = await made.ctx.stopReports.at(FAKE_GUILD_ID, wayspotId(3));
+      expect(shown?.reporter).toEqual({ id: ASH, name: 'Ash' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

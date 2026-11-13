@@ -3,17 +3,16 @@ import type { Region } from '../db/repositories/region-repository.js';
 import type { StopLineKey, StopLineStorage } from '../db/repositories/stop-line-repository.js';
 import { isMissingPermission, type PartyGateway } from '../discord/party-gateway.js';
 import { isLeaderOrGiovanni } from '../domain/rocket/lineups.js';
-import { localDay, nextLocalMidnight } from '../domain/time/local-day.js';
+import { localDay } from '../domain/time/local-day.js';
 import { taskOfSubject } from '../domain/research/reports.js';
 import type { ReportedStop, RocketReport } from '../domain/stops/report.js';
 import type { Logger } from '../log.js';
 import { postLink } from '../render/notify-dm.js';
 import { hideoutLine, researchLine } from '../render/stop-lines.js';
+import { everyLocalMidnightIn, type ZonesMidnight } from './local-midnight.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 import type { PostLink } from './stop-posts.js';
 import type { ResearchNews, StopReportService } from './stop-reports.js';
-
-/** The longest delay `setTimeout` accepts. */
-const MAX_TIMER_MS = 2 ** 31 - 1;
 
 /** A claimed line waiting for its board's message (plan 8R-9F, M2). */
 interface Waiting {
@@ -42,8 +41,11 @@ export interface StopLineServiceOptions {
   /** The row of a server in `Guild` (its regions name it so), by its snowflake. */
   guilds: { idFor(serverId: string): Promise<number | undefined> };
   gateway: Pick<PartyGateway, 'sendMessage' | 'deleteMessage'>;
-  /** `settings.timezone`: the local day and its midnight. */
-  zone: string;
+  /**
+   * Each server's zone, whose local day its lines are of, and the zones in use, at each of whose
+   * midnights the lines of days that ended are deleted (plan 19A-2).
+   */
+  servers: Pick<ServerSettingsLookup, 'zoneOf' | 'zonesInUse'>;
   log: Logger;
   now?: () => number;
 }
@@ -66,7 +68,8 @@ export class StopLineService {
   private readonly now: () => number;
   /** The announcements on their way (`flush` and `close` wait for them). */
   private readonly pending = new Set<Promise<void>>();
-  private timer: NodeJS.Timeout | undefined;
+  /** The timers of the midnights of the zones in use (plan 19A-2); none until `start`. */
+  private midnights: ZonesMidnight | undefined;
   /** Channels where Discord refused a delete for good (review R1), said once each. */
   private readonly deleteRefusalsTold = new Set<string>();
   /**
@@ -110,9 +113,9 @@ export class StopLineService {
     this.pending.add(kept);
   }
 
-  /** The local day of a moment, `yyyy-mm-dd`. */
-  private dayOf(time: number): string {
-    return localDay(time, this.options.zone);
+  /** The local day of a moment in a server, `yyyy-mm-dd` on its clock (plan 19A-2). */
+  private dayOf(serverId: string, time: number): string {
+    return localDay(time, this.options.servers.zoneOf(serverId));
   }
 
   /** The region channels of a server whose outlines hold any of these stops. */
@@ -131,7 +134,7 @@ export class StopLineService {
     const [first] = news.reports;
     if (this.closed || first === undefined) return;
     const task = taskOfSubject(first.subjectKey);
-    const day = this.dayOf(this.now());
+    const day = this.dayOf(news.serverId, this.now());
     const channels = await this.channelsAt(
       news.serverId,
       news.reports.map((report) => report.stop),
@@ -149,7 +152,7 @@ export class StopLineService {
   private async hideout(report: RocketReport): Promise<void> {
     const who = report.subjectKey;
     if (this.closed || !isLeaderOrGiovanni(who)) return;
-    const day = this.dayOf(this.now());
+    const day = this.dayOf(report.serverId, this.now());
     for (const regionChannelId of await this.channelsAt(report.serverId, [report.stop])) {
       await this.announce(
         { serverId: report.serverId, regionChannelId, day, key: `rocket:${who}` },
@@ -200,7 +203,7 @@ export class StopLineService {
     try {
       const held = await posts.messageOf(line.regionChannelId, subjectKey);
       found = held !== undefined;
-      if (held !== undefined && this.dayOf(this.now()) === line.day) {
+      if (held !== undefined && this.dayOf(line.serverId, this.now()) === line.day) {
         const link = postLink(line.serverId, held.channelId, held.messageId);
         sent = await gateway.sendMessage(line.regionChannelId, { content: text(link) });
       }
@@ -212,7 +215,8 @@ export class StopLineService {
       const boarded = regions
         .all()
         .some((region) => region.channelId === line.regionChannelId && region.summaryMessageId);
-      if (!found && !retry && boarded && !this.closed && this.dayOf(this.now()) === line.day) {
+      const today = this.dayOf(line.serverId, this.now());
+      if (!found && !retry && boarded && !this.closed && today === line.day) {
         const list = this.waiting.get(line.regionChannelId) ?? [];
         list.push(one);
         this.waiting.set(line.regionChannelId, list);
@@ -223,7 +227,7 @@ export class StopLineService {
     }
     await storage.sent(claimed, sent);
     // Sent as its day ended (a sweep may have forgotten its claim): the next one deletes it.
-    if (this.dayOf(this.now()) !== line.day) this.stale = true;
+    if (this.dayOf(line.serverId, this.now()) !== line.day) this.stale = true;
   }
 
   /**
@@ -232,15 +236,22 @@ export class StopLineService {
    * midnight, at start, in the catch-up on reconnect, and before the next announcement (W2).
    */
   async sweep(): Promise<void> {
-    const { storage, gateway, log } = this.options;
-    const today = this.dayOf(this.now());
+    const { storage, gateway, log, servers } = this.options;
+    const now = this.now();
+    // Each server's today on its own clock (plan 19A-2).
+    const ended = (line: StopLineKey) => line.day < this.dayOf(line.serverId, now);
     // A line that waited for its board through the day's end is let go (M2): its row below.
     for (const [channelId, lines] of this.waiting) {
-      const kept = lines.filter((one) => one.claimed.day === today);
+      const kept = lines.filter((one) => !ended(one.claimed));
       if (kept.length > 0) this.waiting.set(channelId, kept);
       else this.waiting.delete(channelId);
     }
-    for (const line of await storage.before(today)) {
+    // Read up to the latest today among the zones in use, then each line by its server's.
+    const latest = servers
+      .zonesInUse()
+      .map((zone) => localDay(now, zone))
+      .reduce((one, other) => (other > one ? other : one));
+    for (const line of (await storage.before(latest)).filter(ended)) {
       if (line.messageId !== null) {
         try {
           await gateway.deleteMessage(line.regionChannelId, line.messageId);
@@ -269,7 +280,10 @@ export class StopLineService {
     }
   }
 
-  /** At start: the lines of days before deleted, and the timer of the next local midnight set. */
+  /**
+   * At start: the lines of days before deleted, and the timers of the next local midnight of
+   * each zone in use set (plan 19A-2: one per zone, `everyLocalMidnightIn`).
+   */
   async start(): Promise<void> {
     try {
       await this.sweep();
@@ -278,19 +292,34 @@ export class StopLineService {
     }
   }
 
+  /**
+   * A server's zone changed (plan 19A-2; `ServerSettings.onZoneChange`): the midnights follow the
+   * zones in use, and the lines of a day that ended on the new clock are deleted.
+   */
+  zonesChanged(): void {
+    if (this.closed) return;
+    this.midnights?.refresh();
+    this.track(this.sweep());
+  }
+
   private schedule(): void {
     if (this.closed) return;
-    if (this.timer) clearTimeout(this.timer);
-    const now = this.now();
-    this.timer = setTimeout(
-      () => {
-        this.timer = undefined;
-        this.track(this.sweep().finally(() => this.schedule()));
+    this.midnights?.cancel();
+    this.midnights = everyLocalMidnightIn({
+      zones: () => this.options.servers.zonesInUse(),
+      now: this.now,
+      setTimer: (run, ms) => {
+        const timer = setTimeout(run, ms);
+        timer.unref();
+        return () => {
+          clearTimeout(timer);
+        };
       },
       // A moment after midnight: the day after it is today.
-      Math.min(nextLocalMidnight(now, this.options.zone) - now + 1_000, MAX_TIMER_MS),
-    );
-    this.timer.unref();
+      run: () => {
+        this.track(this.sweep());
+      },
+    });
   }
 
   /** Waits for every announcement and delete on its way. For tests and shutdown. */
@@ -305,8 +334,8 @@ export class StopLineService {
    */
   async close(): Promise<void> {
     this.closed = true;
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = undefined;
+    this.midnights?.cancel();
+    this.midnights = undefined;
     await this.flush();
     const waiting = [...this.waiting.values()].flat();
     this.waiting.clear();

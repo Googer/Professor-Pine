@@ -45,6 +45,7 @@ import type { Region } from '../db/repositories/region-repository.js';
 import { ListChanged, UserError } from '../discord/errors.js';
 import { MEMBER_WRITE_THROTTLE } from '../discord/throttle.js';
 import { isHideout, parseRocketKey, type RocketChoice } from '../domain/rocket/lineups.js';
+import { inPeriod } from '../domain/time/research-periods.js';
 import {
   isRocketReport,
   type ReportedStop,
@@ -210,7 +211,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     const now = deps.now();
     return stopReportView({
       reports,
-      period: ctx.stopReports.period(now),
+      period: ctx.stopReports.period(guild, now),
       now,
       zone: ctx.config.settings.timezone,
       shown: (report) => (seen.get(report.id) ?? []).length > 0,
@@ -490,7 +491,8 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
       // server and of the period on now, as it was reported (a typed one with its reward, a
       // listed one gone from the list since).
       const base = await ctx.stopReports.get(guild, body.data.sameAs);
-      if (base?.kind !== 'research' || base.periodKey !== ctx.stopReports.period(deps.now()).key) {
+      // Of the period by the one rule (fix round 2, P4: `inPeriod`).
+      if (base?.kind !== 'research' || !inPeriod(base, ctx.stopReports.period(guild, deps.now()))) {
         return noted('ended', refuse(reply, 409, REPORT_ENDED, { reason: 'ended' }));
       }
       subject = { subjectKey: base.subjectKey, research: base.research };

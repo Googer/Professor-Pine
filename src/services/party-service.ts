@@ -140,7 +140,7 @@ import { summaryRefusedWords } from '../render/activity.js';
 import { customIconText } from '../render/party-controls.js';
 import { postLink } from '../render/notify-dm.js';
 import { postKey } from '../render/post-view.js';
-import { everyLocalMidnight } from './local-midnight.js';
+import { everyLocalMidnightIn, type ZonesMidnight } from './local-midnight.js';
 import {
   maxTitle,
   renderMaxPost,
@@ -923,8 +923,11 @@ export class PartyService {
    * its text changed (plan 8R-9, B4: the stops were drawn in it, which opens it if archived).
    */
   private readonly boardChecks = new Set<number>();
-  /** Cancels the timer of the next local midnight (plan 8R-9, B7); none until `watchMidnight`. */
-  private midnightTimer: (() => void) | undefined;
+  /**
+   * The timers of the next local midnight of each zone in use (plan 8R-9, B7; plan 19A-2); none
+   * until `watchMidnight`.
+   */
+  private midnights: ZonesMidnight | undefined;
   /** The timers that try a summary post's rename again, by region (review r1, R1-6). */
   private readonly summaryRenameTimers = new Map<number, { cancel: () => void }>();
   /** The renames those timers have under way, which `flush` waits for. */
@@ -1170,13 +1173,19 @@ export class PartyService {
    * 1, K1): should one be, it is warned of once and has the default.
    */
   zoneOfRow(row: number | null): string {
-    const { servers, serverOfRow } = this.options;
-    const server = row === null ? undefined : (serverOfRow?.(row) ?? this.snowflakes.get(row));
+    const { servers } = this.options;
+    const server = this.serverOfRow(row);
     if (server === undefined && row !== null && !this.unknownRows.has(row)) {
       this.unknownRows.add(row);
       this.options.log.warn({ row }, 'a party’s server is not known');
     }
     return server === undefined ? servers.defaultZone() : servers.zoneOf(server);
+  }
+
+  /** The server of a `Guild` row: `serverOfRow`'s, else as the summary learned it. */
+  private serverOfRow(row: number | null): string | undefined {
+    if (row === null) return undefined;
+    return this.options.serverOfRow?.(row) ?? this.snowflakes.get(row);
   }
 
   /**
@@ -2848,26 +2857,59 @@ export class PartyService {
   }
 
   /**
-   * Draws every region's summary anew at each local midnight from now on (plan 8R-9, B7: what
-   * starts tomorrow moves from Coming up to today), also in rehearsal mode. Temporal's midnight in
-   * `settings.timezone`, so a day of a change of the clocks is 23 or 25 hours long. A summary
+   * Draws the summaries of the regions of the servers in a zone anew at each local midnight of
+   * that zone from now on (plan 8R-9, B7: what starts tomorrow moves from Coming up to today;
+   * plan 19A-2: one timer per zone in use, `everyLocalMidnightIn`), also in rehearsal mode.
+   * Temporal's midnight, so a day of a change of the clocks is 23 or 25 hours long. A summary
    * that reads the same is not edited. Nothing after `close`.
    */
   watchMidnight(): void {
     if (this.closed) return;
-    this.midnightTimer?.();
-    // The timer shared with the events forum's listing (plan 8V-1), a second after midnight.
-    const watch = everyLocalMidnight({
-      zone: this.options.settings.timezone,
+    this.midnights?.cancel();
+    this.midnights = everyLocalMidnightIn({
+      zones: () => this.options.servers.zonesInUse(),
       now: this.now,
       setTimer: this.setTimer,
-      run: () => {
-        if (!this.closed) this.allSummaries();
+      run: (zone) => {
+        if (this.closed) return;
+        for (const region of this.options.regions.all()) {
+          if (region.forumChannelId === null) continue;
+          if (this.zoneOfRow(region.guildId) === zone) this.summaries.request(region.id);
+        }
       },
     });
-    this.midnightTimer = () => {
-      watch.cancel();
-    };
+  }
+
+  /**
+   * A server's zone changed (plan 19A-2; `ServerSettings.onZoneChange`): its summaries are drawn
+   * anew, and its active parties' posts, paced as after a change of the emoji (`showAllAnew`),
+   * so that every time they say is on the new clock; the midnights follow the zones now in use.
+   * Moments stored stay the same moments. Nothing after `close`.
+   */
+  zoneChanged(serverId: string): void {
+    if (this.closed) return;
+    this.zonesChanged();
+    const ofServer = (row: number | null) => this.serverOfRow(row) === serverId;
+    for (const region of this.options.regions.all()) {
+      if (region.forumChannelId !== null && ofServer(region.guildId)) {
+        this.summaries.request(region.id);
+      }
+    }
+    const waiting = new Set(this.emojiQueue);
+    for (const party of this.options.store.active()) {
+      if (party.forumPostId === null || !ofServer(party.guildId) || waiting.has(party.id)) continue;
+      this.emojiQueue.push(party.id);
+    }
+    if (this.emojiTimer === undefined) this.nextEmojiPost();
+  }
+
+  /**
+   * The zones in use changed (a server joined or left with a zone of its own: fix round 1, N5):
+   * the summaries' midnights follow them. Nothing after `close`.
+   */
+  zonesChanged(): void {
+    if (this.closed) return;
+    this.midnights?.refresh();
   }
 
   /** Asks for the summary of every region that has a forum. */
@@ -3656,8 +3698,8 @@ export class PartyService {
   /** For shutdown: shows nothing anew from now on (`emojiChanged`), then `flush`. */
   async close(): Promise<void> {
     this.closed = true;
-    this.midnightTimer?.();
-    this.midnightTimer = undefined;
+    this.midnights?.cancel();
+    this.midnights = undefined;
     await this.flush();
   }
 

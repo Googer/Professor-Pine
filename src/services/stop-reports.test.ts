@@ -39,13 +39,14 @@ function serviceWith(
   events: ResearchEvent[] = [],
   start = at('2026-11-21T10:00'),
   store = new MemoryStopReports(),
+  zoneOf: (serverId: string) => string = () => ZONE,
 ) {
   const clock = { now: start };
   const service = new StopReportService({
     rewardHash: fixtureRewardHash,
     store,
     events: { researchEvents: () => events },
-    zone: ZONE,
+    zoneOf,
     log: createTestLogger().log,
     now: () => clock.now,
   });
@@ -650,6 +651,99 @@ describe('StopReportService and the versions of a task (plan 8R-5)', () => {
     expect(await service.contested(REPORT_SERVER, [reportedStop(1)], GIBLE, REPORTER.id)).toEqual(
       [],
     );
+  });
+});
+
+describe('StopReportService in each server’s zone (plan 19A-2)', () => {
+  const BERLIN_SERVER = '412345678901234599';
+  const BERLIN = 'Europe/Berlin';
+  const zoneOf = (serverId: string) => (serverId === BERLIN_SERVER ? BERLIN : ZONE);
+  const ARLO: RocketSubject = {
+    subjectKey: 'leader:arlo',
+    rocket: { name: 'Arlo', catches: [] },
+  };
+
+  it('keeps a report in its server’s day, ending at its own midnight', async () => {
+    // 20:00 in New York on the 21st, 02:00 on the 22nd in Berlin.
+    const { service } = serviceWith([], at('2026-11-21T20:00'), new MemoryStopReports(), zoneOf);
+    expect(service.period(REPORT_SERVER).key).toBe('day:2026-11-21');
+    expect(service.period(BERLIN_SERVER).key).toBe('day:2026-11-22');
+    const there = await service.reportResearch({
+      serverId: BERLIN_SERVER,
+      stops: [reportedStop(1)],
+      subject: THROWS,
+      reporter: REPORTER,
+    });
+    expect(there.period.key).toBe('day:2026-11-22');
+    expect(there.saved.map(({ report }) => report.endsAt)).toEqual([
+      zonedAt('2026-11-23T00:00', BERLIN),
+    ]);
+    const hideout = await service.reportRocket({
+      serverId: BERLIN_SERVER,
+      stop: reportedStop(2),
+      subject: ARLO,
+      reporter: REPORTER,
+    });
+    expect(hideout.kind === 'reported' && hideout.report.endsAt).toBe(
+      zonedAt('2026-11-23T00:00', BERLIN),
+    );
+  });
+
+  it('never counts a report of the day another zone had once the server’s new day of that date begins (fix round 1, N4)', async () => {
+    let zone = BERLIN;
+    // 00:30 on the 22nd in Berlin, 18:30 on the 21st in New York.
+    const { service, clock } = serviceWith(
+      [],
+      zonedAt('2026-11-22T00:30', BERLIN),
+      new MemoryStopReports(),
+      (serverId) => (serverId === BERLIN_SERVER ? zone : ZONE),
+    );
+    await service.reportResearch({
+      serverId: BERLIN_SERVER,
+      stops: [reportedStop(1)],
+      subject: THROWS,
+      reporter: REPORTER,
+    });
+    expect(await service.at(BERLIN_SERVER, reportedStop(1).key)).toBeDefined();
+    // The server moves to New York: the report of Berlin's 22nd stands until Berlin's midnight
+    // (18:00 on the 22nd in New York), and New York's 22nd begins at its own midnight.
+    zone = ZONE;
+    expect(await service.at(BERLIN_SERVER, reportedStop(1).key)).toBeUndefined();
+    clock.now = at('2026-11-22T00:30');
+    expect(service.period(BERLIN_SERVER).key).toBe('day:2026-11-22');
+    expect(await service.at(BERLIN_SERVER, reportedStop(1).key)).toBeUndefined();
+    expect(
+      await service.contested(BERLIN_SERVER, [reportedStop(1)], CATCHES, OTHER_REPORTER.id),
+    ).toEqual([]);
+  });
+
+  it('gives where a member last reported today on their server’s clock', async () => {
+    // 19:00 in New York, 01:00 the next day in Berlin.
+    const { service, clock } = serviceWith(
+      [],
+      at('2026-11-21T19:00'),
+      new MemoryStopReports(),
+      zoneOf,
+    );
+    await service.reportResearch({
+      serverId: BERLIN_SERVER,
+      stops: [reportedStop(1)],
+      subject: THROWS,
+      reporter: REPORTER,
+    });
+    // An hour later it is still today in Berlin.
+    clock.now = at('2026-11-21T20:00');
+    expect(await service.latestToday(BERLIN_SERVER, REPORTER.id)).toBeDefined();
+    // Reported at 17:00 in New York (23:00 in Berlin): yesterday there by 01:00.
+    const before = serviceWith([], at('2026-11-21T17:00'), new MemoryStopReports(), zoneOf);
+    await before.service.reportResearch({
+      serverId: BERLIN_SERVER,
+      stops: [reportedStop(1)],
+      subject: THROWS,
+      reporter: REPORTER,
+    });
+    before.clock.now = at('2026-11-21T19:00');
+    expect(await before.service.latestToday(BERLIN_SERVER, REPORTER.id)).toBeUndefined();
   });
 });
 

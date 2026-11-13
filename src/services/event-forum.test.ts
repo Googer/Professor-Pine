@@ -35,7 +35,9 @@ import {
   type EventForumOptions,
 } from './event-forum.js';
 import { HistoryDays } from './history-days.js';
-import { TestServers, testServerValues } from '../../test/support/server-values.js';
+import { TestServers, testServerValues, withZones } from '../../test/support/server-values.js';
+import { allIn } from '../domain/time/feed-times.js';
+import { eventTimeWords } from '../domain/time/event-listing.js';
 import type { ServerValues } from '../config/server-settings.js';
 
 const SERVER = '412345678901234567';
@@ -92,7 +94,10 @@ function eventForumWith(
     gateway,
     store,
     events: {
-      listedEvents: () => listed.events,
+      // As the events service gives them (plan 19A-2): the stored list in the default zone, in
+      // another a feed's wall-clock times on its clock.
+      listedEvents: (zone) =>
+        zone === undefined || zone === ZONE ? listed.events : allIn(listed.events, zone),
       onListedChange: (listener) => listeners.push(listener),
       listingKnown: () => listed.known,
       droppedIds: () => listed.dropped,
@@ -1297,6 +1302,8 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
       known?: boolean;
       complete?: boolean;
       failing?: Error;
+      /** The server's zone (plan 19A-2), the test settings' unless given. */
+      zone?: string;
     } = {},
   ) => {
     const activity = new MemoryActivity();
@@ -1316,6 +1323,7 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
       numbers: { horizonDays: 35, postDaysAhead: 14, onThisDay: options.onThisDay ?? 3 },
     });
     made.listed.known = options.known ?? true;
+    if (options.zone !== undefined) withZones({ [SERVER]: options.zone }, made.servers);
     const setup = await made.service.setup(SERVER, STAFF);
     const forumId = setup.forum === 'created' ? setup.forumId : '';
     const recalled = () =>
@@ -1380,6 +1388,22 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
     await service.flush();
     const timer = timers.filter((one) => !one.cancelled).at(-1);
     expect(timer?.ms).toBe(60 * 60_000 + 1_000);
+  });
+
+  it('posts at 10:00 on the server’s own clock, and sets the timer for it (plan 19A-2)', async () => {
+    // 05:00 in New York is 11:00 in Berlin, the same day: due there, not here.
+    expect((await recalling({ now: at('2026-11-10T05:00') })).recalled()).toEqual([]);
+    expect(
+      (await recalling({ now: at('2026-11-10T05:00'), zone: 'Europe/Berlin' })).recalled(),
+    ).toHaveLength(1);
+    // At 03:00 in New York (09:00 in Berlin) the timer is Berlin's 10:00, an hour away.
+    const early = await recalling({ now: at('2026-11-10T03:00'), zone: 'Europe/Berlin' });
+    early.service.start();
+    await early.service.flush();
+    expect(early.recalled()).toEqual([]);
+    expect(early.timers.filter((one) => !one.cancelled).map((one) => one.ms)).toContain(
+      60 * 60_000 + 1_000,
+    );
   });
 
   it('posts at the first draw of the day after 10:00 passed while it was down, never a day missed', async () => {
@@ -1866,5 +1890,89 @@ describe('EventForumService: the trains and meetups planned during an event', ()
     service.stop();
     await partyStore.add(planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T18:00')));
     expect(await redrawn()).toBe(0);
+  });
+});
+
+describe('EventForumService in each server’s zone (plan 19A-2)', () => {
+  const BERLIN = 'Europe/Berlin';
+  const OTHER = '412345678901234599';
+  const OTHER_FORUM = '600000000000000599';
+  const berlin = (iso: string): number =>
+    Temporal.PlainDateTime.from(iso).toZonedDateTime(BERLIN).epochMilliseconds;
+  /** The Community Day, 14:00 to 17:00 local time wherever it is played. */
+  const LOCAL_DAY = listedEvent({ start: at('2026-11-21T14:00'), end: at('2026-11-21T17:00') });
+
+  /** Two servers with their forums drawn: this one in New York, `OTHER` in Berlin. */
+  async function twoServers(now = at('2026-11-10T12:00')) {
+    const made = eventForumWith({ events: [LOCAL_DAY], now });
+    made.gateway.addChannel(OTHER_FORUM, 'events', { kind: 'forum' });
+    made.gateway.addForum(OTHER_FORUM, [], 'events');
+    await made.store.setForum(OTHER, OTHER_FORUM);
+    const values = made.servers.of(SERVER);
+    made.servers.changed.set(OTHER, {
+      ...values,
+      timezone: BERLIN,
+      channels: { ...values.channels, events: OTHER_FORUM },
+    });
+    await made.service.setup(SERVER, STAFF);
+    made.service.start();
+    await made.service.flush();
+    const listing = async (serverId: string) =>
+      made.gateway.posts.get((await made.store.forum(serverId))?.listingPostId ?? '');
+    return { ...made, listing };
+  }
+
+  it('lists an event at its local time on each server’s own clock', async () => {
+    // 09:00 in New York, 15:00 in Berlin: the Community Day is on there, not yet here.
+    const { listing } = await twoServers(at('2026-11-21T09:00'));
+    expect(textOf((await listing(SERVER))?.message)).toMatch(/^### Events\n1 this week/);
+    expect(textOf((await listing(OTHER))?.message)).toMatch(/^### Events\n1 now\n/);
+  });
+
+  it('says a moment’s times on each server’s own clock', async () => {
+    // A global event, given as moments: 14:00 to 17:00 UTC.
+    const {
+      startLocal: _start,
+      endLocal: _end,
+      ...global
+    } = listedEvent({
+      start: Date.UTC(2026, 10, 21, 14),
+      end: Date.UTC(2026, 10, 21, 17),
+    });
+    const { read, listing } = await twoServers();
+    await read([global]);
+    const here = eventTimeWords(global.start, global.end, ZONE);
+    const there = eventTimeWords(global.start, global.end, BERLIN);
+    expect(here).not.toBe(there);
+    expect(textOf((await listing(SERVER))?.message)).toContain(here);
+    expect(textOf((await listing(OTHER))?.message)).toContain(there);
+  });
+
+  it('draws at each zone’s midnight and at each zone’s start of the event', async () => {
+    const { timers, clock } = await twoServers(at('2026-11-21T07:00'));
+    const live = timers.filter((one) => !one.cancelled).map((one) => one.ms);
+    expect(live).toEqual(
+      expect.arrayContaining([
+        at('2026-11-22T00:00') - clock.now + 1_000,
+        berlin('2026-11-22T00:00') - clock.now + 1_000,
+      ]),
+    );
+    // The next change: the event's start in Berlin (08:00 in New York), before New York's.
+    expect(Math.min(...live)).toBe(berlin('2026-11-21T14:00') - clock.now + 1_000);
+  });
+
+  it('draws anew when a server’s zone changes, its midnights following the zones in use', async () => {
+    const { service, servers, listing, timers, clock } = await twoServers();
+    await servers.set(OTHER, (values) => ({ ...values, timezone: 'Asia/Kolkata' }), STAFF);
+    service.zonesChanged();
+    await service.flush();
+    const kolkata = (iso: string) =>
+      Temporal.PlainDateTime.from(iso).toZonedDateTime('Asia/Kolkata').epochMilliseconds;
+    expect(textOf((await listing(OTHER))?.message)).toContain(
+      eventTimeWords(kolkata('2026-11-21T14:00'), kolkata('2026-11-21T17:00'), 'Asia/Kolkata'),
+    );
+    const live = timers.filter((one) => !one.cancelled).map((one) => one.ms);
+    expect(live).toContain(kolkata('2026-11-11T00:00') - clock.now + 1_000);
+    expect(live).not.toContain(berlin('2026-11-11T00:00') - clock.now + 1_000);
   });
 });

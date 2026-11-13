@@ -31,7 +31,12 @@ import {
   type StopReport,
 } from '../domain/stops/report.js';
 import { localDayStart } from '../domain/time/local-day.js';
-import { periodAt, type ResearchPeriod } from '../domain/time/research-periods.js';
+import {
+  inPeriod,
+  periodAt,
+  waitsIn,
+  type ResearchPeriod,
+} from '../domain/time/research-periods.js';
 import type { Logger } from '../log.js';
 import type { ResearchEventProvider } from './raid-event-service.js';
 import { regionsAtPoint } from './region-directory.js';
@@ -186,8 +191,11 @@ export interface StopReportServiceOptions {
   store: StopReportStorage;
   /** The events with field research (`researchEvents`), whose periods a report belongs to. */
   events: ResearchEventProvider;
-  /** `settings.timezone`. */
-  zone: string;
+  /**
+   * The zone of a server (`ServerSettings.zoneOf`, plan 19A-2): its research periods, its days of
+   * Team GO Rocket, its "today".
+   */
+  zoneOf: (serverId: string) => string;
   log: Logger;
   now?: () => number;
   /** How long a grunt's report stands (`settings.rocket.gruntMinutes`). Default 30 minutes. */
@@ -320,10 +328,10 @@ export class StopReportService {
     by: string,
   ): Promise<ResearchReport[]> {
     const now = this.now();
-    const period = this.period(now);
+    const period = this.period(serverId, now);
     const standing = (await this.standing(serverId))
       .filter(isResearchReport)
-      .filter((report) => report.periodKey === period.key);
+      .filter((report) => inPeriod(report, period));
     const asked = this.researchAt(subject);
     return stops.flatMap((stop) => {
       const there = standing.find((report) => report.stop.key === stop.key);
@@ -361,9 +369,13 @@ export class StopReportService {
     this.listeners.push(listener);
   }
 
-  /** The research period on now (or at `at`). */
-  period(at = this.now()): ResearchPeriod {
-    return periodAt(this.options.events.researchEvents(this.options.zone), at, this.options.zone);
+  /**
+   * The research period on now (or at `at`) in a server: of its zone's research events, on its
+   * clock (plan 19A-2).
+   */
+  period(serverId: string, at = this.now()): ResearchPeriod {
+    const zone = this.options.zoneOf(serverId);
+    return periodAt(this.options.events.researchEvents(zone), at, zone);
   }
 
   /** The reports of a server that have not ended, oldest first. */
@@ -400,7 +412,7 @@ export class StopReportService {
    * table still keeps (standing, or ended and not yet swept).
    */
   async latestToday(serverId: string, memberId: string): Promise<LastReport | undefined> {
-    const since = localDayStart(this.now(), this.options.zone);
+    const since = localDayStart(this.now(), this.options.zoneOf(serverId));
     const recorded = this.lastReports.get(lastReportKey(serverId, memberId));
     if (recorded && recorded.madeAt >= since) return recorded;
     const kept = await this.store.latestBy(serverId, memberId, since);
@@ -446,13 +458,13 @@ export class StopReportService {
    * under it (an intra-day event's window); undefined when the stop has neither.
    */
   async at(serverId: string, stopKey: string): Promise<ResearchReport | undefined> {
-    const period = this.period();
+    const period = this.period(serverId);
     const here = (await this.standing(serverId))
       .filter(isResearchReport)
       .filter((report) => report.stop.key === stopKey);
     return (
-      here.find((report) => report.periodKey === period.key) ??
-      here.find((report) => report.periodKey === period.waiting?.key)
+      here.find((report) => inPeriod(report, period)) ??
+      here.find((report) => waitsIn(report, period))
     );
   }
 
@@ -481,7 +493,7 @@ export class StopReportService {
     replacing?: readonly number[];
   }): Promise<ResearchOutcome> {
     const madeAt = this.now();
-    const period = this.period(madeAt);
+    const period = this.period(input.serverId, madeAt);
     const saved: SavedAtStop[] = [];
     const already: ResearchReport[] = [];
     const asks: ResearchReport[] = [];
@@ -505,7 +517,10 @@ export class StopReportService {
             madeAt,
           },
           (standing) => {
-            if (!isResearchReport(standing)) return 'replace';
+            // A report of the key not of this period (fix round 2, P4: made before it began, on
+            // the clock of the server's zone before) is no report a member sees: replaced, never
+            // merged with this one, as a new one.
+            if (!isResearchReport(standing) || !inPeriod(standing, period)) return 'replace';
             decided.decision = decideResearch(
               this.standingResearch(standing),
               asked,
@@ -538,11 +553,15 @@ export class StopReportService {
         // A report replaces only one of its own kind (the identity has the kind).
         if (!isResearchReport(report)) throw new Error('a research report was saved as another');
         // A row that had ended already replaced nothing a member saw, and is not named (review
-        // R1, as Rocket's fix F2): the report is news, a first one.
+        // R1, as Rocket's fix F2): the report is news, a first one. Nor one not of the period
+        // (fix round 2, P4), which no member saw as the day's either.
         saved.push({
           report,
           replaced:
-            replaced && isResearchReport(replaced) && replaced.endsAt > madeAt
+            replaced &&
+            isResearchReport(replaced) &&
+            replaced.endsAt > madeAt &&
+            inPeriod(replaced, period)
               ? replaced
               : undefined,
         });
@@ -607,7 +626,7 @@ export class StopReportService {
     const who = parseRocketKey(input.subject.subjectKey);
     if (!who) throw new Error(`no Rocket report is of ${input.subject.subjectKey}`);
     const madeAt = this.now();
-    const day = rocketDay(madeAt, this.options.zone);
+    const day = rocketDay(madeAt, this.options.zoneOf(input.serverId));
     const hideout = isHideout(who);
     // Where the stop lies, before the save and outside its transaction (plan 8H-2).
     const place = await this.placeOf(input.serverId, input.stop);

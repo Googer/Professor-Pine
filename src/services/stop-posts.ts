@@ -15,7 +15,7 @@ import {
   type RocketReport,
 } from '../domain/stops/report.js';
 import { localDay } from '../domain/time/local-day.js';
-import { nextPeriodChange } from '../domain/time/research-periods.js';
+import { inPeriod, nextPeriodChange, waitsIn } from '../domain/time/research-periods.js';
 import { taskOfSubject, type ResearchSubjectKey } from '../domain/research/reports.js';
 import { isEventCategory } from '../domain/research/task.js';
 import { versionValue } from '../domain/research/versions.js';
@@ -40,6 +40,7 @@ import { KeyedLock } from './keyed-lock.js';
 import { isNetworkError } from './network-error.js';
 import type { ResearchEventProvider } from './raid-event-service.js';
 import type { PictureMaker } from './stop-pictures.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 import { isHideoutReport, type StopReportService } from './stop-reports.js';
 
 /** How long after the last change of a channel's reports its post is drawn (design 6). */
@@ -75,8 +76,11 @@ export interface StopPostServiceOptions {
     PartyGateway,
     'sendMessage' | 'editMessage' | 'deleteMessage' | 'unpinMessage' | 'postAccess'
   >;
-  /** `settings.timezone`: the local day and its midnight. */
-  zone: string;
+  /**
+   * Each server's zone, whose local day and research periods its posts show, and the zones in
+   * use, whose next period change the timer waits for (plan 19A-2).
+   */
+  servers: Pick<ServerSettingsLookup, 'zoneOf' | 'zonesInUse'>;
   log: Logger;
   now?: () => number;
   delayMs?: number;
@@ -103,7 +107,7 @@ export interface StopPostServiceOptions {
  * second and third message as it grows, and deleted once its day has ended. One queue per
  * channel does all of it, the midnight delete included; nothing is sent to Discord while a
  * database lock is held (the reads are done first). A timer at the next period change (midnight,
- * an event's start or end: `nextPeriodChange`, with Temporal in `settings.timezone`) draws the
+ * an event's start or end: `nextPeriodChange`, the soonest of the zones in use, plan 19A-2) draws the
  * posts anew and deletes those of a day that ended; `start` does the same for what a restart
  * left. Where the bot may not embed in the board's forum the post is plain text, as
  * `spawnTextMessage`; where it may not write there at all (`postAccess`, B6), or the region has
@@ -169,16 +173,31 @@ export class StopPostService {
     });
     // Another event, or one moved or gone (review A5): the timer and every post follow.
     options.events.onResearchChange?.(() => {
-      if (this.closed) return;
-      // In a set of its own (review R2): what waits for one channel never waits for the
-      // redraw of all of them.
-      const redraw = this.turnOver()
-        .catch((err: unknown) => {
-          options.log.warn({ err }, 'could not draw the posts of the stops anew');
-        })
-        .finally(() => this.redraws.delete(redraw));
-      this.redraws.add(redraw);
+      this.redrawAll();
     });
+  }
+
+  /**
+   * A server's zone changed (plan 19A-2; `ServerSettings.onZoneChange`): every post is drawn
+   * anew, on its server's clock (its day and its period), and the timer waits for the next
+   * change among the zones now in use. A post of the day before on the new clock is deleted, as
+   * at midnight.
+   */
+  zonesChanged(): void {
+    this.redrawAll();
+  }
+
+  /** Every post drawn anew and the timer set again (`turnOver`), apart from a channel's draws. */
+  private redrawAll(): void {
+    if (this.closed) return;
+    // In a set of its own (review R2): what waits for one channel never waits for the
+    // redraw of all of them.
+    const redraw = this.turnOver()
+      .catch((err: unknown) => {
+        this.options.log.warn({ err }, 'could not draw the posts of the stops anew');
+      })
+      .finally(() => this.redraws.delete(redraw));
+    this.redraws.add(redraw);
   }
 
   /** Keeps a change on its way to the queue, for `messageOf` and `flush` to wait for. */
@@ -187,9 +206,9 @@ export class StopPostService {
     this.asking.add(kept);
   }
 
-  /** The local day of a moment, `yyyy-mm-dd`. */
-  private dayOf(time: number): string {
-    return localDay(time, this.options.zone);
+  /** The local day of a moment in a server, `yyyy-mm-dd` on its clock (plan 19A-2). */
+  private dayOf(serverId: string, time: number): string {
+    return localDay(time, this.options.servers.zoneOf(serverId));
   }
 
   /**
@@ -321,10 +340,12 @@ export class StopPostService {
     if (this.closed) return;
     if (this.timer) clearTimeout(this.timer);
     const now = this.now();
-    const next = nextPeriodChange(
-      this.options.events.researchEvents(this.options.zone),
-      now,
-      this.options.zone,
+    // The soonest change among the zones in use (plan 19A-2): each zone's research events on its
+    // clock; the posts of the other zones are drawn again then, the same.
+    const next = Math.min(
+      ...this.options.servers
+        .zonesInUse()
+        .map((zone) => nextPeriodChange(this.options.events.researchEvents(zone), now, zone)),
     );
     this.timer = setTimeout(
       () => {
@@ -351,21 +372,22 @@ export class StopPostService {
     if (!region.bounds) return undefined;
     const inside = containment(region.bounds);
     const now = this.now();
-    const period = this.options.reports.period(now);
+    const zone = this.options.servers.zoneOf(serverId);
+    const period = this.options.reports.period(serverId, now);
     const standing = (await this.options.reports.standing(serverId)).filter((report) =>
       inside(report.stop),
     );
     const here = standing.filter(isResearchReport);
-    const shown = here.filter((report) => report.periodKey === period.key);
-    const waiting = here.filter((report) => report.periodKey === period.waiting?.key);
+    const shown = here.filter((report) => inPeriod(report, period));
+    const waiting = here.filter((report) => waitsIn(report, period));
     // Hideouts belong to the day, whatever research period is on (plan 8R-2).
     const hideouts = standing.filter(isRocketReport).filter(isHideoutReport);
     return {
-      day: dayWords(zoned(now, this.options.zone)),
+      day: dayWords(zoned(now, zone)),
       tasks: grouped(shown, (report) => this.options.reports.versionOf(report)),
       hideouts: hideoutsOf(hideouts),
       event: period.event?.name,
-      until: period.kind === 'day' ? undefined : periodEndWords(period.end, now, this.options.zone),
+      until: period.kind === 'day' ? undefined : periodEndWords(period.end, now, zone),
       // The day's research under an event's window stays, below the window's (plan 8R-6).
       waiting:
         period.waiting && waiting.length > 0
@@ -400,7 +422,7 @@ export class StopPostService {
   /** Draws a channel's post as its reports are now; in the channel's queue. */
   private async draw(channelId: string, serverId: string): Promise<void> {
     const { gateway, storage, log } = this.options;
-    const day = this.dayOf(this.now());
+    const day = this.dayOf(serverId, this.now());
     await this.retryLeftovers(channelId, day);
     let kept = this.posts.get(channelId) ?? (await this.recall(channelId, day));
     // A post of a day that ended goes (its row stays where a delete failed, review P1).
@@ -602,7 +624,7 @@ export class StopPostService {
       !counts ||
       post.threadId === null ||
       messageId === undefined ||
-      post.day !== this.dayOf(this.now())
+      post.day !== this.dayOf(post.serverId, this.now())
     ) {
       return undefined;
     }
@@ -794,7 +816,12 @@ export class StopPostService {
   linkOf(channelId: string, subjectKey: string): PostLink | undefined {
     const held = this.holding.get(channelId);
     const post = this.posts.get(channelId);
-    if (held === undefined || post?.day !== this.dayOf(this.now()) || post.threadId === null) {
+    if (
+      held === undefined ||
+      post === undefined ||
+      post.day !== this.dayOf(post.serverId, this.now()) ||
+      post.threadId === null
+    ) {
       return undefined;
     }
     const messageId = held.get(subjectKey) ?? post.messageIds[0];

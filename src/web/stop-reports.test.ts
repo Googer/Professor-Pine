@@ -357,7 +357,7 @@ describe('the reports at stops on the map', () => {
           snowflakeOf: (row) => Promise.resolve(row === 1 ? FAKE_GUILD_ID : undefined),
         },
         gateway: reporting.made.gateway,
-        zone: reporting.ctx.config.settings.timezone,
+        servers: reporting.ctx.servers,
         log: reporting.ctx.log,
         now: () => STOP_NOON,
         // Long enough that only `flush` draws while the test runs.
