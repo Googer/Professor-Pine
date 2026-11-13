@@ -687,6 +687,16 @@ export const settingsSchema = settingsObject
 export type Settings = z.output<typeof settingsSchema>;
 
 /**
+ * The instance's default zone (plan 19A-2), the file's `timezone`: the zone of a server whose row
+ * has none, and of what has no server (a DM, `/help` there, the `/userscript` page). The one read
+ * of the file's zone outside `src/config/`'s own (`src/server-keys.test.ts`): a server's zone is
+ * `ServerSettings.zoneOf(serverId)`.
+ */
+export function instanceZone(settings: Pick<Settings, 'timezone'>): string {
+  return settings.timezone;
+}
+
+/**
  * The names of the channels the settings name (`settings.channels`), without one left unset
  * (the moderators' channel is optional).
  */

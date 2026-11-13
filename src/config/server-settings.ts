@@ -9,6 +9,7 @@ import {
   timezoneSchema,
   type Settings,
 } from './settings.js';
+import { sameZone } from '../domain/time/zoned.js';
 
 /**
  * A server's values (plan 19A-1; spec `2026-11-12-multi-server-instance-design.md`, "Per-server
@@ -192,6 +193,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 export function settingChanges(before: ServerValues, after: ServerValues): SettingChange[] {
   const changes: SettingChange[] = [];
   const compare = (key: string, was: unknown, now: unknown): void => {
+    // Two names of one zone are the same zone (fix round 1, K3): no change.
+    if (key === 'timezone' && typeof was === 'string' && typeof now === 'string') {
+      if (sameZone(was, now)) return;
+    }
     if (JSON.stringify(was ?? null) !== JSON.stringify(now ?? null)) {
       changes.push({ key, before: was ?? null, after: now ?? null });
     }

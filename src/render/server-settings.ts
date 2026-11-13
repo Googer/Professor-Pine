@@ -38,7 +38,7 @@ export const SETTINGS: Readonly<Record<string, Setting>> = {
   postNewGyms: { label: 'posting new gyms', kind: 'switch' },
   passiveReading: { label: 'reading every screenshot in region channels', kind: 'switch' },
   autoAssignRole: { label: 'the auto-assigned role', kind: 'switch' },
-  timezone: { label: 'the time zone', kind: 'choice' },
+  timezone: { label: 'the time zone', kind: 'code' },
   distanceUnits: { label: 'the distance units', kind: 'choice' },
   'eventsForum.horizonDays': { label: 'the days the events forum lists', kind: 'number' },
   'eventsForum.postDaysAhead': {

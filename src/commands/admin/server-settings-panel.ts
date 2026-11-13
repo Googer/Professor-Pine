@@ -21,6 +21,7 @@ import { isSnowflake } from '../../db/snowflake.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { TEXT_ROOM } from '../../discord/dialog.js';
 import type { V2Message } from '../../discord/party-gateway.js';
+import { clockWords, dayWords, zoned } from '../../domain/time/zoned.js';
 import { distanceWords } from '../../render/distance-words.js';
 import { settingsChangeLine } from '../../render/server-settings.js';
 import { earlierLine, fitted } from '../../render/audit.js';
@@ -169,6 +170,7 @@ export const switchesOf = (instance: Instance): Switch[] =>
 
 /** The settings changed in a dialog: `server:<key>:ask`. */
 export const DIALOGS = [
+  'timezone',
   'eventsForum',
   'flaggedWords',
   'regionForumSuffix',
@@ -190,8 +192,10 @@ export interface ServerPanelState {
   values: ServerValues;
   section: SectionName;
   instance: Instance;
-  /** The time zone in effect (the settings file's until plan 19A-2). */
+  /** The server's zone (`ServerSettings.zoneOf`: its own, else the instance's default). */
   timezone: string;
+  /** The moment the panel is drawn at: the time in the zone it shows (plan 19A-2). */
+  now: number;
   /**
    * Recent changes, oldest first (shown newest first), with the moment they are worded at: up to
    * one more than `RECENT_CHANGES`, the oldest of which says there are earlier ones.
@@ -479,13 +483,27 @@ function featuresSection(values: ServerValues, instance: Instance): APIComponent
   });
 }
 
-function textSection(values: ServerValues, timezone: string): APIComponentInContainer[] {
+/**
+ * The time zone's line (plan 19A-2): the zone, and the time there now, so that staff can see it
+ * is right.
+ */
+function zoneLine(timezone: string, now: number): string {
+  const there = zoned(now, timezone);
+  return (
+    `**Time zone** · ${code(timezone)}: it is ${clockWords(there)}, ${dayWords(there)} there ` +
+    'now · every time members type and Pine shows here'
+  );
+}
+
+function textSection(
+  values: ServerValues,
+  timezone: string,
+  now: number,
+): APIComponentInContainer[] {
   const forum = values.eventsForum;
   const words = values.flaggedWords;
   return [
-    textDisplay(
-      `Time zone: ${code(timezone)} · from the settings file; it cannot be changed here yet`,
-    ),
+    section(zoneLine(timezone, now), changeButton('timezone')),
     textDisplay('**Distance units** · how Pine says distances'),
     menuRow({
       type: ComponentType.StringSelect,
@@ -594,7 +612,7 @@ export function serverPanel(state: ServerPanelState, said?: string): V2Message {
         : chosen === 'features'
           ? featuresSection(values, state.instance)
           : chosen === 'text'
-            ? textSection(values, state.timezone)
+            ? textSection(values, state.timezone, state.now)
             : changesSection(state.changes, PANEL_TEXT_ROOM - title.length);
   return {
     v2: true,

@@ -32,7 +32,9 @@ import { actorOf } from '../../discord/member-info.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import { MEMBER_WRITE_THROTTLE } from '../../discord/throttle.js';
 import type { V2Message } from '../../discord/party-gateway.js';
+import { zoneAbbreviation, zoneNamed } from '../../domain/time/zoned.js';
 import { changesSaid, refusalWords } from '../../render/server-settings.js';
+import { plain, truncate } from '../../render/text.js';
 import { ServerValuesError } from '../../services/server-settings.js';
 import {
   ADD,
@@ -90,13 +92,15 @@ async function panelNow(
       ? // One more than it shows: whether there are earlier ones (H8), as `/audit` reads.
         await ctx.serverSettingsAudit.ofServer(serverId, RECENT_CHANGES + 1)
       : undefined;
+  const now = Date.now();
   return serverPanel(
     {
       values: ctx.servers.of(serverId),
       section,
       instance: instanceOf(ctx),
-      timezone: ctx.config.settings.timezone,
-      ...(records === undefined ? {} : { changes: { records, now: Date.now() } }),
+      timezone: ctx.servers.zoneOf(serverId),
+      now,
+      ...(records === undefined ? {} : { changes: { records, now } }),
       ...(confirming === undefined ? {} : { confirming }),
       // The channels and roles the server has now (review G2), from the client's cache, which is
       // what `PartyGateway.serverChannels` reads.
@@ -296,6 +300,7 @@ const isDialogKey = (key: string): key is DialogKey => (DIALOGS as readonly stri
 
 /** The ids of the dialogs' lines of text. */
 const FIELDS = {
+  zone: 'zone',
   horizonDays: 'horizonDays',
   postDaysAhead: 'postDaysAhead',
   onThisDay: 'onThisDay',
@@ -305,8 +310,20 @@ const FIELDS = {
   invite: 'invite',
 } as const;
 
-/** The dialog of a setting changed in one, its values as they are to start with. */
-function settingDialog(key: DialogKey, values: ServerValues, now: number, removing = false) {
+/** How long a zone's name typed may be (the zone database's longest is 32). */
+const ZONE_ROOM = 64;
+
+/**
+ * The dialog of a setting changed in one, its values as they are to start with (`zone`: the
+ * server's zone, its own or the instance's default).
+ */
+function settingDialog(
+  key: DialogKey,
+  values: ServerValues,
+  zone: string,
+  now: number,
+  removing = false,
+) {
   // The flagged words too many to show are added or removed, never typed anew (review G5).
   const words =
     key !== 'flaggedWords' || !wordsTooMany(values.flaggedWords) ? SET : removing ? REMOVE : ADD;
@@ -317,6 +334,22 @@ function settingDialog(key: DialogKey, values: ServerValues, now: number, removi
     args: [openToken(now)],
   });
   switch (key) {
+    case 'timezone':
+      return dialog({
+        customId,
+        title: 'The time zone',
+        text:
+          'The zone of every time members of this server type and Pine shows them, and of its ' +
+          'days: a name such as `America/New_York`, `Europe/Berlin` or `Asia/Kolkata`.',
+        field: {
+          id: FIELDS.zone,
+          label: 'Time zone',
+          maxLength: ZONE_ROOM,
+          required: true,
+          placeholder: 'America/New_York',
+          value: zone,
+        },
+      });
     case 'eventsForum': {
       const number = (id: string, label: string, value: number, description: string) => ({
         id,
@@ -476,6 +509,25 @@ function submitted(
     };
   }
   switch (key) {
+    case 'timezone': {
+      const typed = line(interaction, FIELDS.zone);
+      const timezone = zoneNamed(typed);
+      // Refused in the panel's own words, never the checker's (review G4); an abbreviation follows
+      // no place's daylight saving time (fix round 1, K2).
+      if (timezone === undefined && zoneAbbreviation(typed)) {
+        return (
+          `Not changed: “${plain(truncate(typed, ZONE_ROOM))}” is an abbreviation; ` +
+          'use a name such as America/New_York.'
+        );
+      }
+      if (timezone === undefined) {
+        return (
+          `Not changed: “${plain(truncate(typed, ZONE_ROOM))}” is not a time zone I know; ` +
+          'use a name such as America/Chicago.'
+        );
+      }
+      return (values) => ({ ...values, timezone });
+    }
     case 'eventsForum': {
       const numbers = {
         horizonDays: wholeNumber(line(interaction, FIELDS.horizonDays), 'eventsForum.horizonDays'),
@@ -521,15 +573,22 @@ export const serverSettingsControls: ComponentHandler = {
   guards: [requireBotManagement],
   throttle: () => MEMBER_WRITE_THROTTLE,
   async button(interaction, id, ctx) {
+    const serverId = guildIdOf(interaction);
     if (id.action === ASK && id.args.length === 0 && isDialogKey(id.id)) {
       await interaction.showModal(
-        settingDialog(id.id, ctx.servers.of(guildIdOf(interaction)), Date.now()),
+        settingDialog(id.id, ctx.servers.of(serverId), ctx.servers.zoneOf(serverId), Date.now()),
       );
       return;
     }
     if (id.action === ASK && id.id === 'flaggedWords' && id.args.join(':') === REMOVE) {
       await interaction.showModal(
-        settingDialog(id.id, ctx.servers.of(guildIdOf(interaction)), Date.now(), true),
+        settingDialog(
+          id.id,
+          ctx.servers.of(serverId),
+          ctx.servers.zoneOf(serverId),
+          Date.now(),
+          true,
+        ),
       );
       return;
     }
@@ -572,7 +631,8 @@ export const serverSettings: SubcommandPart = {
     details:
       'Shows this server’s settings, only to you, in sections, with menus and buttons to ' +
       'change them: the channels Pine uses by their role, the PvP category, the Unown role and ' +
-      'the map’s member role, and the features.\n\nUnder Text and numbers: the distance units, ' +
+      'the map’s member role, and the features.\n\nUnder Text and numbers: the time zone (every ' +
+      'time members type and Pine shows in this server, and its days), the distance units, ' +
       'the events forum’s numbers, the flagged words of meetup safety, the ending of region ' +
       'forums, the region map link and the invite of the web map.\n\nEvery change is logged with who made it and when: **Recent ' +
       'changes** shows the last ones, and `/audit member:` lists a member’s. The log keeps 30 ' +

@@ -16,7 +16,10 @@ import {
   sameWeek,
   startOfHour,
   startOfMonth,
+  sameZone,
+  zoneAbbreviation,
   zoned,
+  zoneNamed,
 } from './zoned.js';
 
 const ZONE = 'America/New_York';
@@ -31,6 +34,64 @@ describe('zoned', () => {
     expect(time.millisecond).toBe(250);
     expect(time.epochMilliseconds).toBe(moment);
     expect(zoned(moment, 'UTC').hour).toBe(19);
+  });
+});
+
+describe('zoneNamed', () => {
+  it('gives the zone a name names, as the zone database writes it, and nothing for one it does not know', () => {
+    expect(zoneNamed('Europe/Berlin')).toBe('Europe/Berlin');
+    expect(zoneNamed(' america/new_york ')).toBe('America/New_York');
+    expect(zoneNamed('America/Argentina/Buenos_Aires')).toBe('America/Argentina/Buenos_Aires');
+    expect(zoneNamed('UTC')).toBe('UTC');
+    expect(zoneNamed('utc')).toBe('UTC');
+    expect(zoneNamed('Mars/Olympus_Mons')).toBeUndefined();
+    expect(zoneNamed('')).toBeUndefined();
+    // An offset is a zone to Temporal, but never one with daylight saving time: no name.
+    expect(zoneNamed('+05:30')).toBeUndefined();
+    expect(zoneNamed('-04:00')).toBeUndefined();
+  });
+
+  it('keeps the name as the zone database writes it, never an older name of the same zone (fix round 1, K3)', () => {
+    expect(zoneNamed('Asia/Kolkata')).toBe('Asia/Kolkata');
+    expect(zoneNamed('asia/kolkata')).toBe('Asia/Kolkata');
+    expect(zoneNamed('Europe/Kyiv')).toBe('Europe/Kyiv');
+    // A link is a name of its own, kept as typed (case aside): it names the same zone.
+    expect(zoneNamed('us/eastern')).toBe('US/Eastern');
+  });
+
+  it('refuses an abbreviation, a fixed offset named, and a POSIX rule: no place (fix round 1, K2)', () => {
+    for (const name of ['EST', 'CST', 'PST', 'MST', 'HST', 'GMT', 'EST5EDT', 'PST8PDT']) {
+      expect(zoneNamed(name), name).toBeUndefined();
+      expect(zoneAbbreviation(name), name).toBe(true);
+    }
+    for (const name of ['Etc/GMT+5', 'Etc/GMT-14', 'etc/gmt', 'Etc/GMT0', 'est']) {
+      expect(zoneNamed(name), name).toBeUndefined();
+    }
+    // A word too long for one, a word of a place or in lower case (fix round 2, P3: only
+    // capitals are an abbreviation), and real names, are no abbreviation.
+    for (const name of [
+      'Pittsburgh',
+      'Paris',
+      'Japan',
+      'Tokyo',
+      'est',
+      'America/Chicago',
+      'UTC',
+      'Etc/GMT+5',
+      '+05:30',
+    ]) {
+      expect(zoneAbbreviation(name), name).toBe(false);
+    }
+  });
+});
+
+describe('sameZone', () => {
+  it('takes two names of one zone for the same zone: a link, an older name, a case (fix round 1, K3)', () => {
+    expect(sameZone('Asia/Kolkata', 'Asia/Calcutta')).toBe(true);
+    expect(sameZone('US/Eastern', 'America/New_York')).toBe(true);
+    expect(sameZone('Europe/Kyiv', 'Europe/Kiev')).toBe(true);
+    expect(sameZone('America/New_York', 'America/Chicago')).toBe(false);
+    expect(sameZone('Europe/Berlin', 'Europe/Berlin')).toBe(true);
   });
 });
 

@@ -255,6 +255,211 @@ describe('ServerSettings', () => {
     expect(store.audit.rows).toEqual([]);
   });
 
+  it("gives a server's zone from its row, and the instance's default where the row has none (plan 19A-2)", async () => {
+    const { servers } = await servicesWith([
+      filledRow(),
+      filledRow({ serverId: OTHER_SETTINGS_SERVER, settings: { timezone: 'Europe/Berlin' } }),
+    ]);
+    expect(servers.zoneOf(SETTINGS_SERVER)).toBe('America/New_York');
+    expect(servers.zoneOf(OTHER_SETTINGS_SERVER)).toBe('Europe/Berlin');
+    // A server without a row: the file's defaults, the instance's zone among them.
+    expect(servers.zoneOf(THIRD_SERVER)).toBe('America/New_York');
+    expect(servers.defaultZone()).toBe('America/New_York');
+  });
+
+  it('gives the zones in use: every server’s, and the instance’s default, each once', async () => {
+    const { servers } = await servicesWith([
+      filledRow({ settings: { timezone: 'Asia/Kolkata' } }),
+      filledRow({ serverId: OTHER_SETTINGS_SERVER, settings: { timezone: 'Asia/Kolkata' } }),
+    ]);
+    expect([...servers.zonesInUse()].sort()).toEqual(['America/New_York', 'Asia/Kolkata']);
+    await servers.set(
+      SETTINGS_SERVER,
+      (values) => ({ ...values, timezone: 'Europe/Berlin' }),
+      SETTINGS_ACTOR,
+    );
+    expect([...servers.zonesInUse()].sort()).toEqual([
+      'America/New_York',
+      'Asia/Kolkata',
+      'Europe/Berlin',
+    ]);
+  });
+
+  it('counts each spelling of a zone in use by its own name (fix round 2, P1)', async () => {
+    const { servers } = await servicesWith([
+      filledRow({ settings: { timezone: 'America/Chicago' } }),
+      filledRow({ serverId: OTHER_SETTINGS_SERVER, settings: { timezone: 'Europe/Berlin' } }),
+    ]);
+    await servers.set(
+      OTHER_SETTINGS_SERVER,
+      (values) => ({ ...values, timezone: 'US/Central' }),
+      SETTINGS_ACTOR,
+    );
+    // Each server's zone is among them as `zoneOf` gives it: what follows them (a timer, a list
+    // per zone) serves the servers of exactly that name.
+    expect(servers.zoneOf(OTHER_SETTINGS_SERVER)).toBe('US/Central');
+    expect([...servers.zonesInUse()].sort()).toEqual([
+      'America/Chicago',
+      'America/New_York',
+      'US/Central',
+    ]);
+  });
+
+  it('tells a change of the zones in use when one spelling of a zone takes another’s place (fix round 2, P1)', async () => {
+    const store = new MemoryServerSettings([
+      filledRow({ settings: { timezone: 'America/Chicago' } }),
+      filledRow({ serverId: OTHER_SETTINGS_SERVER, settings: { timezone: 'US/Central' } }),
+    ]);
+    let present: string[] = [SETTINGS_SERVER];
+    const servers = new ServerSettings({
+      store,
+      settings,
+      log: createTestLogger().log,
+      present: () => present,
+    });
+    await servers.load();
+    const heard: Array<readonly string[]> = [];
+    servers.onZonesInUseChange((zones) => heard.push([...zones].sort()));
+    // The server in Chicago leaves as the one in US/Central joins: the zone's name in use is
+    // another, so what serves it by name follows.
+    present = [OTHER_SETTINGS_SERVER];
+    servers.presenceChanged();
+    expect(heard).toEqual([['America/New_York', 'US/Central']]);
+  });
+
+  it('tells the listeners of a change of a server’s zone after the write, and of nothing else', async () => {
+    const { servers, store } = await servicesWith();
+    const heard: Array<{ serverId: string; zone: string; was: string; written: boolean }> = [];
+    servers.onZoneChange((serverId, zone, was) =>
+      heard.push({
+        serverId,
+        zone,
+        was,
+        written: (store.rows.get(serverId)?.settings as { timezone?: string }).timezone === zone,
+      }),
+    );
+    await servers.set(SETTINGS_SERVER, (v) => ({ ...v, postNewGyms: true }), SETTINGS_ACTOR);
+    // The zone the server had (the default) written as its own: no change of zone.
+    await servers.set(
+      SETTINGS_SERVER,
+      (v) => ({ ...v, timezone: 'America/New_York' }),
+      SETTINGS_ACTOR,
+    );
+    expect(heard).toEqual([]);
+    store.failing.set('write', new Error('database away'));
+    await expect(
+      servers.set(SETTINGS_SERVER, (v) => ({ ...v, timezone: 'Europe/Berlin' }), SETTINGS_ACTOR),
+    ).rejects.toThrow('database away');
+    expect(heard).toEqual([]);
+    store.failing.delete('write');
+    await servers.set(
+      SETTINGS_SERVER,
+      (v) => ({ ...v, timezone: 'Europe/Berlin' }),
+      SETTINGS_ACTOR,
+    );
+    expect(heard).toEqual([
+      { serverId: SETTINGS_SERVER, zone: 'Europe/Berlin', was: 'America/New_York', written: true },
+    ]);
+  });
+
+  it('takes another name of the zone a server has for no change of zone (fix round 1, K3)', async () => {
+    const { servers, store } = await servicesWith([
+      filledRow({ settings: { timezone: 'Asia/Kolkata' } }),
+    ]);
+    const heard: string[] = [];
+    servers.onZoneChange((serverId, zone) => heard.push(zone));
+    const kept = await servers.set(
+      SETTINGS_SERVER,
+      (v) => ({ ...v, timezone: 'Asia/Calcutta' }),
+      SETTINGS_ACTOR,
+    );
+    expect(kept.timezone).toBe('Asia/Kolkata');
+    expect(heard).toEqual([]);
+    expect(store.audit.rows).toEqual([]);
+  });
+
+  it('gives the zones in use of the servers present only, once they are known (fix round 1, K5)', async () => {
+    const store = new MemoryServerSettings([
+      filledRow({ settings: { timezone: 'Europe/Berlin' } }),
+      filledRow({ serverId: OTHER_SETTINGS_SERVER, settings: { timezone: 'Asia/Kolkata' } }),
+    ]);
+    let present: string[] | undefined;
+    const servers = new ServerSettings({
+      store,
+      settings,
+      log: createTestLogger().log,
+      present: () => present,
+    });
+    await servers.load();
+    // Before the client is ready: every server with a row.
+    expect([...servers.zonesInUse()].sort()).toEqual([
+      'America/New_York',
+      'Asia/Kolkata',
+      'Europe/Berlin',
+    ]);
+    const heard: Array<readonly string[]> = [];
+    servers.onZonesInUseChange((zones) => heard.push([...zones].sort()));
+    // The client ready, in one of the two servers: the other's zone is no longer in use.
+    present = [SETTINGS_SERVER];
+    servers.presenceChanged();
+    expect(heard).toEqual([['America/New_York', 'Europe/Berlin']]);
+    // A server joining in a zone already in use changes nothing (N5).
+    present = [SETTINGS_SERVER, THIRD_SERVER];
+    servers.presenceChanged();
+    expect(heard).toHaveLength(1);
+    // The server in Kolkata joining again brings its zone (N5).
+    present = [SETTINGS_SERVER, THIRD_SERVER, OTHER_SETTINGS_SERVER];
+    servers.presenceChanged();
+    expect(heard[1]).toEqual(['America/New_York', 'Asia/Kolkata', 'Europe/Berlin']);
+    // A change of a server's zone is told by `onZoneChange` alone, never twice.
+    await servers.set(
+      SETTINGS_SERVER,
+      (v) => ({ ...v, timezone: 'America/Chicago' }),
+      SETTINGS_ACTOR,
+    );
+    servers.presenceChanged();
+    expect(heard).toHaveLength(2);
+    expect([...servers.zonesInUse()].sort()).toEqual([
+      'America/Chicago',
+      'America/New_York',
+      'Asia/Kolkata',
+    ]);
+  });
+
+  it('tells the zones in use when a server without a zone takes another name of the default’s (fix round 3, Q4)', async () => {
+    const { servers } = await servicesWith();
+    const zones: Array<readonly string[]> = [];
+    const changes: string[] = [];
+    servers.onZonesInUseChange((inUse) => zones.push([...inUse].sort()));
+    servers.onZoneChange((serverId, zone) => changes.push(zone));
+    // The row has no zone (the default, America/New_York); its staff set a link name of it.
+    await servers.set(SETTINGS_SERVER, (v) => ({ ...v, timezone: 'US/Eastern' }), SETTINGS_ACTOR);
+    expect(servers.zoneOf(SETTINGS_SERVER)).toBe('US/Eastern');
+    // No change of zone, but a name now in use that was not: what is kept per name follows.
+    expect(changes).toEqual([]);
+    expect(zones).toEqual([['America/New_York', 'US/Eastern']]);
+    // Set again to the same name, nothing more is told.
+    await servers.set(SETTINGS_SERVER, (v) => ({ ...v, timezone: 'US/Eastern' }), SETTINGS_ACTOR);
+    expect(zones).toHaveLength(1);
+  });
+
+  it('logs a listener of a change of zone that throws, and the change stands', async () => {
+    const { servers, entries } = await servicesWith();
+    servers.onZoneChange(() => {
+      throw new Error('listener broke');
+    });
+    const after = await servers.set(
+      SETTINGS_SERVER,
+      (v) => ({ ...v, timezone: 'Europe/Berlin' }),
+      SETTINGS_ACTOR,
+    );
+    expect(after.timezone).toBe('Europe/Berlin');
+    expect(servers.zoneOf(SETTINGS_SERVER)).toBe('Europe/Berlin');
+    expect(entries).toContainEqual(
+      expect.objectContaining({ level: 50, msg: 'a listener of a change of time zone failed' }),
+    );
+  });
+
   it("deletes the log's entries older than 30 days (the hourly upkeep)", async () => {
     const { servers, store, pass } = await servicesWith();
     await servers.set(SETTINGS_SERVER, (v) => ({ ...v, postNewGyms: true }), SETTINGS_ACTOR);

@@ -8,7 +8,8 @@ import {
   settingChanges,
   type ServerValues,
 } from '../config/server-settings.js';
-import type { Settings } from '../config/settings.js';
+import { instanceZone, type Settings } from '../config/settings.js';
+import { sameZone } from '../domain/time/zoned.js';
 import type {
   ServerSettingsAuditStore,
   SettingsActor,
@@ -32,7 +33,39 @@ export interface ServerSettingsLookup {
    * I1: the moderators' channel and the map's member role in `unmatched`).
    */
   of(serverId: string): ServerValues;
+  /**
+   * The server's zone (plan 19A-2): its values', else the instance's default (`defaultZone`).
+   * Every time a member of the server types or reads, and every local day of it, is in it.
+   */
+  zoneOf(serverId: string): string;
+  /** The instance's default zone (`instanceZone`): where there is no server, or it has no zone. */
+  defaultZone(): string;
+  /**
+   * The zones in use: the zones of the servers the bot is in, and the instance's default, each
+   * once (fix round 1, K5). What has no server in hand (the boss list, the events, the local
+   * midnights) is computed per zone in use, and follows a change of them (`onZonesInUseChange`).
+   */
+  zonesInUse(): readonly string[];
+  /**
+   * Hears every change of a server's zone, after it was written (`set`): its new zone and the
+   * one before. A listener that throws is logged; the change stands.
+   */
+  onZoneChange(listener: ZoneListener): void;
+  /**
+   * Hears a change of the zones in use that no change of a server's zone made: a server joining
+   * or leaving with a zone no other server has (fix round 1, N5), or a server's zone set to
+   * another name of the zone it had, a name no other server has (fix round 3, Q4). A change of a
+   * server's zone is heard by `onZoneChange` alone, so that what follows the zones in use listens
+   * to both.
+   */
+  onZonesInUseChange(listener: ZonesListener): void;
 }
+
+/** What hears a change of a server's zone: the server, its new zone and the one before. */
+export type ZoneListener = (serverId: string, zone: string, was: string) => void;
+
+/** What hears a change of the zones in use: the zones now in use. */
+export type ZonesListener = (zones: readonly string[]) => void;
 
 /** What `/admin settings` and the fill need of the servers' settings (`ServerSettings`; `TestServers` in tests). */
 export interface ServerSettingsService extends ServerSettingsLookup {
@@ -113,6 +146,10 @@ export class ServerSettings implements ServerSettingsService {
   private readonly turns = new Map<string, Promise<unknown>>();
   /** The fills under way (`ServerFill`, `filling`): a change asked meanwhile waits for its server's. */
   private readonly fills = new Map<string, Promise<void>>();
+  private readonly zoneListeners: ZoneListener[] = [];
+  private readonly zonesListeners: ZonesListener[] = [];
+  /** The zones in use last told (or read at `load`), against which a presence change is told. */
+  private zonesTold: readonly string[] = [];
 
   constructor(
     private readonly options: {
@@ -123,6 +160,12 @@ export class ServerSettings implements ServerSettingsService {
       settings: Settings;
       log: Logger;
       now?: () => number;
+      /**
+       * The servers the bot is in (the client's, `app.ts`), whose zones are in use; undefined
+       * while not known yet (before the client is ready). Without it, or while it gives nothing,
+       * every server with a row (fix round 1, K5).
+       */
+      present?: () => Iterable<string> | undefined;
     },
   ) {
     this.defaults_ = fileDefaults(options.settings);
@@ -142,6 +185,7 @@ export class ServerSettings implements ServerSettingsService {
       const values = this.read(row.serverId, row.settings);
       this.kept.set(row.serverId, { values, setUpAt: row.setUpAt });
     }
+    this.zonesTold = this.zonesInUse();
     this.options.log.info({ servers: rows.length }, 'server settings loaded');
   }
 
@@ -152,6 +196,62 @@ export class ServerSettings implements ServerSettingsService {
 
   of(serverId: string): ServerValues {
     return this.kept.get(serverId)?.values ?? this.fileDefaultsOf(serverId);
+  }
+
+  zoneOf(serverId: string): string {
+    return this.of(serverId).timezone ?? this.defaultZone();
+  }
+
+  defaultZone(): string {
+    return instanceZone(this.options.settings);
+  }
+
+  /**
+   * The default and each server's zone, each name once by its exact string (fix round 2, P1):
+   * two spellings of one zone (`America/Chicago`, `US/Central`) are two entries, so that what is
+   * kept per zone in use (a timer, a list) serves the servers `zoneOf` gives that very name.
+   */
+  zonesInUse(): readonly string[] {
+    const zones = new Set([this.defaultZone()]);
+    const present = this.options.present?.();
+    if (present === undefined) {
+      for (const { values } of this.kept.values()) {
+        if (values.timezone !== undefined) zones.add(values.timezone);
+      }
+    } else {
+      for (const serverId of present) zones.add(this.zoneOf(serverId));
+    }
+    return [...zones];
+  }
+
+  onZoneChange(listener: ZoneListener): void {
+    this.zoneListeners.push(listener);
+  }
+
+  onZonesInUseChange(listener: ZonesListener): void {
+    this.zonesListeners.push(listener);
+  }
+
+  /**
+   * A server joined or left, or the servers present became known (the client ready): the zones
+   * in use are read again, and a change of them is told (`onZonesInUseChange`; fix round 1, N5).
+   */
+  presenceChanged(): void {
+    this.tellZonesInUse();
+  }
+
+  /** Tells `onZonesInUseChange` of the zones in use if they are not those last told. */
+  private tellZonesInUse(): void {
+    const zones = this.zonesInUse();
+    if (sameZones(zones, this.zonesTold)) return;
+    this.zonesTold = zones;
+    for (const listener of this.zonesListeners) {
+      try {
+        listener(zones);
+      } catch (err) {
+        this.options.log.error({ err }, 'a listener of a change of the zones in use failed');
+      }
+    }
   }
 
   defaults(): ServerValues {
@@ -193,8 +293,37 @@ export class ServerSettings implements ServerSettingsService {
       if (changes.length === 0) return before;
       await this.options.store.write(serverId, values, this.now(), by, changes);
       this.kept.set(serverId, { values, setUpAt: kept.setUpAt });
+      this.zoneChanged(serverId, before.timezone, values.timezone);
       return values;
     });
+  }
+
+  /**
+   * Tells the listeners of a change of the server's zone, if the change changed it; else, if the
+   * name it has changed (a link name of the default's zone set where none was, or the other way),
+   * a change of the zones in use that it made (fix round 3, Q4: what is kept per zone in use is
+   * kept per name, fix round 2, P1).
+   */
+  private zoneChanged(serverId: string, before: string | undefined, after: string | undefined) {
+    const was = before ?? this.defaultZone();
+    const zone = after ?? this.defaultZone();
+    // Two names of one zone are no change (fix round 1, K3).
+    if (sameZone(zone, was)) {
+      if (before !== after) this.tellZonesInUse();
+      return;
+    }
+    // Heard by `onZoneChange` alone: what follows the zones in use listens to it too.
+    this.zonesTold = this.zonesInUse();
+    for (const listener of this.zoneListeners) {
+      try {
+        listener(serverId, zone, was);
+      } catch (err) {
+        this.options.log.error(
+          { err, server: serverId },
+          'a listener of a change of time zone failed',
+        );
+      }
+    }
   }
 
   /**
@@ -281,6 +410,15 @@ export class ServerSettings implements ServerSettingsService {
     });
     return next;
   }
+}
+
+/**
+ * Whether two lists of zones in use hold the same names, in any order: by exact string, as
+ * `zonesInUse` gives them (fix round 2, P1), so that one spelling taking another's place is told.
+ */
+function sameZones(a: readonly string[], b: readonly string[]): boolean {
+  const names = new Set(a);
+  return a.length === b.length && b.every((zone) => names.has(zone));
 }
 
 /** The values checked as they would be read; `ServerValuesError` saying what is wrong. */

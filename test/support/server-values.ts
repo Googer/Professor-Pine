@@ -4,14 +4,19 @@ import {
   settingChanges,
   type ServerValues,
 } from '../../src/config/server-settings.js';
-import { loadSettings } from '../../src/config/settings.js';
+import { instanceZone, loadSettings } from '../../src/config/settings.js';
 import type { SettingsActor } from '../../src/db/repositories/server-settings-audit-repository.js';
+import { sameZone } from '../../src/domain/time/zoned.js';
+import type { Logger } from '../../src/log.js';
 import {
   checkServerValues,
   type ServerSettingsService,
+  type ZoneListener,
+  type ZonesListener,
 } from '../../src/services/server-settings.js';
 import { ELITE_GYM_CHANNEL, REMOTE_CHANNEL } from './gyms.js';
 import { MemoryServerSettingsAudit } from './server-settings-audit.js';
+import { createTestLogger } from './test-logger.js';
 import { TEST_SETTINGS_PATH } from './test-settings.js';
 
 /**
@@ -111,6 +116,73 @@ export class TestServers implements ServerSettingsService {
     return this.changed.get(serverId) ?? this.values;
   }
 
+  zoneOf(serverId: string): string {
+    return this.of(serverId).timezone ?? this.defaultZone();
+  }
+
+  /** The test settings' zone (`America/New_York`), unless the file's defaults given say another. */
+  defaultZone(): string {
+    return this.defaults().timezone ?? instanceZone(loadSettings(TEST_SETTINGS_PATH));
+  }
+
+  /**
+   * The servers the bot is in, as the real one's `present` (fix round 1, K5); unset: the default,
+   * `values`' zone and every server changed.
+   */
+  present: readonly string[] | undefined;
+
+  /** Each name once by its exact string, as the real one's (fix round 2, P1). */
+  zonesInUse(): readonly string[] {
+    const zones = new Set([this.defaultZone()]);
+    if (this.present === undefined) {
+      zones.add(this.values.timezone ?? this.defaultZone());
+      for (const serverId of this.changed.keys()) zones.add(this.zoneOf(serverId));
+    } else {
+      for (const serverId of this.present) zones.add(this.zoneOf(serverId));
+    }
+    return [...zones];
+  }
+
+  /** The listeners of a change of zone, which `set` tells as the real one does. */
+  readonly zoneListeners: ZoneListener[] = [];
+  /** The listeners of a change of the zones in use, which `presenceChanged` tells. */
+  readonly zonesListeners: ZonesListener[] = [];
+  /** Where a listener that throws is logged, as the real one's log. */
+  log: Logger = createTestLogger().log;
+
+  onZoneChange(listener: ZoneListener): void {
+    this.zoneListeners.push(listener);
+  }
+
+  onZonesInUseChange(listener: ZonesListener): void {
+    this.zonesListeners.push(listener);
+  }
+
+  /**
+   * The servers present are now `present` (a server joined or left): a change of the zones in use
+   * is told, as the real one's `presenceChanged`.
+   */
+  presenceChanged(present: readonly string[]): void {
+    const before = this.zonesInUse();
+    this.present = present;
+    this.tellZonesInUse(before);
+  }
+
+  /** Tells the listeners of the zones in use if they are not `before`, as the real one does. */
+  private tellZonesInUse(before: readonly string[]): void {
+    const zones = this.zonesInUse();
+    // By exact string, as the real one's (fix round 2, P1).
+    const names = new Set(before);
+    if (before.length === zones.length && zones.every((zone) => names.has(zone))) return;
+    for (const listener of this.zonesListeners) {
+      try {
+        listener(zones);
+      } catch (err) {
+        this.log.error({ err }, 'a listener of a change of the zones in use failed');
+      }
+    }
+  }
+
   /** The file's defaults of the test settings, as the real one's: no channel, category or role. */
   defaults(): ServerValues {
     if (this.fileValues !== undefined) return this.fileValues;
@@ -140,9 +212,39 @@ export class TestServers implements ServerSettingsService {
     await this.audit.insert(
       changed.map((one) => ({ serverId, at: this.now(), actor: by, ...one })),
     );
+    const was = this.zoneOf(serverId);
+    const inUse = this.zonesInUse();
     this.changed.set(serverId, values);
     this.without.delete(serverId);
     this.changes.push({ serverId, by, values });
+    const zone = this.zoneOf(serverId);
+    if (sameZone(zone, was)) {
+      // As the real one (fix round 3, Q4): another name of its zone may be a name new in use.
+      if (before.timezone !== values.timezone) this.tellZonesInUse(inUse);
+      return values;
+    }
+    for (const listener of this.zoneListeners) {
+      // As the real one (fix round 1, K7): a listener that throws is logged, the change stands.
+      try {
+        listener(serverId, zone, was);
+      } catch (err) {
+        this.log.error({ err, server: serverId }, 'a listener of a change of time zone failed');
+      }
+    }
     return values;
   }
+}
+
+/**
+ * The servers of a test each in a zone of its own (plan 19A-2): `zones` by server, every other
+ * server in the test settings' zone (`America/New_York`), as `servers.zoneOf` gives them.
+ */
+export function withZones(
+  zones: Readonly<Record<string, string>>,
+  servers: TestServers = new TestServers(),
+): TestServers {
+  for (const [serverId, timezone] of Object.entries(zones)) {
+    servers.changed.set(serverId, { ...servers.of(serverId), timezone });
+  }
+  return servers;
 }

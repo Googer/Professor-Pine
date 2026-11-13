@@ -561,10 +561,66 @@ describe('/admin settings', () => {
     expect(allowed.servers.of(FAKE_GUILD_ID).passiveReading).toBe(false);
   });
 
-  it('sets the distance units from their menu, and shows the time zone without a control', async () => {
+  it('sets the time zone in a dialog, canonical, refusing a name it does not know (plan 19A-2)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: NOW });
+    const { pick, press, submit, servers } = await setup();
+    const shown = shownAfter(await pick('server:panel:show', ['text']));
+    // The zone, and the time there now, so that staff can see it is right.
+    expect(textOf(shown)).toContain(
+      '**Time zone** · `America/New_York`: it is 10:00 AM, Thursday, November 12 there now',
+    );
+    expect(buttonsOf(shown).map((one) => one.customId)).toContain('server:timezone:ask');
+    const form = shownDialog(await press('server:timezone:ask'));
+    expect(dialogField(form, 'Time zone').value).toBe('America/New_York');
+    const refused = await submit(form, { zone: 'Mars/Olympus' });
+    expect(textOf(shownAfter(refused))).toContain(
+      'Not changed: “Mars/Olympus” is not a time zone I know; use a name such as America/Chicago.',
+    );
+    // An offset is no zone's name: it would never change for daylight saving time.
+    const offset = await submit(form, { zone: '+05:30' });
+    expect(textOf(shownAfter(offset))).toContain('Not changed: “+05:30” is not a time zone I know');
+    expect(servers.zoneOf(FAKE_GUILD_ID)).toBe('America/New_York');
+    const set = await submit(form, { zone: ' europe/berlin ' });
+    const after = textOf(shownAfter(set));
+    expect(after).toContain('Set the time zone to `Europe/Berlin` (was `America/New_York`).');
+    expect(after).toContain('`Europe/Berlin`: it is 4:00 PM, Thursday, November 12 there now');
+    expect(servers.of(FAKE_GUILD_ID).timezone).toBe('Europe/Berlin');
+    // An abbreviation is refused in words of its own (fix round 1, K2): it follows no place's
+    // daylight saving time.
+    for (const typed of ['EST', 'CST', 'EST5EDT']) {
+      const abbreviation = await submit(form, { zone: typed });
+      expect(textOf(shownAfter(abbreviation))).toContain(
+        `Not changed: “${typed}” is an abbreviation; use a name such as America/New_York.`,
+      );
+    }
+    // A place's word alone is no abbreviation (fix round 2, P3), nor one in lower case.
+    for (const typed of ['Paris', 'Tokyo', 'cst']) {
+      const word = await submit(form, { zone: typed });
+      expect(textOf(shownAfter(word))).toContain(
+        `Not changed: “${typed}” is not a time zone I know; use a name such as America/Chicago.`,
+      );
+    }
+    const fixed = await submit(form, { zone: 'Etc/GMT+5' });
+    expect(textOf(shownAfter(fixed))).toContain(
+      'Not changed: “Etc/GMT+5” is not a time zone I know',
+    );
+    expect(servers.zoneOf(FAKE_GUILD_ID)).toBe('Europe/Berlin');
+    // Stored as IANA writes it (fix round 1, K3), and the same zone typed back is no change.
+    await submit(form, { zone: 'asia/kolkata' });
+    expect(servers.of(FAKE_GUILD_ID).timezone).toBe('Asia/Kolkata');
+    const again = await submit(form, { zone: 'Asia/Calcutta' });
+    expect(textOf(shownAfter(again))).toContain('That was so already.');
+    expect(servers.of(FAKE_GUILD_ID).timezone).toBe('Asia/Kolkata');
+    const log = textOf(shownAfter(await pick('server:panel:show', ['changes'])));
+    expect(log).toContain(
+      '**Staff** set the time zone to `Europe/Berlin` (was `America/New_York`).',
+    );
+    expect(log).not.toContain('`Asia/Calcutta`');
+  });
+
+  it('sets the distance units from their menu', async () => {
     const { pick, servers } = await setup();
     const shown = shownAfter(await pick('server:panel:show', ['text']));
-    expect(textOf(shown)).toContain('Time zone: `America/New_York`');
     expect(menu(shown, 'server:distanceUnits:set').options?.find((o) => o.default)?.value).toBe(
       'metric',
     );
