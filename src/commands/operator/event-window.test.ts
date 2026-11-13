@@ -403,7 +403,7 @@ describe('/operator event-window', () => {
       });
       expect(textDisplays(job?.message)).toEqual([
         '### Shared data changed',
-        `**Morgan** · ${made.staff.userId ?? ''}\nin **Test Server** · ${FAKE_GUILD_ID}`,
+        `**Morgan** · ${made.staff.userId ?? ''}\nfrom **Test Server** · ${FAKE_GUILD_ID}`,
         'Set the event window, for every server: from Monday, November 9 at 10:00 AM until ' +
           'Friday, November 13 at 8:00 PM, local time in every server’s zone.',
       ]);
@@ -463,7 +463,7 @@ describe('/operator event-window', () => {
       expect(answerOf(used)).toMatch(/^From Monday, November 9 at 10:00 AM until Friday/u);
       expect(made.eventWindows.current()).toMatchObject({ start: at('2026-11-09T10:00') });
       expect(textDisplays(told(made)[0]?.message)[1]).toBe(
-        `**Ollie** · ${OPERATOR_ID}\nin a direct message`,
+        `**Ollie** · ${OPERATOR_ID}\nfrom a direct message`,
       );
       await made.use('event-window', 'end', {}, inDm);
       expect(told(made)).toHaveLength(2);

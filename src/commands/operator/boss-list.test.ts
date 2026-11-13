@@ -6,7 +6,13 @@ import {
   MODERATOR,
   textsOf,
 } from '../../../test/support/boss-commands.js';
+import type { RecordingDms } from '../../../test/support/dms.js';
+import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
+import { textDisplays } from '../../../test/support/messages.js';
+import { instanceConfig, OPERATOR_ID } from '../../../test/support/operators.js';
 import { FEED_READ_AT, feedReply, readRaidBossFeed } from '../../../test/support/raid-bosses.js';
+import { createTestContext } from '../../../test/support/test-context.js';
+import { TEST_ENV } from '../../../test/support/test-env.js';
 import type { NewBossOverride } from '../../domain/pogo/raid-bosses.js';
 import type { RaidTier } from '../../domain/pogo/raid-tier.js';
 import { fitMessages } from '../../render/text.js';
@@ -235,6 +241,43 @@ describe('/operator boss list', () => {
 });
 
 describe('/operator boss sync', () => {
+  // Plan 19B-1: a sync reads the feed for every server; the owner is told of each read.
+  it('tells the owner of each read of either feed, by whom and from where, not of a failed one', async () => {
+    const made = await bossCommandsWith({ max: true });
+    const told = () =>
+      (made.ctx.dms as RecordingDms).jobs.map((job) => textDisplays(job.message).slice(1));
+    await made.use('boss', 'sync');
+    const feed = readRaidBossFeed() as object[];
+    feed.push({ name: 'Zekrom', tier: '5-Star Raids', canBeShiny: false });
+    made.bosses.state.respond = () => Promise.resolve(feedReply(200, JSON.stringify(feed)));
+    await made.use('boss', 'sync', {}, { isDm: true, userId: TEST_ENV.OWNER_ID ?? '' });
+    await made.use('boss', 'sync');
+    await made.use('boss', 'sync', { max: true });
+    made.bosses.state.respond = () => Promise.resolve(feedReply(200, '<html>'));
+    vi.setSystemTime(FEED_READ_AT + DAY + 60_000);
+    await made.use('boss', 'sync');
+    const from = `**Morgan** · ${MODERATOR}\nfrom **Test Server** · ${FAKE_GUILD_ID}`;
+    expect(told()).toEqual([
+      [from, 'Read the raid boss feed now, for every server: it lists the same bosses as before.'],
+      // The owner's own read (in a DM) is not told; the next finds the list as the owner left it.
+      [from, 'Read the raid boss feed now, for every server: it lists the same bosses as before.'],
+      [from, 'Read the max boss feed now, for every server: it lists the same bosses as before.'],
+    ]);
+  });
+
+  it('tells the owner that the feed listed other bosses', async () => {
+    const config = instanceConfig(createTestContext().ctx, { operators: [OPERATOR_ID] });
+    const made = await bossCommandsWith({ context: { config } });
+    const feed = readRaidBossFeed() as object[];
+    feed.push({ name: 'Zekrom', tier: '5-Star Raids', canBeShiny: false });
+    made.bosses.state.respond = () => Promise.resolve(feedReply(200, JSON.stringify(feed)));
+    await made.use('boss', 'sync', {}, { isDm: true, userId: OPERATOR_ID, globalName: 'Ollie' });
+    expect(textDisplays((made.ctx.dms as RecordingDms).jobs[0]?.message).slice(1)).toEqual([
+      `**Ollie** · ${OPERATOR_ID}\nfrom a direct message`,
+      'Read the raid boss feed now, for every server: it lists other bosses now.',
+    ]);
+  });
+
   it('says that nothing changed', async () => {
     const made = await bossCommandsWith();
     const used = await made.use('boss', 'sync');

@@ -37,6 +37,7 @@ import {
 } from '../../render/boss-changes.js';
 import { count, fitItems, fitMessages, LIMITS, plain, timestamp } from '../../render/text.js';
 import type { FeedChange, SyncFailure, SyncResult } from '../../services/raid-boss-service.js';
+import { tellOwnerOfSharedChange } from './shared-change.js';
 import {
   BOSS_GROUP,
   bossTierLabel,
@@ -476,7 +477,8 @@ export const syncBosses: SubcommandPart = {
     details:
       'Reads the feed at once and says what changed. A read that fails leaves the list as it ' +
       'was.\n\nThe game data (names, stats, forms) is not read again by this. With `max:True` it ' +
-      "reads the max boss feed (Pokebattler's) instead.",
+      "reads the max boss feed (Pokebattler's) instead.\n\nThe boss lists are every server's: " +
+      'my owner is told of each read that went through, by whom and from where.',
     examples: ['/operator boss sync', '/operator boss sync max:True'],
   },
   defer: 'ephemeral',
@@ -485,10 +487,36 @@ export const syncBosses: SubcommandPart = {
   async execute(interaction, ctx) {
     if (interaction.options.getBoolean('max') === true) {
       const admin = ctx.maxBossAdmin;
-      await sendLines(interaction, maxSyncLines(admin.lastSyncedAt, await admin.sync()));
+      const before = admin.lastSyncedAt;
+      const result = await admin.sync();
+      tellOwnerOfSync(interaction, ctx, 'max boss feed', result);
+      await sendLines(interaction, maxSyncLines(before, result));
       return;
     }
     const result = await ctx.raidBossAdmin.sync();
+    tellOwnerOfSync(interaction, ctx, 'raid boss feed', result);
     await sendLines(interaction, syncLines(ctx, result));
   },
 };
+
+/**
+ * Tells the owner of a read of a boss feed that went through (plan 19B-1): the list is every
+ * server's, and a read that finds other bosses changes it for all of them. A read that failed
+ * changed nothing and is not told, as no refusal is.
+ */
+function tellOwnerOfSync(
+  interaction: Parameters<typeof tellOwnerOfSharedChange>[0],
+  ctx: AppContext,
+  feed: string,
+  result: SyncResult<unknown>,
+): void {
+  if (result.status === 'failed') return;
+  tellOwnerOfSharedChange(
+    interaction,
+    ctx,
+    `Read the ${feed} now, for every server: ` +
+      (result.status === 'unchanged'
+        ? 'it lists the same bosses as before.'
+        : 'it lists other bosses now.'),
+  );
+}

@@ -25,6 +25,7 @@ import {
 } from '../../render/member-removal.js';
 import { plainNoLinks, type NamedMember } from '../../render/text.js';
 import { removable } from '../../services/member-removal.js';
+import { tellOwnerOfForget } from './shared-change.js';
 import { EXPIRED, NOT_YOURS, PendingRequests } from '../../services/pending-requests.js';
 
 /**
@@ -56,7 +57,8 @@ const pending = new PendingRequests<{ member: NamedMember }>({
  * its Submit removes (`MemberRemoval.remove`, the one way it goes), answering with what went
  * and what is left. Only the operator who asked can press, within `FORGET_MINUTES`; a look is
  * answered once. Nothing is sent to the member and nobody is pinged; the id is enough, so it
- * works for somebody who has left the server, or Discord.
+ * works for somebody who has left the server, or Discord. A removal by another operator is told
+ * to the owner by DM, who did it and from where, never whose data (`tellOwnerOfForget`).
  */
 export const forget: SubcommandPart = {
   data: new SlashCommandSubcommandBuilder()
@@ -191,7 +193,9 @@ export const forgetControls: ComponentHandler = {
       await inPlaceOfLook(interaction, ctx, member, forgetFailedMessage(member, err.step));
       return;
     }
-    // Committed: the data is gone, and a send Discord refuses is never answered as a failure
+    // Committed: the owner hears of another operator's removal, who and from where (plan 19B-1).
+    tellOwnerOfForget(interaction, ctx);
+    // The data is gone, and a send Discord refuses is never answered as a failure
     // (the answer is kept within `FORGET_TEXT_BUDGET`; this is for whatever else refuses it).
     await inPlaceOfLook(
       interaction,

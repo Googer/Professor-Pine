@@ -13,7 +13,8 @@ import {
   type FakeRow,
 } from '../../../test/support/fake-interactions.js';
 import { memberRemovalWith } from '../../../test/support/member-data.js';
-import { buttonsOf, customIdsOf, textOf } from '../../../test/support/messages.js';
+import { buttonsOf, customIdsOf, textDisplays, textOf } from '../../../test/support/messages.js';
+import type { RecordingDms } from '../../../test/support/dms.js';
 import { testMeetup, testRaid, withAttendees } from '../../../test/support/parties.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { TEST_ENV } from '../../../test/support/test-env.js';
@@ -143,7 +144,9 @@ function setup(
     v2: true,
     components: (look?.rows ?? []) as unknown as V2Message['components'],
   });
-  return { ...made, logged, ask, press, submit, lookNow };
+  /** The jobs of the DM queue: what the owner was told (plan 19B-1). */
+  const toldOwner = () => (ctx.dms as RecordingDms).jobs;
+  return { ...made, logged, ask, press, submit, lookNow, toldOwner };
 }
 
 /** The command's answer as a message, and its text. */
@@ -243,7 +246,8 @@ describe('/operator forget', () => {
   });
 
   it('asks once more in a dialog, and removes only on its Submit', async () => {
-    const { ask, press, submit, data, screenshots, entries, ended, reporters, lookNow } = setup();
+    const { ask, press, submit, data, screenshots, entries, ended, reporters, lookNow, toldOwner } =
+      setup();
     data.hold(ASH, EVERYTHING);
     screenshots.keep(ASH, 4, 1);
     const [remove] = customIdsOf(lookOf(await ask()));
@@ -317,6 +321,8 @@ describe('/operator forget', () => {
       '- Posts on Discord that name them are not edited.',
     ]);
     expect(buttonsOf(outcome)).toEqual([]);
+    // The owner removed it: nobody is told (plan 19B-1).
+    expect(toldOwner()).toEqual([]);
     // One line says who was removed and who asked.
     expect(
       entries.filter((entry) => entry.msg === 'removed a member’s data on request'),
@@ -330,9 +336,9 @@ describe('/operator forget', () => {
   });
 
   it('is an operator’s of the settings too, also in a DM with the bot (plan 19B-1)', async () => {
-    const { ask, press, submit, data } = setup({ operators: [OPERATOR_ID] });
+    const { ask, press, submit, data, toldOwner } = setup({ operators: [OPERATOR_ID] });
     data.hold(ASH, EVERYTHING);
-    const operatorInDm = { userId: OPERATOR_ID, isDm: true };
+    const operatorInDm = { userId: OPERATOR_ID, isDm: true, globalName: 'Ollie' };
     // Staff of a server are refused in a DM as in their server.
     const moderator = await ask({ userId: MODERATOR, roleNames: ['Moderator'], isDm: true });
     expect(refusalOf(moderator)).toBe(ONLY_OPERATORS_IN_A_DM);
@@ -342,6 +348,18 @@ describe('/operator forget', () => {
     const dialog = shownDialog(await press(remove ?? '', operatorInDm));
     await submit(dialog, operatorInDm);
     expect(data.removals).toEqual([ASH]);
+    // The owner is told who removed somebody's data, and from where; never whose.
+    const told = toldOwner();
+    expect(told.map((job) => job.userId)).toEqual([OWNER]);
+    expect(told.map((job) => textDisplays(job.message).slice(1))).toEqual([
+      [
+        `**Ollie** · ${OPERATOR_ID}\nfrom a direct message`,
+        'Removed a member’s data on request, in every server (`/operator forget`).',
+      ],
+    ]);
+    const all = JSON.stringify(told);
+    expect(all).not.toContain(ASH);
+    expect(all).not.toContain('Ash');
   });
 
   it('lets only the owner press and submit', async () => {

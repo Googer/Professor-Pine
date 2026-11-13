@@ -16,6 +16,8 @@ export interface SharedChangeView {
   server: { id: string; name: string | undefined } | undefined;
   /** What changed, as a sentence ("Set the event window, for every server: …"). */
   change: string;
+  /** The heading; "Shared data changed" unless given (a removal of a member's data, plan 19B-1). */
+  title?: string;
 }
 
 /**
@@ -31,11 +33,11 @@ export function sharedChangeDm(view: SharedChangeView): V2Message {
     return shown === '' ? fallback : shown;
   };
   return textMessage(SHARED_ACCENT, [
-    '### Shared data changed',
+    `### ${view.title ?? 'Shared data changed'}`,
     `**${named(view.by.name, 'A member')}** · ${view.by.id}\n` +
       (view.server === undefined
-        ? 'in a direct message'
-        : `in **${named(view.server.name, 'a server')}** · ${view.server.id}`),
+        ? 'from a direct message'
+        : `from **${named(view.server.name, 'a server')}** · ${view.server.id}`),
     view.change,
   ]);
 }

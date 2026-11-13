@@ -2,7 +2,9 @@ import { gymStop } from '../../domain/party/stops.js';
 import { MessageFlags } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import { dialogChoices, dialogText, shownDialog } from '../../../test/support/dialogs.js';
-import { fakeChatInput, sent } from '../../../test/support/fake-interactions.js';
+import type { RecordingDms } from '../../../test/support/dms.js';
+import { FAKE_GUILD_ID, fakeChatInput, sent } from '../../../test/support/fake-interactions.js';
+import { textDisplays } from '../../../test/support/messages.js';
 import { STAFF_PLACE, UPDATES_CHANNEL } from '../../../test/support/gym-admin.js';
 import {
   answerOf,
@@ -409,6 +411,7 @@ describe('/operator clear-image-cache', () => {
         subcommand: 'clear-image-cache',
         userId: MODERATOR,
         roleNames: ['Bot Developer'],
+        displayName: 'Brock',
       });
       await made.router.handle(interaction as never);
       return interaction;
@@ -419,6 +422,14 @@ describe('/operator clear-image-cache', () => {
     expect((await run()).editReply).toHaveBeenCalledWith({
       content: 'There were no cached map pictures to delete.',
     });
+    // Plan 19B-1: the pictures are every server's; the owner is told of a clear that deleted any.
+    const told = (made.ctx.dms as RecordingDms).jobs;
+    expect(told.map((job) => textDisplays(job.message).slice(1))).toEqual([
+      [
+        `**Brock** · ${MODERATOR}\nfrom **Test Server** · ${FAKE_GUILD_ID}`,
+        'Cleared the image cache, for every server: deleted 7 cached map pictures.',
+      ],
+    ]);
   });
 
   it('is for staff', async () => {

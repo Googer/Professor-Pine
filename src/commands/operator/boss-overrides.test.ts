@@ -496,7 +496,7 @@ describe('/operator boss: telling the owner of a change of the override list', (
     });
     expect(textDisplays(first?.message).slice(0, 2)).toEqual([
       '### Shared data changed',
-      `**Morgan** · ${MODERATOR}\nin **Test Server** · ${FAKE_GUILD_ID}`,
+      `**Morgan** · ${MODERATOR}\nfrom **Test Server** · ${FAKE_GUILD_ID}`,
     ]);
     expect(first?.message.mention).toBeUndefined();
   });
