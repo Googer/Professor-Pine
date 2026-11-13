@@ -42,7 +42,7 @@ import {
 import { endSentence, plain, truncate } from '../../render/text.js';
 import { MAX_SCREENSHOT_BYTES } from '../../services/ocr-service.js';
 import type { ReportOutcome } from '../../services/party-service.js';
-import { PendingRequests } from '../../services/pending-requests.js';
+import { PendingRequests, type Asker } from '../../services/pending-requests.js';
 import {
   screenshotsOf,
   unreadWords,
@@ -362,6 +362,11 @@ const answeredShots = new BoundedMap<string, true>(1_000);
 
 /** The questions of the trigger, for the controls of the kind `shot` that answer them. */
 export const pendingShots = new PendingRequests<PendingShot>({ ttlMs: QUESTION_MS + 60_000 });
+
+/** The author of a posted message as the asker of its question, in the server it was posted in. */
+function authorOf(message: Pick<PostedMessage, 'authorId' | 'guildId'>): Asker {
+  return { user: { id: message.authorId }, guildId: message.guildId };
+}
 
 /**
  * The region's board as the trigger needs it (plan 8R-9F; `BoardKeeper`): which region a board
@@ -1101,7 +1106,7 @@ export class ScreenshotTrigger {
       batch,
       giveBack,
     };
-    const token = pendingShots.put(message.authorId, pending);
+    const token = pendingShots.put(authorOf(message), pending);
     // The gym is not named here: it is what is asked.
     const what = shortReading(storedReport(report), gymNamerOf(ctx), { gym: false });
     const read = report.gym.read ? ` I read "${plain(truncate(report.gym.read, 80))}".` : '';
@@ -1120,7 +1125,7 @@ export class ScreenshotTrigger {
         ),
       },
       this.options.questionMs ?? QUESTION_MS,
-      () => pendingShots.take(token, message.authorId),
+      () => pendingShots.take(token, authorOf(message)),
     );
     return { kind: 'asked' };
   }
@@ -1182,7 +1187,7 @@ export class ScreenshotTrigger {
       batch,
       giveBack,
     };
-    const token = pendingShots.put(message.authorId, pending);
+    const token = pendingShots.put(authorOf(message), pending);
     pending.question = `<@${message.authorId}> ${elsewhereQuestion(plain(gym.nickname || gym.name), there.channelId)}`;
     pending.again = ASK_AGAIN_YES;
     pending.keep = await this.say(
@@ -1193,7 +1198,7 @@ export class ScreenshotTrigger {
         ping: message.authorId,
       },
       this.options.questionMs ?? QUESTION_MS,
-      () => pendingShots.take(token, message.authorId),
+      () => pendingShots.take(token, authorOf(message)),
     );
     return { kind: 'asked' };
   }
@@ -1344,7 +1349,7 @@ export class ScreenshotTrigger {
       giveBack,
       again: ASK_AGAIN_SPOT,
     };
-    const token = pendingShots.put(message.authorId, pending);
+    const token = pendingShots.put(authorOf(message), pending);
     const read = report.spot.read ? ` I read "${plain(truncate(report.spot.read, 80))}".` : '';
     pending.question = truncate(
       `${shortMaxReading(report)}. Which Power Spot is it?${read}`,
@@ -1362,7 +1367,7 @@ export class ScreenshotTrigger {
         ),
       },
       this.options.questionMs ?? QUESTION_MS,
-      () => pendingShots.take(token, message.authorId),
+      () => pendingShots.take(token, authorOf(message)),
     );
     return { kind: 'asked' };
   }
@@ -1403,13 +1408,13 @@ export class ScreenshotTrigger {
       giveBack,
       again: ASK_AGAIN_YES,
     };
-    const token = pendingShots.put(message.authorId, pending);
+    const token = pendingShots.put(authorOf(message), pending);
     pending.question = `<@${message.authorId}> ${elsewhereQuestion(plain(maxSpotName(request.spot)), there.channelId)}`;
     pending.keep = await this.say(
       batch,
       { content: pending.question, components: [yesNoRow(token)], ping: message.authorId },
       this.options.questionMs ?? QUESTION_MS,
-      () => pendingShots.take(token, message.authorId),
+      () => pendingShots.take(token, authorOf(message)),
     );
     return { kind: 'asked' };
   }
@@ -1705,7 +1710,7 @@ function peeked(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   token: string,
 ): PendingShot | undefined {
-  const found = pendingShots.peek(token, interaction.user.id);
+  const found = pendingShots.peek(token, interaction);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   return found === 'expired' ? undefined : found.value;
 }
@@ -1719,7 +1724,7 @@ export async function cancelShot(interaction: ButtonInteraction, token: string):
     return;
   }
   await interaction.deferUpdate();
-  if (pendingShots.take(token, interaction.user.id) === 'expired') return;
+  if (pendingShots.take(token, interaction) === 'expired') return;
   answeredShots.set(token, true);
   await interaction.deleteReply().catch(() => undefined);
 }
@@ -1797,7 +1802,7 @@ async function taken(
   request: PendingShot,
 ): Promise<boolean> {
   await interaction.deferUpdate();
-  if (pendingShots.take(token, interaction.user.id) === 'expired') {
+  if (pendingShots.take(token, interaction) === 'expired') {
     // Another press took the question meanwhile: the question says what came of that one.
     if (answeredShots.has(token)) return false;
     await interaction
@@ -1823,7 +1828,7 @@ async function askedAgain(
 ): Promise<boolean> {
   if (!request.keep?.askAgain()) return false;
   answeredShots.delete(token);
-  pendingShots.put(interaction.user.id, request, token);
+  pendingShots.put(interaction, request, token);
   const asked = await interaction
     .editReply({
       content: [request.question, request.again ?? ASK_AGAIN].filter(Boolean).join('\n'),
@@ -1831,7 +1836,7 @@ async function askedAgain(
     .then(() => true)
     .catch(() => false);
   if (asked) return true;
-  pendingShots.take(token, interaction.user.id);
+  pendingShots.take(token, interaction);
   answeredShots.set(token, true);
   return false;
 }

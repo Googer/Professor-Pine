@@ -886,7 +886,7 @@ export const importGyms: SubcommandPart = {
       await interaction.editReply(renderImportPreview(preview, file, names, units));
       return;
     }
-    const token = pendingImports.put(interaction.user.id, { file: forImport(file) });
+    const token = pendingImports.put(interaction, { file: forImport(file) });
     await interaction.editReply(
       renderImportPreview(preview, file, names, units, [
         button(token, IMPORT_ACTION, 'Import', ButtonStyle.Primary).toJSON(),
@@ -921,7 +921,7 @@ export async function importButton(
   if (id.action === OUTSIDE_DELETE || id.action === OUTSIDE_KEEP) {
     return answerOutside(interaction, id, ctx);
   }
-  const found = pendingImports.take(id.id, interaction.user.id);
+  const found = pendingImports.take(id.id, interaction);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   if (found === 'expired') {
     if (wasAnswered(id.id)) await interaction.deferUpdate();
@@ -964,7 +964,7 @@ export async function importButton(
       ? []
       : [
           button(
-            pendingOutside.put(interaction.user.id, {
+            pendingOutside.put(interaction, {
               outlines: file.outlines,
               margin: file.margin,
             }),
@@ -999,7 +999,7 @@ async function askOutside(
   id: CustomId,
   ctx: AppContext,
 ): Promise<void> {
-  const found = pendingOutside.peek(id.id, interaction.user.id);
+  const found = pendingOutside.peek(id.id, interaction);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   if (found === 'expired') throw new UserError(EXPIRED);
   // Reading what goes with each gym takes a moment.
@@ -1041,7 +1041,7 @@ async function askOutside(
   // One question per outcome: asked again, it replaces itself (the buttons of an earlier asking
   // answer the newest list), so that presses do not crowd other questions out of the store.
   const token = pendingOutside.put(
-    interaction.user.id,
+    interaction,
     {
       outlines: found.value.outlines,
       margin: found.value.margin,
@@ -1125,7 +1125,7 @@ async function answerOutside(
   id: CustomId,
   ctx: AppContext,
 ): Promise<void> {
-  const found = pendingOutside.take(id.id, interaction.user.id);
+  const found = pendingOutside.take(id.id, interaction);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   if (found === 'expired') {
     if (wasAnswered(id.id)) await interaction.deferUpdate();

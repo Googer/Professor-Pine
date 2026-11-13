@@ -118,14 +118,14 @@ export const reportMessageCommand: MessageCommand = {
     const where = channelContext(interaction);
     // The member's older form, if any, expires.
     const older = tokens.get(interaction.user.id);
-    if (older !== undefined) pending.take(older, interaction.user.id);
+    if (older !== undefined) pending.take(older, interaction);
     // A forward has no text or files of its own: what it forwards is in its first snapshot.
     const forwarded =
       target.content === '' && target.attachments.size === 0
         ? target.messageSnapshots.first()
         : undefined;
     const shown = forwarded ?? target;
-    const token = pending.put(interaction.user.id, {
+    const token = pending.put(interaction, {
       serverId: guildIdOf(interaction),
       message: {
         channelId: target.channelId,
@@ -153,7 +153,7 @@ export async function submitMessageReport(
   token: string,
 ): Promise<void> {
   const reason = interaction.fields.getTextInputValue(REPORT_REASON_INPUT);
-  const taken = pending.take(token, interaction.user.id);
+  const taken = pending.take(token, interaction);
   if (taken === 'expired' || taken === 'not-yours') throw new UserError(EXPIRED);
   // A custom id can be sent from anywhere: a message of another server is none here.
   if (taken.value.serverId !== guildIdOf(interaction)) throw new UserError(EXPIRED);

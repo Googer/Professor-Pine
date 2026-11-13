@@ -62,7 +62,7 @@ function moveQuestion(
   const near = ctx.gymAdmin.near(point, guildId, gym.id);
   const metres = metresBetween(gym, point);
   const far = metres > FAR_MOVE_METRES;
-  const token = pendingGyms.put(interaction.user.id, {
+  const token = pendingGyms.put(interaction, {
     what: 'move',
     gymId: gym.id,
     from: { lat: gym.lat, lon: gym.lon },

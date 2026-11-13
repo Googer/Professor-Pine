@@ -223,7 +223,7 @@ async function withGym(
     await finish(interaction, ctx, request, gym);
     return;
   }
-  const token = pending.put(interaction.user.id, { ...request, gymIds: [gym.id] });
+  const token = pending.put(interaction, { ...request, gymIds: [gym.id] });
   const button = (action: string, label: string, style: ButtonStyle) =>
     new ButtonBuilder()
       .setCustomId(encodeCustomId({ kind: KIND, id: token, action }))
@@ -262,7 +262,7 @@ async function askGym(
   content: string,
   cancel = false,
 ): Promise<void> {
-  const token = pending.put(interaction.user.id, {
+  const token = pending.put(interaction, {
     ...request,
     gymIds: gyms.map((gym) => gym.id),
   });
@@ -746,7 +746,7 @@ async function claimed(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   token: string,
 ): Promise<PendingReport | undefined> {
-  const taken = pending.take(token, interaction.user.id);
+  const taken = pending.take(token, interaction);
   if (taken === 'not-yours') throw new UserError('That is somebody else’s report.');
   if (taken === 'expired') {
     if (answered.has(token)) await interaction.deferUpdate().catch(() => undefined);
@@ -792,7 +792,7 @@ export const raidControls: ComponentHandler = {
   kind: KIND,
   // The menu and the buttons go on with a use `/raid` counted: a failure gives it back there.
   carriesOn: (interaction, id) => {
-    const asked = pending.peek(id.id, interaction.user.id);
+    const asked = pending.peek(id.id, interaction);
     return typeof asked === 'object'
       ? { ...RAID_THROTTLE, as: RAID_COMMAND, countedAt: asked.value.countedAt }
       : undefined;

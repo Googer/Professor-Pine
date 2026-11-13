@@ -1109,7 +1109,7 @@ describe('/gym import: the buttons', () => {
     };
     const { used, answer } = await importing(made, packed(described));
     const token = buttonId(answer, 'Import').split(':')[1]!;
-    const waiting = pendingImports.peek(token, used.user.id);
+    const waiting = pendingImports.peek(token, used);
     if (typeof waiting === 'string') throw new Error(`no waiting export: ${waiting}`);
     expect(waiting.value.file.wayspots.map((one) => one.description)).toEqual(
       file.wayspots.map(() => ''),

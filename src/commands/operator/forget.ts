@@ -120,7 +120,7 @@ export const forget: SubcommandPart = {
             .setCustomId(
               encodeCustomId({
                 kind: FORGET_KIND,
-                id: pending.put(interaction.user.id, { member }),
+                id: pending.put(interaction, { member }),
                 action: 'ask',
               }),
             )
@@ -161,7 +161,7 @@ export const forgetControls: ComponentHandler = {
   guards: [requireInstanceOperator],
   async button(interaction, id) {
     if (id.action !== 'ask') throw new UserError(STALE_COMPONENT);
-    const found = pending.peek(id.id, interaction.user.id);
+    const found = pending.peek(id.id, interaction);
     if (found === 'not-yours') throw new UserError(NOT_YOURS);
     if (found === 'expired') throw new UserError(EXPIRED);
     const { member } = found.value;
@@ -176,7 +176,7 @@ export const forgetControls: ComponentHandler = {
   async modal(interaction, id, ctx) {
     if (id.action !== 'remove') throw new UserError(STALE_COMPONENT);
     // Taken before anything is sent: the look is answered once, whatever comes of it.
-    const found = pending.take(id.id, interaction.user.id);
+    const found = pending.take(id.id, interaction);
     if (found === 'not-yours') throw new UserError(NOT_YOURS);
     if (found === 'expired') throw new UserError(EXPIRED);
     const { member } = found.value;

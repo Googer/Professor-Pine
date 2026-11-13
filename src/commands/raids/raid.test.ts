@@ -207,6 +207,30 @@ describe('/raid', () => {
     expect(store.active()).toEqual([]);
   });
 
+  // Plan 19B-4: the question belongs to the server it was asked in.
+  it('answers its menu from another server as expired, and reports nothing there', async () => {
+    const { run, handle, store } = await setup();
+    const interaction = await run({ boss: 'e:T5:0', gym: 'pinewood' });
+    for (const userId of [ALICE, OTHER_MEMBER]) {
+      const abroad = await handle(
+        fakeSelect({
+          customId: customId(interaction),
+          values: ['12'],
+          userId,
+          guildId: OTHER_GUILD_ID,
+        }),
+      );
+      expect(sent(abroad.update)).toEqual({
+        content: 'That choice has expired. Use `/raid` again.',
+        components: [],
+      });
+    }
+    expect(store.active()).toEqual([]);
+    // Still the asker's in their own server.
+    await handle(fakeSelect({ customId: customId(interaction), values: ['12'] }));
+    expect(store.active()[0]).toMatchObject({ gymId: 12 });
+  });
+
   it('refuses a report that would put the member in a forum they are kept out of, before counting it', async () => {
     // The Bridge (gym 4) lies in West and East.
     const gyms = gymsLyingIn({ 4: [WEST_CHANNEL, EAST_CHANNEL] });

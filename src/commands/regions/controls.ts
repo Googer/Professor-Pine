@@ -54,7 +54,7 @@ export const regionControls: ComponentHandler = {
   guards: [requireBotManagement],
 
   async button(interaction, id, ctx) {
-    const found = pendingRegions.take(id.id, interaction.user.id);
+    const found = pendingRegions.take(id.id, interaction);
     if (found === 'not-yours') throw new UserError(NOT_YOURS);
     if (found === 'expired') {
       if (wasAnswered(id.id)) await interaction.deferUpdate();

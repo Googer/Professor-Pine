@@ -717,10 +717,16 @@ export const isKeptMax = (kept: KeptAnswer): kept is KeptMaxCounters => kept.kin
 
 /**
  * The options of answers by the token of their custom ids, for a day and at most `max` of them
- * (`BoundedMap`, oldest out); kept in memory only, so a restart forgets them.
+ * (`BoundedMap`, oldest out); kept in memory only, so a restart forgets them. Each is of the
+ * server of its answer (null in a DM; plan 19B-4): asked from anywhere else it is as if it were
+ * not kept. Only an answer keeps options: the dialog of Change options… names its answer's token
+ * and the member who opened it in its custom id, and keeps nothing.
  */
 export class KeptCounterOptions {
-  private readonly kept: BoundedMap<string, { value: KeptAnswer; expires: number }>;
+  private readonly kept: BoundedMap<
+    string,
+    { value: KeptAnswer; expires: number; serverId: string | null }
+  >;
 
   constructor(private readonly options: { ttlMs?: number; max?: number; now?: () => number } = {}) {
     this.kept = new BoundedMap(options.max ?? COUNTERS_KEPT_MAX);
@@ -730,19 +736,32 @@ export class KeptCounterOptions {
     return this.options.now?.() ?? Date.now();
   }
 
-  /** Keeps the options of an answer and gives the token of its custom ids. */
-  keep(value: KeptAnswer): string {
+  /** How many options are kept, those of a day not yet dropped included. */
+  get size(): number {
+    return this.kept.size;
+  }
+
+  /** Keeps the options of an answer given in a server (null: a DM), and gives their token. */
+  keep(value: KeptAnswer, serverId: string | null): string {
     const now = this.now();
     this.kept.dropWhile((entry) => entry.expires <= now);
     const token = randomBytes(8).toString('hex');
-    this.kept.set(token, { value, expires: now + (this.options.ttlMs ?? COUNTERS_KEEP_MS) });
+    this.kept.set(token, {
+      value,
+      expires: now + (this.options.ttlMs ?? COUNTERS_KEEP_MS),
+      serverId,
+    });
     return token;
   }
 
-  /** The options kept under a token; undefined once they are gone (a day, a restart). */
-  get(token: string): KeptAnswer | undefined {
+  /**
+   * The options kept under a token, asked from a server (null: a DM); undefined once they are gone
+   * (a day, a restart), and for options of another server (or a DM's asked in a server, and the
+   * other way round).
+   */
+  of(token: string, where: { readonly guildId: string | null }): KeptAnswer | undefined {
     const entry = this.kept.get(token);
-    if (!entry || entry.expires <= this.now()) return undefined;
+    if (!entry || entry.expires <= this.now() || entry.serverId !== where.guildId) return undefined;
     return entry.value;
   }
 }
@@ -769,24 +788,29 @@ export function countersMessage(
   simulated: Simulated,
   place: AnswerPlace,
 ): V2Message {
-  const token = keptCounters.keep({
-    kind: 'raid',
-    bossKey: plan.entry.key,
-    bossName: plan.entry.name,
-    tier: plan.tier,
-    attackers:
-      plan.attackers.kind === 'box'
-        ? { kind: 'box' }
-        : { kind: 'level', level: plan.attackers.level },
-    weather: plan.weather,
-    friendship: plan.friendship,
-    moveset: plan.moveset ? { fast: plan.moveset.fast.id, charged: plan.moveset.charged.id } : null,
-    shadow: plan.shadow,
-    mega: plan.mega,
-    single: plan.single,
-    askerId: place.askerId,
-    partyId: place.partyId,
-  });
+  const token = keptCounters.keep(
+    {
+      kind: 'raid',
+      bossKey: plan.entry.key,
+      bossName: plan.entry.name,
+      tier: plan.tier,
+      attackers:
+        plan.attackers.kind === 'box'
+          ? { kind: 'box' }
+          : { kind: 'level', level: plan.attackers.level },
+      weather: plan.weather,
+      friendship: plan.friendship,
+      moveset: plan.moveset
+        ? { fast: plan.moveset.fast.id, charged: plan.moveset.charged.id }
+        : null,
+      shadow: plan.shadow,
+      mega: plan.mega,
+      single: plan.single,
+      askerId: place.askerId,
+      partyId: place.partyId,
+    },
+    place.guildId,
+  );
   const optionsId = encodeCustomId({
     kind: COUNTERS_KIND,
     id: token,
@@ -844,17 +868,20 @@ export function answeredMessage(
 ): V2Message {
   if (!('team' in answered)) return countersMessage(ctx, answered.plan, answered.simulated, place);
   const { plan } = answered;
-  const token = keptCounters.keep({
-    kind: 'max',
-    bossKey: plan.entry.key,
-    tier: plan.tier,
-    role: plan.role,
-    level: plan.level,
-    weather: plan.weather,
-    friendship: plan.friendship,
-    askerId: place.askerId,
-    partyId: place.partyId,
-  });
+  const token = keptCounters.keep(
+    {
+      kind: 'max',
+      bossKey: plan.entry.key,
+      tier: plan.tier,
+      role: plan.role,
+      level: plan.level,
+      weather: plan.weather,
+      friendship: plan.friendship,
+      askerId: place.askerId,
+      partyId: place.partyId,
+    },
+    place.guildId,
+  );
   return maxTeamMessage(ctx, plan, answered.team, {
     guildId: place.guildId,
     optionsId: encodeCustomId({ kind: COUNTERS_KIND, id: token, action: COUNTERS_ACTIONS.options }),

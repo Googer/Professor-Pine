@@ -43,6 +43,7 @@ import {
 } from './shared.js';
 import { serverValuesOf } from '../../discord/server-values.js';
 import type { DistanceUnits } from '../../render/distance-words.js';
+import type { Asker } from '../../services/pending-requests.js';
 
 type PendingAdd = Extract<PendingGym, { what: 'add' }>;
 
@@ -61,7 +62,8 @@ function addQuestion(
   ctx: AppContext,
   /** The server's units (plan 19A-1). */
   units: DistanceUnits,
-  userId: string,
+  /** Who asks, and in which server: the question is theirs there (plan 19B-4). */
+  asker: Asker,
   guildId: number | undefined,
   name: string,
   place: GivenPlace,
@@ -71,7 +73,7 @@ function addQuestion(
   const { point, approximate } = place;
   const near = ctx.gymAdmin.near(point, guildId);
   const regions = ctx.gymAdmin.regionsAt(point, guildId);
-  const token = pendingGyms.put(userId, {
+  const token = pendingGyms.put(asker, {
     what: 'add',
     name,
     point,
@@ -131,7 +133,7 @@ async function addAnswered(
       addQuestion(
         ctx,
         serverValuesOf(interaction, ctx).distanceUnits,
-        interaction.user.id,
+        interaction,
         place.guildId,
         request.name,
         request,
@@ -197,7 +199,7 @@ export const addForms: Readonly<Record<string, FormAnswer>> = {
       return;
     }
     // Answered once: the Add button under the question no longer works either.
-    if (pendingGyms.take(token, interaction.user.id) === 'expired') throw new UserError(EXPIRED);
+    if (pendingGyms.take(token, interaction) === 'expired') throw new UserError(EXPIRED);
     markAnswered(token);
     if (interaction.isFromMessage()) await interaction.deferUpdate();
     else await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -253,7 +255,7 @@ export const addGym: SubcommandPart = {
       addQuestion(
         ctx,
         serverValuesOf(interaction, ctx).distanceUnits,
-        interaction.user.id,
+        interaction,
         guildId,
         name,
         place,

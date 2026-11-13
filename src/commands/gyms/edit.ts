@@ -132,7 +132,7 @@ export async function openEditForm(
     ...(fromView ? { fromView } : {}),
   };
   if (formFields(request).length === 0) throw new UserError(tooLongNote(tooLong) ?? EXPIRED);
-  const token = pendingGyms.put(interaction.user.id, request);
+  const token = pendingGyms.put(interaction, request);
   await interaction.showModal(editForm(token, request, gym.name));
 }
 
@@ -165,7 +165,7 @@ export const editForms: Readonly<Record<string, FormAnswer>> = {
       await refuseForm(interaction, token, refusal, !again);
       return;
     }
-    if (pendingGyms.take(token, interaction.user.id) === 'expired') throw new UserError(EXPIRED);
+    if (pendingGyms.take(token, interaction) === 'expired') throw new UserError(EXPIRED);
     markAnswered(token);
     const names = GYM_TEXT_FIELDS.filter((field) => Object.hasOwn(changed, field));
     const note = tooLongNote(request.tooLong);

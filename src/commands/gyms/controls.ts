@@ -7,6 +7,7 @@ import { addAnswers, addForms, addOpeners } from './add.js';
 import { editForms, editOpeners } from './edit.js';
 import { importButton, isImportAction } from './import.js';
 import { moveAnswers } from './move.js';
+import type { Asker } from '../../services/pending-requests.js';
 import {
   EXPIRED,
   GYM_KIND,
@@ -42,9 +43,12 @@ const OPENING: ReadonlySet<string> = new Set(
   Object.keys(OPENERS).map((key) => key.split(':')[1] ?? ''),
 );
 
-/** The request of a control, for the member who made it; refused for anybody else. */
-function requestOf(id: CustomId, userId: string, how: 'take' | 'peek'): PendingGym | undefined {
-  const found = how === 'take' ? pendingGyms.take(id.id, userId) : pendingGyms.peek(id.id, userId);
+/**
+ * The request of a control, for the member who made it in the server it was made in; refused for
+ * anybody else there, and none from another server (plan 19B-4).
+ */
+function requestOf(id: CustomId, asker: Asker, how: 'take' | 'peek'): PendingGym | undefined {
+  const found = how === 'take' ? pendingGyms.take(id.id, asker) : pendingGyms.peek(id.id, asker);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   return found === 'expired' ? undefined : found.value;
 }
@@ -71,14 +75,14 @@ export const gymControls: ComponentHandler = {
     }
     // A button that only opens a form: the question stays, and so does its request.
     if (OPENING.has(id.action)) {
-      const request = requestOf(id, interaction.user.id, 'peek');
+      const request = requestOf(id, interaction, 'peek');
       const form = request && OPENERS[`${request.what}:${id.action}`]?.(id.id, request);
       if (form) {
         await interaction.showModal(form);
         return;
       }
     }
-    const request = requestOf(id, interaction.user.id, 'take');
+    const request = requestOf(id, interaction, 'take');
     if (!request) {
       if (wasAnswered(id.id)) await interaction.deferUpdate();
       else await sayGym(interaction, EXPIRED);
@@ -104,7 +108,7 @@ export const gymControls: ComponentHandler = {
 
   async modal(interaction, id, ctx) {
     // Looked at, not taken: a form that is refused can be opened again with what was typed.
-    const request = requestOf(id, interaction.user.id, 'peek');
+    const request = requestOf(id, interaction, 'peek');
     if (!request) throw new UserError(EXPIRED);
     const answer = FORMS[`${request.what}:${id.action}`];
     if (!answer) throw new UserError(STALE_COMPONENT);

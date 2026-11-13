@@ -40,7 +40,7 @@ import {
   STAFF_TOLD,
 } from '../../render/screenshot-reading.js';
 import { plain, truncate } from '../../render/text.js';
-import { PendingRequests } from '../../services/pending-requests.js';
+import { PendingRequests, type Asker } from '../../services/pending-requests.js';
 import { unreadWords, type MaxTypedUse } from '../../services/screenshot-service.js';
 import { feedbackRow, showRow } from '../screenshots/feedback.js';
 import { readAttachedOutcome, sayBeside } from '../screenshots/read-screenshot.js';
@@ -378,7 +378,7 @@ async function askSpot(
   ctx: AppContext,
   shot: PendingShot,
 ): Promise<void> {
-  const token = pending.put(interaction.user.id, shot);
+  const token = pending.put(interaction, shot);
   const { report } = shot;
   const read = report.spot.read ? ` I read "${plain(truncate(report.spot.read, 80))}".` : '';
   const regionName = (channelId: string) => interaction.guild?.channels.cache.get(channelId)?.name;
@@ -464,7 +464,7 @@ async function goOn(
     target &&
     target.channelId !== here
   ) {
-    const token = pending.put(interaction.user.id, { ...shot, request });
+    const token = pending.put(interaction, { ...shot, request });
     const name = plain(maxSpotName(request.spot));
     const content = ctx.wayspots.regionsOf(request.spot.id).includes(here)
       ? `${name} will be posted in <#${target.channelId}> (this region has no raid forum). Report it there?`
@@ -574,10 +574,10 @@ async function reportTyped(
 
 /** The use `/max` counted, for a waiting report's controls (`carriesOn`). */
 export function shotCarriesOn(
-  userId: string,
+  asker: Asker,
   token: string,
 ): (ControlThrottle & { countedAt: number }) | undefined {
-  const waiting = pending.peek(token, userId);
+  const waiting = pending.peek(token, asker);
   return typeof waiting === 'object'
     ? { ...MAX_THROTTLE, as: MAX_COMMAND, countedAt: waiting.value.countedAt }
     : undefined;
@@ -588,7 +588,7 @@ async function claimed(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   token: string,
 ): Promise<PendingShot | undefined> {
-  const taken = pending.take(token, interaction.user.id);
+  const taken = pending.take(token, interaction);
   if (taken === 'not-yours') throw new UserError(NOT_YOURS);
   if (taken === 'expired') {
     if (answered.has(token)) await interaction.deferUpdate().catch(() => undefined);

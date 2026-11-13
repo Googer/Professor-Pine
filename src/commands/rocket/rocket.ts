@@ -292,7 +292,7 @@ const reportRocket: SubcommandPart = {
       throttle: rocketThrottle(settings),
       window: rocketWindow(settings),
     };
-    const token = pending.put(interaction.user.id, waiting);
+    const token = pending.put(interaction, waiting);
     await interaction.showModal(replaceDialog(token, waiting));
   },
   autocomplete: async (interaction, ctx) => {
@@ -417,7 +417,7 @@ export const rocketControls: ComponentHandler = {
     id.action === ROCKET_ACTIONS.back ? MEMBER_WRITE_THROTTLE : undefined,
   carriesOn: (interaction, id) => {
     if (id.action !== ROCKET_ACTIONS.replace) return undefined;
-    const waiting = pending.peek(id.id, interaction.user.id);
+    const waiting = pending.peek(id.id, interaction);
     return typeof waiting === 'object'
       ? { ...waiting.value.throttle, as: waiting.value.window, countedAt: waiting.value.countedAt }
       : undefined;
@@ -459,7 +459,7 @@ export const rocketControls: ComponentHandler = {
   },
   async modal(interaction, id, ctx) {
     if (id.action !== ROCKET_ACTIONS.replace) throw new UserError(STALE_COMPONENT);
-    const taken = pending.take(id.id, interaction.user.id);
+    const taken = pending.take(id.id, interaction);
     if (taken === 'not-yours') throw new UserError('That is somebody else’s report.');
     if (taken === 'expired') {
       throw new UserError('That question has expired. Use `/rocket report` again.');

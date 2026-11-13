@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { PendingRequests } from './pending-requests.js';
+import { PendingRequests, type Asker } from './pending-requests.js';
 
-const ALICE = '200000000000000002';
-const BOB = '200000000000000003';
+const SERVER = '412345678901234567';
+const OTHER_SERVER = '412345678901234568';
+/** Alice and Bob in the server, as an interaction there names them. */
+const ALICE: Asker = { user: { id: '200000000000000002' }, guildId: SERVER };
+const BOB: Asker = { user: { id: '200000000000000003' }, guildId: SERVER };
 
 describe('PendingRequests', () => {
   it('gives a value back once, to the member who put it there', () => {
@@ -13,6 +16,26 @@ describe('PendingRequests', () => {
     expect(pending.take(token, ALICE)).toEqual({ value: 'report' });
     expect(pending.take(token, ALICE)).toBe('expired');
     expect(pending.take('0000000000000000', ALICE)).toBe('expired');
+  });
+
+  // Plan 19B-4: a token names a question of one server, or of a DM; from anywhere else it is
+  // answered as expired, so that nothing tells that it exists, and it stays for its own server.
+  it('answers a question of another server, or of a DM, as expired, and keeps it', () => {
+    const pending = new PendingRequests<string>();
+    const token = pending.put(ALICE, 'report');
+    const aliceElsewhere: Asker = { ...ALICE, guildId: OTHER_SERVER };
+    const bobElsewhere: Asker = { ...BOB, guildId: OTHER_SERVER };
+    const aliceInDm: Asker = { ...ALICE, guildId: null };
+    expect(pending.peek(token, aliceElsewhere)).toBe('expired');
+    expect(pending.take(token, aliceElsewhere)).toBe('expired');
+    // Never "somebody else's" from another server: that would tell it exists.
+    expect(pending.take(token, bobElsewhere)).toBe('expired');
+    expect(pending.take(token, aliceInDm)).toBe('expired');
+    expect(pending.take(token, ALICE)).toEqual({ value: 'report' });
+    // A question asked in a DM is answered in the DM alone.
+    const inDm = pending.put(aliceInDm, 'dm');
+    expect(pending.take(inDm, ALICE)).toBe('expired');
+    expect(pending.take(inDm, aliceInDm)).toEqual({ value: 'dm' });
   });
 
   it('forgets a request after its time', () => {

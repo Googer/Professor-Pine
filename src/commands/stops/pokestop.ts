@@ -203,7 +203,7 @@ const addStop: SubcommandPart = {
       await answerApart(interaction, addedMessage(stop, regions));
       return;
     }
-    const token = pendingStops.put(interaction.user.id, { serverId, name, point, address });
+    const token = pendingStops.put(interaction, { serverId, name, point, address });
     const listed = near
       .slice(0, NEAR_SHOWN)
       .map(
@@ -398,7 +398,7 @@ export const pokestopControls: ComponentHandler = {
   guards: [requireBotManagement],
   async button(interaction, id, ctx) {
     if (id.action !== 'add' && id.action !== 'cancel') throw new UserError(STALE_COMPONENT);
-    const taken = pendingStops.take(id.id, interaction.user.id);
+    const taken = pendingStops.take(id.id, interaction);
     if (taken === 'expired') throw new UserError(EXPIRED);
     if (taken === 'not-yours') throw new UserError(NOT_YOURS);
     const request = taken.value;

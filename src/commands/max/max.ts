@@ -310,7 +310,7 @@ function maxCommand(screenshots: boolean): SimpleCommand {
       await readInTime(ctx.log, interaction, () => Promise.resolve());
       const zone = zoneOf(interaction, ctx);
       const next = nextRotationEnd(ask.end, maxEndInput(ctx, ask.boss.tier, now, zone));
-      const token = pending.put(interaction.user.id, {
+      const token = pending.put(interaction, {
         ...ask,
         countedAt: whenCounted(interaction) ?? now,
         ...(next === undefined ? {} : { next }),
@@ -375,8 +375,8 @@ export const maxControls: ComponentHandler = {
   // A command's guards do not cover its controls: a Submit is of a server too (review B, B5).
   guards: [requireGuild],
   carriesOn: (interaction, id) => {
-    if (id.action !== 'report') return shotCarriesOn(interaction.user.id, id.id);
-    const waiting = pending.peek(id.id, interaction.user.id);
+    if (id.action !== 'report') return shotCarriesOn(interaction, id.id);
+    const waiting = pending.peek(id.id, interaction);
     return typeof waiting === 'object' && waiting.value.countedAt !== undefined
       ? { ...MAX_THROTTLE, as: MAX_COMMAND, countedAt: waiting.value.countedAt }
       : undefined;
@@ -398,7 +398,7 @@ export const maxControls: ComponentHandler = {
 
   async modal(interaction, id, ctx) {
     if (id.action !== 'report') throw new UserError('That question has expired. Use `/max` again.');
-    const taken = pending.take(id.id, interaction.user.id);
+    const taken = pending.take(id.id, interaction);
     if (taken === 'not-yours') throw new UserError('That is somebody else’s report.');
     if (taken === 'expired') throw new UserError('That question has expired. Use `/max` again.');
     const ask = taken.value;

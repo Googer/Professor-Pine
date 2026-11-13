@@ -7,7 +7,7 @@ import {
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import type { ComponentHandler, Guard } from '../../discord/command.js';
-import { decodeCustomId, encodeCustomId } from '../../discord/custom-id.js';
+import { decodeCustomId, encodeCustomId, type CustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
 import { answerPress, deferPress, pressAnswer } from '../../discord/late-reply.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
@@ -48,6 +48,7 @@ import {
   type KeptCounters,
 } from './counters.js';
 import { maxCountersDialog, maxDialogPlan } from './max-counters.js';
+import { NOT_YOURS } from '../../services/pending-requests.js';
 
 /** What a press is told when the options of an answer are no longer kept. */
 export const NOT_KEPT = 'These options are no longer kept. Use `/counters` again.';
@@ -125,7 +126,7 @@ function selectLabel(
  */
 export function countersDialog(
   ctx: AppContext,
-  token: string,
+  dialogId: string,
   kept: KeptCounters,
   entry: PokemonEntry,
   hasBox: boolean,
@@ -133,7 +134,7 @@ export function countersDialog(
   const box = kept.attackers.kind === 'box' && hasBox;
   const level = kept.attackers.kind === 'level' ? kept.attackers.level : undefined;
   return {
-    custom_id: encodeCustomId({ kind: COUNTERS_KIND, id: token, action: COUNTERS_ACTIONS.dialog }),
+    custom_id: dialogId,
     title: cutText(`Counters for ${entry.name}`, TITLE_ROOM),
     components: [
       selectLabel('Attackers', INPUTS.attackers, [
@@ -260,10 +261,38 @@ const requireDialogPlan: Guard = async (interaction, ctx) => {
   if (!interaction.isModalSubmit()) return;
   const id = decodeCustomId(interaction.customId);
   if (id?.action !== COUNTERS_ACTIONS.dialog) return;
-  const kept = keptCounters.get(id.id);
-  if (!kept) throw new UserError(NOT_KEPT);
-  await anyDialogPlan(interaction, ctx, kept);
+  await anyDialogPlan(interaction, ctx, dialogKept(interaction, id));
 };
+
+/**
+ * The options kept under an answer's token, asked from where the interaction came from (plan
+ * 19B-4): those of another server are no longer kept there.
+ */
+function keptFor(interaction: { guildId: string | null }, token: string): KeptAnswer {
+  const kept = keptCounters.of(token, interaction);
+  if (!kept) throw new UserError(NOT_KEPT);
+  return kept;
+}
+
+/**
+ * The id of the dialog of Change options… (plan 19B-4): the answer's token, and the member who
+ * opened it, whose Submit alone it takes (`dialogKept`). Nothing is kept per press.
+ */
+function dialogIdOf(token: string, openerId: string): string {
+  return encodeCustomId({
+    kind: COUNTERS_KIND,
+    id: token,
+    action: COUNTERS_ACTIONS.dialog,
+    args: [openerId],
+  });
+}
+
+/** The options of a submitted dialog: of its answer, in its server, submitted by its opener. */
+function dialogKept(interaction: ModalSubmitInteraction, id: CustomId): KeptAnswer {
+  const kept = keptFor(interaction, id.id);
+  if (id.args[0] !== interaction.user.id) throw new UserError(NOT_YOURS);
+  return kept;
+}
 
 /** The plan of a submitted dialog: of a max battle answer's (plan 8X-6), or of a raid answer's. */
 async function anyDialogPlan(
@@ -279,9 +308,11 @@ async function anyDialogPlan(
 
 /**
  * "Change options…" under an answer of `/counters` and its dialog (plan 8B-2; custom ids
- * `counters:<token>:options` and `counters:<token>:dialog`, the token that of the answer's kept
- * options, `keptCounters`). Anybody who sees an answer may open its dialog. A submitted dialog
- * runs a new simulation (counted with the command's uses in `COUNTERS_THROTTLE`; opening the
+ * `counters:<token>:options` and `counters:<token>:dialog:<opener id>`, the token that of the
+ * answer's kept options, `keptCounters`, of the answer's server only: plan 19B-4). Anybody who
+ * sees an answer may open its dialog, which is theirs: its custom id names the member who opened
+ * it, whose Submit alone it takes (`NOT_YOURS`), and nothing is kept per press. A
+ * submitted dialog runs a new simulation (counted with the command's uses in `COUNTERS_THROTTLE`; opening the
  * dialog is not counted, nor is a submit the guard refuses) and answers
  * as `pressAnswer` says: the member who asked changes their public answer, anybody else gets a
  * private copy; a Pokébox is shown privately only, and a public answer whose party has ended is
@@ -302,25 +333,20 @@ export const countersControls: ComponentHandler = {
         : undefined,
   async button(interaction, id, ctx) {
     if (id.action !== COUNTERS_ACTIONS.options) throw new UserError(STALE_COMPONENT);
-    const kept = keptCounters.get(id.id);
-    if (!kept) throw new UserError(NOT_KEPT);
+    const kept = keptFor(interaction, id.id);
     const entry = keptBoss(ctx, kept);
+    // The dialog is the presser's: it names them beside the answer's token.
+    const dialogId = dialogIdOf(id.id, interaction.user.id);
     if (isKeptMax(kept)) {
-      const dialogId = encodeCustomId({
-        kind: COUNTERS_KIND,
-        id: id.id,
-        action: COUNTERS_ACTIONS.dialog,
-      });
       await interaction.showModal(maxCountersDialog(dialogId, kept, entry));
       return;
     }
     const hasBox = (await ctx.users.get(interaction.user.id)).pokebattlerId !== null;
-    await interaction.showModal(countersDialog(ctx, id.id, kept, entry, hasBox));
+    await interaction.showModal(countersDialog(ctx, dialogId, kept, entry, hasBox));
   },
   async modal(interaction, id, ctx) {
     if (id.action !== COUNTERS_ACTIONS.dialog) throw new UserError(STALE_COMPONENT);
-    const kept = keptCounters.get(id.id);
-    if (!kept) throw new UserError(NOT_KEPT);
+    const kept = dialogKept(interaction, id);
     // Read again after the guard, which refused what does not fit before the use was counted.
     const plan = await anyDialogPlan(interaction, ctx, kept);
     const postGone = (): boolean =>

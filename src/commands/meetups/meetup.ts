@@ -324,7 +324,7 @@ export const meetup: SimpleCommand = {
     if (regionChannelId === undefined) throw new UserError(FROM_A_REGION);
     const asked = readings.get(interaction) ?? (await readAsked(interaction, ctx, Date.now()));
     readings.delete(interaction);
-    const token = pending.put(interaction.user.id, {
+    const token = pending.put(interaction, {
       serverId: guildIdOf(interaction),
       regionChannelId,
       name: interaction.options.getString('name', true),
@@ -355,7 +355,7 @@ export const meetupFormControls: ComponentHandler = {
   kind: MEETUP_KIND,
   guards: [requireGuild],
   carriesOn: (interaction, id) => {
-    const asked = pending.peek(id.id, interaction.user.id);
+    const asked = pending.peek(id.id, interaction);
     return typeof asked === 'object'
       ? { ...MEETUP_THROTTLE, as: MEETUP_NAME, countedAt: asked.value.openedAt }
       : undefined;
@@ -364,7 +364,7 @@ export const meetupFormControls: ComponentHandler = {
   async modal(interaction, id, ctx) {
     if (id.action !== 'form') throw new UserError(STALE_COMPONENT);
     const text = interaction.fields.getTextInputValue(INFO_INPUT);
-    const taken = pending.take(id.id, interaction.user.id);
+    const taken = pending.take(id.id, interaction);
     if (taken === 'expired' || taken === 'not-yours') {
       throw new UserError(refusedWithText(EXPIRED, text));
     }

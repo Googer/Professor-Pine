@@ -357,7 +357,7 @@ async function askToReplace(
     window: researchWindow(settings),
     periodKey: ctx.stopReports.period(guildIdOf(interaction), countedAt).key,
   };
-  const token = pending.put(interaction.user.id, waiting);
+  const token = pending.put(interaction, waiting);
   await interaction.showModal(replaceDialog(token, waiting, zoneOf(interaction, ctx)));
 }
 
@@ -583,7 +583,7 @@ export const researchControls: ComponentHandler = {
   },
   carriesOn: (interaction, id) => {
     if (id.action !== RESEARCH_ACTIONS.replace) return undefined;
-    const waiting = pending.peek(id.id, interaction.user.id);
+    const waiting = pending.peek(id.id, interaction);
     return typeof waiting === 'object'
       ? { ...waiting.value.throttle, as: waiting.value.window, countedAt: waiting.value.countedAt }
       : undefined;
@@ -636,7 +636,7 @@ export const researchControls: ComponentHandler = {
   },
   async modal(interaction, id, ctx) {
     if (id.action !== RESEARCH_ACTIONS.replace) throw new UserError(STALE_COMPONENT);
-    const taken = pending.take(id.id, interaction.user.id);
+    const taken = pending.take(id.id, interaction);
     if (taken === 'not-yours') throw new UserError('That is somebody else’s report.');
     if (taken === 'expired') {
       throw new UserError('That question has expired. Use `/research report` again.');

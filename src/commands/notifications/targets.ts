@@ -130,7 +130,7 @@ async function askWhich(
   gyms: readonly Gym[],
   typed: string,
 ): Promise<void> {
-  const token = pending.put(interaction.user.id, { mode, gymIds: gyms.map((gym) => gym.id) });
+  const token = pending.put(interaction, { mode, gymIds: gyms.map((gym) => gym.id) });
   const here = regionChannelOf(interaction, ctx);
   const view = await serverGyms(interaction, ctx);
   const menu = new StringSelectMenuBuilder()
@@ -358,7 +358,7 @@ export const targetControls: ComponentHandler = {
 
   async select(interaction, id, ctx) {
     if (id.action !== 'gym' || !interaction.isStringSelectMenu()) throw new UserError(EXPIRED);
-    const taken = pending.take(id.id, interaction.user.id);
+    const taken = pending.take(id.id, interaction);
     if (taken === 'not-yours') throw new UserError('That is somebody else’s choice.');
     if (taken === 'expired') {
       await interaction.update({ content: EXPIRED, components: [] });

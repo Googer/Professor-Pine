@@ -9,13 +9,28 @@ export const EXPIRED = 'That has expired. Use the command again.';
 export const NOT_YOURS = 'That is somebody else’s question.';
 
 /**
+ * Who asks, and where: the member and the server an interaction came from (`guildId`, null in a
+ * DM). A Discord interaction is one; so is a message's author where it was posted.
+ */
+export interface Asker {
+  readonly user: { readonly id: string };
+  readonly guildId: string | null;
+}
+
+/**
  * What a command has to remember between asking a member something with buttons or a menu and
  * the answer: the values are kept in memory under a token that goes into the custom id of the
- * controls. A request belongs to the member who made it, is answered once, and is forgotten
- * after `ttlMs` (a restart forgets all of them; the control then says it has expired).
+ * controls. A request belongs to the member who made it and to the server it was made in (or to
+ * the DM), is answered once, and is forgotten after `ttlMs` (a restart forgets all of them; the
+ * control then says it has expired). A token pressed from another server, or from a DM for a
+ * question of a server and the other way round, is answered as expired (plan 19B-4: anything of
+ * another server is as if it did not exist), whoever presses it, and stays for its own.
  */
 export class PendingRequests<T> {
-  private readonly requests = new Map<string, { ownerId: string; value: T; expires: number }>();
+  private readonly requests = new Map<
+    string,
+    { ownerId: string; serverId: string | null; value: T; expires: number }
+  >();
   private readonly ttlMs: number;
   private readonly max: number;
   private readonly now: () => number;
@@ -31,7 +46,7 @@ export class PendingRequests<T> {
    * under that token, in place of what it held (a question asked again replaces itself, and the
    * store does not grow with each asking; the token must be as hard to guess as a new one).
    */
-  put(ownerId: string, value: T, reuse?: string): string {
+  put(asker: Asker, value: T, reuse?: string): string {
     const now = this.now();
     if (reuse !== undefined) this.requests.delete(reuse);
     for (const [token, request] of this.requests) {
@@ -44,22 +59,28 @@ export class PendingRequests<T> {
       this.requests.delete(oldest.value);
     }
     const token = reuse ?? randomBytes(8).toString('hex');
-    this.requests.set(token, { ownerId, value, expires: now + this.ttlMs });
+    this.requests.set(token, {
+      ownerId: asker.user.id,
+      serverId: asker.guildId,
+      value,
+      expires: now + this.ttlMs,
+    });
     return token;
   }
 
   /**
    * The value for a token, which is then forgotten. `expired` when there is none (answered
-   * already, too old, or from before a restart); `not-yours` for another member's request,
-   * which stays.
+   * already, too old, or from before a restart, or a request of another server, which stays);
+   * `not-yours` for another member's request of this server, which stays.
    */
-  take(token: string, userId: string): { value: T } | 'expired' | 'not-yours' {
+  take(token: string, asker: Asker): { value: T } | 'expired' | 'not-yours' {
     const request = this.requests.get(token);
     if (!request || request.expires <= this.now()) {
       this.requests.delete(token);
       return 'expired';
     }
-    if (request.ownerId !== userId) return 'not-yours';
+    if (request.serverId !== asker.guildId) return 'expired';
+    if (request.ownerId !== asker.user.id) return 'not-yours';
     this.requests.delete(token);
     return { value: request.value };
   }
@@ -69,13 +90,14 @@ export class PendingRequests<T> {
    * may close the form and press another button of the question after all). `expired` and
    * `not-yours` as for `take`.
    */
-  peek(token: string, userId: string): { value: T } | 'expired' | 'not-yours' {
+  peek(token: string, asker: Asker): { value: T } | 'expired' | 'not-yours' {
     const request = this.requests.get(token);
     if (!request || request.expires <= this.now()) {
       this.requests.delete(token);
       return 'expired';
     }
-    return request.ownerId === userId ? { value: request.value } : 'not-yours';
+    if (request.serverId !== asker.guildId) return 'expired';
+    return request.ownerId === asker.user.id ? { value: request.value } : 'not-yours';
   }
 
   get size(): number {

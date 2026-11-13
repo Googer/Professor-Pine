@@ -854,7 +854,7 @@ export const importRegions: SubcommandPart = {
       await answerRegion(interaction, render([]));
       return;
     }
-    const token = pendingRegions.put(interaction.user.id, {
+    const token = pendingRegions.put(interaction, {
       what: 'import',
       imports: preview.imports,
     });
