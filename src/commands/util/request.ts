@@ -4,14 +4,20 @@ import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { Guard, SimpleCommand } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
 import { channelContext } from '../../discord/channel-context.js';
-import { partyOf, requireGuild } from '../../discord/guards.js';
+import { guildIdOf, instanceOf, partyOf, requireGuild } from '../../discord/guards.js';
+import { serverValuesOf } from '../../discord/server-values.js';
+import { NOT_SET_UP } from '../../discord/set-up.js';
+import type { Config } from '../../config/index.js';
+import type { ServerValues } from '../../config/server-settings.js';
+import { gymRequestWay, type GymRequestWay } from '../../domain/servers/gym-requests.js';
+import type { LabPost } from '../../services/moderators-lab.js';
 import { memberInfo } from '../../discord/member-info.js';
 import type { Throttle } from '../../discord/throttle.js';
 import { MAX_NO_GYM } from '../../domain/party/max.js';
 import { isMax, isRaid, isTrain, partyWord } from '../../domain/party/party.js';
 import { gymIdOf } from '../../domain/party/stops.js';
 import { currentStop } from '../../domain/party/train.js';
-import { gymRequestIssue } from '../../render/gym-request.js';
+import { gymRequestIssue, gymRequestPost } from '../../render/gym-request.js';
 import { gymWithId } from '../../render/gym-view.js';
 import type { IssueOutcome } from '../../services/issue-gateway.js';
 import {
@@ -119,21 +125,68 @@ function failureText(outcome: Extract<IssueOutcome, { ok: false }>): string {
   }
 }
 
-/**
- * `/request` (spec row 190, the legacy `!request`): a change a member asks for about a gym (a
- * wrong name, a gym that is gone, an elite raid gym), sent as an issue to the GitHub repository
- * of the gym list (`GITHUB_REPO`, with `GITHUB_TOKEN`; the command exists only where both are
- * set). In the post of a raid or train the gym is that of the party; elsewhere the `gym`
- * option says which. The member is told privately whether it was sent.
- */
-/** What /request says in rehearsal mode: it would file a real issue on GitHub. */
-export const REQUEST_IN_REHEARSAL =
-  'Rehearsal mode is on: /request would file a real issue on GitHub, so it is off for now.';
+/** What staff are told where a server's gym requests can go nowhere (`setUpIn`, plan 19B-4). */
+export const REQUEST_NOT_SET_UP =
+  'Staff choose the moderators’ bot lab in /admin settings: gym requests go there.';
 
-/** Refuses a request in rehearsal mode, before anything is asked of GitHub. */
+/**
+ * Where a server's gym requests go (plan 19B-4, `gymRequestWay`): the instance's repository
+ * (`GITHUB_TOKEN` and `GITHUB_REPO` set) for a server the instance trusts with what every server
+ * shares, else the server's moderators' bot lab, else nowhere.
+ */
+export function requestWayIn(
+  config: Config,
+  serverId: string,
+  values: Pick<ServerValues, 'channels'>,
+): GymRequestWay {
+  const repository = config.env.GITHUB_TOKEN !== undefined && config.env.GITHUB_REPO !== undefined;
+  return gymRequestWay(
+    serverId,
+    { ...instanceOf({ config }), repository },
+    values.channels['mod-bot-lab'],
+  );
+}
+
+/** What a member is told of a request the moderators' bot lab did not take; their use goes back. */
+function labFailureText(posted: Exclude<LabPost, 'sent'>): string {
+  switch (posted) {
+    case 'no-lab':
+      return NOT_SET_UP;
+    case 'not-allowed':
+      return (
+        'Your request could not be sent: I may not post in this server’s moderators’ bot lab. ' +
+        'Please tell a moderator.'
+      );
+    case 'not-sent':
+      return (
+        'Your request could not be sent: this server’s moderators’ bot lab took no message. ' +
+        'Please tell a moderator.'
+      );
+  }
+}
+
+/** What /request says in rehearsal mode: it would send a real request. */
+export const REQUEST_IN_REHEARSAL =
+  'Rehearsal mode is on: /request would send a real request (a GitHub issue or a post for the ' +
+  'moderators), so it is off for now.';
+
+/**
+ * Refuses a request in rehearsal mode, whichever way the server's requests go, before anything
+ * is asked of GitHub or posted in the moderators' bot lab.
+ */
 const refusedInRehearsal: Guard = (_interaction, ctx) => {
   if (ctx.rehearsal) throw new UserError(REQUEST_IN_REHEARSAL);
 };
+
+/**
+ * `/request` (spec row 190, the legacy `!request`): a change a member asks for about a gym (a
+ * wrong name, a gym that is gone, an elite raid gym), sent where the server's requests go (plan
+ * 19B-4, `requestWayIn`): as an issue to the instance's GitHub repository of the gym list
+ * (`GITHUB_REPO`, with `GITHUB_TOKEN`) for a server the instance trusts with it, else as a post
+ * in the server's moderators' bot lab (`gymRequestPost`, pinging nobody); a server with neither
+ * has it not set up (`setUpIn`). In the post of a raid or train the gym is that of the party;
+ * elsewhere the `gym` option says which. The member is told privately whether it was sent.
+ */
 
 export const request: SimpleCommand = {
   data: new SlashCommandBuilder()
@@ -161,18 +214,38 @@ export const request: SimpleCommand = {
       '/request text:The gym is gone gym:Old Stone Fountain',
     ],
   },
-  enabled: (config) =>
-    config.env.GITHUB_TOKEN !== undefined && config.env.GITHUB_REPO !== undefined,
+  // Offered everywhere; not set up where a request can go nowhere (plan 19B-4).
+  setUpIn: (values, config, serverId) =>
+    requestWayIn(config, serverId, values) === 'nowhere' ? REQUEST_NOT_SET_UP : undefined,
   guards: [refusedInRehearsal, requireGuild, requireRequest],
   defer: 'ephemeral',
   throttle: REQUEST_THROTTLE,
   async execute(interaction, ctx) {
     const text = requestText(interaction);
     const gym = await requestedGym(interaction, ctx);
+    const serverId = guildIdOf(interaction);
+    const memberName = memberInfo(interaction).name ?? interaction.user.username;
+    const way = requestWayIn(ctx.config, serverId, serverValuesOf(interaction, ctx));
+    if (way === 'nowhere') throw new UserError(NOT_SET_UP, { givesBack: true });
+    if (way === 'bot-lab') {
+      const posted = await ctx.moderatorsLab.post(
+        serverId,
+        gymRequestPost({ gym, memberId: interaction.user.id, memberName, text }),
+      );
+      if (posted !== 'sent') throw new UserError(labFailureText(posted), { givesBack: true });
+      ctx.log.info(
+        { gym: gym.id, member: interaction.user.id, server: serverId },
+        'a member sent a gym request to the moderators’ bot lab',
+      );
+      await interaction.editReply({
+        content: `Thank you: your request about ${gymWithId(gym)} was sent to this server’s moderators.`,
+      });
+      return;
+    }
     const outcome = await ctx.issues.open(
       gymRequestIssue({
         gym,
-        memberName: memberInfo(interaction).name ?? interaction.user.username,
+        memberName,
         serverName: interaction.guild?.name ?? 'a server',
         text,
       }),

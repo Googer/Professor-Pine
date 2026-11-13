@@ -55,11 +55,13 @@ describe('/maps', () => {
     const values = testServerValues();
     const { regionMapLink: _link, ...noLink } = values;
     expect(maps.enabled).toBeUndefined();
-    expect(maps.setUpIn?.(noLink, without)).toBe(
+    expect(maps.setUpIn?.(noLink, without, FAKE_GUILD_ID)).toBe(
       'Staff set the address of the map of all regions in /admin settings.',
     );
-    expect(maps.setUpIn?.({ ...values, regionMapLink: LINK }, without)).toBeUndefined();
-    expect(maps.setUpIn?.(noLink, withWeb)).toBeUndefined();
+    expect(
+      maps.setUpIn?.({ ...values, regionMapLink: LINK }, without, FAKE_GUILD_ID),
+    ).toBeUndefined();
+    expect(maps.setUpIn?.(noLink, withWeb, FAKE_GUILD_ID)).toBeUndefined();
   });
 
   it('answers in a server without a map that it is not set up there', async () => {

@@ -79,8 +79,12 @@ describe('/admin self-roles', () => {
     // channels) and the tutorial are not looked at here; the shared data is `/operator`'s.
     const paths = (values: ServerValues) =>
       declaredSubcommands(
-        commandsIn(enabledCommands([admin], ctx.config), values, ctx.config)[0]?.data.toJSON()
-          .options,
+        commandsIn(
+          enabledCommands([admin], ctx.config),
+          values,
+          ctx.config,
+          FAKE_GUILD_ID,
+        )[0]?.data.toJSON().options,
       ).filter((path) => !/^nickname |^member-settings$|^cleanup-legacy$|^tutorial$/.test(path));
     const values = testServerValues();
     expect(paths(values)).toEqual([

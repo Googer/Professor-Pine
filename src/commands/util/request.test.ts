@@ -1,12 +1,23 @@
 import { MessageFlags } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import {
+  FAKE_GUILD_ID,
   fakeAutocomplete,
   fakeChatInput,
   sent,
   type FakeInteraction,
 } from '../../../test/support/fake-interactions.js';
 import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import { FakePartyGateway } from '../../../test/support/fake-gateway.js';
+import { textOf, v2 } from '../../../test/support/messages.js';
+import { instanceConfig } from '../../../test/support/operators.js';
+import {
+  TEST_SERVER_CHANNELS,
+  TestServers,
+  testServerValues,
+} from '../../../test/support/server-values.js';
+import type { Settings } from '../../config/settings.js';
+import { ModeratorsLab } from '../../services/moderators-lab.js';
 import { FakeIssues } from '../../../test/support/issues.js';
 import { ALICE, REPORTER } from '../../../test/support/parties.js';
 import {
@@ -23,9 +34,46 @@ import { request } from './request.js';
 
 const SERVER = { [WEST_CHANNEL]: 'west', [EAST_CHANNEL]: 'east' };
 
-function setup(overrides: Parameters<typeof createTestContext>[0] = {}) {
+/** The moderators' bot lab of the test servers (`TEST_SERVER_CHANNELS`). */
+const LAB = TEST_SERVER_CHANNELS['mod-bot-lab'];
+
+/** The test servers' channels without a moderators' bot lab. */
+function withoutLab() {
+  const { 'mod-bot-lab': _lab, ...others } = TEST_SERVER_CHANNELS;
+  return others;
+}
+
+/**
+ * The context's configuration with the instance's GitHub repository set (`GITHUB_TOKEN`,
+ * `GITHUB_REPO`) unless `repository` is false, and the instance's `servers` where given.
+ */
+function configWith(repository: boolean, servers?: Settings['servers']) {
+  const base = createTestContext().ctx;
+  const config = servers === undefined ? base.config : instanceConfig(base, { servers });
+  const env = repository
+    ? { ...config.env, GITHUB_TOKEN: 'token', GITHUB_REPO: 'owner/repo' }
+    : { ...config.env, GITHUB_TOKEN: undefined, GITHUB_REPO: undefined };
+  return { ...config, env };
+}
+
+function setup(
+  overrides: Parameters<typeof createTestContext>[0] = {},
+  where: { repository?: boolean; servers?: Settings['servers']; lab?: boolean } = {},
+) {
   const issues = new FakeIssues();
-  const { ctx, entries } = createTestContext({ issues, ...overrides });
+  // The moderators' bot lab of the server, where requests go without the repository.
+  const gateway = new FakePartyGateway();
+  gateway.addChannel(LAB, 'mod-bot-only', { guildId: FAKE_GUILD_ID });
+  const servers = new TestServers(
+    where.lab === false ? testServerValues({ channels: withoutLab() }) : testServerValues(),
+  );
+  const { ctx, entries } = createTestContext({
+    issues,
+    config: configWith(where.repository ?? true, where.servers),
+    servers,
+    moderatorsLab: new ModeratorsLab({ gateway, servers }),
+    ...overrides,
+  });
   const router = new InteractionRouter(ctx, [request], []);
   const run = async (options: Record<string, string>, extra: object = {}) => {
     const interaction = fakeChatInput({
@@ -40,7 +88,7 @@ function setup(overrides: Parameters<typeof createTestContext>[0] = {}) {
     await router.handle(interaction as never);
     return interaction;
   };
-  return { ctx, entries, issues, router, run };
+  return { ctx, entries, issues, router, run, gateway };
 }
 
 /** What the member was told: the answer after the deferral, or a refusal before it. */
@@ -52,11 +100,9 @@ function told(used: FakeInteraction): string | undefined {
 }
 
 describe('/request: the command', () => {
-  it('exists only where GitHub is set up, for members of servers, three in half an hour', () => {
-    const { ctx } = createTestContext();
-    expect(request.enabled?.(ctx.config)).toBe(false);
-    const env = { ...ctx.config.env, GITHUB_TOKEN: 'token', GITHUB_REPO: 'owner/repo' };
-    expect(request.enabled?.({ ...ctx.config, env })).toBe(true);
+  // Plan 19B-4: offered wherever a request can go somewhere, not only where GitHub is set up.
+  it('exists for members of servers, three in half an hour, with GitHub or without', () => {
+    expect(request.enabled).toBeUndefined();
     const json = request.data.toJSON();
     expect(json.default_member_permissions).toBeUndefined();
     expect(json.contexts).toBeUndefined();
@@ -259,6 +305,102 @@ describe('/request: refused before anything is sent', () => {
     expect(told(await made.run({ text: 'Gone', gym: 'g:2' }, { isDm: true, guildId: null }))).toBe(
       'This only works in a server.',
     );
+  });
+});
+
+// Plan 19B-4: the instance's repository serves a server only where the instance is not open,
+// and lists that server or none (the shared-data tier's rule); otherwise the server's own
+// moderators' bot lab; neither, and the command is not set up there.
+describe('/request per server (plan 19B-4)', () => {
+  it('goes to the instance’s repository from a server it lists', async () => {
+    const made = setup({}, { servers: [FAKE_GUILD_ID] });
+    await made.run({ text: 'Gone', gym: 'g:2' });
+    expect(made.issues.opened).toHaveLength(1);
+    expect(made.gateway.messagesIn(LAB)).toEqual([]);
+  });
+
+  it('is posted in the server’s moderators’ bot lab on an open instance, pinging nobody', async () => {
+    const made = setup({}, { servers: 'open' });
+    const used = await made.run({ text: 'The gym is now the Town Hall Fountain', gym: 'g:2' });
+    expect(made.issues.opened).toEqual([]);
+    const [posted, ...more] = made.gateway.messagesIn(LAB);
+    expect(more).toEqual([]);
+    expect(textOf(v2(posted?.message))).toBe(
+      '### Gym request: Old Stone Fountain (#2)\n' +
+        `From **Alice** (<@${ALICE}>):\n` +
+        '> The gym is now the Town Hall Fountain',
+    );
+    expect(posted?.message.mention).toBeUndefined();
+    expect(told(used)).toBe(
+      'Thank you: your request about **Old Stone Fountain** (#2) was sent to this server’s ' +
+        'moderators.',
+    );
+  });
+
+  it('is posted in the bot lab from a server the instance does not list, and without GitHub', async () => {
+    const ways: { servers?: string[]; repository?: boolean }[] = [
+      { servers: ['412345678901234599'] },
+      { repository: false },
+    ];
+    for (const where of ways) {
+      const made = setup({}, where);
+      await made.run({ text: 'Gone', gym: 'g:2' });
+      expect(made.issues.opened, JSON.stringify(where)).toEqual([]);
+      expect(made.gateway.messagesIn(LAB), JSON.stringify(where)).toHaveLength(1);
+    }
+  });
+
+  it('keeps the member’s words as text in the bot lab, and their name', async () => {
+    const made = setup({}, { repository: false });
+    await made.run(
+      { text: '**bold** @everyone <@123> `code`', gym: 'g:2' },
+      {
+        displayName: 'Al*ice',
+      },
+    );
+    const [posted] = made.gateway.messagesIn(LAB);
+    expect(textOf(v2(posted?.message))).toBe(
+      '### Gym request: Old Stone Fountain (#2)\n' +
+        `From **Al\\*ice** (<@${ALICE}>):\n` +
+        '> \\*\\*bold\\*\\* @\u200beveryone <\u200b@123> \\`code\\`',
+    );
+  });
+
+  it('is not set up where it can go nowhere: staff are told to choose the moderators’ bot lab', async () => {
+    const made = setup({}, { repository: false, lab: false });
+    const member = await made.run({ text: 'Gone', gym: 'g:2' });
+    expect(told(member)).toBe(
+      'This is not set up in this server. The server’s staff have not turned this on.',
+    );
+    const staff = await made.run({ text: 'Gone', gym: 'g:2' }, { roleNames: ['Moderator'] });
+    expect(told(staff)).toBe(
+      'This is not set up in this server. Staff choose the moderators’ bot lab in ' +
+        '/admin settings: gym requests go there.',
+    );
+    expect(made.issues.opened).toEqual([]);
+  });
+
+  it('says so when the bot may not post in the bot lab, and gives the use back', async () => {
+    const made = setup({}, { repository: false });
+    made.gateway.noSharing.add(LAB);
+    const used = await made.run({ text: 'Gone', gym: 'g:2' });
+    expect(told(used)).toBe(
+      'Your request could not be sent: I may not post in this server’s moderators’ bot lab. ' +
+        'Please tell a moderator.',
+    );
+    expect(made.gateway.messagesIn(LAB)).toEqual([]);
+    // Not counted: three more go through.
+    made.gateway.noSharing.delete(LAB);
+    for (let i = 0; i < 3; i += 1) await made.run({ text: 'Gone', gym: 'g:2' });
+    expect(made.gateway.messagesIn(LAB)).toHaveLength(3);
+  });
+
+  it('is refused in rehearsal mode where it would go to the bot lab too, posting nothing', async () => {
+    const rehearsal = new Rehearsal({ allowlist: [ALICE], regions: ['west'], staffRoles: [] });
+    const made = setup({ rehearsal }, { repository: false });
+    const used = await made.run({ text: 'Gone', gym: 'g:2' });
+    expect(told(used)).toBe(REQUEST_IN_REHEARSAL);
+    expect(made.gateway.messagesIn(LAB)).toEqual([]);
   });
 });
 

@@ -203,7 +203,7 @@ export const requireBotManagement: Guard = (interaction, ctx) => {
 };
 
 /** The instance as the operators' tiers read it (`src/domain/operators/tiers.ts`). */
-function instanceOf(ctx: Pick<AppContext, 'config'>): Instance {
+export function instanceOf(ctx: Pick<AppContext, 'config'>): Instance {
   return {
     ownerId: ctx.config.env.OWNER_ID.trim(),
     operators: ctx.config.settings.operators,

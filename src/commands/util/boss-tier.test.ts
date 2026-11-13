@@ -2,6 +2,7 @@ import { InteractionContextType, MessageFlags } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import {
   answered,
+  FAKE_GUILD_ID,
   fakeAutocomplete,
   fakeChatInput,
   sent,
@@ -250,9 +251,9 @@ describe('/maps', () => {
     expect(json.contexts).toEqual([InteractionContextType.Guild, InteractionContextType.BotDM]);
     const { ctx } = createTestContext();
     const values = testServerValues();
-    expect(maps.setUpIn?.(values, ctx.config)).toBeUndefined();
+    expect(maps.setUpIn?.(values, ctx.config, FAKE_GUILD_ID)).toBeUndefined();
     const { regionMapLink: _link, ...without } = values;
-    expect(maps.setUpIn?.(without, ctx.config)).toBeDefined();
+    expect(maps.setUpIn?.(without, ctx.config, FAKE_GUILD_ID)).toBeDefined();
   });
 
   it('gives the member the address of the map, privately, also in a post or a DM', async () => {

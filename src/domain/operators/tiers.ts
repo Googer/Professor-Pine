@@ -48,13 +48,24 @@ export function isInstanceOperator(userId: string, instance: Instance): boolean 
 }
 
 /**
+ * Whether the instance trusts a server with what every server shares: an instance that is not
+ * open, and lists no servers or lists that one. Its staff are shared-data operators there
+ * (`isSharedDataOperator`), and its gym requests go to the instance's repository (plan 19B-4,
+ * `gymRequestWay`).
+ */
+export function isTrustedServer(serverId: string, instance: Instance): boolean {
+  if (instance.open) return false;
+  return instance.listed === undefined || instance.listed.includes(serverId);
+}
+
+/**
  * Whether who asks may change what every server shares, where they ask: an instance operator
- * anywhere; on an instance that is not open, also the bot-management staff of the server asked
- * from where the instance lists no servers or lists that one, never in a direct message.
+ * anywhere; also the bot-management staff of a server the instance trusts (`isTrustedServer`),
+ * in that server, never in a direct message.
  */
 export function isSharedDataOperator(asker: Asker, instance: Instance): boolean {
   if (isInstanceOperator(asker.userId, instance)) return true;
   const { serverId } = asker;
-  if (serverId === undefined || instance.open || !asker.botManagement) return false;
-  return instance.listed === undefined || instance.listed.includes(serverId);
+  if (serverId === undefined || !asker.botManagement) return false;
+  return isTrustedServer(serverId, instance);
 }

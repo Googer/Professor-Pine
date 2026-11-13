@@ -1,6 +1,11 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
-import { fakeAutocomplete, fakeChatInput, sent } from '../../test/support/fake-interactions.js';
+import {
+  FAKE_GUILD_ID,
+  fakeAutocomplete,
+  fakeChatInput,
+  sent,
+} from '../../test/support/fake-interactions.js';
 import { TestServers, testServerValues } from '../../test/support/server-values.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import type { ServerValues } from '../config/server-settings.js';
@@ -96,19 +101,15 @@ describe('a command that a server must set up (plan 19A-1)', () => {
     const without = { ...values, features: { ...values.features, roles: false } };
     const subcommands = (list: ReturnType<typeof commandsIn>) =>
       list.flatMap((c) => (c.subcommands ? [...c.subcommands.keys()] : [c.data.name]));
-    expect(subcommands(commandsIn([notifying().command, admin], values, ctx.config))).toEqual([
-      'want',
-      'tutorial',
-      'self-roles',
-    ]);
-    expect(subcommands(commandsIn([notifying().command, admin], without, ctx.config))).toEqual([
-      'want',
-      'tutorial',
-    ]);
-    expect(subcommands(commandsIn([notifying().command, admin], quiet(), ctx.config))).toEqual([
-      'tutorial',
-      'self-roles',
-    ]);
+    expect(
+      subcommands(commandsIn([notifying().command, admin], values, ctx.config, FAKE_GUILD_ID)),
+    ).toEqual(['want', 'tutorial', 'self-roles']);
+    expect(
+      subcommands(commandsIn([notifying().command, admin], without, ctx.config, FAKE_GUILD_ID)),
+    ).toEqual(['want', 'tutorial']);
+    expect(
+      subcommands(commandsIn([notifying().command, admin], quiet(), ctx.config, FAKE_GUILD_ID)),
+    ).toEqual(['tutorial', 'self-roles']);
   });
 
   it('says what is not set up in one sentence after the other, what to set only to staff', () => {

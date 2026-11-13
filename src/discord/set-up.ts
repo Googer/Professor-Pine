@@ -37,8 +37,9 @@ export function notSetUpIn(
   handler: Pick<CommandHandler, 'setUpIn'>,
   values: ServerValues,
   config: Config,
+  serverId: string,
 ): string | undefined {
-  return handler.setUpIn?.(values, config);
+  return handler.setUpIn?.(values, config, serverId);
 }
 
 /**
@@ -50,13 +51,14 @@ export function commandsIn(
   commands: readonly CommandModule[],
   values: ServerValues,
   config: Config,
+  serverId: string,
 ): CommandModule[] {
   return commands.flatMap((command): CommandModule[] =>
     command.subcommands === undefined
-      ? notSetUpIn(command, values, config) === undefined
+      ? notSetUpIn(command, values, config, serverId) === undefined
         ? [command]
         : []
-      : keptOf(command, (handler) => notSetUpIn(handler, values, config) === undefined),
+      : keptOf(command, (handler) => notSetUpIn(handler, values, config, serverId) === undefined),
   );
 }
 

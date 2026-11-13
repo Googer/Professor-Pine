@@ -444,7 +444,12 @@ export class InteractionRouter {
     handler: Pick<CommandHandler, 'setUpIn'>,
   ): string | undefined {
     if (interaction.guildId === null) return undefined;
-    return notSetUpIn(handler, this.ctx.servers.of(interaction.guildId), this.ctx.config);
+    return notSetUpIn(
+      handler,
+      this.ctx.servers.of(interaction.guildId),
+      this.ctx.config,
+      interaction.guildId,
+    );
   }
 
   /**

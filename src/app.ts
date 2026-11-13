@@ -149,6 +149,7 @@ import { CatchUp, type CatchUpOutcome } from './services/catch-up.js';
 import { PartyService } from './services/party-service.js';
 import { PartyStore } from './services/party-store.js';
 import { PokemonSearchService } from './services/pokemon-search-service.js';
+import { ModeratorsLab } from './services/moderators-lab.js';
 import { RaidBossAnnouncer } from './services/raid-boss-announcer.js';
 import { MaxBossService } from './services/max-boss-service.js';
 import { MaxChangeService } from './services/max-change-service.js';
@@ -1338,13 +1339,15 @@ export async function startApp(
     }),
     loginLinks,
     scriptAccess,
-    // Gym requests; without GITHUB_TOKEN and GITHUB_REPO `/request` is not offered.
+    // Gym requests: to the instance's repository (GITHUB_TOKEN and GITHUB_REPO) where it serves
+    // the server, else to the server's moderators' bot lab (plan 19B-4).
     issues: new GitHubIssues({
       token: config.env.GITHUB_TOKEN,
       repo: config.env.GITHUB_REPO,
       fetch: (url, init) => fetch(url, init),
       log,
     }),
+    moderatorsLab: new ModeratorsLab({ gateway: partyGateway, servers }),
     // Raid simulations for `/counters`, with ten minutes of memory of each answer.
     pokebattler: new PokebattlerFight({ fetch: (url, init) => fetch(url, init), log }),
     // Places by name for `/find-region`; without settings.findRegion the command is not offered.

@@ -9,6 +9,7 @@ import type { DB } from '../../src/db/types.js';
 import type { AttendanceService } from '../../src/services/attendance-service.js';
 import type { GymAdminService } from '../../src/services/gym-admin-service.js';
 import type { PokemonNicknames } from '../../src/services/pokemon-search-service.js';
+import type { ModeratorsLabPoster } from '../../src/services/moderators-lab.js';
 import type { RaidBossAdmin } from '../../src/services/raid-boss-service.js';
 import type { PartyService } from '../../src/services/party-service.js';
 import { PlaceFinder } from '../../src/services/place-finder.js';
@@ -270,6 +271,10 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     loginLinks: new LoginLinks(),
     // Every issue is recorded and opened; a test passes its own to read or fail them.
     issues: new FakeIssues(),
+    moderatorsLab: unavailable<ModeratorsLabPoster>(
+      'moderatorsLab',
+      'pass a ModeratorsLab over a FakePartyGateway with the lab channel',
+    ),
     // Every simulation is asked of a fake that answers the sample for Mewtwo; a test passes its own.
     pokebattler: new FakePokebattler(),
     // No place is found by name; a test passes its own with places.

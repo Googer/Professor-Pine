@@ -28,6 +28,7 @@ import type { GameDataProvider } from './services/game-data-service.js';
 import type { GymAdminService } from './services/gym-admin-service.js';
 import type { GymProvider } from './services/gym-directory.js';
 import type { IssueGateway } from './services/issue-gateway.js';
+import type { ModeratorsLabPoster } from './services/moderators-lab.js';
 import type { PartyService } from './services/party-service.js';
 import type { PineStopService } from './services/pine-stops.js';
 import type { ResearchTaskProvider } from './services/research-task-service.js';
@@ -259,8 +260,13 @@ export interface AppContext {
   readonly maps: MapProvider;
   /** The month's maps of places, which `/find-region` takes one of for each it downloads. */
   readonly mapBudget: MapBudget;
-  /** The issues of the GitHub repository that `/request` sends gym requests to. */
+  /**
+   * The issues of the instance's GitHub repository, which `/request` sends a server's gym requests
+   * to where the instance serves that server with it (plan 19B-4).
+   */
   readonly issues: IssueGateway;
+  /** A server's moderators' bot lab: where `/request` posts the gym requests of the others. */
+  readonly moderatorsLab: ModeratorsLabPoster;
   /** Pokebattler's raid simulations, which `/counters` shows. */
   readonly pokebattler: PokebattlerGateway;
   /** Places by name (OpenStreetMap's Nominatim), which `/find-region` looks up. */
