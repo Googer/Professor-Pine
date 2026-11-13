@@ -123,7 +123,7 @@ It builds the bot's image (the first time takes a few minutes), then reads the l
 
 It never overwrites either file unless you add `--force`. It reads your private settings, so run it yourself; it prints only names and "set" or "empty", never a secret.
 
-The keys of `pine-settings.json` that are your server's (the channels, the PvP category, the Unown role, `features`, `distanceUnits`, the events forum's numbers, the flagged words, the forums' ending, `postNewGyms`, `regionMapLink`, the map's member role and your server's invite) are where your server starts: the first time the new bot starts in it, they are copied into its database, the names looked up in your server (one it lacks stays unset, and the moderators' bot lab is told which). From then on staff change them with `/admin settings`, by picking the channel or role, and editing them in the file changes nothing for your server.
+The keys of `pine-settings.json` that are your server's (the channels, the PvP category, the Unown role, `features`, `distanceUnits`, the events forum's numbers, the flagged words, the words gym search ignores (`blacklistWords`), the forums' ending, `postNewGyms`, `regionMapLink`, the map's member role and your server's invite) are where your server starts: the first time the new bot starts in it, they are copied into its database, the names looked up in your server (one it lacks stays unset, and the moderators' bot lab is told which). From then on staff change them with `/admin settings`, by picking the channel or role, and editing them in the file changes nothing for your server.
 
 Read what it prints, especially:
 
