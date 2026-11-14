@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-13T16:45",
+  "updated": "2026-11-13T19:51",
   "items": [
     {
       "id": "0",
@@ -12398,7 +12398,64 @@ window.GANTT = {
       ],
       "scope": "Wayspots keyed by server, the import and review per server, Google’s answers by point, lookup lines by server",
       "doneWhen": "Merged into main-dev",
-      "status": "unplanned"
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T14:19",
+        "end": "2026-11-13T19:51",
+        "review": {
+          "start": "2026-11-13T15:43",
+          "end": "2026-11-13T19:48"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T19:48",
+        "end": "2026-11-13T19:48"
+      }
+    },
+    {
+      "id": "19B-3.1",
+      "kind": "task",
+      "parent": "19B-3",
+      "name": "Wayspots per server: the table and the upgrade's copies",
+      "status": "done",
+      "start": "2026-11-13T18:12",
+      "end": "2026-11-13T18:12"
+    },
+    {
+      "id": "19B-3.2",
+      "kind": "task",
+      "parent": "19B-3",
+      "name": "Every reader of Wayspots takes its server",
+      "status": "done",
+      "start": "2026-11-13T18:12",
+      "end": "2026-11-13T19:27"
+    },
+    {
+      "id": "19B-3.3",
+      "kind": "task",
+      "parent": "19B-3",
+      "name": "The import and review keep the server's Wayspots alone",
+      "status": "done",
+      "start": "2026-11-13T19:27",
+      "end": "2026-11-13T19:27"
+    },
+    {
+      "id": "19B-3.4",
+      "kind": "task",
+      "parent": "19B-3",
+      "name": "Google's answers by the place, the lines per server",
+      "status": "done",
+      "start": "2026-11-13T19:27",
+      "end": "2026-11-13T19:48"
+    },
+    {
+      "id": "19B-3.5",
+      "kind": "task",
+      "parent": "19B-3",
+      "name": "Docs",
+      "status": "done",
+      "start": "2026-11-13T19:48",
+      "end": "2026-11-13T19:48"
     },
     {
       "id": "19B-4",
