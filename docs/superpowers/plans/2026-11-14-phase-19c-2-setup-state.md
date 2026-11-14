@@ -12,15 +12,15 @@
 
 **Brief:** `.superpowers/sdd/19c-onboarding/brief-19c2.md` (with `split.md` and `survey.md`); fix rounds `19c2-fix-round-1.md` to `19c2-fix-round-3.md` there; ledger `progress.md`.
 
-**How it was built.** Prototyped on `proto-19c2` from 19C-1's prototype, with a ruling: `/admin setup` and `/admin settings` (and the region paths a first region needs) accept the server's owner and members with Manage Server, since a new community's staff may lack the role names. An Opus review (3 Important: messages to the bot read past the gate, set up decided by the table being empty, the ruling across the region paths; 8 Minor), folded (fix round 1); a re-review (1 Important: the web editor let a Manage Server member remove a region `/region remove` refused them; 3 Minor) and the controller's rulings on the round's questions (`setup-forums` for those who set a server up, its answer true in setup, `/help` by the guards), folded with two rebases onto 19C-1 as merged (round 2); a re-review (3 Minor), folded (round 3). The reviewed commits are the plan's commits (no transcription).
+**How it was built.** Prototyped on `proto-19c2` from 19C-1's prototype, with a ruling: `/admin setup` and `/admin settings` (and the region paths a first region needs) accept the server's owner and members with Manage Server, since a new community's staff may lack the role names. An Opus review (3 Important: messages to the bot read past the gate, set up decided by the table being empty, the ruling across the region paths; 8 Minor), folded (fix round 1); a re-review (1 Important: the web editor let a Manage Server member remove a region `/region remove` refused them; 3 Minor) and the controller's rulings on the round's questions (`setup-forums` for those who set a server up, its answer true in setup, `/help` by the guards), folded with two rebases onto 19C-1 as merged (round 2); a re-review (3 Minor), folded (round 3); a test of the full check (a unit named by hand in the checklist) folded into task 3 before the merge. The reviewed commits are the plan's commits (no transcription).
 
 | Task | Commit | Title |
 |---|---|---|
 | 1 | `038132bdc` | 19C-2 1: a server in setup answers only what its setup needs |
 | 2 | `20e40a46a` | 19C-2 2: nothing posts, sends or sweeps for a server in setup |
-| 3 | `87ca8de70` | 19C-2 3: the setup checklist, and leaving setup once its required items are done |
-| 4 | `495d5510f` | 19C-2 4: an open instance starts a server from the code's defaults |
-| 5 | `fd96948fb` | 19C-2 5: docs of the setup state |
+| 3 | `ac420e18b` | 19C-2 3: the setup checklist, and leaving setup once its required items are done |
+| 4 | `48a429fb9` | 19C-2 4: an open instance starts a server from the code's defaults |
+| 5 | `823c038e8` | 19C-2 5: docs of the setup state |
 
 On the tip: `npm run check`, `npm run build`, `npm run test:db`, one at a time, each judged by its exit status.
 

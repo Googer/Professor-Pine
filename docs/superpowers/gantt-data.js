@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-14T00:48",
+  "updated": "2026-11-14T01:05",
   "items": [
     {
       "id": "0",
@@ -12759,15 +12759,15 @@ window.GANTT = {
       "status": "done",
       "planning": {
         "start": "2026-11-13T20:22",
-        "end": "2026-11-14T00:48",
+        "end": "2026-11-14T01:04",
         "review": {
           "start": "2026-11-13T21:09",
           "end": "2026-11-14T00:40"
         }
       },
       "review": {
-        "start": "2026-11-14T00:40",
-        "end": "2026-11-14T00:40"
+        "start": "2026-11-14T01:04",
+        "end": "2026-11-14T01:04"
       }
     },
     {
@@ -12795,7 +12795,7 @@ window.GANTT = {
       "name": "The setup checklist, and leaving setup once its required items are done",
       "status": "done",
       "start": "2026-11-14T00:39",
-      "end": "2026-11-14T00:39"
+      "end": "2026-11-14T01:04"
     },
     {
       "id": "19C-2.4",
@@ -12803,8 +12803,8 @@ window.GANTT = {
       "parent": "19C-2",
       "name": "An open instance starts a server from the code's defaults",
       "status": "done",
-      "start": "2026-11-14T00:39",
-      "end": "2026-11-14T00:40"
+      "start": "2026-11-14T01:04",
+      "end": "2026-11-14T01:04"
     },
     {
       "id": "19C-2.5",
@@ -12812,8 +12812,8 @@ window.GANTT = {
       "parent": "19C-2",
       "name": "Docs of the setup state",
       "status": "done",
-      "start": "2026-11-14T00:40",
-      "end": "2026-11-14T00:40"
+      "start": "2026-11-14T01:04",
+      "end": "2026-11-14T01:04"
     },
     {
       "id": "19C-3",
