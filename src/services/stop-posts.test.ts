@@ -120,7 +120,7 @@ async function postsWith(
       log,
       now: () => clock.now,
       delayMs: 0,
-      left: { isLeft: (serverId) => left.has(serverId) },
+      quiet: { isQuiet: (serverId) => left.has(serverId) },
       changed: (channelId) => changes.push(channelId),
       ...(pictures ? { pictures } : {}),
     });

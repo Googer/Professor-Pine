@@ -390,10 +390,10 @@ export async function partyServiceWith(
     storage: grants,
     log,
     now,
-    // A server Pine left (plan 19C-1): its grants are not swept.
-    ...(forService.left === undefined
+    // A quiet server (plans 19C-1, 19C-2): its grants are not swept.
+    ...(forService.quiet === undefined
       ? {}
-      : { left: forService.left, serverOfRow: (row) => testServerOfRow(row, gateway.guildId) }),
+      : { quiet: forService.quiet, serverOfRow: (row) => testServerOfRow(row, gateway.guildId) }),
   });
   await access.load();
   const tags = kept?.tags ?? {

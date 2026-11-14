@@ -24,7 +24,7 @@ import {
 } from 'discord.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { LeftServers } from '../services/server-standings.js';
+import type { QuietServers } from '../services/quiet-servers.js';
 import type { Logger } from '../log.js';
 import type { ServerChannel } from '../domain/regions/region-import.js';
 import {
@@ -595,7 +595,7 @@ export interface PartyGateway {
   /**
    * Whether Discord says a server is available, from the cache: false during an outage of its
    * (when its channels may be out of date, so none can be said to be gone) and for a server the
-   * bot is not in (plan 19B-1), one Pine left among them (plan 19C-1). What tells a server's staff
+   * bot is not in (plan 19B-1), a quiet one among them (plans 19C-1, 19C-2). What tells a server's staff
    * that a channel is gone asks it first.
    */
   serverAvailable(guildId: string): boolean;
@@ -1294,13 +1294,13 @@ export class DiscordPartyGateway implements PartyGateway {
    * reactions on a board's message it could not remove.
    */
   /**
-   * `left`: the servers Pine left (plan 19C-1, `ServerStandings`), which discord.js may keep in its
+   * `quiet`: the quiet servers (plans 19C-1, 19C-2): one Pine left, which discord.js may keep in its
    * cache (one that removed the bot while its shard was away): none of the bot's servers for
    * `serverAvailable`.
    */
   constructor(
     private readonly log?: Logger,
-    private readonly left?: LeftServers,
+    private readonly quiet?: QuietServers,
   ) {}
 
   /**
@@ -2467,7 +2467,7 @@ export class DiscordPartyGateway implements PartyGateway {
   }
 
   serverAvailable(guildId: string): boolean {
-    if (this.left?.isLeft(guildId) === true) return false;
+    if (this.quiet?.isQuiet(guildId) === true) return false;
     return this.client.guilds.cache.get(guildId)?.available === true;
   }
 

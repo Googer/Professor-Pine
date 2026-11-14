@@ -6,7 +6,7 @@ import { isLeaderOrGiovanni } from '../domain/rocket/lineups.js';
 import { localDay } from '../domain/time/local-day.js';
 import { taskOfSubject } from '../domain/research/reports.js';
 import type { ReportedStop, RocketReport } from '../domain/stops/report.js';
-import type { LeftServers } from './server-standings.js';
+import type { QuietServers } from './quiet-servers.js';
 import type { Logger } from '../log.js';
 import { postLink } from '../render/notify-dm.js';
 import { hideoutLine, researchLine } from '../render/stop-lines.js';
@@ -24,10 +24,10 @@ interface Waiting {
 
 export interface StopLineServiceOptions {
   /**
-   * The servers Pine left (plan 19C-1, `ServerStandings`): their lines are kept, not deleted,
+   * The quiet servers (`QuietServers`, plans 19C-1 and 19C-2): their lines are kept, not deleted,
    * until they are back.
    */
-  left?: LeftServers;
+  quiet?: QuietServers;
   storage: StopLineStorage;
   /** The reports at stops: research that is news, and hideouts reported (`hideoutReported`). */
   reports: Pick<StopReportService, 'listen'>;
@@ -257,7 +257,7 @@ export class StopLineService {
       .zonesInUse()
       .map((zone) => localDay(now, zone))
       .reduce((one, other) => (other > one ? other : one));
-    const kept = (line: StopLineKey) => this.options.left?.isLeft(line.serverId) !== true;
+    const kept = (line: StopLineKey) => this.options.quiet?.isQuiet(line.serverId) !== true;
     for (const line of (await storage.before(latest)).filter(ended).filter(kept)) {
       if (line.messageId !== null) {
         try {

@@ -99,7 +99,7 @@ function linesWith(servers = new TestServers(), left: ReadonlySet<string> = new 
       guilds: { idFor: (id) => Promise.resolve(id === FAKE_GUILD_ID ? 1 : undefined) },
       gateway: held,
       servers,
-      left: { isLeft: (serverId) => left.has(serverId) },
+      quiet: { isQuiet: (serverId) => left.has(serverId) },
       log,
       now: () => clock.now,
     });

@@ -50,7 +50,7 @@ export interface PartySchedulerOptions {
     | 'sweepPosts'
     | 'checkSummaries'
     | 'whileOpen'
-    | 'ofLeftServer'
+    | 'ofQuietServer'
   >;
   attendance: Pick<AttendanceService, 'ask' | 'removeQuestions'>;
   /** The access of members of other regions, whose leftovers are swept with the forums. */
@@ -309,8 +309,8 @@ export class PartyScheduler {
     };
     for (const party of store.active()) {
       if (this.stopped) return;
-      // A server Pine left (plan 19C-1): its parties wait as they are, until it is back.
-      if (posts.ofLeftServer(party)) continue;
+      // A quiet server (plans 19C-1, 19C-2): its parties wait as they are, until it is back.
+      if (posts.ofQuietServer(party)) continue;
       const { id } = party;
       try {
         await this.tickParty(id, inputOf);

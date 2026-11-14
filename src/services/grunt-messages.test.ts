@@ -21,7 +21,7 @@ import { watchForTest } from '../../test/support/timers.js';
 import { ENCOUNTER_PICTURE } from '../domain/stops/pictures.js';
 import type { RocketReport, StopReport } from '../domain/stops/report.js';
 import { GIVE_UP_MS, GruntMessageService } from './grunt-messages.js';
-import type { LeftServers } from './server-standings.js';
+import type { QuietServers } from './quiet-servers.js';
 import type { PictureMaker } from './stop-pictures.js';
 import type { StopReportListener } from './stop-reports.js';
 
@@ -37,7 +37,7 @@ const grunt = (id: number, overrides: Partial<Omit<RocketReport, 'id'>> = {}): R
  * A service over a store and the fake gateway; `again()` is the service of the next process.
  * `left`: the servers Pine left (plan 19C-1).
  */
-function messagesWith(pictures?: PictureMaker, left?: LeftServers) {
+function messagesWith(pictures?: PictureMaker, quiet?: QuietServers) {
   const gateway = new FakePartyGateway();
   const store = new MemoryGruntMessages();
   const clock = { now: REPORT_NOW };
@@ -86,7 +86,7 @@ function messagesWith(pictures?: PictureMaker, left?: LeftServers) {
       store,
       reports: { listen: (listener) => listeners.push(listener) },
       ...(pictures ? { pictures } : {}),
-      ...(left ? { left } : {}),
+      ...(quiet ? { quiet } : {}),
       log,
       now: () => clock.now,
       setTimer: (run, ms) => {
@@ -622,7 +622,7 @@ describe('GruntMessageService', () => {
 
   it('keeps the messages of a server Pine left through the sweeps, and deletes them once it is back (plan 19C-1)', async () => {
     const left = new Set<string>();
-    const made = messagesWith(undefined, { isLeft: (serverId) => left.has(serverId) });
+    const made = messagesWith(undefined, { isQuiet: (serverId) => left.has(serverId) });
     const [posted] = await made.messages.post(grunt(1), [WEST_CHANNEL]);
     await made.messages.close();
     left.add(REPORT_SERVER);

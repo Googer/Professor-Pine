@@ -10,6 +10,7 @@ import { UserError } from '../../discord/errors.js';
 import { requireGuild } from '../../discord/guards.js';
 import { memberInfo } from '../../discord/member-info.js';
 import { askedShots, saysNothing } from '../../discord/screenshot-message.js';
+import { IN_SETUP } from '../../discord/set-up.js';
 import { MENTION_THROTTLE, type AskedMessage, type NotRead } from './mention.js';
 import { START_BY_MS } from './read-screenshot.js';
 
@@ -27,6 +28,7 @@ const REGION_CHANNELS_ONLY = 'I read screenshots only from messages in a region 
  * A mention in such a place draws no answer at all; a command must give one.
  */
 const NOT_READ: Readonly<Record<NotRead, string>> = {
+  'in-setup': IN_SETUP,
   'no-picture': 'That message has no picture I can read.',
   post: REGION_CHANNELS_ONLY,
   'no-region': REGION_CHANNELS_ONLY,

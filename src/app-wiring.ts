@@ -6,7 +6,8 @@ import type { PartyStore } from './services/party-store.js';
 import type { PictureMaking } from './services/research-task-service.js';
 import type { ServerAdmission } from './services/server-admission.js';
 import type { ServerSettingsLookup } from './services/server-settings.js';
-import type { LeftServers, ServerStandings } from './services/server-standings.js';
+import type { QuietServers } from './services/quiet-servers.js';
+import type { ServerStandings } from './services/server-standings.js';
 import type { SpawnService } from './services/spawn-service.js';
 import type { StopReportListener } from './services/stop-reports.js';
 import type { ShutdownStep } from './shutdown.js';
@@ -211,13 +212,30 @@ export function followLeaving(
 /**
  * The servers Pine is in by their `Guild` rows (`GuildRepository.snowflakes`), for what must know
  * them before the login (the Google line's ranks, plan 8Z-2): since plan 19C-1 a server Pine left
- * keeps its row, so those it left are left out (`ServerStandings.isLeft`, read at each call).
+ * keeps its row, so the quiet ones are left out (those left, and those in setup, plan 19C-2:
+ * `QuietServers`, read at each call).
  */
-export function serversNotLeft(
+export function serversNotQuiet(
   snowflakes: () => Promise<readonly string[]>,
-  left: LeftServers,
+  quiet: QuietServers,
 ): () => Promise<string[]> {
-  return async () => (await snowflakes()).filter((serverId) => !left.isLeft(serverId));
+  return async () => (await snowflakes()).filter((serverId) => !quiet.isQuiet(serverId));
+}
+
+/**
+ * A listener of the messages posted (`MessageCreate`) that passes over those of a quiet server
+ * (plan 19C-2, S1: Pine left it, or it is in setup) before anything looks at them: the region's
+ * board keeps nothing of it, the screenshot trigger reads nothing, no post counts as active. A
+ * direct message is of no server, and goes on.
+ */
+export function notOfQuietServers<M extends { guildId: string | null }>(
+  quiet: QuietServers,
+  listener: (message: M) => void,
+): (message: M) => void {
+  return (message) => {
+    if (message.guildId !== null && quiet.isQuiet(message.guildId)) return;
+    listener(message);
+  };
 }
 
 /** Something the shutdown closes and waits for. */

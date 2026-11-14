@@ -7,6 +7,7 @@ import { AUTHOR, OTHER, posted } from '../../../test/support/posted-message.js';
 import { gymsFixture } from '../../../test/support/providers.js';
 import { screenshotsWith } from '../../../test/support/screenshot-service.js';
 import { eggReading, readingOf, splitOutcome } from '../../../test/support/screenshots.js';
+import { TestServers } from '../../../test/support/server-values.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { Region } from '../../db/repositories/region-repository.js';
@@ -41,6 +42,8 @@ const MINUTE = 60_000;
 const THIRD = '700000000000000003';
 /** A post of a forum, and the region's board among them. */
 const POST = '850000000000000001';
+/** A server that just added Pine, in setup (plan 19C-2), beside the fakes' server, set up. */
+const IN_SETUP_SERVER = '412345678901234599';
 
 async function setup(
   options: {
@@ -49,6 +52,8 @@ async function setup(
     rehearsal?: Rehearsal;
     board?: boolean;
     watch?: ScreenshotServiceOptions['tierWatch'];
+    /** The servers' settings (plan 19C-2: one in setup). */
+    servers?: TestServers;
   } = {},
 ) {
   const gyms = gymsFixture(options.gyms ?? []);
@@ -60,6 +65,15 @@ async function setup(
     parties: made.store,
     regions: made.regions,
     screenshots: shots.screenshots,
+    // With a `Guild` row of its own, as a server in setup has (its fill wrote it).
+    ...(options.servers
+      ? {
+          servers: options.servers,
+          guilds: {
+            idFor: (snowflake: string) => Promise.resolve(snowflake === IN_SETUP_SERVER ? 3 : 1),
+          },
+        }
+      : {}),
   });
   const ocr = { ...base.config.settings.ocr, passive: false, enabled: options.enabled ?? true };
   const ctx = {
@@ -401,6 +415,28 @@ describe('a message’s screenshots read because a member asked (plan 7M)', () =
       const three = posted([closing.image('a.png', egg())], { mentionsBot: false });
       expect(await closing.trigger.readFor(asked(three.message), asker())).toBe('closing');
       for (const { did } of [one, two, three]) expect(did).toEqual([]);
+    });
+
+    it('of a server in setup, posted or asked for, and reads the other server’s (plan 19C-2)', async () => {
+      const servers = new TestServers();
+      servers.settingUp.add(IN_SETUP_SERVER);
+      const { trigger, image, reader, store } = await setup({ servers });
+      const asked1 = posted([image('a.png', egg())], {
+        mentionsBot: false,
+        guildId: IN_SETUP_SERVER,
+      });
+      expect(await trigger.readFor(asked(asked1.message), asker())).toBe('in-setup');
+      const mention = posted([image('b.png', egg())], { guildId: IN_SETUP_SERVER });
+      expect(await trigger.handle(mention.message)).toBe(false);
+      for (const { did, replies } of [asked1, mention]) {
+        expect(did).toEqual([]);
+        expect(replies).toEqual([]);
+      }
+      expect(reader.reads).toBe(0);
+      // The server set up reads it.
+      const there = posted([image('c.png', egg())], { mentionsBot: false });
+      expect(await trigger.readFor(asked(there.message), asker())).toBeUndefined();
+      expect(store.active()).toHaveLength(1);
     });
 
     it('a message it is reading already, for whoever asks meanwhile', async () => {

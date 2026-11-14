@@ -1,6 +1,6 @@
 import { forumRefusedWords } from '../render/server-notices.js';
 import type { ServerNotices } from './server-notices.js';
-import type { LeftServers } from './server-standings.js';
+import type { QuietServers } from './quiet-servers.js';
 import { DiscordAPIError } from 'discord.js';
 import { isNetworkError } from './network-error.js';
 import type { Settings } from '../config/settings.js';
@@ -776,11 +776,12 @@ export interface PartyServiceOptions {
    */
   serverOfRow?: (row: number) => string | undefined;
   /**
-   * The servers Pine left (plan 19C-1, `ServerStandings`): their parties are not drawn, their
-   * summaries neither drawn nor made, their posts and copies neither swept nor closed again, and
-   * the clock passes over them (`ofLeftServer`); nothing of them is ended. Without it, none.
+   * The quiet servers (`QuietServers`: those Pine left, plan 19C-1, and those in setup, plan
+   * 19C-2): their parties are not drawn, their summaries neither drawn nor made, their posts and
+   * copies neither swept nor closed again, and the clock passes over them (`ofQuietServer`);
+   * nothing of them is ended. Without it, none.
    */
-  left?: LeftServers;
+  quiet?: QuietServers;
   /**
    * What is wrong with a server's setup, told to its staff in its moderators' bot lab (plan
    * 19B-1, `ServerNotices`): a forum the bot may not make posts in.
@@ -1224,27 +1225,28 @@ export class PartyService {
   }
 
   /**
-   * Whether the server of a party (or of a region, by its `Guild` row) is one Pine left (plan
-   * 19C-1): the clock passes over it, nothing of it is drawn, and its board is not swept.
+   * Whether the server of a party (or of a region, by its `Guild` row) is quiet (Pine left it,
+   * plan 19C-1, or it is in setup, plan 19C-2): the clock passes over it, nothing of it is drawn,
+   * and its board is not swept.
    */
-  ofLeftServer(of: { guildId: number | null }): boolean {
-    return this.leftRow(of.guildId);
+  ofQuietServer(of: { guildId: number | null }): boolean {
+    return this.quietRow(of.guildId);
   }
 
-  /** Whether the server of a `Guild` row is one Pine left. */
-  private leftRow(row: number | null): boolean {
-    const { left } = this.options;
-    if (left === undefined) return false;
+  /** Whether the server of a `Guild` row is quiet. */
+  private quietRow(row: number | null): boolean {
+    const { quiet } = this.options;
+    if (quiet === undefined) return false;
     const server = this.serverOfRow(row);
-    return server !== undefined && left.isLeft(server);
+    return server !== undefined && quiet.isQuiet(server);
   }
 
-  /** Whether a channel is in a server Pine left, by the gateway's cache. */
-  private leftChannel(channelId: string | undefined): boolean {
-    const { left, gateway } = this.options;
-    if (left === undefined || channelId === undefined) return false;
+  /** Whether a channel is in a quiet server, by the gateway's cache. */
+  private quietChannel(channelId: string | undefined): boolean {
+    const { quiet, gateway } = this.options;
+    if (quiet === undefined || channelId === undefined) return false;
     const server = gateway.serverOf(channelId);
-    return server !== undefined && left.isLeft(server);
+    return server !== undefined && quiet.isQuiet(server);
   }
 
   /** The server of a `Guild` row: `serverOfRow`'s, else as the summary learned it. */
@@ -2896,8 +2898,8 @@ export class PartyService {
     // The round starts anew: what waited is in it again.
     this.emojiQueue.clear();
     for (const party of this.options.store.active()) {
-      // A server Pine left draws nothing (plan 19C-1): its posts take no turn of the pace.
-      if (party.forumPostId !== null && !this.ofLeftServer(party)) {
+      // A quiet server draws nothing (plans 19C-1, 19C-2): its posts take no turn of the pace.
+      if (party.forumPostId !== null && !this.ofQuietServer(party)) {
         this.emojiQueue.put(party.guildId, party.id);
       }
     }
@@ -2993,7 +2995,7 @@ export class PartyService {
     }
     for (const party of this.options.store.active()) {
       if (party.forumPostId === null || !ofServer(party.guildId)) continue;
-      if (this.ofLeftServer(party)) continue;
+      if (this.ofQuietServer(party)) continue;
       if (this.emojiQueue.has(party.guildId, (id) => id === party.id)) continue;
       this.emojiQueue.put(party.guildId, party.id);
     }
@@ -3573,7 +3575,7 @@ export class PartyService {
       const undone = this.undoneClosings.get(partyId);
       if (!undone) continue;
       // Kept for when its server is back (plan 19C-1).
-      if (this.leftRow(undone.party.guildId)) continue;
+      if (this.quietRow(undone.party.guildId)) continue;
       if (undone.since < tooOld) {
         this.undoneClosings.delete(partyId);
         continue;
@@ -3631,7 +3633,7 @@ export class PartyService {
         const channelId = copy.channelId ?? region?.channelId;
         // Kept for when its server is back (plan 19C-1): by its region's server, else by the
         // server its channel is in (a copy in another channel names no region).
-        if (region !== undefined ? this.leftRow(region.guildId) : this.leftChannel(channelId)) {
+        if (region !== undefined ? this.quietRow(region.guildId) : this.quietChannel(channelId)) {
           continue;
         }
         try {
@@ -3677,11 +3679,11 @@ export class PartyService {
     // The forums of the regions, and the forums that party rows name and no region has: one
     // whose region was removed and that was kept (`/region remove`) is looked after as before.
     const forums = new Map<string, number | null>();
-    // A server Pine left is not swept (plan 19C-1): its forums are left as they are.
+    // A quiet server is not swept (plans 19C-1, 19C-2): its forums are left as they are.
     const leftForums = new Set<string>();
     for (const region of regions.all()) {
       if (region.forumChannelId === null) continue;
-      if (this.leftRow(region.guildId)) leftForums.add(region.forumChannelId);
+      if (this.quietRow(region.guildId)) leftForums.add(region.forumChannelId);
       else forums.set(region.forumChannelId, region.id);
     }
     try {
@@ -3765,8 +3767,8 @@ export class PartyService {
    */
   async checkSummaries(): Promise<void> {
     for (const region of this.options.regions.all()) {
-      // A server Pine left: no summary drawn, none made (plan 19C-1).
-      if (region.forumChannelId === null || this.leftRow(region.guildId)) continue;
+      // A quiet server: no summary drawn, none made (plans 19C-1, 19C-2).
+      if (region.forumChannelId === null || this.quietRow(region.guildId)) continue;
       try {
         await this.ensureSummary(region);
       } catch (err) {
@@ -3941,9 +3943,10 @@ export class PartyService {
 
   /** One run of the render of a party: its post, then the copies of its message. */
   private async renderPost(partyId: string): Promise<void> {
-    // Of a server Pine left (plan 19C-1): a draw would find the post gone and end the party.
+    // Of a quiet server (plans 19C-1, 19C-2): a draw of a server Pine left would find the post
+    // gone and end the party.
     const party = this.options.store.get(partyId);
-    if (party !== undefined && this.leftRow(party.guildId)) return;
+    if (party !== undefined && this.quietRow(party.guildId)) return;
     const read = this.drawStarted(partyId);
     try {
       await this.showPost(partyId);
@@ -4201,8 +4204,8 @@ export class PartyService {
   private async renderSummary(regionId: number): Promise<void> {
     const region = this.options.regions.byId(regionId);
     if (!region?.forumChannelId || !region.summaryMessageId) return;
-    // Of a server Pine left (plan 19C-1).
-    if (this.leftRow(region.guildId)) return;
+    // Of a quiet server (plans 19C-1, 19C-2).
+    if (this.quietRow(region.guildId)) return;
     const failed = region.summaryMessageId;
     const { gateway, log } = this.options;
     const check = this.boardChecks.delete(regionId);

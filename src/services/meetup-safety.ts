@@ -62,7 +62,7 @@ import { forumBarred } from './forum-access.js';
 import type { RegionProvider } from './region-directory.js';
 import { moderatorsNamed } from '../config/server-settings.js';
 import type { ServerSettingsLookup } from './server-settings.js';
-import type { LeftServers } from './server-standings.js';
+import type { QuietServers } from './quiet-servers.js';
 
 /** Who asks for a check of a place: the maker, in a server, and whether they are staff. */
 export interface PlaceAsk {
@@ -206,11 +206,11 @@ export interface MeetupSafetyOptions {
   log: Logger;
   now?: () => number;
   /**
-   * The servers Pine left (plan 19C-1, `ServerStandings`): their requests, appeals, asks and
+   * The quiet servers (`QuietServers`, plans 19C-1 and 19C-2): their requests, appeals, asks and
    * approvals are not expired nor failed, and nobody is told, until the server is back (or plan
    * 19C-3 deletes them).
    */
-  left?: LeftServers;
+  quiet?: QuietServers;
 }
 
 /**
@@ -277,7 +277,9 @@ export class MeetupSafety {
    * a channel of the file not found was told by the fill (the row's marker), and a lookup that
    * failed is the bot's own. A server Discord says is unavailable (`serverAvailable`; those its
    * shard's READY said unavailable among them) is passed over, nothing of it checked or said gone,
-   * and named in a line of its own (fix round 2, G5). Never throws.
+   * and named in a line of its own (fix round 2, G5); so is a quiet server (`quiet`: Pine left
+   * it, or it is in setup, plan 19C-2), whose staff are told nothing until it is set up (then
+   * `ServerSetup`'s hook asks for it alone). Never throws.
    */
   warnAtStart(guildIds: readonly string[]): void {
     const { gateway, servers, notices, log } = this.options;
@@ -292,6 +294,12 @@ export class MeetupSafety {
       }
     };
     for (const server of guildIds) {
+      // A quiet server (Pine left it, or it is in setup: plan 19C-2) is passed over, by name: its
+      // staff are told nothing, and it is no outage of Discord's.
+      if (this.options.quiet?.isQuiet(server) === true) {
+        add('quiet', server);
+        continue;
+      }
       // Unavailable (an outage of Discord's): its channels, and what the fill found of them, may
       // be out of date; it is only named (fix round 2, G5).
       if (!gateway.serverAvailable(server)) {
@@ -1549,15 +1557,15 @@ export class MeetupSafety {
    * expired, its post edited and its maker told. Answers how many. Also while the safety is off:
    * the requests made before it was turned off end all the same. Then the approvals that never
    * got their meetup (the bot stopped in between) fail once they are `STRANDED_MS` old: their
-   * posts are edited and their makers told. Nothing of a server Pine left (plan 19C-1, `left`):
+   * posts are edited and their makers told. Nothing of a quiet server (plans 19C-1, 19C-2, `quiet`):
    * its records wait for its return.
    */
   async expire(): Promise<number> {
     const { storage, log } = this.options;
     const now = this.now();
-    // A server Pine left (plan 19C-1): its records wait as they are.
+    // A quiet server (plans 19C-1, 19C-2): its records wait as they are.
     const kept = (record: { serverId: string }): boolean =>
-      this.options.left?.isLeft(record.serverId) !== true;
+      this.options.quiet?.isQuiet(record.serverId) !== true;
     const due = (await storage.duePending(now)).filter(kept);
     let expired = 0;
     for (const request of due) {
@@ -1759,6 +1767,7 @@ const START_WARNINGS = [
   'gone',
   'cannot-post',
   'unavailable',
+  'quiet',
   'lookup-failed',
 ] as const;
 type StartWarning = (typeof START_WARNINGS)[number];
@@ -1772,6 +1781,8 @@ const START_WORDS: Readonly<Record<StartWarning, string>> = {
     "the bot cannot post in the moderators' channel of these servers (View Channel, Send Messages, Embed Links): meetups that need a moderator's approval cannot be made there",
   unavailable:
     "could not check the moderators' channel of these servers: Discord says they are unavailable",
+  quiet:
+    "did not check the moderators' channel of these servers: Pine left them, or they are in setup",
   'lookup-failed': "could not look for the moderators' channel of these servers",
 };
 

@@ -49,7 +49,9 @@ describe('PartyService: the copies ended parties left', () => {
       ended: { how: 'clock' },
     }));
     const servers = new Set([made.gateway.guildId]);
-    const again = await restarted(made, { left: { isLeft: (serverId) => servers.has(serverId) } });
+    const again = await restarted(made, {
+      quiet: { isQuiet: (serverId) => servers.has(serverId) },
+    });
     expect(await again.service.sweepCopies()).toEqual({ swept: 0, failed: 0 });
     expect(outside(made)).toBe(2);
     servers.clear();

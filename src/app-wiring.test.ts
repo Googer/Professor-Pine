@@ -18,9 +18,10 @@ import {
   followServers,
   followZones,
   liveSources,
+  notOfQuietServers,
   picturesServed,
   reportPictures,
-  serversNotLeft,
+  serversNotQuiet,
   shardStartWork,
   stopReportSteps,
 } from './app-wiring.js';
@@ -543,7 +544,9 @@ describe('a server joining and removing Pine (plan 19C-1)', () => {
 
   it('gives the servers Pine is in by their rows, never one it left (J6)', async () => {
     const made = followed();
-    const recorded = serversNotLeft(() => Promise.resolve([RECORDED, STRANGER]), made.standings);
+    const recorded = serversNotQuiet(() => Promise.resolve([RECORDED, STRANGER]), {
+      isQuiet: (serverId) => made.standings.isLeft(serverId),
+    });
     expect(await recorded()).toEqual([RECORDED, STRANGER]);
     await made.servers.removed(RECORDED);
     expect(await recorded()).toEqual([STRANGER]);
@@ -593,5 +596,24 @@ describe('a server joining and removing Pine (plan 19C-1)', () => {
     expect(made.entries.some((entry) => entry['msg'] === 'could not mark a server left')).toBe(
       true,
     );
+  });
+});
+
+describe('the messages of a quiet server (plan 19C-2, S1)', () => {
+  it('passes over a message of a server in setup or left before anything looks at it', () => {
+    const SET_UP = '412345678901234567';
+    const IN_SETUP = '412345678901234599';
+    const seen: (string | null)[] = [];
+    const listener = notOfQuietServers(
+      { isQuiet: (serverId) => serverId === IN_SETUP },
+      (message) => {
+        seen.push(message.guildId);
+      },
+    );
+    listener({ guildId: IN_SETUP });
+    listener({ guildId: SET_UP });
+    // A direct message is of no server.
+    listener({ guildId: null });
+    expect(seen).toEqual([SET_UP, null]);
   });
 });

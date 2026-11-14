@@ -767,6 +767,24 @@ describe('MeetupSafety.warnAtStart', () => {
     ]);
   });
 
+  // Plan 19C-2, S10: a quiet server is passed over by name, never taken for one Discord says is
+  // unavailable, and its staff are told nothing.
+  it('says which servers it passed over for being quiet: in setup, or left', async () => {
+    const IN_SETUP = '412345678901234599';
+    const made = await meetupSafetyWith({ quiet: { isQuiet: (server) => server === IN_SETUP } });
+    // Without a moderators' channel, as a server in setup is: not said to be off.
+    made.servers.changed.set(IN_SETUP, testServerValues());
+    made.gateway.unavailableServers.add(IN_SETUP);
+    made.safety.warnAtStart([SERVER, IN_SETUP]);
+    expect(warnedOf(made)).toEqual([
+      [
+        "did not check the moderators' channel of these servers: Pine left them, or they are in setup",
+        [IN_SETUP],
+      ],
+    ]);
+    expect(made.notices.of(IN_SETUP)).toEqual([]);
+  });
+
   it('lists the first 50 servers of a reason and how many more', async () => {
     const made = await meetupSafetyWith();
     const many = Array.from({ length: 53 }, (_, i) => `4123456789012${String(i).padStart(5, '0')}`);

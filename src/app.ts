@@ -71,6 +71,7 @@ import { DiscordPartyGateway } from './discord/party-gateway.js';
 import { syncGuilds } from './discord/guild-sync.js';
 import { ServerSettings } from './services/server-settings.js';
 import { ServerStandings } from './services/server-standings.js';
+import { quietServers } from './services/quiet-servers.js';
 import { ServerAdmission } from './services/server-admission.js';
 import { ServerAdoption } from './services/server-adoption.js';
 import { DiscordServerExits } from './discord/server-exits.js';
@@ -214,9 +215,10 @@ import {
   followServers,
   followZones,
   liveSources,
+  notOfQuietServers,
   picturesServed,
   reportPictures,
-  serversNotLeft,
+  serversNotQuiet,
   shardStartWork,
   stopReportSteps,
 } from './app-wiring.js';
@@ -453,6 +455,9 @@ export async function startApp(
     // server with a row until then (fix round 1, K5).
     present: () => serversPresent?.(),
   });
+  // The quiet servers (plans 19C-1, 19C-2): those Pine left and those in setup, for which nothing
+  // is posted, sent or swept outside their interactions.
+  const quiet = quietServers(standings, servers);
   // A zone in use came or went (plan 19A-2): the raid bosses are read again for the zones now
   // in use, their own rotations and the soonest change among them; also when a server joins or
   // leaves with a zone of its own (fix round 1, N5).
@@ -616,9 +621,10 @@ export async function startApp(
     },
   });
   const parties = new PartyStore({ storage: partyRepository, log, history: partyHistory });
-  // A server Pine left is none of its servers (plan 19C-1): the events forum, the boss announcer
-  // and meetup safety's check at the start ask `serverAvailable`.
-  const discordGateway = new DiscordPartyGateway(log, standings);
+  // A quiet server is none of its servers (Pine left it, plan 19C-1, or it is in setup, plan
+  // 19C-2): the events forum, the boss announcer and meetup safety's check at the start ask
+  // `serverAvailable`.
+  const discordGateway = new DiscordPartyGateway(log, quiet);
   // In rehearsal mode nothing is posted but into the posts of parties in the rehearsed forums
   // (and meetup safety's own posts into the moderators' channel: its gateway, below).
   const partyGateway = rehearsal
@@ -682,8 +688,8 @@ export async function startApp(
     guilds,
     storage: new AccessGrantRepository(db),
     log,
-    // The grants of a server Pine left are not swept (plan 19C-1).
-    left: standings,
+    // The grants of a quiet server are not swept (plans 19C-1, 19C-2).
+    quiet,
     serverOfRow: (row) => rowIds.serverOfRow(row),
   });
   // The staff audit log (`/audit`): listens to the store, so every change is logged whoever made
@@ -720,8 +726,8 @@ export async function startApp(
     // A party's server, whose zone its times are in (plan 19A-2): every row is read at the start,
     // before the parties, and every row made since is added (fix round 1, K1).
     serverOfRow: (row) => rowIds.serverOfRow(row),
-    // A server Pine left: its parties neither drawn nor advanced (plan 19C-1).
-    left: standings,
+    // A quiet server: its parties neither drawn nor advanced, no summary made (plans 19C-1, 19C-2).
+    quiet,
     // A forum the bot may not make posts in, told to the server's staff (plan 19B-1).
     notices: serverNotices,
     // The raids along an ended train's way, for its card (plan 8H-7A).
@@ -798,8 +804,8 @@ export async function startApp(
     // the start or made since (fix round 1, K1).
     servers,
     serverOfRow: (row) => rowIds.serverOfRow(row),
-    // Nobody is told of a server Pine left (plan 19C-1).
-    left: standings,
+    // Nobody is told of a quiet server (plans 19C-1, 19C-2).
+    quiet,
     pictures: stopPictures,
     wants,
     targetWants,
@@ -853,8 +859,8 @@ export async function startApp(
     pictures: stopPictures,
     notify,
     store: new SpawnReportRepository(db),
-    // Kept for its return (plan 19C-1).
-    left: standings,
+    // Kept for its return (plan 19C-1); none in setup (plan 19C-2).
+    quiet,
     settings: config.settings,
     servers,
     log,
@@ -868,8 +874,8 @@ export async function startApp(
         store: new GruntMessageRepository(db),
         reports: stopReports,
         pictures: stopPictures,
-        // Kept for its return (plan 19C-1).
-        left: standings,
+        // Kept for its return (plan 19C-1); none in setup (plan 19C-2).
+        quiet,
         log,
       });
   // The events forum (plan 8V-1): only where the settings name one, never in rehearsal mode (R8:
@@ -1028,8 +1034,8 @@ export async function startApp(
       gymRegions: (guildId, id) => gyms.regionsIn(guildId, id),
       wayspotRegions: (guildId, id) => wayspots.regionsIn(guildId, id),
       // The servers by their rows: the first reading comes before the login (plan 8Z-2); those
-      // Pine left keep theirs, and are left out (plan 19C-1).
-      servers: serversNotLeft(() => guilds.snowflakes(), standings),
+      // Pine left keep theirs, and are left out (plan 19C-1), and so are those in setup (19C-2).
+      servers: serversNotQuiet(() => guilds.snowflakes(), quiet),
       activity: history,
     }),
     wayspots,
@@ -1179,8 +1185,8 @@ export async function startApp(
     servers,
     // What keeps it from working in a server, told to that server's staff (plan 19B-1).
     notices: serverNotices,
-    // A server Pine left: its records are not expired, nobody told (plan 19C-1).
-    left: standings,
+    // A quiet server: its records are not expired, nobody told (plans 19C-1, 19C-2).
+    quiet,
     log,
   });
   // Reports to the moderators (plan 8S-2): their posts go into meetup safety's channel, through
@@ -1548,8 +1554,8 @@ export async function startApp(
     dms: memberDms,
     zoneOfRow: (row) => partyService.zoneOfRow(row),
     serverOfRow: (row) => rowIds.serverOfRow(row),
-    // A board of a server Pine left is not swept (plan 19C-1).
-    ofLeftServer: (region) => partyService.ofLeftServer(region),
+    // A board of a quiet server is not swept (plans 19C-1, 19C-2).
+    ofQuietServer: (region) => partyService.ofQuietServer(region),
     log,
     changed: (regionId) => {
       partyService.summaryChanged(regionId, true);
@@ -1667,9 +1673,9 @@ export async function startApp(
           { user: ready.user.tag, guilds: ready.guilds.cache.size, shards: ready.ws.shards.size },
           'connected to Discord',
         );
-        // Not those Pine left (plan 19C-1): discord.js keeps one that removed the bot while its
-        // shard was away.
-        botServers = () => [...ready.guilds.cache.keys()].filter((id) => !standings.isLeft(id));
+        // Not the quiet ones: those Pine left (plan 19C-1; discord.js keeps one that removed the
+        // bot while its shard was away) and those in setup (plan 19C-2).
+        botServers = () => [...ready.guilds.cache.keys()].filter((id) => !quiet.isQuiet(id));
         // The zones in use are those of the servers present from now on (fix round 1, K5).
         serversPresent = botServers;
         servers.presenceChanged();
@@ -1744,29 +1750,34 @@ export async function startApp(
       });
       // Only that a member wrote, and where: the archive warning of a busy post is said again.
       // Bots (this one, others, webhooks) do not count.
-      client.on(Events.MessageCreate, (message) => {
-        // The board first, before the bot filter (plan 8R-9F, B3): other applications' and
-        // webhooks' messages go too. Nothing of a board's message goes further; one with
-        // attachments is the screenshot trigger's first, which downloads before the delete (B2).
-        try {
-          const shots =
-            message.attachments.size > 0
-              ? () => screenshotTrigger.handle(postedMessage(message))
-              : undefined;
-          if (boardKeeper.posted(postedBoardMessage(message), shots) !== 'elsewhere') return;
-        } catch (err) {
-          log.error({ err }, 'could not look at a message in the board');
-        }
-        if (message.author.bot) return;
-        scheduler.activity(message.channelId);
-        // Only a message with an attachment can be a screenshot; the trigger decides the rest.
-        if (message.attachments.size === 0) return;
-        try {
-          void screenshotTrigger.handle(postedMessage(message));
-        } catch (err) {
-          log.error({ err }, 'could not read the screenshots of a message');
-        }
-      });
+      // A message of a quiet server (Pine left it, or it is in setup: plan 19C-2) is passed over
+      // before anything looks at it.
+      client.on(
+        Events.MessageCreate,
+        notOfQuietServers(quiet, (message) => {
+          // The board first, before the bot filter (plan 8R-9F, B3): other applications' and
+          // webhooks' messages go too. Nothing of a board's message goes further; one with
+          // attachments is the screenshot trigger's first, which downloads before the delete (B2).
+          try {
+            const shots =
+              message.attachments.size > 0
+                ? () => screenshotTrigger.handle(postedMessage(message))
+                : undefined;
+            if (boardKeeper.posted(postedBoardMessage(message), shots) !== 'elsewhere') return;
+          } catch (err) {
+            log.error({ err }, 'could not look at a message in the board');
+          }
+          if (message.author.bot) return;
+          scheduler.activity(message.channelId);
+          // Only a message with an attachment can be a screenshot; the trigger decides the rest.
+          if (message.attachments.size === 0) return;
+          try {
+            void screenshotTrigger.handle(postedMessage(message));
+          } catch (err) {
+            log.error({ err }, 'could not read the screenshots of a message');
+          }
+        }),
+      );
       client.on(Events.Error, (err) => log.error({ err }, 'discord client error'));
       client.on(Events.Warn, (message) => log.warn(message));
     },
@@ -1800,8 +1811,8 @@ export async function startApp(
   const stopPosts = rehearsal
     ? undefined
     : new StopPostService({
-        // A server Pine left: its posts kept as they are (plan 19C-1).
-        left: standings,
+        // A quiet server: its posts kept as they are (plans 19C-1, 19C-2).
+        quiet,
         storage: new StopPostRepository(db),
         reports: stopReports,
         events: raidEvents,
@@ -1824,7 +1835,7 @@ export async function startApp(
   // board's messages; none in rehearsal mode, which makes no posts of the stops.
   const stopLines = stopPosts
     ? new StopLineService({
-        left: standings,
+        quiet,
         storage: new StopLineRepository(db),
         reports: stopReports,
         posts: stopPosts,

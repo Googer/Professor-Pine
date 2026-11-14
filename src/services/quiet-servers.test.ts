@@ -6,10 +6,12 @@ import { pokemonTarget } from '../domain/pogo/notification-target.js';
 import { PartyStatus } from '../domain/party/status.js';
 import { NORTH_CHANNEL, northRegion, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { EMOJI_RENDER_GAP_MS } from './party-service.js';
+import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
+import { TestServers } from '../../test/support/server-values.js';
 import type { MemoryAccessGrants } from '../../test/support/party-service.js';
 import { MODERATOR, SAFETY_SERVER } from '../../test/support/meetup-safety-cases.js';
 import { meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
-import type { LeftServers } from './server-standings.js';
+import { quietServers, type QuietServers } from './quiet-servers.js';
 
 const DAY = 24 * 3_600_000;
 /** A member blocked from meetups, who appeals. */
@@ -32,9 +34,9 @@ const HATCH = at('2026-10-13T14:30');
 const END = at('2026-10-13T15:15');
 
 /** The servers Pine left, as `ServerStandings` keeps them. */
-function leftSet(): LeftServers & { servers: Set<string> } {
+function leftSet(): QuietServers & { servers: Set<string> } {
   const servers = new Set<string>();
-  return { servers, isLeft: (serverId) => servers.has(serverId) };
+  return { servers, isQuiet: (serverId) => servers.has(serverId) };
 }
 
 type Made = Awaited<ReturnType<typeof reportedRaid>>;
@@ -52,7 +54,7 @@ watchEachTest();
 describe('a server Pine left (plan 19C-1)', () => {
   it('has its parties neither advanced nor ended by the clock, nor its posts touched, until it is back', async () => {
     const left = leftSet();
-    const made = await reportedRaid({ time: { hatch: HATCH } }, { left });
+    const made = await reportedRaid({ time: { hatch: HATCH } }, { quiet: left });
     // The clock's first look at every post is done.
     await tickAt(made, made.clock.now);
     left.servers.add(made.gateway.guildId);
@@ -79,7 +81,7 @@ describe('a server Pine left (plan 19C-1)', () => {
 
   it('leaves the parties of a server that is still in alone', async () => {
     const left = leftSet();
-    const made = await reportedRaid({ time: { hatch: HATCH } }, { left });
+    const made = await reportedRaid({ time: { hatch: HATCH } }, { quiet: left });
     left.servers.add('412345678901234599');
     const id = made.current().id;
     await tickAt(made, END + 30 * MINUTE);
@@ -89,7 +91,7 @@ describe('a server Pine left (plan 19C-1)', () => {
 
   it('keeps the grants of its forums through the sweep until it is back (J3)', async () => {
     const left = leftSet();
-    const made = await reportedRaid({ boss: { key: 'yveltal' } }, { left });
+    const made = await reportedRaid({ boss: { key: 'yveltal' } }, { quiet: left });
     made.gateway.shutOut(WEST_FORUM, ALICE);
     await made.attendance.signUp(made.party.id, { id: ALICE, name: 'Alice' }, PartyStatus.Coming);
     await settledAccess(made);
@@ -111,7 +113,7 @@ describe('a server Pine left (plan 19C-1)', () => {
 
   it('neither expires its meetup requests and appeals nor tells their members, until it is back (J3)', async () => {
     const left = leftSet();
-    const made = await meetupSafetyWith({ left });
+    const made = await meetupSafetyWith({ quiet: left });
     const request = await made.held();
     await made.storage.addBlock(SAFETY_SERVER, BLOCKED, { id: MODERATOR, name: 'Mod', at: 1 });
     const appealed = await made.safety.appeal({
@@ -138,7 +140,7 @@ describe('a server Pine left (plan 19C-1)', () => {
     /** The paced redraws' timers that wait: one per post after the first. */
     const paced: { ms: number; cancelled: boolean }[] = [];
     const made = await partyServiceWith([], {
-      left,
+      quiet: left,
       setTimer: (_run, ms) => {
         const timer = { ms, cancelled: false };
         if (ms === EMOJI_RENDER_GAP_MS) paced.push(timer);
@@ -182,14 +184,14 @@ describe('a server Pine left (plan 19C-1)', () => {
 
   it('tells no member of its parties', async () => {
     const left = leftSet();
-    const kept = await partyServiceWith([], { left, notifying: { left } });
+    const kept = await partyServiceWith([], { quiet: left, notifying: { quiet: left } });
     await kept.wants.set(ALICE, kept.gateway.guildId, pokemonTarget(717), 'both');
     left.servers.add(kept.gateway.guildId);
     // A party of the left server that changes (here reported, which cannot happen there, so
     // that the notifier is asked): nobody is told.
     const made = await reportedRaid(
       { boss: { key: 'yveltal' } },
-      { left, notifying: { left } },
+      { quiet: left, notifying: { quiet: left } },
       {
         storage: kept.storage,
         gateway: kept.gateway,
@@ -202,5 +204,35 @@ describe('a server Pine left (plan 19C-1)', () => {
     );
     await made.notify.flush();
     expect(made.dms.recipients).toEqual([]);
+  });
+});
+
+describe('a server in setup (plan 19C-2)', () => {
+  const LEFT = '412345678901234598';
+  const NEW = '412345678901234599';
+
+  it('is quiet, as a server Pine left is, and a server set up is not', () => {
+    const left = leftSet();
+    left.servers.add(LEFT);
+    const servers = new TestServers();
+    servers.settingUp.add(NEW);
+    const quiet = quietServers({ isLeft: (serverId) => left.isQuiet(serverId) }, servers);
+    expect(quiet.isQuiet(LEFT)).toBe(true);
+    expect(quiet.isQuiet(NEW)).toBe(true);
+    expect(quiet.isQuiet(FAKE_GUILD_ID)).toBe(false);
+  });
+
+  it('has no summary made in its regions until it is set up', async () => {
+    const servers = new TestServers();
+    const made = await partyServiceWith([], {
+      quiet: quietServers({ isLeft: () => false }, servers),
+    });
+    servers.settingUp.add(made.gateway.guildId);
+    const before = made.gateway.calls.length;
+    await made.service.checkSummaries();
+    expect(made.gateway.calls).toHaveLength(before);
+    servers.settingUp.delete(made.gateway.guildId);
+    await made.service.checkSummaries();
+    expect(made.gateway.calls.length).toBeGreaterThan(before);
   });
 });

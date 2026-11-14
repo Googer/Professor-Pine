@@ -181,9 +181,10 @@ interface AskedFor {
  * server, or one without a mention where pictures are not read passively (none of them an asked
  * message's case); `post`: in a thread or a forum's post, the region's board included for a
  * message asked for (its pictures are taken as they are posted); `being-read`: it is read just
- * now, for a mention or for somebody who asked.
+ * now, for a mention or for somebody who asked; `in-setup`: of a server in setup (plan 19C-2).
  */
 export type NotRead =
+  | 'in-setup'
   | 'closing'
   | 'off'
   | 'not-for-me'
@@ -598,6 +599,9 @@ export class ScreenshotTrigger {
     if (this.closed) return 'closing';
     if (!ctx.config.settings.ocr.enabled) return 'off';
     if (message.authorBot || message.guildId === null) return 'not-for-me';
+    // A server in setup reads nothing (plan 19C-2): neither a posted message (the listener passes
+    // over it already) nor one a member asks for.
+    if (ctx.servers.inSetup(message.guildId)) return 'in-setup';
     // Off in rehearsal mode: it reacts to and answers in a region channel, where every member
     // would see it. The testers report from a screenshot with /raid, answered privately.
     if (ctx.rehearsal) return 'rehearsal';
