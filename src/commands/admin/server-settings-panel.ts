@@ -48,8 +48,8 @@ import {
  * (`server:<key>:remove:~<token>`).
  * `server:<key>:unset` (Leave unset, of a setting the settings file named and the fill did not
  * find: `channels.moderation`, `roles.mapMember`; fix round 3, H9) asks whether to, in that
- * setting's place; `server:<key>:unset:confirm` leaves it unset, `server:<key>:keep` (Keep it
- * closed) leaves it as it was (fix round 4, I2). The server is the interaction's, never in the id.
+ * setting's place; `server:<key>:unset:confirm` leaves it unset, `server:<key>:keep`
+ * (Cancel) leaves it as it was (fix round 4, I2). The server is the interaction's, never in the id.
  */
 export const SERVER_KIND = 'server';
 export const SET = 'set';
@@ -62,7 +62,7 @@ export const ADD = 'add';
 export const REMOVE = 'remove';
 /** Leaves a setting the settings file named and the fill did not find unset (fix round 3, H9). */
 export const UNSET = 'unset';
-/** Leave unset's second press, which writes; Keep it closed (fix round 4, I2). */
+/** Leave unset's second press, which writes; Cancel (fix round 4, I2). */
 export const CONFIRM = 'confirm';
 export const KEEP = 'keep';
 
@@ -88,11 +88,19 @@ export const PANEL = 'panel';
 
 /** The sections of the panel (Discord's 40 components a message hold no more than one). */
 export const SECTIONS = [
-  { value: 'channels', name: 'Channels', description: 'Where Pine posts and reads, by role' },
-  { value: 'roles', name: 'Category and roles', description: 'The PvP category, Unown, the map' },
-  { value: 'features', name: 'Features', description: 'What Pine does in this server' },
-  { value: 'text', name: 'Text and numbers', description: 'Units, the events forum, words, links' },
-  { value: 'changes', name: 'Recent changes', description: 'Who changed what, 30 days' },
+  { value: 'channels', name: 'Channels', description: 'Where Pine posts and reads' },
+  {
+    value: 'roles',
+    name: 'Category and roles',
+    description: 'The PvP category, the Unown role, who sees the web map',
+  },
+  { value: 'features', name: 'Features', description: 'Turn Pine’s features on or off' },
+  {
+    value: 'text',
+    name: 'Text and numbers',
+    description: 'Time zone, units, the events forum, word lists, links',
+  },
+  { value: 'changes', name: 'Recent changes', description: 'Who changed what in the last 30 days' },
 ] as const;
 export type SectionName = (typeof SECTIONS)[number]['value'];
 
@@ -101,28 +109,37 @@ export const isSection = (value: string | undefined): value is SectionName =>
 
 /** Each channel role on the panel: its name and what it is for. */
 const CHANNELS: Readonly<Record<ServerChannelRole, { name: string; about: string }>> = {
-  'bot-lab': { name: 'Bot lab', about: 'the bot channel of members' },
-  'mod-bot-lab': { name: 'Moderators’ bot lab', about: 'where Pine tells staff what needs them' },
-  unown: { name: 'Unown', about: 'Unown sightings' },
+  'bot-lab': { name: 'Bot lab', about: 'where members use most of Pine’s commands' },
+  'mod-bot-lab': {
+    name: 'Moderators’ bot lab',
+    about: 'where Pine tells staff what needs their attention',
+  },
+  unown: { name: 'Unown channel', about: 'a copy of every Unown that members report' },
   'elite-gym-raids': {
-    name: 'Elite gym raids',
-    about: 'copies of raids at elite raid gyms, where that feature is on',
+    name: 'Elite gym raids channel',
+    about: 'copies of raids at elite raid gyms, when turned on under Features',
   },
   'remote-raids': {
-    name: 'Remote raids',
-    about: 'copies of remote raids, where that feature is on',
+    name: 'Remote raids channel',
+    about: 'copies of remote raids, when turned on under Features',
   },
-  pvp: { name: 'PvP', about: 'PvP chat' },
-  'bot-updates': { name: 'Bot updates', about: 'Pine’s news to the server, new gyms' },
+  pvp: { name: 'PvP channel', about: 'PvP chat' },
+  'bot-updates': {
+    name: 'Bot updates channel',
+    about: 'Pine’s news, such as raid boss changes and new gyms',
+  },
   moderation: {
     name: 'Moderators’ channel',
     // What clearing its select does, as Leave unset says it (fix round 4, I2).
     about:
-      'reports and meetup safety; a channel of its own. Clearing it turns meetup safety off: ' +
-      'meetups are no longer held for the moderators, blocks stop applying, and reports are ' +
-      'refused',
+      'where reports to the moderators and meetups that need their approval go; a channel of ' +
+      'its own. Clearing it turns meetup safety off: meetups no longer wait for approval, ' +
+      'members blocked from meetups can make them again, and reports are refused',
   },
-  events: { name: 'Events forum', about: 'in-game events (`/admin setup-forums` makes one)' },
+  events: {
+    name: 'Events forum',
+    about: 'where Pine lists in-game events; `/admin setup-forums` can make one',
+  },
 };
 
 /** The kinds of channel each role takes: a text channel, the events forum a forum. */
@@ -200,11 +217,9 @@ export const SWITCHES: readonly Switch[] = [
     section: 'roles',
     means: {
       on:
-        'anybody can open this server’s web map and see its regions and gyms; only members see ' +
-        'its parties',
-      off:
-        'only somebody logged in with Discord can open this server’s web map; to anybody else ' +
-        'it is not there',
+        'anyone can open the web map and see its regions and gyms; only members see raids, max ' +
+        'battles, meetups and trains',
+      off: 'only people logged in with Discord can open the web map; to anyone else it does not exist',
     },
     on: (v, instance) => publicMapOn(v, instance),
     chosen: (v) => v.publicMap !== undefined,
@@ -216,7 +231,7 @@ export const switchesOf = (instance: Instance): Switch[] =>
   SWITCHES.filter((one) => one.allowed?.(instance) ?? true);
 
 /** What a switch its staff never set says after its state (fix round 1, R4). */
-const INSTANCE_DEFAULT = ' (the instance’s default)';
+const INSTANCE_DEFAULT = ' (by default)';
 
 /**
  * A switch's line: its name and state, what that means where it says, and its button. One its
@@ -432,37 +447,42 @@ function offered(
  */
 const STILL_CLOSED: Readonly<Record<UnmatchedKey, string>> = {
   'channels.moderation':
-    'not found: meetups that need approval and reports are refused. Leaving it unset turns ' +
-    'meetup safety off: meetups are no longer held for the moderators, blocks stop applying, and ' +
-    'reports stay refused.',
+    'Not found: pick a channel. Until you do, meetups that need approval and reports to the ' +
+    'moderators are refused. Or leave it unset to turn meetup safety off: meetups no longer wait ' +
+    'for approval, members blocked from meetups can make them again, and reports stay refused.',
+  // "Them": the raids and the rest on the web map, which the line above names.
   'roles.mapMember':
-    'not found: the map shows parties to administrators only. Leaving it unset opens the map: ' +
-    'every member sees the map’s parties.',
+    'Not found: pick a role. Until you do, only administrators can see them. Or leave it unset ' +
+    'to let every member see them.',
 };
 
 /** What the first press of Leave unset asks, in that setting's place (fix round 4, I2). */
 const LEAVE_UNSET_ASKED: Readonly<Record<UnmatchedKey, string>> = {
   'channels.moderation':
-    'Leave the moderators’ channel unset? Meetup safety goes off in this server: meetups are no ' +
-    'longer held for the moderators, blocks stop applying, and reports stay refused.',
+    'Leave the moderators’ channel unset? That turns meetup safety off: meetups no longer wait ' +
+    'for approval, members blocked from meetups can make them again, and reports stay refused.',
   'roles.mapMember':
-    'Leave the map’s member role unset? The map opens: every member sees the map’s parties.',
+    'Leave the map’s member role unset? Then every member can see and join raids, max battles, ' +
+    'meetups and trains on the web map.',
 };
 
 /** What the panel says once a setting was left unset: what it did (fix round 4, I2). */
 export const LEFT_UNSET: Readonly<Record<UnmatchedKey, string>> = {
   'channels.moderation':
-    'Left the moderators’ channel unset: meetup safety is off in this server; reports are refused.',
-  'roles.mapMember': 'Left the map’s member role unset: every member sees the map’s parties.',
+    'Left the moderators’ channel unset: meetup safety is off, and reports to the moderators ' +
+    'are refused.',
+  'roles.mapMember':
+    'Left the map’s member role unset: every member can see and join raids, max battles, ' +
+    'meetups and trains on the web map.',
 };
 
 /**
  * The setting's name and what it is for, and under them: where the settings file named it and
  * the fill did not find it (`unmatched`), what stays closed until staff pick one and what leaving
  * it unset does, with Leave unset beside it (fix round 3, H9); once that was pressed
- * (`confirming`), the question and its two buttons, Leave unset (which writes) and Keep it closed
- * (fix round 4, I2); `not found: pick a channel` (or role) where the one set is no longer in the
- * server (review G2).
+ * (`confirming`), the question and its two buttons, Leave unset (which writes) and Cancel
+ * (fix round 4, I2); `Not found: … Pick another channel.` (or role) where the one set is no
+ * longer in the server (review G2).
  */
 function settingText(
   words: string,
@@ -485,7 +505,7 @@ function settingText(
         {
           type: ComponentType.Button,
           style: ButtonStyle.Secondary,
-          label: 'Keep it closed',
+          label: 'Cancel',
           custom_id: id(unmatched, KEEP),
         },
       ]),
@@ -502,7 +522,11 @@ function settingText(
     ];
   }
   const lost = set !== undefined && shown === undefined;
-  return [textDisplay(lost ? `${words}\n-# not found: pick a ${what}` : words)];
+  return [
+    textDisplay(
+      lost ? `${words}\n-# Not found: it may have been deleted. Pick another ${what}.` : words,
+    ),
+  ];
 }
 
 /** The key's marker where the settings file named it and the fill did not find it. */
@@ -511,7 +535,8 @@ const unmatchedOf = (values: ServerValues, key: UnmatchedKey): UnmatchedKey | un
 
 /** What the panel says under a channel the bot may not post in (staging F1). */
 export const CANNOT_POST =
-  'Pine may not post there: give it View Channel, Send Messages and Embed Links in that channel.';
+  'Pine is missing permissions there: give it View Channel, Send Messages and Embed Links in ' +
+  'that channel.';
 
 function channelsSection(
   values: ServerValues,
@@ -554,7 +579,7 @@ function rolesSection(
   const member = offered(values.roles.mapMember, known?.roles);
   return [
     ...settingText(
-      '**PvP category** · PvP commands are used in its channels',
+      '**PvP category** · PvP commands work only in its channels and in DMs',
       values.categories.pvp,
       category,
       undefined,
@@ -563,7 +588,8 @@ function rolesSection(
     ),
     channelSelect('categories.pvp', [ChannelType.GuildCategory], category),
     ...settingText(
-      '**Unown role** · the old bot’s role for Unown sightings: its holders are given a want for Unown',
+      '**Unown role** · the old bot’s role for Unown sightings; Pine gives members who have it ' +
+        'a want for Unown',
       values.roles.unown,
       unown,
       undefined,
@@ -572,8 +598,8 @@ function rolesSection(
     ),
     roleSelect('roles.unown', unown),
     ...settingText(
-      '**Map’s member role** · only members with it (and administrators) see and press the ' +
-        'parties on the web map; not set: every member',
+      '**Map’s member role** · only members with this role (and administrators) can see and ' +
+        'join raids, max battles, meetups and trains on the web map. Not set: every member can',
       values.roles.mapMember,
       member,
       unmatchedOf(values, 'roles.mapMember'),
@@ -597,10 +623,10 @@ function featuresSection(values: ServerValues, instance: Instance): APIComponent
 function zoneLine(timezone: string, chosen: boolean, now: number): string {
   const there = zoned(now, timezone);
   // Not chosen yet (plan 19C-2, S9: a new server's): the instance's zone stands in meanwhile.
-  const zone = chosen ? `${code(timezone)}:` : `not chosen: ${code(timezone)} meanwhile;`;
+  const zone = chosen ? code(timezone) : `not chosen yet, so Pine uses ${code(timezone)}`;
   return (
-    `**Time zone** · ${zone} it is ${clockWords(there)}, ${dayWords(there)} there ` +
-    'now · every time members type and Pine shows here'
+    `**Time zone** · for every time and date members type and Pine shows: ${zone}, where it ` +
+    `is now ${clockWords(there)}, ${dayWords(there)}`
   );
 }
 
@@ -608,12 +634,12 @@ function zoneLine(timezone: string, chosen: boolean, now: number): string {
 const WORDS_SHOWN: Readonly<Record<WordListKey, { name: string; about: string; none: string }>> = {
   flaggedWords: {
     name: 'Flagged words',
-    about: 'a meetup at a place whose name has one asks the moderators first',
+    about: 'a meetup at a place whose name has one waits for the moderators’ approval',
     none: 'none besides Pine’s own',
   },
   blacklistWords: {
     name: 'Words gym search ignores',
-    about: 'in gym names and in what members type, besides common English words',
+    about: 'skipped in gym names and in searches, like common English words',
     none: 'none',
   },
 };
@@ -671,23 +697,29 @@ function textSection(
       })),
     }),
     section(
-      `**Events forum** · lists **${String(forum.horizonDays)}** days ahead, opens an event’s ` +
-        `post **${String(forum.postDaysAhead)}** days before it, recalls the top ` +
-        `**${String(forum.onThisDay)}** big days “On this day”`,
+      `**Events forum** · lists events **${String(forum.horizonDays)}** days ahead, opens ` +
+        `each event’s post **${String(forum.postDaysAhead)}** days before it, and ` +
+        (forum.onThisDay === 0
+          ? 'posts no “On this day”'
+          : 'posts “On this day” on the anniversaries of each year’s ' +
+            `**${String(forum.onThisDay)}** busiest raid days`),
       changeButton('eventsForum'),
     ),
     ...wordsLines(values, 'flaggedWords'),
     ...wordsLines(values, 'blacklistWords'),
     section(
-      `**Ending of region forums** · ${code(values.regionForumSuffix)}`,
+      '**Ending of region forums** · added to a region channel’s name to name its forum: ' +
+        code(values.regionForumSuffix),
       changeButton('regionForumSuffix'),
     ),
     section(
-      `**Region map link** · \`/maps\` gives it: ${code(values.regionMapLink)}`,
+      '**Region map link** · a map of all regions, which `/maps` gives members: ' +
+        code(values.regionMapLink),
       changeButton('regionMapLink'),
     ),
     section(
-      `**Invite** · for a visitor of the web map who is not in this server: ${code(values.invite)}`,
+      '**Invite** · offered on the web map to visitors who are not in this server: ' +
+        code(values.invite),
       changeButton('invite'),
     ),
   ];
@@ -714,7 +746,7 @@ function changesSection(
   room: number,
 ): APIComponentInContainer[] {
   const read = changes?.records ?? [];
-  if (read.length === 0) return [textDisplay('Nothing was changed here in the last 30 days.')];
+  if (read.length === 0) return [textDisplay('No changes in the last 30 days.')];
   const more = read.length > RECENT_CHANGES;
   const records = read.slice(-RECENT_CHANGES);
   const now = changes?.now ?? Date.now();

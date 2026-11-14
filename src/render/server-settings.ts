@@ -40,12 +40,9 @@ export const SETTINGS: Readonly<Record<string, Setting>> = {
   autoAssignRole: { label: 'the auto-assigned role', kind: 'switch' },
   timezone: { label: 'the time zone', kind: 'code' },
   distanceUnits: { label: 'the distance units', kind: 'choice' },
-  'eventsForum.horizonDays': { label: 'the days the events forum lists', kind: 'number' },
-  'eventsForum.postDaysAhead': {
-    label: 'the days before an event that its post opens',
-    kind: 'number',
-  },
-  'eventsForum.onThisDay': { label: 'the big days “On this day” recalls', kind: 'number' },
+  'eventsForum.horizonDays': { label: 'the days ahead the events forum lists', kind: 'number' },
+  'eventsForum.postDaysAhead': { label: 'the days before an event its post opens', kind: 'number' },
+  'eventsForum.onThisDay': { label: 'the days a year “On this day” recalls', kind: 'number' },
   flaggedWords: { label: 'the flagged words', kind: 'words' },
   blacklistWords: { label: 'the words gym search ignores', kind: 'words' },
   regionForumSuffix: { label: 'the ending of region forums', kind: 'code' },
@@ -218,7 +215,7 @@ function problemWords({ key, message, same }: ValuesProblem): string {
   const own = message.replace(/\.$/u, '');
   if (own === 'must be a whole number') return `${label} ${own}`;
   if (key === 'eventsForum.postDaysAhead' && own.startsWith('must be at most')) {
-    return `${label} must be at most the days listed`;
+    return `${label} must be at most the days ahead the events forum lists`;
   }
   const bounds = NUMBER_BOUNDS[key];
   if (bounds !== undefined) return `${label} ${bounds}`;

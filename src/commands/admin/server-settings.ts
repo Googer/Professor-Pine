@@ -70,7 +70,7 @@ import {
 } from './server-settings-panel.js';
 
 /** What a change of what is set already says. */
-const ALREADY = 'That was so already.';
+const ALREADY = 'Nothing was changed: it was set that way already.';
 
 /** What the instance allows a server (the file, and the intents Pine was granted at login). */
 function instanceOf(ctx: AppContext): Instance {
@@ -302,7 +302,7 @@ const UNMATCHED_KEYS: readonly UnmatchedKey[] = ['channels.moderation', 'roles.m
  * did not find is no longer kept closed, nothing chosen in its place. The first press
  * (`server:<key>:unset`) writes nothing: the panel asks in that setting's place, saying what it
  * would do; Leave unset there (`server:<key>:unset:confirm`) writes and logs it as any change and
- * says what it did (`LEFT_UNSET`); Keep it closed (`server:<key>:keep`) shows the panel as it was.
+ * says what it did (`LEFT_UNSET`); Cancel (`server:<key>:keep`) shows the panel as it was.
  */
 function leftUnset(interaction: ButtonInteraction, id: CustomId, ctx: AppContext): Promise<void> {
   const key = UNMATCHED_KEYS.find((one) => one === id.id);
@@ -349,17 +349,17 @@ const WORDS_DIALOG: Readonly<
   flaggedWords: {
     title: 'Flagged words',
     text:
-      'Words and phrases that send a meetup at a place whose name has one to the moderators ' +
-      'first, besides Pine’s own list. One a line.',
-    empty: 'Empty: Pine’s own list alone',
+      'A meetup at a place whose name has one of these words or phrases waits for the ' +
+      'moderators’ approval. Pine has a list of its own too. One per line.',
+    empty: 'Empty: only Pine’s own list',
     many: 'flagged words',
   },
   blacklistWords: {
     title: 'Words gym search ignores',
     text:
-      'Words that gym search skips in gym names and in what members type, such as “gym” or ' +
-      '“raid”, besides common English words. One a line.',
-    empty: 'Empty: common English words alone',
+      'Gym search skips these words in gym names and in what members type, such as “gym” or ' +
+      '“raid”. It skips common English words too. One per line.',
+    empty: 'Empty: only common English words',
     many: 'words gym search ignores',
   },
 };
@@ -390,10 +390,10 @@ function settingDialog(
     case 'timezone':
       return dialog({
         customId,
-        title: 'The time zone',
+        title: 'Time zone',
         text:
-          'The zone of every time members of this server type and Pine shows them, and of its ' +
-          'days: a name such as `America/New_York`, `Europe/Berlin` or `Asia/Kolkata`.',
+          'Every time and date members type and Pine shows is in this zone. Type a name such as ' +
+          '`America/New_York`, `Europe/Berlin` or `Asia/Kolkata`.',
         field: {
           id: FIELDS.zone,
           label: 'Time zone',
@@ -414,20 +414,25 @@ function settingDialog(
       });
       return dialog({
         customId,
-        title: 'The events forum',
+        title: 'Events forum',
         fields: [
-          number(FIELDS.horizonDays, 'Days listed', values.eventsForum.horizonDays, '1 to 365'),
+          number(
+            FIELDS.horizonDays,
+            'Days ahead to list events',
+            values.eventsForum.horizonDays,
+            '1 to 365',
+          ),
           number(
             FIELDS.postDaysAhead,
-            'Days before an event that its post opens',
+            'Days before an event to open its post',
             values.eventsForum.postDaysAhead,
-            '0 to 365, at most the days listed',
+            '0 to 365, and no more than the days ahead',
           ),
           number(
             FIELDS.onThisDay,
-            'Big days “On this day” recalls',
+            'Days a year “On this day” recalls',
             values.eventsForum.onThisDay,
-            'The top days of earlier years, 0 to 10; 0 turns it off',
+            'Each earlier year’s busiest raid days, 0 to 10; 0 turns it off',
           ),
         ],
       });
@@ -441,9 +446,10 @@ function settingDialog(
           customId,
           title: adding ? 'Words to add' : 'Words to remove',
           text: adding
-            ? `The ${list.many} are too many to show here (${String(values[key].length)}). ` +
-              'What you type is added to them, one a line; Remove… on the panel takes some off.'
-            : `What you type is taken off the ${list.many}, one a line, whatever its letter case.`,
+            ? `There are too many ${list.many} to show here (${String(values[key].length)}). ` +
+              'Type words to add, one per line. To take some off, use Remove… on the panel.'
+            : `Type words to take off the ${list.many}, one per line. Capital letters do not ` +
+              'matter.',
           field: {
             id: FIELDS.words,
             label: adding ? 'Words to add' : 'Words to remove',
@@ -471,10 +477,10 @@ function settingDialog(
     case 'regionForumSuffix':
       return dialog({
         customId,
-        title: 'The ending of region forums',
+        title: 'Ending of region forums',
         text:
-          'What the name of a region’s forum adds to its channel’s: `north` gets `north-board`. ' +
-          'A hyphen and up to 30 letters; empty sets it back to `-board`.',
+          'Added to a region channel’s name to name its forum: the forum of `north` is ' +
+          '`north-board`. A hyphen and up to 30 letters. Leave it empty to go back to `-board`.',
         field: {
           id: FIELDS.suffix,
           label: 'Ending',
@@ -486,8 +492,10 @@ function settingDialog(
     case 'regionMapLink':
       return dialog({
         customId,
-        title: 'The region map link',
-        text: 'The address of a map of all regions, which `/maps` gives members. Empty clears it.',
+        title: 'Region map link',
+        text:
+          'A link to a map of all regions, which `/maps` gives members. Leave it empty to ' +
+          'remove it.',
         field: {
           id: FIELDS.link,
           label: 'Link',
@@ -499,10 +507,10 @@ function settingDialog(
     case 'invite':
       return dialog({
         customId,
-        title: 'The invite of this server',
+        title: 'Invite',
         text:
-          'An invite for a visitor of the web map who is not in this server: ' +
-          '`https://discord.gg/<code>`. Empty clears it.',
+          'An invite to this server, which the web map offers to visitors who are not in it: ' +
+          '`https://discord.gg/<code>`. Leave it empty to remove it.',
         field: {
           id: FIELDS.invite,
           label: 'Invite',
@@ -570,14 +578,14 @@ function submitted(
       // no place's daylight saving time (fix round 1, K2).
       if (timezone === undefined && zoneAbbreviation(typed)) {
         return (
-          `Not changed: “${plain(truncate(typed, ZONE_ROOM))}” is an abbreviation; ` +
-          'use a name such as America/New_York.'
+          `Not changed: “${plain(truncate(typed, ZONE_ROOM))}” is an abbreviation. ` +
+          'Use a zone name such as America/New_York.'
         );
       }
       if (timezone === undefined) {
         return (
-          `Not changed: “${plain(truncate(typed, ZONE_ROOM))}” is not a time zone I know; ` +
-          'use a name such as America/Chicago.'
+          `Not changed: “${plain(truncate(typed, ZONE_ROOM))}” is not a time zone name. ` +
+          'Use one such as America/Chicago.'
         );
       }
       return (values) => ({ ...values, timezone });
@@ -688,15 +696,18 @@ export const serverSettings: SubcommandPart = {
     .setDescription('See and change this server’s settings: channels, roles, features'),
   help: {
     details:
-      'Shows this server’s settings, only to you, in sections, with menus and buttons to ' +
-      'change them: the channels Pine uses by their role, the PvP category, the Unown role and ' +
-      'the map’s member role, and the features.\n\nUnder Text and numbers: the time zone (every ' +
-      'time members type and Pine shows in this server, and its days), the distance units, ' +
-      'the events forum’s numbers, the flagged words of meetup safety, the words gym search ' +
-      'ignores, the ending of region forums, the region map link and the invite of the web ' +
-      'map.\n\nEvery change is logged with who made it and when: **Recent ' +
-      'changes** shows the last ones, and `/audit member:` lists a member’s. The log keeps 30 ' +
-      'days.',
+      'Shows this server’s settings, only to you. Pick a section in the menu at the top; each ' +
+      'setting has a menu or a button to change it.\n\n' +
+      '- **Channels**: the channels Pine uses, such as the bot lab and the moderators’ channel\n' +
+      '- **Category and roles**: the PvP category, the Unown role and the map’s member role\n' +
+      '- **Features**: what Pine does here, each turned on or off\n\n' +
+      '- **Text and numbers**: the time zone (of every time and date members type and Pine ' +
+      'shows), the distance units, the events forum’s numbers, the flagged words of meetup ' +
+      'safety, the words gym search ignores, the ending of region forums, the region map link ' +
+      'and the web map’s invite\n' +
+      '- **Recent changes**: the latest changes\n\n' +
+      'Every change is logged for 30 days with who made it and when. `/audit member:` lists a ' +
+      'member’s changes too.',
     examples: ['/admin settings'],
   },
   defer: 'late',

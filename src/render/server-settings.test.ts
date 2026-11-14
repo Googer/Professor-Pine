@@ -34,7 +34,7 @@ describe("the words of a change of a server's settings", () => {
 
   it('says a number, a choice, a text and a link with what they were', () => {
     expect(changeWords({ key: 'eventsForum.horizonDays', before: 35, after: 20 })).toBe(
-      'set the days the events forum lists to 20 (was 35)',
+      'set the days ahead the events forum lists to 20 (was 35)',
     );
     expect(changeWords({ key: 'distanceUnits', before: 'imperial', after: 'metric' })).toBe(
       'set the distance units to metric (was imperial)',
@@ -158,19 +158,19 @@ describe('the words of a refused change', () => {
         eventsForum: { ...values.eventsForum, ...eventsForum },
       });
     expect(refused(forum({ horizonDays: 400 }))).toBe(
-      'Not changed: the days the events forum lists must be 1 to 365.',
+      'Not changed: the days ahead the events forum lists must be 1 to 365.',
     );
     expect(refused(forum({ horizonDays: 0, postDaysAhead: 0 }))).toBe(
-      'Not changed: the days the events forum lists must be 1 to 365.',
+      'Not changed: the days ahead the events forum lists must be 1 to 365.',
     );
     expect(refused(forum({ horizonDays: 10, postDaysAhead: 14 }))).toBe(
-      'Not changed: the days before an event that its post opens must be at most the days listed.',
+      'Not changed: the days before an event its post opens must be at most the days ahead the events forum lists.',
     );
     expect(refused(forum({ postDaysAhead: -1 }))).toBe(
-      'Not changed: the days before an event that its post opens must be 0 to 365.',
+      'Not changed: the days before an event its post opens must be 0 to 365.',
     );
     expect(refused(forum({ onThisDay: 11 }))).toBe(
-      'Not changed: the big days “On this day” recalls must be 0 to 10.',
+      'Not changed: the days a year “On this day” recalls must be 0 to 10.',
     );
     expect(refused((values) => ({ ...values, regionMapLink: 'ftp://maps.example.test' }))).toBe(
       'Not changed: the region map link must be an https:// address.',

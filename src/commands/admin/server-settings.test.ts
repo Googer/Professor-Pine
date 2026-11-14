@@ -1,6 +1,11 @@
 import { ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { dialogField, shownDialog } from '../../../test/support/dialogs.js';
+import {
+  dialogField,
+  dialogFields,
+  dialogText,
+  shownDialog,
+} from '../../../test/support/dialogs.js';
 import {
   answered,
   asV2,
@@ -258,6 +263,22 @@ describe('/admin settings', () => {
     expect(menu(panel, 'server:channels.events:set').channel_types).toEqual([15]);
   });
 
+  it('names each channel by what Pine uses it for', async () => {
+    const { panel } = await setup();
+    const text = textOf(await panel());
+    for (const line of [
+      '**Bot lab** · where members use most of Pine’s commands',
+      '**Moderators’ bot lab** · where Pine tells staff what needs their attention',
+      '**Unown channel** · a copy of every Unown that members report',
+      '**Elite gym raids channel** · copies of raids at elite raid gyms, when turned on under ' +
+        'Features',
+      '**Bot updates channel** · Pine’s news, such as raid boss changes and new gyms',
+      '**Events forum** · where Pine lists in-game events; `/admin setup-forums` can make one',
+    ]) {
+      expect(text).toContain(line);
+    }
+  });
+
   it('is refused to a member who may not set the server up, and so is a press of its controls', async () => {
     const { open, pick, servers } = await setup();
     const used = await open(MEMBER);
@@ -347,7 +368,9 @@ describe('/admin settings', () => {
   it('says a pick of what is set already changed nothing, and writes nothing', async () => {
     const { pick, store } = await setup();
     const picked = await pick('server:channels.bot-lab:set', [TEST_SERVER_CHANNELS['bot-lab']]);
-    expect(textOf(shownAfter(picked))).toContain('That was so already.');
+    expect(textOf(shownAfter(picked))).toContain(
+      'Nothing was changed: it was set that way already.',
+    );
     expect(store.rows.get(FAKE_GUILD_ID)?.updatedBy).toBeNull();
   });
 
@@ -365,6 +388,13 @@ describe('/admin settings', () => {
   it('sets the PvP category and the roles in their selects', async () => {
     const { pick, servers } = await setup();
     const shown = shownAfter(await pick('server:panel:show', ['roles']));
+    expect(textOf(shown)).toContain(
+      '**PvP category** · PvP commands work only in its channels and in DMs',
+    );
+    expect(textOf(shown)).toContain(
+      '**Map’s member role** · only members with this role (and administrators) can see and ' +
+        'join raids, max battles, meetups and trains on the web map. Not set: every member can',
+    );
     const category = menu(shown, 'server:categories.pvp:set');
     expect(category.channel_types).toEqual([4]);
     expect(category.default_values).toEqual([{ id: TEST_PVP_CATEGORY, type: 'channel' }]);
@@ -389,16 +419,20 @@ describe('/admin settings', () => {
       );
     expect(defaults(channels).every((one) => isSnowflake(one))).toBe(true);
     expect(menu(channels, 'server:channels.moderation:set').default_values).toEqual([]);
-    expect(textOf(channels)).toContain('not found: meetups that need approval');
+    expect(textOf(channels)).toContain(
+      'Not found: pick a channel. Until you do, meetups that need approval',
+    );
     const roles = shownAfter(await pick('server:panel:show', ['roles']));
     expectV2Sendable(roles);
     expect(defaults(roles).every((one) => isSnowflake(one))).toBe(true);
     expect(menu(roles, 'server:roles.mapMember:set').default_values).toEqual([]);
-    expect(textOf(roles)).toContain('not found: the map shows parties to administrators only');
+    expect(textOf(roles)).toContain(
+      'Not found: pick a role. Until you do, only administrators can see them.',
+    );
     // A role picked is set, and is found from then on; the log has the role alone.
     const picked = shownAfter(await pick('server:roles.mapMember:set', [NEW_ROLE]));
     expect(textOf(picked)).toContain(`Set the map’s member role to <@&${NEW_ROLE}>.`);
-    expect(textOf(picked)).not.toContain('not found:');
+    expect(textOf(picked)).not.toContain('Not found:');
     expect(servers.of(FAKE_GUILD_ID).unmatched).toEqual(['channels.moderation']);
     expect(store.audit.rows.map((row) => row.key)).toEqual(['roles.mapMember']);
   });
@@ -410,9 +444,10 @@ describe('/admin settings', () => {
     const channels = await panel();
     expectV2Sendable(channels);
     expect(textOf(channels)).toContain(
-      'not found: meetups that need approval and reports are refused. Leaving it unset turns ' +
-        'meetup safety off: meetups are no longer held for the moderators, blocks stop ' +
-        'applying, and reports stay refused.',
+      'Not found: pick a channel. Until you do, meetups that need approval and reports to the ' +
+        'moderators are refused. Or leave it unset to turn meetup safety off: meetups no longer ' +
+        'wait for approval, members blocked from meetups can make them again, and reports stay ' +
+        'refused.',
     );
     expect(buttonsOf(channels).map((one) => [one.label, one.style, one.customId])).toContainEqual([
       'Leave unset',
@@ -421,8 +456,8 @@ describe('/admin settings', () => {
     ]);
     const roles = shownAfter(await pick('server:panel:show', ['roles']));
     expect(textOf(roles)).toContain(
-      'not found: the map shows parties to administrators only. Leaving it unset opens the ' +
-        'map: every member sees the map’s parties.',
+      'Not found: pick a role. Until you do, only administrators can see them. Or leave it ' +
+        'unset to let every member see them.',
     );
   });
 
@@ -435,8 +470,9 @@ describe('/admin settings', () => {
     expectV2Sendable(asked);
     expect(componentCount(asked)).toBeLessThanOrEqual(40);
     expect(textOf(asked)).toContain(
-      'Leave the moderators’ channel unset? Meetup safety goes off in this server: meetups are ' +
-        'no longer held for the moderators, blocks stop applying, and reports stay refused.',
+      'Leave the moderators’ channel unset? That turns meetup safety off: meetups no longer ' +
+        'wait for approval, members blocked from meetups can make them again, and reports stay ' +
+        'refused.',
     );
     const buttons = buttonsOf(asked).map((one) => [one.label, one.style, one.customId]);
     expect(buttons).toContainEqual([
@@ -445,7 +481,7 @@ describe('/admin settings', () => {
       'server:channels.moderation:unset:confirm',
     ]);
     expect(buttons).toContainEqual([
-      'Keep it closed',
+      'Cancel',
       ButtonStyle.Secondary,
       'server:channels.moderation:keep',
     ]);
@@ -458,7 +494,7 @@ describe('/admin settings', () => {
     expect(servers.of(FAKE_GUILD_ID).unmatched).toEqual(['channels.moderation', 'roles.mapMember']);
     expect(store.rows.get(FAKE_GUILD_ID)?.updatedBy).toBeNull();
     expect(store.audit.rows).toEqual([]);
-    // Keep it closed: the panel as it was, nothing written.
+    // Cancel: the panel as it was, nothing written.
     const kept = shownAfter(await press('server:channels.moderation:keep'));
     expect(kept).toEqual(before);
     expect(store.audit.rows).toEqual([]);
@@ -466,8 +502,8 @@ describe('/admin settings', () => {
     await press('server:channels.moderation:unset');
     const left = shownAfter(await press('server:channels.moderation:unset:confirm'));
     expect(textOf(left)).toContain(
-      'Left the moderators’ channel unset: meetup safety is off in this server; reports are ' +
-        'refused.',
+      'Left the moderators’ channel unset: meetup safety is off, and reports to the moderators ' +
+        'are refused.',
     );
     expect(buttonsOf(left).map((one) => one.customId)).not.toContain(
       'server:channels.moderation:unset',
@@ -478,7 +514,7 @@ describe('/admin settings', () => {
     ]);
     // Confirmed again (a panel drawn before), it changes nothing.
     expect(textOf(shownAfter(await press('server:channels.moderation:unset:confirm')))).toContain(
-      'That was so already.',
+      'Nothing was changed: it was set that way already.',
     );
   });
 
@@ -488,13 +524,15 @@ describe('/admin settings', () => {
     });
     const asked = shownAfter(await press('server:roles.mapMember:unset'));
     expect(textOf(asked)).toContain(
-      'Leave the map’s member role unset? The map opens: every member sees the map’s parties.',
+      'Leave the map’s member role unset? Then every member can see and join raids, max ' +
+        'battles, meetups and trains on the web map.',
     );
     expect(store.audit.rows).toEqual([]);
     expect(servers.of(FAKE_GUILD_ID).unmatched).toEqual(['roles.mapMember']);
     const left = shownAfter(await press('server:roles.mapMember:unset:confirm'));
     expect(textOf(left)).toContain(
-      'Left the map’s member role unset: every member sees the map’s parties.',
+      'Left the map’s member role unset: every member can see and join raids, max battles, ' +
+        'meetups and trains on the web map.',
     );
     expect(servers.of(FAKE_GUILD_ID).unmatched).toBeUndefined();
     expect(store.audit.rows.map((row) => [row.key, row.before, row.after])).toEqual([
@@ -505,9 +543,10 @@ describe('/admin settings', () => {
   it('says what clearing the moderators’ channel does, beside its select (fix round 4, I2)', async () => {
     const { panel } = await setup();
     expect(textOf(await panel())).toContain(
-      '**Moderators’ channel** · reports and meetup safety; a channel of its own. Clearing it ' +
-        'turns meetup safety off: meetups are no longer held for the moderators, blocks stop ' +
-        'applying, and reports are refused\n',
+      '**Moderators’ channel** · where reports to the moderators and meetups that need their ' +
+        'approval go; a channel of its own. Clearing it turns meetup safety off: meetups no ' +
+        'longer wait for approval, members blocked from meetups can make them again, and ' +
+        'reports are refused\n',
     );
   });
 
@@ -529,21 +568,23 @@ describe('/admin settings', () => {
     expect(menu(channels, 'server:channels.bot-lab:set').default_values).toEqual([
       { id: TEST_SERVER_CHANNELS['bot-lab'], type: 'channel' },
     ]);
-    expect(textOf(channels)).toContain('not found: pick a channel');
+    expect(textOf(channels)).toContain(
+      'Not found: it may have been deleted. Pick another channel.',
+    );
     const roles = shownAfter(await pick('server:panel:show', ['roles']));
     expect(menu(roles, 'server:roles.unown:set').default_values).toEqual([]);
     expect(menu(roles, 'server:roles.mapMember:set').default_values).toEqual([
       { id: TEST_MAP_ROLE, type: 'role' },
     ]);
-    expect(textOf(roles)).toContain('not found: pick a role');
+    expect(textOf(roles)).toContain('Not found: it may have been deleted. Pick another role.');
   });
 
   it('says where Pine may not post, as soon as such a channel is picked (staging F1)', async () => {
     const lab = TEST_SERVER_CHANNELS['mod-bot-lab'];
     const { panel, pick } = await setup({ shutOutOf: [lab, MODERATORS] });
     const note =
-      'Pine may not post there: give it View Channel, Send Messages and Embed Links in that ' +
-      'channel.';
+      'Pine is missing permissions there: give it View Channel, Send Messages and Embed Links ' +
+      'in that channel.';
     const channels = await panel();
     expectV2Sendable(channels);
     // Under the moderators' bot lab alone: the moderators' channel is not set yet.
@@ -568,7 +609,7 @@ describe('/admin settings', () => {
     expect(servers.of(FAKE_GUILD_ID).features.roles).toBe(false);
     // A second press of the same button (a panel drawn before) sets the same.
     expect(textOf(shownAfter(await press('server:features.roles:set:off')))).toContain(
-      'That was so already.',
+      'Nothing was changed: it was set that way already.',
     );
     await press('server:features.roles:set:on');
     expect(servers.of(FAKE_GUILD_ID).features.roles).toBe(true);
@@ -580,9 +621,12 @@ describe('/admin settings', () => {
     // On by default where the instance lists its servers, or none: said so, with a button that
     // keeps it on and one that closes it (fix round 1, R4).
     expect(textOf(roles)).toContain(
-      '**Map for visitors who are not logged in**: **on** (the instance’s default)',
+      '**Map for visitors who are not logged in**: **on** (by default)',
     );
-    expect(textOf(roles)).toContain('only members see its parties');
+    expect(textOf(roles)).toContain(
+      '· anyone can open the web map and see its regions and gyms; only members see raids, max ' +
+        'battles, meetups and trains',
+    );
     const ofMap = (shown: V2Message) =>
       buttonsOf(shown)
         .filter((one) => one.customId?.startsWith('server:publicMap'))
@@ -595,7 +639,7 @@ describe('/admin settings', () => {
     const kept = shownAfter(await press('server:publicMap:set:on'));
     expect(servers.of(FAKE_GUILD_ID).publicMap).toBe(true);
     expect(textOf(kept)).toContain('**Map for visitors who are not logged in**: **on** ·');
-    expect(textOf(kept)).not.toContain('the instance’s default');
+    expect(textOf(kept)).not.toContain('(by default)');
     expect(ofMap(kept)).toEqual([['Turn off', 'server:publicMap:set:off']]);
     expect((await store.audit.ofServer(FAKE_GUILD_ID, 5)).at(-1)).toMatchObject({
       key: 'publicMap',
@@ -604,12 +648,14 @@ describe('/admin settings', () => {
     });
     // Pressed again, what is so already.
     expect(textOf(shownAfter(await press('server:publicMap:set:on')))).toContain(
-      'That was so already.',
+      'Nothing was changed: it was set that way already.',
     );
     const off = shownAfter(await press('server:publicMap:set:off'));
     expect(textOf(off)).toContain('Turned off the map for visitors who are not logged in.');
     expect(textOf(off)).toContain('**Map for visitors who are not logged in**: **off**');
-    expect(textOf(off)).toContain('only somebody logged in with Discord can open');
+    expect(textOf(off)).toContain(
+      '· only people logged in with Discord can open the web map; to anyone else it does not exist',
+    );
     expect(ofMap(off)).toEqual([['Turn on', 'server:publicMap:set:on']]);
     // The press shows the section it changed again.
     expect(menu(off, 'server:panel:show').options?.find((one) => one.default)?.value).toBe('roles');
@@ -625,7 +671,7 @@ describe('/admin settings', () => {
     const { press, pick, servers } = await setup({ open: true });
     const roles = shownAfter(await pick('server:panel:show', ['roles']));
     expect(textOf(roles)).toContain(
-      '**Map for visitors who are not logged in**: **off** (the instance’s default)',
+      '**Map for visitors who are not logged in**: **off** (by default)',
     );
     expect(
       buttonsOf(roles)
@@ -674,13 +720,15 @@ describe('/admin settings', () => {
     });
     const shown = shownAfter(await pick('server:panel:show', ['text']));
     expect(textOf(shown)).toContain(
-      '**Time zone** · not chosen: `America/New_York` meanwhile; it is 10:00 AM, Thursday, ' +
-        'November 12 there now',
+      '**Time zone** · for every time and date members type and Pine shows: not chosen yet, ' +
+        'so Pine uses `America/New_York`, where it is now 10:00 AM, Thursday, November 12',
     );
     const form = shownDialog(await press('server:timezone:ask'));
     const set = await submit(form, { zone: 'America/New_York' });
     // Chosen, the same zone as the instance's: chosen all the same.
-    expect(textOf(shownAfter(set))).toContain('**Time zone** · `America/New_York`: it is 10:00 AM');
+    expect(textOf(shownAfter(set))).toContain(
+      'Pine shows: `America/New_York`, where it is now 10:00 AM',
+    );
   });
 
   it('sets the time zone in a dialog, canonical, refusing a name it does not know (plan 19A-2)', async () => {
@@ -689,49 +737,50 @@ describe('/admin settings', () => {
     const shown = shownAfter(await pick('server:panel:show', ['text']));
     // The zone, and the time there now, so that staff can see it is right.
     expect(textOf(shown)).toContain(
-      '**Time zone** · `America/New_York`: it is 10:00 AM, Thursday, November 12 there now',
+      '**Time zone** · for every time and date members type and Pine shows: ' +
+        '`America/New_York`, where it is now 10:00 AM, Thursday, November 12',
     );
     expect(buttonsOf(shown).map((one) => one.customId)).toContain('server:timezone:ask');
     const form = shownDialog(await press('server:timezone:ask'));
     expect(dialogField(form, 'Time zone').value).toBe('America/New_York');
     const refused = await submit(form, { zone: 'Mars/Olympus' });
     expect(textOf(shownAfter(refused))).toContain(
-      'Not changed: “Mars/Olympus” is not a time zone I know; use a name such as America/Chicago.',
+      'Not changed: “Mars/Olympus” is not a time zone name. Use one such as America/Chicago.',
     );
     // An offset is no zone's name: it would never change for daylight saving time.
     const offset = await submit(form, { zone: '+05:30' });
-    expect(textOf(shownAfter(offset))).toContain('Not changed: “+05:30” is not a time zone I know');
+    expect(textOf(shownAfter(offset))).toContain('Not changed: “+05:30” is not a time zone name');
     expect(servers.zoneOf(FAKE_GUILD_ID)).toBe('America/New_York');
     const set = await submit(form, { zone: ' europe/berlin ' });
     const after = textOf(shownAfter(set));
     expect(after).toContain('Set the time zone to `Europe/Berlin` (was `America/New_York`).');
-    expect(after).toContain('`Europe/Berlin`: it is 4:00 PM, Thursday, November 12 there now');
+    expect(after).toContain('`Europe/Berlin`, where it is now 4:00 PM, Thursday, November 12');
     expect(servers.of(FAKE_GUILD_ID).timezone).toBe('Europe/Berlin');
     // An abbreviation is refused in words of its own (fix round 1, K2): it follows no place's
     // daylight saving time.
     for (const typed of ['EST', 'CST', 'EST5EDT']) {
       const abbreviation = await submit(form, { zone: typed });
       expect(textOf(shownAfter(abbreviation))).toContain(
-        `Not changed: “${typed}” is an abbreviation; use a name such as America/New_York.`,
+        `Not changed: “${typed}” is an abbreviation. Use a zone name such as America/New_York.`,
       );
     }
     // A place's word alone is no abbreviation (fix round 2, P3), nor one in lower case.
     for (const typed of ['Paris', 'Tokyo', 'cst']) {
       const word = await submit(form, { zone: typed });
       expect(textOf(shownAfter(word))).toContain(
-        `Not changed: “${typed}” is not a time zone I know; use a name such as America/Chicago.`,
+        `Not changed: “${typed}” is not a time zone name. Use one such as America/Chicago.`,
       );
     }
     const fixed = await submit(form, { zone: 'Etc/GMT+5' });
-    expect(textOf(shownAfter(fixed))).toContain(
-      'Not changed: “Etc/GMT+5” is not a time zone I know',
-    );
+    expect(textOf(shownAfter(fixed))).toContain('Not changed: “Etc/GMT+5” is not a time zone name');
     expect(servers.zoneOf(FAKE_GUILD_ID)).toBe('Europe/Berlin');
     // Stored as IANA writes it (fix round 1, K3), and the same zone typed back is no change.
     await submit(form, { zone: 'asia/kolkata' });
     expect(servers.of(FAKE_GUILD_ID).timezone).toBe('Asia/Kolkata');
     const again = await submit(form, { zone: 'Asia/Calcutta' });
-    expect(textOf(shownAfter(again))).toContain('That was so already.');
+    expect(textOf(shownAfter(again))).toContain(
+      'Nothing was changed: it was set that way already.',
+    );
     expect(servers.of(FAKE_GUILD_ID).timezone).toBe('Asia/Kolkata');
     const log = textOf(shownAfter(await pick('server:panel:show', ['changes'])));
     expect(log).toContain(
@@ -753,6 +802,78 @@ describe('/admin settings', () => {
     expect(servers.of(FAKE_GUILD_ID).distanceUnits).toBe('imperial');
   });
 
+  it('says under Text and numbers what each setting is for, and so do its dialogs', async () => {
+    const { pick, press } = await setup({
+      values: testServerValues({
+        regionMapLink: 'https://maps.example.test/pgh',
+        invite: 'https://discord.gg/pine',
+      }),
+    });
+    const text = textOf(shownAfter(await pick('server:panel:show', ['text'])));
+    expect(text).toContain(
+      '**Events forum** · lists events **35** days ahead, opens each event’s post **14** days ' +
+        'before it, and posts “On this day” on the anniversaries of each year’s **3** busiest ' +
+        'raid days',
+    );
+    expect(text).toContain(
+      '**Ending of region forums** · added to a region channel’s name to name its forum: ' +
+        '`-meetups`',
+    );
+    expect(text).toContain(
+      '**Region map link** · a map of all regions, which `/maps` gives members: ' +
+        '`https://maps.example.test/pgh`',
+    );
+    expect(text).toContain(
+      '**Invite** · offered on the web map to visitors who are not in this server: ' +
+        '`https://discord.gg/pine`',
+    );
+    const forum = shownDialog(await press('server:eventsForum:ask'));
+    expect(forum.title).toBe('Events forum');
+    expect(dialogFields(forum).map((one) => [one.label, one.description])).toEqual([
+      ['Days ahead to list events', '1 to 365'],
+      ['Days before an event to open its post', '0 to 365, and no more than the days ahead'],
+      [
+        'Days a year “On this day” recalls',
+        'Each earlier year’s busiest raid days, 0 to 10; 0 turns it off',
+      ],
+    ]);
+    const zone = shownDialog(await press('server:timezone:ask'));
+    expect(zone.title).toBe('Time zone');
+    expect(dialogText(zone)).toBe(
+      'Every time and date members type and Pine shows is in this zone. Type a name such as ' +
+        '`America/New_York`, `Europe/Berlin` or `Asia/Kolkata`.',
+    );
+    const flagged = shownDialog(await press('server:flaggedWords:ask'));
+    expect(dialogText(flagged)).toBe(
+      'A meetup at a place whose name has one of these words or phrases waits for the ' +
+        'moderators’ approval. Pine has a list of its own too. One per line.',
+    );
+    const ending = shownDialog(await press('server:regionForumSuffix:ask'));
+    expect(ending.title).toBe('Ending of region forums');
+    expect(dialogText(ending)).toBe(
+      'Added to a region channel’s name to name its forum: the forum of `north` is ' +
+        '`north-board`. A hyphen and up to 30 letters. Leave it empty to go back to `-board`.',
+    );
+    const invite = shownDialog(await press('server:invite:ask'));
+    expect(invite.title).toBe('Invite');
+    expect(dialogText(invite)).toBe(
+      'An invite to this server, which the web map offers to visitors who are not in it: ' +
+        '`https://discord.gg/<code>`. Leave it empty to remove it.',
+    );
+  });
+
+  it('says where the events forum posts no “On this day”', async () => {
+    const { pick } = await setup({
+      values: testServerValues({
+        eventsForum: { horizonDays: 35, postDaysAhead: 14, onThisDay: 0 },
+      }),
+    });
+    expect(textOf(shownAfter(await pick('server:panel:show', ['text'])))).toContain(
+      '**Events forum** · lists events **35** days ahead, opens each event’s post **14** days ' +
+        'before it, and posts no “On this day”',
+    );
+  });
+
   it('changes the ending of region forums in a dialog, refusing one that is no ending', async () => {
     const { press, submit, servers } = await setup();
     const asked = await press('server:regionForumSuffix:ask');
@@ -772,10 +893,10 @@ describe('/admin settings', () => {
   it("changes the events forum's numbers in one dialog, checked together", async () => {
     const { press, submit, servers } = await setup();
     const form = shownDialog(await press('server:eventsForum:ask'));
-    expect(dialogField(form, 'Days listed').value).toBe('35');
+    expect(dialogField(form, 'Days ahead to list events').value).toBe('35');
     const refused = await submit(form, { horizonDays: '10', postDaysAhead: '14', onThisDay: '3' });
     expect(textOf(shownAfter(refused))).toContain(
-      'Not changed: the days before an event that its post opens must be at most the days listed.',
+      'Not changed: the days before an event its post opens must be at most the days ahead the events forum lists.',
     );
     expect(servers.of(FAKE_GUILD_ID).eventsForum.horizonDays).toBe(35);
     const notANumber = await submit(form, {
@@ -784,11 +905,11 @@ describe('/admin settings', () => {
       onThisDay: '3',
     });
     expect(textOf(shownAfter(notANumber))).toContain(
-      'Not changed: the days the events forum lists must be a whole number.',
+      'Not changed: the days ahead the events forum lists must be a whole number.',
     );
     const set = await submit(form, { horizonDays: '20', postDaysAhead: '7', onThisDay: '3' });
     expect(textOf(shownAfter(set))).toContain(
-      'Set the days the events forum lists to 20 (was 35). Set the days before an event that its post opens to 7 (was 14).',
+      'Set the days ahead the events forum lists to 20 (was 35). Set the days before an event its post opens to 7 (was 14).',
     );
     expect(servers.of(FAKE_GUILD_ID).eventsForum).toEqual({
       horizonDays: 20,
@@ -850,6 +971,11 @@ describe('/admin settings', () => {
       });
       const add = shownDialog(await press(`server:${key}:ask`));
       expect(add.title).toBe('Words to add');
+      const named = key === 'flaggedWords' ? 'flagged words' : 'words gym search ignores';
+      expect(dialogText(add)).toBe(
+        `There are too many ${named} to show here (50). Type words to add, one per line. To ` +
+          'take some off, use Remove… on the panel.',
+      );
       expect(dialogField(add, 'Words to add').value).toBeUndefined();
       await submit(add, { words: 'garden\ncondo' });
       expect(servers.of(FAKE_GUILD_ID)[key]).toEqual([...many, 'garden', 'condo']);
@@ -861,6 +987,9 @@ describe('/admin settings', () => {
       expect(buttonsOf(text).map((one) => one.customId)).toContain(`server:${key}:ask:remove`);
       const remove = shownDialog(await press(`server:${key}:ask:remove`));
       expect(remove.title).toBe('Words to remove');
+      expect(dialogText(remove)).toBe(
+        `Type words to take off the ${named}, one per line. Capital letters do not matter.`,
+      );
       await submit(remove, { words: `GARDEN\n${many[0] ?? ''}` });
       expect(servers.of(FAKE_GUILD_ID)[key]).toEqual([...many.slice(1), 'condo']);
     },
@@ -951,7 +1080,7 @@ describe('/admin settings', () => {
       shownAfter(await submit(many, { horizonDays: '20', postDaysAhead: '7', onThisDay: '3' })),
     ).split('\n')[1];
     expect(numbers).toBe(
-      'Set the days the events forum lists to 20 (was 35). Set the days before an event that its post opens to 7 (was 14).',
+      'Set the days ahead the events forum lists to 20 (was 35). Set the days before an event its post opens to 7 (was 14).',
     );
   });
 
@@ -974,6 +1103,6 @@ describe('/admin settings', () => {
   it('says so where nothing changed in the last 30 days', async () => {
     const { pick } = await setup();
     const shown = textOf(shownAfter(await pick('server:panel:show', ['changes'])));
-    expect(shown).toContain('Nothing was changed here in the last 30 days.');
+    expect(shown).toContain('No changes in the last 30 days.');
   });
 });
