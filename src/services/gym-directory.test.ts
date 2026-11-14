@@ -331,6 +331,12 @@ describe('GymDirectory', () => {
     ];
     await service.load();
     const before = [TEST_GUILD_ROW, OTHER_GUILD_ROW, THIRD].map((row) => service.generationOf(row));
+    // A gym read again with what the matches do not read changed (its texts, its address or
+    // places taken up from Google) is no change of the server's gyms for them: only a name, a
+    // place, a Wayfarer id or a link is (plan 19E).
+    state.gyms = state.gyms.map((gym) => (gym.id === 2 ? { ...gym, notice: 'Closed today' } : gym));
+    await service.refreshGym(2);
+    expect(service.generationOf(TEST_GUILD_ROW)).toBe(before[0]);
     state.gyms = state.gyms.map((gym) => (gym.id === 2 ? { ...gym, name: 'New Fountain' } : gym));
     await service.refreshGym(2);
     expect(service.generationOf(TEST_GUILD_ROW)).not.toBe(before[0]);

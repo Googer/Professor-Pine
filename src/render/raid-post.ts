@@ -1,5 +1,6 @@
 import {
   bossOf,
+  headsByStatus,
   isRaid,
   memberOf,
   type Party,
@@ -28,10 +29,13 @@ import {
   fittedLayout,
   inRole,
   KEPT_OPEN,
+  neighborBlocks,
+  neighborLine,
   renderedPost,
   tidyTitle,
   trainerBlocks,
   trainerCount,
+  type NeighborsShown,
   type Fit,
   type PartyBrief,
   type ForumTag,
@@ -40,7 +44,16 @@ import {
   type PostLayout,
   type RenderedPost,
 } from './party-post.js';
-import { LIMITS, memberByName, plain, plainLines, timestamp, titleCase, truncate } from './text.js';
+import {
+  clockOrDay,
+  LIMITS,
+  memberByName,
+  plain,
+  plainLines,
+  timestamp,
+  titleCase,
+  truncate,
+} from './text.js';
 
 const HOUR = 3_600_000;
 
@@ -109,6 +122,11 @@ export interface RaidPostView {
   /** The size of the raid's groups, where it has one, and when one splits up (`TrainersView`). */
   lobbySize?: number | undefined;
   splitLobby?: number | null | undefined;
+  /**
+   * The neighbors' raids at its gym (plan 19E): their lines below who comes, never in the last
+   * showing; none where it has no neighbors there.
+   */
+  neighbors?: NeighborsShown;
 }
 
 /**
@@ -492,6 +510,35 @@ function headline(view: RaidPostView): string {
   return `**${what}**${after}`;
 }
 
+/**
+ * A neighbor's raid at this raid's gym in a line of this post (plan 19E, `neighborLine`): what it
+ * is as its own post's heading says it (`Level 5 raid against Yveltal`, `Level 5 raid (egg)`),
+ * then when it hatches, or once hatched until when, on the clock of the server whose post shows
+ * the line (`zone`: its date where that is not today there), and how many come by status.
+ */
+export function raidNeighborLine(
+  view: RaidPostView,
+  neighbor: { server: string | undefined; link: string },
+  zone: string,
+): string {
+  const { party, now } = view;
+  const { what, after } = headlineParts(view);
+  const stage = stageOf(view);
+  let when: string | undefined;
+  if (stage === 'egg' && party.hatchTime !== null) {
+    when = `hatches ${clockOrDay(party.hatchTime, now, zone)}`;
+  } else if (party.endTime !== null) {
+    when = `until ${clockOrDay(party.endTime, now, zone)}`;
+  }
+  return neighborLine({
+    server: neighbor.server,
+    what: `${what}${after}`,
+    when,
+    heads: headsByStatus(party),
+    link: neighbor.link,
+  });
+}
+
 /** `### Level 5 raid against Yveltal ✨`, `### Level 5 raid (egg)`: what opens the post. */
 function heading(view: RaidPostView): string {
   const { what, after } = headlineParts(view);
@@ -677,6 +724,7 @@ function raidLayout(view: RaidPostView): PostLayout {
         { complete: true, lobby: true, meetHint: stage !== 'ended' && party.hatchTime !== null },
         fit,
       ),
+      ...neighborBlocks(view.neighbors, fit, view.closed !== undefined),
       { type: 'separator' },
       { type: 'controls', rows: bottomControls(party, { emoji: view.emoji }) },
       ...(party.anonymous

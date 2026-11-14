@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { testMeetup, testRaid, testTrain } from '../../../test/support/parties.js';
-import { hasGroups, isBattle, isTimed, type Party } from './party.js';
+import { testMeetup, testRaid, testTrain, withAttendees } from '../../../test/support/parties.js';
+import { hasGroups, headsByStatus, isBattle, isTimed, type Party } from './party.js';
+import { PartyStatus } from './status.js';
 
 /**
  * A party of a kind this build does not know, as a later kind comes (a max battle came so in plan
@@ -10,6 +11,26 @@ import { hasGroups, isBattle, isTimed, type Party } from './party.js';
 function ofAnotherKind(): Party {
   return { ...testRaid(), type: 'carnival' } as unknown as Party;
 }
+
+describe('headsByStatus (plan 19E)', () => {
+  it('counts the heads of each status as a post lists them: one asked whether done is here', () => {
+    const nobody = { ...testRaid(), attendees: {} };
+    const raid = withAttendees(nobody, {
+      ash: { status: PartyStatus.Interested, number: 2 },
+      misty: { status: PartyStatus.Coming },
+      brock: { status: PartyStatus.Present, number: 3 },
+      gary: { status: PartyStatus.CompletePending },
+      oak: { status: PartyStatus.Complete },
+    });
+    expect(headsByStatus(raid)).toEqual({ interested: 2, coming: 1, present: 4, complete: 1 });
+    expect(headsByStatus(nobody)).toEqual({
+      interested: 0,
+      coming: 0,
+      present: 0,
+      complete: 0,
+    });
+  });
+});
 
 describe('the guards of the kinds of party', () => {
   it('names the timed kinds outright: a meetup and a train, no other kind', () => {

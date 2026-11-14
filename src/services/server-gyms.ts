@@ -244,8 +244,11 @@ export class ServerGyms {
   /** Adds or replaces a gym with the servers it belongs to now, in every view built. */
   put(gym: Gym, servers: Iterable<number>): void {
     const linked = new Set(servers);
-    this.touch(new Set([...linked, ...(this.links.get(gym.id) ?? [])]));
     const before = this.gyms.get(gym.id);
+    const linkedBefore = this.links.get(gym.id) ?? new Set<number>();
+    if (!sameForMatches(before, gym, linkedBefore, linked)) {
+      this.touch(new Set([...linked, ...linkedBefore]));
+    }
     if (before) this.takeFromCell(before);
     this.gyms.set(gym.id, gym);
     this.placeInCell(gym);
@@ -310,4 +313,25 @@ export class ServerGyms {
     gyms.add(gymId);
     this.linked.set(guildId, gyms);
   }
+}
+
+/**
+ * Whether a gym put again is the same for what is built of a server's gyms by their names,
+ * places, Wayfarer ids and servers (`changed`, plan 19E).
+ */
+function sameForMatches(
+  before: Gym | undefined,
+  gym: Gym,
+  linkedBefore: ReadonlySet<number>,
+  linked: ReadonlySet<number>,
+): boolean {
+  return (
+    before !== undefined &&
+    before.name === gym.name &&
+    before.pogoId === gym.pogoId &&
+    before.lat === gym.lat &&
+    before.lon === gym.lon &&
+    linkedBefore.size === linked.size &&
+    [...linked].every((guildId) => linkedBefore.has(guildId))
+  );
 }

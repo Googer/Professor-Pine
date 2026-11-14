@@ -138,7 +138,16 @@ export type PartyListener = (before: Party | undefined, after: Party, note?: Cha
  * is always what is stored.
  */
 export class PartyStore implements PartyProvider {
+  /** The active parties by id: written only through `keepParty`, `dropParty`, `clearParties`. */
   private readonly parties = new Map<string, Party>();
+  /**
+   * The ids of the active raids at each gym, by `<guild row>:<gym id>`, and of the active max
+   * battles at each spot, by `<guild row>:<spotKey>` (every pin of a server under one key): what
+   * `raidAt` and `maxAt` read, never every party (review R3: a neighbor's post asks them at every
+   * render). Kept with `parties`, in the same three places.
+   */
+  private readonly atGym = new Map<string, Set<string>>();
+  private readonly atSpot = new Map<string, Set<string>>();
   private readonly locks: KeyedLock<string>;
   private readonly gymLocks: KeyedLock<number>;
   /** By spot (`spotKey`): a power spot's Wayfarer id, one key for every pin. */
@@ -172,8 +181,8 @@ export class PartyStore implements PartyProvider {
   async load(): Promise<void> {
     if (this.loaded) throw new Error('Parties were already loaded');
     const { parties, unreadable } = await this.options.storage.listActive();
-    this.parties.clear();
-    for (const party of parties) this.parties.set(party.id, party);
+    this.clearParties();
+    for (const party of parties) this.keepParty(party);
     for (const row of unreadable) {
       this.options.log.warn(
         {
@@ -259,16 +268,67 @@ export class PartyStore implements PartyProvider {
   }
 
   raidAt(guildId: number, gymId: number, now: number): RaidParty | undefined {
-    return raidStandingAt(this.active().filter(isRaid), guildId, gymId, now);
+    const raids = this.placed(this.atGym, `${String(guildId)}:${String(gymId)}`).filter(isRaid);
+    return raidStandingAt(raids, guildId, gymId, now);
   }
 
   maxAt(guildId: number, spot: MaxSpot, now: number): MaxParty | undefined {
-    return this.active()
+    return this.placed(this.atSpot, `${String(guildId)}:${spotKey(spot)}`)
       .filter(isMax)
       .find(
         (party) =>
           party.guildId === guildId && sameSpot(party.max.spot, spot) && blocksNewMax(party, now),
       );
+  }
+
+  /** The parties under one key of an index, oldest first (as `active` gives them). */
+  private placed(index: ReadonlyMap<string, ReadonlySet<string>>, key: string): Party[] {
+    const all = this.all;
+    return [...(index.get(key) ?? [])]
+      .flatMap((id) => {
+        const party = all.get(id);
+        return party ? [party] : [];
+      })
+      .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+  }
+
+  /** Where a party is indexed: a raid by its gym, a max battle by its spot; else nowhere. */
+  private placeOf(party: Party): { index: Map<string, Set<string>>; key: string } | undefined {
+    if (isRaid(party) && party.gymId !== null) {
+      return { index: this.atGym, key: `${String(party.guildId)}:${String(party.gymId)}` };
+    }
+    if (isMax(party)) {
+      return { index: this.atSpot, key: `${String(party.guildId)}:${spotKey(party.max.spot)}` };
+    }
+    return undefined;
+  }
+
+  /** Puts an active party in memory, its place in the index with it. */
+  private keepParty(party: Party): void {
+    this.dropParty(party.id);
+    this.parties.set(party.id, party);
+    const place = this.placeOf(party);
+    if (!place) return;
+    const ids = place.index.get(place.key) ?? new Set<string>();
+    ids.add(party.id);
+    place.index.set(place.key, ids);
+  }
+
+  /** Takes a party out of memory, and its place out of the index. */
+  private dropParty(id: string): void {
+    const before = this.parties.get(id);
+    if (!before) return;
+    this.parties.delete(id);
+    const place = this.placeOf(before);
+    const ids = place?.index.get(place.key);
+    ids?.delete(id);
+    if (place && ids?.size === 0) place.index.delete(place.key);
+  }
+
+  private clearParties(): void {
+    this.parties.clear();
+    this.atGym.clear();
+    this.atSpot.clear();
   }
 
   /**
@@ -281,7 +341,8 @@ export class PartyStore implements PartyProvider {
     party: Party,
     options: { movedFrom?: string; by?: ChangeCause['by'] } = {},
   ): Promise<Party> {
-    const parties = this.all;
+    // Refused before it was loaded, as every read.
+    void this.all;
     const { regionId } = party;
     // Decided now, in the same turn in which it is remembered as under way (below): a region
     // is either closed before this add, which is then refused, or its closing waits for it.
@@ -294,7 +355,7 @@ export class PartyStore implements PartyProvider {
         ...(movedFrom === undefined ? {} : { movedFrom }),
       });
       await this.options.storage.insert(party, note);
-      if (party.status === 'active') parties.set(party.id, party);
+      if (party.status === 'active') this.keepParty(party);
       const by = options.by ?? {
         id: party.createdById,
         ...(party.makerName === undefined ? {} : { name: party.makerName }),
@@ -405,11 +466,11 @@ export class PartyStore implements PartyProvider {
       });
       const saved = await this.options.storage.save(stamped, note);
       if (!saved) {
-        parties.delete(id);
+        this.dropParty(id);
         throw new Error(`Party ${id} is no longer in the database`);
       }
-      if (stamped.status === 'active') parties.set(id, stamped);
-      else parties.delete(id);
+      if (stamped.status === 'active') this.keepParty(stamped);
+      else this.dropParty(id);
       this.announce(current, stamped, noteOf(cause, result.ended));
       const { recorded } = saved;
       return { ...result, party: stamped, written: true, ...(recorded ? { recorded } : {}) };
@@ -486,12 +547,12 @@ export class PartyStore implements PartyProvider {
           : [(await storage.save(first.after, first.note)) !== false];
         const gone = writes.filter((_write, n) => found[n] !== true).map((write) => write.after.id);
         if (gone.length > 0) {
-          for (const id of gone) parties.delete(id);
+          for (const id of gone) this.dropParty(id);
           throw new Error(`Party ${gone.join(', ')} is no longer in the database`);
         }
         for (const { index, after } of writes) {
-          if (after.status === 'active') parties.set(after.id, after);
-          else parties.delete(after.id);
+          if (after.status === 'active') this.keepParty(after);
+          else this.dropParty(after.id);
           current[index] = after;
         }
         for (const { index, before, after } of writes) {

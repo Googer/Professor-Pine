@@ -26,6 +26,7 @@ import { endParty, type MaxParty } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
 import {
   maxLook,
+  maxNeighborLine,
   maxTags,
   maxTitle,
   renderMaxPost,
@@ -64,6 +65,25 @@ function view(party: MaxParty, extra: Partial<MaxPostView> = {}): MaxPostView {
 
 const post = (party: MaxParty, extra: Partial<MaxPostView> = {}) =>
   renderMaxPost(view(party, extra));
+
+describe('renderMaxPost: neighbors (plan 19E)', () => {
+  const LINK = 'https://discord.com/channels/412345678901234502/900000000000000009';
+
+  it('words a neighbor’s battle as its own post does, and shows the lines below who comes', () => {
+    const battle = withAttendees(testMax(), { [ALICE]: { status: PartyStatus.Present } });
+    const line = maxNeighborLine(view(battle), { server: 'Pewter City', link: LINK }, PARTY_ZONE);
+    expect(line).toBe(
+      `- **Pewter City** · Dynamax Machamp (2★) · until ${stamp(END)} · Interested (1), ` +
+        `Here (1) · [Its post](<${LINK}>)`,
+    );
+    const rendered = post(testMax(), { neighbors: { at: 'spot', lines: [line] } });
+    expect(textDisplays(rendered.message)).toContain(`**Neighbors at this Power Spot**\n${line}`);
+    expectSendable(rendered);
+    expect(textOf(post(testMax(), { neighbors: { at: 'spot', lines: [] } }).message)).not.toContain(
+      'Neighbors',
+    );
+  });
+});
 
 describe('renderMaxPost: the heading (design 3.3)', () => {
   it('names a Dynamax battle by its boss and stars, with its end, types and weaknesses', () => {

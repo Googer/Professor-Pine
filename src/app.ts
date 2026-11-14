@@ -81,6 +81,8 @@ import { ServerAdoption } from './services/server-adoption.js';
 import { DiscordServerExits } from './discord/server-exits.js';
 import { discordInvites } from './discord/server-invites.js';
 import { ServerNeighbors } from './services/server-neighbors.js';
+import { NeighborMatches } from './services/neighbor-matches.js';
+import { NeighborParties } from './services/neighbor-parties.js';
 import { ServerNeighborRepository } from './db/repositories/server-neighbor-repository.js';
 import { wireServerAdmission } from './discord/server-admission-wiring.js';
 import { botIsPublic } from './discord/application-public.js';
@@ -1369,6 +1371,31 @@ export async function startApp(
     },
     lab: moderatorsLab,
     log,
+  });
+  // A raid's or max battle's post shows its neighbors' parties at the same gym or Power Spot
+  // (plan 19E), from memory: the same gyms per pair of servers, rebuilt when either's gyms change.
+  partyService.useNeighbors(
+    new NeighborParties({
+      neighbors,
+      quiet,
+      matches: new NeighborMatches({ gyms, spots: wayspots }),
+      rowOf: (serverId) => rowIds.rowOfServer(serverId),
+      serverOfRow: (row) => rowIds.serverOfRow(row),
+      parties,
+    }),
+  );
+  // A pair that becomes or stops being neighbors, and a server that leaves or comes back, redraw
+  // the posts that show, or would show, the other's parties.
+  neighbors.whenChanged((pair) => {
+    partyService.neighborsChanged(pair);
+  });
+  standings.whenLeftChanged(({ left, back }) => {
+    partyService.neighborsQuietChanged([...left, ...back]);
+  });
+  // A change of a server's gyms (an import, an edit, a region edit) redraws, gathered, the posts
+  // at gyms whose match with a neighbor's changed.
+  gyms.whenServersChanged((rows) => {
+    partyService.neighborGymsChanged(rows);
   });
   // The catch-up on reconnect (plan 8X-H), made once the services of the stops are there.
   const reconnect: { catchUp?: CatchUp } = {};

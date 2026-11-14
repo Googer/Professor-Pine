@@ -1,7 +1,7 @@
 import { shownPlace, type KnownPlace } from '../domain/geo/place.js';
 import { wayspotAddress, type AddressedWayspot } from '../domain/geo/spot-address.js';
 import { maxEnded, maxSpotName, UNLISTED_SPOT } from '../domain/party/max.js';
-import { memberOf, type MaxParty, type PowerSpot } from '../domain/party/party.js';
+import { headsByStatus, memberOf, type MaxParty, type PowerSpot } from '../domain/party/party.js';
 import type { PokemonCatalogue } from '../domain/pogo/catalogue.js';
 import { listedMaxBoss } from '../domain/pogo/max-boss-list.js';
 import type { MaxBoss } from '../domain/pogo/max-bosses.js';
@@ -17,6 +17,8 @@ import {
   fittedLayout,
   inRole,
   KEPT_OPEN,
+  neighborBlocks,
+  neighborLine,
   renderedPost,
   tidyTitle,
   trainerBlocks,
@@ -28,6 +30,7 @@ import {
   type PostLayout,
   type RenderedPost,
   type TrainersView,
+  type NeighborsShown,
 } from './party-post.js';
 import { PLACE_KIND_WORDS } from './place.js';
 import {
@@ -39,7 +42,15 @@ import {
   WHERE_HEADING,
   type ShownBoss,
 } from './raid-post.js';
-import { LIMITS, memberByName, plain, plainNoLinks, timestamp, truncate } from './text.js';
+import {
+  clockOrDay,
+  LIMITS,
+  memberByName,
+  plain,
+  plainNoLinks,
+  timestamp,
+  truncate,
+} from './text.js';
 
 /** The colour of a max battle's post while it is on: the game's Dynamax red. */
 export const MAX_COLOUR = 0xd81b60;
@@ -65,6 +76,8 @@ export interface MaxPostView extends TrainersView {
   addressOf?: (wayspot: AddressedWayspot & { id: string }) => string;
   /** The sentence of its last showing when staff closed it (`RaidPostView.closed`). */
   closed?: string;
+  /** The neighbors' max battles at its Power Spot (plan 19E), as a raid's (`RaidPostView`). */
+  neighbors?: NeighborsShown;
 }
 
 /**
@@ -148,6 +161,27 @@ function namingOf(view: Pick<MaxPostView, 'party' | 'boss'>): MaxBossNaming {
 /** `Dynamax Machamp (2★)`, `Gigantamax Machamp`: what the battle is (`maxBossTitle`). */
 function what(view: MaxPostView): string {
   return maxBossTitle(namingOf(view), view.party.max.tier);
+}
+
+/**
+ * A neighbor's max battle at this battle's Power Spot in a line of this post (plan 19E,
+ * `neighborLine`): what it is as its own post's heading says it (`Dynamax Machamp (2★)`), until
+ * when on the clock of the server whose post shows the line (`zone`), how many come by status.
+ */
+export function maxNeighborLine(
+  view: MaxPostView,
+  neighbor: { server: string | undefined; link: string },
+  zone: string,
+): string {
+  const { party, now } = view;
+  const end = party.endTime ?? party.lastPossibleTime;
+  return neighborLine({
+    server: neighbor.server,
+    what: plain(what(view)),
+    when: end === null ? undefined : `until ${clockOrDay(end, now, zone)}`,
+    heads: headsByStatus(party),
+    link: neighbor.link,
+  });
 }
 
 /** `Until 21:00 (in 3 hours).`, `Ended at …`, or why staff closed it. */
@@ -271,6 +305,7 @@ function maxLayout(view: MaxPostView): PostLayout {
       { type: 'separator' },
       // The hint names Meet…, which a max battle has while it is on.
       ...trainerBlocks(view, { complete: true, lobby: true, meetHint: !shownOver(view) }, fit),
+      ...neighborBlocks(view.neighbors, fit, view.closed !== undefined),
       { type: 'separator' },
       { type: 'controls', rows: bottomControls(party, { emoji: view.emoji }) },
       ...(party.anonymous

@@ -1890,8 +1890,11 @@ export class FakePartyGateway implements PartyGateway {
   /** The name of the fake's server, as the fake interactions name it; none of another. */
   serverName = 'Test Server';
 
+  /** The names of other servers the bot is in, by id (a neighbor's, plan 19E); none unless set. */
+  readonly otherServerNames = new Map<string, string>();
+
   guildName(guildId: string): string | undefined {
-    return guildId === this.guildId ? this.serverName : undefined;
+    return guildId === this.guildId ? this.serverName : this.otherServerNames.get(guildId);
   }
 
   /**

@@ -78,6 +78,8 @@ import {
   setSaved,
   endParty,
   type RaidScreenshot,
+  type BattleParty,
+  isBattle,
 } from '../domain/party/party.js';
 import {
   certainMoves,
@@ -130,9 +132,11 @@ import {
   type PostLayout,
   type PostVariant,
   type RenderedPost,
+  type NeighborsShown,
 } from '../render/party-post.js';
 import {
   raidLook,
+  raidNeighborLine,
   raidTitle,
   renderRaidPost,
   shownAutoset,
@@ -144,7 +148,9 @@ import { customIconText } from '../render/party-controls.js';
 import { postLink } from '../render/notify-dm.js';
 import { postKey } from '../render/post-view.js';
 import { everyLocalMidnightIn, type ZonesMidnight } from './local-midnight.js';
+import type { NeighborParties } from './neighbor-parties.js';
 import {
+  maxNeighborLine,
   maxTitle,
   renderMaxPost,
   shownMaxBoss,
@@ -232,6 +238,13 @@ const CHECK_EVERY_MS = 10 * MINUTE;
  * a restart reads the emoji anew, and every post at once would be a burst of edits.
  */
 export const EMOJI_RENDER_GAP_MS = 250;
+
+/**
+ * How long changes of servers' gyms are gathered before their neighbors' matches are compared
+ * (plan 19E, review R9, `neighborGymsChanged`): a Wayfarer import writes its gyms in blocks, each
+ * read again, and every pair of the server is compared once for all the blocks of a few seconds.
+ */
+export const NEIGHBOR_MATCHES_GATHER_MS = 5_000;
 
 /** At most so many closings that failed are kept to be done again (`redoClosings`). */
 export const UNDONE_CLOSINGS_MAX = 500;
@@ -997,6 +1010,12 @@ export class PartyService {
 
   /** Told of new raids and of raids that moved to another region (`announceTo`). */
   private notifier: PartyNotifier | undefined;
+  /** The neighbors' parties at a party's gym or Power Spot (plan 19E, `useNeighbors`). */
+  private neighborParties: NeighborParties | undefined;
+  /** The servers (`Guild` rows) whose gyms changed since their matches were last compared. */
+  private readonly gymsChangedOf = new Set<number>();
+  /** Cancels the timer of that comparison (`NEIGHBOR_MATCHES_GATHER_MS`), while one waits. */
+  private gymsChangedTimer: (() => void) | undefined;
 
   /** Where an egg's picture comes from: the bot's web pages, or the post's own file. */
   private readonly eggPictures: EggPictures;
@@ -1066,6 +1085,119 @@ export class PartyService {
     options.store.onChange((_before, after) => {
       this.changes.set(after.id, (this.changes.get(after.id) ?? 0) + 1);
     });
+    // A party's change shows in its neighbors' posts at its gym (plan 19E).
+    options.store.onChange((before, after) => {
+      this.neighborsFollow(before, after);
+    });
+  }
+
+  /**
+   * Shows the neighbors' parties at a raid's gym or a max battle's Power Spot in its post (plan
+   * 19E): set once at start, when the neighbors are read.
+   */
+  useNeighbors(parties: NeighborParties): void {
+    this.neighborParties = parties;
+  }
+
+  /**
+   * What a raid's or max battle's post shows of its neighbors' parties there (plan 19E): a line
+   * each, made by the renderer of the neighbor party's kind from its own view (the one path of
+   * its post's words), its times on this party's server's clock; nothing for an ended party, nor
+   * without neighbors there.
+   */
+  private neighborsShown(party: BattleParty): { neighbors?: NeighborsShown } {
+    const finder = this.neighborParties;
+    if (finder === undefined || party.status !== 'active') return {};
+    const found = finder.of(party, this.now());
+    if (found.length === 0) return {};
+    const zone = this.zoneOf(party);
+    const lines = found.map(({ serverId, party: theirs }) => {
+      const neighbor = {
+        server: this.options.gateway.guildName(serverId),
+        link: postLink(serverId, theirs.forumPostId ?? ''),
+      };
+      return isRaid(theirs)
+        ? raidNeighborLine(this.view(theirs), neighbor, zone)
+        : maxNeighborLine(this.maxView(theirs), neighbor, zone);
+    });
+    return { neighbors: { at: isRaid(party) ? 'gym' : 'spot', lines } };
+  }
+
+  /**
+   * A party changed (`PartyStore.onChange`): the posts of its neighbors' parties at its gym or
+   * Power Spot, before and after the change, are shown anew in their servers' turns (plan 19E,
+   * `queueAnew`), gathered with what waits already. A quiet server's party reaches nobody.
+   */
+  private neighborsFollow(before: Party | undefined, after: Party): void {
+    const finder = this.neighborParties;
+    if (finder === undefined || this.closed || !isBattle(after)) return;
+    const now = this.now();
+    const changed = before === undefined || before === after ? [after] : [before, after];
+    this.queueAnew(changed.flatMap((party) => finder.of(party, now).map((found) => found.party)));
+  }
+
+  /**
+   * Two servers became neighbors or stopped being so (`ServerNeighbors.whenChanged`): the posts of
+   * either's parties at a gym or Power Spot of the other's parties are shown anew, paced.
+   */
+  neighborsChanged(pair: { serverA: string; serverB: string }): void {
+    const finder = this.neighborParties;
+    if (finder === undefined || this.closed) return;
+    const now = this.now();
+    this.queueAnew(
+      this.options.store.active().filter((party) => {
+        if (!isBattle(party)) return false;
+        const server = this.serverOf(party);
+        const other =
+          server === pair.serverA
+            ? pair.serverB
+            : server === pair.serverB
+              ? pair.serverA
+              : undefined;
+        return other !== undefined && finder.in(party, other, now) !== undefined;
+      }),
+    );
+  }
+
+  /**
+   * Servers' gyms changed as the same gyms of two neighbors read them (`GymDirectory.
+   * whenServersChanged`: an import, an edit, a link, a removal, a region edit): gathered for
+   * `NEIGHBOR_MATCHES_GATHER_MS`, then each pair of neighbors of these servers is compared once,
+   * and the posts of both servers' live raids at gyms that gained, lost or changed a match are
+   * shown anew on the paced queue (review R9). Nothing after `close`; `flush` drops what waits.
+   */
+  neighborGymsChanged(guildRows: readonly number[]): void {
+    if (this.neighborParties === undefined || this.closed) return;
+    for (const row of guildRows) this.gymsChangedOf.add(row);
+    if (this.gymsChangedTimer !== undefined) return;
+    this.gymsChangedTimer = this.setTimer(() => {
+      this.gymsChangedTimer = undefined;
+      const rows = [...this.gymsChangedOf];
+      this.gymsChangedOf.clear();
+      const finder = this.neighborParties;
+      if (finder === undefined || this.closed) return;
+      this.queueAnew(finder.matchesChanged(rows, this.now()));
+    }, NEIGHBOR_MATCHES_GATHER_MS);
+  }
+
+  /**
+   * Servers went quiet or came back (Pine left them or is back, `ServerStandings.whenLeftChanged`):
+   * their neighbors' posts that show, or would show, their parties are shown anew, paced.
+   */
+  neighborsQuietChanged(serverIds: readonly string[]): void {
+    const finder = this.neighborParties;
+    if (finder === undefined || this.closed) return;
+    const now = this.now();
+    const shown: Party[] = [];
+    for (const serverId of serverIds) {
+      const neighbors = new Set(finder.neighborsOf(serverId));
+      for (const party of this.options.store.active()) {
+        const server = this.serverOf(party);
+        if (!isBattle(party) || server === null || !neighbors.has(server)) continue;
+        if (finder.in(party, serverId, now)) shown.push(party);
+      }
+    }
+    this.queueAnew(shown);
   }
 
   /**
@@ -1475,7 +1607,7 @@ export class PartyService {
     const last = closed === undefined ? {} : { closed };
     switch (party.type) {
       case 'raid':
-        return renderRaidPost({ ...this.view(party), ...last });
+        return renderRaidPost({ ...this.view(party), ...this.neighborsShown(party), ...last });
       case 'meetup':
         return renderMeetupPost({ ...this.meetupView(party), ...last });
       case 'train':
@@ -1491,7 +1623,7 @@ export class PartyService {
           ...(mapLink === undefined ? {} : { mapLink }),
         });
       case 'max':
-        return renderMaxPost({ ...this.maxView(party), ...last });
+        return renderMaxPost({ ...this.maxView(party), ...this.neighborsShown(party), ...last });
     }
   }
 
@@ -2999,9 +3131,21 @@ export class PartyService {
         this.summaries.request(region.id);
       }
     }
-    for (const party of this.options.store.active()) {
-      if (party.forumPostId === null || !ofServer(party.guildId)) continue;
-      if (this.ofQuietServer(party)) continue;
+    this.queueAnew(this.options.store.active().filter((party) => ofServer(party.guildId)));
+  }
+
+  /**
+   * Queues parties' posts to be shown anew on the paced queue (`EMOJI_RENDER_GAP_MS`, each in its
+   * server's line, plan 19B-5), all of them before the first is shown, so that they are paced
+   * among themselves; a post that waits there already is not queued twice (gathered: several
+   * asks before its turn make one draw), nor one without a post or of a quiet server. A
+   * neighbor's changes (plan 19E) take the turn of the server whose post shows them, never more
+   * than its posts' pace (and each post's own, `posts`).
+   */
+  private queueAnew(parties: Iterable<Party>): void {
+    if (this.closed) return;
+    for (const party of parties) {
+      if (party.forumPostId === null || this.ofQuietServer(party)) continue;
       if (this.emojiQueue.has(party.guildId, (id) => id === party.id)) continue;
       this.emojiQueue.put(party.guildId, party.id);
     }
@@ -3794,6 +3938,10 @@ export class PartyService {
     this.emojiTimer?.();
     this.emojiTimer = undefined;
     this.emojiQueue.clear();
+    // So do those that wait for the neighbors' matches to be compared (plan 19E).
+    this.gymsChangedTimer?.();
+    this.gymsChangedTimer = undefined;
+    this.gymsChangedOf.clear();
     // A raid on its way to another region arrives first.
     await this.moves.whenIdle();
     do {
