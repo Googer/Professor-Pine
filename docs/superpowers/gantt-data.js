@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-13T22:18",
+  "updated": "2026-11-13T23:53",
   "items": [
     {
       "id": "0",
@@ -12675,16 +12675,113 @@ window.GANTT = {
       "end": "2026-11-12T15:22"
     },
     {
-      "id": "19C",
+      "id": "19C-1",
       "kind": "plan",
       "parent": "19",
-      "name": "19C Onboarding and leaving",
-      "size": 4,
+      "name": "19C-1 Joining and leaving",
+      "size": 1,
       "dependsOn": [
         "19B-5",
         "19D"
       ],
-      "scope": "servers setting and checks at ready, the setup state and checklist, /operator servers and the block list, leaving and the deletion after 30 days, the map’s visitors, legal texts",
+      "scope": "the record of each server and who may join, the check on joining and at every ready, a server that removes Pine marked left and kept, /operator servers",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T16:45",
+        "end": "2026-11-13T23:52",
+        "review": {
+          "start": "2026-11-13T18:20",
+          "end": "2026-11-13T23:47"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T23:47",
+        "end": "2026-11-13T23:47"
+      }
+    },
+    {
+      "id": "19C-1.1",
+      "kind": "task",
+      "parent": "19C-1",
+      "name": "The record of each server and the rule of who may join",
+      "status": "done",
+      "start": "2026-11-13T22:20",
+      "end": "2026-11-13T22:20"
+    },
+    {
+      "id": "19C-1.2",
+      "kind": "task",
+      "parent": "19C-1",
+      "name": "Who is in, checked on joining and once every shard is ready",
+      "status": "done",
+      "start": "2026-11-13T22:20",
+      "end": "2026-11-13T22:27"
+    },
+    {
+      "id": "19C-1.3",
+      "kind": "task",
+      "parent": "19C-1",
+      "name": "A server that removes Pine is marked left, and nothing is done for it",
+      "status": "done",
+      "start": "2026-11-13T22:27",
+      "end": "2026-11-13T23:47"
+    },
+    {
+      "id": "19C-1.4",
+      "kind": "task",
+      "parent": "19C-1",
+      "name": "Operator servers: see, allow, remove and block servers",
+      "status": "done",
+      "start": "2026-11-13T23:47",
+      "end": "2026-11-13T23:47"
+    },
+    {
+      "id": "19C-1.5",
+      "kind": "task",
+      "parent": "19C-1",
+      "name": "Docs of joining and leaving",
+      "status": "done",
+      "start": "2026-11-13T23:47",
+      "end": "2026-11-13T23:47"
+    },
+    {
+      "id": "19C-2",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19C-2 The setup state",
+      "size": 1,
+      "dependsOn": [
+        "19C-1"
+      ],
+      "scope": "a new server in setup answers only its setup, the /admin setup checklist, leaving setup, an open instance from the code’s defaults",
+      "doneWhen": "Merged into main-dev",
+      "status": "unplanned"
+    },
+    {
+      "id": "19C-3",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19C-3 Deletion after 30 days",
+      "size": 1,
+      "dependsOn": [
+        "19C-1"
+      ],
+      "scope": "a left server’s data deleted after 30 days over every per-server table, with the indexes it needs",
+      "doneWhen": "Merged into main-dev",
+      "status": "unplanned"
+    },
+    {
+      "id": "19C-4",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19C-4 Visitors, texts and checks",
+      "size": 1,
+      "dependsOn": [
+        "19C-2",
+        "19C-3"
+      ],
+      "scope": "the map’s visitors, the Privacy Policy and Terms, guides, cutover-check",
       "doneWhen": "Merged into main-dev",
       "status": "unplanned"
     },
