@@ -74,8 +74,9 @@ describe('ServerNeighbors (plan 19E)', () => {
     expect(heard).toEqual([`${ASH}-${BROCK}:true`]);
     expect(made.lab.of(ASH).map(textOf)).toEqual([
       '**Pewter City** (`412345678901234502`) accepted this server’s request: the two ' +
-        'servers are neighbors now. The posts of their raids and max battles show the other’s ' +
-        'at the gyms and Power Spots both cover.',
+        'servers are neighbors now. Raid and max battle posts in each server show the other’s ' +
+        'at the gyms and Power Spots both cover. Either server can end it with ' +
+        '`/admin neighbors end`.',
     ]);
     // A second answer finds nothing to answer.
     expect(await made.neighbors.answer(ASH, BROCK, false)).toEqual({ kind: 'expired' });
@@ -89,7 +90,8 @@ describe('ServerNeighbors (plan 19E)', () => {
     });
     expect(made.neighbors.areNeighbors(ASH, BROCK)).toBe(false);
     expect(made.lab.of(ASH).map(textOf)).toEqual([
-      'The server `412345678901234502` declined this server’s request to be neighbors.',
+      'The server `412345678901234502` declined this server’s request to be neighbors. You may ' +
+        'ask again in a week.',
     ]);
     expect(made.store.rows.get(`${ASH}:${BROCK}`)?.declinedAt).toBe(NOW);
   });
@@ -127,7 +129,9 @@ describe('ServerNeighbors (plan 19E)', () => {
         'raids and max battles no longer show in this server’s posts, nor this server’s in theirs.',
     ]);
     expect(made.lab.of(BROCK).map(textOf)).toEqual([
-      'This server’s staff ended being neighbors with **Pallet Town** (`412345678901234501`).',
+      'This server’s staff ended being neighbors with **Pallet Town** (`412345678901234501`): ' +
+        'their raids and max battles no longer show in this server’s posts, nor this server’s ' +
+        'in theirs.',
     ]);
     expect(made.lab.of(MISTY)).toEqual([]);
   });

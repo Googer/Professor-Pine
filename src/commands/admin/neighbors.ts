@@ -24,6 +24,7 @@ import { serverNameShown } from '../../render/server-admission.js';
 import {
   ASKED,
   NEIGHBOR_KIND,
+  NEIGHBORS_SHARE,
   neighborAcceptedPost,
   neighborDeclinedPost,
   serverNamed,
@@ -35,7 +36,8 @@ import { CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 
 /** The subcommand group of `/admin` the neighbors live under. */
 export const NEIGHBORS_GROUP = 'neighbors';
-export const NEIGHBORS_DESCRIPTION = 'The servers whose raids show in this server’s posts';
+export const NEIGHBORS_DESCRIPTION =
+  'Neighbor servers, which show each other’s raids and max battles in their posts';
 
 /** As long as `server:` may be: an id, or an invite link with its query. */
 const SERVER_TEXT = 200;
@@ -53,8 +55,8 @@ const SERVER_ASK_WINDOW = 'admin neighbors ask, by server';
 /** The refusal of an ask past the server's throttle. */
 function serverAskRefusal(wait: number): string {
   return (
-    `This server’s staff asked servers to be neighbors ${String(SERVER_ASK_THROTTLE.uses)} ` +
-    `times in ten minutes: ask again in ${waitText(wait)}.`
+    `This server’s staff have sent ${String(SERVER_ASK_THROTTLE.uses)} requests to be ` +
+    `neighbors in ten minutes, the most they may. Ask again in ${waitText(wait)}.`
   );
 }
 
@@ -62,13 +64,23 @@ function serverAskRefusal(wait: number): string {
 const ANSWER_THROTTLE: Throttle = { uses: 20, perSeconds: 60 };
 
 export const NOT_A_SERVER =
-  'Give the server’s id (17 to 20 digits) or an invite link to it, such as ' +
+  'Give the server’s ID (17 to 20 digits) or an invite link to it, such as ' +
   'https://discord.gg/abc123.';
 const ITSELF = 'That is this server: a server cannot be its own neighbor.';
-const FULL =
-  `This server has ${String(NEIGHBORS_MAX)} neighbors and requests already, as many as it may: ` +
-  'end one with `/admin neighbors end` first.';
+
+/** Why a server cannot take another neighbor, and what staff do about it (`then` …). */
+function fullText(then: string): string {
+  return (
+    `This server already has ${String(NEIGHBORS_MAX)} neighbors and open requests, the most it ` +
+    `may have. End a neighbor or take back a request with \`/admin neighbors end\`, then ${then}.`
+  );
+}
 export const REQUEST_EXPIRED = 'This request has expired or was answered already.';
+
+/** A server named by the id it was given, in a refusal; `that server` where there is none. */
+function givenServer(other: string | undefined): string {
+  return other === undefined ? 'that server' : `\`${other}\``;
+}
 
 /** The `server:` option. */
 function serverOption(description: string, autocomplete: boolean) {
@@ -117,16 +129,15 @@ export const askNeighbor: SubcommandPart = {
   group: NEIGHBORS_GROUP,
   data: new SlashCommandSubcommandBuilder()
     .setName('ask')
-    .setDescription('Ask another server to be this server’s neighbor')
-    .addStringOption(serverOption('The server’s id, or an invite link to it', false)),
+    .setDescription('Ask another server to be neighbors')
+    .addStringOption(serverOption('The server’s ID, or an invite link to it', false)),
   help: {
     details:
-      'Neighbors see each other’s raids and max battles at the gyms and Power Spots both cover: ' +
-      'a line in the post with the other server’s name, the boss, its time, how many are coming ' +
-      'and a link to its post. No member is named and nobody is pinged.\n\n' +
-      'The other server’s staff answer in their moderators’ bot lab, and yours hear of it in ' +
-      `yours. A server may have ${String(NEIGHBORS_MAX)} neighbors and requests; a request ` +
-      'expires after a week, and a server that declined may be asked again a week later.',
+      `${NEIGHBORS_SHARE}\n\n` +
+      'The other server’s staff accept or decline in their moderators’ bot lab, and your ' +
+      'moderators’ bot lab hears the answer.\n\n' +
+      `A server may have ${String(NEIGHBORS_MAX)} neighbors and open requests in all. A request ` +
+      'expires after a week. After a decline, the same server may be asked again a week later.',
     examples: ['/admin neighbors ask server:https://discord.gg/abc123'],
   },
   defer: 'ephemeral',
@@ -170,14 +181,15 @@ export const askNeighbor: SubcommandPart = {
       case 'self':
         throw new UserError(ITSELF);
       case 'full':
-        throw new UserError(FULL);
+        throw new UserError(fullText('ask again'));
       case 'neighbors':
         throw new UserError(`This server and ${named(ctx, target)} are neighbors already.`);
       case 'theirs':
         throw new UserError(
-          `${named(ctx, target)} asked this server already: its request is posted again in ` +
-            'your moderators’ bot lab, where staff accept it. If it does not show there, choose ' +
-            'a moderators’ bot lab in `/admin settings` (or let me post there), then ask again.',
+          `${named(ctx, target)} already asked to be this server’s neighbor. Its request is ` +
+            'posted again in your moderators’ bot lab: accept it there.\n\n' +
+            'If it does not show up, choose a moderators’ bot lab in `/admin settings` or allow ' +
+            'me to post in it, then ask again.',
         );
     }
   },
@@ -216,11 +228,13 @@ function listLines(ctx: AppContext, serverId: string): string[] {
   }
   const parts = [
     `**Neighbors** (${String(neighbors.length)} of ${String(NEIGHBORS_MAX)})`,
-    ...(neighbors.length === 0 ? ['None yet. `/admin neighbors ask` asks a server.'] : neighbors),
+    ...(neighbors.length === 0
+      ? ['None yet. Ask a server with `/admin neighbors ask`.']
+      : neighbors),
   ];
-  if (sent.length > 0) parts.push('**Requests this server sent**', ...sent);
-  if (toUs.length > 0) parts.push('**Requests to this server**', ...toUs);
-  if (declined.length > 0) parts.push('**Declined**', ...declined);
+  if (sent.length > 0) parts.push('**Requests sent**', ...sent);
+  if (toUs.length > 0) parts.push('**Requests received**', ...toUs);
+  if (declined.length > 0) parts.push('**Requests declined**', ...declined);
   return parts;
 }
 
@@ -229,11 +243,13 @@ export const listNeighbors: SubcommandPart = {
   group: NEIGHBORS_GROUP,
   data: new SlashCommandSubcommandBuilder()
     .setName('list')
-    .setDescription('Show this server’s neighbors and the requests either way'),
+    .setDescription('List this server’s neighbors and the requests to and from it'),
   help: {
     details:
-      'Neighbors by their names; a request this server sent by the id it was given, until it ' +
-      'is answered.',
+      'Lists this server’s neighbors, the requests it sent, the requests sent to it, and its ' +
+      'requests declined in the last week.\n\n' +
+      'A request this server sent shows the other server by its ID alone, not its name, until ' +
+      'they accept.',
     examples: ['/admin neighbors list'],
   },
   defer: 'ephemeral',
@@ -298,12 +314,13 @@ export const endNeighbor: SubcommandPart = {
   data: new SlashCommandSubcommandBuilder()
     .setName('end')
     .setDescription('Stop being neighbors with a server, or take back a request')
-    .addStringOption(serverOption('The neighbor, or the server this one asked', true)),
+    .addStringOption(serverOption('The neighbor, or the server you asked', true)),
   help: {
     details:
-      'Ends it at once: neither server’s posts show the other’s raids from their next redraw, ' +
-      'and both moderators’ bot labs are told. A request this server sent and nobody answered ' +
-      'yet is taken back, telling nobody.',
+      'Ends being neighbors at once. Each server’s posts stop showing the other’s raids and max ' +
+      'battles the next time they update, and both servers’ moderators’ bot labs are told.\n\n' +
+      'A request this server sent that is not answered yet is taken back instead, without ' +
+      'telling anyone.',
     examples: ['/admin neighbors end server:123456789012345678'],
   },
   defer: 'ephemeral',
@@ -327,7 +344,7 @@ export const endNeighbor: SubcommandPart = {
         return;
       case 'none':
         throw new UserError(
-          `This server is not a neighbor of \`${other ?? 'that server'}\`, nor waiting for its answer.`,
+          `This server is not neighbors with ${givenServer(other)} and has no open request to it.`,
         );
     }
   },
@@ -353,32 +370,35 @@ function copiedWords(counts: CopyCounts): string {
     : `${said.slice(0, -1).join(', ')} and ${said.at(-1) ?? ''}`;
 }
 
-/** What `copy` says of the gyms both servers have as one row, where there are any. */
+/**
+ * What `copy` says of the gyms both servers have as one row, where there are any: one gym in both,
+ * its texts the same in both already.
+ */
 function sharedWords(counts: CopyCounts): string {
   if (counts.shared === 0) return '';
-  return ` ${count(counts.shared, 'gym')} both servers have as one ${counts.shared === 1 ? 'was' : 'were'} left as ${counts.shared === 1 ? 'it is' : 'they are'}.`;
+  const are = counts.shared === 1 ? 'is' : 'are';
+  return ` ${count(counts.shared, 'gym')} ${are} already shared by both servers, with the same texts in both.`;
 }
 
 /** What `copy` says of a copy from the neighbor `name` (staging F2: one gym in the singular). */
 export function copySaid(name: string, copied: CopyCounts): string {
   if (copied.gyms === 0) {
     return (
-      `Nothing to copy from ${name}: every gym of this server that is its gym too has its ` +
-      `texts already, or theirs are empty.${sharedWords(copied)}`
+      `Nothing to copy from ${name}. On the same gyms, this server’s texts are filled in ` +
+      `already, or the neighbor’s are empty.${sharedWords(copied)}`
     );
   }
-  const theirs = copied.gyms === 1 ? 'is its gym' : 'are its gyms';
   return (
-    `Copied from ${name} onto ${count(copied.gyms, 'gym')} of this server that ${theirs} too: ` +
-    `${copiedWords(copied)}. Nothing this server’s staff set was replaced.` +
-    `${sharedWords(copied)} Run it again to copy what they add.`
+    `Copied from ${name} onto ${count(copied.gyms, 'gym')} of this server: ` +
+    `${copiedWords(copied)}. Nothing your staff set was replaced.${sharedWords(copied)}\n\n` +
+    'Run it again later to copy what they add.'
   );
 }
 
 /** The refusal of `copy` from a server that is not a neighbor. */
 function notANeighbor(other: string | undefined): UserError {
   return new UserError(
-    `This server is not a neighbor of \`${other ?? 'that server'}\`: copy only from a neighbor.`,
+    `This server is not neighbors with ${givenServer(other)}. You can copy only from a neighbor.`,
   );
 }
 
@@ -403,10 +423,11 @@ export const copyFromNeighbor: SubcommandPart = {
     .addStringOption(serverOption('The neighbor to copy from', true)),
   help: {
     details:
-      'Copies onto this server’s gyms that are the neighbor’s gyms too (the same Wayfarer id, ' +
-      'or the same place and name): their nicknames, notices, descriptions and search words, ' +
-      'each only where this server’s is empty.\n\n' +
-      'Nothing your staff set is replaced, and it can be run again; it is not a live link.',
+      'Copies the neighbor’s gym nicknames, notices, descriptions and search words onto the ' +
+      'same gyms in this server. A gym is the same when it has the same Wayfarer ID, or the ' +
+      'same name at the same place.\n\n' +
+      'Each text is copied only where this server’s is empty, so nothing your staff set is ' +
+      'replaced. It is a one-time copy, not a live link: run it again to copy what they add later.',
     examples: ['/admin neighbors copy server:123456789012345678'],
   },
   guards: [requireNeighborNamed],
@@ -468,10 +489,7 @@ export const neighborControls: ComponentHandler = {
       case 'expired':
         throw new UserError(REQUEST_EXPIRED);
       case 'full':
-        throw new UserError(
-          `This server has ${String(NEIGHBORS_MAX)} neighbors and requests already, as many as ` +
-            'it may: end one with `/admin neighbors end` before accepting another.',
-        );
+        throw new UserError(fullText('accept this one'));
       case 'accepted':
         await showInPlace(interaction, neighborAcceptedPost(id.id, outcome.name));
         return;
