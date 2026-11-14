@@ -842,6 +842,26 @@ describe('GymAdminService.edit and setElite', () => {
     ).toBe(false);
   });
 
+  it('fills only the texts still empty, the directory reading the gym again (plan 19E)', async () => {
+    const made = await gymAdminWith();
+    made.gymStore.writes.length = 0;
+    const filled = await made.admin.fillEmpty(
+      1,
+      { nickname: 'Theirs', notice: 'Closed on Mondays' },
+      STAFF,
+    );
+    // The library has a nickname of its own and no notice.
+    expect(filled?.filled).toEqual(['notice']);
+    expect(made.directory.of(TEST_GUILD_ROW).get(1)).toMatchObject({
+      nickname: 'The Stacks',
+      notice: 'Closed on Mondays',
+    });
+    expect(made.gymStore.writes).toEqual([
+      { what: 'update', id: 1, patch: { notice: 'Closed on Mondays' } },
+    ]);
+    await expect(made.admin.fillEmpty(99, { notice: 'x' }, STAFF)).resolves.toBeUndefined();
+  });
+
   it('writes nothing for no change, and answers the gym as it is', async () => {
     const made = await gymAdminWith();
     made.gymStore.writes.length = 0;

@@ -1225,6 +1225,7 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
           return Promise.resolve();
         },
       },
+      matches: { forgetRow: (row) => done.push(`matches ${String(row)}`) },
       pineStops: {
         load: () => {
           done.push('pine stops');
@@ -1262,6 +1263,7 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
       'gym gone 8',
       'gym unlinked 7 5',
       'wayspots 5',
+      'matches 5',
       'pine stops',
       'nicknames 412345678901234567',
       'line gone 8, unlinked 7',
@@ -1322,6 +1324,7 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
       regions: { load: nothing },
       gyms: directory,
       wayspots: { load: nothing },
+      matches: { forgetRow: () => undefined },
       pineStops: { load: nothing },
       nicknames: { load: nothing },
       line: upkeep,
@@ -1377,6 +1380,7 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
           return nothing();
         },
       },
+      matches: { forgetRow: () => done.push('matches') },
       pineStops: {
         load: () => {
           done.push('pine stops');

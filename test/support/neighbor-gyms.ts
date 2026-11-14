@@ -1,6 +1,9 @@
-import type { Gym } from '../../src/db/repositories/gym-repository.js';
+import type { FillableTexts, Gym } from '../../src/db/repositories/gym-repository.js';
 import type { Region } from '../../src/db/repositories/region-repository.js';
 import type { GymLink } from '../../src/domain/gyms/gym-server.js';
+import type { GymTexts } from '../../src/domain/gyms/gym-text.js';
+import { NeighborCopy } from '../../src/services/neighbor-copy.js';
+import { NeighborMatches } from '../../src/services/neighbor-matches.js';
 import { gymDirectoryWith, MemoryGyms } from './gym-store.js';
 import {
   OTHER_GUILD_ROW,
@@ -89,4 +92,47 @@ export async function neighborGymsWith() {
     ...made,
     rows: { ours: TEST_GUILD_ROW, theirs: OTHER_GUILD_ROW, third: THIRD_GUILD_ROW },
   };
+}
+
+/**
+ * The gyms of `neighborGymsWith`, the second server's with curated texts of their own, and a copy
+ * whose writes go through the storage, filling only what is empty then, and read the gym again
+ * (as `GymAdminService.fillEmpty`).
+ */
+export async function neighborCopyWith(options: { batch?: number } = {}) {
+  const made = await neighborGymsWith();
+  const theirs: Record<number, Partial<GymTexts>> = {
+    [NEIGHBOR_GYMS.library]: {
+      nickname: 'Big Library',
+      notice: 'Closed on Mondays',
+      description: 'Their own words',
+      keywords: ['books', 'reading'],
+    },
+    [NEIGHBOR_GYMS.fountain]: { nickname: 'Splash', keywords: ['water'] },
+    [NEIGHBOR_GYMS.harbor]: { nickname: 'Lighthouse' },
+    // The row both servers share: whatever it says is both servers' already.
+    4: { notice: 'Shared notice' },
+  };
+  for (const [id, texts] of Object.entries(theirs)) {
+    await made.gyms.update(Number(id), texts);
+    await made.directory.refreshGym(Number(id));
+  }
+  const edits: { id: number; texts: FillableTexts; staffId: string }[] = [];
+  const pauses = { count: 0 };
+  const copy = new NeighborCopy({
+    gyms: made.directory,
+    matches: new NeighborMatches({ gyms: made.directory }),
+    fill: async (id, texts, staffId) => {
+      edits.push({ id, texts, staffId });
+      const written = await made.gyms.fillEmpty(id, texts);
+      await made.directory.refreshGym(id);
+      return written;
+    },
+    ...(options.batch === undefined ? {} : { batch: options.batch }),
+    pause: () => {
+      pauses.count += 1;
+      return Promise.resolve();
+    },
+  });
+  return { ...made, copy, edits, pauses };
 }

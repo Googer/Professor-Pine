@@ -365,6 +365,7 @@ export interface ServerMemory {
   regions: { load(): Promise<void> };
   gyms: { forget(id: number): unknown; unlink(id: number, guildRow: number): unknown };
   wayspots: { load(guildRow: number): Promise<void> };
+  matches: { forgetRow(guildRow: number): void };
   pineStops: { load(): Promise<void> };
   nicknames: { load(serverIds: readonly string[]): Promise<void> };
   line: {
@@ -383,9 +384,11 @@ export interface ServerMemory {
  * (`ServerNotices.forget`: added back, it hears them again), its neighbors and requests
  * (`ServerNeighbors.forgetServer`: the deletion took their rows; added back, it has none), and
  * where it still had its `Guild` row its parties and forum grants (`forgetServer`: nothing
- * written, nothing asked of Discord), its regions (read again), its gyms (`GymDirectory.forget` for those deleted, `unlink` for those
- * others keep, as a gym's deletion does), its Wayspots (`WayspotDirectory.load` of its row: none
- * left), its stops of Pine's own (read again), its Pokémon nicknames (read again: none), and
+ * written, nothing asked of Discord), its regions (read again), its gyms (`GymDirectory.forget`
+ * for those deleted, `unlink` for those others keep, as a gym's deletion does), its Wayspots
+ * (`WayspotDirectory.load` of its row: none left), its neighbors' same gyms
+ * (`NeighborMatches.forgetRow`), its stops of Pine's own (read again), its Pokémon nicknames
+ * (read again: none), and
  * Google's line (`GymUpkeep.serverGone`: what a gym's deletion tells it of each gym, the nearest
  * gyms worked out once for all of the server's, then `servingChanged` of its row: the shares
  * worked out without it). What else is kept of it ages
@@ -420,6 +423,7 @@ export function forgetServerMemory(
           },
         ],
         ['Wayspots', () => memory.wayspots.load(guildRow)],
+        ['neighbors’ same gyms', () => memory.matches.forgetRow(guildRow)],
       ]),
       ['stops of Pine’s own', () => memory.pineStops.load()],
       ['Pokémon nicknames', () => memory.nicknames.load([serverId])],

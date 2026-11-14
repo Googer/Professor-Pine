@@ -2,6 +2,12 @@ import * as he from 'he';
 import { sql, type Kysely, type Updateable } from 'kysely';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { GymLink } from '../../domain/gyms/gym-server.js';
+import {
+  emptyGymText,
+  FILLABLE_GYM_TEXTS,
+  type FillableGymText,
+  type GymTexts,
+} from '../../domain/gyms/gym-text.js';
 import { snowflakeParam } from '../snowflake.js';
 import { polygonWkt } from '../spatial.js';
 import { inTransaction } from '../transaction.js';
@@ -183,6 +189,40 @@ function metaColumns(patch: GymPatch): Updateable<DB['GymMeta']> {
   return columns;
 }
 
+/** The texts a neighbor's copy offers a gym (`GymStorage.fillEmpty`). */
+export type FillableTexts = Partial<Pick<GymTexts, FillableGymText>>;
+
+/** What `fillEmpty` wrote: the gym as it is now, and the texts it filled. */
+export interface FilledTexts {
+  gym: Gym;
+  filled: FillableGymText[];
+}
+
+/**
+ * Of `texts`, those that fill a text of `gym` that is empty with one that is not, as a patch,
+ * in `FILLABLE_GYM_TEXTS`' order (`GymStorage.fillEmpty`, and its twin in memory).
+ */
+export function fillingOf(
+  gym: Gym,
+  texts: FillableTexts,
+): { patch: GymPatch; filled: FillableGymText[] } {
+  const patch: GymPatch = {};
+  const filled: FillableGymText[] = [];
+  for (const field of FILLABLE_GYM_TEXTS) {
+    if (!emptyGymText(gym, field)) continue;
+    if (field === 'keywords') {
+      if (texts.keywords === undefined || texts.keywords.length === 0) continue;
+      patch.keywords = [...texts.keywords];
+    } else {
+      const text = texts[field];
+      if (text === undefined || text === null || text.trim() === '') continue;
+      patch[field] = text;
+    }
+    filled.push(field);
+  }
+  return { patch, filled };
+}
+
 /** A gym's nearest gym to write (`nearestBlockChanges`). */
 export interface NearestWrite {
   id: number;
@@ -243,6 +283,14 @@ export interface GymStorage {
   ): Promise<Gym[]>;
   /** Undefined, having written nothing, when there is no such gym. */
   update(id: number, patch: GymPatch): Promise<Gym | undefined>;
+  /**
+   * Writes each of `texts` only where the gym's own is empty (`emptyGymText`), decided in the
+   * same step as the write, under the gym's lock (plan 19E, review R7: a neighbor's copy never
+   * writes over a text staff set between its read and its write). Gives the gym as written and the
+   * texts it filled, in `FILLABLE_GYM_TEXTS`' order; undefined, having written nothing, when there
+   * is no such gym.
+   */
+  fillEmpty(id: number, texts: FillableTexts): Promise<FilledTexts | undefined>;
   /** False when there was no such gym. */
   delete(id: number): Promise<boolean>;
 }
@@ -412,6 +460,36 @@ export class GymRepository implements GymStorage {
           .execute();
       }
       return new GymRepository(trx).get(id);
+    });
+  }
+
+  /**
+   * In one transaction: the gym's row locked (`Gym`'s primary key, as `update` locks it), the gym
+   * read with its metadata (`GymMeta`'s primary key, `gymId`), and only the texts that are empty
+   * then written (`GymMeta`, by its key).
+   */
+  async fillEmpty(id: number, texts: FillableTexts): Promise<FilledTexts | undefined> {
+    return inTransaction(this.db, async (trx) => {
+      const locked = await trx
+        .selectFrom('Gym')
+        .select('id')
+        .where('id', '=', id)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!locked) return undefined;
+      const inside = new GymRepository(trx);
+      const gym = await inside.get(id);
+      if (!gym) return undefined;
+      const { patch, filled } = fillingOf(gym, texts);
+      if (filled.length === 0) return { gym, filled };
+      const meta = metaColumns(patch);
+      await trx
+        .insertInto('GymMeta')
+        .values({ gymId: id, ...meta })
+        .onDuplicateKeyUpdate(meta)
+        .execute();
+      const written = await inside.get(id);
+      return written && { gym: written, filled };
     });
   }
 

@@ -2,7 +2,13 @@ import { gymStop, hasStop } from '../domain/party/stops.js';
 import type { Settings } from '../config/settings.js';
 import type { GymTargetUpkeep } from '../db/repositories/gym-notification-repository.js';
 import type { GymRemoval } from '../db/repositories/gym-removal-repository.js';
-import type { Gym, GymPatch, GymStorage, NewGym } from '../db/repositories/gym-repository.js';
+import type {
+  FillableTexts,
+  Gym,
+  GymPatch,
+  GymStorage,
+  NewGym,
+} from '../db/repositories/gym-repository.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import type { SavedRouteUpkeep } from '../db/repositories/saved-route-repository.js';
 import {
@@ -15,7 +21,7 @@ import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { readLocation } from '../domain/geo/location-input.js';
 import { ringContains } from '@pine/wayspot-core/region-membership';
 import { nearestBlockChanges } from '../domain/gyms/nearest.js';
-import type { GymTexts } from '../domain/gyms/gym-text.js';
+import type { FillableGymText, GymTexts } from '../domain/gyms/gym-text.js';
 import { isRaid, isTrain, type RaidParty, type TrainParty } from '../domain/party/party.js';
 import type { Logger } from '../log.js';
 import { tidiesName } from '../domain/wayspots/match.js';
@@ -852,6 +858,28 @@ export class GymAdminService {
     if (!written) return undefined;
     log.info({ staff: staffId, gym: id, fields }, 'the texts of a gym were changed');
     return this.readAgain(id, written);
+  }
+
+  /**
+   * Fills the texts of a gym that are empty from a neighbor's same gym (plan 19E, `/admin
+   * neighbors copy`): each only where it is still empty when written (`GymStorage.fillEmpty`,
+   * review R7), then as `edit` the directory reads the gym again and its posts are drawn anew.
+   * Gives the gym as the directory has it and the texts filled; undefined for no such gym.
+   */
+  async fillEmpty(
+    id: number,
+    texts: FillableTexts,
+    staffId: string,
+  ): Promise<{ gym: Gym | undefined; filled: FillableGymText[] } | undefined> {
+    const written = await this.options.gyms.fillEmpty(id, texts);
+    if (!written) return undefined;
+    const { filled } = written;
+    if (filled.length === 0) return { gym: written.gym, filled };
+    this.options.log.info(
+      { staff: staffId, gym: id, fields: filled },
+      'texts of a gym were copied from a neighbor’s',
+    );
+    return { gym: await this.readAgain(id, written.gym), filled };
   }
 
   /**

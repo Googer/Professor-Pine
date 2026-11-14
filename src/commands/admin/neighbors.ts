@@ -5,7 +5,7 @@ import {
   type SlashCommandStringOption,
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
-import type { ComponentHandler } from '../../discord/command.js';
+import type { ComponentHandler, Guard } from '../../discord/command.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
 import { guildIdOf, requireBotManagement, requireGuild } from '../../discord/guards.js';
@@ -28,8 +28,9 @@ import {
   neighborDeclinedPost,
   serverNamed,
 } from '../../render/server-neighbors.js';
-import { fitMessages, timestamp, truncate } from '../../render/text.js';
+import { count, fitMessages, timestamp, truncate } from '../../render/text.js';
 import type { AskOutcome } from '../../services/server-neighbors.js';
+import { COPIED_FIELDS, type CopiedField, type CopyCounts } from '../../services/neighbor-copy.js';
 import { CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 
 /** The subcommand group of `/admin` the neighbors live under. */
@@ -333,7 +334,111 @@ export const endNeighbor: SubcommandPart = {
   autocomplete: (interaction, ctx) => respondWithNeighbors(interaction, ctx, true),
 };
 
-export const neighborParts: readonly SubcommandPart[] = [askNeighbor, listNeighbors, endNeighbor];
+/** How often one member may copy: a copy writes up to every gym of the server. */
+const COPY_THROTTLE: Throttle = { uses: 2, perSeconds: 600 };
+
+/** `1 nickname, 1 notice and 2 lists of search words`: what was copied, by field. */
+function copiedWords(counts: CopyCounts): string {
+  const words: Record<CopiedField, [string, string]> = {
+    nickname: ['nickname', 'nicknames'],
+    notice: ['notice', 'notices'],
+    description: ['description', 'descriptions'],
+    keywords: ['list of search words', 'lists of search words'],
+  };
+  const said = COPIED_FIELDS.filter((field) => counts[field] > 0).map((field) =>
+    count(counts[field], words[field][0], words[field][1]),
+  );
+  return said.length <= 1
+    ? (said[0] ?? '')
+    : `${said.slice(0, -1).join(', ')} and ${said.at(-1) ?? ''}`;
+}
+
+/** What `copy` says of the gyms both servers have as one row, where there are any. */
+function sharedWords(counts: CopyCounts): string {
+  if (counts.shared === 0) return '';
+  return ` ${count(counts.shared, 'gym')} both servers have as one ${counts.shared === 1 ? 'was' : 'were'} left as ${counts.shared === 1 ? 'it is' : 'they are'}.`;
+}
+
+/** The refusal of `copy` from a server that is not a neighbor. */
+function notANeighbor(other: string | undefined): UserError {
+  return new UserError(
+    `This server is not a neighbor of \`${other ?? 'that server'}\`: copy only from a neighbor.`,
+  );
+}
+
+/**
+ * `copy` from a server named by its id that is not a neighbor is refused before the throttle
+ * (uncounted); one named by an invite link is checked once Discord said which it is.
+ */
+const requireNeighborNamed: Guard = (interaction, ctx) => {
+  if (!interaction.isChatInputCommand() || interaction.guildId === null) return;
+  const ref = readServerRef(interaction.options.getString('server') ?? '');
+  if (ref?.kind === 'id' && !ctx.neighbors.areNeighbors(interaction.guildId, ref.id)) {
+    throw notANeighbor(ref.id);
+  }
+};
+
+/** `/admin neighbors copy`. */
+export const copyFromNeighbor: SubcommandPart = {
+  group: NEIGHBORS_GROUP,
+  data: new SlashCommandSubcommandBuilder()
+    .setName('copy')
+    .setDescription('Copy a neighbor’s gym nicknames, notices, descriptions and search words')
+    .addStringOption(serverOption('The neighbor to copy from', true)),
+  help: {
+    details:
+      'Copies onto this server’s gyms that are the neighbor’s gyms too (the same Wayfarer id, ' +
+      'or the same place and name): their nicknames, notices, descriptions and search words, ' +
+      'each only where this server’s is empty.\n\n' +
+      'Nothing your staff set is replaced, and it can be run again; it is not a live link.',
+    examples: ['/admin neighbors copy server:123456789012345678'],
+  },
+  guards: [requireNeighborNamed],
+  defer: 'ephemeral',
+  throttle: COPY_THROTTLE,
+  async execute(interaction, ctx) {
+    const serverId = guildIdOf(interaction);
+    const other = await namedServer(ctx, interaction.options.getString('server', true));
+    if (other === undefined || !ctx.neighbors.areNeighbors(serverId, other)) {
+      throw notANeighbor(other);
+    }
+    const [ourRow, theirRow] = await Promise.all([
+      ctx.guilds.idFor(serverId),
+      ctx.guilds.idFor(other),
+    ]);
+    if (ourRow === undefined || theirRow === undefined) {
+      throw new UserError(
+        'I do not know this server’s gyms or the neighbor’s yet: try again later.',
+      );
+    }
+    if (ctx.neighborCopy.busy(ourRow)) {
+      throw new UserError('A copy onto this server is under way: try again once it is done.');
+    }
+    const copied = await ctx.neighborCopy.copy(ourRow, theirRow, interaction.user.id);
+    ctx.log.info(
+      { by: interaction.user.id, server: serverId, from: other, ...copied },
+      'a neighbor’s gym texts were copied',
+    );
+    const name = named(ctx, other).replace(/ \(`\d+`\)$/, '');
+    await interaction.editReply({
+      content:
+        copied.gyms === 0
+          ? `Nothing to copy from ${name}: every gym of this server that is its gym too has its ` +
+            `texts already, or theirs are empty.${sharedWords(copied)}`
+          : `Copied from ${name} onto ${count(copied.gyms, 'gym')} of this server that are its ` +
+            `gyms too: ${copiedWords(copied)}. Nothing this server’s staff set was replaced.` +
+            `${sharedWords(copied)} Run it again to copy what they add.`,
+    });
+  },
+  autocomplete: (interaction, ctx) => respondWithNeighbors(interaction, ctx, false),
+};
+
+export const neighborParts: readonly SubcommandPart[] = [
+  askNeighbor,
+  listNeighbors,
+  endNeighbor,
+  copyFromNeighbor,
+];
 
 /**
  * Accept and Decline under a request in a server's moderators' bot lab (kind `neighbor`;

@@ -83,6 +83,7 @@ import { discordInvites } from './discord/server-invites.js';
 import { ServerNeighbors } from './services/server-neighbors.js';
 import { NeighborMatches } from './services/neighbor-matches.js';
 import { NeighborParties } from './services/neighbor-parties.js';
+import { NeighborCopy } from './services/neighbor-copy.js';
 import { ServerNeighborRepository } from './db/repositories/server-neighbor-repository.js';
 import { wireServerAdmission } from './discord/server-admission-wiring.js';
 import { botIsPublic } from './discord/application-public.js';
@@ -1255,6 +1256,12 @@ export async function startApp(
       regions,
       gyms,
       wayspots: { load: (guildRow) => wayspots.load(guildRow) },
+      // Made below with the neighbors.
+      matches: {
+        forgetRow: (guildRow) => {
+          neighborMatches.forgetRow(guildRow);
+        },
+      },
       pineStops,
       nicknames: pokemon,
       line: gymUpkeep,
@@ -1372,13 +1379,15 @@ export async function startApp(
     lab: moderatorsLab,
     log,
   });
+  // The same gyms and Power Spots of two neighbors, per pair, rebuilt when either's gyms change.
+  const neighborMatches = new NeighborMatches({ gyms, spots: wayspots });
   // A raid's or max battle's post shows its neighbors' parties at the same gym or Power Spot
   // (plan 19E), from memory: the same gyms per pair of servers, rebuilt when either's gyms change.
   partyService.useNeighbors(
     new NeighborParties({
       neighbors,
       quiet,
-      matches: new NeighborMatches({ gyms, spots: wayspots }),
+      matches: neighborMatches,
       rowOf: (serverId) => rowIds.rowOfServer(serverId),
       serverOfRow: (row) => rowIds.serverOfRow(row),
       parties,
@@ -1638,6 +1647,12 @@ export async function startApp(
     moderatorsLab,
     neighbors,
     invites: discordInvites(() => liveClient?.rest, log),
+    // A neighbor's curated gym text copied through gym administration's own writes (plan 19E).
+    neighborCopy: new NeighborCopy({
+      gyms,
+      matches: neighborMatches,
+      fill: (id, texts, staffId) => gymAdmin.fillEmpty(id, texts, staffId),
+    }),
     // Raid simulations for `/counters`, with ten minutes of memory of each answer.
     pokebattler: new PokebattlerFight({ fetch: (url, init) => fetch(url, init), log }),
     // Places by name for `/find-region`; without settings.findRegion the command is not offered.

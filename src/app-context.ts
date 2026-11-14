@@ -30,6 +30,7 @@ import type { GymProvider } from './services/gym-directory.js';
 import type { IssueGateway } from './services/issue-gateway.js';
 import type { ModeratorsLabPoster } from './services/moderators-lab.js';
 import type { ServerInvites, ServerNeighbors } from './services/server-neighbors.js';
+import type { NeighborCopy } from './services/neighbor-copy.js';
 import type { PartyService } from './services/party-service.js';
 import type { PineStopService } from './services/pine-stops.js';
 import type { ResearchTaskProvider } from './services/research-task-service.js';
@@ -296,6 +297,8 @@ export interface AppContext {
   readonly neighbors: ServerNeighbors;
   /** The server an invite link leads to, by Discord's invite endpoint (`/admin neighbors`). */
   readonly invites: ServerInvites;
+  /** Copying a neighbor's curated gym text onto the same gyms (`/admin neighbors copy`, plan 19E). */
+  readonly neighborCopy: Pick<NeighborCopy, 'copy' | 'busy'>;
   /** Pokebattler's raid simulations, which `/counters` shows. */
   readonly pokebattler: PokebattlerGateway;
   /** Places by name (OpenStreetMap's Nominatim), which `/find-region` looks up. */

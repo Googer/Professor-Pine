@@ -15,6 +15,7 @@ import {
   neighborRow,
 } from '../../../test/support/server-neighbor-cases.js';
 import { neighborsWith } from '../../../test/support/server-neighbors.js';
+import { neighborCopyWith } from '../../../test/support/neighbor-gyms.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { BOT_STAFF_ONLY } from '../../discord/guards.js';
 import { InteractionRouter } from '../../discord/router.js';
@@ -30,6 +31,13 @@ async function neighborCommandsWith(
   options: { rows?: readonly NeighborRow[]; reachable?: string[] } = {},
 ) {
   const made = await neighborsWith(options);
+  // Pallet Town is the gyms' test server (row 1), Pewter City the second (row 2), Cerulean the third.
+  const copying = await neighborCopyWith();
+  const rows = new Map([
+    [ASH, 1],
+    [BROCK, 2],
+    [MISTY, 3],
+  ]);
   const invites = new Map([
     ['pewter-gym', BROCK],
     ['pallet', ASH],
@@ -37,6 +45,8 @@ async function neighborCommandsWith(
   const { ctx } = createTestContext({
     neighbors: made.neighbors,
     invites: { serverOfInvite: (code) => Promise.resolve(invites.get(code)) },
+    neighborCopy: copying.copy,
+    guilds: { idFor: (snowflake) => Promise.resolve(rows.get(snowflake)) },
   });
   const router = new InteractionRouter(ctx, [admin], [neighborControls]);
   const staff = (guildId: string) => ({ userId: STAFF, roleNames: ['Admin'], guildId });
@@ -61,7 +71,7 @@ async function neighborCommandsWith(
     await router.handle(interaction as never);
     return interaction;
   };
-  return { ...made, ctx, router, use, said, press, staff };
+  return { ...made, ctx, router, use, press, staff, copying };
 }
 
 describe('/admin neighbors (plan 19E)', () => {
@@ -120,7 +130,7 @@ describe('/admin neighbors (plan 19E)', () => {
     expect(said(elsewhere)).toBe('This request has expired or was answered already.');
     expect(made.neighbors.areNeighbors(ASH, BROCK)).toBe(false);
     const pressed = await made.press(accept!, BROCK);
-    const shown = asV2(pressed.update.mock.calls[0]![0] as never);
+    const shown = asV2(pressed.update.mock.calls[0]![0]);
     expect(textOf(shown)).toBe(
       '### Neighbors\n**Pallet Town** (`412345678901234501`) and this server are neighbors now. ' +
         'Either can end it with `/admin neighbors end`.',
@@ -231,6 +241,24 @@ describe('/admin neighbors (plan 19E)', () => {
     expect(made.neighbors.areNeighbors(ASH, BROCK)).toBe(false);
     expect(said(await made.use('end', { server: ASH }, BROCK))).toBe(
       'This server is not a neighbor of `412345678901234501`, nor waiting for its answer.',
+    );
+  });
+
+  it('copies a neighbor’s curated gym texts onto this server’s same gyms, never over its own', async () => {
+    const made = await neighborCommandsWith({ rows: [neighborRow({ acceptedAt: 1 })] });
+    expect(said(await made.use('copy', { server: BROCK }))).toBe(
+      'Copied from **Pewter City** onto 2 gyms of this server that are its gyms too: 1 nickname, ' +
+        '1 notice and 1 list of search words. Nothing this server’s staff set was replaced. 1 gym ' +
+        'both servers have as one was left as it is. Run it again to copy what they add.',
+    );
+    expect(made.copying.directory.of(1).get(2)?.nickname).toBe('Splash');
+    expect(said(await made.use('copy', { server: BROCK }))).toBe(
+      'Nothing to copy from **Pewter City**: every gym of this server that is its gym too has ' +
+        'its texts already, or theirs are empty. 1 gym both servers have as one was left as it is.',
+    );
+    // Only from a neighbor.
+    expect(said(await made.use('copy', { server: MISTY }))).toBe(
+      'This server is not a neighbor of `412345678901234503`: copy only from a neighbor.',
     );
   });
 });

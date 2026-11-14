@@ -1,9 +1,12 @@
-import type {
-  Gym,
-  GymPatch,
-  GymStorage,
-  NearestWrite,
-  NewGym,
+import {
+  fillingOf,
+  type FillableTexts,
+  type FilledTexts,
+  type Gym,
+  type GymPatch,
+  type GymStorage,
+  type NearestWrite,
+  type NewGym,
 } from '../../src/db/repositories/gym-repository.js';
 import { loadSettings } from '../../src/config/settings.js';
 import { GoogleAnswers, MemoryGoogleAnswerStorage } from '../../src/services/google-answers.js';
@@ -26,7 +29,15 @@ export function settledTestGyms(): Gym[] {
 
 /** The methods of the storage, for a test that holds or fails one of them. */
 export type GymMethod =
-  'get' | 'listAll' | 'links' | 'linksOf' | 'create' | 'createBlock' | 'update' | 'delete';
+  | 'get'
+  | 'listAll'
+  | 'links'
+  | 'linksOf'
+  | 'create'
+  | 'createBlock'
+  | 'update'
+  | 'fillEmpty'
+  | 'delete';
 
 /**
  * The gyms kept in memory as `GymRepository` keeps them, whose behaviour
@@ -247,6 +258,21 @@ export class MemoryGyms implements GymStorage {
       this.rows.set(id, { ...gym, ...defined, ...(keywords ? { keywords } : {}) });
       this.writes.push({ what: 'update', id, patch: defined });
       return this.row(id);
+    });
+  }
+
+  /** As the repository's: what is empty when it writes is filled, in the same step. */
+  fillEmpty(id: number, texts: FillableTexts): Promise<FilledTexts | undefined> {
+    return this.attempt('fillEmpty', () => {
+      const gym = this.row(id);
+      if (!gym) return undefined;
+      const { patch, filled } = fillingOf(gym, texts);
+      if (filled.length === 0) return { gym, filled };
+      const keywords = patch.keywords?.map((keyword) => keyword.trim().toLowerCase());
+      this.rows.set(id, { ...gym, ...patch, ...(keywords ? { keywords } : {}) });
+      this.writes.push({ what: 'update', id, patch });
+      const written = this.row(id);
+      return written && { gym: written, filled };
     });
   }
 

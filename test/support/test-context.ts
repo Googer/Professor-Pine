@@ -13,6 +13,7 @@ import type { GymAdminService } from '../../src/services/gym-admin-service.js';
 import type { PokemonNicknames } from '../../src/services/pokemon-search-service.js';
 import type { ModeratorsLabPoster } from '../../src/services/moderators-lab.js';
 import type { ServerInvites, ServerNeighbors } from '../../src/services/server-neighbors.js';
+import type { NeighborCopy } from '../../src/services/neighbor-copy.js';
 import type { RaidBossAdmin } from '../../src/services/raid-boss-service.js';
 import type { PartyService } from '../../src/services/party-service.js';
 import { PlaceFinder } from '../../src/services/place-finder.js';
@@ -297,6 +298,10 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     ),
     // No invite leads anywhere; a test passes its own (`invitesTo`).
     invites: { serverOfInvite: () => Promise.resolve(undefined) } satisfies ServerInvites,
+    neighborCopy: unavailable<Pick<NeighborCopy, 'copy' | 'busy'>>(
+      'neighborCopy',
+      'pass { neighborCopy: made.copy } from neighborCopyWith() (test/support/neighbor-gyms.ts)',
+    ),
     // Every simulation is asked of a fake that answers the sample for Mewtwo; a test passes its own.
     pokebattler: new FakePokebattler(),
     // No place is found by name; a test passes its own with places.

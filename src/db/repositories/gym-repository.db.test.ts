@@ -337,6 +337,38 @@ describe('GymRepository', () => {
     expect(raw).toEqual({ keywords: null, taggedEx: null, confirmedEx: null });
   });
 
+  it('fills only the texts that are empty when it writes, in one step (plan 19E, review R7)', async () => {
+    const gym = await gyms.create(
+      { name: 'Gym', lat: 40.45, lon: -80, nickname: 'Ours', notice: '  ' },
+      1,
+    );
+    const filled = await gyms.fillEmpty(gym.id, {
+      nickname: 'Theirs',
+      notice: 'Closed on Mondays',
+      description: 'A mural',
+      keywords: ['books'],
+    });
+    expect(filled?.filled).toEqual(['notice', 'description', 'keywords']);
+    expect(filled?.gym).toMatchObject({
+      nickname: 'Ours',
+      notice: 'Closed on Mondays',
+      description: 'A mural',
+      keywords: ['books'],
+    });
+    // Run again: nothing is empty any more.
+    expect((await gyms.fillEmpty(gym.id, { nickname: 'Theirs', notice: 'Other' }))?.filled).toEqual(
+      [],
+    );
+    expect(await gyms.fillEmpty(gym.id + 1000, { nickname: 'Theirs' })).toBeUndefined();
+    // A legacy gym without metadata takes them.
+    const inserted = await db
+      .insertInto('Gym')
+      .values({ name: 'Bare', lat: 40.45, lon: -80 })
+      .executeTakeFirstOrThrow();
+    const bare = await gyms.fillEmpty(Number(inserted.insertId), { nickname: 'Theirs' });
+    expect(bare?.gym.nickname).toBe('Theirs');
+  });
+
   it('reads and updates a legacy gym that has no metadata row', async () => {
     const inserted = await db
       .insertInto('Gym')
