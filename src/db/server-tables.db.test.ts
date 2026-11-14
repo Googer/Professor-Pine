@@ -4,8 +4,11 @@ import { startMigratedDatabase } from '../../test/support/migrated-db.js';
 import { TABLE_OWNERS } from './server-tables.js';
 import type { DB } from './types.js';
 
-/** The columns that name a server: by its snowflake, or by its `Guild` row. */
-const SERVER_COLUMNS = new Set(['serverId', 'guildId']);
+/**
+ * The columns that name a server: by its snowflake, or by its `Guild` row; and either of a pair
+ * of servers (plan 19E's neighbors).
+ */
+const SERVER_COLUMNS = new Set(['serverId', 'guildId', 'serverA', 'serverB']);
 
 /**
  * The tables that name a server and stay: the record of each server (plan 19C-1), which outlives
@@ -68,7 +71,9 @@ describe('whose each table is, against the schema (plan 19C-3)', () => {
       .filter((table) => !KEPT_WITH_A_SERVER.has(table));
     const notDeleted = naming.filter((table) => {
       const owner = TABLE_OWNERS[table];
-      return owner?.kind !== 'server' && owner?.kind !== 'guild-row';
+      return (
+        owner?.kind !== 'server' && owner?.kind !== 'server-pair' && owner?.kind !== 'guild-row'
+      );
     });
     expect(notDeleted).toEqual([]);
   });
@@ -91,6 +96,12 @@ describe('whose each table is, against the schema (plan 19C-3)', () => {
 
   it('reads every server’s and every row’s table along an index that leads with its column', () => {
     const unindexed = Object.entries(TABLE_OWNERS).flatMap(([table, owner]) => {
+      if (owner.kind === 'server-pair') {
+        // Each of the two columns, by an index of its own.
+        return owner.columns
+          .filter((column) => !leadsWith(table, column))
+          .map((column) => `${table}.${column}`);
+      }
       if (owner.kind !== 'server' && owner.kind !== 'guild-row' && owner.kind !== 'through') {
         return [];
       }

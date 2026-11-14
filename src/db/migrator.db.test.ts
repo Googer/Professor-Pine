@@ -97,6 +97,7 @@ const ADDED_TABLES = [
   'GoogleUseServerDay',
   'GoogleShareRaise',
   'ServerRecord',
+  'ServerNeighbor',
 ];
 /** The columns it adds to tables of the legacy bot, as `Table.column`. */
 const ADDED_COLUMNS = [
@@ -257,6 +258,7 @@ describe('runMigrations', () => {
       '2026_11_13_060_dm_contacts',
       '2026_11_13_061_server_record',
       '2026_11_14_062_server_deletion',
+      '2026_11_14_063_server_neighbors',
     ]);
     expect(
       await describeSchema(

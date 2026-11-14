@@ -29,7 +29,9 @@ describe('whose each table is (the deletion of a server, plan 19C-3)', () => {
     const goes = (table: string, seen: ReadonlySet<string> = new Set()): boolean => {
       const owner = TABLE_OWNERS[table];
       if (owner === undefined || seen.has(table)) return false;
-      if (owner.kind === 'server' || owner.kind === 'guild-row') return true;
+      if (owner.kind === 'server' || owner.kind === 'server-pair' || owner.kind === 'guild-row') {
+        return true;
+      }
       return owner.kind === 'through' && goes(owner.parent, new Set([...seen, table]));
     };
     const hanging = Object.entries(TABLE_OWNERS)

@@ -1201,6 +1201,12 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
         },
       },
       notices: { forget: (serverId) => done.push(`notices ${serverId}`) },
+      neighbors: {
+        forgetServer: (serverId) => {
+          done.push(`neighbors ${serverId}`);
+          return Promise.resolve();
+        },
+      },
       parties: { forgetServer: (row) => done.push(`parties ${String(row)}`) },
       access: { forgetServer: (row) => done.push(`access ${String(row)}`) },
       regions: {
@@ -1249,6 +1255,7 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
       'row ids 412345678901234567',
       'settings 412345678901234567',
       'notices 412345678901234567',
+      'neighbors 412345678901234567',
       'parties 5',
       'access 5',
       'regions',
@@ -1309,6 +1316,7 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
       rowIds: { forgetServer: () => undefined },
       servers: { forget: nothing },
       notices: { forget: () => undefined },
+      neighbors: { forgetServer: nothing },
       parties: { forgetServer: () => undefined },
       access: { forgetServer: () => undefined },
       regions: { load: nothing },
@@ -1348,6 +1356,12 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
         },
       },
       notices: { forget: () => done.push('notices') },
+      neighbors: {
+        forgetServer: () => {
+          done.push('neighbors');
+          return nothing();
+        },
+      },
       parties: { forgetServer: () => done.push('parties') },
       access: { forgetServer: () => done.push('access') },
       regions: {
@@ -1383,6 +1397,14 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
       guildRow: undefined,
       gyms: { unlinked: [], deleted: [] },
     });
-    expect(done).toEqual(['row ids', 'settings', 'notices', 'regions', 'pine stops', 'nicknames']);
+    expect(done).toEqual([
+      'row ids',
+      'settings',
+      'notices',
+      'neighbors',
+      'regions',
+      'pine stops',
+      'nicknames',
+    ]);
   });
 });

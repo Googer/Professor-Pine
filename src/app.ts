@@ -79,6 +79,9 @@ import { ServerDataRepository } from './db/repositories/server-data-repository.j
 import { ServerAdmission } from './services/server-admission.js';
 import { ServerAdoption } from './services/server-adoption.js';
 import { DiscordServerExits } from './discord/server-exits.js';
+import { discordInvites } from './discord/server-invites.js';
+import { ServerNeighbors } from './services/server-neighbors.js';
+import { ServerNeighborRepository } from './db/repositories/server-neighbor-repository.js';
 import { wireServerAdmission } from './discord/server-admission-wiring.js';
 import { botIsPublic } from './discord/application-public.js';
 import { ServerFill } from './services/server-fill.js';
@@ -1243,6 +1246,8 @@ export async function startApp(
       rowIds,
       servers,
       notices: serverNotices,
+      // Made below, read before the login: a deletion runs only once the scheduler starts.
+      neighbors: { forgetServer: (serverId) => neighbors.forgetServer(serverId) },
       parties,
       access,
       regions,
@@ -1309,6 +1314,9 @@ export async function startApp(
     googleAnswers: { sweep: () => googleAnswers.sweep([gyms, wayspots]) },
     // The servers Pine left more than 30 days ago, once a day (plan 19C-3); not in rehearsal mode.
     ...(rehearsal ? {} : { deletions: serverDeletion }),
+    // The neighbors' requests and declines no longer kept (plan 19E), made below; the scheduler
+    // starts after they are read.
+    neighbors: { sweep: () => neighbors.sweep() },
     screenshots: screenshotStore,
     emoji: appEmoji,
     webSessions,
@@ -1345,6 +1353,23 @@ export async function startApp(
   const clickAnswers = new ClickAnswers({ log });
   // The client that ended up connected, for what talks to Discord's REST API through it.
   let liveClient: Client | undefined;
+  // A server's moderators' bot lab (plan 19B-4): the gym requests of a server the instance's
+  // repository does not serve, and the neighbors' requests (plan 19E).
+  const moderatorsLab = new ModeratorsLab({ gateway: partyGateway, servers });
+  // Each server's neighbors and their requests (plan 19E), read before the login. A server's
+  // staff are told only where Pine is in it, may serve it, and it is not quiet.
+  const neighbors = new ServerNeighbors({
+    storage: new ServerNeighborRepository(db),
+    reach: {
+      reachable: (serverId) =>
+        liveClient?.guilds.cache.has(serverId) === true &&
+        standings.mayHave(serverId) &&
+        !quiet.isQuiet(serverId),
+      nameOf: (serverId) => liveClient?.guilds.cache.get(serverId)?.name,
+    },
+    lab: moderatorsLab,
+    log,
+  });
   // The catch-up on reconnect (plan 8X-H), made once the services of the stops are there.
   const reconnect: { catchUp?: CatchUp } = {};
   const legacyCleanup = new LegacyCleanup({
@@ -1374,6 +1399,7 @@ export async function startApp(
     await eventWindows.load();
     await servers.load();
     await standings.load();
+    await neighbors.load();
     // Before the first read too: the events forum's listing survives a restart (plan 8V-1).
     await raidEvents.loadListed();
     // Before the gyms and the Wayspots, whose addresses and places they are (plan 19B-3).
@@ -1582,7 +1608,9 @@ export async function startApp(
       fetch: (url, init) => fetch(url, init),
       log,
     }),
-    moderatorsLab: new ModeratorsLab({ gateway: partyGateway, servers }),
+    moderatorsLab,
+    neighbors,
+    invites: discordInvites(() => liveClient?.rest, log),
     // Raid simulations for `/counters`, with ten minutes of memory of each answer.
     pokebattler: new PokebattlerFight({ fetch: (url, init) => fetch(url, init), log }),
     // Places by name for `/find-region`; without settings.findRegion the command is not offered.
@@ -2404,6 +2432,10 @@ export async function startApp(
       // A member's roles are changed one request after the other: a change that has begun is
       // finished while Discord is connected and the database is open.
       { name: 'self-assigned roles', timeoutMs: 5_000, run: () => selfRoles.idle() },
+      // A change of neighbors under way is written, and what the moderators' bot labs are told of
+      // it posted, while Discord is connected and the database is open; a request's tell whose
+      // post did not go is written back (plan 19E, review RR1).
+      { name: 'neighbors', timeoutMs: 3_000, run: () => neighbors.idle() },
       // The spawn reports that wait for their half hour are deleted now: they would stay for good.
       { name: 'spawn reports', timeoutMs: 5_000, run: () => spawns.flush() },
       // The pictures of the stops (no more fetched), the grunts' messages (they stand on), then

@@ -7,11 +7,11 @@ import { GymRemovalRepository, type GymRemoval } from './gym-removal-repository.
 export const DELETE_BATCH = 1_000;
 
 /**
- * The server's tables in the order a deletion takes them (`TABLE_OWNERS`' `server` and
- * `guild-row` tables but `GymServer`, which goes by `GymRemoval`'s rule, and `Guild`, which goes
- * last): those named by the snowflake first, then those by the `Guild` row, each before what its
- * foreign keys would otherwise set to null (a party before its region, a role before its group, a
- * gym review before its import), the Google line's rows of a gym before the gym's links.
+ * The server's tables in the order a deletion takes them (`TABLE_OWNERS`' `server`, `server-pair`
+ * and `guild-row` tables but `GymServer`, which goes by `GymRemoval`'s rule, and `Guild`, which
+ * goes last): those named by the snowflake first, then those by the `Guild` row, each before what
+ * its foreign keys would otherwise set to null (a party before its region, a role before its
+ * group, a gym review before its import), the Google line's rows of a gym before the gym's links.
  * `server-data-repository.test.ts` checks that it names every one of them.
  */
 export const DELETION_ORDER: readonly string[] = [
@@ -41,6 +41,7 @@ export const DELETION_ORDER: readonly string[] = [
   'StopReport',
   'StopReportHistory',
   'WantCountDay',
+  'ServerNeighbor',
   'ServerSettings',
   'Party',
   'PartyAccessGrant',
@@ -125,13 +126,14 @@ const CHILDREN: ReadonlyMap<string, readonly { table: string; column: string }[]
  * owns (`TABLE_OWNERS`), table by table in the order of `DELETION_ORDER`, each in batches of
  * `DELETE_BATCH` along an index that leads with the server (its snowflake, or its `Guild` row:
  * `server-tables.db.test.ts` checks the indexes, `server-data-repository.db.test.ts` the plans),
- * repeated until none is left; a table whose rows others hang on without a cascade (a report's
- * reasons, a region's copies of ended parties) reads a batch of its ids first and deletes theirs
- * by the children's index, then them by the primary key. Then its gyms, link by link along
- * `gymserver_guildid_index`, by `GymRemoval` (the link, and a gym no other server has with its
- * row, its curated text, and what still names it); then its `Guild` row, whose cascades take what
- * is left on it (nothing, but for the rows of a cascade further down: a history record's
- * attendees go with the record, a role's aliases with the role).
+ * repeated until none is left (a table of pairs of servers, `server-pair`, by each of its two
+ * columns in turn: a pair of neighbors goes with either); a table whose rows others hang on
+ * without a cascade (a report's reasons, a region's copies of ended parties) reads a batch of its
+ * ids first and deletes theirs by the children's index, then them by the primary key. Then its
+ * gyms, link by link along `gymserver_guildid_index`, by `GymRemoval` (the link, and a gym no
+ * other server has with its row, its curated text, and what still names it); then its `Guild`
+ * row, whose cascades take what is left on it (nothing, but for the rows of a cascade further
+ * down: a history record's attendees go with the record, a role's aliases with the role).
  *
  * Not one transaction: a server's history may hold hundreds of thousands of rows. Each statement
  * is its own, and each is safe to make again: after a failure, or a stop between statements
@@ -168,6 +170,14 @@ export class ServerDataRepository implements ServerDataStorage {
     const guildRow = guild?.id;
     for (const table of DELETION_ORDER) {
       const owner = TABLE_OWNERS[table];
+      if (owner?.kind === 'server-pair') {
+        // By each column in turn, each along its own index.
+        for (const column of owner.columns) {
+          await going(table);
+          await this.deleteAll(table, column, serverId, count);
+        }
+        continue;
+      }
       if (owner?.kind !== 'server' && owner?.kind !== 'guild-row') continue;
       const value = owner.kind === 'server' ? serverId : guildRow;
       if (value === undefined) continue;

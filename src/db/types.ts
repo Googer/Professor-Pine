@@ -744,6 +744,17 @@ export interface ServerGymLookup {
   regionRank: Generated<number>;
 }
 
+export interface ServerNeighbor {
+  acceptedAt: string | null;
+  askedAt: string;
+  askedBy: string;
+  declinedAt: string | null;
+  serverA: string;
+  serverB: string;
+  toldAt: string | null;
+  withdrawnAt: string | null;
+}
+
 export interface ServerRecord {
   allowedAt: string | null;
   allowedBy: string | null;
@@ -1039,6 +1050,7 @@ export interface DB {
   SavedRoutes: SavedRoutes;
   ScriptAccess: ScriptAccess;
   ServerGymLookup: ServerGymLookup;
+  ServerNeighbor: ServerNeighbor;
   ServerRecord: ServerRecord;
   ServerSettings: ServerSettings;
   ServerSettingsAudit: ServerSettingsAudit;

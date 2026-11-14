@@ -5,7 +5,7 @@ import { DELETION_ORDER } from './server-data-repository.js';
 describe('the order of a server’s deletion (plan 19C-3)', () => {
   it('takes every table the server owns once, but its gyms’ links and its Guild row', () => {
     const owned = Object.entries(TABLE_OWNERS)
-      .filter(([, owner]) => owner.kind === 'server' || owner.kind === 'guild-row')
+      .filter(([, owner]) => ['server', 'server-pair', 'guild-row'].includes(owner.kind))
       .map(([table]) => table)
       .filter((table) => table !== 'GymServer' && table !== 'Guild')
       .sort();

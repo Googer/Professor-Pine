@@ -21,7 +21,9 @@ const TABLES = PINE_TABLES.filter((table) => !/^(knex|kysely)_/u.test(table));
 
 /** The tables a server owns, or that hang on its rows or a gym's: each has rows of it. */
 const OWNED = Object.entries(TABLE_OWNERS)
-  .filter(([, owner]) => ['server', 'guild-row', 'through', 'gym'].includes(owner.kind))
+  .filter(([, owner]) =>
+    ['server', 'server-pair', 'guild-row', 'through', 'gym'].includes(owner.kind),
+  )
   .map(([table]) => table);
 
 describe('ServerDataRepository: a server’s data deleted (plan 19C-3)', () => {
@@ -63,6 +65,17 @@ describe('ServerDataRepository: a server’s data deleted (plan 19C-3)', () => {
     ({ ownGym: keptGym } = await seedServer(db, { serverId: KEPT_SERVER, n: 2, members, shared }));
     before = await dumpTables(db, TABLES);
     deleted = await seedServer(db, { serverId: DELETED_SERVER, n: 1, members, shared });
+    // The two are neighbors (plan 19E): the pair goes with the deleted server.
+    await db
+      .insertInto('ServerNeighbor')
+      .values({
+        serverA: DELETED_SERVER,
+        serverB: KEPT_SERVER,
+        askedBy: KEPT_SERVER,
+        askedAt: '1763000000000',
+        acceptedAt: '1763000000001',
+      })
+      .execute();
   });
 
   it('wrote rows of the deleted server in every table it owns or that hangs on it', async () => {
@@ -90,6 +103,8 @@ describe('ServerDataRepository: a server’s data deleted (plan 19C-3)', () => {
       GymServer: 2,
       ServerSettings: 1,
       PartyHistory: 1,
+      // Its pair with the kept server and its two others, by either column.
+      ServerNeighbor: 3,
     });
     // Run again: nothing is left to delete, and nothing else is touched.
     expect(await new ServerDataRepository(db).delete(DELETED_SERVER)).toEqual({
@@ -173,6 +188,12 @@ describe('ServerDataRepository: a server’s data deleted (plan 19C-3)', () => {
     expect([...(keys.get('EndedPartyCopy') ?? [])]).toEqual(['endedpartycopy_regionid_index']);
     expect([...(keys.get('ModerationReportReason') ?? [])]).toEqual([
       'moderationreportreason_report_reporter_unique',
+    ]);
+    // A pair of neighbors by either server: the primary key for the first, migration 063's index
+    // for the second.
+    expect([...(keys.get('ServerNeighbor') ?? [])].sort()).toEqual([
+      'PRIMARY',
+      'serverneighbor_serverb_index',
     ]);
     // Every table it deletes by the server was read.
     expect([...keys.keys()]).toEqual(expect.arrayContaining(['Guild', 'GymServer', 'Region']));

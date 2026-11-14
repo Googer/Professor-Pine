@@ -85,7 +85,10 @@ describe('/admin self-roles', () => {
           ctx,
           FAKE_GUILD_ID,
         )[0]?.data.toJSON().options,
-      ).filter((path) => !/^nickname |^member-settings$|^cleanup-legacy$|^tutorial$/.test(path));
+      ).filter(
+        (path) =>
+          !/^nickname |^neighbors |^member-settings$|^cleanup-legacy$|^tutorial$/.test(path),
+      );
     const values = testServerValues();
     expect(paths(values)).toEqual([
       'setup',

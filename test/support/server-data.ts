@@ -40,7 +40,8 @@ export async function seedMembers(db: Kysely<DB>): Promise<number[]> {
 
 /**
  * Rows of a server in every table a server owns or that hangs on one (`TABLE_OWNERS`' `server`,
- * `guild-row`, `through` and `gym` tables), two in some, so that a batch of one is exercised: its
+ * `server-pair`, `guild-row`, `through` and `gym` tables), two in some, so that a batch of one is
+ * exercised: two pairs of neighbors (it the first server of one, the second of the other), its
  * `Guild` row, a region with a member's saved route through the gym, a role in a group with an
  * alias and the auto-assigned role, a party with a step, a history record with an attendee, a
  * group and a stop, a report with a reason, a copy of an ended party in its region, an import with
@@ -515,6 +516,28 @@ export async function seedServer(
   await db
     .insertInto('SpawnReport')
     .values({ messageId: snow(11), channelId: snow(1), deleteAt: String(at), guildId: serverId })
+    .execute();
+  // Its neighbors (plan 19E): a pair it is the first of (a neighbor of a higher id) and one it
+  // is the second of (a request to it from a lower id), servers of their own.
+  await db
+    .insertInto('ServerNeighbor')
+    .values([
+      {
+        serverA: serverId,
+        serverB: `9${String(n).padStart(17, '0')}`,
+        askedBy: serverId,
+        askedAt: String(at),
+        acceptedAt: String(at),
+        toldAt: String(at),
+      },
+      {
+        serverA: `1${String(n).padStart(17, '0')}`,
+        serverB: serverId,
+        askedBy: `1${String(n).padStart(17, '0')}`,
+        askedAt: String(at),
+        toldAt: String(at),
+      },
+    ])
     .execute();
   return { guildRow, ownGym };
 }

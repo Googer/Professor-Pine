@@ -5,6 +5,9 @@
  *
  * - `server`: a server's own, named by its snowflake (`column`); deleted by it, in batches along an
  *   index that leads with that column.
+ * - `server-pair`: of two servers at once, each named by its snowflake in one of `columns` (plan
+ *   19E's neighbors): a row goes with either server's data, deleted by each column in turn, each
+ *   along an index that leads with it.
  * - `guild-row`: a server's own, named by its `Guild` row (`column`, a foreign key to `Guild.id`
  *   that cascades); deleted by it in batches before the row, which goes last (`Guild` itself, by
  *   its id). `GymServer` goes by `GymRemoval`'s rule: the server's link, and a gym no other server
@@ -20,6 +23,7 @@
  */
 export type TableOwner =
   | { kind: 'server'; column: string }
+  | { kind: 'server-pair'; columns: readonly [string, string] }
   | { kind: 'guild-row'; column: string }
   | { kind: 'through'; parent: string; column: string; cascade: boolean }
   | { kind: 'gym' }
@@ -70,6 +74,10 @@ export const TABLE_OWNERS: Readonly<Record<string, TableOwner>> = {
   StopReport: server(),
   StopReportHistory: server(),
   WantCountDay: server(),
+  // Two servers', by either's snowflake: a pair of neighbors and its requests (plan 19E), by the
+  // primary key `(serverA, serverB)` for the first and `serverneighbor_serverb_index` for the
+  // second.
+  ServerNeighbor: { kind: 'server-pair', columns: ['serverA', 'serverB'] },
   // A server's, by its `Guild` row.
   Guild: guildRow('id'),
   AutoAssignRole: guildRow(),

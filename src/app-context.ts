@@ -29,6 +29,7 @@ import type { GymAdminService } from './services/gym-admin-service.js';
 import type { GymProvider } from './services/gym-directory.js';
 import type { IssueGateway } from './services/issue-gateway.js';
 import type { ModeratorsLabPoster } from './services/moderators-lab.js';
+import type { ServerInvites, ServerNeighbors } from './services/server-neighbors.js';
 import type { PartyService } from './services/party-service.js';
 import type { PineStopService } from './services/pine-stops.js';
 import type { ResearchTaskProvider } from './services/research-task-service.js';
@@ -288,6 +289,13 @@ export interface AppContext {
   readonly issues: IssueGateway;
   /** A server's moderators' bot lab: where `/request` posts the gym requests of the others. */
   readonly moderatorsLab: ModeratorsLabPoster;
+  /**
+   * Each server's neighbors and their requests (plan 19E, `servers.md`, "Neighbors"):
+   * `/admin neighbors` and the buttons of a request.
+   */
+  readonly neighbors: ServerNeighbors;
+  /** The server an invite link leads to, by Discord's invite endpoint (`/admin neighbors`). */
+  readonly invites: ServerInvites;
   /** Pokebattler's raid simulations, which `/counters` shows. */
   readonly pokebattler: PokebattlerGateway;
   /** Places by name (OpenStreetMap's Nominatim), which `/find-region` looks up. */

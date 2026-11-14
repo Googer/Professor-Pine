@@ -12,6 +12,7 @@ import type { AttendanceService } from '../../src/services/attendance-service.js
 import type { GymAdminService } from '../../src/services/gym-admin-service.js';
 import type { PokemonNicknames } from '../../src/services/pokemon-search-service.js';
 import type { ModeratorsLabPoster } from '../../src/services/moderators-lab.js';
+import type { ServerInvites, ServerNeighbors } from '../../src/services/server-neighbors.js';
 import type { RaidBossAdmin } from '../../src/services/raid-boss-service.js';
 import type { PartyService } from '../../src/services/party-service.js';
 import { PlaceFinder } from '../../src/services/place-finder.js';
@@ -290,6 +291,12 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       'moderatorsLab',
       'pass a ModeratorsLab over a FakePartyGateway with the lab channel',
     ),
+    neighbors: unavailable<ServerNeighbors>(
+      'neighbors',
+      'pass { neighbors } from neighborsWith() (test/support/server-neighbors.ts)',
+    ),
+    // No invite leads anywhere; a test passes its own (`invitesTo`).
+    invites: { serverOfInvite: () => Promise.resolve(undefined) } satisfies ServerInvites,
     // Every simulation is asked of a fake that answers the sample for Mewtwo; a test passes its own.
     pokebattler: new FakePokebattler(),
     // No place is found by name; a test passes its own with places.

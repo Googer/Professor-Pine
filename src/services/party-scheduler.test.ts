@@ -852,6 +852,34 @@ describe('PartyScheduler: running', () => {
     expect(stopped?.()).toBe(true);
   });
 
+  // Plan 19E, review R8: the neighbors' requests and declines no longer kept go with the upkeep.
+  it('has the neighbors’ rows no longer kept swept with the upkeep', async () => {
+    const made = await reportedRaid();
+    let swept = 0;
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      neighbors: {
+        sweep: () => {
+          swept += 1;
+          return Promise.resolve(0);
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    expect(swept).toBe(1);
+  });
+
   // Plan 8V-1: the events forum is drawn hourly (a post still open three days after its end).
   it('has the events forum drawn with the upkeep', async () => {
     const made = await reportedRaid();

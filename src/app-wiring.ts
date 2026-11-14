@@ -359,6 +359,7 @@ export interface ServerMemory {
   rowIds: { forgetServer(serverId: string): void };
   servers: { forget(serverId: string): Promise<void> };
   notices: { forget(serverId: string): void };
+  neighbors: { forgetServer(serverId: string): Promise<void> };
   parties: { forgetServer(guildRow: number): unknown };
   access: { forgetServer(guildRow: number): unknown };
   regions: { load(): Promise<void> };
@@ -379,9 +380,10 @@ export interface ServerMemory {
  * row ids (`RowIds.forgetServer`: a server added back gets its new `Guild` row; the old row id
  * still names it, and is never another server's), its row of settings (`ServerSettings.forget`:
  * a fill gives it a first one, as to a server that joins), the notices said to its staff
- * (`ServerNotices.forget`: added back, it hears them again), and where it still had its `Guild` row
- * its parties and forum grants (`forgetServer`: nothing written, nothing asked of Discord), its
- * regions (read again), its gyms (`GymDirectory.forget` for those deleted, `unlink` for those
+ * (`ServerNotices.forget`: added back, it hears them again), its neighbors and requests
+ * (`ServerNeighbors.forgetServer`: the deletion took their rows; added back, it has none), and
+ * where it still had its `Guild` row its parties and forum grants (`forgetServer`: nothing
+ * written, nothing asked of Discord), its regions (read again), its gyms (`GymDirectory.forget` for those deleted, `unlink` for those
  * others keep, as a gym's deletion does), its Wayspots (`WayspotDirectory.load` of its row: none
  * left), its stops of Pine's own (read again), its Pokémon nicknames (read again: none), and
  * Google's line (`GymUpkeep.serverGone`: what a gym's deletion tells it of each gym, the nearest
@@ -403,7 +405,7 @@ export function forgetServerMemory(
       ['row ids', () => memory.rowIds.forgetServer(serverId)],
       ['settings', () => memory.servers.forget(serverId)],
       ['notices', () => memory.notices.forget(serverId)],
-
+      ['neighbors', () => memory.neighbors.forgetServer(serverId)],
       ...ofRow((guildRow) => [
         ['parties', () => memory.parties.forgetServer(guildRow)],
         ['forum grants', () => memory.access.forgetServer(guildRow)],

@@ -65,6 +65,7 @@ export const PINE_TABLES: readonly string[] = [
   'RoleGroup',
   'SavedRouteGym',
   'ScriptAccess',
+  'ServerNeighbor',
   'ServerRecord',
   'ServerSettings',
   'ServerSettingsAudit',

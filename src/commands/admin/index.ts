@@ -2,6 +2,7 @@ import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { commandGroup, type SubcommandPart } from '../../discord/command-group.js';
 import { cleanupLegacy } from './cleanup-legacy.js';
 import { memberSettings } from './member-settings.js';
+import { NEIGHBORS_DESCRIPTION, NEIGHBORS_GROUP, neighborParts } from './neighbors.js';
 import { NICKNAME_DESCRIPTION, NICKNAME_GROUP, nicknameParts } from './nicknames.js';
 import { saveParty } from './save-party.js';
 import { SELF_ROLES_DESCRIPTION, SELF_ROLES_GROUP, selfRoleParts } from './self-roles.js';
@@ -24,6 +25,7 @@ const parts: readonly SubcommandPart[] = staffParts(
     saveParty,
     ...selfRoleParts,
     ...nicknameParts,
+    ...neighborParts,
     memberSettings,
     cleanupLegacy,
     tutorial,
@@ -47,6 +49,7 @@ export const admin = commandGroup({
   groups: {
     [SELF_ROLES_GROUP]: SELF_ROLES_DESCRIPTION,
     [NICKNAME_GROUP]: NICKNAME_DESCRIPTION,
+    [NEIGHBORS_GROUP]: NEIGHBORS_DESCRIPTION,
   },
   parts,
 });

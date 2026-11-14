@@ -84,6 +84,11 @@
  * plan 19C-2): `setup:<item>:show` (`setup:bot-lab:show`: the settings panel at the section the
  * item is set in, apart) and `setup:list:show` (Check again). The server is the interaction's.
  *
+ * The buttons under a request to be neighbors in a server's moderators' bot lab have the kind
+ * `neighbor` (`src/commands/admin/neighbors.ts`, plan 19E), with the asking server's snowflake as
+ * the id: `neighbor:<server>:accept` and `neighbor:<server>:decline`. The asked server is the
+ * interaction's; nothing else is kept but the pair's row.
+ *
  * The controls about a screenshot have the kind `shot` (`src/commands/screenshots/shot-kind.ts`).
  * With the id of a kept screenshot (twelve URL-safe characters): `shot:<id>:right`,
  * `shot:<id>:wrong` (which opens the form `shot:<id>:form`) and `shot:<id>:show`. With the token
