@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-13T19:51",
+  "updated": "2026-11-13T22:18",
   "items": [
     {
       "id": "0",
@@ -12538,7 +12538,73 @@ window.GANTT = {
       ],
       "scope": "DMs in turns by server and the first-contact cap, the reader’s queue and kept space, Google’s shares by need, redraws in turns",
       "doneWhen": "Merged into main-dev",
-      "status": "unplanned"
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T15:03",
+        "end": "2026-11-13T22:17",
+        "review": {
+          "start": "2026-11-13T16:54",
+          "end": "2026-11-13T22:10"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T22:10",
+        "end": "2026-11-13T22:10"
+      }
+    },
+    {
+      "id": "19B-5.1",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "Direct messages in turns by server, and the first-contact cap",
+      "status": "done",
+      "start": "2026-11-13T20:15",
+      "end": "2026-11-13T20:15"
+    },
+    {
+      "id": "19B-5.2",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "The screenshot reader's queue in turns, the kept space fair",
+      "status": "done",
+      "start": "2026-11-13T20:15",
+      "end": "2026-11-13T20:15"
+    },
+    {
+      "id": "19B-5.3",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "Post redraws in turns, the caches by server first",
+      "status": "done",
+      "start": "2026-11-13T20:15",
+      "end": "2026-11-13T20:15"
+    },
+    {
+      "id": "19B-5.4",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "Docs of fairness",
+      "status": "done",
+      "start": "2026-11-13T20:15",
+      "end": "2026-11-13T20:15"
+    },
+    {
+      "id": "19B-5.5",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "Google's monthly shares by need",
+      "status": "done",
+      "start": "2026-11-13T20:15",
+      "end": "2026-11-13T22:10"
+    },
+    {
+      "id": "19B-5.6",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "Docs of Google's shares",
+      "status": "done",
+      "start": "2026-11-13T22:10",
+      "end": "2026-11-13T22:10"
     },
     {
       "id": "19D",
