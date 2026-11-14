@@ -3608,6 +3608,15 @@ Plan `2026-11-12-phase-19d-sharding.md`, merged on main-dev; check 13,747, datab
 - `onEveryShardReady` and `ShardStart.gone` are built for plan 19C, which marks a gone server left; nothing acts on them yet.
 - Beyond about 90,000 servers (36 shards and more at a `max_concurrency` of 1) the login's identify slots are long; the health rule gives each shard its slot, but nothing has been tried at that size.
 
+## From Phase 19B-3 (Wayspots, the import and Google per server, 2026-11-13)
+
+Plan `2026-11-13-phase-19b-3-wayspots-and-google.md`, merged on main-dev; full check, database suite and build pass. **Staging** with the rest of phase 19 (Matt, 2026-11-13).
+
+- `PlacePictures`' miss stamp per server: one server's Wayspot change has every server's unknown picture addresses looked up again (a scan of every server's Wayspots per address, bounded by `KNOWN_ADDRESSES`).
+- The upgrade's copies do not read saved routes' Power Spots or active parties' state: a Wayspot in no region used only there is copied to every server recorded.
+- A Power Spot's address route, when Google is not asked (budget, set aside, the member's limit, no key), answers what the spot shows meanwhile (a neighbor's address within 10 m), as every reader words it.
+- 2.0's `geodata` went to the shared answers at the upgrade; no gym's `wayfarerAddress` is filled from it (2.0 did not say whose an address was).
+
 ## From Phase 19B-4 (ids checked against their server; nicknames and gym requests per server, 2026-11-13)
 
 Plan `2026-11-13-phase-19b-4-ids-per-server.md`, merged on main-dev; full check, database suite and build pass. **Staging not run** (its plan's four steps; needs `./pine update` for migration 058 and a global deploy).
