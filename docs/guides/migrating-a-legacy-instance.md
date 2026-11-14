@@ -80,7 +80,7 @@ You need:
 - **An evening of downtime.** Plan a few hours with no bot. Whether you warn your members beforehand is your call.
 - **The bot's application ID**: Developer Portal → your application → **General Information** → Application ID. The legacy bot never needed it.
 
-The new Pine uses the **same Discord application and token** as the legacy bot. Nobody re-invites anything.
+The new Pine uses the **same Discord application and token** as the legacy bot. Nobody re-invites anything. The servers the legacy database names (its `Guild` rows) are recorded at the first start as served by this Pine, so it keeps every one of them without a `servers` list in its settings; a server that adds the bot later is served only where `servers` lists it or an operator allows it with `/operator servers allow`, and any other is told this Pine is private and left. A server that removes the bot keeps its data, and picks up where it was if it adds the bot back.
 
 **Keep the bot private.** Check that **Public Bot** is off: on the application's **Installation** page set **Install Link** to **None** and save, then turn **Public Bot** off on its **Bot** page (Discord refuses it while there is an install link). The servers the bot is in keep it. While it is on, anybody can add the bot to a server of theirs, and the staff of any server it is in can change what all its servers share, such as the raid boss list, and gyms and stops. `./pine cutover-check` warns while it is on.
 

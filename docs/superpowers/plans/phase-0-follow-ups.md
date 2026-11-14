@@ -3600,6 +3600,12 @@ What a design has to settle (a first look, 2026-11-12, not a design):
 - **Load and limits.** The heartbeat and the watchdog assume one gateway connection; Discord's global rate limit (50 requests a second per bot) is shared by every server; the DM sender, the OCR worker and the schedulers must be fair per server; the database grows with every server.
 - **Sharding.** Discord still requires it: one gateway connection (a shard) serves at most 2,500 servers, and a bot in more must shard (Discord says how many through `GET /gateway/bot`). discord.js does it inside one process (the client's `shards: 'auto'`) or across processes (`ShardingManager`). In one process little changes but the heartbeat and `gatewayConnected` over several shards (they already take `client.ws.shards`). Across processes, everything that lives in memory and is shared (the party store's one-change-at-a-time, the throttles, the caches, the schedulers, the web server, the DM queue) has to be split by server or moved into the database, and a process sees only its shards' servers. Plan: one process with `shards: 'auto'` first; several processes only when one machine's process is the limit.
 
+## From Phase 19C-1 (joining and leaving, 2026-11-13)
+
+- **No release ships between 19C-1 and 19C-4.** From 19C-1 a server that removes Pine keeps its data (marked left, deleted after 30 days by 19C-3), while the Privacy Policy (`docs/legal/`) says a server's data is deleted at once when Pine leaves it; 19C-4 rewrites it. `master` takes `main-dev` again only with 19C-4.
+- **Migration 061 merges after 059 (19B-3) and 060 (19B-5).** Kysely refuses a migration that sorts before one already applied (unordered migrations are not allowed), so 061 lands on `main-dev` only once both are merged.
+- **19C-3 never reopens a new install's adoption** (`servers.md`, "Who may have this Pine"): the window is open only while no `ServerRecord` row holds `recordedAt`, so its deletion of the servers left over 30 days keeps such a row.
+
 ## From Phase 19D (sharding in one process, 2026-11-12)
 
 Plan `2026-11-12-phase-19d-sharding.md`, merged on main-dev; check 13,747, database suite 870, build pass. **Staging not run** (its plan's three steps, one shard; several shards cannot be staged).
