@@ -111,7 +111,7 @@ function takenLines(taken: Taken): string[] {
     const told = [
       ...(user.friendCode ? ['friend code'] : []),
       ...(user.inGameName ? ['in-game name'] : []),
-      ...(user.pokebattlerId ? ['Pokebattler id'] : []),
+      ...(user.pokebattlerId ? ['Pokebattler ID'] : []),
     ];
     lines.push(`Their settings${told.length === 0 ? '' : `, with their ${listed(told)}`}`);
     const hanging = [
@@ -138,7 +138,7 @@ function takenLines(taken: Taken): string[] {
   }
   if (taken.named > 0) {
     lines.push(
-      `Their Discord id on ${count(taken.named, 'history entry', 'history entries')} ` +
+      `Their Discord ID on ${count(taken.named, 'history entry', 'history entries')} ` +
         `(the entries stay and count, without it)`,
     );
   }
@@ -156,13 +156,13 @@ function takenLines(taken: Taken): string[] {
   if (taken.dmContact) lines.push('The record that Pine has sent them direct messages');
   if (taken.reportReasons > 0) {
     lines.push(
-      `Their Discord id and name on ${count(taken.reportReasons, 'report')} they made to the ` +
+      `Their Discord ID and name on ${count(taken.reportReasons, 'report')} they made to the ` +
         'moderators',
     );
   }
   if (taken.meetupRecords > 0) {
     lines.push(
-      `Their Discord id and name on ${count(taken.meetupRecords, 'meetup request, appeal or place ask', 'meetup requests, appeals and place asks')} ` +
+      `Their Discord ID and name on ${count(taken.meetupRecords, 'meetup request, appeal or place ask', 'meetup requests, appeals and place asks')} ` +
         `that ${taken.meetupRecords === 1 ? 'is' : 'are'} decided and over`,
     );
   }
@@ -195,7 +195,7 @@ interface Written {
   records: number;
 }
 
-/** "Their reasons on … and the words of … stay, without their name or Discord id." */
+/** "Their reasons on … and the words of … stay, without their name or Discord ID." */
 function writtenLine({ reasons, records }: Written): string | undefined {
   const parts = [
     ...(reasons > 0 ? [`their reasons on ${count(reasons, 'report')} to the moderators`] : []),
@@ -209,7 +209,7 @@ function writtenLine({ reasons, records }: Written): string | undefined {
   if (parts.length === 0) return undefined;
   const said = listed(parts);
   return (
-    `${said.charAt(0).toUpperCase()}${said.slice(1)} stay, without their name or Discord id: ` +
+    `${said.charAt(0).toUpperCase()}${said.slice(1)} stay, without their name or Discord ID: ` +
     'the moderators’ record.'
   );
 }
@@ -235,7 +235,7 @@ function leftLines(look: MemberLook, written: Written): string[] {
     lines.push(
       `${count(held.meetups.open, 'meetup request, appeal or place ask', 'meetup requests, appeals and place asks')} ` +
         `of theirs ${held.meetups.open === 1 ? 'is still open and keeps' : 'are still open and keep'} ` +
-        `their Discord id and name: have the moderators decide ` +
+        `their Discord ID and name: have the moderators decide ` +
         `${held.meetups.open === 1 ? 'it' : 'them'}, then run this again.`,
     );
   }
@@ -243,7 +243,7 @@ function leftLines(look: MemberLook, written: Written): string[] {
   if (held.meetups.unmade > 0) {
     lines.push(
       `${count(held.meetups.unmade, 'meetup request')} of theirs approved and about to be made ` +
-        `${held.meetups.unmade === 1 ? 'keeps' : 'keep'} their Discord id and name: run this ` +
+        `${held.meetups.unmade === 1 ? 'keeps' : 'keep'} their Discord ID and name: run this ` +
         'again once the meetup is made.',
     );
   }
@@ -253,7 +253,7 @@ function leftLines(look: MemberLook, written: Written): string[] {
     lines.push(
       `${count(held.meetups.live, 'meetup request')} of theirs approved, whose ` +
         `${one ? 'meetup is' : 'meetups are'} still going on, ${one ? 'keeps' : 'keep'} their ` +
-        `Discord id and name (the moderators are told of the ${one ? 'meetup’s' : 'meetups’'} ` +
+        `Discord ID and name (the moderators are told of the ${one ? 'meetup’s' : 'meetups’'} ` +
         `changes): run this again once the ${one ? 'meetup has' : 'meetups have'} ended.`,
     );
   }
@@ -337,13 +337,13 @@ function byHandLines(look: Pick<MemberLook, 'memberId' | 'legacyFiles'>, byHand:
     ...(byHand.legacyParties === true
       ? [
           'The old bot’s own `parties/` folder on the host (`LEGACY_PARTIES_DIR`) holds their ' +
-            'Discord id in the files of the parties they made or joined, as that bot wrote ' +
+            'Discord ID in the files of the parties they made or joined, as that bot wrote ' +
             'them; I can only read it: edit those files there.',
         ]
       : []),
     'Backups made before the removal hold this data until they age out ' +
       '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
-    'The bot’s logs can hold their Discord id (a command they used, an error); they roll over ' +
+    'The bot’s logs can hold their Discord ID (a command they used, an error); they roll over ' +
       'by themselves.',
     ...(byHand.requestsRepo === undefined
       ? []

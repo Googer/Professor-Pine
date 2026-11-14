@@ -200,13 +200,13 @@ describe('/operator forget', () => {
       '- Their new-train notices in 2 servers',
       '- The record of their one-time Unown want in 1 server',
       '- Their history switch in 2 servers and their place on the boards in 1',
-      '- Their Discord id on 340 history entries (the entries stay and count, without it)',
+      '- Their Discord ID on 340 history entries (the entries stay and count, without it)',
       '- The name and description of 3 trains and meetups they made, in the history',
       '- 1 request to add their old-bot history',
       '- 2 web logins',
       '- Their access to the Wayfarer export tool',
-      '- Their Discord id and name on 2 reports they made to the moderators',
-      '- Their Discord id and name on 3 meetup requests, appeals and place asks that are ' +
+      '- Their Discord ID and name on 2 reports they made to the moderators',
+      '- Their Discord ID and name on 3 meetup requests, appeals and place asks that are ' +
         'decided and over',
       '- 4 kept screenshots they sent, and their feedback on 1 other',
       '**It leaves:**',
@@ -214,10 +214,10 @@ describe('/operator forget', () => {
       '- 1 report to the moderators about them: the moderators’ record.',
       '- Their reasons on 2 reports to the moderators and the words of 3 meetup requests, ' +
         'appeals and place asks of theirs (a meetup’s name, information and place; an ' +
-        'appeal’s or ask’s text) stay, without their name or Discord id: the moderators’ ' +
+        'appeal’s or ask’s text) stay, without their name or Discord ID: the moderators’ ' +
         'record.',
       '- 1 meetup request, appeal or place ask of theirs is still open and keeps their ' +
-        'Discord id and name: have the moderators decide it, then run this again.',
+        'Discord ID and name: have the moderators decide it, then run this again.',
       '- 5 entries of the staff’s log of who did what that name them: they age out after 30 ' +
         'days.',
       '- What is live ends by itself: 2 parties they made or signed up for (their settings go ' +
@@ -233,7 +233,7 @@ describe('/operator forget', () => {
       '**Left for you to do by hand:**',
       '- Backups made before the removal hold this data until they age out ' +
         '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
-      '- The bot’s logs can hold their Discord id (a command they used, an error); they roll ' +
+      '- The bot’s logs can hold their Discord ID (a command they used, an error); they roll ' +
         'over by themselves.',
       '- Posts on Discord that name them are not edited.',
       '-# Only you can press Remove…, within 10 minutes. Nothing is sent to them.',
@@ -284,13 +284,13 @@ describe('/operator forget', () => {
       '- Their new-train notices in 2 servers',
       '- The record of their one-time Unown want in 1 server',
       '- Their history switch in 2 servers and their place on the boards in 1',
-      '- Their Discord id on 340 history entries (the entries stay and count, without it)',
+      '- Their Discord ID on 340 history entries (the entries stay and count, without it)',
       '- The name and description of 3 trains and meetups they made, in the history',
       '- 1 request to add their old-bot history',
       '- 2 web logins',
       '- Their access to the Wayfarer export tool',
-      '- Their Discord id and name on 2 reports they made to the moderators',
-      '- Their Discord id and name on 3 meetup requests, appeals and place asks that are ' +
+      '- Their Discord ID and name on 2 reports they made to the moderators',
+      '- Their Discord ID and name on 3 meetup requests, appeals and place asks that are ' +
         'decided and over',
       '- 4 kept screenshots they sent, and their feedback on 1 other',
       '**Left:**',
@@ -299,10 +299,10 @@ describe('/operator forget', () => {
       // Counted before the ids went: the look after the removal no longer finds them.
       '- Their reasons on 2 reports to the moderators and the words of 3 meetup requests, ' +
         'appeals and place asks of theirs (a meetup’s name, information and place; an ' +
-        'appeal’s or ask’s text) stay, without their name or Discord id: the moderators’ ' +
+        'appeal’s or ask’s text) stay, without their name or Discord ID: the moderators’ ' +
         'record.',
       '- 1 meetup request, appeal or place ask of theirs is still open and keeps their ' +
-        'Discord id and name: have the moderators decide it, then run this again.',
+        'Discord ID and name: have the moderators decide it, then run this again.',
       '- 5 entries of the staff’s log of who did what that name them: they age out after 30 ' +
         'days.',
       '- What is live ends by itself: 1 report at a stop, 2 confirmations of others’ reports ' +
@@ -316,7 +316,7 @@ describe('/operator forget', () => {
       '**Left for you to do by hand:**',
       '- Backups made before the removal hold this data until they age out ' +
         '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
-      '- The bot’s logs can hold their Discord id (a command they used, an error); they roll ' +
+      '- The bot’s logs can hold their Discord ID (a command they used, an error); they roll ' +
         'over by themselves.',
       '- Posts on Discord that name them are not edited.',
     ]);
@@ -413,7 +413,7 @@ describe('/operator forget', () => {
       '- Backups made before the removal hold this data until they age out ' +
         '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
       // Whoever Pine never kept a row of may still be in its logs.
-      '- The bot’s logs can hold their Discord id (a command they used, an error); they roll ' +
+      '- The bot’s logs can hold their Discord ID (a command they used, an error); they roll ' +
         'over by themselves.',
       '- Posts on Discord that name them are not edited.',
     ]);
@@ -470,14 +470,14 @@ describe('/operator forget', () => {
       'under the name they had: edit or delete them there.';
     const oldFolder =
       '- The old bot’s own `parties/` folder on the host (`LEGACY_PARTIES_DIR`) holds their ' +
-      'Discord id in the files of the parties they made or joined, as that bot wrote them; I ' +
+      'Discord ID in the files of the parties they made or joined, as that bot wrote them; I ' +
       'can only read it: edit those files there.';
     const lines = textOf(asked).split('\n');
     expect(lines.slice(lines.indexOf('**Left for you to do by hand:**') + 1)).toEqual([
       oldFolder,
       '- Backups made before the removal hold this data until they age out ' +
         '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
-      '- The bot’s logs can hold their Discord id (a command they used, an error); they roll ' +
+      '- The bot’s logs can hold their Discord ID (a command they used, an error); they roll ' +
         'over by themselves.',
       onGitHub,
       '- Posts on Discord that name them are not edited.',

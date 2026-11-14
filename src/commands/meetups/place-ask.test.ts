@@ -213,7 +213,9 @@ describe('Ask the moderators (a place refused for good)', () => {
       const opened = await made.ask(refused);
       expect(opened.showModal).toHaveBeenCalled();
       const submitted = await made.submit(opened, `A park ${String(n)}.`);
-      expect(sent(submitted.followUp).content).toMatch(/^I could not send your question/);
+      expect(sent(submitted.followUp).content).toMatch(
+        /^Your question could not reach the moderators/,
+      );
     }
   });
 });

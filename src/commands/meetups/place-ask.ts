@@ -35,7 +35,8 @@ export const ASK_SENT =
   'Your question is with the moderators. I will tell you by direct message what they decide.';
 
 const ALREADY_OPEN = 'It is with the moderators already.';
-const NOT_SENT = 'I could not send your question to the moderators. Try again later.';
+const NOT_SENT =
+  'Your question could not reach the moderators right now. You can ask a moderator directly.';
 const NOT_REFUSED = 'Meetups can be held there now: use `/meetup` again.';
 
 const PLACE_KINDS: readonly PlaceKind[] = ['gym', 'stop', 'powerspot'];

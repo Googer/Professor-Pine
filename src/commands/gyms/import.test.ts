@@ -46,6 +46,7 @@ import {
   MAX_PENDING_IMPORTS,
   outsideOutcomeLines,
   pendingImports,
+  queuedAlreadyWords,
   REPORT_FILE,
   sentencesText,
   unpackExport,
@@ -1163,3 +1164,10 @@ describe('/gym import: the buttons', () => {
 function sentLast(pressed: Awaited<ReturnType<Made['press']>>): SentPayload {
   return answerOf(pressed);
 }
+
+describe('/gym import: the review queue', () => {
+  it('says how many of the gyms to review are queued already, never “of thems”', () => {
+    expect(queuedAlreadyWords(1)).toBe(' 1 of them is there already.');
+    expect(queuedAlreadyWords(12)).toBe(' 12 of them are there already.');
+  });
+});

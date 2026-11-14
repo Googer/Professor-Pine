@@ -365,6 +365,14 @@ function counted(n: number, noun: string, one: string, many: string): string {
   return `${count(n, noun)} ${n === 1 ? one : many}`;
 }
 
+/**
+ * How many of the gyms an import would send to the review queue are there already, after the
+ * sentence that counts them (staging A25 of phase 19: never "of thems").
+ */
+export function queuedAlreadyWords(n: number): string {
+  return ` ${String(n)} of them ${n === 1 ? 'is' : 'are'} there already.`;
+}
+
 /** A line by region: what happens there, counted, leaving out what does not. */
 function regionLine(channelId: string | null, counts: WayfarerCounts): string {
   const parts = [
@@ -626,10 +634,7 @@ function previewLines(
         `(${reviewWords(counts)}). ${oneByOne}`,
     );
   } else if (review > 0) {
-    const already =
-      preview.queuedAlready === 0
-        ? ''
-        : ` ${counted(preview.queuedAlready, 'of them', 'is', 'are')} there already.`;
+    const already = preview.queuedAlready === 0 ? '' : queuedAlreadyWords(preview.queuedAlready);
     lines.push(
       `${count(review, 'gym')} would go to the review queue for you to decide ` +
         `(${reviewWords(counts)}). ${oneByOne}${already}`,

@@ -52,25 +52,25 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
       '### What Pine holds of **Ash** (<@300000000000000001>)',
       'Across every server.',
       '**Remove… takes away, for good:**',
-      '- Their settings, with their Pokebattler id',
+      '- Their settings, with their Pokebattler ID',
       '- 1 want',
       // A place on the boards that outlived its history switch is named with its servers.
       '- Their place on the boards in 1 server',
-      '- Their Discord id on 1 history entry (the entries stay and count, without it)',
+      '- Their Discord ID on 1 history entry (the entries stay and count, without it)',
       '- The name and description of 1 train or meetup they made, in the history',
       '- 2 requests to add their old-bot history',
-      '- Their Discord id and name on 1 meetup request, appeal or place ask that is decided ' +
+      '- Their Discord ID and name on 1 meetup request, appeal or place ask that is decided ' +
         'and over',
       '**It leaves:**',
       '- 2 meetup blocks, lifted or not: the moderators need them for the safety of others.',
       '- 2 reports to the moderators about them: the moderators’ record.',
       '- The words of 1 meetup request, appeal or place ask of theirs (a meetup’s name, ' +
         'information and place; an appeal’s or ask’s text) stay, without their name or Discord ' +
-        'id: the moderators’ record.',
+        'ID: the moderators’ record.',
       '- 2 meetup requests, appeals and place asks of theirs are still open and keep their ' +
-        'Discord id and name: have the moderators decide them, then run this again.',
+        'Discord ID and name: have the moderators decide them, then run this again.',
       // No moderator can decide an approval again: the bot makes the meetup.
-      '- 1 meetup request of theirs approved and about to be made keeps their Discord id and ' +
+      '- 1 meetup request of theirs approved and about to be made keeps their Discord ID and ' +
         'name: run this again once the meetup is made.',
       '- 1 entry of the staff’s log of who did what that names them: it ages out after 30 days.',
       '- Counts without a name: the history’s entries and the activity.',
@@ -80,7 +80,7 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
       '**Left for you to do by hand:**',
       '- Backups made before the removal hold this data until they age out ' +
         '(`BACKUP_KEEP_DAYS`: 90 days unless you changed it).',
-      '- The bot’s logs can hold their Discord id (a command they used, an error); they roll ' +
+      '- The bot’s logs can hold their Discord ID (a command they used, an error); they roll ' +
         'over by themselves.',
       '- Posts on Discord that name them are not edited.',
       '-# Only you can press Remove…, within 10 minutes. Nothing is sent to them.',
@@ -118,7 +118,7 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
     );
     expect(lines).toContain(
       '- The old bot’s own `parties/` folder on the host (`LEGACY_PARTIES_DIR`) holds their ' +
-        'Discord id in the files of the parties they made or joined, as that bot wrote them; I ' +
+        'Discord ID in the files of the parties they made or joined, as that bot wrote them; I ' +
         'can only read it: edit those files there.',
     );
     // A saved party alone is not live in the words of the line before.
@@ -143,7 +143,7 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
     const meetups = { ...NOTHING_HELD.meetups, live: 1, over: 1 };
     expect(linesOf({ meetups })).toContain(
       '- 1 meetup request of theirs approved, whose meetup is still going on, keeps their ' +
-        'Discord id and name (the moderators are told of the meetup’s changes): run this again ' +
+        'Discord ID and name (the moderators are told of the meetup’s changes): run this again ' +
         'once the meetup has ended.',
     );
     // In the answer of a removal too, from the look after it.
@@ -166,7 +166,7 @@ describe('the look and the outcome of `/operator forget` in words (plan 8G)', ()
     ).split('\n');
     expect(lines).toContain(
       '- 2 meetup requests of theirs approved, whose meetups are still going on, keep their ' +
-        'Discord id and name (the moderators are told of the meetups’ changes): run this again ' +
+        'Discord ID and name (the moderators are told of the meetups’ changes): run this again ' +
         'once the meetups have ended.',
     );
   });
