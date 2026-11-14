@@ -116,8 +116,8 @@ function failureText(outcome: Extract<IssueOutcome, { ok: false }>): string {
       return 'Your request could not be sent: GitHub could not be reached. Please try again later.';
     case 'refused':
       return (
-        'Your request could not be sent: GitHub refused it. Please tell a moderator, who can ' +
-        'look into the log of the bot.'
+        'Your request could not be sent: GitHub refused it. Please tell a moderator: the bot’s ' +
+        'log says why.'
       );
     case 'disabled':
       return 'Requests are not set up here. Please tell a moderator.';
@@ -154,13 +154,13 @@ function labFailureText(posted: Exclude<LabPost, 'sent'>): string {
       return NOT_SET_UP;
     case 'not-allowed':
       return (
-        'Your request could not be sent: I may not post in this server’s moderators’ bot lab. ' +
-        'Please tell a moderator.'
+        'Your request could not be sent: I may not post in the moderators’ bot lab. Please tell ' +
+        'a moderator.'
       );
     case 'not-sent':
       return (
-        'Your request could not be sent: this server’s moderators’ bot lab took no message. ' +
-        'Please tell a moderator.'
+        'Your request could not be sent: I could not post it in the moderators’ bot lab. Please ' +
+        'tell a moderator.'
       );
   }
 }
@@ -205,11 +205,13 @@ export const request: SimpleCommand = {
   help: {
     category: 'util',
     details:
-      'Sends what you write to the people who keep the gym list (the moderators of this ' +
-      'server, or the list Pine shares), as a request about one gym. ' +
-      'In the post of a raid or train it is about the gym of that raid or the stop the train ' +
-      'is at; elsewhere pick the gym with `gym`.\n\nYour name and the server go with it, nothing ' +
-      'else of you. You can send three requests in half an hour.',
+      'Asks for a change to one gym: a wrong name, a gym that is gone, and the like. Your ' +
+      'request goes to the people who keep the gym list: the moderators of this server, or ' +
+      'the keepers of a list Pine shares.\n\n' +
+      'In the post of a raid or train, the request is about the raid’s gym or the gym the ' +
+      'train is at. Elsewhere, pick the gym with `gym`.\n\n' +
+      'Your name and the server go with it, nothing else about you. You can send three ' +
+      'requests in half an hour.',
     examples: [
       '/request text:This gym was renamed to Town Hall Fountain',
       '/request text:The gym is gone gym:Old Stone Fountain',

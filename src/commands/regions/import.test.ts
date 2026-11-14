@@ -414,7 +414,8 @@ describe('/region import: Import and Cancel', () => {
     const done = answerOf(await made.press(importButton(answer)));
     expect(listed(done, 'Imported')).toEqual([
       `- <#${SOUTH_CHANNEL}> · new region · 0 gyms · forum created · <#${OLD_BOARD}> has the ` +
-        'same name and is no region’s board: if it was my board before, delete it',
+        'same name as the new forum but belongs to no region: if it is an old board of mine, ' +
+        'delete it',
     ]);
     expect(made.regions.byChannel(SOUTH_CHANNEL)?.forumChannelId).not.toBe(OLD_BOARD);
   });

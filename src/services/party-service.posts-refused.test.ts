@@ -80,9 +80,9 @@ describe('PartyService: a forum where the bot may not make posts', () => {
         server: made.gateway.guildId,
         key: `forum-posts:${WEST_FORUM}`,
         text:
-          `I may not make posts in <#${WEST_FORUM}>: I lack the permission Manage Posts there, ` +
-          'so no raid, max battle, train or meetup of its region can be posted. Staff give me ' +
-          'what it needs in the forum’s settings.',
+          `I may not make posts in <#${WEST_FORUM}>: I lack the permission Manage Posts there. ` +
+          'No raid, max battle, train or meetup of the forum’s region can be posted. Staff ' +
+          'give me that permission in the forum’s settings.',
       },
     ]);
   });

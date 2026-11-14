@@ -156,7 +156,7 @@ describe('/report', () => {
     // As many as the hour allows: none of them counted, the form still opens.
     for (let i = 0; i < 5; i++) {
       expect(sent((await made.submit(`Reason ${String(i)}`)).followUp).content).toBe(
-        'I could not send your report to the moderators. Try again later.',
+        'Your report could not reach the moderators right now. You can tell a moderator directly.',
       );
     }
     made.gateway.failing.delete('sendMessage');
@@ -241,11 +241,11 @@ describe('/report', () => {
     const opened = await made.run();
     expect(opened.showModal).not.toHaveBeenCalled();
     expect(sent(opened.reply).content).toBe(
-      "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
+      'Reports cannot be sent here: staff have not chosen a moderators’ channel. You can tell a moderator directly.',
     );
     const submitted = await made.submit('Made twice');
     expect(sent(submitted.followUp).content).toBe(
-      "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
+      'Reports cannot be sent here: staff have not chosen a moderators’ channel. You can tell a moderator directly.',
     );
     expect(made.gateway.messagesIn(made.postId)).toHaveLength(before);
   });
@@ -258,7 +258,7 @@ describe('/report', () => {
     expect(opened.showModal).toHaveBeenCalledWith(partyReportForm(made.party));
     const submitted = await made.submit('A home address.');
     expect(sent(submitted.followUp).content).toBe(
-      'I could not send your report to the moderators. Try again later.',
+      'Your report could not reach the moderators right now. You can tell a moderator directly.',
     );
     expect(made.gateway.messagesIn(made.postId)).toHaveLength(before);
   });

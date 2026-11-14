@@ -6,7 +6,7 @@ describe('where a report goes (plan 19A-1)', () => {
     expect(reportRefusal({ channels: { moderation: '300000000000000099' } })).toBeUndefined();
     expect(reportRefusal({ channels: {} })).toBe(NO_MODERATORS_CHANNEL);
     expect(NO_MODERATORS_CHANNEL).toBe(
-      "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
+      'Reports cannot be sent here: staff have not chosen a moderators’ channel. You can tell a moderator directly.',
     );
   });
 

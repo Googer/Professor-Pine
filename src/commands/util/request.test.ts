@@ -176,8 +176,8 @@ describe('/request: an issue', () => {
     const made = setup();
     made.issues.failing = { ok: false, reason: 'refused', status: 401 };
     expect(told(await made.run({ text: 'Gone', gym: 'g:2' }))).toBe(
-      'Your request could not be sent: GitHub refused it. Please tell a moderator, who can ' +
-        'look into the log of the bot.',
+      'Your request could not be sent: GitHub refused it. Please tell a moderator: the bot’s ' +
+        'log says why.',
     );
     made.issues.failing = { ok: false, reason: 'unreachable' };
     expect(told(await made.run({ text: 'Gone', gym: 'g:2' }))).toBe(
@@ -417,14 +417,23 @@ describe('/request per server (plan 19B-4)', () => {
     made.gateway.noSharing.add(LAB);
     const used = await made.run({ text: 'Gone', gym: 'g:2' });
     expect(told(used)).toBe(
-      'Your request could not be sent: I may not post in this server’s moderators’ bot lab. ' +
-        'Please tell a moderator.',
+      'Your request could not be sent: I may not post in the moderators’ bot lab. Please tell ' +
+        'a moderator.',
     );
     expect(made.gateway.messagesIn(LAB)).toEqual([]);
     // Not counted: three more go through.
     made.gateway.noSharing.delete(LAB);
     for (let i = 0; i < 3; i += 1) await made.run({ text: 'Gone', gym: 'g:2' });
     expect(made.gateway.messagesIn(LAB)).toHaveLength(3);
+  });
+
+  it('says so when the bot lab took nothing, and asks the member to tell a moderator', async () => {
+    const made = setup({}, { repository: false });
+    made.gateway.gone.add(LAB);
+    expect(told(await made.run({ text: 'Gone', gym: 'g:2' }))).toBe(
+      'Your request could not be sent: I could not post it in the moderators’ bot lab. Please ' +
+        'tell a moderator.',
+    );
   });
 
   it('is refused in rehearsal mode where it would go to the bot lab too, posting nothing', async () => {

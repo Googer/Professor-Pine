@@ -40,7 +40,13 @@ export const REPORT_ALREADY = 'You already reported this.';
 /** Said of a message reported where the server has no moderators' channel (the design's words). */
 /** Where the server has set no moderators' channel (plan 19A-1, `reportRefusal`). */
 export const NO_MODERATORS = NO_MODERATORS_CHANNEL;
-const REPORT_NOT_SENT = 'I could not send your report to the moderators. Try again later.';
+/**
+ * What a member is told whose report could not reach the moderators: Discord refused or was away,
+ * or the moderators' channel the settings file named is not in the server (O5 of phase 19's
+ * staging: none of the member's doing, so they are pointed to a moderator).
+ */
+const REPORT_NOT_SENT =
+  'Your report could not reach the moderators right now. You can tell a moderator directly.';
 /** What a reason of white space alone is told (by the forms' guard, and on the map). */
 export const NO_REASON = 'Say what is wrong, so that the moderators know what to look at.';
 

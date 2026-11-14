@@ -737,7 +737,7 @@ describe('the other commands in the post of a meetup', () => {
     const used = await made.run('report');
     expect(used.showModal).not.toHaveBeenCalled();
     expect(sent(used.reply).content).toBe(
-      "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
+      'Reports cannot be sent here: staff have not chosen a moderators’ channel. You can tell a moderator directly.',
     );
     expect(made.gateway.messagesIn(made.postId)).toHaveLength(before);
   });

@@ -6,8 +6,14 @@
 export function oldBoardsWords(forumIds: readonly string[]): string {
   const named = forumIds.map((id) => `<#${id}>`);
   if (named.length === 1) {
-    return `${named[0] ?? ''} has the same name and is no region’s board: if it was my board before, delete it`;
+    return (
+      `${named[0] ?? ''} has the same name as the new forum but belongs to no region: if it is ` +
+      'an old board of mine, delete it'
+    );
   }
   const list = `${named.slice(0, -1).join(', ')} and ${named.at(-1) ?? ''}`;
-  return `${list} have the same name and are no region’s boards: if they were my boards before, delete them`;
+  return (
+    `${list} have the same name as the new forum but belong to no region: if they are old ` +
+    'boards of mine, delete them'
+  );
 }
