@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { OUT_OF_SHARE_RANK } from '../../src/domain/geo/google-line.js';
 import type { WayspotLookups } from '../../src/services/wayspot-lookups.js';
 
 /** The two servers of the cases, by their `Guild` rows. */
@@ -72,6 +73,46 @@ export function wayspotLookupCases(made: () => Promise<WayspotLookups>): void {
       { ...away, wayspotId: 'bb.16', kind: 'powerspot', rank: 1, queuedAt: 2_000 },
     ]);
     expect((await lookups.ofServer(SPOT_HOME)).map((row) => row.wayspotId)).toEqual(['aa.16']);
+  });
+
+  it('counts each server’s rows (plan 19B-5)', async () => {
+    const lookups = await made();
+    expect(await lookups.needs()).toEqual(new Map());
+    await lookups.add(
+      [
+        { ...home, wayspotId: 'aa.16', kind: 'stop', rank: 0 },
+        { ...home, wayspotId: 'bb.16', kind: 'powerspot', rank: 0 },
+        { ...away, wayspotId: 'aa.16', kind: 'stop', rank: 0 },
+      ],
+      1_000,
+    );
+    expect(await lookups.needs()).toEqual(
+      new Map([
+        [SPOT_HOME, 2],
+        [SPOT_AWAY, 1],
+      ]),
+    );
+  });
+
+  it('passes over the rows of servers out of their share, and those ranked out of it (plan 19B-5)', async () => {
+    const lookups = await made();
+    await lookups.add(
+      [
+        { ...home, wayspotId: 'aa.16', kind: 'stop', rank: 1 },
+        { ...away, wayspotId: 'bb.16', kind: 'stop', rank: 0.5 },
+        { ...away, wayspotId: 'cc.16', kind: 'powerspot', rank: 1 },
+      ],
+      1_000,
+    );
+    expect((await lookups.next({ outOfShare: new Set([SPOT_HOME]) }))?.wayspotId).toBe('bb.16');
+    expect(await lookups.next({ outOfShare: new Set([SPOT_HOME, SPOT_AWAY]) })).toBeUndefined();
+    // Home's stop ranked out of its share: after every stop of its kind, and never given while
+    // shares are asked of.
+    await lookups.add([{ ...home, wayspotId: 'aa.16', kind: 'stop', rank: OUT_OF_SHARE_RANK }], 2);
+    expect((await lookups.list()).map((row) => row.wayspotId)).toEqual(['bb.16', 'aa.16', 'cc.16']);
+    expect((await lookups.next({ outOfShare: new Set([SPOT_AWAY]) }))?.wayspotId).toBeUndefined();
+    expect((await lookups.next({ outOfShare: new Set() }))?.wayspotId).toBe('bb.16');
+    expect((await lookups.next())?.wayspotId).toBe('bb.16');
   });
 
   it('passes over the Wayspots set aside, of every server', async () => {

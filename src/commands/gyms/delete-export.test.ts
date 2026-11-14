@@ -284,10 +284,20 @@ describe('/gym refresh', () => {
     const answer = answerOf(await made.use('refresh', { gym: 'id:2' }));
     expect(said(answer).split('\n')).toEqual([
       '**Old Stone Fountain** (#2):',
-      `I did not ask Google: this instance has used its ${cap} lookups by hand for this month. ` +
-        `They start again <t:${Math.floor(month.nextReset / 1000)}:f>. The gym keeps what it has.`,
+      'I did not ask Google: the lookups by hand this server may make this month are used ' +
+        `(each server may always make a few of this instance’s ${cap}, and more of what the ` +
+        `others leave). They start again <t:${Math.floor(month.nextReset / 1000)}:f>. The gym ` +
+        'keeps what it has.',
     ]);
     expect(made.geo.asked).toEqual([]);
+  });
+
+  it('counts a lookup by hand against the server whose staff asked (plan 19B-5)', async () => {
+    const made = await gymCommandsWith();
+    const month = googleMonth(Date.now());
+    await made.use('refresh', { gym: 'id:2' });
+    const used = await made.googleUse.serversUsedOn(month.days);
+    expect([...used.values()].map((counts) => counts.byHand)).toEqual([1]);
   });
 
   it('says it could not read the count, not that the lookups are used, when that read fails', async () => {

@@ -47,6 +47,20 @@ export function tellOwnerOfForget(
   tellOwner(interaction, ctx, { title: 'A member’s data removed', change: FORGET_TOLD }, now);
 }
 
+/**
+ * Tells the bot's owner by DM that another operator raised a server's share of Google's month
+ * (`/operator google share`, plan 19B-5), as `tellOwnerOfSharedChange` tells of a shared change:
+ * who did and from where, and which server by its id.
+ */
+export function tellOwnerOfShareRaise(
+  interaction: GuardableInteraction,
+  ctx: Pick<AppContext, 'config' | 'dms'>,
+  change: string,
+  now: number = Date.now(),
+): void {
+  tellOwner(interaction, ctx, { title: 'A server’s share of Google raised', change }, now);
+}
+
 function tellOwner(
   interaction: GuardableInteraction,
   ctx: Pick<AppContext, 'config' | 'dms'>,

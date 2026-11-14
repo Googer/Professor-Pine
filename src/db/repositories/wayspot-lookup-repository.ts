@@ -1,5 +1,7 @@
 import { sql, type Kysely } from 'kysely';
+import { OUT_OF_SHARE_RANK } from '../../domain/geo/google-line.js';
 import type {
+  NextWayspotOptions,
   QueuedWayspot,
   ServerSpot,
   WaitingWayspot,
@@ -54,13 +56,36 @@ export class WayspotLookupRepository implements WayspotLookups {
     );
   }
 
-  async next(options: { except?: ReadonlySet<string> } = {}): Promise<WaitingWayspot | undefined> {
+  async next(options: NextWayspotOptions = {}): Promise<WaitingWayspot | undefined> {
     const except = [...(options.except ?? [])];
+    const { outOfShare } = options;
+    const out = [...(outOfShare ?? [])];
     const row = await this.ordered()
       .$if(except.length > 0, (query) => query.where('wayspotId', 'not in', except))
+      // By shares (plan 19B-5): the order index read as two ranges, each kind above the rows held
+      // out of their share (`kind` named, so that the rank is a range of the index); the servers
+      // named only pass over rows queued before their server's were ranked anew.
+      .$if(outOfShare !== undefined, (query) =>
+        query
+          .where('kind', 'in', ['stop', 'powerspot'])
+          .where('regionRank', '>', OUT_OF_SHARE_RANK),
+      )
+      .$if(out.length > 0, (query) => query.where('guildId', 'not in', out))
       .limit(1)
       .executeTakeFirst();
     return row && waiting(row);
+  }
+
+  async needs(): Promise<Map<number, number>> {
+    // Every server's rows, counted along the primary key `(guildId, wayspotId)` from the index
+    // alone: the need is every row's by its nature, read whenever the shares are worked out
+    // (`GymLookupRepository.needs` says when), in the line's turn.
+    const rows = await this.db
+      .selectFrom('ServerWayspotLookup')
+      .select((eb) => ['guildId', eb.fn.countAll<number | string>().as('n')])
+      .groupBy('guildId')
+      .execute();
+    return new Map(rows.map((row) => [row.guildId, Number(row.n)]));
   }
 
   async remove(spots: readonly ServerSpot[]): Promise<void> {

@@ -94,6 +94,8 @@ const ADDED_TABLES = [
   'ServerSettingsAudit',
   'PokemonNickname',
   'DmContact',
+  'GoogleUseServerDay',
+  'GoogleShareRaise',
 ];
 /** The columns it adds to tables of the legacy bot, as `Table.column`. */
 const ADDED_COLUMNS = [

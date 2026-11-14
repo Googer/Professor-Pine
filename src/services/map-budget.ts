@@ -1,5 +1,6 @@
 import { BoundedMap } from '../bounded-map.js';
 import { googleMonth } from '../domain/geo/google-line.js';
+import { DEFAULT_BY_HAND_FLOOR, serverFloor, withinFloors } from '../domain/geo/google-shares.js';
 import type { Logger } from '../log.js';
 import { mapsThisMonth, type GoogleUse } from './google-use.js';
 
@@ -17,6 +18,16 @@ export interface MapBudgetOptions {
   use: GoogleUse;
   /** How many maps of places a Pacific month may download. */
   perMonth: number;
+  /**
+   * Each server's floor of them (plan 19B-5, `googleByHandPerServer`; fix round 3, T3,
+   * `withinFloors`): a server's members under it may always have one within the month's cap,
+   * the floors of every server (`servers`) kept out of the cap, scaled down where they add up to
+   * more; above it they take only of what the others' unused floors leave. Default
+   * `DEFAULT_BY_HAND_FLOOR`; a Pine of one server has the whole cap.
+   */
+  perServer?: number;
+  /** The servers Pine is in (`Guild` rows), each with its floor; default none but the asker. */
+  servers?: () => readonly number[];
   log: Logger;
   now?: () => number;
 }
@@ -29,6 +40,11 @@ export interface MapBudgetOptions {
  * time, `googleMonth`). Past the cap no map is downloaded: the answer goes without one. A member
  * has at most `MAX_MAPS_PER_MEMBER_DAY` a Pacific day of them (kept in memory: a restart forgets
  * them), and past that their answers go without a map too.
+ *
+ * Shared between servers by floors (plan 19B-5; fix round 3, T3): each server's members always
+ * have their floor of the month (`perServer`), and one server's members never use the others'
+ * floors; each map is counted as its server's too (`GoogleUseServerDay`, every server's maps of
+ * the month read by the day and the kind, `googleuseserverday_day_kind_index`).
  */
 export class MapBudget {
   private readonly now: () => number;
@@ -51,16 +67,20 @@ export class MapBudget {
    * False when the member had their day's maps, when the month has none left, or while the count
    * cannot be read or written: nothing is downloaded that would not be counted. Never rejects.
    */
-  spend(member: string): Promise<boolean> {
-    const taken = this.line.then(() => this.take(member));
+  spend(member: string, guildId?: number): Promise<boolean> {
+    const taken = this.line.then(() => this.take(member, guildId));
     this.line = taken;
     return taken;
   }
 
-  /** How many maps this month has used; undefined while the count cannot be read. */
-  async used(): Promise<number | undefined> {
+  /**
+   * How many maps this month has used, or with a server (its `Guild` row) that server's members;
+   * undefined while the count cannot be read.
+   */
+  async used(guildId?: number): Promise<number | undefined> {
     try {
-      return await mapsThisMonth(this.options.use, this.now());
+      if (guildId === undefined) return await mapsThisMonth(this.options.use, this.now());
+      return await this.serverMaps(guildId);
     } catch {
       return undefined;
     }
@@ -71,7 +91,30 @@ export class MapBudget {
     return this.options.perMonth;
   }
 
-  private async take(member: string): Promise<boolean> {
+  /**
+   * Each server's floor of a month (`perServer`, scaled down by the servers Pine is in, the one
+   * asked about with them).
+   */
+  floorOf(guildId?: number): number {
+    const servers = new Set(this.servers());
+    if (guildId !== undefined) servers.add(guildId);
+    return serverFloor(this.options.perMonth, this.perServer, servers.size);
+  }
+
+  private get perServer(): number {
+    return this.options.perServer ?? DEFAULT_BY_HAND_FLOOR;
+  }
+
+  private servers(): readonly number[] {
+    return this.options.servers?.() ?? [];
+  }
+
+  private async serverMaps(guildId: number): Promise<number> {
+    const days = googleMonth(this.now()).days;
+    return (await this.options.use.serversUsedOn(days, guildId)).get(guildId)?.maps ?? 0;
+  }
+
+  private async take(member: string, guildId?: number): Promise<boolean> {
     const { use, perMonth, log } = this.options;
     const now = this.now();
     const month = googleMonth(now);
@@ -99,7 +142,26 @@ export class MapBudget {
         }
         return false;
       }
-      await use.use(month.today, 'map');
+      // Within the floors (one at a time: `line`): a server's members under theirs, or of what
+      // the other servers' unused floors leave.
+      const servers = await use.serversCountedOn(month.days, 'map');
+      if (
+        !withinFloors({
+          cap: perMonth,
+          floor: this.perServer,
+          servers: this.servers(),
+          usedOf: (server) => (servers.get(server) ?? 0) + (server === guildId ? 1 : 0),
+          total: maps + 1,
+          guildId,
+        })
+      ) {
+        log.debug(
+          { guild: guildId, perServer: this.perServer },
+          'a server’s members have had their maps of places this month, and the rest is kept for the other servers',
+        );
+        return false;
+      }
+      await use.use(month.today, 'map', guildId);
       this.members.set(member, { ...today, maps: today.maps + 1 });
       return true;
     } catch (err) {

@@ -10,7 +10,9 @@ import {
   SPOT_HOME,
   wayspotLookupCases,
 } from '../../../test/support/wayspot-lookup-cases.js';
+import { OUT_OF_SHARE_RANK } from '../../domain/geo/google-line.js';
 import type { DB } from '../types.js';
+import { GoogleShareRaiseRepository } from './google-share-raise-repository.js';
 import { GoogleUseRepository } from './google-use-repository.js';
 import { HistoryRepository } from './history-repository.js';
 import { WayspotLookupRepository } from './wayspot-lookup-repository.js';
@@ -85,6 +87,33 @@ describe('the storage of the Google line', () => {
       expect(remove[0]?.key).toBe('PRIMARY');
     });
 
+    it('counts the servers’ need along the primary key, and asks by shares above the held rows (plan 19B-5)', async () => {
+      const lookups = await fresh();
+      // Home's 2,700 rows held out of its share, Away's 300 in it, stops and Power Spots both.
+      await lookups.add(
+        Array.from({ length: 3_000 }, (_, n) => ({
+          guildId: n < 2_700 ? SPOT_HOME : SPOT_AWAY,
+          wayspotId: `${String(n)}.16`,
+          kind: n % 3 === 0 ? ('powerspot' as const) : ('stop' as const),
+          rank: n < 2_700 ? OUT_OF_SHARE_RANK : n / 3_000,
+        })),
+        1_000,
+      );
+      await sql`analyze table ServerWayspotLookup`.execute(db);
+      const needs = await planOf(database, (logged) => new WayspotLookupRepository(logged).needs());
+      expect(needs[0]?.key).toBe('PRIMARY');
+      expect(needs[0]?.Extra).toContain('Using index');
+      const next = await planOf(database, (logged) =>
+        new WayspotLookupRepository(logged).next({ outOfShare: new Set([SPOT_HOME]) }),
+      );
+      expect(next[0]?.key).toBe('serverwayspotlookup_order_index');
+      expect(next[0]?.type).toBe('range');
+      expect(next[0]?.Extra ?? '').not.toContain('filesort');
+      expect(
+        await new WayspotLookupRepository(db).next({ outOfShare: new Set([SPOT_HOME]) }),
+      ).toMatchObject({ guildId: SPOT_AWAY, kind: 'stop' });
+    });
+
     it('goes with its server', async () => {
       const lookups = await fresh();
       await lookups.add([{ guildId: SPOT_AWAY, wayspotId: 'aa.16', kind: 'stop', rank: 0 }], 1);
@@ -94,15 +123,127 @@ describe('the storage of the Google line', () => {
   });
 
   describe('GoogleUseRepository', () => {
-    googleUseCases(async () => {
+    /** Two servers' rows (`SPOT_HOME`, `SPOT_AWAY`) and no counts. */
+    const fresh = async () => {
       await db.deleteFrom('GoogleUseDay').execute();
+      await db.deleteFrom('GoogleUseServerDay').execute();
       await db.deleteFrom('GymLookupDay').execute();
+      await db.deleteFrom('Guild').where('id', 'in', [SPOT_HOME, SPOT_AWAY]).execute();
+      await db
+        .insertInto('Guild')
+        .values([
+          { id: SPOT_HOME, snowflake: '412345678901234567' },
+          { id: SPOT_AWAY, snowflake: '412345678901234568' },
+        ])
+        .execute();
+    };
+
+    googleUseCases(async () => {
+      await fresh();
       return {
         use: new GoogleUseRepository(db),
         legacy: async (day, gyms) => {
           await db.insertInto('GymLookupDay').values({ day, gyms }).execute();
         },
+        servers: [SPOT_HOME, SPOT_AWAY] as const,
       };
+    });
+
+    it('reads a server’s month by its key, and every server’s by the day and kind, never the whole table (plan 19B-5; fix round 4, R4)', async () => {
+      await fresh();
+      // 120 days of four kinds for the two servers.
+      const rows = Array.from({ length: 960 }, (_, n) => ({
+        guildId: n % 2 === 0 ? SPOT_HOME : SPOT_AWAY,
+        day: `2026-${String(1 + Math.floor(n / 80)).padStart(2, '0')}-${String(1 + (Math.floor(n / 8) % 10)).padStart(2, '0')}`,
+        kind: ['places', 'geocode', 'hand', 'map'][Math.floor(n / 2) % 4] ?? 'places',
+        questions: 1,
+      }));
+      await db.insertInto('GoogleUseServerDay').values(rows).ignore().execute();
+      await sql`analyze table GoogleUseServerDay`.execute(db);
+      const days = ['2026-03-01', '2026-03-02', '2026-03-03'];
+      const one = await planOf(database, (logged) =>
+        new GoogleUseRepository(logged).serversUsedOn(days, SPOT_AWAY),
+      );
+      expect(one[0]?.key).toBe('PRIMARY');
+      expect(scanned(one)).toEqual([]);
+      const every = await planOf(database, (logged) =>
+        new GoogleUseRepository(logged).serversUsedOn(days),
+      );
+      expect(every[0]?.key).toBe('googleuseserverday_day_kind_index');
+      expect(scanned(every)).toEqual([]);
+      // One kind of every server (the floors of lookups by hand and of maps): a range of the
+      // day and the kind.
+      const hands = await planOf(database, (logged) =>
+        new GoogleUseRepository(logged).serversCountedOn(days, 'hand'),
+      );
+      expect(hands[0]?.key).toBe('googleuseserverday_day_kind_index');
+      expect(hands[0]?.type).toBe('range');
+      expect(scanned(hands)).toEqual([]);
+    });
+
+    it('goes with its server', async () => {
+      await fresh();
+      const use = new GoogleUseRepository(db);
+      await use.use('2026-10-25', 'places', SPOT_AWAY);
+      await db.deleteFrom('Guild').where('id', '=', SPOT_AWAY).execute();
+      expect(await use.serversUsedOn(['2026-10-25'])).toEqual(new Map());
+      // The instance's count stays.
+      expect((await use.usedOn(['2026-10-25'])).get('2026-10-25')?.places).toBe(1);
+    });
+
+    it('counts for the instance alone a question of a server whose row is gone (fix round 3, T7)', async () => {
+      await fresh();
+      const use = new GoogleUseRepository(db);
+      await db.deleteFrom('Guild').where('id', '=', SPOT_AWAY).execute();
+      await use.use('2026-10-25', 'places', SPOT_AWAY);
+      expect((await use.usedOn(['2026-10-25'])).get('2026-10-25')?.places).toBe(1);
+      expect(await use.serversUsedOn(['2026-10-25'])).toEqual(new Map());
+    });
+  });
+
+  describe('GoogleShareRaiseRepository (plan 19B-5)', () => {
+    const fresh = async () => {
+      await db.deleteFrom('GoogleShareRaise').execute();
+      await db.deleteFrom('Guild').where('id', 'in', [SPOT_HOME, SPOT_AWAY]).execute();
+      await db
+        .insertInto('Guild')
+        .values([
+          { id: SPOT_HOME, snowflake: '412345678901234567' },
+          { id: SPOT_AWAY, snowflake: '412345678901234568' },
+        ])
+        .execute();
+      return new GoogleShareRaiseRepository(db);
+    };
+
+    it('keeps a raise per month and server, replaced when set again, and gone with its server', async () => {
+      const raises = await fresh();
+      expect(await raises.of('2026-10-01')).toEqual(new Map());
+      await raises.set('2026-10-01', SPOT_HOME, 300, 1);
+      await raises.set('2026-10-01', SPOT_AWAY, 50, 1);
+      await raises.set('2026-09-01', SPOT_HOME, 900, 1);
+      await raises.set('2026-10-01', SPOT_HOME, 0, 2);
+      expect(await raises.of('2026-10-01')).toEqual(
+        new Map([
+          [SPOT_HOME, 0],
+          [SPOT_AWAY, 50],
+        ]),
+      );
+      await db.deleteFrom('Guild').where('id', '=', SPOT_AWAY).execute();
+      expect(await raises.of('2026-10-01')).toEqual(new Map([[SPOT_HOME, 0]]));
+    });
+
+    it('reads a month’s raises by the primary key', async () => {
+      const raises = await fresh();
+      for (let month = 1; month <= 12; month++) {
+        const first = `2026-${String(month).padStart(2, '0')}-01`;
+        await raises.set(first, SPOT_HOME, month, 1);
+        await raises.set(first, SPOT_AWAY, month, 1);
+      }
+      const plan = await planOf(database, (logged) =>
+        new GoogleShareRaiseRepository(logged).of('2026-03-01'),
+      );
+      expect(plan[0]?.key).toBe('PRIMARY');
+      expect(scanned(plan)).toEqual([]);
     });
   });
 

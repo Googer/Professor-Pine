@@ -12,6 +12,14 @@ export function isDuplicateEntry(error: unknown, key?: string): boolean {
   return message.endsWith(`.${key}'`) || message.endsWith(` '${key}'`);
 }
 
+/**
+ * MySQL's `ER_NO_REFERENCED_ROW_2` (errno 1452): a row was hung on a parent row that does not
+ * exist (a server's `Guild` row gone, say).
+ */
+export function isMissingParentRow(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'errno' in error && error.errno === 1452;
+}
+
 /** MySQL's deadlock (ER_LOCK_DEADLOCK, errno 1213): the transaction was rolled back, all of it. */
 export function isDeadlock(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'errno' in error && error.errno === 1213;

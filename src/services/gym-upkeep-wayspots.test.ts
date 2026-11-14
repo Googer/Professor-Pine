@@ -16,10 +16,11 @@ import { wayspotsWith } from '../../test/support/wayspots.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
 import type { WayspotRow } from '../domain/wayspots/kept.js';
 import { GoogleAnswers, MemoryGoogleAnswerStorage } from './google-answers.js';
+import { GoogleShares, MemoryGoogleShareRaises } from './google-shares.js';
 import { MemoryGoogleUse } from './google-use.js';
 import { GoogleRanks } from './google-ranks.js';
 import { MemoryGymLookups } from './gym-lookups.js';
-import { GymUpkeep, type GymUpkeepOptions } from './gym-upkeep.js';
+import { DEFAULT_GOOGLE_BUDGET, GymUpkeep, type GymUpkeepOptions } from './gym-upkeep.js';
 import { RegionDirectory, type RegionProvider } from './region-directory.js';
 import { MemoryWayspotLookups } from './wayspot-lookups.js';
 import { WayspotPlaces } from './wayspot-places.js';
@@ -289,6 +290,81 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     // Asked once: neither server's copy waits again.
     await made.upkeep.resume();
     expect(await made.spots.count()).toBe(0);
+  });
+
+  it('serves each server’s PokéStops up to its share of the month (plan 19B-5)', async () => {
+    // Away's region over West: Home's three stops and Away's own, each at a place of its own.
+    const regions = regionsFixture([
+      ...testRegions(),
+      { ...northRegion(), bounds: testRegions()[0]!.bounds },
+    ]);
+    const home = [1, 5, 6].map((n) => keptRow(n, { lat: 40.03 + n / 1_000, lon: -80.08 }));
+    const away = keptRow(9, { title: 'Away’s Mural', lat: 40.05, lon: -80.02 });
+    // Noon in California on October 16, and at most two questions a month of one server.
+    const now = () => new Date('2026-10-16T12:00:00-07:00').getTime();
+    const use = new MemoryGoogleUse();
+    const { log } = createTestLogger();
+    const told: number[] = [];
+    const shares = new GoogleShares({
+      budget: DEFAULT_GOOGLE_BUDGET,
+      max: 2,
+      use,
+      raises: new MemoryGoogleShareRaises(),
+      tellServer: (guildId) => told.push(guildId),
+      log,
+      now,
+    });
+    const made = await lineWith(home, { use, shares, now }, regions, [
+      { guildId: OTHER_GUILD_ROW, rows: [away] },
+    ]);
+    await made.upkeep.resume();
+    expect(await made.spots.count()).toBe(4);
+    await made.upkeep.flush();
+    const asked = made.geo.questions('places').map((question) => question.point.lat);
+    // Home's first two, and Away's one though it waited behind Home's third.
+    expect(asked.filter((lat) => home.some((stop) => stop.lat === lat))).toHaveLength(2);
+    expect(asked).toContain(away.lat);
+    expect((await made.spots.list()).map((row) => row.guildId)).toEqual([TEST_GUILD_ROW]);
+    expect(told).toEqual([TEST_GUILD_ROW]);
+  });
+
+  it('works no shares out for a server whose PokéStops were all asked about already (fix round 3, T6)', async () => {
+    const regions = regionsFixture([
+      ...testRegions(),
+      { ...northRegion(), bounds: testRegions()[0]!.bounds },
+    ]);
+    // Away's one stop, whose own point another server's question answered.
+    const away = keptRow(9, { title: 'Away’s Mural', lat: 40.05, lon: -80.02 });
+    const now = () => new Date('2026-10-16T12:00:00-07:00').getTime();
+    const use = new MemoryGoogleUse();
+    const { log } = createTestLogger();
+    /** Each reading of the shares reads the month's raises once. */
+    let readings = 0;
+    const raises = new MemoryGoogleShareRaises();
+    const shares = new GoogleShares({
+      budget: DEFAULT_GOOGLE_BUDGET,
+      use,
+      raises: {
+        of: (month) => {
+          readings++;
+          return raises.of(month);
+        },
+        set: (month, guildId, extra) => raises.set(month, guildId, extra),
+      },
+      log,
+      now,
+    });
+    const made = await lineWith([], { use, shares, now }, regions, [
+      { guildId: OTHER_GUILD_ROW, rows: [away] },
+    ]);
+    await made.answers.save([
+      { kind: 'places', lat: away.lat, lon: away.lon, answer: 'Corner Bakery', askedAt: 1 },
+    ]);
+    await made.upkeep.resume();
+    await made.upkeep.flush();
+    expect(await made.spots.count()).toBe(0);
+    // The start's own reading alone: nothing of Away was written.
+    expect(readings).toBe(1);
   });
 
   it('brings only the changed server’s part of the line up to date after its import', async () => {

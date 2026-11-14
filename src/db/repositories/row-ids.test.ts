@@ -78,6 +78,20 @@ describe('RowIds', () => {
     expect(ids.serverOfRow(2_001)).toBeUndefined();
   });
 
+  it('knows the row of every server it saw, beyond what it remembers, the newer of a row made again (plan 19B-5, fix round 4)', () => {
+    const ids = new RowIds();
+    for (let n = 0; n <= 1_000; n++) ids.sawGuild(`g${String(n)}`, n);
+    expect(ids.guild('g0')).toBeUndefined();
+    expect(ids.rowOfServer('g0')).toBe(0);
+    expect(ids.rowOfServer('g1000')).toBe(1_000);
+    ids.knowGuildRow('g2000', 2_000);
+    expect(ids.rowOfServer('g2000')).toBe(2_000);
+    // Made again (the legacy bot left and came back): the newer row.
+    ids.sawGuild('g0', 3_000);
+    expect(ids.rowOfServer('g0')).toBe(3_000);
+    expect(ids.rowOfServer('g2001')).toBeUndefined();
+  });
+
   it('remembers nothing when it is the one a repository has by default', () => {
     RowIds.none.sawGuild('g1', 7);
     RowIds.none.sawUser('u1', 42);

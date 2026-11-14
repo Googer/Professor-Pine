@@ -64,6 +64,74 @@ describe('MapBudget (plan 8Z-2)', () => {
     expect(await budget.spend(MEMBER)).toBe(true);
   });
 
+  it('keeps every other server its floor of maps when one server’s members take all they may (plan 19B-5, fix round 3, T3)', async () => {
+    const { log } = createTestLogger();
+    const use = new MemoryGoogleUse();
+    const HOME = 1;
+    const AWAY = 2;
+    const THIRD = 3;
+    const budget = new MapBudget({
+      use,
+      perMonth: 10,
+      perServer: 3,
+      servers: () => [HOME, AWAY, THIRD],
+      log,
+      now: () => OCTOBER,
+    });
+    /** How many of `n` maps a server's members got, a member of their own each. */
+    const spent = async (guildId: number, n: number) => {
+      let got = 0;
+      for (let member = 0; member < n; member++) {
+        if (await budget.spend(`${String(guildId)}00000000000000000${String(member)}`, guildId)) {
+          got++;
+        }
+      }
+      return got;
+    };
+    // Home's members take what the others' floors leave: four.
+    expect(await spent(HOME, 6)).toBe(4);
+    expect(await spent(AWAY, 4)).toBe(3);
+    expect(await spent(THIRD, 4)).toBe(3);
+    expect(await budget.used(HOME)).toBe(4);
+    expect(await budget.used()).toBe(10);
+    expect(budget.floorOf()).toBe(3);
+  });
+
+  it('reads the servers’ maps of the month by that kind alone (fix round 4, R4)', async () => {
+    const { log } = createTestLogger();
+    const memory = new MemoryGoogleUse();
+    const budget = new MapBudget({
+      use: {
+        use: (day, counted, guildId) => memory.use(day, counted, guildId),
+        usedOn: (days) => memory.usedOn(days),
+        serversUsedOn: () => Promise.reject(new Error('every kind of every server')),
+        serversCountedOn: (days, kind) => memory.serversCountedOn(days, kind),
+      },
+      perMonth: 5,
+      perServer: 2,
+      servers: () => [1, 2],
+      log,
+      now: () => OCTOBER,
+    });
+    expect(await budget.spend(MEMBER, 1)).toBe(true);
+    expect(await budget.used()).toBe(1);
+  });
+
+  it('gives a Pine of one server every map of the month', async () => {
+    const { log } = createTestLogger();
+    const budget = new MapBudget({
+      use: new MemoryGoogleUse(),
+      perMonth: 5,
+      perServer: 2,
+      servers: () => [1],
+      log,
+      now: () => OCTOBER,
+    });
+    for (let n = 0; n < 5; n++)
+      expect(await budget.spend(`10000000000000000${String(n)}`, 1)).toBe(true);
+    expect(await budget.spend(OTHER, 1)).toBe(false);
+  });
+
   it('gives none where the month has none', async () => {
     const { budget } = budgetOf(0);
     expect(await budget.spend(MEMBER)).toBe(false);
@@ -73,6 +141,8 @@ describe('MapBudget (plan 8Z-2)', () => {
     const broken: GoogleUse = {
       use: () => Promise.reject(new Error('the database is away')),
       usedOn: () => Promise.resolve(new Map()),
+      serversUsedOn: () => Promise.resolve(new Map()),
+      serversCountedOn: () => Promise.resolve(new Map()),
     };
     const unwritten = budgetOf(5, broken);
     expect(await unwritten.budget.spend(MEMBER)).toBe(false);
@@ -85,6 +155,8 @@ describe('MapBudget (plan 8Z-2)', () => {
     const unread = budgetOf(5, {
       use: (day, counted) => memory.use(day, counted),
       usedOn: (days) => (away ? Promise.reject(new Error('away')) : memory.usedOn(days)),
+      serversUsedOn: (days, guildId) => memory.serversUsedOn(days, guildId),
+      serversCountedOn: (days, kind) => memory.serversCountedOn(days, kind),
     });
     expect(await unread.budget.spend(MEMBER)).toBe(false);
     expect(await unread.budget.used()).toBeUndefined();

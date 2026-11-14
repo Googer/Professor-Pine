@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { OUT_OF_SHARE_RANK } from '../../src/domain/geo/google-line.js';
 import type { GymLookups } from '../../src/services/gym-lookups.js';
 
 /** The two servers of the cases, by their `Guild` rows. */
@@ -131,6 +132,56 @@ export function gymLookupCases(made: () => Promise<GymLookups>): void {
       address: false,
     });
     expect(await lookups.count()).toBe(4);
+  });
+
+  it('counts each server’s rows, those that wait for an address apart, and gives one server’s rows alone (plan 19B-5)', async () => {
+    const lookups = await made();
+    expect(await lookups.needs()).toEqual(new Map());
+    await lookups.add([home(1, true), home(2), home(3, true)], 1_000);
+    await lookups.add([{ guildId: LINE_AWAY, gymId: 1, address: true, rank: 1 }], 2_000);
+    expect(await lookups.needs()).toEqual(
+      new Map([
+        [LINE_HOME, { places: 3, geocodes: 2 }],
+        [LINE_AWAY, { places: 1, geocodes: 1 }],
+      ]),
+    );
+    expect(await lookups.ofServer(LINE_AWAY)).toEqual([
+      { guildId: LINE_AWAY, gymId: 1, address: true, rank: 1, queuedAt: 2_000 },
+    ]);
+    expect((await lookups.ofServer(LINE_HOME)).map((row) => row.gymId).toSorted()).toEqual([
+      1, 2, 3,
+    ]);
+  });
+
+  it('passes over the rows of a server out of its share, and those that wait for an address of a server out of addresses (plan 19B-5)', async () => {
+    const lookups = await made();
+    const away = (gymId: number, address = false, rank = 0) => ({
+      guildId: LINE_AWAY,
+      gymId,
+      address,
+      rank,
+    });
+    await lookups.add([home(1, true, 1), home(2, false, 0.5), away(3, true, 0.7)], 1_000);
+    await lookups.add([away(4, false, 0.2)], 1_000);
+    const out = (places: number[], geocodes: number[]) => ({
+      outOfShare: { places: new Set(places), geocodes: new Set(geocodes) },
+    });
+    expect(await lookups.next(out([LINE_AWAY], []))).toMatchObject({ gymId: 1 });
+    expect(await lookups.next(out([], [LINE_HOME]))).toMatchObject({ gymId: 3 });
+    expect(await lookups.next(out([LINE_HOME], [LINE_AWAY]))).toMatchObject({ gymId: 4 });
+    expect(await lookups.next(out([LINE_HOME, LINE_AWAY], []))).toBeUndefined();
+    // A row ranked out of its share (`OUT_OF_SHARE_RANK`) waits after every other, and is never
+    // given while shares are asked of, whatever the sets say.
+    await lookups.setRanks([
+      { guildId: LINE_HOME, gymId: 1, rank: OUT_OF_SHARE_RANK },
+      { guildId: LINE_HOME, gymId: 2, rank: OUT_OF_SHARE_RANK },
+    ]);
+    expect(await lookups.next(out([], []))).toMatchObject({ gymId: 3 });
+    expect((await lookups.list()).map((row) => row.gymId)).toEqual([3, 4, 1, 2]);
+    await lookups.remove(3);
+    await lookups.remove(4);
+    expect(await lookups.next(out([], []))).toBeUndefined();
+    expect(await lookups.next()).toMatchObject({ gymId: 1 });
   });
 
   it('keeps the place of a gym queued again, and its address when either asks for it', async () => {

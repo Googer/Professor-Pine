@@ -6,7 +6,8 @@ import type {
 } from '../../src/db/repositories/gym-removal-repository.js';
 import { AdminLock } from '../../src/services/admin-lock.js';
 import { GymAdminService, type StaffPlace } from '../../src/services/gym-admin-service.js';
-import { GymUpkeep } from '../../src/services/gym-upkeep.js';
+import { DEFAULT_GOOGLE_BUDGET, GymUpkeep } from '../../src/services/gym-upkeep.js';
+import { GoogleShares, MemoryGoogleShareRaises } from '../../src/services/google-shares.js';
 import { MemoryGoogleUse } from '../../src/services/google-use.js';
 import { MemoryGymLookups } from '../../src/services/gym-lookups.js';
 import { MemoryWayspotLookups } from '../../src/services/wayspot-lookups.js';
@@ -130,6 +131,14 @@ export async function gymAdminWith(
   const lookups = new MemoryGymLookups();
   const wayspotLookups = new MemoryWayspotLookups();
   const use = new MemoryGoogleUse();
+  // Google's month shared between the servers by need (plan 19B-5), over the same counts.
+  const shareRaises = new MemoryGoogleShareRaises();
+  const shares = new GoogleShares({
+    budget: DEFAULT_GOOGLE_BUDGET,
+    use,
+    raises: shareRaises,
+    log: made.log,
+  });
   const upkeep = new GymUpkeep({
     gyms: gymStore,
     directory,
@@ -142,6 +151,7 @@ export async function gymAdminWith(
     lookups,
     wayspotLookups,
     use,
+    shares,
     answers,
   });
   const removal = new MemoryGymRemoval(gymStore, made.routes, made.gymTargets);
@@ -177,6 +187,8 @@ export async function gymAdminWith(
     lookups,
     wayspotLookups,
     googleUse: use,
+    shares,
+    shareRaises,
     answers,
   };
 }

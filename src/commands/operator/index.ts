@@ -7,6 +7,7 @@ import { overrideParts } from './boss-overrides.js';
 import { clearImageCache } from './clear-image-cache.js';
 import { EVENT_WINDOW_DESCRIPTION, EVENT_WINDOW_GROUP, eventWindowParts } from './event-window.js';
 import { forget } from './forget.js';
+import { GOOGLE_DESCRIPTION, GOOGLE_GROUP, googleShare } from './google-share.js';
 
 /**
  * The subcommands of `/operator` (plan 19B-1): what every server shares, moved from `/admin`.
@@ -19,6 +20,7 @@ const parts: readonly SubcommandPart[] = [
   syncBosses,
   forget,
   ...eventWindowParts,
+  googleShare,
 ];
 
 /**
@@ -53,6 +55,7 @@ export const operator = commandGroup({
   groups: {
     [BOSS_GROUP]: BOSS_DESCRIPTION,
     [EVENT_WINDOW_GROUP]: EVENT_WINDOW_DESCRIPTION,
+    [GOOGLE_GROUP]: GOOGLE_DESCRIPTION,
   },
   parts,
 });

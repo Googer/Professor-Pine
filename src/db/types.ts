@@ -150,8 +150,22 @@ export interface GoogleAnswer {
   lon: number;
 }
 
+export interface GoogleShareRaise {
+  extra: number;
+  guildId: number;
+  month: string;
+  raisedAt: string;
+}
+
 export interface GoogleUseDay {
   day: string;
+  kind: string;
+  questions: Generated<number>;
+}
+
+export interface GoogleUseServerDay {
+  day: string;
+  guildId: number;
   kind: string;
   questions: Generated<number>;
 }
@@ -961,7 +975,9 @@ export interface DB {
   EventPost: EventPost;
   EventWindow: EventWindow;
   GoogleAnswer: GoogleAnswer;
+  GoogleShareRaise: GoogleShareRaise;
   GoogleUseDay: GoogleUseDay;
+  GoogleUseServerDay: GoogleUseServerDay;
   GruntMessage: GruntMessage;
   Guild: Guild;
   Gym: Gym;

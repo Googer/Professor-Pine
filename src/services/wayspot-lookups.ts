@@ -1,4 +1,4 @@
-import { lineOrder } from '../domain/geo/google-line.js';
+import { lineOrder, OUT_OF_SHARE_RANK } from '../domain/geo/google-line.js';
 
 /**
  * The PokéStops and Power Spots that wait for Google (plan 8W-6): they join the gyms' line after
@@ -30,6 +30,13 @@ export interface WaitingWayspot extends QueuedWayspot {
   queuedAt: number;
 }
 
+/** Which Wayspot `WayspotLookups.next` may give. */
+export interface NextWayspotOptions {
+  except?: ReadonlySet<string>;
+  /** The servers out of their share of places questions, by `Guild` row. */
+  outOfShare?: ReadonlySet<number>;
+}
+
 export interface WayspotLookups {
   /**
    * Puts Wayspots in the line, each for its server; one already in it for that server keeps its
@@ -39,9 +46,12 @@ export interface WayspotLookups {
   /**
    * The first of the line: stops before Power Spots, then the highest rank, the oldest, the
    * lower id, the lower server; never a Wayspot of `except`, of any server (set aside after a
-   * failure).
+   * failure). With `outOfShare` (plan 19B-5) the line asks by shares: no row ranked out of its
+   * share (`OUT_OF_SHARE_RANK`, read above it alone), and none of these servers'.
    */
-  next(options?: { except?: ReadonlySet<string> }): Promise<WaitingWayspot | undefined>;
+  next(options?: NextWayspotOptions): Promise<WaitingWayspot | undefined>;
+  /** Each server's rows (plan 19B-5: its need), by `Guild` row; a server without is left out. */
+  needs(): Promise<Map<number, number>>;
   /** Takes these servers' rows out of the line. */
   remove(spots: readonly ServerSpot[]): Promise<void>;
   count(): Promise<number>;
@@ -57,7 +67,7 @@ export interface WayspotLookups {
 }
 
 /** The order of the line (`lineOrder`): kind, rank (higher first), time queued, id, server. */
-function wayspotLineOrder(a: WaitingWayspot, b: WaitingWayspot): number {
+export function wayspotLineOrder(a: WaitingWayspot, b: WaitingWayspot): number {
   return lineOrder({ ...a, key: a.wayspotId }, { ...b, key: b.wayspotId }) || a.guildId - b.guildId;
 }
 
@@ -78,8 +88,20 @@ export class MemoryWayspotLookups implements WayspotLookups {
     return Promise.resolve();
   }
 
-  async next(options: { except?: ReadonlySet<string> } = {}): Promise<WaitingWayspot | undefined> {
-    return (await this.list()).find((row) => options.except?.has(row.wayspotId) !== true);
+  async next(options: NextWayspotOptions = {}): Promise<WaitingWayspot | undefined> {
+    const { except, outOfShare } = options;
+    return (await this.list()).find(
+      (row) =>
+        except?.has(row.wayspotId) !== true &&
+        (outOfShare === undefined ||
+          (row.rank > OUT_OF_SHARE_RANK && !outOfShare.has(row.guildId))),
+    );
+  }
+
+  needs(): Promise<Map<number, number>> {
+    const needs = new Map<number, number>();
+    for (const row of this.rows.values()) needs.set(row.guildId, (needs.get(row.guildId) ?? 0) + 1);
+    return Promise.resolve(needs);
   }
 
   remove(spots: readonly ServerSpot[]): Promise<void> {

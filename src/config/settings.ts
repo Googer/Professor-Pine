@@ -257,6 +257,24 @@ export const settingsObject = z.strictObject({
    */
   googleByHandPerMonth: z.number().int().min(0).default(500),
   /**
+   * Google's month shared between servers by need (plan 19B-5; spec "Fairness and limits"): each
+   * server's share of the line's month is its need over everyone's, at most half of it while the
+   * others want the rest, and at most this many questions of each kind (places searches,
+   * addresses; at least 1: a most of nothing would hold every server out). Unset: no such most,
+   * so that a Pine of one server takes the whole month and notices nothing; a public instance
+   * sets it from its load. An instance operator raises one server's share for a month with
+   * `/operator google share`.
+   */
+  googleServerShareMax: z.number().int().min(1).optional(),
+  /**
+   * Each server's floor of the lookups by hand (`googleByHandPerMonth`) a Pacific month (plan
+   * 19B-5, fix round 3, T3): its staff may always make this many within the instance's cap, the
+   * floors of every server kept out of the cap (scaled down where they add up to more); above it
+   * a server takes only of what the other servers' unused floors leave. The same floor of
+   * `/find-region`'s maps for its members. A Pine of one server has the whole cap.
+   */
+  googleByHandPerServer: z.number().int().min(0).default(20),
+  /**
    * Where admins ask for the Pine Wayfarer export tool, which makes the file `/gym import` reads
    * (plan 8W-P; Matt, 2026-10-19): the page `/userscript` of the instance that hands it out. Its
    * help and `docs/guides/new-instance.md` name it.

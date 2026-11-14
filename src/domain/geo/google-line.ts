@@ -22,6 +22,14 @@ const KIND_ORDER: Readonly<Record<LineKind, number>> = { gym: 0, stop: 1, powers
  */
 export const NO_REGION_RANK = -1;
 
+/**
+ * The rank of a row whose server is out of its share of the month (plan 19B-5,
+ * `GoogleShares`): after every other row, the retried ones too (`GymUpkeep`'s `RETRY_RANK`, one
+ * above it), and never given while the line asks by shares (`next({ outOfShare })` reads above
+ * it alone), so that the line never reads through a server's held rows to find the next.
+ */
+export const OUT_OF_SHARE_RANK = NO_REGION_RANK - 2;
+
 /** How far back the raids of a region count for its rank. */
 export const RANK_DAYS = 90;
 
@@ -210,7 +218,27 @@ export interface LineEstimateInput {
   allGyms: number;
   /** The stops and Power Spots up to and with this server's last, in the line's order (0: none). */
   wayspots: number;
+  /**
+   * This server's share of the month (plan 19B-5, `GoogleShares`), where it has one: how many
+   * places questions are left of it (`left`), and how many of the line's items are its own, its
+   * gyms (`gyms`) and all of them (`all`); and where its last gym and its last PokéStop or Power
+   * Spot stand on the 1st (`nextMonth`, as `gyms` and `wayspots`), its rows ranked by its regions
+   * again, no longer held at the end of the line (fix round 4, R6); unset: where they stand now.
+   */
+  share?: {
+    left: number;
+    gyms: number;
+    all: number;
+    nextMonth?: { gyms: number; wayspots: number };
+  };
 }
+
+const NOTHING_USED: GoogleUsed = {
+  monthPlaces: 0,
+  todayPlaces: 0,
+  monthGeocodes: 0,
+  monthByHand: 0,
+};
 
 /**
  * When something will be done: the moment (now for today, else the start of that Pacific day),
@@ -224,8 +252,35 @@ export type EstimatedDay = number | 'beyond';
  * left of this month above the reserve and the next months' budgets, gyms at the line's pace,
  * stops and Power Spots at the day's share (`lineAllowance`). Each item is one places question;
  * what is added later is not foreseen. A part with nothing waiting is left out.
+ *
+ * With the server's share (plan 19B-5, fix round 3, T9): a server that used its share waits for
+ * the month to start again, and a part of it beyond what is left of its share (its gyms, or all
+ * of it) is done the next month at the earliest, as the line goes from the 1st: its rows where
+ * they stand then (`share.nextMonth`, fix round 4, R6), ranked by its regions again.
  */
 export function estimateLine(input: LineEstimateInput): {
+  gyms?: EstimatedDay;
+  all?: EstimatedDay;
+} {
+  const { share, ...line } = input;
+  if (share === undefined) return estimateFrom(line);
+  const nextMonth = () =>
+    estimateFrom({
+      ...line,
+      ...(share.nextMonth === undefined
+        ? {}
+        : { gyms: share.nextMonth.gyms, wayspots: share.nextMonth.wayspots }),
+      now: googleMonth(line.now).nextReset,
+      used: NOTHING_USED,
+    });
+  if (share.left <= 0) return nextMonth();
+  const result = estimateFrom(line);
+  if (result.gyms !== undefined && share.gyms > share.left) result.gyms = nextMonth().gyms;
+  if (result.all !== undefined && share.all > share.left) result.all = nextMonth().all;
+  return result;
+}
+
+function estimateFrom(input: Omit<LineEstimateInput, 'share'>): {
   gyms?: EstimatedDay;
   all?: EstimatedDay;
 } {

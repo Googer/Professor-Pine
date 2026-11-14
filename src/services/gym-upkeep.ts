@@ -14,8 +14,15 @@ import {
   type GoogleBudget,
   type GoogleUsed,
 } from '../domain/geo/google-line.js';
+import {
+  DEFAULT_BY_HAND_FLOOR,
+  serverFloor,
+  withinFloors,
+  type MonthShare,
+} from '../domain/geo/google-shares.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { GoogleAnswers } from './google-answers.js';
+import type { GoogleShares, ServerMonthShare } from './google-shares.js';
 import { MemoryGoogleUse, usedThisMonth, type GoogleCount, type GoogleUse } from './google-use.js';
 import type { GoogleRanks } from './google-ranks.js';
 import {
@@ -107,6 +114,16 @@ export function sharesServer(a: readonly number[], b: readonly number[]): boolea
   return a.some((server) => b.includes(server));
 }
 
+/** What a writer of the line notes before its write (`GymUpkeep.beforeWrite`). */
+interface WriteNote {
+  /** The servers of its rows the shares do not know (fix round 3, T1). */
+  unknown: Set<number>;
+  /**
+   * Whether each server's rows were ranked as held, by `<guildId>:<address>` (fix round 4, R3).
+   */
+  held: Map<string, { guildId: number; address: boolean; held: boolean }>;
+}
+
 /** What `refresh` got for a gym, which is given as it is afterwards. */
 export interface GymRefresh {
   gym: Gym;
@@ -129,6 +146,25 @@ export interface GoogleLineSnapshot {
   /** One question every so often. */
   everyMs: number;
   now: number;
+  /** The server asked about (plan 19B-5), where one was. */
+  server?: {
+    /** Its share of the month and what the line used of it; none without shares or a need. */
+    share: ServerMonthShare | undefined;
+    /**
+     * What the line asked of its rows this month, of each kind, as counted (also where it has no
+     * share: nothing of it waits now; fix round 4, R6).
+     */
+    used: MonthShare;
+    /**
+     * The ranks its rows have by its regions (`LineRanks`), held or not: where they stand on the
+     * 1st, when no server is out of its share (fix round 4, R6: the next month's estimate).
+     */
+    ownRanks: { gyms: Map<number, number>; wayspots: Map<string, number> };
+    /** Its lookups by hand this month. */
+    byHand: number;
+    /** Its floor of them (`googleByHandPerServer`, scaled down by the servers Pine is in). */
+    byHandFloor: number;
+  };
 }
 
 /** The part of `GymDirectory` the upkeep works on. */
@@ -175,6 +211,21 @@ export interface GymUpkeepOptions {
    * month, counted in this database (`DEFAULT_BY_HAND_PER_MONTH`; `settings.googleByHandPerMonth`).
    */
   byHandPerMonth?: number;
+  /**
+   * Each server's floor of those in a Pacific month (plan 19B-5, `settings.googleByHandPerServer`;
+   * `DEFAULT_BY_HAND_FLOOR`; `withinFloors`): a server under it may always make one within the
+   * instance's cap, the floors of every server (`servers`) kept out of the cap, scaled down where
+   * they add up to more; above it a server takes only of what the others' unused floors leave. A
+   * Pine of one server has the whole cap.
+   */
+  byHandPerServer?: number;
+  /** The servers Pine is in (`Guild` rows), each with its floor; default none but the asker. */
+  servers?: () => readonly number[];
+  /**
+   * Google's month shared between servers by need (plan 19B-5, `GoogleShares`): the line serves
+   * each server up to its share. Without it the line is one, as before.
+   */
+  shares?: GoogleShares;
   /** The ranks of the places of the line (`GoogleRanks` in the bot); default all alike. */
   ranks?: LineRanks;
   /**
@@ -253,8 +304,16 @@ export class GymUpkeep {
   private readonly use: GoogleUse;
   private readonly budget: GoogleBudget;
   private readonly byHandPerMonth: number;
+  private readonly byHandPerServer: number;
   /** The lookups by hand on their way, not counted yet: the cap holds for those at once. */
   private byHandOnTheirWay = 0;
+  /** Of those, each server's (by `Guild` row): its floor holds for them at once. */
+  private readonly byHandOfServer = new Map<number, number>();
+  private readonly shares: GoogleShares | undefined;
+  /** Whether a reading of the shares waits for its turn (a server they do not know came). */
+  private sharesWanted = false;
+  /** Whether the last reading of the shares failed: the line's next turn reads them again. */
+  private sharesUnread = false;
   private readonly ranks: LineRanks;
   /** The PokéStops and Power Spots that wait for Google. */
   private readonly wayspotLookups: WayspotLookups;
@@ -318,6 +377,8 @@ export class GymUpkeep {
     this.use = options.use ?? new MemoryGoogleUse();
     this.budget = options.budget ?? DEFAULT_GOOGLE_BUDGET;
     this.byHandPerMonth = options.byHandPerMonth ?? DEFAULT_BY_HAND_PER_MONTH;
+    this.byHandPerServer = options.byHandPerServer ?? DEFAULT_BY_HAND_FLOOR;
+    this.shares = options.shares;
     this.ranks = options.ranks ?? SAME_RANK;
     this.wayspotLookups = options.wayspotLookups ?? new MemoryWayspotLookups();
     this.answers = options.answers;
@@ -357,19 +418,60 @@ export class GymUpkeep {
 
   /**
    * The line as it is (`/gym google`): whether Google is asked at all, every gym and Wayspot
-   * that waits in the line's order, this month's questions, the budget and the line's pace.
+   * that waits in the line's order, this month's questions, the budget and the line's pace; with
+   * a server (its `Guild` row, plan 19B-5), its share of the month, what the line asked of its
+   * rows this month and its lookups by hand (its counts read by its key), and the ranks its rows
+   * have by its regions (fix round 4, R6). The share is read in the line's turn (fix round 3, T5), never half-way
+   * through a question or a reading; where the shares were never read or the last reading failed,
+   * they are read then.
    */
-  async snapshot(): Promise<GoogleLineSnapshot> {
+  async snapshot(guildId?: number): Promise<GoogleLineSnapshot> {
+    const { shares } = this;
+    const share =
+      guildId === undefined || !shares
+        ? undefined
+        : await this.inTurn(async () => {
+            if (!shares.read || this.sharesUnread) await this.sharesInTurn();
+            return shares.of(guildId);
+          });
     const now = this.now();
+    const gyms = await this.lookups.list();
+    const wayspots = await this.wayspotLookups.list();
+    let server: GoogleLineSnapshot['server'];
+    if (guildId !== undefined) {
+      const counted = (await this.use.serversUsedOn(googleMonth(now).days, guildId)).get(guildId);
+      const ownRanks = { gyms: new Map<number, number>(), wayspots: new Map<string, number>() };
+      for (const row of gyms) {
+        if (row.guildId === guildId)
+          ownRanks.gyms.set(row.gymId, this.ranks.ofGym(guildId, row.gymId));
+      }
+      for (const row of wayspots) {
+        if (row.guildId !== guildId) continue;
+        const rank = this.ranks.ofWayspot(guildId, row.wayspotId);
+        if (rank !== undefined) ownRanks.wayspots.set(row.wayspotId, rank);
+      }
+      server = {
+        share,
+        used: { places: counted?.places ?? 0, geocodes: counted?.geocodes ?? 0 },
+        ownRanks,
+        byHand: counted?.byHand ?? 0,
+        byHandFloor: serverFloor(
+          this.byHandPerMonth,
+          this.byHandPerServer,
+          new Set([...this.serversPresent(), guildId]).size,
+        ),
+      };
+    }
     return {
       fetches: this.fetches,
-      gyms: await this.lookups.list(),
-      wayspots: await this.wayspotLookups.list(),
+      gyms,
+      wayspots,
       used: await usedThisMonth(this.use, now),
       budget: this.budget,
       byHandPerMonth: this.byHandPerMonth,
       everyMs: this.placesEveryMs,
       now,
+      ...(server === undefined ? {} : { server }),
     };
   }
 
@@ -440,20 +542,25 @@ export class GymUpkeep {
       for (const guildId of servers === 'all' ? wayspots.servers() : servers) {
         for (const wayspot of wayspots.of(guildId).all()) {
           if (wayspot.kind !== 'stop' && wayspot.kind !== 'powerspot') continue;
-          const rank = this.ranks.ofWayspot(guildId, wayspot.id);
-          if (rank === undefined) continue;
+          const regionRank = this.ranks.ofWayspot(guildId, wayspot.id);
+          if (regionRank === undefined) continue;
           const key = spotKey({ guildId, wayspotId: wayspot.id });
           kept.add(key);
-          // Its own point answered, whichever server's question it was (`ownAt`).
+          // Its own point answered, whichever server's question it was (`ownAt`): nothing is
+          // written, and no reading of the shares started for it (fix round 3, T6).
           if (this.placesAsked(wayspot)) continue;
+          // Held at the end while its server is out of its share (plan 19B-5).
+          const rank = this.shareRank(guildId, false, regionRank);
           const queued = waiting.get(key);
           if (queued?.kind === wayspot.kind && queued.rank === rank) continue;
           add.push({ guildId, wayspotId: wayspot.id, kind: wayspot.kind, rank });
         }
       }
       const leave = [...waiting].flatMap(([key, row]) => (kept.has(key) ? [] : [row]));
+      const note = this.beforeWrite(add.map((row) => ({ guildId: row.guildId, address: false })));
       await this.wayspotLookups.add(add, this.now());
       await this.wayspotLookups.remove(leave);
+      this.afterWrite(note);
       if (add.length > 0) this.hurry();
     } catch (err) {
       log.warn(
@@ -546,7 +653,14 @@ export class GymUpkeep {
       places = true,
       address = true,
       from,
-    }: { places?: boolean | 'later'; address?: boolean; from?: LatLon } = {},
+      guildId,
+    }: {
+      places?: boolean | 'later';
+      address?: boolean;
+      from?: LatLon;
+      /** The server whose staff added or moved it: its lookup by hand counts against its floor. */
+      guildId?: number | undefined;
+    } = {},
   ): Promise<void> {
     if (!places) {
       if (from !== undefined) await this.carry(id, from);
@@ -567,13 +681,13 @@ export class GymUpkeep {
     // Their circle follows the distance to this gym: what was asked in the old circle is void.
     for (const other of pointing) this.outdate('places', other);
     // Past the cap of lookups by hand it never fails: it waits in the line like an import's.
-    if (places === 'later' || (await this.takeByHand()) !== undefined) {
+    if (places === 'later' || (await this.takeByHand(guildId)) !== undefined) {
       await this.queueGyms([id], address);
       await this.queuePlaces(others);
       return;
     }
     this.aside(async () => {
-      const refreshed = await this.askByHand(id);
+      const refreshed = await this.askByHand(id, guildId);
       // Refused for now: it waits in the line like the others, for when the API may be asked.
       if (refreshed?.places === 'denied') await this.queuePlaces([id]);
       else if (refreshed) await this.answered(id);
@@ -669,8 +783,8 @@ export class GymUpkeep {
    * a gym in the line stays there). Undefined when there is no such gym. Rejects when a write
    * fails.
    */
-  refresh(id: number): Promise<GymRefresh | undefined> {
-    const work = this.refreshByHand(id)
+  refresh(id: number, guildId?: number): Promise<GymRefresh | undefined> {
+    const work = this.refreshByHand(id, guildId)
       .then(async (refreshed) => {
         if (
           refreshed &&
@@ -687,47 +801,82 @@ export class GymUpkeep {
     return work;
   }
 
-  private async refreshByHand(id: number): Promise<GymRefresh | undefined> {
+  private async refreshByHand(id: number, guildId?: number): Promise<GymRefresh | undefined> {
     const gym = this.options.directory.stored(id);
     if (!gym) return undefined;
-    const refused = await this.takeByHand();
+    const refused = await this.takeByHand(guildId);
     if (refused !== undefined) return { gym, geodata: refused, places: refused };
-    return this.askByHand(id);
+    return this.askByHand(id, guildId);
   }
 
   /**
    * Takes one of this month's lookups by hand (`askByHand` gives it back), or says why not: past
    * the cap, a hard one, or a count that cannot be read, for which nothing is asked either. Those
    * on their way count as used. Without a Google key nothing is asked, and nothing needs counting.
+   * Shared between servers by floors (plan 19B-5, fix round 3, T3: `withinFloors`): the server
+   * whose staff asked (none: the instance's own) under its floor always within the cap, above it
+   * only of what the other servers' unused floors leave; every server's lookups by hand of the
+   * month read by the day and the kind (`googleuseserverday_day_kind_index`).
    */
-  private async takeByHand(): Promise<ByHandRefused | undefined> {
+  private async takeByHand(guildId?: number): Promise<ByHandRefused | undefined> {
     this.byHandOnTheirWay += 1;
+    if (guildId !== undefined) {
+      this.byHandOfServer.set(guildId, (this.byHandOfServer.get(guildId) ?? 0) + 1);
+    }
     if (!this.fetches) return undefined;
-    const refused = await usedThisMonth(this.use, this.now())
-      .then((used): ByHandRefused | undefined =>
-        used.monthByHand + this.byHandOnTheirWay <= this.byHandPerMonth ? undefined : 'capped',
+    const now = this.now();
+    const refused = await Promise.all([
+      usedThisMonth(this.use, now),
+      this.use.serversCountedOn(googleMonth(now).days, 'hand'),
+    ])
+      .then(([used, servers]): ByHandRefused | undefined =>
+        withinFloors({
+          cap: this.byHandPerMonth,
+          floor: this.byHandPerServer,
+          servers: this.serversPresent(),
+          usedOf: (server) => (servers.get(server) ?? 0) + (this.byHandOfServer.get(server) ?? 0),
+          total: used.monthByHand + this.byHandOnTheirWay,
+          guildId,
+        })
+          ? undefined
+          : 'capped',
       )
       .catch((err: unknown) => {
         this.options.log.warn({ err }, 'could not read the lookups by hand');
         return 'count-unread' as const;
       });
-    if (refused !== undefined) this.byHandOnTheirWay -= 1;
+    if (refused !== undefined) this.byHandDone(guildId);
     return refused;
+  }
+
+  /** The servers Pine is in now (`Guild` rows): each has its floor of lookups by hand. */
+  private serversPresent(): readonly number[] {
+    return this.options.servers?.() ?? [];
+  }
+
+  /** A lookup by hand is no longer on its way. */
+  private byHandDone(guildId: number | undefined): void {
+    this.byHandOnTheirWay -= 1;
+    if (guildId === undefined) return;
+    const left = (this.byHandOfServer.get(guildId) ?? 1) - 1;
+    if (left > 0) this.byHandOfServer.set(guildId, left);
+    else this.byHandOfServer.delete(guildId);
   }
 
   /**
    * A lookup by hand `takeByHand` took: counted once either of its questions reached Google,
-   * whatever came after (the gym gone meanwhile, an answer that could not be written).
+   * whatever came after (the gym gone meanwhile, an answer that could not be written); with its
+   * server, as that server's too (its questions are the instance's alone: no server's line).
    */
-  private async askByHand(id: number): Promise<GymRefresh | undefined> {
+  private async askByHand(id: number, guildId?: number): Promise<GymRefresh | undefined> {
     let reached = false;
     try {
       return await this.refreshNow(id, () => {
         reached = true;
       });
     } finally {
-      if (reached) await this.count('hand');
-      this.byHandOnTheirWay -= 1;
+      if (reached) await this.count('hand', guildId);
+      this.byHandDone(guildId);
     }
   }
 
@@ -799,11 +948,13 @@ export class GymUpkeep {
 
   /**
    * The address of a gym's place, kept as its point's answer (`GoogleAnswers`) for every gym and
-   * Wayspot there; undefined when the gym is gone.
+   * Wayspot there; undefined when the gym is gone. `server`: the line asked it of that server's
+   * row, whose share it counts against (plan 19B-5).
    */
   private async fetchGeodata(
     id: number,
     onReached?: () => void,
+    server?: number,
   ): Promise<FetchOutcome | undefined> {
     const { directory, geo } = this.options;
     const asked = directory.stored(id);
@@ -812,7 +963,7 @@ export class GymUpkeep {
     const answer = await geo.reverseGeocode({ lat: asked.lat, lon: asked.lon });
     if (answer.ok || reachedGoogle(answer.reason)) {
       onReached?.();
-      await this.count('geocode');
+      await this.count('geocode', server);
     }
     const gym = directory.stored(id);
     if (!gym) return undefined;
@@ -845,7 +996,11 @@ export class GymUpkeep {
    * The places around a gym, within half the way to its nearest gym, kept as its point's answer
    * (a null when Google found none: the point was asked); undefined when the gym is gone.
    */
-  private async fetchPlaces(id: number, onReached?: () => void): Promise<FetchOutcome | undefined> {
+  private async fetchPlaces(
+    id: number,
+    onReached?: () => void,
+    server?: number,
+  ): Promise<FetchOutcome | undefined> {
     const { directory, geo } = this.options;
     const asked = directory.stored(id);
     if (!asked) return undefined;
@@ -855,7 +1010,7 @@ export class GymUpkeep {
     const answer = await geo.placesNear({ lat: asked.lat, lon: asked.lon }, radius);
     if (answer.ok || reachedGoogle(answer.reason)) {
       onReached?.();
-      await this.count('places');
+      await this.count('places', server);
     }
     const gym = directory.stored(id);
     if (!gym) return undefined;
@@ -890,15 +1045,15 @@ export class GymUpkeep {
       asking.requeued = true;
       asking.address ||= address;
     }
+    const rows = ids.flatMap((gymId) => this.queued(gymId, address));
+    const note = this.beforeWrite(rows);
     try {
-      await this.lookups.add(
-        ids.flatMap((gymId) => this.queued(gymId, address)),
-        this.now(),
-      );
+      await this.lookups.add(rows, this.now());
     } catch (err) {
       this.options.log.warn({ err, gyms: ids.length }, 'could not put gyms in the line for Google');
       return;
     }
+    this.afterWrite(note);
     this.hurry();
   }
 
@@ -937,16 +1092,196 @@ export class GymUpkeep {
       guildId,
       gymId,
       address,
-      rank: rank ?? this.ranks.ofGym(guildId, gymId),
+      rank: this.shareRank(guildId, address, rank ?? this.ranks.ofGym(guildId, gymId)),
     }));
   }
 
-  /** Counts a question or a lookup by hand that reached Google, on its Pacific day. Never rejects. */
-  private async count(question: GoogleCount): Promise<void> {
+  /**
+   * A row's rank as the line keeps it (plan 19B-5): `OUT_OF_SHARE_RANK` while its server is out
+   * of its share (`GoogleShares.rank`), else its own; never for a server the shares do not know
+   * (fix round 3, T1: nothing of it, or of the kind, waited when they were worked out, or the line
+   * has asked about all that did), whose row the writer has worked out anew (`beforeWrite`,
+   * `afterWrite`; which also rank a server again whose being held changed during the write).
+   */
+  private shareRank(guildId: number, address: boolean, rank: number): number {
+    const { shares } = this;
+    if (!shares?.knows(guildId, address)) return rank;
+    return shares.rank(guildId, address, rank);
+  }
+
+  /** Whether a server's row is held as `shareRank` ranks it now (`OUT_OF_SHARE_RANK`). */
+  private isHeld(guildId: number, address: boolean): boolean {
+    const { shares } = this;
+    return shares !== undefined && shares.knows(guildId, address) && shares.holds(guildId, address);
+  }
+
+  /**
+   * What a writer notes of the rows it is about to write, before the write (their ranks are
+   * `shareRank`'s of this moment): the servers the shares do not know (fix round 3, T1), and
+   * whether each server's rows (of places alone, or with an address) were ranked as held (fix
+   * round 4, R3). `afterWrite` takes it.
+   */
+  private beforeWrite(rows: readonly { guildId: number; address: boolean }[]): WriteNote {
+    const note: WriteNote = { unknown: new Set(), held: new Map() };
+    const { shares } = this;
+    if (!shares) return note;
+    for (const { guildId, address } of rows) {
+      if (!shares.knows(guildId, address)) note.unknown.add(guildId);
+      note.held.set(`${String(guildId)}:${String(address)}`, {
+        guildId,
+        address,
+        held: this.isHeld(guildId, address),
+      });
+    }
+    return note;
+  }
+
+  /**
+   * After a writer's own rows were written (`note` taken before the write). Some of servers the
+   * shares did not know: the shares are worked out anew, by a reading that comes after this write
+   * (a database's write may land after a reading asked at once would have counted the need); each
+   * writer starts its own (fix round 3, T1): one that lands after another writer's reading started
+   * has one of its own. A server whose rows were ranked held, or not, and are no longer so by the
+   * shares now (a reading or a raise landed during the write, and ranked the server's rows before
+   * these were there: fix round 4, R3): its rows are ranked again in the line's turn, as after a
+   * count.
+   */
+  private afterWrite(note: WriteNote): void {
+    if (note.unknown.size > 0) this.sharesAnew();
+    const changed = new Set<number>();
+    for (const { guildId, address, held } of note.held.values()) {
+      if (this.isHeld(guildId, address) !== held) changed.add(guildId);
+    }
+    for (const guildId of changed) this.aside(() => this.inTurn(() => this.rankServer(guildId)));
+  }
+
+  /**
+   * Works the shares out anew in the line's turn (one at a time with the questions, so that a
+   * count is never read and counted twice), and ranks anew the rows of the servers whose being
+   * out of their share changed. Asked again while one waits to start, it runs once: a reading
+   * that has not started yet reads every write landed before it.
+   */
+  private sharesAnew(): void {
+    if (this.sharesWanted || this.stopped) return;
+    this.sharesWanted = true;
+    this.aside(() =>
+      this.inTurn(async () => {
+        this.sharesWanted = false;
+        await this.sharesInTurn();
+      }),
+    );
+  }
+
+  /**
+   * Runs work in the line's turn: after the question asked now and every reading and ranking
+   * asked before, and before what is asked after. Gives what the work gives.
+   */
+  private inTurn<T>(work: () => Promise<T>): Promise<T> {
+    const run = this.turn.then(work);
+    this.turn = run.catch(() => undefined);
+    return run;
+  }
+
+  /**
+   * Reads the shares (`readShares`) and ranks anew the servers whose being out changed, and
+   * `also` (a server whose share was raised). Only in the line's turn. Whether the reading worked:
+   * when it fails, the line's next turn reads them again (`sharesUnread`).
+   */
+  private async sharesInTurn(also?: number): Promise<boolean> {
+    const changed = await this.readShares();
+    if (changed === undefined) return false;
+    if (also !== undefined) changed.add(also);
+    for (const guildId of changed) await this.rankServer(guildId);
+    return true;
+  }
+
+  /**
+   * Reads every server's need (its rows of both lines) and works the shares out by it. Gives
+   * the servers whose being out of their share changed; none without shares; undefined when a
+   * reading fails (logged: the shares stay as they were, and `sharesUnread` has the line's next
+   * turn read them again).
+   */
+  private async readShares(): Promise<Set<number> | undefined> {
+    const { shares } = this;
+    if (!shares) return new Set();
     try {
-      await this.use.use(googleMonth(this.now()).today, question);
+      const needs = await this.lookups.needs();
+      for (const [guildId, spots] of await this.wayspotLookups.needs()) {
+        const kept = needs.get(guildId) ?? { places: 0, geocodes: 0 };
+        needs.set(guildId, { ...kept, places: kept.places + spots });
+      }
+      const changed = await shares.refresh(needs);
+      this.sharesUnread = false;
+      return changed;
+    } catch (err) {
+      this.options.log.warn({ err }, 'could not work out the servers’ shares of Google');
+      this.sharesUnread = true;
+      return undefined;
+    }
+  }
+
+  /**
+   * Ranks one server's rows anew (its share used or raised): its gyms read by its key and their
+   * ranks set where they changed, then its part of the Wayspots' line. Only in the line's turn.
+   * Never rejects.
+   */
+  private async rankServer(guildId: number): Promise<void> {
+    try {
+      const rows = await this.lookups.ofServer(guildId);
+      const changed: GymRank[] = [];
+      for (const row of rows) {
+        const rank = this.shareRank(guildId, row.address, this.ranks.ofGym(guildId, row.gymId));
+        if (rank !== row.rank) changed.push({ guildId, gymId: row.gymId, rank });
+      }
+      // Rows of it the shares do not know (the line asked about all they knew): worked out anew.
+      const note = this.beforeWrite(rows);
+      await this.lookups.setRanks(changed);
+      this.afterWrite(note);
+    } catch (err) {
+      this.options.log.warn({ err, guild: guildId }, 'could not rank a server’s part of the line');
+    }
+    if (this.resumed) this.aside(() => this.queueWayspots(guildId));
+    this.hurry();
+  }
+
+  /**
+   * Raises a server's share of this month by `extra` (`/operator google share`, plan 19B-5; 0
+   * takes a raise back): written, then in the line's turn the shares worked out anew and the
+   * server's rows (and those of every server whose being out changed) ranked by them. Gives the
+   * server's part of the month as it is then; undefined without shares; `later` when the raise
+   * was written but the shares could not be worked out now (fix round 3, T10: the line's next turn
+   * works them out). Rejects when the raise cannot be written.
+   */
+  async raiseShare(
+    guildId: number,
+    extra: number,
+  ): Promise<ServerMonthShare | 'later' | undefined> {
+    const { shares } = this;
+    if (!shares) return undefined;
+    await shares.raise(guildId, extra);
+    return this.inTurn(async () =>
+      (await this.sharesInTurn(guildId)) ? shares.of(guildId) : ('later' as const),
+    );
+  }
+
+  /**
+   * Counts a question or a lookup by hand that reached Google, on its Pacific day; with `server`,
+   * as that server's too (plan 19B-5), and a question of the line against its share: a server out
+   * of it with this one (or no longer) has its rows ranked anew, in the line's turn after this
+   * one (fix round 3, T4). Never rejects.
+   */
+  private async count(question: GoogleCount, server?: number): Promise<void> {
+    try {
+      await this.use.use(googleMonth(this.now()).today, question, server);
     } catch (err) {
       this.options.log.warn({ err, question }, 'could not count a question asked of Google');
+    }
+    if (
+      server !== undefined &&
+      (question === 'places' || question === 'geocode') &&
+      this.shares?.counted(server, question) === true
+    ) {
+      this.aside(() => this.inTurn(() => this.rankServer(server)));
     }
   }
 
@@ -961,19 +1296,31 @@ export class GymUpkeep {
     // A new day: what failed before is asked again, in its place by its rank.
     this.asideGyms.clear();
     this.asideSpots.clear();
+    // Each server's share of the month (plan 19B-5): worked out every day, so on the 1st anew
+    // and for a server whose need grew or whose neighbors' went; every row is ranked by it below.
+    const shareChanged = (await this.readShares()) ?? new Set<number>();
     try {
       await this.ranks.refresh();
     } catch (err) {
       log.warn({ err }, 'could not read the raids of the regions: the line keeps its order');
+      // Its order by the regions, but the servers whose share changed are ranked by it.
+      for (const guildId of shareChanged) await this.rankServer(guildId);
       return;
     }
     try {
+      const rows = await this.lookups.list();
       const changed: GymRank[] = [];
-      for (const row of await this.lookups.list()) {
-        const rank = this.ranks.ofGym(row.guildId, row.gymId);
+      for (const row of rows) {
+        const rank = this.shareRank(
+          row.guildId,
+          row.address,
+          this.ranks.ofGym(row.guildId, row.gymId),
+        );
         if (rank !== row.rank) changed.push({ guildId: row.guildId, gymId: row.gymId, rank });
       }
+      const note = this.beforeWrite(rows);
       await this.lookups.setRanks(changed);
+      this.afterWrite(note);
     } catch (err) {
       log.warn({ err }, 'could not rank the line of gyms that wait for Google anew');
     }
@@ -1032,9 +1379,7 @@ export class GymUpkeep {
    * again before its turn was written down stays in it.
    */
   private next(): Promise<number | 'empty' | undefined> {
-    const run = this.turn.then(() => this.nextNow());
-    this.turn = run.catch(() => undefined);
-    return run;
+    return this.inTurn(() => this.nextNow());
   }
 
   private async nextNow(): Promise<number | 'empty' | undefined> {
@@ -1042,35 +1387,59 @@ export class GymUpkeep {
     this.refusing = false;
     let first;
     let spot: WaitingWayspot | undefined;
+    /** Whether this turn read the shares (a failed reading is tried once a turn). */
+    let read = false;
     try {
       const now = this.now();
-      if (googleMonth(now).today !== this.rankedDay) await this.rerank();
+      if (googleMonth(now).today !== this.rankedDay) {
+        await this.rerank();
+        read = true;
+      }
+      // The last reading failed (a raise's, say): this turn reads them again.
+      if (this.sharesUnread && !read) {
+        await this.sharesInTurn();
+        read = true;
+      }
       const allowance = lineAllowance(now, await usedThisMonth(this.use, now), this.budget);
       // While Geocoding is refused, or its budget used, the gyms that wait for their address
       // wait; the others go on, then the PokéStops and Power Spots.
       const refusedFor = this.geocodeRefusedUntil - now;
       const placesOnly = refusedFor > 0 || !allowance.geocode;
+      // By shares (plan 19B-5): a server out of its share waits, the others go on.
+      const outOfShare = this.shares?.outOfShare();
       first = allowance.gyms
-        ? await this.lookups.next({ placesOnly, except: this.asideGyms })
+        ? await this.lookups.next({
+            placesOnly,
+            except: this.asideGyms,
+            ...(outOfShare === undefined ? {} : { outOfShare }),
+          })
         : undefined;
       if (!first) {
         spot = allowance.wayspots
-          ? await this.wayspotLookups.next({ except: this.asideSpots })
+          ? await this.wayspotLookups.next({
+              except: this.asideSpots,
+              ...(outOfShare === undefined ? {} : { outOfShare: outOfShare.places }),
+            })
           : undefined;
         if (!spot) {
           // Whether anything waits: one row read of each line, never a count.
           const gyms = await this.lookups.any();
           const spots = await this.wayspotLookups.any();
           if (!gyms && !spots) return 'empty';
-          if (!allowance.gyms) return allowance.waitMs;
+          if (!allowance.gyms) {
+            // The month above the reserve is used, for every server: the owner hears of it.
+            this.shares?.budgetUsed();
+            return allowance.waitMs;
+          }
           const month = googleMonth(now);
           return Math.min(
             // Only gyms that wait for their address are left.
             gyms && refusedFor > 0 && allowance.geocode ? refusedFor : month.nextReset - now,
             // The day's share of stops and Power Spots is used.
             spots ? month.tomorrow - now : Number.POSITIVE_INFINITY,
-            // What failed today is asked again tomorrow.
-            this.asideGyms.size + this.asideSpots.size > 0
+            // What failed today is asked again tomorrow; a server out of its share may have
+            // more tomorrow, when the shares are worked out anew.
+            this.asideGyms.size + this.asideSpots.size > 0 || this.shares?.anyOut() === true
               ? month.tomorrow - now
               : Number.POSITIVE_INFINITY,
           );
@@ -1079,6 +1448,16 @@ export class GymUpkeep {
     } catch (err) {
       log.warn({ err }, 'could not read the line of gyms that wait for Google');
       return this.placesEveryMs;
+    }
+    // A row of a server the shares do not know, however it came into the line (a start's, a
+    // write whose reading failed): they are worked out first (fix round 3, T1), and a row whose
+    // server is out of its share by them waits; the next turn takes the next row.
+    const row = first ?? spot;
+    const forAddress = first?.address ?? false;
+    if (row && !read && this.shares?.knows(row.guildId, forAddress) === false) {
+      if ((await this.sharesInTurn()) && this.shares.holds(row.guildId, forAddress)) {
+        return undefined;
+      }
     }
     if (!first) return spot ? this.askWayspot(spot) : 'empty';
     const { gymId, address } = first;
@@ -1096,12 +1475,15 @@ export class GymUpkeep {
         // wanted for another circle).
         const gym = this.options.directory.stored(gymId);
         if (address) {
-          geodata = gym && this.hasOwnAddress(gym) ? 'unchanged' : await this.fetchGeodata(gymId);
+          geodata =
+            gym && this.hasOwnAddress(gym)
+              ? 'unchanged'
+              : await this.fetchGeodata(gymId, undefined, first.guildId);
         }
         // Geocoding refused: its places are not asked (and billed) without its address; the
         // gym waits, first of the line, as long as the refusal lasts.
         if (geodata !== 'denied' && (!address || geodata !== undefined)) {
-          places = await this.fetchPlaces(gymId);
+          places = await this.fetchPlaces(gymId, undefined, first.guildId);
         }
       } catch (err) {
         log.warn({ err, gym: gymId }, 'could not bring the places of a gym up to date');
@@ -1131,23 +1513,18 @@ export class GymUpkeep {
         // meanwhile (moved) is neither set aside nor put behind: its row stays as it was put
         // in the line, and waits for the address that did not come too.
         if (asking.requeued) {
-          await this.lookups.add(this.queued(gymId, wantsAddress), this.now());
+          await this.putBack(this.queued(gymId, wantsAddress));
         } else {
           this.asideGyms.add(gymId);
           await this.lookups.remove(gymId);
-          await this.lookups.add(
-            this.queued(gymId, wantsAddress || asking.address, RETRY_RANK),
-            this.now(),
-          );
+          await this.putBack(this.queued(gymId, wantsAddress || asking.address, RETRY_RANK));
         }
         this.misses++;
         return Math.min(MAX_RETRY_WAIT_MS, this.placesEveryMs * 2 ** this.misses);
       } else if (!asking.requeued) {
         await this.lookups.remove(gymId);
         // Put in the line again while it was being taken out: the newer request stays.
-        if (asking.requeued) {
-          await this.lookups.add(this.queued(gymId, asking.address), this.now());
-        }
+        if (asking.requeued) await this.putBack(this.queued(gymId, asking.address));
       }
       this.misses = 0;
       // The last one: no timer is left for an empty line.
@@ -1159,6 +1536,16 @@ export class GymUpkeep {
       this.asking = undefined;
     }
     return undefined;
+  }
+
+  /**
+   * Puts a gym's rows back in the line in its turn; a row of a server the shares do not know has
+   * them worked out after the write (`afterWrite`), in a turn after this one.
+   */
+  private async putBack(rows: readonly QueuedGym[]): Promise<void> {
+    const note = this.beforeWrite(rows);
+    await this.lookups.add(rows, this.now());
+    this.afterWrite(note);
   }
 
   /**
@@ -1188,7 +1575,7 @@ export class GymUpkeep {
       }
       const point = { lat: wayspot.lat, lon: wayspot.lon };
       const answer = await geo.placesNear(point, placesRadius(this.nearestPlace(guildId, wayspot)));
-      if (answer.ok || reachedGoogle(answer.reason)) await this.count('places');
+      if (answer.ok || reachedGoogle(answer.reason)) await this.count('places', guildId);
       if (!answer.ok) {
         if (answer.reason === 'denied') {
           this.deniedForMs = answer.retryInMs ?? this.placesEveryMs;
@@ -1237,7 +1624,12 @@ export class GymUpkeep {
     this.asideSpots.add(item.wayspotId);
     this.misses++;
     try {
-      await this.wayspotLookups.add([{ ...item, rank: RETRY_RANK }], this.now());
+      const note = this.beforeWrite([{ guildId: item.guildId, address: false }]);
+      await this.wayspotLookups.add(
+        [{ ...item, rank: this.shareRank(item.guildId, false, RETRY_RANK) }],
+        this.now(),
+      );
+      this.afterWrite(note);
     } catch (err) {
       this.options.log.warn(
         { err, wayspot: item.wayspotId },

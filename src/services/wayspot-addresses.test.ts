@@ -208,6 +208,8 @@ describe("a Power Spot's address asked for the map (WayspotAddresses)", () => {
         await held;
         return snapshot;
       },
+      serversUsedOn: (days, guildId) => memory.serversUsedOn(days, guildId),
+      serversCountedOn: (days, kind) => memory.serversCountedOn(days, kind),
     };
     const geo = new FakeGeoGateway();
     const answers = new GoogleAnswers({

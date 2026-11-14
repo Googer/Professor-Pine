@@ -5,6 +5,7 @@ import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import type { TestDatabase } from '../../../test/support/mysql.js';
 import { DEPRECATED_SYNTAX, lastWarnings } from '../../../test/support/mysql-warnings.js';
 import { planOf } from '../../../test/support/query-plan.js';
+import { OUT_OF_SHARE_RANK } from '../../domain/geo/google-line.js';
 import type { DB } from '../types.js';
 import { GymLookupRepository } from './gym-lookup-repository.js';
 
@@ -101,5 +102,43 @@ describe('GymLookupRepository', () => {
     ]) {
       expect((await planOf(database, read))[0]?.key).toBe('PRIMARY');
     }
+  });
+
+  it('counts the servers’ need and reads a server’s rows by the server’s index, and asks by shares above the held rows (plan 19B-5)', async () => {
+    const lookups = await fresh(3_000);
+    // Home's 2,700 rows held out of its share, Away's 300 in it.
+    await lookups.add(
+      Array.from({ length: 3_000 }, (_, n) => ({
+        guildId: n < 2_700 ? LINE_HOME : LINE_AWAY,
+        gymId: n + 1,
+        address: n % 3 === 0,
+        rank: n < 2_700 ? OUT_OF_SHARE_RANK : n / 3_000,
+      })),
+      1_000,
+    );
+    await sql`analyze table ServerGymLookup`.execute(db);
+    const needs = await planOf(database, (logged) => new GymLookupRepository(logged).needs());
+    expect(needs[0]?.key).toBe('servergymlookup_guildid_address_index');
+    expect(needs[0]?.Extra).toContain('Using index');
+    const ofServer = await planOf(database, (logged) =>
+      new GymLookupRepository(logged).ofServer(LINE_AWAY),
+    );
+    expect(ofServer[0]?.key).toBe('servergymlookup_guildid_address_index');
+    expect(ofServer[0]?.type).toBe('ref');
+    const next = await planOf(database, (logged) =>
+      new GymLookupRepository(logged).next({
+        outOfShare: { places: new Set([LINE_HOME]), geocodes: new Set([LINE_AWAY]) },
+      }),
+    );
+    // A range of the order index above the held rows, read in its order: Home's rows are never
+    // read through to find Away's.
+    expect(next[0]?.key).toBe('servergymlookup_order_index');
+    expect(next[0]?.type).toBe('range');
+    expect(next[0]?.Extra ?? '').not.toContain('filesort');
+    expect(
+      await new GymLookupRepository(db).next({
+        outOfShare: { places: new Set([LINE_HOME]), geocodes: new Set([LINE_AWAY]) },
+      }),
+    ).toMatchObject({ guildId: LINE_AWAY, address: false });
   });
 });

@@ -22,6 +22,7 @@ const SHARED = [
   'forget',
   'event-window set',
   'event-window end',
+  'google share',
 ];
 
 /** `/operator` on an instance with an operator of the file, listed (unset) or `open`. */

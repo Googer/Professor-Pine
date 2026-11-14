@@ -41,6 +41,7 @@ import {
   type GymUpkeep,
 } from './gym-upkeep.js';
 import { AdminLock } from './admin-lock.js';
+import type { ServerMonthShare } from './google-shares.js';
 import type { PartyStore } from './party-store.js';
 import type { GymDirectory } from './gym-directory.js';
 import type { RegionProvider } from './region-directory.js';
@@ -264,6 +265,7 @@ export interface GymAdminOptions {
     | 'fetches'
     | 'snapshot'
     | 'hasOwnAddress'
+    | 'raiseShare'
   >;
   geo: Pick<GeoGateway, 'followShortLink'>;
   /** To announce a new gym and a deletion in the server's channel for bot updates. */
@@ -519,6 +521,8 @@ export class GymAdminService {
       await upkeep.placed(created.id, {
         places,
         address: !upkeep.hasOwnAddress(shown ?? created),
+        // A lookup by hand of this server's (plan 19B-5).
+        guildId,
       });
     } catch (err) {
       log.error({ err, gym: created.id }, 'a gym was added, but not everything after it worked');
@@ -787,7 +791,7 @@ export class GymAdminService {
    * After the row of a moved gym was written: the directory, the posts, the nearest gyms, and
    * (with `places`) its address and places on the side. Gives the gym as the directory has it;
    * undefined when it was deleted meanwhile. What fails is logged, and the gym is answered as
-   * it was written.
+   * it was written. `guildId`: the server whose staff moved it, whose lookup by hand it is.
    */
   private async afterMove(
     id: number,
@@ -795,12 +799,18 @@ export class GymAdminService {
     places: boolean | 'later',
     address = true,
     from?: LatLon,
+    guildId?: number,
   ): Promise<Gym | undefined> {
     const { upkeep, directory, log } = this.options;
     try {
       const moved = await upkeep.gymChanged(id);
       if (!moved) return undefined;
-      await upkeep.placed(id, { places, address, ...(from === undefined ? {} : { from }) });
+      await upkeep.placed(id, {
+        places,
+        address,
+        ...(from === undefined ? {} : { from }),
+        guildId,
+      });
       return directory.stored(id) ?? moved;
     } catch (err) {
       log.error({ err, gym: id }, 'a gym was changed, but not everything after it worked');
@@ -921,7 +931,7 @@ export class GymAdminService {
       });
       if (!written) return undefined;
       log.info({ staff: staffId, gym: id, from, to: point }, 'a gym was moved');
-      const gym = await this.afterMove(id, written, true);
+      const gym = await this.afterMove(id, written, true, true, undefined, staff.guildId);
       return gym && { kind: 'moved', gym, from, metres: metresBetween(from, point) };
     });
   }
@@ -934,14 +944,31 @@ export class GymAdminService {
     return this.options.upkeep.hasOwnAddress(gym);
   }
 
-  /** Asks Google about a gym again, now (`GymUpkeep.refresh`). */
-  refresh(id: number): Promise<GymRefresh | undefined> {
-    return this.options.upkeep.refresh(id);
+  /**
+   * Asks Google about a gym again, now (`GymUpkeep.refresh`); with the server whose staff asked
+   * (its `Guild` row), a lookup by hand of that server's too (plan 19B-5).
+   */
+  refresh(id: number, guildId?: number): Promise<GymRefresh | undefined> {
+    return this.options.upkeep.refresh(id, guildId);
   }
 
-  /** The line that waits for Google as it is (`GymUpkeep.snapshot`, `/gym google`). */
-  googleLine(): Promise<GoogleLineSnapshot> {
-    return this.options.upkeep.snapshot();
+  /**
+   * The line that waits for Google as it is (`GymUpkeep.snapshot`, `/gym google`), with a
+   * server's part of the month (plan 19B-5).
+   */
+  googleLine(guildId?: number): Promise<GoogleLineSnapshot> {
+    return this.options.upkeep.snapshot(guildId);
+  }
+
+  /**
+   * Raises a server's share of Google's month (`/operator google share`, plan 19B-5:
+   * `GymUpkeep.raiseShare`; `later`: written, worked out at the line's next turn).
+   */
+  raiseGoogleShare(
+    guildId: number,
+    extra: number,
+  ): Promise<ServerMonthShare | 'later' | undefined> {
+    return this.options.upkeep.raiseShare(guildId, extra);
   }
 
   /** How many members of a server (its `Guild` row) have a gym as a gym target. */

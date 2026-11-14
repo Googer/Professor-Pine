@@ -45,6 +45,13 @@ export class RowIds {
    * party's zone is its server's, so it must never miss because a memory dropped the row.
    */
   private readonly serversOfRows = new Map<number, string>();
+  /**
+   * The `Guild` row of every server known, the other way (plan 19B-5, fix round 4): as complete
+   * and as unbounded as `serversOfRows`, the newer row of a server whose row was made again. The
+   * servers' floors of Google's lookups by hand and maps are counted by it (`app.ts`'s
+   * `serverRows`): a bounded memory that dropped a server would take its floor away.
+   */
+  private readonly rowsOfServers = new Map<string, number>();
 
   constructor(private readonly remembering = true) {}
 
@@ -71,7 +78,17 @@ export class RowIds {
    * or read, also inside a transaction (a row rolled back is no party's).
    */
   knowGuildRow(snowflake: string, id: number): void {
-    if (this.remembering) this.serversOfRows.set(id, snowflake);
+    if (!this.remembering) return;
+    this.serversOfRows.set(id, snowflake);
+    this.rowsOfServers.set(snowflake, id);
+  }
+
+  /**
+   * The `Guild` row of a server, from every row known since the start (`knowGuildRow`), however
+   * many servers: undefined only for a server this process never read or made a row of.
+   */
+  rowOfServer(snowflake: string): number | undefined {
+    return this.rowsOfServers.get(snowflake);
   }
 
   /** The row id of a member that was seen; undefined for one that was not. */
@@ -88,6 +105,7 @@ export class RowIds {
     this.guilds.set(snowflake, id);
     this.guildSnowflakes.set(id, snowflake);
     this.serversOfRows.set(id, snowflake);
+    this.rowsOfServers.set(snowflake, id);
   }
 
   /**

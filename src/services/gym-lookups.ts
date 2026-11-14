@@ -1,4 +1,4 @@
-import { lineOrder } from '../domain/geo/google-line.js';
+import { lineOrder, OUT_OF_SHARE_RANK } from '../domain/geo/google-line.js';
 
 /**
  * The line of gyms that wait for Google (Matt, 2026-10-16; plan 8W-6): what `GymUpkeep` asks
@@ -36,12 +36,32 @@ export interface GymRank {
   rank: number;
 }
 
+/** The servers out of their share of the month (plan 19B-5, `GoogleShares`), by `Guild` row. */
+export interface OutOfShare {
+  /** Out of places questions: none of their rows. */
+  places: ReadonlySet<number>;
+  /** Out of addresses: none of their rows that waits for an address. */
+  geocodes: ReadonlySet<number>;
+}
+
 /** Which gym `GymLookups.next` may give. */
 export interface NextGymOptions {
   /** Only one that waits for its places alone. */
   placesOnly?: boolean;
   /** None of these gyms, of any server. */
   except?: ReadonlySet<number>;
+  /**
+   * The line asks by shares (plan 19B-5): no row ranked out of its share (`OUT_OF_SHARE_RANK`,
+   * read above it alone), and none of these servers' (one queued before its server's rows were
+   * ranked anew).
+   */
+  outOfShare?: OutOfShare;
+}
+
+/** A server's need: its rows (places questions), and of them those that wait for an address. */
+export interface LineNeed {
+  places: number;
+  geocodes: number;
 }
 
 export interface GymLookups {
@@ -69,6 +89,26 @@ export interface GymLookups {
   list(): Promise<WaitingGym[]>;
   /** Sets the rank of the rows named (those not in the line are left alone). */
   setRanks(ranks: readonly GymRank[]): Promise<void>;
+  /**
+   * Each server's need (plan 19B-5), by `Guild` row: a server without rows is left out. Read at
+   * every working-out of the shares (`GymUpkeep.readShares`), in the line's turn.
+   */
+  needs(): Promise<Map<number, LineNeed>>;
+  /** One server's rows, in no particular order (plan 19B-5: ranked anew by its share). */
+  ofServer(guildId: number): Promise<WaitingGym[]>;
+}
+
+/** Whether a row may be given where the line asks by shares (`NextGymOptions.outOfShare`). */
+export function withinShare(
+  row: { guildId: number; rank: number; address: boolean },
+  out: OutOfShare | undefined,
+): boolean {
+  if (out === undefined) return true;
+  return (
+    row.rank > OUT_OF_SHARE_RANK &&
+    !out.places.has(row.guildId) &&
+    !(row.address && out.geocodes.has(row.guildId))
+  );
 }
 
 /** The order of the line in memory (`lineOrder`): rank (higher first), time queued, id, server. */
@@ -107,6 +147,7 @@ export class MemoryGymLookups implements GymLookups {
     for (const row of this.rows.values()) {
       if (options.placesOnly && row.address) continue;
       if (options.except?.has(row.gymId)) continue;
+      if (!withinShare(row, options.outOfShare)) continue;
       if (!first || gymLineOrder(row, first) < 0) first = row;
     }
     return Promise.resolve(
@@ -144,5 +185,23 @@ export class MemoryGymLookups implements GymLookups {
       if (kept) this.rows.set(keyOf({ guildId, gymId }), { ...kept, rank });
     }
     return Promise.resolve();
+  }
+
+  needs(): Promise<Map<number, LineNeed>> {
+    const needs = new Map<number, LineNeed>();
+    for (const row of this.rows.values()) {
+      const kept = needs.get(row.guildId) ?? { places: 0, geocodes: 0 };
+      needs.set(row.guildId, {
+        places: kept.places + 1,
+        geocodes: kept.geocodes + (row.address ? 1 : 0),
+      });
+    }
+    return Promise.resolve(needs);
+  }
+
+  ofServer(guildId: number): Promise<WaitingGym[]> {
+    return Promise.resolve(
+      [...this.rows.values()].filter((row) => row.guildId === guildId).map((row) => ({ ...row })),
+    );
   }
 }

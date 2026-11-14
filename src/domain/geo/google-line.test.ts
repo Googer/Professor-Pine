@@ -232,4 +232,35 @@ describe('estimateLine', () => {
     });
     expect(never).toEqual({ gyms: 'beyond', all: 'beyond' });
   });
+
+  it('has a server that used its share wait for the month to start again (plan 19B-5, fix round 3, T9)', () => {
+    const estimate = estimateLine({
+      ...pace,
+      gyms: 10,
+      allGyms: 10,
+      wayspots: 0,
+      share: { left: 0, gyms: 10, all: 10 },
+    });
+    expect(estimate).toEqual({
+      gyms: pacific('2026-11-01T00:00'),
+      all: pacific('2026-11-01T00:00'),
+    });
+  });
+
+  it('bounds a server’s estimate by what is left of its share this month', () => {
+    const within = { ...pace, gyms: 10, allGyms: 10, wayspots: 5 };
+    // Its ten gyms within the five left: they wait for November, and so does everything.
+    expect(estimateLine({ ...within, share: { left: 5, gyms: 10, all: 15 } })).toEqual({
+      gyms: pacific('2026-11-01T00:00'),
+      all: pacific('2026-11-01T00:00'),
+    });
+    // Its gyms within the twelve left, its PokéStops not.
+    const gymsOnly = estimateLine({ ...within, share: { left: 12, gyms: 10, all: 15 } });
+    expect(gymsOnly.gyms).toBe(now);
+    expect(gymsOnly.all).toBe(pacific('2026-11-01T00:00'));
+    // All of it within what is left: as the line goes.
+    expect(estimateLine({ ...within, share: { left: 15, gyms: 10, all: 15 } })).toEqual(
+      estimateLine(within),
+    );
+  });
 });

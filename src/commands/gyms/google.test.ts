@@ -102,8 +102,14 @@ describe('/gym google', () => {
           'Power Spots’ addresses on the map stop when 500 are left, for gyms. The ' +
           `month starts again ${stamp(new Date('2026-11-01T00:00:00-07:00').getTime(), 'f')}, ` +
           'when Google’s free amounts reset.',
-        '1 of 500 lookups by hand is used this month.',
-        '0 of 500 maps of `/find-region` are used this month.',
+        // Plan 19B-5: the month shared by what each server has waiting, the other server too;
+        // what neither wants is shared by need too (fix round 3, T2): five to two.
+        'This server’s share of this month is 2,857 places searches and 9,000 addresses, by ' +
+          'what each server has waiting; the line used 0 and 0 of it.',
+        '1 of 500 lookups by hand is used this month, 0 of them by this server, which may ' +
+          'always make 20.',
+        '0 of 500 maps of `/find-region` are used this month, 0 of them by this server’s ' +
+          'members, who may always have 20.',
         'At this pace everything of this server is asked about today, the gyms first.',
         '-# The line and the budget are this instance’s, for its one Google key; the counts ' +
           'are this server’s part of it.',
@@ -135,11 +141,95 @@ describe('/gym google', () => {
     const text = said(answerOf(await made.use('google')));
     expect(text).toContain('This month 3 of 4,500 places searches are used;');
     expect(text).toContain(
-      '1 of 500 lookups by hand is used this month.\n' +
-        '2 of 500 maps of `/find-region` are used this month.',
+      '1 of 500 lookups by hand is used this month, 0 of them by this server, which may ' +
+        'always make 20.\n' +
+        '2 of 500 maps of `/find-region` are used this month, 0 of them by this server’s ' +
+        'members, who may always have 20.',
     );
     await made.googleUse.use('2026-09-30', 'map');
     expect(said(answerOf(await made.use('google')))).toContain('2 of 500 maps');
+  });
+
+  it('says what this server used of its share, its lookups by hand and maps, and an operator’s raise (plan 19B-5)', async () => {
+    const made = await lineWith();
+    await made.googleUse.use('2026-10-11', 'places', TEST_GUILD_ROW);
+    await made.googleUse.use('2026-10-11', 'hand', TEST_GUILD_ROW);
+    await made.googleUse.use('2026-10-11', 'map', TEST_GUILD_ROW);
+    await made.googleUse.use('2026-10-11', 'map', OTHER_GUILD_ROW);
+    await made.upkeep.raiseShare(TEST_GUILD_ROW, 250);
+    const text = said(answerOf(await made.use('google')));
+    expect(text).toContain(
+      'This server’s share of this month is 3,107 places searches and 9,250 addresses, by ' +
+        'what each server has waiting, 250 of each added by an operator; the line used 1 and ' +
+        '0 of it.',
+    );
+    expect(text).toContain(
+      '2 of 500 lookups by hand are used this month, 1 of them by this server, which may ' +
+        'always make 20.',
+    );
+    expect(text).toContain(
+      '2 of 500 maps of `/find-region` are used this month, 1 of them by this server’s ' +
+        'members, who may always have 20.',
+    );
+  });
+
+  it('says a server that used its share waits for the month to start again (fix round 3, T9)', async () => {
+    const made = await lineWith();
+    // The other server's gyms want more than half the month: this server has its half.
+    await made.lookups.add(
+      Array.from({ length: 3_000 }, (_, n) => ({
+        guildId: OTHER_GUILD_ROW,
+        gymId: 1_000 + n,
+        address: false,
+        rank: 0,
+      })),
+      2,
+    );
+    for (let n = 0; n < 2_000; n++)
+      await made.googleUse.use('2026-10-11', 'places', TEST_GUILD_ROW);
+    const text = said(answerOf(await made.use('google')));
+    expect(text).toContain('the line used 2,000 and 0 of it.');
+    // Its gyms on the 1st, its PokéStops at the day's pace after the line's gyms.
+    expect(text).toContain(
+      'At this pace the gyms of this server are all asked about on ' +
+        `${stamp(new Date('2026-11-01T12:00:00-08:00').getTime(), 'D')}, and everything of ` +
+        `this server on ${stamp(new Date('2026-11-02T12:00:00-08:00').getTime(), 'D')}.`,
+    );
+  });
+
+  it('counts this server’s rows at their own rank for the month after its share (fix round 4, R6)', async () => {
+    const made = await lineWith();
+    // The other server's 5,000 gyms want more than half the month: this server has its half,
+    // and used it, so its rows are held at the end of the line until the 1st.
+    await made.lookups.add(
+      Array.from({ length: 5_000 }, (_, n) => ({
+        guildId: OTHER_GUILD_ROW,
+        gymId: 1_000 + n,
+        address: false,
+        rank: 0,
+      })),
+      2,
+    );
+    for (let n = 0; n < 2_000; n++)
+      await made.googleUse.use('2026-10-11', 'places', TEST_GUILD_ROW);
+    const text = said(answerOf(await made.use('google')));
+    // On the 1st its gyms are ranked as their regions rank them again, before the other
+    // server's that came after them: done that day, not after the other server's 5,000.
+    expect(text).toContain(
+      'At this pace the gyms of this server are all asked about on ' +
+        `${stamp(new Date('2026-11-01T12:00:00-08:00').getTime(), 'D')}, and everything`,
+    );
+  });
+
+  it('says what a server with nothing waiting used of the month (fix round 4, R6)', async () => {
+    const made = await gymCommandsWith();
+    for (let n = 0; n < 3; n++) await made.googleUse.use('2026-10-11', 'places', TEST_GUILD_ROW);
+    await made.googleUse.use('2026-10-11', 'geocode', TEST_GUILD_ROW);
+    const text = said(answerOf(await made.use('google')));
+    expect(text).toContain(
+      'This server used 3 places searches and 1 address of this month; nothing of it waits ' +
+        'now, and it gets a share as soon as something does.',
+    );
   });
 
   it('names both days when the gyms are done before the rest', async () => {

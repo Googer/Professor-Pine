@@ -217,6 +217,31 @@ describe('loadSettings', () => {
     }
   });
 
+  it('takes no most of one server’s share of Google and a floor of 20 lookups by hand for each server, unless set (plan 19B-5)', () => {
+    const settings = loadSettings(REPO_SETTINGS);
+    expect(settings.googleServerShareMax).toBeUndefined();
+    expect(settings.googleByHandPerServer).toBe(20);
+    const own = writeSettings((s) => {
+      s.googleServerShareMax = 1_500;
+      s.googleByHandPerServer = 50;
+    });
+    expect(loadSettings(own)).toMatchObject({
+      googleServerShareMax: 1_500,
+      googleByHandPerServer: 50,
+    });
+    for (const [key, value] of [
+      ['googleServerShareMax', -1],
+      // A most of nothing would hold every server out of the month (fix round 3, T8).
+      ['googleServerShareMax', 0],
+      ['googleByHandPerServer', 1.5],
+    ] as const) {
+      const refused = writeSettings((s) => {
+        s[key] = value;
+      });
+      expect(() => loadSettings(refused)).toThrow(new RegExp(key));
+    }
+  });
+
   it('takes a monthly budget for Google, 4,500 places, a reserve of 500 and 9,000 geocodes unless set', () => {
     const settings = loadSettings(REPO_SETTINGS);
     expect(settings.googleLookupsPerMonth).toBe(4_500);

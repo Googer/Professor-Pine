@@ -83,7 +83,8 @@ import { auditNamesOf, PartyAudit } from './services/party-audit.js';
 import { AdminLock } from './services/admin-lock.js';
 import { FetchAttachments } from './services/attachment-gateway.js';
 import { AttendanceService } from './services/attendance-service.js';
-import { QueuedDmSender } from './services/dm-sender.js';
+import { DM_PRIORITY, QueuedDmSender } from './services/dm-sender.js';
+import { GoogleShares } from './services/google-shares.js';
 import { GameDataService } from './services/game-data-service.js';
 import { GoogleGeo } from './services/geo-gateway.js';
 import { GitHubIssues } from './services/issue-gateway.js';
@@ -119,6 +120,7 @@ import { StopLineRepository } from './db/repositories/stop-line-repository.js';
 import { PineStopRepository } from './db/repositories/pine-stop-repository.js';
 import { GymUpkeep } from './services/gym-upkeep.js';
 import { GymLookupRepository } from './db/repositories/gym-lookup-repository.js';
+import { GoogleShareRaiseRepository } from './db/repositories/google-share-raise-repository.js';
 import { GoogleUseRepository } from './db/repositories/google-use-repository.js';
 import { GoogleAnswerRepository } from './db/repositories/google-answer-repository.js';
 import { GoogleAnswers } from './services/google-answers.js';
@@ -908,6 +910,40 @@ export async function startApp(
   // (plan 8W-6), which the search reads.
   const wayspotLookups = new WayspotLookupRepository(db);
   const wayspotPlaces = new WayspotPlaces({ answers: googleAnswers, log });
+  // The servers Pine is in by their rows (known since the start's `ensure` of each): each has its
+  // floor of the lookups by hand and of `/find-region`'s maps (plan 19B-5, fix round 3, T3). From
+  // the complete map of rows (fix round 4), never the bounded memory of `rowIds.guild`.
+  const serverRows = (): number[] =>
+    botServers().flatMap((server) => rowIds.rowOfServer(server) ?? []);
+  // Google's month shared between servers by need (plan 19B-5): a server out of its share is
+  // told in its moderators' bot lab, and the owner once a month when the month is used.
+  const googleShares = new GoogleShares({
+    budget: googleBudget,
+    ...(config.settings.googleServerShareMax === undefined
+      ? {}
+      : { max: config.settings.googleServerShareMax }),
+    use: googleUse,
+    raises: new GoogleShareRaiseRepository(db),
+    tellServer: (guildRow, key, text) => {
+      const server = rowIds.serverOfRow(guildRow);
+      if (server !== undefined) serverNotices.tell(server, key, text);
+    },
+    tellOwner: (text) => {
+      const ownerId = config.env.OWNER_ID.trim();
+      if (ownerId === '') return;
+      const at = Date.now();
+      dms.send({
+        userId: ownerId,
+        serverId: null,
+        message: { content: text },
+        priority: DM_PRIORITY.normal,
+        eventAt: at,
+        // Worth sending while the month lasts: a week at most.
+        expiresAt: at + 7 * 24 * 3_600_000,
+      });
+    },
+    log,
+  });
   const gymUpkeep = new GymUpkeep({
     gyms: gymRepository,
     directory: gyms,
@@ -919,6 +955,9 @@ export async function startApp(
     use: googleUse,
     budget: googleBudget,
     byHandPerMonth: config.settings.googleByHandPerMonth,
+    byHandPerServer: config.settings.googleByHandPerServer,
+    servers: serverRows,
+    shares: googleShares,
     // The line goes by the raids of each place's best region (plan 8W-6), from the history.
     ranks: new GoogleRanks({
       regions,
@@ -1352,6 +1391,9 @@ export async function startApp(
     mapBudget: new MapBudget({
       use: googleUse,
       perMonth: config.settings.googleByHandPerMonth,
+      // Each server's members their server's floor of them (plan 19B-5, fix round 3, T3).
+      perServer: config.settings.googleByHandPerServer,
+      servers: serverRows,
       log,
     }),
     loginLinks,
