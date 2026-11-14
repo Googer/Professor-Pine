@@ -3602,8 +3602,11 @@ What a design has to settle (a first look, 2026-11-12, not a design):
 
 ## From Phase 19C-1 (joining and leaving, 2026-11-13)
 
+Plan `2026-11-13-phase-19c-1-joining-and-leaving.md`, merged on main-dev after 19B-5 (migration 061 after 059 and 060); full check, database suite and build pass. **Staging** with the rest of phase 19 (Matt, 2026-11-13).
+
 - **No release ships between 19C-1 and 19C-4.** From 19C-1 a server that removes Pine keeps its data (marked left, deleted after 30 days by 19C-3), while the Privacy Policy (`docs/legal/`) says a server's data is deleted at once when Pine leaves it; 19C-4 rewrites it. `master` takes `main-dev` again only with 19C-4.
-- **Migration 061 merges after 059 (19B-3) and 060 (19B-5).** Kysely refuses a migration that sorts before one already applied (unordered migrations are not allowed), so 061 lands on `main-dev` only once both are merged.
+- **19C-3 deletes what a left server kept in Google's lines** (`ServerGymLookup`, `ServerWayspotLookup`, held out of the line's range meanwhile) with the rest of its rows, and its `GoogleUseServerDay` and `GoogleShareRaise`.
+- **`/operator servers list` does not show each server's share of Google's month** (`/gym google` in that server does): it would need each server's `Guild` row and a read of the shares in the line's turn per line. For 19C-4 if operators want it.
 - **19C-3 never reopens a new install's adoption** (`servers.md`, "Who may have this Pine"): the window is open only while no `ServerRecord` row holds `recordedAt`, so its deletion of the servers left over 30 days keeps such a row.
 
 ## From Phase 19D (sharding in one process, 2026-11-12)
