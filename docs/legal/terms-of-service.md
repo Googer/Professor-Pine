@@ -1,6 +1,6 @@
 # Professor Pine: Terms of Service
 
-_Last updated: November 10, 2026_
+_Last updated: November 14, 2026_
 
 Professor Pine ("Pine") is a Discord app that helps a community organize Pokémon GO raids, max battles, raid trains and meetups, with a web map beside it. These terms cover the Pine application run by its owner, Googer, and the web site that belongs to it. Pine is open source, and other people run their own copies; a copy run by somebody else is that person's responsibility, not ours.
 
@@ -16,6 +16,14 @@ By using Pine's commands, buttons or web site, you agree to these terms. If you 
 ## Meeting other people
 
 Raids, trains and meetups bring people together in person. Pine does not check who anybody is. Meet in public places, use your own judgment, and tell your server's moderators about anything that worries you. You take part at your own risk.
+
+## Servers and their staff
+
+Pine works in the Discord servers its operators (its owner and the people the owner names) allow. A Pine may be closed to new servers, serving only those it was already in and those its operators list or allow; a server it does not allow is told so and left. Adding Pine to a server does not oblige anybody to keep it there.
+
+A server's staff (its owner, members with Manage Server, and its admins, moderators and bot developers) set Pine up in their server and decide how it is used there: its channels, its regions and gyms, which features are on, and whether its web map is open to visitors who are not logged in. They answer for what they set up, and for using Pine in their server within these terms. Until they have finished setting it up, Pine does nothing in the server but what its setup needs.
+
+Pine's operators may make Pine leave a server, and may block a server so that it cannot add Pine again, for breaking these terms or to keep the service working. When Pine leaves a server, or a server removes it, the server's data is deleted about 30 days after Pine left it, at Pine's next daily cleanup, and never while Pine is in it again, as the [Privacy Policy](privacy-policy.md) says. Added back before then, Pine picks up where it was; added back once its data is deleted, the server starts anew, in setup.
 
 ## Moderation
 
