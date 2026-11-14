@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-14T03:22",
+  "updated": "2026-11-14T04:15",
   "items": [
     {
       "id": "0",
@@ -12897,7 +12897,55 @@ window.GANTT = {
       ],
       "scope": "the map’s visitors, the Privacy Policy and Terms, guides, cutover-check",
       "doneWhen": "Merged into main-dev",
-      "status": "unplanned"
+      "status": "done",
+      "planning": {
+        "start": "2026-11-14T01:05",
+        "end": "2026-11-14T04:15",
+        "review": {
+          "start": "2026-11-14T01:45",
+          "end": "2026-11-14T04:09"
+        }
+      },
+      "review": {
+        "start": "2026-11-14T04:09",
+        "end": "2026-11-14T04:09"
+      }
+    },
+    {
+      "id": "19C-4.1",
+      "kind": "task",
+      "parent": "19C-4",
+      "name": "A server's map closed to visitors unless its staff open it",
+      "status": "done",
+      "start": "2026-11-14T04:09",
+      "end": "2026-11-14T04:09"
+    },
+    {
+      "id": "19C-4.2",
+      "kind": "task",
+      "parent": "19C-4",
+      "name": "cutover-check compares Public Bot with servers, and pages through the servers",
+      "status": "done",
+      "start": "2026-11-14T04:09",
+      "end": "2026-11-14T04:09"
+    },
+    {
+      "id": "19C-4.3",
+      "kind": "task",
+      "parent": "19C-4",
+      "name": "The Privacy Policy and the Terms of Service for 2.1",
+      "status": "done",
+      "start": "2026-11-14T04:09",
+      "end": "2026-11-14T04:09"
+    },
+    {
+      "id": "19C-4.4",
+      "kind": "task",
+      "parent": "19C-4",
+      "name": "The guides and the docs of the visitors' view and the checks",
+      "status": "done",
+      "start": "2026-11-14T04:09",
+      "end": "2026-11-14T04:09"
     },
     {
       "id": "19E",
