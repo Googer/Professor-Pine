@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-14T01:05",
+  "updated": "2026-11-14T03:07",
   "items": [
     {
       "id": "0",
@@ -12826,7 +12826,64 @@ window.GANTT = {
       ],
       "scope": "a left server’s data deleted after 30 days over every per-server table, with the indexes it needs",
       "doneWhen": "Merged into main-dev",
-      "status": "unplanned"
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T23:53",
+        "end": "2026-11-14T03:07",
+        "review": {
+          "start": "2026-11-14T01:09",
+          "end": "2026-11-14T03:04"
+        }
+      },
+      "review": {
+        "start": "2026-11-14T03:04",
+        "end": "2026-11-14T03:04"
+      }
+    },
+    {
+      "id": "19C-3.1",
+      "kind": "task",
+      "parent": "19C-3",
+      "name": "The record of a server's deletion, and the indexes it reads",
+      "status": "done",
+      "start": "2026-11-14T02:37",
+      "end": "2026-11-14T02:37"
+    },
+    {
+      "id": "19C-3.2",
+      "kind": "task",
+      "parent": "19C-3",
+      "name": "The deletion of one server's data, table by table in batches",
+      "status": "done",
+      "start": "2026-11-14T02:37",
+      "end": "2026-11-14T02:37"
+    },
+    {
+      "id": "19C-3.3",
+      "kind": "task",
+      "parent": "19C-3",
+      "name": "The daily sweep of servers left 30 days, and a server added back meanwhile",
+      "status": "done",
+      "start": "2026-11-14T02:37",
+      "end": "2026-11-14T03:04"
+    },
+    {
+      "id": "19C-3.4",
+      "kind": "task",
+      "parent": "19C-3",
+      "name": "The list of servers says which were deleted and which are being deleted",
+      "status": "done",
+      "start": "2026-11-14T03:04",
+      "end": "2026-11-14T03:04"
+    },
+    {
+      "id": "19C-3.5",
+      "kind": "task",
+      "parent": "19C-3",
+      "name": "Docs of the deletion of a server left 30 days",
+      "status": "done",
+      "start": "2026-11-14T03:04",
+      "end": "2026-11-14T03:04"
     },
     {
       "id": "19C-4",
