@@ -256,6 +256,7 @@ describe('runMigrations', () => {
       '2026_11_13_059_server_wayspots',
       '2026_11_13_060_dm_contacts',
       '2026_11_13_061_server_record',
+      '2026_11_14_062_server_deletion',
     ]);
     expect(
       await describeSchema(

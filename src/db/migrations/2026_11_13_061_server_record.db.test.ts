@@ -39,7 +39,8 @@ describe('migration 061: the record of each server', () => {
       from information_schema.columns
       where table_schema = database() and table_name = 'ServerRecord'
       order by ordinal_position`.execute(db);
-    expect(columns.rows).toEqual([
+    // This migration's own: later ones add theirs (062, the deletion of a server).
+    expect(columns.rows.slice(0, 7)).toEqual([
       { name: 'serverId', type: 'varchar(20)', nullable: 'NO', key: 'PRI' },
       { name: 'recordedAt', type: 'bigint', nullable: 'YES', key: '' },
       { name: 'allowedAt', type: 'bigint', nullable: 'YES', key: '' },

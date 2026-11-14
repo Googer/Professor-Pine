@@ -749,6 +749,9 @@ export interface ServerRecord {
   allowedBy: string | null;
   blockedAt: string | null;
   blockedBy: string | null;
+  deletedAt: string | null;
+  deletingAt: string | null;
+  filesLeftAt: string | null;
   leftAt: string | null;
   recordedAt: string | null;
   serverId: string;
