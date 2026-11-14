@@ -7,6 +7,7 @@ import type { Logger } from '../../src/log.js';
 import { ServerStandings } from '../../src/services/server-standings.js';
 import { FAKE_GUILD_ID } from './fake-interactions.js';
 import { OTHER_GUILD_ID } from './gyms.js';
+import type { HeldCall } from './held-call.js';
 import { createTestLogger } from './test-logger.js';
 
 const blank = (serverId: string): StoredServerRecord => ({
@@ -22,12 +23,14 @@ const blank = (serverId: string): StoredServerRecord => ({
 /**
  * The twin of `ServerRecordRepository` (plan 19C-1), running `serverRecordCases`: `rows` by
  * server, `guilds` the servers that have a `Guild` row (those Pine was in: `markLeft` marks only
- * them), `failing` per method.
+ * them), `failing` per method, `markLeftHeld` a write of `markLeft` held on its way (`heldCall`).
  */
 export class MemoryServerRecords implements ServerRecordStorage {
   readonly rows = new Map<string, StoredServerRecord>();
   readonly guilds: Set<string>;
   readonly failing = new Map<keyof ServerRecordStorage, Error>();
+  /** Where set, `markLeft` arrives at it and writes only once the test releases it. */
+  markLeftHeld: HeldCall | undefined;
 
   constructor(rows: readonly StoredServerRecord[] = [], guilds: readonly string[] = []) {
     for (const row of rows) this.rows.set(row.serverId, { ...row });
@@ -49,7 +52,11 @@ export class MemoryServerRecords implements ServerRecordStorage {
     return this.fails('all') ?? Promise.resolve(this.sorted(this.rows.values()));
   }
 
-  markLeft(serverIds: readonly string[], at: number): Promise<StoredServerRecord[]> {
+  async markLeft(serverIds: readonly string[], at: number): Promise<StoredServerRecord[]> {
+    if (this.markLeftHeld) {
+      this.markLeftHeld.arrive();
+      await this.markLeftHeld.released;
+    }
     const failed = this.fails('markLeft');
     if (failed) return failed;
     const marked = new Map<string, StoredServerRecord>();
@@ -60,7 +67,7 @@ export class MemoryServerRecords implements ServerRecordStorage {
       this.rows.set(serverId, row);
       marked.set(serverId, row);
     }
-    return Promise.resolve(this.sorted(marked.values()));
+    return this.sorted(marked.values());
   }
 
   cameBack(serverIds: readonly string[]): Promise<void> {

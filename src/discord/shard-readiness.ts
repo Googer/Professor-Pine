@@ -24,6 +24,32 @@ export interface ShardStart {
   first: boolean;
 }
 
+/** Every shard is ready (`ShardReadiness.onEveryShardReady`, plan 19C-1). */
+export interface EveryShardReady {
+  /**
+   * The servers the bot is in now: each shard's at its last ready (`ShardStart.servers`, those
+   * Discord said unavailable included, those gone left out), with the servers that added the bot
+   * on that shard since (`GuildCreate`) and without those that removed it (`GuildDelete`). Never
+   * the client's cache, which keeps the gone ones.
+   */
+  present: ReadonlySet<string>;
+  /**
+   * Whether a server is present now (`ShardReadiness.isPresent`): `present` followed since by the
+   * joins and removals, for a listener that decides after an await (plan 19C-1, J2).
+   */
+  isPresent(serverId: string): boolean;
+}
+
+/** The client is ready (`ShardReadiness.onClientReady`, plan 19C-1, J2). */
+export interface ClientReadyServers {
+  /**
+   * The cached servers no shard's ready covered: they added the bot on a shard ready already
+   * while later shards still identified, and discord.js says no `GuildCreate` before the client
+   * is ready. Present from now on.
+   */
+  uncovered: readonly string[];
+}
+
 export interface ShardReadinessOptions {
   log: Logger;
   /**
@@ -50,10 +76,15 @@ export interface ShardReadinessOptions {
  *   since the last time this was said. A resume loses no event and says nothing. What it can
  *   promise: each shard's servers were given to `onShardReady` at its last ready, with those gone
  *   since flagged; the client's cache holds every server of the READYs, but also those gone (until
- *   discord.js hears of them, which it may never), so a check of who is in (plan C) reads each
- *   shard's `ShardStart`, not the cache alone. At the login it is said at the last shard's first
- *   ready, before `ClientReady`: before the client is marked connected and before `botServers`
- *   is set, so a listener must not need either.
+ *   discord.js hears of them, which it may never), so the listener is given the servers present
+ *   (`EveryShardReady.present`, plan 19C-1): each shard's last `ShardStart`, followed since by the
+ *   servers that added the bot on it (`GuildCreate`) and removed it (`GuildDelete`), never the
+ *   cache. At the login it is said at the last shard's first ready, before `ClientReady`: before
+ *   the client is marked connected and before `botServers` is set, so a listener must not need
+ *   either. What a listener decides after an await it asks of `isPresent` (the same sets, live),
+ *   never of the snapshot it was given (plan 19C-1, J2).
+ * - `onClientReady`: at `ClientReady`, the cached servers no shard's ready covered (added between
+ *   two shards' readies, without an event), from then on present.
  *
  * A listener that throws is logged, and the others are told.
  */
@@ -72,13 +103,26 @@ export class ShardReadiness {
     number,
     { named: ReadonlySet<string>; before: readonly string[] }
   >();
+  /** Each shard's servers present: those of its last ready, followed by its joins and removals. */
+  private readonly present = new Map<number, Set<string>>();
+  /** Each shard's servers gone at its last ready (`ShardStart.gone`). */
+  private readonly lastGone = new Map<number, readonly string[]>();
   private readonly shardListeners: ((start: ShardStart) => void)[] = [];
-  private readonly everyListeners: (() => void)[] = [];
+  private readonly everyListeners: ((every: EveryShardReady) => void)[] = [];
+  private readonly clientListeners: ((ready: ClientReadyServers) => void)[] = [];
 
   constructor(private readonly options: ShardReadinessOptions) {}
 
   /** Listens to the client's shard events; `this`, to chain. */
   attach(client: Pick<Client, 'on'>): this {
+    // A server added or removed since its shard's ready (plan 19C-1); an outage is
+    // `GuildUnavailable`, never a removal.
+    client.on(Events.GuildCreate, (guild) => {
+      this.present.get(guild.shardId)?.add(guild.id);
+    });
+    client.on(Events.GuildDelete, (guild) => {
+      this.present.get(guild.shardId)?.delete(guild.id);
+    });
     // discord.js gives every packet of the gateway as it comes, before it handles it: the cache
     // is still as it was before this READY.
     client.on(Events.Raw, (packet: unknown, shard: unknown) => {
@@ -88,6 +132,10 @@ export class ShardReadiness {
     });
     client.on(Events.ShardReady, (shard, unavailable) => {
       this.ready(shard, unavailable);
+    });
+    // Once, after the last shard's first ready (plan 19C-1, J2).
+    client.on(Events.ClientReady, () => {
+      this.clientReady();
     });
     client.on(Events.ShardResume, (shard) => {
       this.up.add(shard);
@@ -108,10 +156,50 @@ export class ShardReadiness {
     return this;
   }
 
-  /** Who is told that every shard is ready (plan C's checks of who is in). */
-  onEveryShardReady(listener: () => void): this {
+  /** Who is told that every shard is ready, with the servers present (plan 19C-1's checks). */
+  onEveryShardReady(listener: (every: EveryShardReady) => void): this {
     this.everyListeners.push(listener);
     return this;
+  }
+
+  /**
+   * Who is told at the client's ready of the cached servers no shard's ready covered (plan 19C-1,
+   * J2); told before any listener of `ClientReady` added after `attach`.
+   */
+  onClientReady(listener: (ready: ClientReadyServers) => void): this {
+    this.clientListeners.push(listener);
+    return this;
+  }
+
+  /**
+   * Whether the bot is in a server now: one of a shard's servers at its last ready (unavailable
+   * included, gone left out), followed since by the joins and removals.
+   */
+  isPresent(serverId: string): boolean {
+    for (const servers of this.present.values()) if (servers.has(serverId)) return true;
+    return false;
+  }
+
+  private clientReady(): void {
+    const { log, shardIds, serversOf } = this.options;
+    const uncovered: string[] = [];
+    for (const shard of shardIds()) {
+      const present = this.present.get(shard);
+      if (present === undefined) continue;
+      const gone = this.lastGone.get(shard) ?? [];
+      for (const server of serversOf(shard)) {
+        if (present.has(server) || gone.includes(server)) continue;
+        present.add(server);
+        uncovered.push(server);
+      }
+    }
+    for (const listener of this.clientListeners) {
+      try {
+        listener({ uncovered });
+      } catch (err) {
+        log.error({ err }, 'could not tell that the client is ready');
+      }
+    }
   }
 
   private ready(shard: number, unavailable: ReadonlySet<string> | undefined): void {
@@ -133,6 +221,8 @@ export class ShardReadiness {
       unavailable: unavailable ?? new Set(),
       first,
     };
+    this.present.set(shard, new Set(start.servers));
+    this.lastGone.set(shard, gone);
     for (const listener of this.shardListeners) {
       try {
         listener(start);
@@ -149,9 +239,12 @@ export class ShardReadiness {
     if (ids.length === 0 || ids.some((id) => !this.up.has(id))) return;
     this.owed = false;
     this.options.log.debug({ shards: ids.length }, 'every shard ready');
+    const present = new Set<string>();
+    for (const id of ids) for (const server of this.present.get(id) ?? []) present.add(server);
+    const isPresent = (serverId: string): boolean => this.isPresent(serverId);
     for (const listener of this.everyListeners) {
       try {
-        listener();
+        listener({ present, isPresent });
       } catch (err) {
         this.options.log.error({ err }, 'could not tell that every shard is ready');
       }

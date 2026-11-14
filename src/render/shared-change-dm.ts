@@ -1,5 +1,6 @@
 import type { V2Message } from '../discord/party-gateway.js';
 import { listTierNote, type ListTierNotice } from './moderation.js';
+import { serverNameShown } from './server-admission.js';
 import { plainNoLinks } from './text.js';
 import { textMessage } from './v2.js';
 
@@ -50,6 +51,62 @@ export function listTierOwnerDm(notice: ListTierNotice, serverName: string | und
     '### Screenshots disagree with the boss list',
     `from **${named(serverName, 'a server')}** · ${notice.serverId}`,
     listTierNote(notice),
+  ]);
+}
+
+/** How many servers the owner's DM about a new install's servers names; the rest are counted. */
+export const ADOPTED_NAMED = 20;
+
+/** A server as the owner's DMs about a new install's servers name it. */
+export interface NamedServer {
+  id: string;
+  name: string | undefined;
+}
+
+/**
+ * The servers of such a DM, one a line: each by its name cut and made plain
+ * (`serverNameShown`) and its id, the first `ADOPTED_NAMED`, then how many more.
+ */
+function serverList(servers: readonly NamedServer[]): string {
+  const lines = servers.slice(0, ADOPTED_NAMED).map((server) => {
+    const shown = server.name === undefined ? '' : serverNameShown(server.name);
+    return `**${shown === '' ? 'A server' : shown}** · ${server.id}`;
+  });
+  const more = servers.length - lines.length;
+  return [...lines, ...(more > 0 ? [`and ${String(more)} more`] : [])].join('\n');
+}
+
+/**
+ * The DM to the bot's owner about the servers a new install kept (plan 19C-1, `ServerAdoption`):
+ * nothing was ever recorded, so the servers it was in at its first start (or the first that added
+ * it) may have it from now on (`serverList`). How to take one back.
+ */
+export function adoptedServersDm(servers: readonly NamedServer[]): V2Message {
+  return textMessage(SHARED_ACCENT, [
+    '### Servers kept by a new install',
+    'This Pine had recorded no server yet, so it keeps the servers it is in now: they may have ' +
+      'it from now on, and a server added later needs your allowance (`/operator servers allow`).',
+    serverList(servers),
+    'A server that should not have it: `/operator servers block`.',
+  ]);
+}
+
+/**
+ * The DM to the bot's owner about the servers a new install neither kept nor left (plan 19C-1,
+ * `ServerAdoption`): whether the application is public could not be read at its first start, so a
+ * server that neither the owner nor an operator owns waits, unserved, for the owner's word
+ * (`serverList`). How to keep one, and how to have Pine leave it.
+ */
+export function waitingServersDm(servers: readonly NamedServer[]): V2Message {
+  return textMessage(SHARED_ACCENT, [
+    '### Servers waiting for your word',
+    'This Pine had recorded no server yet and could not read whether its application is public ' +
+      '(Public Bot), so it neither keeps nor leaves these servers, which neither you nor an ' +
+      'operator own: they wait, and Pine does nothing in them.',
+    serverList(servers),
+    'To keep one: `/operator servers allow`. To have Pine leave it: `/operator servers remove`, ' +
+      'or `/operator servers block` to keep it out. At its next start Pine decides a server still ' +
+      'waiting by its usual rules, which leave a server nothing allows.',
   ]);
 }
 

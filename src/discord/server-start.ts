@@ -42,6 +42,13 @@ export interface ServerStartDeps<G, I> {
   started: () => void;
   /** Hands an interaction on (the router). */
   route: (interaction: I) => unknown;
+  /**
+   * Whether a server may have this Pine (plan 19C-1, `ServerAdmission.admits`): one that may not is
+   * never filled, recorded, worked for at a ready, nor are its interactions routed.
+   */
+  admits: (serverId: string) => boolean;
+  /** Tells a server that joins and may not have this Pine, and leaves it (`ServerAdmission.refuse`). */
+  refuse: (serverId: string) => void;
   log: Logger;
 }
 
@@ -60,6 +67,11 @@ export interface ServerStartDeps<G, I> {
  * the servers of `ClientReady` are filled and recorded (review F4: the notifier finds a party's
  * server by its `Guild` row).
  *
+ * A server that may not have this Pine (plan 19C-1, `admits`) is none of this: never filled, its
+ * `Guild` row never written, left out of its shard's start work and of the client's ready, its
+ * interactions never routed; one that joins is refused (`refuse`) before anything else. Those
+ * present at a ready are refused by the check once every shard is ready (`ServerAdmission`).
+ *
  * Who was present at the upgrade (`'present'`, recorded set up while `upgrading`): only a server
  * its shard's first READY named, those Discord said unavailable included, so that one down at the
  * login is set up when it comes. Any other server without a row is `'joined'`: one that adds the
@@ -77,9 +89,11 @@ export function wireServerStart<
   const readied = new Set<number>();
   /** Each shard's first ready's work: the start waits for all of them. */
   const firstWork: Promise<void>[] = [];
+  const { admits } = deps;
   const begin = (guild: G): void => {
-    // A server not available yet is filled when it is (`GuildAvailable`).
-    if (!guild.available) return;
+    // A server not available yet is filled when it is (`GuildAvailable`); one that may not have
+    // this Pine never (plan 19C-1).
+    if (!guild.available || !admits(guild.id)) return;
     fill.begin(namesOf(guild), atLogin.has(guild.id) ? 'present' : 'joined');
   };
   const filled = (serverIds: readonly string[]): Promise<unknown> =>
@@ -98,17 +112,20 @@ export function wireServerStart<
       const named = start.inReady ?? [...start.servers, ...start.unavailable];
       for (const serverId of named) atLogin.add(serverId);
     }
-    for (const serverId of start.servers) {
+    const servers = start.servers.filter(admits);
+    for (const serverId of servers) {
       const guild = deps.serverOf(serverId);
       if (guild !== undefined) begin(guild);
     }
-    const work = deps.work.shardReady(start, filled(start.servers)).catch((err: unknown) => {
-      log.error({ err, shard: start.shard }, 'could not start the work of a shard');
-    });
+    const work = deps.work
+      .shardReady({ ...start, servers }, filled(servers))
+      .catch((err: unknown) => {
+        log.error({ err, shard: start.shard }, 'could not start the work of a shard');
+      });
     if (start.first) firstWork.push(work);
   });
   client.once(Events.ClientReady, (ready) => {
-    const all = [...ready.guilds.cache.values()];
+    const all = [...ready.guilds.cache.values()].filter((guild) => admits(guild.id));
     for (const guild of all) begin(guild);
     const ids = all.map((guild) => guild.id);
     void Promise.all([...firstWork, deps.work.clientReady(ids), filled(ids)]).then(() => {
@@ -123,10 +140,17 @@ export function wireServerStart<
     begin(guild);
   });
   client.on(Events.GuildCreate, (guild) => {
+    // Refused before anything else (plan 19C-1).
+    if (!admits(guild.id)) {
+      deps.refuse(guild.id);
+      return;
+    }
     // Its row before its first interaction: joined now, so not set up.
     fill.begin(namesOf(guild), 'joined');
   });
   client.on(Events.InteractionCreate, (interaction) => {
+    // Of a server Pine is leaving: answered by nothing (plan 19C-1).
+    if (interaction.guildId !== null && !admits(interaction.guildId)) return;
     // After its server's fill, if one is under way: never before its row.
     void fill.whenFilled(interaction.guildId).then(() => deps.route(interaction));
   });

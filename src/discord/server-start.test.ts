@@ -10,6 +10,12 @@ import { shardStartWork } from '../app-wiring.js';
 import type { StoredServer } from '../db/repositories/server-settings-repository.js';
 import { ServerFill, type ServerNames } from '../services/server-fill.js';
 import { ServerSettings } from '../services/server-settings.js';
+import { RecordingDms } from '../../test/support/dms.js';
+import { RecordingExits } from '../../test/support/server-admission.js';
+import { standingsWith } from '../../test/support/server-standings.js';
+import { ServerAdmission } from '../services/server-admission.js';
+import { ServerAdoption } from '../services/server-adoption.js';
+import { wireServerAdmission, type AdmissionClient } from './server-admission-wiring.js';
 import { wireServerStart } from './server-start.js';
 import { ShardReadiness } from './shard-readiness.js';
 
@@ -25,7 +31,19 @@ interface FakeGuild {
   id: string;
   available: boolean;
   shardId: number;
+  /** Its Discord owner, once it is available (plan 19C-1). */
+  ownerId?: string;
 }
+
+/**
+ * Who is in, wired by a test before the start (plan 19C-1): given the client, its shards and the
+ * cache; gives the start's `admits`.
+ */
+type WhoIsIn = (
+  client: EventEmitter,
+  shards: ShardReadiness,
+  cache: Map<string, FakeGuild>,
+) => { admits: (serverId: string) => boolean };
 
 /** A server's names: its bot lab only. */
 const namesOf = (guild: FakeGuild): ServerNames => ({
@@ -82,7 +100,7 @@ class HeldStore extends MemoryServerSettings {
  * made available (`GuildAvailable`), the shard's ready, the client's ready after the last
  * shard's first; a server that adds the bot once the client is ready, `GuildCreate`.
  */
-async function start(count = 1) {
+async function start(count = 1, refused: ReadonlySet<string> = new Set(), wire?: WhoIsIn) {
   const store = new HeldStore();
   const { log } = createTestLogger();
   const servers = new ServerSettings({ store, settings, log });
@@ -126,6 +144,10 @@ async function start(count = 1) {
   let isStarted = false;
   const routed: Array<{ guildId: string | null; hadRow: boolean }> = [];
   const routedOnce = held<void>();
+  /** The servers refused (told and left, plan 19C-1), each time. */
+  const refusals: string[] = [];
+  // Who is in, wired before the start's own listeners as `app.ts` does (plan 19C-1, J1).
+  const who = wire?.(client, shards, cache);
   wireServerStart<FakeGuild, { guildId: string | null }>(client, {
     fill,
     namesOf,
@@ -144,6 +166,9 @@ async function start(count = 1) {
       });
       routedOnce.resolve();
     },
+    // Plan 19C-1: who may have this Pine, and what is done to a server that may not.
+    admits: who?.admits ?? ((serverId) => !refused.has(serverId)),
+    refuse: (serverId) => refusals.push(serverId),
     log,
   });
   const discord = {
@@ -206,6 +231,7 @@ async function start(count = 1) {
     isStarted: () => isStarted,
     routed,
     routedOnce: routedOnce.promise,
+    refusals,
   };
 }
 
@@ -333,5 +359,129 @@ describe('the start of the servers over the shards (plan 19A-1, review F14; fix 
     made.discord.interaction(null);
     await made.routedOnce;
     expect(made.routed).toEqual([{ guildId: null, hadRow: true }]);
+  });
+
+  it('fills, records and routes nothing of a server that may not have this Pine, and refuses one that joins (plan 19C-1)', async () => {
+    const STRANGER = '412345678901234571';
+    const made = await start(1, new Set([SERVER_B, STRANGER]));
+    const { discord, store } = made;
+    // SERVER_B added the bot while it was down: present at the ready, never filled nor recorded.
+    discord.readyPacket(0, [SERVER_A, SERVER_B]);
+    discord.available(SERVER_A);
+    discord.available(SERVER_B);
+    discord.shardReady(0);
+    expect(await made.sync()).toEqual([SERVER_A]);
+    await store.allow(SERVER_A);
+    discord.clientReady();
+    await made.started;
+    expect(made.servers.has(SERVER_B)).toBe(false);
+    expect(store.creates.map((one) => one.serverId)).toEqual([SERVER_A]);
+    // One that adds the bot now is refused before any fill, and none of its interactions routed.
+    discord.added(STRANGER, 0, true);
+    expect(made.refusals).toEqual([STRANGER]);
+    discord.interaction(STRANGER);
+    discord.interaction(SERVER_A);
+    await made.routedOnce;
+    expect(made.routed).toEqual([{ guildId: SERVER_A, hadRow: true }]);
+    expect(store.creates.map((one) => one.serverId)).toEqual([SERVER_A]);
+  });
+});
+
+describe('a new install keeps its owner’s server (plan 19C-1, J1)', () => {
+  const OWNER = '323456789012345670';
+  const SOMEBODY = '323456789012345671';
+
+  /**
+   * A new install (nothing recorded, `servers` unset) whose application is public or not, the
+   * servers' Discord owners by `owners`: real standings, adoption and admission, wired as
+   * `app.ts` wires them.
+   */
+  function newInstall(publicBot: boolean, owners: ReadonlyMap<string, string>) {
+    const { log } = createTestLogger();
+    const { standings, store } = standingsWith({ recorded: [], log });
+    // The adopted written: the test waits for it, never for a number of turns.
+    const written = held<void>();
+    const record = store.record.bind(store);
+    store.record = async (serverIds, at) => {
+      await record(serverIds, at);
+      written.resolve();
+    };
+    const exits = new RecordingExits();
+    const holder: { admission?: ServerAdmission } = {};
+    const wire: WhoIsIn = (client, shards, cache) => {
+      const adoption = new ServerAdoption({
+        standings,
+        publicBot,
+        ownerOf: (serverId) =>
+          cache.get(serverId)?.available === true ? owners.get(serverId) : undefined,
+        nameOf: () => undefined,
+        mayOwn: (userId) => userId === OWNER,
+        ownerId: OWNER,
+        dms: new RecordingDms(),
+        refuse: (serverId) => holder.admission?.refuse(serverId),
+        log,
+      });
+      const admission = new ServerAdmission({
+        standings,
+        exits,
+        recorded: () => Promise.resolve([...store.guilds]),
+        undecided: (serverId) => adoption.undecided(serverId),
+        log,
+      });
+      holder.admission = admission;
+      wireServerAdmission(client as unknown as AdmissionClient<FakeGuild>, {
+        shards,
+        adoption,
+        admission,
+      });
+      return { admits: (serverId) => admission.admits(serverId) };
+    };
+    return { wire, standings, store, exits, written: written.promise, holder };
+  }
+
+  it('adopts and fills its server at its first start', async () => {
+    const install = newInstall(false, new Map());
+    const made = await start(1, new Set(), install.wire);
+    const { discord, store } = made;
+    discord.readyPacket(0, [SERVER_A]);
+    discord.available(SERVER_A);
+    discord.shardReady(0);
+    expect(await made.sync()).toEqual([SERVER_A]);
+    await store.allow(SERVER_A);
+    discord.clientReady();
+    await made.started;
+    // Filled at that very start, as a server present at the upgrade: set up.
+    expect(made.servers.setUpAt(SERVER_A)).not.toBeNull();
+    await install.written;
+    expect(install.store.rows.get(SERVER_A)?.recordedAt).not.toBeNull();
+    expect(install.exits.left).toEqual([]);
+  });
+
+  it('with Public Bot on refuses a stranger’s server and adopts the owner’s; the window then stays closed', async () => {
+    const owners = new Map([
+      [SERVER_A, OWNER],
+      [SERVER_B, SOMEBODY],
+      [JOINED, OWNER],
+    ]);
+    const install = newInstall(true, owners);
+    const made = await start(1, new Set(), install.wire);
+    const { discord, store } = made;
+    discord.readyPacket(0, [SERVER_A, SERVER_B]);
+    discord.available(SERVER_A);
+    discord.available(SERVER_B);
+    discord.shardReady(0);
+    expect(await made.sync()).toEqual([SERVER_A]);
+    await store.allow(SERVER_A);
+    await install.holder.admission?.idle();
+    expect(install.exits.left).toEqual([SERVER_B]);
+    expect(made.servers.has(SERVER_B)).toBe(false);
+    discord.clientReady();
+    await made.started;
+    await install.written;
+    expect(install.standings.adopting).toBe(false);
+    // Recorded once: a later join, the owner's too, needs an allowance.
+    discord.added(JOINED, 0, true);
+    expect(made.refusals).toEqual([JOINED]);
+    expect(install.standings.mayHave(JOINED)).toBe(false);
   });
 });

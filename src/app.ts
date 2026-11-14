@@ -1,4 +1,4 @@
-import { Events, type Client, type Guild, type Interaction } from 'discord.js';
+import { Events, REST, type Client, type Guild, type Interaction } from 'discord.js';
 import { sql } from 'kysely';
 import type { AppContext } from './app-context.js';
 import {
@@ -52,7 +52,11 @@ import { DiscordDmGateway } from './discord/dm-gateway.js';
 import { attachGatewayHandlers, catchUpOnReturn, GatewayWatch } from './discord/gateway-events.js';
 import { ShardReadiness } from './discord/shard-readiness.js';
 import { DiscordMemberDirectory } from './discord/member-directory.js';
-import { managementRoleIdsOf, serverStaffShareData } from './discord/guards.js';
+import {
+  isInstanceOperatorOf,
+  managementRoleIdsOf,
+  serverStaffShareData,
+} from './discord/guards.js';
 import { DiscordRegionStaff } from './discord/web-staff.js';
 import { DiscordWebMembers } from './discord/web-members.js';
 import { MAP_WRITES_PER_MINUTE } from './web/acting.js';
@@ -67,6 +71,11 @@ import { DiscordPartyGateway } from './discord/party-gateway.js';
 import { syncGuilds } from './discord/guild-sync.js';
 import { ServerSettings } from './services/server-settings.js';
 import { ServerStandings } from './services/server-standings.js';
+import { ServerAdmission } from './services/server-admission.js';
+import { ServerAdoption } from './services/server-adoption.js';
+import { DiscordServerExits } from './discord/server-exits.js';
+import { wireServerAdmission } from './discord/server-admission-wiring.js';
+import { botIsPublic } from './discord/application-public.js';
 import { ServerFill } from './services/server-fill.js';
 import { noticeSender, ServerNotices } from './services/server-notices.js';
 import { serverNamesOf } from './discord/server-names.js';
@@ -463,6 +472,19 @@ export async function startApp(
     log,
     notices: serverNotices,
     recordedForum: async (serverId) => (await eventForumRecords.forum(serverId))?.forumId,
+  });
+  // Who is in (plan 19C-1): a server that may not have this Pine is told so in its system channel
+  // and left, on joining and at every ready; a server Pine was in that no shard names any more is
+  // marked left. In rehearsal mode a refusal is only logged.
+  const serverExits = new DiscordServerExits();
+  const admission = new ServerAdmission({
+    standings,
+    exits: rehearsal ? undefined : serverExits,
+    recorded: () => guilds.snowflakes(),
+    // A new install's adoption (plan 19C-1, J1), made just before the login once it is known
+    // whether the application is public; asked only once the client is there.
+    undecided: (serverId) => serverAdoption.undecided(serverId),
+    log,
   });
   const regionRepository = new RegionRepository(db);
   const regions = new RegionDirectory({ regions: regionRepository, log });
@@ -1507,6 +1529,28 @@ export async function startApp(
     await db.destroy();
     throw err;
   }
+  // A new install keeps the servers it is in (plan 19C-1, J1; `ServerAdoption`): read before the
+  // login whether its application is public, only while nothing was ever recorded (one request
+  // at a new install's first starts, none afterwards).
+  const publicBot = standings.adopting
+    ? await botIsPublic(new REST().setToken(config.env.DISCORD_TOKEN), log)
+    : undefined;
+  const serverAdoption = new ServerAdoption({
+    standings,
+    publicBot,
+    ownerOf: (serverId) => {
+      const guild = liveClient?.guilds.cache.get(serverId);
+      return guild?.available === true ? guild.ownerId : undefined;
+    },
+    nameOf: (serverId) => liveClient?.guilds.cache.get(serverId)?.name,
+    mayOwn: (userId) => isInstanceOperatorOf(userId, ctx),
+    ownerId: config.env.OWNER_ID,
+    dms,
+    refuse: (serverId) => {
+      admission.refuse(serverId);
+    },
+    log,
+  });
   const { client, features } = await loginWithFallback(requested, {
     token: config.env.DISCORD_TOKEN,
     log,
@@ -1543,10 +1587,11 @@ export async function startApp(
       members.use(client);
       roleGateway.use(client);
       dmGateway.use(client);
+      serverExits.use(client);
       // The work per server at each shard's ready (plan 19D, `shardStartWork`): the servers
       // recorded, and at the shard's first ready meetup safety's warnings and the spawns that
       // stood through the restart; at `ClientReady`, the servers that added the bot meanwhile
-      // without an event. Plan C's checks of who is in go to `onEveryShardReady`.
+      // without an event. Who is in is checked once every shard is ready (plan 19C-1).
       const startWork = shardStartWork({
         syncServers: (servers) => syncGuilds(guilds, servers, log),
         // Where meetup safety cannot work: once per server, in the log of the start.
@@ -1563,6 +1608,10 @@ export async function startApp(
           ...client.guilds.cache.filter((guild) => guild.shardId === shard).keys(),
         ],
       }).attach(client);
+      // Who is in (plan 19C-1): a new install's adoption, then the check once every shard is
+      // ready, by the servers present by the shards, never the cache; before `wireServerStart`,
+      // whose listeners ask `admits` in the same events.
+      wireServerAdmission(client, { shards, adoption: serverAdoption, admission });
       // The client's once: after the last shard's first ready.
       client.once(Events.ClientReady, (ready) => {
         log.info(
@@ -1595,9 +1644,16 @@ export async function startApp(
           if (config.settings.ocr.enabled) void ocrAssets.ensure();
         },
         route: (interaction) => router.handle(interaction),
+        // A server that may not have this Pine: nothing of it begun, refused on joining.
+        admits: (serverId) => admission.admits(serverId),
+        refuse: (serverId) => {
+          admission.refuse(serverId);
+        },
         log,
       });
       client.on(Events.GuildCreate, (guild) => {
+        // Refused by `wireServerStart` (plan 19C-1): no `Guild` row.
+        if (!admission.admits(guild.id)) return;
         guilds
           .ensure(guild.id)
           .catch((err: unknown) => log.error({ err, guild: guild.id }, 'could not record guild'));

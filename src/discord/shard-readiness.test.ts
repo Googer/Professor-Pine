@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import { Events, type Client } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import { createTestLogger } from '../../test/support/test-logger.js';
-import { ShardReadiness, type ShardStart } from './shard-readiness.js';
+import { ShardReadiness, type EveryShardReady, type ShardStart } from './shard-readiness.js';
 
 const SERVER_A = '100000000000000001';
 const SERVER_B = '100000000000000002';
@@ -16,6 +16,7 @@ function readiness(count: number, servers: Record<number, string[]> = {}) {
     Array.from({ length: count }, (_, id) => [id, servers[id] ?? []]),
   );
   const started: ShardStart[] = [];
+  const told: EveryShardReady[] = [];
   let everyReady = 0;
   const watch = new ShardReadiness({
     log,
@@ -26,8 +27,9 @@ function readiness(count: number, servers: Record<number, string[]> = {}) {
     .onShardReady((start) => {
       started.push(start);
     })
-    .onEveryShardReady(() => {
+    .onEveryShardReady((every) => {
       everyReady += 1;
+      told.push(every);
     });
   return {
     watch,
@@ -35,6 +37,15 @@ function readiness(count: number, servers: Record<number, string[]> = {}) {
     shards,
     started,
     everyReady: () => everyReady,
+    /** What the last every-shard-ready said: the servers present. */
+    present: () => [...(told.at(-1)?.present ?? [])].sort(),
+    /** What the last every-shard-ready said. */
+    told: () => told.at(-1),
+    /** The client's ready, after the last shard's first. */
+    clientReady: () => client.emit(Events.ClientReady, {}),
+    /** A server that adds the bot (`GuildCreate`) or removes it (`GuildDelete`), on its shard. */
+    created: (id: string, shardId: number) => client.emit(Events.GuildCreate, { id, shardId }),
+    deleted: (id: string, shardId: number) => client.emit(Events.GuildDelete, { id, shardId }),
     /** The shard's ready; with `inReady`, its READY packet first (`Events.Raw`), as discord.js. */
     ready: (shard: number, unavailable?: Set<string>, inReady?: string[]) => {
       if (inReady) {
@@ -183,6 +194,55 @@ describe('ShardReadiness (plan 19D)', () => {
     expect(made.everyReady()).toBe(1);
     made.resume(0);
     expect(made.everyReady()).toBe(2);
+  });
+
+  it('says which servers are present: each shard’s at its last ready, those gone left out, joins and removals since followed (plan 19C-1)', () => {
+    const made = readiness(2, { 0: [SERVER_A, SERVER_B], 1: [SERVER_C] });
+    made.ready(0, new Set([SERVER_B]), [SERVER_A, SERVER_B]);
+    made.ready(1, undefined, [SERVER_C]);
+    // An unavailable server is present.
+    expect(made.present()).toEqual([SERVER_A, SERVER_B, SERVER_C]);
+    const SERVER_D = '100000000000000004';
+    made.created(SERVER_D, 1);
+    made.deleted(SERVER_C, 1);
+    // B removed the bot while shard 0 was away: the cache keeps it, the READY no longer names it.
+    made.reconnecting(0);
+    made.ready(0, undefined, [SERVER_A]);
+    expect(made.everyReady()).toBe(2);
+    expect(made.present()).toEqual([SERVER_A, SERVER_D]);
+    // A new session of shard 1 reads its servers anew.
+    made.shards.set(1, [SERVER_C]);
+    made.reconnecting(1);
+    made.ready(1, undefined, [SERVER_C]);
+    expect(made.present()).toEqual([SERVER_A, SERVER_C]);
+  });
+
+  it('answers live whether a server is present, after what was said (plan 19C-1, J2)', () => {
+    const made = readiness(1, { 0: [SERVER_A] });
+    made.ready(0, undefined, [SERVER_A]);
+    const every = made.told();
+    expect(every?.isPresent(SERVER_A)).toBe(true);
+    expect(every?.isPresent(SERVER_B)).toBe(false);
+    // Joins and removals after the ready, asked of what was said then.
+    made.created(SERVER_B, 0);
+    made.deleted(SERVER_A, 0);
+    expect(every?.isPresent(SERVER_B)).toBe(true);
+    expect(every?.isPresent(SERVER_A)).toBe(false);
+    expect(made.watch.isPresent(SERVER_B)).toBe(true);
+  });
+
+  it('tells at the client’s ready of the cached servers no shard’s ready covered, and takes them for present (plan 19C-1, J2)', () => {
+    const made = readiness(2, { 0: [SERVER_A], 1: [SERVER_C] });
+    const uncovered: string[][] = [];
+    made.watch.onClientReady(({ uncovered: servers }) => uncovered.push([...servers]));
+    made.ready(0, undefined, [SERVER_A]);
+    // Added on shard 0 while shard 1 still identifies: discord.js says nothing of it.
+    made.shards.set(0, [SERVER_A, SERVER_B]);
+    made.ready(1, undefined, [SERVER_C]);
+    expect(made.present()).toEqual([SERVER_A, SERVER_C]);
+    made.clientReady();
+    expect(uncovered).toEqual([[SERVER_B]]);
+    expect(made.watch.isPresent(SERVER_B)).toBe(true);
   });
 
   it('logs a listener that throws, and tells the others', () => {
