@@ -195,7 +195,7 @@ export class ServerFill {
 
   constructor(
     private readonly options: {
-      servers: Pick<ServerSettings, 'has' | 'of' | 'create' | 'filling'>;
+      servers: Pick<ServerSettings, 'has' | 'of' | 'create' | 'filling' | 'fillsInSetup'>;
       settings: Settings;
       log: Logger;
       /**
@@ -264,6 +264,8 @@ export class ServerFill {
     const { servers, settings, log } = this.options;
     try {
       const setUp = how === 'present' && this.options.recorded(names.serverId);
+      // In setup from the first try (plan 19C-2): not set up meanwhile on the defaults.
+      if (!setUp) servers.fillsInSetup(names.serverId);
       const { values, unmatched, closed, several } = filledValues(
         settings,
         names,

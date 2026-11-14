@@ -658,6 +658,12 @@ export interface ForumSetup {
   /** Whether a new summary post was made. */
   summary: boolean;
   /**
+   * Set where the region's server is quiet (plan 19C-2: in setup): the forum is made and recorded,
+   * and its board is neither posted nor looked at until the server is set up (`checkSummaries`
+   * makes it then).
+   */
+  boardWaits?: true;
+  /**
    * Set when a new summary post, or one that stood unpinned (review W3), could not be pinned:
    * `refused` where the bot lacks Manage Posts in the forum, `failed` for anything else (logged).
    * It is made and kept all the same.
@@ -4819,6 +4825,23 @@ export class PartyService {
     }
     const renamed = forum === 'ready' && (await this.renameForum(region));
     const posting = await this.reservePosts(region);
+    // A quiet server (plan 19C-2: one in setup) has nothing posted: its board is made once it is
+    // set up (`serverSetUpWork`'s summaries).
+    if (this.quietRow(region.guildId)) {
+      return {
+        region: regions.byId(before.id) ?? region,
+        forum,
+        tagsAdded,
+        ...(tagsRemoved > 0 ? { tagsRemoved } : {}),
+        ...(tagsMissing.length > 0 ? { tagsMissing } : {}),
+        summary: false,
+        boardWaits: true,
+        ...(renamed ? { renamed } : {}),
+        ...(posting === undefined ? {} : { posting }),
+        ...(hiding === undefined ? {} : { hidden: hiding }),
+        ...(refused === undefined ? {} : { refused }),
+      };
+    }
     const { made: summary, unpinned, closed } = await this.summaryMade(region);
     const after = regions.byId(before.id) ?? region;
     return {

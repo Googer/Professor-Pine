@@ -7,7 +7,12 @@ import {
 import { describe, expect, it } from 'vitest';
 import { FakePartyGateway, missingPermissions } from '../../../test/support/fake-gateway.js';
 import { watchEachTest } from '../../../test/support/timers.js';
-import { fakeChatInput, sent } from '../../../test/support/fake-interactions.js';
+import {
+  FAKE_GUILD_ID,
+  fakeChatInput,
+  sent,
+  type FakeOptions,
+} from '../../../test/support/fake-interactions.js';
 import {
   EAST_CHANNEL,
   EAST_FORUM,
@@ -29,9 +34,12 @@ import { MemoryEventForums } from '../../../test/support/event-forum-store.js';
 import { admin } from './index.js';
 import {
   TEST_SERVER_CHANNELS,
-  type TestServers,
+  TestServers,
   testServerValues,
 } from '../../../test/support/server-values.js';
+
+/** The server's Discord owner, who has no staff role. */
+const SERVER_OWNER = '700000000000000007';
 
 /** The server's bot-updates channel, beside which the events forum is made (plan 8V-1). */
 const BOT_UPDATES = '500000000000000010';
@@ -47,12 +55,19 @@ function chooseForum(servers: TestServers, forumId: string): void {
 async function setup(
   changed: Partial<Settings> = {},
   rehearsal?: Rehearsal,
-  options: { events?: boolean; feedUnread?: boolean } = {},
+  options: { events?: boolean; feedUnread?: boolean; inSetup?: boolean } = {},
 ) {
+  // A server in setup (plan 19C-2) is quiet, as `quietServers` makes it in the bot.
+  const servers = new TestServers();
+  if (options.inSetup === true) servers.settingUp.add(FAKE_GUILD_ID);
   const made = await partyServiceWith([], {
     settings: { ...loadSettings(TEST_SETTINGS_PATH), ...changed },
     ...(rehearsal ? { rehearsal } : {}),
+    servers,
+    quiet: { isQuiet: (serverId) => servers.inSetup(serverId) },
   });
+  // As the bot's gateway: a quiet server is none of its available ones.
+  if (options.inSetup === true) made.gateway.unavailableServers.add(FAKE_GUILD_ID);
   // The events forum (plan 8V-1); never in rehearsal mode. Beside the server's channel for bot
   // updates (plan 19A-1: by id, in its values).
   const loaded = loadSettings(TEST_SETTINGS_PATH);
@@ -87,11 +102,12 @@ async function setup(
     ...(eventForum ? { eventForum } : {}),
   });
   const router = new InteractionRouter(ctx, [admin], []);
-  const run = async (roleNames: string[] = ['Admin']) => {
+  const run = async (roleNames: string[] = ['Admin'], member: FakeOptions = {}) => {
     const interaction = fakeChatInput({
       commandName: 'admin',
       subcommand: 'setup-forums',
       roleNames,
+      ...member,
     });
     await router.handle(interaction as never);
     return interaction;
@@ -185,6 +201,30 @@ describe('/admin setup-forums', () => {
     // Run again: it is there.
     const again = sent((await run()).editReply).content?.split(NEWLINE) ?? [];
     expect(again.at(-1)).toBe(`Events forum: <#${forumId}> is ready.`);
+  });
+
+  it('makes and records the forums of a server in setup, and says that their posts wait for it to be set up (plan 19C-2)', async () => {
+    const { run, gateway, regions, servers } = await setup({}, undefined, {
+      events: true,
+      inSetup: true,
+    });
+    const lines = sent((await run()).editReply).content?.split(NEWLINE) ?? [];
+    const north = regions.byChannel(UNBOUNDED_CHANNEL)?.forumChannelId ?? '';
+    const events = [...gateway.forums].find(([, forum]) => forum.name === 'events')?.[0] ?? '';
+    // Made and recorded: the region's forum, the server's events forum.
+    expect(north).not.toBe('');
+    expect(servers.of(FAKE_GUILD_ID).channels.events).toBe(events);
+    expect(lines, lines.join(NEWLINE)).toContain(
+      `<#${UNBOUNDED_CHANNEL}>: created <#${north}>, closed it to posts by members. I post ` +
+        'the board once Pine is set up in this server.',
+    );
+    expect(lines.at(-1)).toBe(
+      `Events forum: created <#${events}>, closed it to posts by members. The listing is ` +
+        'posted once Pine is set up in this server.',
+    );
+    // Nothing is posted in them meanwhile, and nothing failed.
+    expect(regions.byChannel(UNBOUNDED_CHANNEL)?.summaryMessageId).toBeNull();
+    expect(lines.join(NEWLINE)).not.toMatch(/posted and pinned|could not|went wrong|see the log/u);
   });
 
   // Review V1: before the events feed is read, the listing waits for it.
@@ -772,13 +812,18 @@ describe('/admin setup-forums', () => {
     expect(sent(again.editReply).content).not.toContain(ORPHAN);
   });
 
-  it('is for staff only', async () => {
-    const { run, gateway } = await setup();
+  it('is for whoever may set the server up: its owner without a staff role too (plan 19C-2)', async () => {
+    const { run, gateway, regions } = await setup();
     const interaction = await run(['Member']);
     expect(sent(interaction.reply).content).toBe(
-      'Only admins, moderators and bot developers can do that.',
+      'Only the server’s owner, members who may manage the server, and its admins, moderators ' +
+        'and bot developers can do that.',
     );
     expect(gateway.calls).toEqual([]);
+    // The server's owner, who has no staff role (a new community's), makes the forums.
+    const owner = await run([], { userId: SERVER_OWNER, guildOwnerId: SERVER_OWNER });
+    const north = regions.byChannel(UNBOUNDED_CHANNEL)?.forumChannelId ?? '';
+    expect(sent(owner.editReply).content).toContain(`<#${UNBOUNDED_CHANNEL}>: created <#${north}>`);
   });
 
   it('is offered only to members who may manage the server', () => {

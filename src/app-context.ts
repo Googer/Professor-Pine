@@ -81,6 +81,7 @@ import type { EventWindows } from './services/event-window-service.js';
 import type { ServerSettingsService } from './services/server-settings.js';
 import type { ServerStandings } from './services/server-standings.js';
 import type { ServerAdmission } from './services/server-admission.js';
+import type { ServerSetup } from './services/server-setup.js';
 import type { LastPartyReader } from './db/repositories/last-party-repository.js';
 
 /** Everything a handler may use. Later phases add services here. */
@@ -101,6 +102,11 @@ export interface AppContext {
    * 19C-1; `ServerAdmission.remove`).
    */
   readonly admission: Pick<ServerAdmission, 'remove'>;
+  /**
+   * A server's setup (plan 19C-2, `servers.md`): what `/admin setup`'s checklist reads, and the
+   * leaving of setup once its required items are done.
+   */
+  readonly setup: Pick<ServerSetup, 'facts' | 'check'>;
   /** When each server's last party was made, from the history (`/operator servers list`). */
   readonly lastParties: LastPartyReader;
   readonly log: Logger;

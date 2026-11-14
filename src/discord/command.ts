@@ -26,8 +26,15 @@ export type GuardableInteraction =
 export type LocatedInteraction =
   GuardableInteraction | AutocompleteInteraction | MessageContextMenuCommandInteraction;
 
-/** A precondition. Throw a UserError to refuse; return normally to allow. */
-export type Guard = (interaction: LocatedInteraction, ctx: AppContext) => void | Promise<void>;
+/**
+ * A precondition. Throw a UserError to refuse; return normally to allow. A guard that decides by
+ * who the member is says whom it lets through in `admits` (plan 19C-2, `guards.ts`'s
+ * `admittedBy`): `/help` lists a staff command, and each part of one, only to whoever they admit.
+ */
+export type Guard = ((interaction: LocatedInteraction, ctx: AppContext) => void | Promise<void>) & {
+  /** Whether it lets this member through where they ask, decided by who they are alone. */
+  readonly admits?: (asker: LocatedInteraction, ctx: AppContext) => boolean;
+};
 
 export interface CommandHelp {
   /** Where `/help` files the command. Categories outside settings.helpGroups are staff-only. */
@@ -382,10 +389,12 @@ export interface ComponentHandler {
   kind: string;
   guards?: readonly Guard[];
   /**
-   * Whether its controls and dialogs work in a server in setup (plan 19C-2): those of the
-   * commands that do (`CommandHandler.worksInSetup`).
+   * Whether a control or dialog of this kind works in a server in setup (plan 19C-2), by its
+   * custom id (fix round 1, S8): those of the commands that do (`CommandHandler.worksInSetup`),
+   * and only those (`/region`'s import questions, not `/region remove`'s dialog). Without it,
+   * none does.
    */
-  worksInSetup?: true;
+  worksInSetup?: (id: CustomId) => boolean;
   /**
    * How often one member may use the controls of this kind, all of them together. A use counts
    * once the guards have let it through. A function, asked after the guards, for a kind some of

@@ -19,7 +19,7 @@ import type { SubcommandPart } from '../../discord/command-group.js';
 import { encodeCustomId, type CustomId } from '../../discord/custom-id.js';
 import { dialog, openToken, withoutOpenToken, TEXT_ROOM } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf, requireBotManagement } from '../../discord/guards.js';
+import { guildIdOf, requireServerAdmin } from '../../discord/guards.js';
 import {
   answer,
   answerPress,
@@ -81,7 +81,7 @@ function instanceOf(ctx: AppContext): Instance {
  * The panel of the interaction's server at `section`, read afresh (Recent changes from the
  * staff's log), with what the press changed.
  */
-async function panelNow(
+export async function panelNow(
   interaction: LocatedInteraction,
   ctx: AppContext,
   section: SectionName,
@@ -587,17 +587,17 @@ function submitted(
 }
 
 /**
- * The controls of `/admin settings` (plan 19A-1): for the people `/admin` is for
- * (`requireBotManagement`, asked again at every press: a command's guards do not cover its
- * controls), every press counted in one window (`MEMBER_WRITE_THROTTLE`). Each press changes
+ * The controls of `/admin settings` (plan 19A-1): for the people who may set the server up
+ * (`requireServerAdmin`, plan 19C-2; asked again at every press: a command's guards do not cover
+ * its controls), every press counted in one window (`MEMBER_WRITE_THROTTLE`). Each press changes
  * through `ServerSettings.set` (written first, logged with who and when) and shows the panel
  * again in place at the section of what it changed, saying what changed, or why not.
  */
 export const serverSettingsControls: ComponentHandler = {
   kind: SERVER_KIND,
   // The panel works in a server in setup (plan 19C-2): its checklist sends staff here.
-  worksInSetup: true,
-  guards: [requireBotManagement],
+  worksInSetup: () => true,
+  guards: [requireServerAdmin],
   throttle: () => MEMBER_WRITE_THROTTLE,
   async button(interaction, id, ctx) {
     const serverId = guildIdOf(interaction);
@@ -647,11 +647,12 @@ export const serverSettingsControls: ComponentHandler = {
 
 /**
  * `/admin settings` (plan 19A-1, `servers.md`): the server's settings, which the settings file
- * held before 2.1, as one private panel that changes in place, in sections; for the people
- * `/admin` is for. Opens on the channels.
+ * held before 2.1, as one private panel that changes in place, in sections; for the people who
+ * may set the server up (`requireServerAdmin`, plan 19C-2). Opens on the channels.
  */
 export const serverSettings: SubcommandPart = {
   worksInSetup: true,
+  // Its guard is `/admin`'s list's (`staffParts`): a setup part.
   data: new SlashCommandSubcommandBuilder()
     .setName('settings')
     .setDescription('See and change this server’s settings: channels, roles, features'),

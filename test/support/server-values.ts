@@ -212,6 +212,28 @@ export class TestServers implements ServerSettingsService {
     return this.has(serverId) && this.setUpAt(serverId) === null;
   }
 
+  serversInSetup(): string[] {
+    return [...this.settingUp].filter((serverId) => this.has(serverId)).sort();
+  }
+
+  /** The servers set up by `markSetUp`, in order. */
+  readonly markedSetUp: string[] = [];
+  /** While set, `markSetUp` rejects with it. */
+  markFailing: Error | undefined;
+
+  /**
+   * As the real one: once, only for a server in setup whose values `done` says are done; then set
+   * up at `now()`.
+   */
+  markSetUp(serverId: string, done: (values: ServerValues) => boolean): Promise<boolean> {
+    if (this.markFailing) return Promise.reject(this.markFailing);
+    if (!this.inSetup(serverId) || !done(this.of(serverId))) return Promise.resolve(false);
+    this.settingUp.delete(serverId);
+    this.setUp.set(serverId, this.now());
+    this.markedSetUp.push(serverId);
+    return Promise.resolve(true);
+  }
+
   async set(
     serverId: string,
     change: (values: ServerValues) => ServerValues,

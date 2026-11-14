@@ -72,6 +72,7 @@ import { syncGuilds } from './discord/guild-sync.js';
 import { ServerSettings } from './services/server-settings.js';
 import { ServerStandings } from './services/server-standings.js';
 import { quietServers } from './services/quiet-servers.js';
+import { ServerSetup, setupCounts } from './services/server-setup.js';
 import { ServerAdmission } from './services/server-admission.js';
 import { ServerAdoption } from './services/server-adoption.js';
 import { DiscordServerExits } from './discord/server-exits.js';
@@ -1375,6 +1376,24 @@ export async function startApp(
     heldReports: reports,
     log,
   });
+  // A server's setup (plan 19C-2): what /admin setup reads, and the leaving of setup once its
+  // required items are done, its bot lab told so (only where Pine may post there); then what was
+  // held for it begins: the zones in use (with it now), its summaries, the events forums and the
+  // posts of the stops.
+  const serverSetup = new ServerSetup({
+    servers,
+    counts: setupCounts({ guilds, regions, gyms }),
+    send: (channelId, text) => noticeSender(partyGateway)(channelId, text),
+    setUp: () => {
+      servers.presenceChanged();
+      void partyService.checkSummaries().catch((err: unknown) => {
+        log.warn({ err }, 'could not make the summaries of a server set up');
+      });
+      eventForum?.zonesChanged();
+      stopPosts?.zonesChanged();
+    },
+    log,
+  });
   const ctx: AppContext = {
     throttles,
     memberRemoval,
@@ -1382,6 +1401,7 @@ export async function startApp(
     servers,
     standings,
     admission,
+    setup: serverSetup,
     lastParties: new LastPartyRepository(db),
     log,
     db,
@@ -1896,6 +1916,14 @@ export async function startApp(
   // The want counts (plan 8H-3), once the game data reads the forms of the wants.
   void connected.then(() => {
     wantCounts.start();
+  });
+  // A server leaves setup once its required items are done (plan 19C-2), whatever did the last:
+  // a change of its settings, a region saved or imported; and at the start, for one whose items
+  // were done meanwhile. From the start on: the first load of the regions comes before it.
+  void connected.then(() => {
+    servers.onChange((serverId) => void serverSetup.check(serverId));
+    regions.whenOutlinesChanged(() => void serverSetup.checkAll());
+    void serverSetup.checkAll();
   });
   // A server's zone changed (plan 19A-2): its summaries and active posts drawn anew on the new
   // clock, the events forums and the posts of the stops too, and every midnight timer following

@@ -364,6 +364,45 @@ describe('the fill: rows for servers that have none', () => {
       expect(vi.getTimerCount()).toBe(0);
     });
 
+    it('keeps a server that joined in setup while its row waits to be written, and one recorded not (plan 19C-2)', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const JOINED = '412345678901234599';
+      const joining = { ...pittsburgh, serverId: JOINED };
+      const { servers, fill, store } = await fillWith([], fileSettings, {
+        recorded: (serverId) => serverId === SERVER,
+      });
+      store.failing.set('create', new Error('database away'));
+      fill.begin(joining, 'joined');
+      await fillPresent(fill, [pittsburgh]);
+      await fill.whenFilled(JOINED);
+      // No row of either yet: the one that joined is in setup, the recorded one is not.
+      expect([servers.has(JOINED), servers.has(SERVER)]).toEqual([false, false]);
+      expect(servers.inSetup(JOINED)).toBe(true);
+      expect(servers.serversInSetup()).toEqual([JOINED]);
+      expect(servers.inSetup(SERVER)).toBe(false);
+      // The next try writes its row, in setup as it was.
+      store.failing.delete('create');
+      await vi.advanceTimersToNextTimerAsync();
+      await fill.whenFilled(JOINED);
+      expect(servers.has(JOINED)).toBe(true);
+      expect(servers.inSetup(JOINED)).toBe(true);
+      expect(servers.inSetup(SERVER)).toBe(false);
+    });
+
+    it('keeps a server that joined in setup after its fill gives up (plan 19C-2)', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const { servers, fill, store } = await fillWith();
+      store.failing.set('create', new Error('database away'));
+      fill.begin(pittsburgh, 'joined');
+      await fill.whenFilled(SERVER);
+      while (vi.getTimerCount() > 0) {
+        await vi.advanceTimersToNextTimerAsync();
+        await fill.whenFilled(SERVER);
+      }
+      expect(servers.has(SERVER)).toBe(false);
+      expect(servers.inSetup(SERVER)).toBe(true);
+    });
+
     it('tries again after a name reader that throws, and never rejects (fix round 3, H5)', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       const { servers, fill, entries } = await fillWith();

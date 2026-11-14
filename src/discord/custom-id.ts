@@ -80,6 +80,10 @@
  * `server:<key>:unset:confirm` (which writes) and `server:<key>:keep` (Keep it closed). The server
  * is the interaction's.
  *
+ * The controls of `/admin setup`'s checklist have the kind `setup` (`src/commands/admin/setup.ts`,
+ * plan 19C-2): `setup:<item>:show` (`setup:bot-lab:show`: the settings panel at the section the
+ * item is set in, apart) and `setup:list:show` (Check again). The server is the interaction's.
+ *
  * The controls about a screenshot have the kind `shot` (`src/commands/screenshots/shot-kind.ts`).
  * With the id of a kept screenshot (twelve URL-safe characters): `shot:<id>:right`,
  * `shot:<id>:wrong` (which opens the form `shot:<id>:form`) and `shot:<id>:show`. With the token

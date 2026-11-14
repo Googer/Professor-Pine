@@ -78,8 +78,9 @@ const partsGuard: Guard = (interaction, ctx) =>
  */
 export const regionControls: ComponentHandler = {
   kind: REGION_KIND,
-  // The import's questions, also in a server in setup (plan 19C-2).
-  worksInSetup: true,
+  // The import's questions, also in a server in setup (plan 19C-2); nothing else of `/region`
+  // (fix round 1, S8: not `/region remove`'s dialog; fix round 3, R2-3: nor whatever is added).
+  worksInSetup: (id) => isImportAction(id.action),
   guards: [partsGuard],
 
   async button(interaction, id, ctx) {

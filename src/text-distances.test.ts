@@ -19,7 +19,10 @@ const UNIT = /\b(?:met(?:er|re)s?|kilomet(?:er|re)s?)\b|\d\s?k?m\b/iu;
 
 /** Texts that are no distance said to anybody, by file (from `src/`) and exact text. */
 const ALLOWED: Record<string, { texts: string[]; why: string }> = {
-  'render/distance-words.ts': { texts: [' m', ' km'], why: 'the one wording itself' },
+  'render/distance-words.ts': {
+    texts: [' m', ' km', 'meters and kilometers'],
+    why: 'the one wording itself, and the units named (`unitsWords`)',
+  },
   'render/wayfarer-report.ts': {
     texts: ['gym,name,what,wayspot,title,kind,metres,cell,region'],
     why: "the columns of the Wayfarer report's CSV file, a file format (CLAUDE.md)",

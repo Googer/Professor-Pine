@@ -30,12 +30,15 @@ import {
   type SimpleCommand,
 } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
+import { requireServerAdmin } from '../../discord/guards.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
 import { MEMBER_READ_THROTTLE } from '../../discord/throttle.js';
 import { meet } from '../parties/meet.js';
 import { end } from '../raids/change.js';
 import { operator } from '../operator/index.js';
+import { admin as adminCommand } from '../admin/index.js';
+import { region as regionCommand } from '../regions/index.js';
 import { instanceConfig, OPERATOR_ID } from '../../../test/support/operators.js';
 import { help, helpControls } from './help.js';
 import { TestServers, withFeatures } from '../../../test/support/server-values.js';
@@ -128,6 +131,8 @@ describe('/help: a server in setup', () => {
   const settingsPart = {
     data: sub('settings'),
     worksInSetup: true as const,
+    // As the real one: for whoever may set the server up (`staffParts`).
+    guards: [requireServerAdmin],
     execute: noop,
   };
   const admin = commandGroup({
@@ -168,6 +173,92 @@ describe('/help: a server in setup', () => {
     const manager = { guildId: NEW, permissions: PermissionFlagsBits.ManageGuild };
     expect(await choices('admin', manager, context)).toEqual(['admin', 'admin settings']);
     expect(await choices('admin', { guildId: NEW }, context)).toEqual([]);
+  });
+});
+
+// Plan 19C-2 (C3): a staff command, and each part of one, is listed to a member only where its
+// guards let them through; the server's owner without a staff role sees what sets the server up.
+describe('/help: staff commands by their guards', () => {
+  const context = createTestContext({
+    commands: [help, route, gym, adminCommand, regionCommand],
+  }).ctx;
+  const OWNER_OF_SERVER = {
+    userId: '700000000000000050',
+    guildOwnerId: '700000000000000050',
+  };
+  const MANAGER = { permissions: PermissionFlagsBits.ManageGuild };
+  const SETTING_UP = [
+    'admin',
+    'admin settings',
+    'admin setup',
+    'admin setup-forums',
+    'region',
+    'region edit',
+    'region import',
+  ];
+
+  it('lists to the server’s owner and who may manage it only the parts that set the server up', async () => {
+    for (const member of [OWNER_OF_SERVER, MANAGER]) {
+      const offered = [
+        ...(await choices('admin', member, context)),
+        ...(await choices('region', member, context)),
+      ];
+      expect(offered).toEqual(SETTING_UP);
+      // A staff command none of whose parts they pass is as one that does not exist.
+      expect(await choices('gym', member, context)).toEqual([]);
+      await expect(ask({ ...member, options: { command: 'gym' } }, context)).rejects.toThrow(
+        'There is no /gym command.',
+      );
+      await expect(
+        ask({ ...member, options: { command: 'admin tutorial' } }, context),
+      ).rejects.toThrow('There is no /admin tutorial command.');
+      const page = JSON.stringify(
+        textDisplays(await ask({ ...member, options: { command: 'region' } }, context)),
+      );
+      expect(page).toContain('import');
+      expect(page).not.toContain('remove');
+    }
+  });
+
+  it('lists every part to staff by role, and none to a member', async () => {
+    const offered = await choices('admin', MODERATOR, context);
+    expect(offered).toEqual(expect.arrayContaining([...SETTING_UP.slice(0, 4), 'admin tutorial']));
+    expect(await choices('region', MODERATOR, context)).toContain('region remove');
+    expect(await choices('gym', MODERATOR, context)).toContain('gym');
+    for (const name of ['admin', 'region', 'gym']) {
+      expect(await choices(name, { roleNames: ['Raider'] }, context)).toEqual([]);
+    }
+  });
+});
+
+// Fix round 3 (R2-2): a staff group is shown only to whoever may read about a staff command; a
+// member command also listed in a staff category does not bring the group to a member.
+describe('/help: a member command also in a staff group', () => {
+  const poke: SimpleCommand = {
+    data: new SlashCommandBuilder().setName('poke').setDescription('Poke the bot'),
+    help: { category: 'util', alsoIn: ['admin'] },
+    execute: noop,
+  };
+  const context = createTestContext({ commands: [help, poke, gym] }).ctx;
+  const router = new InteractionRouter(context, [help], [helpControls]);
+
+  it('shows the staff group neither in the overview nor in its menu to a member', async () => {
+    const overview = await ask({}, context);
+    expect(groupsOf(overview)).toEqual(['Utility']);
+    expect(selectsOf(overview)[0]?.options.map((option) => option.value)).toEqual(['util']);
+    const i = fakeSelect({
+      customId: 'help:overview:group',
+      values: ['admin'],
+      ephemeralMessage: true,
+    });
+    await router.handle(i as never);
+    expect(sent(i.reply).content).toBe('There is no such group of commands.');
+  });
+
+  it('shows it to staff, with the member command in it', async () => {
+    const overview = await ask(MODERATOR, context);
+    expect(groupsOf(overview)).toEqual(['Utility', 'Administration']);
+    expect(textDisplays(overview)).toContain('**Administration**\n`/gym` · `/poke`');
   });
 });
 

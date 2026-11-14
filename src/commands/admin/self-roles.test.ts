@@ -88,6 +88,7 @@ describe('/admin self-roles', () => {
       ).filter((path) => !/^nickname |^member-settings$|^cleanup-legacy$|^tutorial$/.test(path));
     const values = testServerValues();
     expect(paths(values)).toEqual([
+      'setup',
       'settings',
       'setup-forums',
       'save-party',
@@ -98,7 +99,7 @@ describe('/admin self-roles', () => {
       'self-roles ungroup',
     ]);
     const off = { ...values, features: { ...values.features, roles: false } };
-    expect(paths(off)).toEqual(['settings', 'setup-forums', 'save-party']);
+    expect(paths(off)).toEqual(['setup', 'settings', 'setup-forums', 'save-party']);
   });
 
   it('is for staff, and answers privately', async () => {

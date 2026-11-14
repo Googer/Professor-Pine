@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distanceWords } from './distance-words.js';
+import { distanceWords, unitsWords } from './distance-words.js';
 
 /** Feet in meters. */
 const ft = (feet: number) => feet / 3.280_839_9;
@@ -27,5 +27,10 @@ describe('distanceWords (task 7: one wording by settings.distanceUnits)', () => 
     expect(distanceWords(995, 'metric')).toBe('1.0 km');
     expect(distanceWords(1_000, 'metric')).toBe('1.0 km');
     expect(distanceWords(12_345, 'metric')).toBe('12.3 km');
+  });
+
+  it('names the units themselves', () => {
+    expect(unitsWords('imperial')).toBe('feet and miles');
+    expect(unitsWords('metric')).toBe('meters and kilometers');
   });
 });

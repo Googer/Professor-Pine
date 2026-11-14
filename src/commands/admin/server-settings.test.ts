@@ -31,6 +31,7 @@ import { TEST_SETTINGS_PATH } from '../../../test/support/test-settings.js';
 import type { ServerValues } from '../../config/server-settings.js';
 import { loadSettings } from '../../config/settings.js';
 import { isSnowflake } from '../../db/snowflake.js';
+import { SERVER_ADMIN_ONLY } from '../../discord/guards.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
 import { ServerSettings } from '../../services/server-settings.js';
@@ -244,14 +245,12 @@ describe('/admin settings', () => {
     expect(menu(panel, 'server:channels.events:set').channel_types).toEqual([15]);
   });
 
-  it('is refused to a member who is not staff, and so is a press of its controls', async () => {
+  it('is refused to a member who may not set the server up, and so is a press of its controls', async () => {
     const { open, pick, servers } = await setup();
     const used = await open(MEMBER);
-    expect(answered(used).content).toBe('Only admins, moderators and bot developers can do that.');
+    expect(answered(used).content).toBe(SERVER_ADMIN_ONLY);
     const picked = await pick('server:channels.moderation:set', [MODERATORS], MEMBER);
-    expect(answered(picked).content).toBe(
-      'Only admins, moderators and bot developers can do that.',
-    );
+    expect(answered(picked).content).toBe(SERVER_ADMIN_ONLY);
     expect(servers.of(FAKE_GUILD_ID).channels.moderation).toBeUndefined();
   });
 
@@ -559,6 +558,22 @@ describe('/admin settings', () => {
     expect(shown).not.toContain('auto-assigned role');
     await allowed.press('server:passiveReading:set:off');
     expect(allowed.servers.of(FAKE_GUILD_ID).passiveReading).toBe(false);
+  });
+
+  it('says the time zone is not chosen while the instance’s stands in (plan 19C-2, S9)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: NOW });
+    const { pick, press, submit } = await setup({
+      values: testServerValues({ timezone: undefined }),
+    });
+    const shown = shownAfter(await pick('server:panel:show', ['text']));
+    expect(textOf(shown)).toContain(
+      '**Time zone** · not chosen: `America/New_York` meanwhile; it is 10:00 AM, Thursday, ' +
+        'November 12 there now',
+    );
+    const form = shownDialog(await press('server:timezone:ask'));
+    const set = await submit(form, { zone: 'America/New_York' });
+    // Chosen, the same zone as the instance's: chosen all the same.
+    expect(textOf(shownAfter(set))).toContain('**Time zone** · `America/New_York`: it is 10:00 AM');
   });
 
   it('sets the time zone in a dialog, canonical, refusing a name it does not know (plan 19A-2)', async () => {

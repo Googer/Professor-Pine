@@ -9,6 +9,7 @@ import {
   type LocatedInteraction,
   type SubcommandHandler,
 } from './command.js';
+import { admittedBy } from './guards.js';
 
 /**
  * Commands that a server must set up (plan 19A-1, `servers.md`): a command or a subcommand whose
@@ -111,6 +112,31 @@ export function commandsSeenBy(
     if (command.seenBy !== undefined && !command.seenBy(asker, ctx)) return [];
     if (command.subcommands === undefined) return [command];
     return keptOf(command, (handler) => handler.seenBy?.(asker, ctx) ?? true);
+  });
+}
+
+/**
+ * The commands the member who asks may read about by their guards (plan 19C-2, C3): a staff
+ * command (`isStaff`, `/help`'s rule) only where its guards admit them, and of a command of
+ * subcommands only the parts whose guards (the command's, then the part's own) do, in its
+ * definition and among its handlers alike (`admittedBy`: the guards that decide by the member;
+ * staff by role where none does). Any other command as it is: its guards keep it all the same.
+ */
+export function commandsAdmitting(
+  commands: readonly CommandModule[],
+  asker: LocatedInteraction,
+  ctx: AppContext,
+  isStaff: (command: CommandModule) => boolean,
+): CommandModule[] {
+  return commands.flatMap((command): CommandModule[] => {
+    if (!isStaff(command)) return [command];
+    const outer = command.guards ?? [];
+    if (command.subcommands === undefined) {
+      return admittedBy(outer, asker, ctx) ? [command] : [];
+    }
+    return keptOf(command, (handler) =>
+      admittedBy([...outer, ...(handler.guards ?? [])], asker, ctx),
+    );
   });
 }
 

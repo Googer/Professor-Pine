@@ -170,13 +170,17 @@ export type EventsForumSetup =
        * name one (`rolesWithoutReplies`, branch review BR-7).
        */
       replies: string[];
-      /** The listing "Events": made now, standing, not made, or waiting for the feed. */
-      listing: ListingOutcome;
+      /**
+       * The listing "Events": made now, standing, not made, or waiting for the feed, or for the
+       * server to be set up (`setup`, plan 19C-2).
+       */
+      listing: ListingOutcome | 'setup';
     };
 
 /**
  * What a draw did to a server's listing: made now, standing, not made (the log says why), or
- * waiting for the events feed (`listingKnown`, review V1).
+ * waiting for the events feed (`listingKnown`, review V1); for `setup`, also waiting for the
+ * server to be set up (plan 19C-2: nothing is drawn for a server in setup).
  */
 type ListingOutcome = 'made' | 'ready' | 'failed' | 'waiting';
 
@@ -546,6 +550,19 @@ export class EventForumService {
     const replies =
       (await gateway.rolesWithoutReplies(forumId, memberRole === undefined ? [] : [memberRole])) ??
       [];
+    // A server in setup (plan 19C-2) has nothing drawn: its listing and posts come once it is
+    // set up (`serverSetUpWork` draws every forum again).
+    if (servers.inSetup(guildId)) {
+      return {
+        forum: created ? 'created' : 'ready',
+        name,
+        forumId,
+        posting,
+        managing,
+        replies,
+        listing: 'setup',
+      };
+    }
     // Drawn now, through the one line of draws (two at once could make two listings): what it
     // did to the listing is in the answer.
     this.outcomes.delete(guildId);

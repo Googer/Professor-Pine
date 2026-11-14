@@ -79,11 +79,19 @@ export interface ServerSettingsService extends ServerSettingsLookup {
   /** When the server finished its setup; null when not (yet), or without a row. */
   setUpAt(serverId: string): number | null;
   /**
-   * Whether the server is in setup (plan 19C-2): it has its row, and the row has no `setUpAt`. The
-   * one test of it: the router's gate, the web's and the places that do nothing for a quiet server
-   * ask it. A server without a row (its fill under way, retrying or given up) is not.
+   * Whether the server is in setup (plan 19C-2): its row has no `setUpAt`. Without a row (its fill
+   * under way, retrying or given up), where its fill writes it in setup (`fillsInSetup`: a server
+   * that joined); one whose fill writes it set up is not. The one test of it: the router's gate,
+   * the web's and the places that do nothing for a quiet server ask it.
    */
   inSetup(serverId: string): boolean;
+  /** The servers in setup, by id (plan 19C-2). */
+  serversInSetup(): string[];
+  /**
+   * Records that a server in setup finished it (plan 19C-2), where `done` says so of its values
+   * as they are in its turn (fix round 1, S4): written first, then kept; whether this call did.
+   */
+  markSetUp(serverId: string, done: (values: ServerValues) => boolean): Promise<boolean>;
   /**
    * Changes a server's values: `change` gets them as they are (after every change asked before
    * it) and gives them changed. Checked (`ServerValuesError` for a value that is not valid,
@@ -151,8 +159,16 @@ export class ServerSettings implements ServerSettingsService {
   private readonly turns = new Map<string, Promise<unknown>>();
   /** The fills under way (`ServerFill`, `filling`): a change asked meanwhile waits for its server's. */
   private readonly fills = new Map<string, Promise<void>>();
+  /**
+   * The servers without a row whose fill writes them in setup (`fillsInSetup`, plan 19C-2): in
+   * setup while it is under way, waits to be tried again, or gave up. One each, dropped once the
+   * row is kept: bounded small by nature.
+   */
+  private readonly rowless = new Set<string>();
   private readonly zoneListeners: ZoneListener[] = [];
   private readonly zonesListeners: ZonesListener[] = [];
+  /** The listeners of a change of a server's values (`onChange`, plan 19C-2). */
+  private readonly changeListeners: ((serverId: string) => void)[] = [];
   /** The zones in use last told (or read at `load`), against which a presence change is told. */
   private zonesTold: readonly string[] = [];
 
@@ -267,9 +283,61 @@ export class ServerSettings implements ServerSettingsService {
     return this.kept.get(serverId)?.setUpAt ?? null;
   }
 
+  /**
+   * Whether the server is in setup: its row has no `setUpAt`; without a row, where its fill
+   * writes it in setup (`fillsInSetup`: a server that joined, whose row is not written yet), so
+   * that no server runs on the defaults as one set up while its row waits.
+   */
   inSetup(serverId: string): boolean {
     const kept = this.kept.get(serverId);
-    return kept !== undefined && kept.setUpAt === null;
+    return kept === undefined ? this.rowless.has(serverId) : kept.setUpAt === null;
+  }
+
+  /** The servers in setup (`inSetup`), by id: a row or a fill each, bounded small by nature. */
+  serversInSetup(): string[] {
+    return [
+      ...[...this.kept.entries()]
+        .filter(([, kept]) => kept.setUpAt === null)
+        .map(([serverId]) => serverId),
+      ...[...this.rowless].filter((serverId) => !this.kept.has(serverId)),
+    ].sort();
+  }
+
+  /**
+   * A server without a row whose fill writes it in setup (`ServerFill`, plan 19C-2): it is in
+   * setup from now on, while the row waits to be written and after a fill that gave up.
+   */
+  fillsInSetup(serverId: string): void {
+    if (!this.kept.has(serverId)) this.rowless.add(serverId);
+  }
+
+  /**
+   * Records that a server in setup finished it (plan 19C-2, `ServerSetup`): written first, then
+   * kept; whether this call did (once: a server set up already, or without a row, is not). In the
+   * server's turn, after a change or fill asked before it, and only where `done` says the setup
+   * is done of the values that change left (fix round 1, S4: a bot lab unset meanwhile keeps it
+   * in setup). A failed write is thrown: it stays in setup.
+   */
+  markSetUp(serverId: string, done: (values: ServerValues) => boolean): Promise<boolean> {
+    return this.inTurn(serverId, async () => {
+      const current = this.kept.get(serverId);
+      if (current === undefined || current.setUpAt !== null || !done(current.values)) return false;
+      const at = this.now();
+      const marked = await this.options.store.markSetUp(serverId, at);
+      // Another process may have set it up meanwhile: its row says when.
+      const setUpAt = marked ? at : ((await this.options.store.one(serverId))?.setUpAt ?? null);
+      const kept = this.kept.get(serverId);
+      if (kept !== undefined && setUpAt !== null) this.kept.set(serverId, { ...kept, setUpAt });
+      return marked;
+    });
+  }
+
+  /**
+   * Hears every change of a server's values, after it was written (`set`; a change of nothing is
+   * none): what follows a server's setup (`ServerSetup`). A listener that throws is logged.
+   */
+  onChange(listener: (serverId: string) => void): void {
+    this.changeListeners.push(listener);
   }
 
   /**
@@ -298,6 +366,16 @@ export class ServerSettings implements ServerSettingsService {
       await this.options.store.write(serverId, values, this.now(), by, changes);
       this.kept.set(serverId, { values, setUpAt: kept.setUpAt });
       this.zoneChanged(serverId, before.timezone, values.timezone);
+      for (const listener of this.changeListeners) {
+        try {
+          listener(serverId);
+        } catch (err) {
+          this.options.log.error(
+            { err, server: serverId },
+            "a listener of a change of a server's settings failed",
+          );
+        }
+      }
       return values;
     });
   }
@@ -368,6 +446,7 @@ export class ServerSettings implements ServerSettingsService {
       });
       if (made) {
         this.kept.set(serverId, { values, setUpAt: setUp ? at : null });
+        this.rowless.delete(serverId);
         return true;
       }
       const row = await this.options.store.one(serverId);
@@ -376,6 +455,7 @@ export class ServerSettings implements ServerSettingsService {
           values: this.read(serverId, row.settings),
           setUpAt: row.setUpAt,
         });
+        this.rowless.delete(serverId);
       }
       return false;
     });

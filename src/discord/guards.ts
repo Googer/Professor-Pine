@@ -187,6 +187,33 @@ function assertGuild(interaction: LocatedInteraction): void {
 }
 
 /**
+ * A guard that decides by who the member is, with whom it lets through (`Guard.admits`, plan
+ * 19C-2): the same rule the guard asks, so that `/help` lists what it guards to them alone.
+ */
+function byMember(
+  admits: (asker: LocatedInteraction, ctx: AppContext) => boolean,
+  guard: (interaction: LocatedInteraction, ctx: AppContext) => void,
+): Guard {
+  return Object.assign(guard, { admits });
+}
+
+/**
+ * Whether a member passes these guards by who they are (plan 19C-2, C3: what `/help` lists of a
+ * staff command): every guard that decides by the member (`Guard.admits`) lets them through;
+ * where none does, staff as `/admin` counts them (`isBotManagementAt`), the default of a staff
+ * command's parts (`staffParts`). Where they ask is the guards' own concern, not this.
+ */
+export function admittedBy(
+  guards: readonly Guard[],
+  asker: LocatedInteraction,
+  ctx: AppContext,
+): boolean {
+  const deciding = guards.flatMap((guard) => (guard.admits === undefined ? [] : [guard.admits]));
+  if (deciding.length === 0) return isBotManagementAt(asker, ctx);
+  return deciding.every((admits) => admits(asker, ctx));
+}
+
+/**
  * The server an interaction came from, as its snowflake, for a handler behind `requireGuild`
  * (or a control of such a command); refused like the guard refuses when there is none.
  */
@@ -205,24 +232,32 @@ export const requireGuild: Guard = (interaction) => {
  */
 export const STAFF_ONLY = 'Only admins and moderators can do that.';
 
-export const requireManagement: Guard = (interaction, ctx) => {
+export const requireManagement: Guard = byMember(isStaff, (interaction, ctx) => {
   assertGuild(interaction);
   if (!isStaff(interaction, ctx)) {
     throw new UserError(STAFF_ONLY);
   }
-};
+});
 
 /** What `requireBotManagement` tells a member who is no staff of the bot. */
 export const BOT_STAFF_ONLY = 'Only admins, moderators and bot developers can do that.';
 
-export const requireBotManagement: Guard = (interaction, ctx) => {
+/** Whether the invoking member is staff as `/admin` counts them (`isBotManagement`). */
+export function isBotManagementAt(
+  interaction: LocatedInteraction,
+  ctx: Pick<AppContext, 'config'>,
+): boolean {
+  return isBotManagement(
+    memberRoleNames(interaction),
+    interaction.user.id,
+    ctx.config.env.OWNER_ID,
+  );
+}
+
+export const requireBotManagement: Guard = byMember(isBotManagementAt, (interaction, ctx) => {
   assertGuild(interaction);
-  if (
-    !isBotManagement(memberRoleNames(interaction), interaction.user.id, ctx.config.env.OWNER_ID)
-  ) {
-    throw new UserError(BOT_STAFF_ONLY);
-  }
-};
+  if (!isBotManagementAt(interaction, ctx)) throw new UserError(BOT_STAFF_ONLY);
+});
 
 /** What `requireServerAdmin` tells anybody else (plan 19C-2). */
 export const SERVER_ADMIN_ONLY =
@@ -234,10 +269,10 @@ export const SERVER_ADMIN_ONLY =
  * their controls and dialogs, and the ways to a server's regions its checklist sends to
  * (`/region import`, `/region edit`, the import's questions). In a server only.
  */
-export const requireServerAdmin: Guard = (interaction, ctx) => {
+export const requireServerAdmin: Guard = byMember(isServerAdmin, (interaction, ctx) => {
   assertGuild(interaction);
   if (!isServerAdmin(interaction, ctx)) throw new UserError(SERVER_ADMIN_ONLY);
-};
+});
 
 /**
  * The instance as the operators' tiers read it (`src/domain/operators/tiers.ts`): the file's
@@ -307,23 +342,29 @@ export const ONLY_OPERATORS_IN_A_DM =
  * server whose staff it passes (an allowed server of an instance that is not open), as `/admin`
  * refuses; in another server, the operators'; in a DM, the DM's.
  */
-export const requireSharedDataOperator: Guard = (interaction, ctx) => {
-  if (isSharedDataOperatorAt(interaction, ctx)) return;
-  if (!interaction.inGuild()) throw new UserError(ONLY_OPERATORS_IN_A_DM);
-  throw new UserError(
-    serverStaffShareData(interaction.guildId, ctx) ? BOT_STAFF_ONLY : ONLY_OPERATORS,
-  );
-};
+export const requireSharedDataOperator: Guard = byMember(
+  isSharedDataOperatorAt,
+  (interaction, ctx) => {
+    if (isSharedDataOperatorAt(interaction, ctx)) return;
+    if (!interaction.inGuild()) throw new UserError(ONLY_OPERATORS_IN_A_DM);
+    throw new UserError(
+      serverStaffShareData(interaction.guildId, ctx) ? BOT_STAFF_ONLY : ONLY_OPERATORS,
+    );
+  },
+);
 
 /**
  * The instance tier (plan 19B-1): the owner and the file's operators alone, who need no role,
  * anywhere: for what spans every server and cannot be undone (`/operator forget`). Server staff
  * are refused (in a DM in the DM's words).
  */
-export const requireInstanceOperator: Guard = (interaction, ctx) => {
-  if (isInstanceOperatorOf(interaction.user.id, ctx)) return;
-  throw new UserError(interaction.inGuild() ? ONLY_OPERATORS : ONLY_OPERATORS_IN_A_DM);
-};
+export const requireInstanceOperator: Guard = byMember(
+  (asker, ctx) => isInstanceOperatorOf(asker.user.id, ctx),
+  (interaction, ctx) => {
+    if (isInstanceOperatorOf(interaction.user.id, ctx)) return;
+    throw new UserError(interaction.inGuild() ? ONLY_OPERATORS : ONLY_OPERATORS_IN_A_DM);
+  },
+);
 
 export const requireBotChannel: Guard = (interaction, ctx) => {
   assertGuild(interaction);

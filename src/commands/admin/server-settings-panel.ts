@@ -499,10 +499,12 @@ function featuresSection(values: ServerValues, instance: Instance): APIComponent
  * The time zone's line (plan 19A-2): the zone, and the time there now, so that staff can see it
  * is right.
  */
-function zoneLine(timezone: string, now: number): string {
+function zoneLine(timezone: string, chosen: boolean, now: number): string {
   const there = zoned(now, timezone);
+  // Not chosen yet (plan 19C-2, S9: a new server's): the instance's zone stands in meanwhile.
+  const zone = chosen ? `${code(timezone)}:` : `not chosen: ${code(timezone)} meanwhile;`;
   return (
-    `**Time zone** · ${code(timezone)}: it is ${clockWords(there)}, ${dayWords(there)} there ` +
+    `**Time zone** · ${zone} it is ${clockWords(there)}, ${dayWords(there)} there ` +
     'now · every time members type and Pine shows here'
   );
 }
@@ -558,7 +560,7 @@ function textSection(
 ): APIComponentInContainer[] {
   const forum = values.eventsForum;
   return [
-    section(zoneLine(timezone, now), changeButton('timezone')),
+    section(zoneLine(timezone, values.timezone !== undefined, now), changeButton('timezone')),
     textDisplay('**Distance units** · how Pine says distances'),
     menuRow({
       type: ComponentType.StringSelect,

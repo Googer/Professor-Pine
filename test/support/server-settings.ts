@@ -67,4 +67,13 @@ export class MemoryServerSettings implements ServerSettingsStorage {
       updatedBy: by.id,
     });
   }
+
+  markSetUp(serverId: string, at: number): Promise<boolean> {
+    const err = this.failing.get('markSetUp');
+    if (err) return Promise.reject(err);
+    const row = this.rows.get(serverId);
+    if (row?.setUpAt !== null) return Promise.resolve(false);
+    this.rows.set(serverId, { ...row, setUpAt: at });
+    return Promise.resolve(true);
+  }
 }

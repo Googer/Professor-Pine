@@ -4,7 +4,10 @@ import {
   PermissionFlagsBits,
   type APIModalInteractionResponseCallbackData,
 } from 'discord.js';
+import type { AppContext } from '../../src/app-context.js';
 import { admin } from '../../src/commands/admin/index.js';
+import { serverSettingsControls } from '../../src/commands/admin/server-settings.js';
+import { setupControls } from '../../src/commands/admin/setup.js';
 import { bounds } from '../../src/commands/regions/bounds.js';
 import { regionControls } from '../../src/commands/regions/controls.js';
 import { region } from '../../src/commands/regions/index.js';
@@ -98,7 +101,13 @@ export function attachedText(payload: { files?: readonly unknown[] }, name: stri
  */
 export async function regionCommandsWith(
   parties: readonly Party[] = [],
-  overrides: { maps?: MapProvider; rehearsal?: Rehearsal } = {},
+  overrides: {
+    maps?: MapProvider;
+    rehearsal?: Rehearsal;
+    /** The servers' settings (plan 19C-2: a server in setup), and its setup's checklist. */
+    servers?: AppContext['servers'];
+    setup?: AppContext['setup'];
+  } = {},
 ) {
   const made = await regionAdminWith(parties);
   const attachments = new FakeAttachments();
@@ -126,8 +135,15 @@ export async function regionCommandsWith(
     attachments,
     ...(overrides.maps ? { maps: overrides.maps } : {}),
     ...(overrides.rehearsal ? { rehearsal: overrides.rehearsal } : {}),
+    ...(overrides.servers ? { servers: overrides.servers } : {}),
+    ...(overrides.setup ? { setup: overrides.setup } : {}),
   });
-  const router = new InteractionRouter(ctx, [region, bounds, admin], [regionControls]);
+  // With the settings panel's and the setup checklist's controls (plan 19C-2).
+  const router = new InteractionRouter(
+    ctx,
+    [region, bounds, admin],
+    [regionControls, serverSettingsControls, setupControls],
+  );
   const staff: FakeOptions = {
     userId: MODERATOR,
     roleNames: ['Moderator'],

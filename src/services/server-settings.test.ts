@@ -14,6 +14,7 @@ import {
   SETTINGS_ACTOR,
   SETTINGS_STAFF,
 } from '../../test/support/server-settings-cases.js';
+import { heldCall } from '../../test/support/held-call.js';
 import { MemoryServerSettings } from '../../test/support/server-settings.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
@@ -114,6 +115,78 @@ describe('ServerSettings', () => {
     expect(servers.inSetup(OTHER_SETTINGS_SERVER)).toBe(true);
     // Without a row (its fill under way or given up): not in setup.
     expect(servers.inSetup(THIRD_SERVER)).toBe(false);
+  });
+
+  it('records a server in setup set up once, written first, then kept (plan 19C-2)', async () => {
+    const { servers, store, pass } = await servicesWith([
+      filledRow(),
+      filledRow({ serverId: OTHER_SETTINGS_SERVER, setUpAt: null }),
+    ]);
+    expect(servers.serversInSetup()).toEqual([OTHER_SETTINGS_SERVER]);
+    pass(60_000);
+    // Only where its values say so, read in its turn (S4).
+    expect(await servers.markSetUp(OTHER_SETTINGS_SERVER, () => false)).toBe(false);
+    expect(servers.inSetup(OTHER_SETTINGS_SERVER)).toBe(true);
+    expect(await servers.markSetUp(OTHER_SETTINGS_SERVER, () => true)).toBe(true);
+    expect(servers.inSetup(OTHER_SETTINGS_SERVER)).toBe(false);
+    expect(servers.setUpAt(OTHER_SETTINGS_SERVER)).toBe(SETTINGS_NOW + 60_000);
+    expect(store.rows.get(OTHER_SETTINGS_SERVER)?.setUpAt).toBe(SETTINGS_NOW + 60_000);
+    expect(servers.serversInSetup()).toEqual([]);
+    // Once: neither again nor a server set up long ago.
+    expect(await servers.markSetUp(OTHER_SETTINGS_SERVER, () => true)).toBe(false);
+    expect(await servers.markSetUp(SETTINGS_SERVER, () => true)).toBe(false);
+    expect(servers.setUpAt(SETTINGS_SERVER)).toBe(SETTINGS_NOW);
+    // A write that fails keeps it in setup.
+    const { servers: failing, store: refusing } = await servicesWith([
+      filledRow({ setUpAt: null }),
+    ]);
+    refusing.failing.set('markSetUp', new Error('the database is away'));
+    await expect(failing.markSetUp(SETTINGS_SERVER, () => true)).rejects.toThrow(
+      'the database is away',
+    );
+    expect(failing.inSetup(SETTINGS_SERVER)).toBe(true);
+  });
+
+  it('decides the setup done on the values a change asked before it left (S4)', async () => {
+    const { servers, store } = await servicesWith([filledRow({ setUpAt: null })]);
+    const asked: (string | undefined)[] = [];
+    // A change of its staff takes its bot lab away while the check reads what it counts.
+    const writing = heldCall('the write of the change');
+    const write = store.write.bind(store);
+    store.write = async (...args) => {
+      writing.arrive();
+      await writing.released;
+      return write(...args);
+    };
+    const unset = servers.set(
+      SETTINGS_SERVER,
+      (values) => ({ ...values, channels: {} }),
+      SETTINGS_ACTOR,
+    );
+    await writing.reached;
+    const marked = servers.markSetUp(SETTINGS_SERVER, (values) => {
+      asked.push(values.channels['bot-lab']);
+      return values.channels['bot-lab'] !== undefined;
+    });
+    writing.release();
+    await unset;
+    expect(await marked).toBe(false);
+    expect(asked).toEqual([undefined]);
+    expect(servers.inSetup(SETTINGS_SERVER)).toBe(true);
+  });
+
+  it('tells the listeners of a change of a server’s values after the write, and of nothing else (plan 19C-2)', async () => {
+    const { servers } = await servicesWith();
+    const heard: string[] = [];
+    servers.onChange((serverId) => heard.push(serverId));
+    await servers.set(SETTINGS_SERVER, (values) => values, SETTINGS_ACTOR);
+    expect(heard).toEqual([]);
+    await servers.set(
+      SETTINGS_SERVER,
+      (values) => ({ ...values, distanceUnits: 'imperial' }),
+      SETTINGS_ACTOR,
+    );
+    expect(heard).toEqual([SETTINGS_SERVER]);
   });
 
   it('gives the file defaults to a server whose stored values cannot be read, and logs it', async () => {

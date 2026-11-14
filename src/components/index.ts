@@ -31,6 +31,7 @@ import { rankControls } from '../commands/util/rank.js';
 import { statsControls } from '../commands/stats/stats.js';
 import { settingsControls } from '../commands/settings/settings.js';
 import { serverSettingsControls } from '../commands/admin/server-settings.js';
+import { setupControls } from '../commands/admin/setup.js';
 import { screenshotControls } from '../commands/screenshots/feedback.js';
 import type { ComponentHandler } from '../discord/command.js';
 import { dmControls } from './dm.js';
@@ -88,6 +89,7 @@ export const components: readonly ComponentHandler[] = [
   statsControls,
   settingsControls,
   serverSettingsControls,
+  setupControls,
   helpControls,
   countersControls,
   cleanupControls,

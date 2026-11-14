@@ -296,8 +296,9 @@ export class InteractionRouter {
   /**
    * Whether the interaction came from a server in setup (plan 19C-2, `ServerSettings.inSetup`)
    * and is for anything but what works there (`worksInSetup`: `/help`, `/admin setup`, `/admin
-   * settings`, `/region import`, `/region edit`, and their controls and dialogs by kind). Never
-   * in a DM. Asked before anything else of the interaction, so that nothing is counted.
+   * settings`, `/admin setup-forums`, `/region import`, `/region edit`, and their controls and
+   * dialogs by their custom id). Never in a DM. Asked before anything else of the interaction, so
+   * that nothing is counted.
    */
   private heldInSetup(interaction: Interaction): boolean {
     const { guildId } = interaction;
@@ -307,7 +308,8 @@ export class InteractionRouter {
     }
     if (interaction.isMessageComponent() || interaction.isModalSubmit()) {
       const id = decodeCustomId(interaction.customId);
-      return (id && this.components.get(id.kind))?.worksInSetup !== true;
+      if (id === undefined) return true;
+      return this.components.get(id.kind)?.worksInSetup?.(id) !== true;
     }
     return true;
   }

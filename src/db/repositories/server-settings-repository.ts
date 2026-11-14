@@ -47,6 +47,11 @@ export interface ServerSettingsStorage {
     by: SettingsActor,
     changes: readonly SettingChange[],
   ): Promise<void>;
+  /**
+   * Records that a server finished its setup (plan 19C-2), only where its row says it has not:
+   * whether this call did. Its values and its last change are kept.
+   */
+  markSetUp(serverId: string, at: number): Promise<boolean>;
 }
 
 type Row = {
@@ -128,5 +133,16 @@ export class ServerSettingsRepository implements ServerSettingsStorage {
         changes.map((change) => ({ serverId, at, actor: by, ...change })),
       );
     });
+  }
+
+  /** By the primary key (`serverId`); the row changed only while its `setUpAt` is null. */
+  async markSetUp(serverId: string, at: number): Promise<boolean> {
+    const result = await this.db
+      .updateTable('ServerSettings')
+      .set({ setUpAt: String(at) })
+      .where('serverId', '=', serverId)
+      .where('setUpAt', 'is', null)
+      .executeTakeFirst();
+    return result.numUpdatedRows > 0n;
   }
 }

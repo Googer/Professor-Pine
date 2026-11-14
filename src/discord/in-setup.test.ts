@@ -22,6 +22,7 @@ import { createTestContext } from '../../test/support/test-context.js';
 import { commands } from '../commands/index.js';
 import { components } from '../components/index.js';
 import { commandGroup } from './command-group.js';
+import { decodeCustomId } from './custom-id.js';
 import type { ComponentHandler, MessageCommand, SimpleCommand } from './command.js';
 import { InteractionRouter } from './router.js';
 import { IN_SETUP } from './set-up.js';
@@ -83,7 +84,7 @@ function setup() {
   const panelDialog = vi.fn(() => Promise.resolve());
   const controls: ComponentHandler[] = [
     { kind: 'party', button: join },
-    { kind: 'server', worksInSetup: true, button: panel, modal: panelDialog },
+    { kind: 'server', worksInSetup: () => true, button: panel, modal: panelDialog },
   ];
   const report = vi.fn(() => Promise.resolve());
   const onMessage: MessageCommand = {
@@ -230,7 +231,7 @@ describe('a server in setup (plan 19C-2)', () => {
     expect(raid).toHaveBeenCalledTimes(1);
   });
 
-  it('lets through only /help, /admin settings, /region import and /region edit', () => {
+  it('lets through only /help, /admin setup, /admin settings, /admin setup-forums, /region import and /region edit', () => {
     const paths = commands.flatMap((command) =>
       command.subcommands === undefined
         ? command.worksInSetup === true
@@ -240,12 +241,73 @@ describe('a server in setup (plan 19C-2)', () => {
             .filter(([, handler]) => handler.worksInSetup === true)
             .map(([path]) => `${command.data.name} ${path}`),
     );
-    expect(paths.sort()).toEqual(['admin settings', 'help', 'region edit', 'region import'].sort());
+    // Making the events forum is setup too (S7).
+    expect(paths.sort()).toEqual(
+      [
+        'admin settings',
+        'admin setup',
+        'admin setup-forums',
+        'help',
+        'region edit',
+        'region import',
+      ].sort(),
+    );
+    // A control or dialog by its custom id (S8): `/region remove`'s dialog does not work there,
+    // the import's questions do, and nothing else of `/region` (fix round 3, R2-3).
+    const works = (customId: string): boolean => {
+      const id = decodeCustomId(customId);
+      if (id === undefined) return false;
+      return components.find((handler) => handler.kind === id.kind)?.worksInSetup?.(id) === true;
+    };
     expect(
-      components
-        .filter((handler) => handler.worksInSetup === true)
-        .map((handler) => handler.kind)
-        .sort(),
-    ).toEqual(['help', 'region', 'server'].sort());
+      [
+        'help:overview:show',
+        'server:panel:show',
+        'setup:list:show',
+        'region:AbCdEfGhIjKl:import',
+        'region:AbCdEfGhIjKl:cancel',
+        'region:7:remove',
+        'region:7:remove:keep',
+        'region:AbCdEfGhIjKl:sideways',
+        'party:1:join',
+      ].filter(works),
+    ).toEqual([
+      'help:overview:show',
+      'server:panel:show',
+      'setup:list:show',
+      'region:AbCdEfGhIjKl:import',
+      'region:AbCdEfGhIjKl:cancel',
+    ]);
+  });
+
+  it('refuses the dialog of /region remove in setup, whoever sends it (S8)', async () => {
+    const { ctx } = createTestContext({ servers: servers() });
+    const removal = vi.fn(() => Promise.resolve());
+    const router = new InteractionRouter(
+      ctx,
+      [],
+      [
+        {
+          kind: 'region',
+          worksInSetup: (id) => id.action !== 'remove',
+          button: removal,
+          modal: removal,
+        },
+      ],
+    );
+    const sentDialog = fakeModal({
+      customId: 'region:7:remove',
+      guildId: NEW,
+      roleNames: ['Admin'],
+    });
+    await router.handle(asInteraction(sentDialog));
+    expect(removal).not.toHaveBeenCalled();
+    expect(sent(sentDialog.reply).content).toBe(STAFF_WORDS);
+    await router.handle(
+      asInteraction(
+        fakeButton({ customId: 'region:AbCdEfGhIjKl:import', guildId: NEW, roleNames: ['Admin'] }),
+      ),
+    );
+    expect(removal).toHaveBeenCalledTimes(1);
   });
 });

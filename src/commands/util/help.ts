@@ -13,7 +13,7 @@ import {
   type SimpleCommand,
 } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
-import { isServerAdmin, type memberRoleNames } from '../../discord/guards.js';
+import { admittedBy, type memberRoleNames } from '../../discord/guards.js';
 import { v2Answer } from '../../discord/late-reply.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
@@ -32,7 +32,12 @@ import {
   type HelpGroup,
 } from './help-render.js';
 import { serverValuesOf, zoneOf } from '../../discord/server-values.js';
-import { commandsIn, commandsInSetup, commandsSeenBy } from '../../discord/set-up.js';
+import {
+  commandsAdmitting,
+  commandsIn,
+  commandsInSetup,
+  commandsSeenBy,
+} from '../../discord/set-up.js';
 
 const MAX_CHOICES = 25;
 
@@ -43,24 +48,21 @@ function normalise(text: string): string {
 
 type Asker = Parameters<typeof memberRoleNames>[0];
 
-/**
- * Who is staff here as the router counts them (plan 19C-2, `isServerAdmin`): also the server's
- * owner and who may manage it, so that whoever is told to run `/admin setup` finds it listed.
- */
-function isStaff(interaction: Asker, ctx: AppContext): boolean {
-  return isServerAdmin(interaction, ctx);
+/** Whether a command or message command is a staff command (its help category, `helpGroups`). */
+function staffCommand(ctx: AppContext): (command: CommandModule | MessageCommand) => boolean {
+  return (command) => isStaffCommand(command, ctx.config.settings.helpGroups);
 }
 
 /**
- * The commands a member may read about: staff commands are shown to staff only, and a command
- * or subcommand with a rule of its own (`seenBy`: `/operator`, plan 19B-1) to whoever it names
- * where they ask, staff or not.
+ * The commands a member may read about: a staff command, and each part of one, only where its
+ * guards let them through (plan 19C-2, C3: `commandsAdmitting`; the server's owner without a
+ * staff role sees what sets the server up, staff by role all of it), and a command or subcommand
+ * with a rule of its own (`seenBy`: `/operator`, plan 19B-1) only to whoever it names where they
+ * ask.
  */
-function visibleCommands(staff: boolean, ctx: AppContext, where: Asker): readonly CommandModule[] {
+function visibleCommands(ctx: AppContext, where: Asker): readonly CommandModule[] {
   const seen = commandsSeenBy(
-    ctx.commands.filter(
-      (c) => c.seenBy !== undefined || staff || !isStaffCommand(c, ctx.config.settings.helpGroups),
-    ),
+    commandsAdmitting(ctx.commands, where, ctx, staffCommand(ctx)),
     where,
     ctx,
   );
@@ -72,28 +74,23 @@ function visibleCommands(staff: boolean, ctx: AppContext, where: Asker): readonl
 }
 
 /**
- * The message commands a member may read about: staff ones are shown to staff only; none in a
- * server in setup (plan 19C-2).
+ * The message commands a member may read about: a staff one only where its guards let them
+ * through (`admittedBy`, as the slash commands); none in a server in setup (plan 19C-2).
  */
-function visibleMessageCommands(
-  staff: boolean,
-  ctx: AppContext,
-  where: Asker,
-): readonly MessageCommand[] {
+function visibleMessageCommands(ctx: AppContext, where: Asker): readonly MessageCommand[] {
   if (where.guildId !== null && ctx.servers.inSetup(where.guildId)) return [];
-  return staff
-    ? ctx.messageCommands
-    : ctx.messageCommands.filter((c) => !isStaffCommand(c, ctx.config.settings.helpGroups));
+  return ctx.messageCommands.filter(
+    (c) => !staffCommand(ctx)(c) || admittedBy(c.guards ?? [], where, ctx),
+  );
 }
 
 /** The message command of this name (`normalise`d, as `/help` reads what was typed). */
 function messageCommandNamed(
   path: string,
-  staff: boolean,
   ctx: AppContext,
   where: Asker,
 ): MessageCommand | undefined {
-  return visibleMessageCommands(staff, ctx, where).find((c) => normalise(c.data.name) === path);
+  return visibleMessageCommands(ctx, where).find((c) => normalise(c.data.name) === path);
 }
 
 /** What a member is told of a command they cannot see or that does not exist. */
@@ -117,11 +114,11 @@ const TOLD_INSTEAD: ReadonlyMap<string, string> = new Map([
  * boss`) as the member who asks may see it; a staff command is answered to anybody else exactly
  * as one that does not exist.
  */
-function commandPage(path: string, staff: boolean, ctx: AppContext, where: Asker): V2Message {
-  const onMessage = messageCommandNamed(normalise(path), staff, ctx, where);
+function commandPage(path: string, ctx: AppContext, where: Asker): V2Message {
+  const onMessage = messageCommandNamed(normalise(path), ctx, where);
   if (onMessage) return renderMessageCommandHelp(onMessage, ctx.config.settings);
   const [name = '', ...rest] = path.split(' ');
-  const command = visibleCommands(staff, ctx, where).find((c) => c.data.name === name);
+  const command = visibleCommands(ctx, where).find((c) => c.data.name === name);
   // What the help may depend on besides the settings (`HelpFacts`).
   const facts = {
     oldHistory: ctx.legacyIndex !== undefined,
@@ -138,20 +135,24 @@ function commandPage(path: string, staff: boolean, ctx: AppContext, where: Asker
 }
 
 /** The groups of commands the member sees. */
-function groupsFor(staff: boolean, ctx: AppContext, where: Asker): HelpGroup[] {
-  const commands = visibleCommands(staff, ctx, where);
+function groupsFor(ctx: AppContext, where: Asker): HelpGroup[] {
+  const commands = visibleCommands(ctx, where);
+  const messageCommands = visibleMessageCommands(ctx, where);
+  const isStaff = staffCommand(ctx);
   return helpGroupsOf(
     commands,
     ctx.config.settings.helpGroups,
-    // The staff's groups also for an operator who is no staff here (`/operator` in a DM).
-    staff || commands.some((command) => command.seenBy !== undefined),
-    visibleMessageCommands(staff, ctx, where),
+    // The staff's groups only where the member may read about a staff command (its own category
+    // one of them; fix round 3, R2-2): a member command also in a staff group (`alsoIn`) does not
+    // bring the group to a member.
+    commands.some(isStaff) || messageCommands.some(isStaff),
+    messageCommands,
   );
 }
 
 /** The page of one group of commands, if the member sees it. */
-function groupPage(category: string, staff: boolean, ctx: AppContext, where: Asker): V2Message {
-  const group = groupsFor(staff, ctx, where).find((each) => each.category === category);
+function groupPage(category: string, ctx: AppContext, where: Asker): V2Message {
+  const group = groupsFor(ctx, where).find((each) => each.category === category);
   if (!group) throw new UserError('There is no such group of commands.');
   return renderGroupHelp(group);
 }
@@ -185,12 +186,11 @@ export const help: SimpleCommand = {
   },
 
   async execute(interaction, ctx) {
-    const staff = isStaff(interaction, ctx);
     const asked = normalise(interaction.options.getString('command') ?? '');
     const page =
       asked === ''
-        ? renderHelpOverview(groupsFor(staff, ctx, interaction))
-        : commandPage(asked, staff, ctx, interaction);
+        ? renderHelpOverview(groupsFor(ctx, interaction))
+        : commandPage(asked, ctx, interaction);
     await interaction.reply({
       ...v2Answer(page),
       flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
@@ -199,8 +199,7 @@ export const help: SimpleCommand = {
 
   async autocomplete(interaction, ctx) {
     const typed = normalise(interaction.options.getFocused());
-    const staff = isStaff(interaction, ctx);
-    const slashNames = visibleCommands(staff, ctx, interaction).flatMap((command) => {
+    const slashNames = visibleCommands(ctx, interaction).flatMap((command) => {
       const { options } = command.data.toJSON();
       const groups = (options ?? []).flatMap((option) =>
         option.type === ApplicationCommandOptionType.SubcommandGroup ? [option.name] : [],
@@ -215,7 +214,7 @@ export const help: SimpleCommand = {
     // A message command by the name its menu shows, without a slash.
     const names = [
       ...slashNames.map((name) => ({ name: `/${name}`, value: name })),
-      ...visibleMessageCommands(staff, ctx, interaction).map((c) => ({
+      ...visibleMessageCommands(ctx, interaction).map((c) => ({
         name: c.data.name,
         value: c.data.name,
       })),
@@ -235,32 +234,31 @@ export const help: SimpleCommand = {
 /**
  * The controls of a help page (custom ids in `help-render.ts`, `HELP_PAGES`): every press shows
  * another page in the place of the one it was on (`update`; a help page is the member's alone).
- * Who is staff is asked anew with every press, so a staff page reached otherwise is answered as
- * one that does not exist.
+ * Who may read about what is asked anew with every press (the guards' `admits`), so a staff page
+ * reached otherwise is answered as one that does not exist.
  */
 export const helpControls: ComponentHandler = {
   kind: HELP_KIND,
-  worksInSetup: true,
+  worksInSetup: () => true,
   throttle: MEMBER_READ_THROTTLE,
   async button(interaction, id, ctx) {
-    const staff = isStaff(interaction, ctx);
     const [control] = id.args;
     let page: V2Message;
     if (control === HELP_CONTROLS.overview) {
-      page = renderHelpOverview(groupsFor(staff, ctx, interaction));
+      page = renderHelpOverview(groupsFor(ctx, interaction));
     } else if (id.id === HELP_PAGES.command && control === HELP_CONTROLS.back) {
-      const onMessage = messageCommandNamed(id.action, staff, ctx, interaction);
+      const onMessage = messageCommandNamed(id.action, ctx, interaction);
       const words = id.action.split(' ');
       const [name = ''] = words;
       if (onMessage) {
-        page = groupPage(onMessage.help.category, staff, ctx, interaction);
+        page = groupPage(onMessage.help.category, ctx, interaction);
       } else if (words.length > 1) {
         // One level up: `/operator boss add` to `/operator boss`, `/route add` to `/route`.
-        page = commandPage(words.slice(0, -1).join(' '), staff, ctx, interaction);
+        page = commandPage(words.slice(0, -1).join(' '), ctx, interaction);
       } else {
-        const command = visibleCommands(staff, ctx, interaction).find((c) => c.data.name === name);
+        const command = visibleCommands(ctx, interaction).find((c) => c.data.name === name);
         if (!command) throw noCommand(name);
-        page = groupPage(command.help.category, staff, ctx, interaction);
+        page = groupPage(command.help.category, ctx, interaction);
       }
     } else {
       throw new UserError(STALE_COMPONENT);
@@ -268,20 +266,19 @@ export const helpControls: ComponentHandler = {
     await interaction.update(v2Answer(page));
   },
   async select(interaction, id, ctx) {
-    const staff = isStaff(interaction, ctx);
     const [value] = interaction.values;
     const [control] = id.args;
     if (value === undefined) throw new UserError(STALE_COMPONENT);
     let page: V2Message;
     if (id.id === HELP_PAGES.overview && id.action === HELP_CONTROLS.group) {
-      page = groupPage(value, staff, ctx, interaction);
+      page = groupPage(value, ctx, interaction);
     } else if (
       id.id === HELP_PAGES.group &&
       (control === HELP_CONTROLS.command || control === HELP_CONTROLS.more)
     ) {
-      page = commandPage(value, staff, ctx, interaction);
+      page = commandPage(value, ctx, interaction);
     } else if (id.id === HELP_PAGES.command && control === HELP_CONTROLS.subgroup) {
-      page = commandPage(`${id.action} ${value}`, staff, ctx, interaction);
+      page = commandPage(`${id.action} ${value}`, ctx, interaction);
     } else {
       throw new UserError(STALE_COMPONENT);
     }

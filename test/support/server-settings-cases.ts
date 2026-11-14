@@ -81,6 +81,21 @@ export function serverSettingsCases(
       ]);
     });
 
+    it('records a server set up once, only where it was not, and only that server (plan 19C-2)', async () => {
+      await store.create(filledRow({ setUpAt: null }));
+      await store.create(filledRow({ serverId: OTHER_SETTINGS_SERVER, setUpAt: null }));
+      expect(await store.markSetUp(SETTINGS_SERVER, SETTINGS_NOW + 60_000)).toBe(true);
+      // A second time changes nothing: it keeps the first.
+      expect(await store.markSetUp(SETTINGS_SERVER, SETTINGS_NOW + 120_000)).toBe(false);
+      expect(await store.one(SETTINGS_SERVER)).toEqual(
+        filledRow({ setUpAt: SETTINGS_NOW + 60_000 }),
+      );
+      expect((await store.one(OTHER_SETTINGS_SERVER))?.setUpAt).toBeNull();
+      // A server without a row is none.
+      expect(await store.markSetUp('412345678901234569', SETTINGS_NOW)).toBe(false);
+      expect(await store.one('412345678901234569')).toBeUndefined();
+    });
+
     it("logs each setting the write changed, with who and when, in the staff's log", async () => {
       await store.create(filledRow());
       await store.write(

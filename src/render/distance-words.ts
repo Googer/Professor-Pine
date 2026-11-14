@@ -7,6 +7,11 @@
 /** The units distances are said in (a server's `distanceUnits`, plan 19A-1). */
 export type DistanceUnits = 'imperial' | 'metric';
 
+/** The units themselves in words (`/admin setup`'s checklist), beside the distances said in them. */
+export function unitsWords(units: DistanceUnits): string {
+  return units === 'metric' ? 'meters and kilometers' : 'feet and miles';
+}
+
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.280_839_9;
 

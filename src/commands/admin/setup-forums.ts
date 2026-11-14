@@ -134,11 +134,14 @@ function line(result: ForumSetup): string {
     result.posting === 'not-allowed'
       ? ' I could not close it to posts by members (I need Manage Permissions and Send Messages there; see the log).'
       : '';
+  // A server in setup (plan 19C-2): the forum is made, and what is posted in it waits.
+  const waits =
+    result.boardWaits === true ? ' I post the board once Pine is set up in this server.' : '';
   const seen =
     result.hidden === 'not-allowed'
       ? ` I could not hide it from members for the rehearsal (I need Manage Permissions there; see the log). ${HIDE_BY_HAND}`
       : '';
-  return `<#${region.channelId}>: ${what.join(', ')}.${open}${seen}`;
+  return `<#${region.channelId}>: ${what.join(', ')}.${open}${waits}${seen}`;
 }
 
 /** The events forum's line (plan 8V-1): what was done, then what was not and why. */
@@ -182,6 +185,9 @@ function eventsLine(result: EventsForumSetup | 'thrown'): string {
     ...(result.listing === 'waiting'
       ? [' The listing is posted once the events feed is read.']
       : []),
+    ...(result.listing === 'setup'
+      ? [' The listing is posted once Pine is set up in this server.']
+      : []),
   ];
   return `Events forum: ${what.join(', ')}.${not.join('')}`;
 }
@@ -224,8 +230,13 @@ function orphanLine(forumIds: readonly string[]): string {
   );
 }
 
-/** `/admin setup-forums`: every region of this server gets its forum, tags and summary post. */
+/**
+ * `/admin setup-forums`: every region of this server gets its forum, tags and summary post. It
+ * works in a server in setup too (plan 19C-2, fix round 1, S7): making the events forum is setup;
+ * what it posts there waits for the server to be set up, as everything a quiet server has drawn.
+ */
 export const setupForums: SubcommandPart = {
+  worksInSetup: true,
   data: new SlashCommandSubcommandBuilder()
     .setName('setup-forums')
     .setDescription(

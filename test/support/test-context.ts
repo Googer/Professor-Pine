@@ -89,6 +89,7 @@ import { MemoryScriptAccess } from './script-access.js';
 import { ScriptAccessService } from '../../src/services/script-access-service.js';
 import type { MemberRemoval } from '../../src/services/member-removal.js';
 import { MemberNames } from '../../src/services/member-names.js';
+import { ServerSetup, setupCounts } from '../../src/services/server-setup.js';
 
 export { TEST_SETTINGS_PATH };
 
@@ -266,6 +267,8 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     // Off, as the test settings have no moderators' channel; a test of meetup safety passes its
     // own from meetupSafetyWith().
     meetupSafety: undefined as unknown as MeetupSafety,
+    // Over the context's servers, regions and gyms (below), unless a test passes its own.
+    setup: undefined as unknown as ServerSetup,
     // Over the context's own party service (below), unless a test passes its own.
     reports: undefined as unknown as ModerationReports,
     // Every click is answered by itself; a test of bursts passes its own with a window.
@@ -362,6 +365,16 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       store: new MemoryScriptAccess(),
       ownerId: ctx.config.env.OWNER_ID,
       dms: ctx.dms,
+      log,
+    });
+  }
+  if (overrides.setup === undefined) {
+    // A server's setup over the context's servers, regions and gyms (plan 19C-2); its bot lab
+    // takes no message (a test of the leaving passes its own `ServerSetup`).
+    (ctx as { setup: AppContext['setup'] }).setup = new ServerSetup({
+      servers: ctx.servers,
+      counts: setupCounts(ctx),
+      send: () => Promise.reject(new Error('this test context posts in no bot lab')),
       log,
     });
   }
