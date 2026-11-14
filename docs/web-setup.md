@@ -32,6 +32,8 @@ In `data/settings.json`:
 
 The map says distances (its list of what is on) in the units of the top-level setting `distanceUnits`, as Discord does: `imperial` (the default) or `metric`.
 
+A visitor who is not logged in sees a server's regions and gyms only where that server's map is open to them, which its staff decide in `/admin settings` (Category and roles, "Map for visitors who are not logged in", since 2.1): open unless they close it, but on an instance whose `servers` is `"open"` closed unless they open it. A closed map answers such a visitor as a server Pine is not in; they log in with Discord on the top page, or with the button `/maps` gives them.
+
 Build the page once: `npm run build` (or `npm run web:build` alone) writes it to `dist/web/assets/`. Without it the map's address says it has not been built.
 
 ## 2. "Log in with Discord"
