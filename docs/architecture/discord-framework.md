@@ -46,6 +46,8 @@ How the bot talks to Discord apart from parties: slash commands and their router
   - what only the sharer may see stays out: a board leaves out the viewer's own place, a member's card every anonymous record (plan 8H-6).
 - **A labelled button that opens a dialog ends in `…`** (plan 8X-G; Matt, 2026-10-22: a post control that needs more input opens a dialog, never a private reply with controls): Group…, Meet…, Move…, Manage…, Split…, Set time…, Something is wrong…, Appeal…, Ask the moderators…, Delete… (the moderators' notice of a pin battle), Open the form again…, Change options…, Close…, Refuse place…, Block maker… and the others; a button that only shows something has none (Route, Screenshot feedback, Go to post). Text that names such a button names it with its `…` (`"Set time…" gives them.`, `press "Appeal…".`); an icon-only button (Meet…'s ⏰) is named by its icon.
 
+- **A control in one server's channel decided for another server** (plan 19E: Accept and Decline of a request to be neighbors, kind `neighbor`, `servers.md`, "Neighbors") names the other server in its custom id and the server it decides for is the interaction's, never the custom id's: the press is decided against the pair of both as it is now, and a press from any other server is answered as expired, in words that tell nothing of the pair.
+
 - **An interaction of a server that may not have this Pine** (plan 19C-1, `servers.md`, "Who may have this Pine") is not routed (`wireServerStart`'s `admits`): Pine is leaving that server, and nothing of it is begun. A server Pine left sends none.
 
 ## Where an interaction came from
