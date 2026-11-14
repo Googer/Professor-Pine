@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-14T04:15",
+  "updated": "2026-11-14T05:23",
   "items": [
     {
       "id": "0",
@@ -12958,7 +12958,64 @@ window.GANTT = {
       ],
       "scope": "Consent of both servers, the line in a post, copying the curated text",
       "doneWhen": "Merged into main-dev",
-      "status": "unplanned"
+      "status": "done",
+      "planning": {
+        "start": "2026-11-14T01:05",
+        "end": "2026-11-14T05:23",
+        "review": {
+          "start": "2026-11-14T03:39",
+          "end": "2026-11-14T05:20"
+        }
+      },
+      "review": {
+        "start": "2026-11-14T05:20",
+        "end": "2026-11-14T05:20"
+      }
+    },
+    {
+      "id": "19E.1",
+      "kind": "task",
+      "parent": "19E",
+      "name": "The record of neighbors, asking and accepting",
+      "status": "done",
+      "start": "2026-11-14T05:20",
+      "end": "2026-11-14T05:20"
+    },
+    {
+      "id": "19E.2",
+      "kind": "task",
+      "parent": "19E",
+      "name": "The same gym or Power Spot in two servers",
+      "status": "done",
+      "start": "2026-11-14T05:20",
+      "end": "2026-11-14T05:20"
+    },
+    {
+      "id": "19E.3",
+      "kind": "task",
+      "parent": "19E",
+      "name": "The line in a post, following the neighbor's party",
+      "status": "done",
+      "start": "2026-11-14T05:20",
+      "end": "2026-11-14T05:20"
+    },
+    {
+      "id": "19E.4",
+      "kind": "task",
+      "parent": "19E",
+      "name": "Copy from a neighbor",
+      "status": "done",
+      "start": "2026-11-14T05:20",
+      "end": "2026-11-14T05:20"
+    },
+    {
+      "id": "19E.5",
+      "kind": "task",
+      "parent": "19E",
+      "name": "Docs of neighbors",
+      "status": "done",
+      "start": "2026-11-14T05:20",
+      "end": "2026-11-14T05:20"
     }
   ]
 };
