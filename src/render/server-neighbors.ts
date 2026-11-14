@@ -28,9 +28,9 @@ export function serverNamed(serverId: string, name: string | undefined): string 
 /** What neighbors share, said in the request and in `/admin neighbors ask`'s help. */
 export const NEIGHBORS_SHARE =
   'Neighbors see each other’s raids and max battles at the gyms and Power Spots both servers ' +
-  'cover: a raid’s or max battle’s post gets a line for the other server’s raid or battle there, ' +
-  'with the server’s name, the boss, its time, how many are coming and a link to its post. No ' +
-  'member is named and nobody is pinged. Either server can end it at any time with ' +
+  'cover. Each post gets a line for the other server’s raid or battle there, with the server’s ' +
+  'name, the boss, the time, how many are coming and a link to its post.\n\n' +
+  'No member is named and nobody is pinged. Either server can end it at any time with ' +
   '`/admin neighbors end`.';
 
 /**
@@ -81,7 +81,7 @@ export function neighborDeclinedPost(
 ): V2Message {
   return textMessage(DECLINED_ACCENT, [
     `### Request declined\nThis server declined the request of ${serverNamed(askerId, askerName)} ` +
-      `to be neighbors. It may ask again ${timestamp(askAgainAt, 'R')}.`,
+      `to be neighbors. That server may ask again ${timestamp(askAgainAt, 'R')}.`,
   ]);
 }
 
@@ -89,15 +89,20 @@ export function neighborDeclinedPost(
 export function acceptedNotice(otherId: string, otherName: string | undefined): V2Message {
   return textMessage(ACCEPTED_ACCENT, [
     `${serverNamed(otherId, otherName)} accepted this server’s request: the two servers are ` +
-      'neighbors now. The posts of their raids and max battles show the other’s at the gyms and ' +
-      'Power Spots both cover.',
+      'neighbors now. Raid and max battle posts in each server show the other’s at the gyms and ' +
+      'Power Spots both cover. Either server can end it with `/admin neighbors end`.',
   ]);
 }
 
-/** The asker's lab, once the other declined: only that it was declined, by the id it asked. */
+/**
+ * The asker's lab, once the other declined: only that it was declined, by the id it asked, and
+ * that it may ask again a week later (`NEIGHBOR_ASK_AGAIN_MS`, from the decline, which this
+ * follows at once).
+ */
 export function declinedNotice(otherId: string): V2Message {
   return textMessage(DECLINED_ACCENT, [
-    `The server \`${otherId}\` declined this server’s request to be neighbors.`,
+    `The server \`${otherId}\` declined this server’s request to be neighbors. You may ask ` +
+      'again in a week.',
   ]);
 }
 
@@ -112,7 +117,8 @@ export function endedNotice(enderId: string, enderName: string | undefined): V2M
 /** The lab of the server whose staff ended it. */
 export function endedByUsNotice(otherId: string, otherName: string | undefined): V2Message {
   return textMessage(DECLINED_ACCENT, [
-    `This server’s staff ended being neighbors with ${serverNamed(otherId, otherName)}.`,
+    `This server’s staff ended being neighbors with ${serverNamed(otherId, otherName)}: their ` +
+      'raids and max battles no longer show in this server’s posts, nor this server’s in theirs.',
   ]);
 }
 
@@ -120,4 +126,6 @@ export function endedByUsNotice(otherId: string, otherName: string | undefined):
  * What the asker hears of a request, whatever came of it (a server Pine is not in, a left, blocked
  * or new one, a decline less than a week old): it learns nothing of the other server from it.
  */
-export const ASKED = 'Asked. Their staff will be told; you will hear when they answer.';
+export const ASKED =
+  'Asked. Their staff answer in their moderators’ bot lab, and I tell your moderators’ bot lab ' +
+  'when they do. A request nobody answers expires after a week.';

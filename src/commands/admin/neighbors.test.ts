@@ -19,7 +19,7 @@ import { neighborCopyWith } from '../../../test/support/neighbor-gyms.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { BOT_STAFF_ONLY } from '../../discord/guards.js';
 import { InteractionRouter } from '../../discord/router.js';
-import type { NeighborRow } from '../../domain/servers/neighbors.js';
+import { NEIGHBORS_MAX, neighborPair, type NeighborRow } from '../../domain/servers/neighbors.js';
 import { ASKED } from '../../render/server-neighbors.js';
 import { admin } from './index.js';
 import { copySaid, neighborControls, NOT_A_SERVER } from './neighbors.js';
@@ -77,7 +77,10 @@ async function neighborCommandsWith(
 describe('/admin neighbors (plan 19E)', () => {
   it('asks a server by its id or an invite link, and its staff are told in their lab', async () => {
     const made = await neighborCommandsWith();
-    expect(said(await made.use('ask', { server: 'https://discord.gg/pewter-gym' }))).toBe(ASKED);
+    expect(said(await made.use('ask', { server: 'https://discord.gg/pewter-gym' }))).toBe(
+      'Asked. Their staff answer in their moderators’ bot lab, and I tell your moderators’ bot ' +
+        'lab when they do. A request nobody answers expires after a week.',
+    );
     expect(made.lab.of(BROCK)).toHaveLength(1);
     expect(made.lab.of(MISTY)).toEqual([]);
     // Asked again by its id: one request per pair, and nothing sent twice.
@@ -95,7 +98,7 @@ describe('/admin neighbors (plan 19E)', () => {
   it('refuses what is no server, and the server itself', async () => {
     const made = await neighborCommandsWith();
     expect(said(await made.use('ask', { server: 'Pewter City' }))).toBe(
-      'Give the server’s id (17 to 20 digits) or an invite link to it, such as ' +
+      'Give the server’s ID (17 to 20 digits) or an invite link to it, such as ' +
         'https://discord.gg/abc123.',
     );
     expect(said(await made.use('ask', { server: 'https://discord.gg/pallet' }))).toBe(
@@ -141,6 +144,39 @@ describe('/admin neighbors (plan 19E)', () => {
     expect(made.lab.of(ASH)).toHaveLength(1);
   });
 
+  it('points staff to the request the other server sent them already', async () => {
+    const made = await neighborCommandsWith({ rows: [neighborRow()] });
+    expect(said(await made.use('ask', { server: ASH }, BROCK))).toBe(
+      '**Pallet Town** (`412345678901234501`) already asked to be this server’s neighbor. Its ' +
+        'request is posted again in your moderators’ bot lab: accept it there.\n\n' +
+        'If it does not show up, choose a moderators’ bot lab in `/admin settings` or allow me ' +
+        'to post in it, then ask again.',
+    );
+  });
+
+  it('shows a declined request anew in its place, saying when its server may ask again', async () => {
+    const made = await neighborCommandsWith({ rows: [neighborRow()] });
+    const pressed = await made.press(`neighbor:${ASH}:decline`, BROCK);
+    expect(textOf(asV2(pressed.update.mock.calls[0]![0]))).toMatch(
+      /^### Request declined\nThis server declined the request of \*\*Pallet Town\*\* \(`412345678901234501`\) to be neighbors\. That server may ask again <t:\d+:R>\.$/,
+    );
+  });
+
+  it('refuses an acceptance past the limit, saying how to make room', async () => {
+    const others = Array.from({ length: NEIGHBORS_MAX }, (_, n) =>
+      neighborRow({
+        ...neighborPair(BROCK, String(512345678901234500n + BigInt(n))),
+        askedBy: BROCK,
+        acceptedAt: 1,
+      }),
+    );
+    const made = await neighborCommandsWith({ rows: [neighborRow(), ...others] });
+    expect(said(await made.press(`neighbor:${ASH}:accept`, BROCK))).toBe(
+      'This server already has 10 neighbors and open requests, the most it may have. End a ' +
+        'neighbor or take back a request with `/admin neighbors end`, then accept this one.',
+    );
+  });
+
   it('answers a press at once while the post in the asker’s lab hangs (review R1)', async () => {
     const made = await neighborCommandsWith({ rows: [neighborRow()] });
     made.lab.hold = new Promise<void>(() => undefined);
@@ -177,8 +213,8 @@ describe('/admin neighbors (plan 19E)', () => {
       expect(said(await made.use('ask', { server }, ASH, other))).toBe(ASKED);
     }
     expect(said(await made.use('ask', { server: servers[5]! }, ASH, other))).toBe(
-      'This server’s staff asked servers to be neighbors 5 times in ten minutes: ask again in ' +
-        '10 minutes.',
+      'This server’s staff have sent 5 requests to be neighbors in ten minutes, the most they ' +
+        'may. Ask again in 10 minutes.',
     );
     expect(made.store.rows.size).toBe(5);
     // Another server's staff are not held by it.
@@ -195,8 +231,8 @@ describe('/admin neighbors (plan 19E)', () => {
     }
     expect(said(await made.use('ask', { server: servers[4]! }, ASH, other))).toBe(ASKED);
     expect(said(await made.use('ask', { server: servers[5]! }))).toBe(
-      'This server’s staff asked servers to be neighbors 5 times in ten minutes: ask again in ' +
-        '10 minutes.',
+      'This server’s staff have sent 5 requests to be neighbors in ten minutes, the most they ' +
+        'may. Ask again in 10 minutes.',
     );
     // Her fifth use was given back: she may still ask in another server she is staff of.
     expect(said(await made.use('ask', { server: servers[5]! }, BROCK))).toBe(ASKED);
@@ -212,12 +248,16 @@ describe('/admin neighbors (plan 19E)', () => {
     const listed = said(await made.use('list', {}));
     expect(listed).toContain('**Neighbors** (1 of 10)\n- **Pewter City** (`412345678901234502`)');
     // A request this server sent names the server by the id it was given, never by its name.
-    expect(listed).toContain('**Requests this server sent**\n- `412345678901234503`, asked');
+    expect(listed).toContain('**Requests sent**\n- `412345678901234503`, asked');
     expect(listed).not.toContain('Cerulean City');
     const brock = said(await made.use('list', {}, BROCK));
     expect(brock).toContain('- **Pallet Town** (`412345678901234501`)');
     const misty = said(await made.use('list', {}, MISTY));
-    expect(misty).toContain('**Requests to this server**\n- **Pallet Town**');
+    expect(misty).toContain('**Requests received**\n- **Pallet Town**');
+    const none = await neighborCommandsWith();
+    expect(said(await none.use('list', {}))).toBe(
+      '**Neighbors** (0 of 10)\nNone yet. Ask a server with `/admin neighbors ask`.',
+    );
   });
 
   it('ends being neighbors from either side, and offers the neighbors to end', async () => {
@@ -240,33 +280,40 @@ describe('/admin neighbors (plan 19E)', () => {
     );
     expect(made.neighbors.areNeighbors(ASH, BROCK)).toBe(false);
     expect(said(await made.use('end', { server: ASH }, BROCK))).toBe(
-      'This server is not a neighbor of `412345678901234501`, nor waiting for its answer.',
+      'This server is not neighbors with `412345678901234501` and has no open request to it.',
     );
   });
 
   it('copies a neighbor’s curated gym texts onto this server’s same gyms, never over its own', async () => {
     const made = await neighborCommandsWith({ rows: [neighborRow({ acceptedAt: 1 })] });
     expect(said(await made.use('copy', { server: BROCK }))).toBe(
-      'Copied from **Pewter City** onto 2 gyms of this server that are its gyms too: 1 nickname, ' +
-        '1 notice and 1 list of search words. Nothing this server’s staff set was replaced. 1 gym ' +
-        'both servers have as one was left as it is. Run it again to copy what they add.',
+      'Copied from **Pewter City** onto 2 gyms of this server: 1 nickname, 1 notice and 1 list ' +
+        'of search words. Nothing your staff set was replaced. 1 gym is already shared by both ' +
+        'servers, with the same texts in both.\n\nRun it again later to copy what they add.',
     );
     expect(made.copying.directory.of(1).get(2)?.nickname).toBe('Splash');
     expect(said(await made.use('copy', { server: BROCK }))).toBe(
-      'Nothing to copy from **Pewter City**: every gym of this server that is its gym too has ' +
-        'its texts already, or theirs are empty. 1 gym both servers have as one was left as it is.',
+      'Nothing to copy from **Pewter City**. On the same gyms, this server’s texts are filled in ' +
+        'already, or the neighbor’s are empty. 1 gym is already shared by both servers, with the ' +
+        'same texts in both.',
     );
     // Only from a neighbor.
     expect(said(await made.use('copy', { server: MISTY }))).toBe(
-      'This server is not a neighbor of `412345678901234503`: copy only from a neighbor.',
+      'This server is not neighbors with `412345678901234503`. You can copy only from a neighbor.',
     );
   });
 
   it('says a copy onto one gym in the singular (staging F2)', () => {
     const one = { gyms: 1, shared: 0, nickname: 1, notice: 0, description: 0, keywords: 0 };
     expect(copySaid('**Pewter City**', one)).toBe(
-      'Copied from **Pewter City** onto 1 gym of this server that is its gym too: 1 nickname. ' +
-        'Nothing this server’s staff set was replaced. Run it again to copy what they add.',
+      'Copied from **Pewter City** onto 1 gym of this server: 1 nickname. Nothing your staff ' +
+        'set was replaced.\n\nRun it again later to copy what they add.',
+    );
+    const shared = { gyms: 0, shared: 2, nickname: 0, notice: 0, description: 0, keywords: 0 };
+    expect(copySaid('**Pewter City**', shared)).toBe(
+      'Nothing to copy from **Pewter City**. On the same gyms, this server’s texts are filled in ' +
+        'already, or the neighbor’s are empty. 2 gyms are already shared by both servers, with ' +
+        'the same texts in both.',
     );
   });
 });
