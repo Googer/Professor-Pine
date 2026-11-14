@@ -94,6 +94,13 @@ export class ServerGyms {
   private readonly linked = new Map<number, Set<number>>();
   private readonly regionsOf = new Map<number, ServerRegion[]>();
   private readonly views: BoundedMap<number, BuiltView>;
+  /**
+   * Told of the servers whose gyms changed as the same gyms of two neighbors read them (plan
+   * 19E: a gym of it added, unlinked or removed, or given another name, place, Wayfarer id or
+   * servers; not its texts, nor Google's answers taken up): `GymDirectory` keeps each server's
+   * mark, so that what is built of them is built anew when it differs.
+   */
+  private readonly changed: ((guildIds: readonly number[]) => void) | undefined;
   /** How many views were built: for tests. */
   built = 0;
 
@@ -102,8 +109,13 @@ export class ServerGyms {
     links: Iterable<GymLink>,
     regions: readonly ServerRegion[],
     private readonly wordsOf: (guildId: number) => readonly string[],
-    options: { maxViews?: number } = {},
+    options: {
+      maxViews?: number;
+      /** Told of the servers whose gyms changed as the matches read them (`changed`). */
+      changed?: (guildIds: readonly number[]) => void;
+    } = {},
   ) {
+    this.changed = options.changed;
     for (const gym of gyms) {
       this.gyms.set(gym.id, gym);
       this.placeInCell(gym);
@@ -202,9 +214,37 @@ export class ServerGyms {
     return found;
   }
 
+  /** Tells of a change of these servers' gyms as the matches read them (`changed`). */
+  private touch(servers: Iterable<number>): void {
+    const touched = [...servers];
+    if (touched.length > 0) this.changed?.(touched);
+  }
+
+  /** The servers (`Guild` rows) with gyms or regions here. */
+  serverRows(): number[] {
+    return [...new Set([...this.linked.keys(), ...this.regionsOf.keys()])];
+  }
+
+  /**
+   * What the same gyms of two neighbors read of a server here, as one text (review R9): its
+   * regions' outlines, and its gyms' ids, names, places and Wayfarer ids. Two directories give
+   * the same text for a server exactly when its matches would be the same: a load compares them,
+   * so that a region edit of one server changes that server's mark alone.
+   */
+  fingerprintOf(guildId: number): string {
+    const regions = (this.regionsOf.get(guildId) ?? [])
+      .map((region) => JSON.stringify([region.channelId, region.bounds]))
+      .sort();
+    const gyms = [...this.gymsOf(guildId)]
+      .sort((a, b) => a.id - b.id)
+      .map((gym) => JSON.stringify([gym.id, gym.name, gym.lat, gym.lon, gym.pogoId]));
+    return `${regions.join('\n')}\n\n${gyms.join('\n')}`;
+  }
+
   /** Adds or replaces a gym with the servers it belongs to now, in every view built. */
   put(gym: Gym, servers: Iterable<number>): void {
     const linked = new Set(servers);
+    this.touch(new Set([...linked, ...(this.links.get(gym.id) ?? [])]));
     const before = this.gyms.get(gym.id);
     if (before) this.takeFromCell(before);
     this.gyms.set(gym.id, gym);
@@ -227,6 +267,7 @@ export class ServerGyms {
    */
   unlink(id: number, guildId: number): boolean {
     const known = this.links.get(id)?.delete(guildId) ?? false;
+    if (known) this.touch([guildId]);
     this.linked.get(guildId)?.delete(id);
     this.views.get(guildId)?.lookup.remove(id);
     return known;
@@ -237,6 +278,7 @@ export class ServerGyms {
     const before = this.gyms.get(id);
     if (before) this.takeFromCell(before);
     const known = this.gyms.delete(id);
+    this.touch(this.links.get(id) ?? []);
     for (const guildId of this.links.get(id) ?? []) this.linked.get(guildId)?.delete(id);
     this.links.delete(id);
     for (const guildId of this.views.keys()) this.views.get(guildId)?.lookup.remove(id);

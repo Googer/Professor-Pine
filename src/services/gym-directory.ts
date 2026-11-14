@@ -71,6 +71,12 @@ export class GymDirectory implements GymProvider, PlaceKeeper {
   private servers: ServerGyms | undefined;
   private queue: Promise<unknown> = Promise.resolve();
   private changes = 0;
+  /**
+   * Each server's mark (`generationOf`), kept across loads: one more at every change of its gyms
+   * as the matches read them, and at a load that finds its regions or gyms changed (review R9).
+   */
+  private readonly marks = new Map<number, number>();
+  private readonly serverListeners: ((guildIds: readonly number[]) => void)[] = [];
 
   /** How many gyms the answers saved had looked at (`reanswer`): for tests. */
   gymsLookedAt = 0;
@@ -179,6 +185,38 @@ export class GymDirectory implements GymProvider, PlaceKeeper {
     return this.changes;
   }
 
+  /**
+   * A mark that changes with every change of one server's gyms as the same gyms of two neighbors
+   * read them (a gym of it added, renamed, moved, given a Wayfarer id, linked, unlinked or
+   * forgotten) and with a load that finds its regions or gyms changed, never with another
+   * server's (plan 19E, review R9: a region edit of one server reads every region again, and
+   * changes that server's mark alone): what is built of a server's gyms alone (`NeighborMatches`)
+   * is built anew when it differs.
+   */
+  generationOf(guildId: number): string {
+    return String(this.marks.get(guildId) ?? 0);
+  }
+
+  /**
+   * Tells `listener` of the servers whose mark (`generationOf`) changed, as it changes: one
+   * gym's change, or a load. It must decide and return (what it starts, it starts on the side);
+   * what it throws is logged.
+   */
+  whenServersChanged(listener: (guildIds: readonly number[]) => void): void {
+    this.serverListeners.push(listener);
+  }
+
+  private serversChanged(guildIds: readonly number[]): void {
+    for (const guildId of guildIds) this.marks.set(guildId, (this.marks.get(guildId) ?? 0) + 1);
+    for (const listener of this.serverListeners) {
+      try {
+        listener(guildIds);
+      } catch (err) {
+        this.options.log.error({ err }, 'a listener of the servers’ gyms failed');
+      }
+    }
+  }
+
   /** Changes are applied one after the other, in the order they were asked for. */
   private enqueue<T>(work: () => Promise<T>): Promise<T> {
     const result = this.queue.then(work);
@@ -195,12 +233,27 @@ export class GymDirectory implements GymProvider, PlaceKeeper {
         this.options.regions.listAll(),
       ]);
       const started = performance.now();
-      this.servers = new ServerGyms(
+      const before = this.servers;
+      const built = new ServerGyms(
         gyms.map((gym) => this.answered(gym)),
         links,
         regions,
         this.options.wordsOf,
+        {
+          changed: (guildIds) => {
+            this.serversChanged(guildIds);
+          },
+        },
       );
+      // The servers whose regions or gyms this load finds changed (review R9); none at the first.
+      const changed =
+        before === undefined
+          ? []
+          : [...new Set([...before.serverRows(), ...built.serverRows()])].filter(
+              (guildId) => before.fingerprintOf(guildId) !== built.fingerprintOf(guildId),
+            );
+      this.servers = built;
+      if (changed.length > 0) this.serversChanged(changed);
       this.changes += 1;
       this.options.log.info(
         { gyms: gyms.length, regions: regions.length, ms: Math.round(performance.now() - started) },

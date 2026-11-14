@@ -10,6 +10,7 @@ import {
   testGyms,
   testLinks,
   testRegions,
+  wideRegion,
 } from '../../test/support/gyms.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import type { Gym } from '../db/repositories/gym-repository.js';
@@ -318,6 +319,61 @@ describe('GymDirectory', () => {
     await expect(service.load()).rejects.toThrow();
     await expect(service.refreshGym(2)).rejects.toThrow();
     expect(service.generation).toBe(seen.at(-1));
+  });
+
+  it('counts each server’s changes apart, for what is built of one server’s gyms (plan 19E)', async () => {
+    const { service, state } = directory();
+    // Gym 3 is the second server's alone; a third server has none.
+    const THIRD = OTHER_GUILD_ROW + 1;
+    state.links = [
+      ...state.links.filter((link) => link.gymId !== 3),
+      { gymId: 3, guildId: OTHER_GUILD_ROW },
+    ];
+    await service.load();
+    const before = [TEST_GUILD_ROW, OTHER_GUILD_ROW, THIRD].map((row) => service.generationOf(row));
+    state.gyms = state.gyms.map((gym) => (gym.id === 2 ? { ...gym, name: 'New Fountain' } : gym));
+    await service.refreshGym(2);
+    expect(service.generationOf(TEST_GUILD_ROW)).not.toBe(before[0]);
+    expect(service.generationOf(OTHER_GUILD_ROW)).toBe(before[1]);
+    const mine = service.generationOf(TEST_GUILD_ROW);
+    service.unlink(3, OTHER_GUILD_ROW);
+    expect(service.generationOf(OTHER_GUILD_ROW)).not.toBe(before[1]);
+    expect(service.generationOf(TEST_GUILD_ROW)).toBe(mine);
+    service.forget(1);
+    expect(service.generationOf(TEST_GUILD_ROW)).not.toBe(mine);
+    expect(service.generationOf(THIRD)).toBe(before[2]);
+  });
+
+  it('changes at a load only the marks of the servers whose regions or gyms changed (review R9)', async () => {
+    const { service, state } = directory();
+    state.links = [
+      ...state.links.filter((link) => link.gymId !== 3),
+      { gymId: 3, guildId: OTHER_GUILD_ROW },
+    ];
+    await service.load();
+    const heard: number[][] = [];
+    service.whenServersChanged((rows) => {
+      heard.push([...rows]);
+    });
+    const marks = () => [TEST_GUILD_ROW, OTHER_GUILD_ROW].map((row) => service.generationOf(row));
+    const loaded = marks();
+    // Nothing changed: no mark changes.
+    await service.load();
+    expect(marks()).toEqual(loaded);
+    // A region of the second server's: its mark alone, and it is told.
+    state.regions = [...state.regions, wideRegion()];
+    await service.load();
+    expect(service.generationOf(TEST_GUILD_ROW)).toBe(loaded[0]);
+    expect(service.generationOf(OTHER_GUILD_ROW)).not.toBe(loaded[1]);
+    expect(heard).toEqual([[OTHER_GUILD_ROW]]);
+    // A change in memory tells it too; a load that finds the gym as memory has it changes nothing.
+    state.gyms = state.gyms.map((gym) => (gym.id === 2 ? { ...gym, name: 'New Fountain' } : gym));
+    await service.refreshGym(2);
+    expect(heard.at(-1)).toEqual([TEST_GUILD_ROW]);
+    const now = marks();
+    await service.load();
+    expect(marks()).toEqual(now);
+    expect(heard).toHaveLength(2);
   });
 
   describe('the answers of Google (plan 19B-3)', () => {
