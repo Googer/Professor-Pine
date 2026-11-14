@@ -390,7 +390,7 @@ describe('making a meetup on the map', () => {
           ok: false,
           text:
             'I am not allowed to make posts in #west-meetups: I lack the permission Manage Posts ' +
-            "there. Nothing was made. The server's staff must give it to me.",
+            'there. Nothing was made. The server’s staff must give it to me.',
         },
       });
     }

@@ -110,9 +110,9 @@ describe('/operator servers (plan 19C-1)', () => {
     const listed = await made.run('list');
     expect(answerOf(listed)).toBe(
       '### This Pine’s servers\nIn 2 servers; 1 more left, blocked or allowed.\n' +
-        `**Neighbors** \`${NEIGHBOR}\` · 56 members · not set up · no party yet\n` +
-        `**Pittsburgh** \`${HOME}\` · 1,234 members · set up · last party <t:${String((NOW - DAY) / 1000)}:R>\n` +
-        `**Old Friends** \`${GONE}\` · left <t:${String(NOW / 1000)}:R> · no party yet`,
+        `**Neighbors** \`${NEIGHBOR}\` · 56 members · not set up · no activity yet\n` +
+        `**Pittsburgh** \`${HOME}\` · 1,234 members · set up · last activity <t:${String((NOW - DAY) / 1000)}:R>\n` +
+        `**Old Friends** \`${GONE}\` · left <t:${String(NOW / 1000)}:R> · no activity yet`,
     );
   });
 
@@ -150,13 +150,13 @@ describe('/operator servers (plan 19C-1)', () => {
     await new InteractionRouter(ctx, [operator], components).handle(interaction as never);
     const text = answerOf(interaction);
     expect(text).toContain(
-      `\`${DELETED}\` · left, data deleted <t:${String((NOW - 9 * DAY) / 1000)}:D> · no party yet`,
+      `\`${DELETED}\` · left, data deleted <t:${String((NOW - 9 * DAY) / 1000)}:D> · no activity yet`,
     );
     expect(text).toContain(
-      `\`${DELETING}\` · left <t:${String((NOW - 31 * DAY) / 1000)}:R>, being deleted · no party yet`,
+      `\`${DELETING}\` · left <t:${String((NOW - 31 * DAY) / 1000)}:R>, being deleted · no activity yet`,
     );
     expect(text).toContain(
-      `\`${LEFT_AGAIN}\` · left <t:${String((NOW - 2 * DAY) / 1000)}:R> · no party yet`,
+      `\`${LEFT_AGAIN}\` · left <t:${String((NOW - 2 * DAY) / 1000)}:R> · no activity yet`,
     );
   });
 

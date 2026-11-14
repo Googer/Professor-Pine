@@ -296,7 +296,7 @@ describe('/location to a gym of another region', () => {
     expect(sent((await made.submit(asked)).editReply).content).toBe('This raid is over.');
   });
 
-  // The audit of 2026-11-10 (D15): a member kept out of the other region's forum could move a
+  // The audit of 2026-11-10 (D15): a member kept out of the other region’s forum could move a
   // raid into it, and was signed up there with everybody else.
   it('refuses a member who is kept out of the other region’s forum, without a dialog', async () => {
     const made = await setup();
@@ -382,14 +382,14 @@ describe('/location to a gym of another region', () => {
     const submitted = await made.submit(await made.run({ gym: 'g:7' }));
     expect(sent(submitted.editReply).content).toBe(
       `Nothing was moved. I am not allowed to make posts in <#${EAST_FORUM}>, the other ` +
-        "region's forum: I lack the permissions Create Posts and Manage Posts there. The " +
-        "server's staff must give them to me. The raid stays here.",
+        'region’s forum: I lack the permissions Create Posts and Manage Posts there. The ' +
+        'server’s staff must give them to me. The raid stays here.',
     );
     made.gateway.refusePosts.set(EAST_FORUM, []);
     const again = await made.submit(await made.run({ gym: 'g:7' }));
     expect(sent(again.editReply).content).toBe(
       `Nothing was moved. Discord does not let me make posts in <#${EAST_FORUM}>, the other ` +
-        "region's forum. The server's staff must check that I have View Channel, Create Posts, " +
+        'region’s forum. The server’s staff must check that I have View Channel, Create Posts, ' +
         'Send Messages in Posts and Manage Posts there. The raid stays here.',
     );
     expect(made.current().gymId).toBe(1);

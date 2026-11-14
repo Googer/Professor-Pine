@@ -496,7 +496,7 @@ describe('/meetup', () => {
     for (let n = 0; n < 2; n++) {
       expect((await made.run(`Try ${String(n)}`)).told).toContain(
         `I am not allowed to make posts in <#${WEST_FORUM}>: I lack the permission Manage Posts ` +
-          "there. Nothing was made. The server's staff must give it to me.",
+          'there. Nothing was made. The server’s staff must give it to me.',
       );
     }
     made.gateway.refusePosts.delete(WEST_FORUM);

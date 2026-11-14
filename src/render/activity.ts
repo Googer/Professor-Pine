@@ -101,7 +101,7 @@ export function standingLine(
  * `/info`, `/meet`, `/cancel-meet` and `/end` in its post alike.
  */
 export const NOT_YOUR_MEETUP =
-  "Only its maker and moderators can change this meetup's name, information and times.";
+  'Only its maker and moderators can change this meetup’s name, information and times.';
 
 /**
  * What a member is told while Discord cannot say whether somebody keeps them out of a forum or a
@@ -200,7 +200,7 @@ export function problemText(
       );
     case 'posts-refused':
       return (
-        "I am not allowed to make posts in the other region's forum: the server's staff must " +
+        'I am not allowed to make posts in the other region’s forum: the server’s staff must ' +
         'give me Manage Posts there (and View Channel, Create Posts and Send Messages in Posts). ' +
         'The raid stays here.'
       );
@@ -256,7 +256,7 @@ export function problemText(
     case 'split-pending':
       return `This ${word} is still being split off another: try again in a moment.`;
     case 'not-in-group':
-      return "Only a group's members, the conductor and the moderators can split a group off.";
+      return 'Only a group’s members, the conductor and the moderators can split a group off.';
     case 'conductor-in-group':
       return 'The conductor is in that group: only they and the moderators can split it off.';
     case 'group-changed':
@@ -292,14 +292,14 @@ export function noPostWords(
   const { missing } = refused;
   if (missing.length === 0) {
     return (
-      `Discord does not let me make posts in ${forum}. Nothing was made. The server's staff ` +
+      `Discord does not let me make posts in ${forum}. Nothing was made. The server’s staff ` +
       `must check that I have ${andList(POST_PERMISSIONS)} there.`
     );
   }
   const one = missing.length === 1;
   return (
     `I am not allowed to make posts in ${forum}: I lack the permission${one ? '' : 's'} ` +
-    `${andList(missing)} there. Nothing was made. The server's staff must give ` +
+    `${andList(missing)} there. Nothing was made. The server’s staff must give ` +
     `${one ? 'it' : 'them'} to me.`
   );
 }
@@ -312,18 +312,18 @@ export function postsRefusedMoveWords(
   refused: PostsRefused,
   channel: (channelId: string) => string,
 ): string {
-  const forum = `${channel(refused.forumId)}, the other region's forum`;
+  const forum = `${channel(refused.forumId)}, the other region’s forum`;
   const { missing } = refused;
   if (missing.length === 0) {
     return (
-      `Discord does not let me make posts in ${forum}. The server's staff must check that I ` +
+      `Discord does not let me make posts in ${forum}. The server’s staff must check that I ` +
       `have ${andList(POST_PERMISSIONS)} there. The raid stays here.`
     );
   }
   const one = missing.length === 1;
   return (
     `I am not allowed to make posts in ${forum}: I lack the permission${one ? '' : 's'} ` +
-    `${andList(missing)} there. The server's staff must give ${one ? 'it' : 'them'} to me. ` +
+    `${andList(missing)} there. The server’s staff must give ${one ? 'it' : 'them'} to me. ` +
     'The raid stays here.'
   );
 }
@@ -339,12 +339,12 @@ export function postsRefusedFailure(
 ): string {
   if (refused.missing.length === 0) {
     return (
-      `Discord does not let me make posts in ${forum} (the server's staff must check that I ` +
+      `Discord does not let me make posts in ${forum} (the server’s staff must check that I ` +
       `have ${andList(POST_PERMISSIONS)} there)`
     );
   }
   return (
-    `I am not allowed to make posts in ${forum} (the server's staff must give me ` +
+    `I am not allowed to make posts in ${forum} (the server’s staff must give me ` +
     `${andList(refused.missing)} there)`
   );
 }

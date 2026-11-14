@@ -96,7 +96,7 @@ const FRAME_ROOM = 250;
 
 /**
  * One server's line: its name (cut to `SERVER_NAME_CHARS` before it is escaped,
- * `serverNameShown`) and id, members, its state, its last party.
+ * `serverNameShown`) and id, members, its state, its last activity (its last party).
  */
 function lineWords(server: ServerLine): string {
   const name =
@@ -121,8 +121,8 @@ function lineWords(server: ServerLine): string {
   if (server.present) parts.push(server.setUpAt === null ? 'not set up' : 'set up');
   parts.push(
     server.lastParty === undefined
-      ? 'no party yet'
-      : `last party <t:${String(seconds(server.lastParty))}:R>`,
+      ? 'no activity yet'
+      : `last activity <t:${String(seconds(server.lastParty))}:R>`,
   );
   return parts.join(' · ');
 }

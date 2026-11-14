@@ -142,7 +142,7 @@ function itemDetail(key: SetupItemKey, state: ChecklistState): string {
     case 'gyms':
       // `/gym import` works once the server is set up (S7).
       return state.facts.gyms > 0
-        ? `${count(state.facts.gyms, 'gym')}.`
+        ? `${state.facts.gyms.toLocaleString('en-US')} ${state.facts.gyms === 1 ? 'gym' : 'gyms'}.`
         : `${state.inSetup ? 'Once Pine is set up, import' : 'Import'} your gyms from Wayfarer ` +
             'with `/gym import` and the file the Pine Wayfarer export tool saves. The tool’s ' +
             `owner hands it out: ask for it at <${state.tool}>.`;

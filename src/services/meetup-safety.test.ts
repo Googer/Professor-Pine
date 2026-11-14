@@ -500,7 +500,7 @@ describe('MeetupSafety.decide', () => {
     expect(outcome).toMatchObject({
       kind: 'done',
       failure:
-        "I am not allowed to make posts in its forum (the server's staff must give me Create " +
+        'I am not allowed to make posts in its forum (the server’s staff must give me Create ' +
         'Posts and Manage Posts there)',
     });
     // The other moderators read it in the post, which is drawn from what is kept.
@@ -511,7 +511,7 @@ describe('MeetupSafety.decide', () => {
     });
     expect(textOf(made.postOf(request)?.message)).toContain(
       `but the meetup could not be made: I am not allowed to make posts in <#${WEST_FORUM}> ` +
-        "(the server's staff must give me Create Posts and Manage Posts there). Its maker was " +
+        '(the server’s staff must give me Create Posts and Manage Posts there). Its maker was ' +
         'told.',
     );
     made.gateway.refusePosts.set(WEST_FORUM, []);
@@ -519,7 +519,7 @@ describe('MeetupSafety.decide', () => {
     expect(await made.safety.decide(second.id, 'approve', MODERATOR_MEMBER, SERVER)).toMatchObject({
       kind: 'done',
       failure:
-        "Discord does not let me make posts in its forum (the server's staff must check that I " +
+        'Discord does not let me make posts in its forum (the server’s staff must check that I ' +
         'have View Channel, Create Posts, Send Messages in Posts and Manage Posts there)',
     });
   });

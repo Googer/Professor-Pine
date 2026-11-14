@@ -91,7 +91,7 @@ export const listServers: SubcommandPart = {
   help: {
     details:
       'Every server this Pine is in, by name: how many members it has, whether it is set up ' +
-      '(`/admin setup`), and when its last party was made. It names no member.\n\n' +
+      '(`/admin setup`), and when it last had a raid, max battle, meetup or train. It names no member.\n\n' +
       'Then the servers it left, those blocked, and those allowed that have not added it yet. ' +
       'A page shows 20 servers at most, fewer when their names are long.\n\n' +
       'A server’s data is kept for 30 days after Pine leaves it, then deleted; the list says ' +

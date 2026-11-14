@@ -444,7 +444,7 @@ describe('/raid', () => {
       // Said once, in the answer itself: no second answer below it.
       expect(sent(refused.editReply).content).toBe(
         `I am not allowed to make posts in <#${WEST_FORUM}>: I lack the permission Manage ` +
-          "Posts there. Nothing was made. The server's staff must give it to me.",
+          'Posts there. Nothing was made. The server’s staff must give it to me.',
       );
       expect(refused.followUp).not.toHaveBeenCalled();
     }

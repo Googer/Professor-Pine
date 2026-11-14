@@ -36,7 +36,7 @@ function setupWith() {
   const told: string[] = [];
   const setup = new ServerSetup({
     servers,
-    counts: (serverId) => Promise.resolve(counts.get(serverId) ?? { regions: 2, gyms: 40 }),
+    counts: (serverId) => Promise.resolve(counts.get(serverId) ?? { regions: 2, gyms: 5388 }),
     send: (_channelId, text) => {
       told.push(text);
       return Promise.resolve();
@@ -166,7 +166,7 @@ describe('/admin setup (plan 19C-2)', () => {
     const made = setupWith();
     const shown = await made.checklist(SET_UP);
     expect(itemLines(shown)).toContain('**Gyms** · done');
-    expect(textOf(shown)).toContain('40 gyms');
+    expect(textOf(shown)).toContain('5,388 gyms.');
   });
 
   it('is for whoever may set the server up alone, its buttons too', async () => {

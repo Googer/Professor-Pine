@@ -150,12 +150,12 @@ describe('requestMessage', () => {
       failed({ kind: 'posts-refused', forumId: '300000000000000001', missing: ['Manage Posts'] }),
     ).toContain(
       `**Approved** ${by}, but the meetup could not be made: I am not allowed to make posts ` +
-        "in <#300000000000000001> (the server's staff must give me Manage Posts there). Its " +
+        'in <#300000000000000001> (the server’s staff must give me Manage Posts there). Its ' +
         'maker was told.',
     );
     expect(failed({ kind: 'posts-refused', forumId: '300000000000000001', missing: [] })).toContain(
       ', but the meetup could not be made: Discord does not let me make posts in ' +
-        "<#300000000000000001> (the server's staff must check that I have View Channel, Create " +
+        '<#300000000000000001> (the server’s staff must check that I have View Channel, Create ' +
         'Posts, Send Messages in Posts and Manage Posts there). Its maker was told.',
     );
     expect(failed({ kind: 'no-forum' })).toContain(
