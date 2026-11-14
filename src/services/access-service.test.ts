@@ -73,6 +73,18 @@ describe('AccessService: who is let into a forum', () => {
     expect(accessCalls(made)).toHaveLength(1);
   });
 
+  it('forgets the grants of a deleted server’s row, and asks Discord nothing (plan 19C-3)', async () => {
+    const made = await reportedRaid(yveltal);
+    made.gateway.shutOut(WEST_FORUM, ALICE);
+    await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);
+    await settled(made);
+    expect(made.access.forgetServer(2)).toBe(0);
+    expect(made.access.has(WEST_FORUM, ALICE)).toBe(true);
+    expect(made.access.forgetServer(1)).toBe(1);
+    expect(made.access.has(WEST_FORUM, ALICE)).toBe(false);
+    expect(accessCalls(made)).toEqual([`admitMember ${WEST_FORUM} ${ALICE}`]);
+  });
+
   it('does nothing for a member who can see the forum', async () => {
     const made = await reportedRaid(yveltal);
     await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);

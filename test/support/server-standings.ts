@@ -18,6 +18,9 @@ const blank = (serverId: string): StoredServerRecord => ({
   blockedAt: null,
   blockedBy: null,
   leftAt: null,
+  deletingAt: null,
+  deletedAt: null,
+  filesLeftAt: null,
 });
 
 /**
@@ -63,7 +66,10 @@ export class MemoryServerRecords implements ServerRecordStorage {
     for (const serverId of serverIds) {
       if (!this.guilds.has(serverId)) continue;
       const row = this.rows.get(serverId) ?? blank(serverId);
-      row.leftAt ??= at;
+      // Left anew where its data was deleted since it was marked (its return not written).
+      if (row.leftAt === null || (row.deletedAt !== null && row.deletedAt >= row.leftAt)) {
+        row.leftAt = at;
+      }
       this.rows.set(serverId, row);
       marked.set(serverId, row);
     }
@@ -77,6 +83,34 @@ export class MemoryServerRecords implements ServerRecordStorage {
       const row = this.rows.get(serverId);
       if (row) row.leftAt = null;
     }
+    return Promise.resolve();
+  }
+
+  markDeleting(serverId: string, at: number): Promise<void> {
+    const failed = this.fails('markDeleting');
+    if (failed) return failed;
+    const row = this.rows.get(serverId);
+    if (row) row.deletingAt ??= at;
+    return Promise.resolve();
+  }
+
+  markDeleted(serverId: string, at: number): Promise<void> {
+    const failed = this.fails('markDeleted');
+    if (failed) return failed;
+    const row = this.rows.get(serverId);
+    if (row) {
+      row.deletingAt = null;
+      row.deletedAt = at;
+      row.filesLeftAt = at;
+    }
+    return Promise.resolve();
+  }
+
+  filesRemoved(serverId: string, at: number): Promise<void> {
+    const failed = this.fails('filesRemoved');
+    if (failed) return failed;
+    const row = this.rows.get(serverId);
+    if (row?.filesLeftAt === at) row.filesLeftAt = null;
     return Promise.resolve();
   }
 

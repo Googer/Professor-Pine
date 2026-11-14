@@ -93,6 +93,20 @@ export class AccessService {
     this.options.log.info({ grants: this.grants.size }, 'access grants loaded');
   }
 
+  /**
+   * Forgets the grants of a server's `Guild` row whose data was deleted (plan 19C-3): their rows
+   * went with it, and Pine is no longer in the server, so nothing is asked of Discord. How many.
+   */
+  forgetServer(guildId: number): number {
+    let forgotten = 0;
+    for (const [key, grant] of this.grants) {
+      if (grant.guildId !== guildId) continue;
+      this.grants.delete(key);
+      forgotten += 1;
+    }
+    return forgotten;
+  }
+
   /** Whether the member was let into the forum by this service. */
   has(forumId: string, memberId: string): boolean {
     return this.grants.has(AccessService.key(forumId, memberId));

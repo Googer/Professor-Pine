@@ -86,6 +86,18 @@ export class ServerNotices {
     this.sending.set(told, sent);
   }
 
+  /**
+   * Forgets what was said and logged of a server whose data was deleted (plan 19C-3,
+   * `forgetServerMemory`): added back, it starts anew, and hears each notice again. A pass over
+   * what is remembered (at most `REMEMBERED` of each), once per deleted server.
+   */
+  forget(serverId: string): void {
+    const of = `${serverId}:`;
+    for (const remembered of [this.said, this.logged]) {
+      for (const key of remembered.keys()) if (key.startsWith(of)) remembered.delete(key);
+    }
+  }
+
   /** Waits for the notices on their way. For tests and the shutdown, before the client goes. */
   async flush(): Promise<void> {
     while (this.sending.size > 0) await Promise.allSettled([...this.sending.values()]);

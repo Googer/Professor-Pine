@@ -1,3 +1,4 @@
+import type { DeletedServerData } from './db/repositories/server-data-repository.js';
 import type { ShardStart } from './discord/shard-readiness.js';
 import { taskPictureSources } from './domain/stops/pictures.js';
 import type { Logger } from './log.js';
@@ -5,6 +6,7 @@ import type { PartyService } from './services/party-service.js';
 import type { PartyStore } from './services/party-store.js';
 import type { PictureMaking } from './services/research-task-service.js';
 import type { ServerAdmission } from './services/server-admission.js';
+import type { ServerFill } from './services/server-fill.js';
 import type { ServerSettings, ServerSettingsLookup } from './services/server-settings.js';
 import type { ServerSetup } from './services/server-setup.js';
 import type { ServerStart } from './discord/server-start.js';
@@ -140,10 +142,17 @@ export function shardStartWork(work: ShardStartWork): {
  * one it refused on joining is neither written nor marked. Either way the zones in use are read
  * again (a zone of its own may come or go, fix round 1, N5). Each resolves once written; neither
  * rejects: what fails is logged.
+ *
+ * A server added back while its data is being deleted, or whose deletion began and did not end
+ * (plan 19C-3, `ServerStandings.pending`), has no `Guild` row written here: its return is taken in
+ * its own turn once the deletion is over (`cameBack`, an unfinished deletion finished first), and
+ * then its row is written and its fill begun (`backAfterDeletion`), before a removal asked after
+ * it; a deletion that could not be finished writes none (the server stays left, and the next
+ * ready or sweep tries again).
  */
 export function followServers(deps: {
   admission: Pick<ServerAdmission, 'admits'>;
-  standings: Pick<ServerStandings, 'markLeft' | 'cameBack'>;
+  standings: Pick<ServerStandings, 'markLeft' | 'cameBack' | 'pending'>;
   guilds: { ensure(serverId: string): Promise<unknown> };
   presenceChanged: () => void;
   log: Logger;
@@ -152,15 +161,19 @@ export function followServers(deps: {
   return {
     joined: async (serverId) => {
       if (admission.admits(serverId)) {
+        // Being deleted (plan 19C-3): its row once the deletion is over, by its return.
+        const pending = standings.pending(serverId);
         // Its return is queued at the event, before its row is written: a removal that comes
         // meanwhile is queued after it and stays.
         const back = standings.cameBack([serverId]).catch((err: unknown) => {
           log.error({ err, guild: serverId }, 'could not take back that a server left');
         });
-        try {
-          await guilds.ensure(serverId);
-        } catch (err) {
-          log.error({ err, guild: serverId }, 'could not record guild');
+        if (!pending) {
+          try {
+            await guilds.ensure(serverId);
+          } catch (err) {
+            log.error({ err, guild: serverId }, 'could not record guild');
+          }
         }
         await back;
       }
@@ -209,6 +222,167 @@ export function followLeaving(
     const row = rowOf(serverId);
     if (row !== undefined) line.servingChanged([row]);
   });
+}
+
+/**
+ * Nothing is begun of a server while its data's deletion is pending (plan 19C-3;
+ * `ServerStandings.pending`; fix round 1, 3b and 4): neither its row of settings (`fill.begin`)
+ * nor its `Guild` row at a ready (`syncServers`), and nothing waits for it (`whenFilled` resolves
+ * at once: a shard's start and the client's are not held, and its interactions are answered with
+ * one line, `BEING_READIED`), so that nothing of a server added back is written before the
+ * deletion deleted what it would find, and nothing tries its deletion but its return. Its return
+ * begins both once the deletion is over (`backAfterDeletion`), and the server starts anew. A
+ * server whose deletion is not pending goes on at once, as before.
+ */
+export function afterDeletions(standings: Pick<ServerStandings, 'pending'>): {
+  fill(fill: Pick<ServerFill, 'begin' | 'whenFilled'>): Pick<ServerFill, 'begin' | 'whenFilled'>;
+  syncServers(
+    sync: (servers: readonly string[]) => Promise<void>,
+  ): (servers: readonly string[]) => Promise<void>;
+} {
+  return {
+    fill: (fill) => ({
+      begin: (names, how) => {
+        if (!standings.pending(names.serverId)) fill.begin(names, how);
+      },
+      whenFilled: (serverId) =>
+        serverId !== null && standings.pending(serverId)
+          ? Promise.resolve()
+          : fill.whenFilled(serverId),
+    }),
+    syncServers: (sync) => async (servers) => {
+      const now = servers.filter((serverId) => !standings.pending(serverId));
+      if (now.length > 0 || servers.length === 0) await sync(now);
+    },
+  };
+}
+
+/**
+ * What a server added back while its data's deletion was pending begins once it is over and the
+ * server is taken back (plan 19C-3, fix round 1; `ServerStandings.whenBackAfterDeletion`, in the
+ * server's turn): what its joining would have begun and `afterDeletions` held, its fill as one
+ * that joins (`ServerStart.admitted`: in setup, plan 19C-2; nothing where the client is not there
+ * yet, or the server not available) and its `Guild` row. Each step that fails is logged.
+ */
+export function backAfterDeletion(deps: {
+  late: Pick<SetupLate, 'serverStart'>;
+  guilds: { ensure(serverId: string): Promise<unknown> };
+  log: Logger;
+}): (serverId: string) => Promise<void> {
+  const { late, guilds, log } = deps;
+  return async (serverId) => {
+    try {
+      late.serverStart?.admitted(serverId);
+    } catch (err) {
+      log.error({ err, guild: serverId }, 'could not begin the fill of a server added back');
+    }
+    try {
+      await guilds.ensure(serverId);
+    } catch (err) {
+      log.error({ err, guild: serverId }, 'could not record guild');
+    }
+  };
+}
+
+/**
+ * Whether the web serves a server the bot's client has (plan 19C-1; fix round 1, 3b): not one
+ * Pine left, nor one whose data is being deleted (`pending`): either is answered as a server Pine
+ * is not in.
+ */
+export function servedOnWeb(
+  standings: Pick<ServerStandings, 'isLeft' | 'pending'>,
+): (serverId: string) => boolean {
+  return (serverId) => !standings.isLeft(serverId) && !standings.pending(serverId);
+}
+
+/** What the bot keeps in memory of a server, which `forgetServerMemory` forgets. */
+export interface ServerMemory {
+  rowIds: { forgetServer(serverId: string): void };
+  servers: { forget(serverId: string): Promise<void> };
+  notices: { forget(serverId: string): void };
+  parties: { forgetServer(guildRow: number): unknown };
+  access: { forgetServer(guildRow: number): unknown };
+  regions: { load(): Promise<void> };
+  gyms: { forget(id: number): unknown; unlink(id: number, guildRow: number): unknown };
+  wayspots: { load(guildRow: number): Promise<void> };
+  pineStops: { load(): Promise<void> };
+  nicknames: { load(serverIds: readonly string[]): Promise<void> };
+  line: {
+    serverGone(removed: readonly number[], unlinked: readonly number[]): Promise<void>;
+    servingChanged(guildRows: readonly number[]): void;
+  };
+  log: Logger;
+}
+
+/**
+ * What the bot forgets of a server whose data was deleted (plan 19C-3, `ServerDeletion`'s
+ * `forget`), each step by itself (one that fails is logged with `what`, and the rest go on): its
+ * row ids (`RowIds.forgetServer`: a server added back gets its new `Guild` row; the old row id
+ * still names it, and is never another server's), its row of settings (`ServerSettings.forget`:
+ * a fill gives it a first one, as to a server that joins), the notices said to its staff
+ * (`ServerNotices.forget`: added back, it hears them again), and where it still had its `Guild` row
+ * its parties and forum grants (`forgetServer`: nothing written, nothing asked of Discord), its
+ * regions (read again), its gyms (`GymDirectory.forget` for those deleted, `unlink` for those
+ * others keep, as a gym's deletion does), its Wayspots (`WayspotDirectory.load` of its row: none
+ * left), its stops of Pine's own (read again), its Pokémon nicknames (read again: none), and
+ * Google's line (`GymUpkeep.serverGone`: what a gym's deletion tells it of each gym, the nearest
+ * gyms worked out once for all of the server's, then `servingChanged` of its row: the shares
+ * worked out without it). What else is kept of it ages
+ * out by itself, keyed by ids no other server has: the boards' and the names' answers (a minute),
+ * the board keeper's members told and channels a delete failed in (bounded), the queued DMs
+ * (dropped when it was marked left). Never rejects.
+ */
+export function forgetServerMemory(
+  memory: ServerMemory,
+): (serverId: string, deleted: DeletedServerData) => Promise<void> {
+  const { log } = memory;
+  return async (serverId, deleted) => {
+    const row = deleted.guildRow;
+    const ofRow = (steps: (row: number) => [string, () => unknown][]): [string, () => unknown][] =>
+      row === undefined ? [] : steps(row);
+    const steps: [string, () => unknown][] = [
+      ['row ids', () => memory.rowIds.forgetServer(serverId)],
+      ['settings', () => memory.servers.forget(serverId)],
+      ['notices', () => memory.notices.forget(serverId)],
+
+      ...ofRow((guildRow) => [
+        ['parties', () => memory.parties.forgetServer(guildRow)],
+        ['forum grants', () => memory.access.forgetServer(guildRow)],
+      ]),
+      ['regions', () => memory.regions.load()],
+      ...ofRow((guildRow) => [
+        [
+          'gyms',
+          () => {
+            for (const id of deleted.gyms.deleted) memory.gyms.forget(id);
+            for (const id of deleted.gyms.unlinked) memory.gyms.unlink(id, guildRow);
+          },
+        ],
+        ['Wayspots', () => memory.wayspots.load(guildRow)],
+      ]),
+      ['stops of Pine’s own', () => memory.pineStops.load()],
+      ['Pokémon nicknames', () => memory.nicknames.load([serverId])],
+      ...ofRow((guildRow) => [
+        [
+          'Google’s line',
+          async () => {
+            await memory.line.serverGone(deleted.gyms.deleted, deleted.gyms.unlinked);
+            memory.line.servingChanged([guildRow]);
+          },
+        ],
+      ]),
+    ];
+    for (const [what, step] of steps) {
+      try {
+        await step();
+      } catch (err) {
+        log.error(
+          { err, server: serverId, what },
+          'could not forget what was kept of a server whose data was deleted',
+        );
+      }
+    }
+  };
 }
 
 /**

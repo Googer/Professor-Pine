@@ -91,6 +91,28 @@ describe('ServerNotices (plan 19B-1)', () => {
     expect(entries.filter((entry) => entry['server'] === SERVER)).toHaveLength(1);
   });
 
+  it('forgets what it told a server whose data was deleted, and nothing of another (plan 19C-3)', async () => {
+    const { notices, sent, entries } = noticesWith();
+    const NO_LAB = '412345678901234500';
+    notices.tell(SERVER, 'meetup-safety:gone', 'The moderators’ channel is gone.');
+    notices.tell(OTHER, 'meetup-safety:gone', 'The moderators’ channel is gone.');
+    notices.tell(NO_LAB, 'bot-updates:gone', 'The bot updates channel is gone.');
+    await notices.flush();
+    notices.forget(SERVER);
+    notices.forget(NO_LAB);
+    // Added back, it starts anew: told again, and its log again; the other is not.
+    notices.tell(SERVER, 'meetup-safety:gone', 'The moderators’ channel is gone.');
+    notices.tell(OTHER, 'meetup-safety:gone', 'The moderators’ channel is gone.');
+    notices.tell(NO_LAB, 'bot-updates:gone', 'The bot updates channel is gone.');
+    await notices.flush();
+    expect(sent).toEqual([
+      { channelId: LAB, text: 'The moderators’ channel is gone.' },
+      { channelId: OTHER_LAB, text: 'The moderators’ channel is gone.' },
+      { channelId: LAB, text: 'The moderators’ channel is gone.' },
+    ]);
+    expect(entries.filter((entry) => entry['server'] === NO_LAB)).toHaveLength(2);
+  });
+
   it('marks a notice said only once it was sent: a refusal or a lab set later tells it again', async () => {
     let refusing = true;
     const sent: string[] = [];

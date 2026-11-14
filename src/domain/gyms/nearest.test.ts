@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { nearestTo } from '@pine/wayspot-core/distance';
-import { nearestBlockChanges, nearestGymChanges, type NearGym } from './nearest.js';
+import {
+  nearestAfterGone,
+  nearestBlockChanges,
+  nearestGymChanges,
+  type NearGym,
+} from './nearest.js';
 
 /** Gyms on one line, a hundredth of a degree of latitude (1.1 km) per step of `at`. */
 const gym = (id: number, at: number, nearestGym: number | null = null): NearGym => ({
@@ -214,6 +219,40 @@ describe('nearestGymChanges', () => {
         ).toEqual(settled(left));
       }
     }
+  });
+});
+
+describe('nearestAfterGone (plan 19C-3)', () => {
+  it('gives the gyms a server’s deletion concerned their nearest of the servers left, as one by one', () => {
+    // Server a: 1, 3, 4, 6; server b (deleted): 2 alone, and 3 and 5 with a (5 also with c).
+    const servers = new Map<number, Set<string>>([
+      [1, new Set(['a'])],
+      [3, new Set(['a', 'b'])],
+      [4, new Set(['a'])],
+      [5, new Set(['b', 'c'])],
+      [6, new Set(['c'])],
+    ]);
+    const together = (a: number, b: number) =>
+      [...(servers.get(a) ?? [])].some((server) => servers.get(b)?.has(server) === true);
+    // 2 went with b; 3 and 5 lost b.
+    for (const id of [3, 5]) servers.get(id)?.delete('b');
+    // As stored before: 3 → 2 and 5 → 3 by server b; 1 → 3 and 4 → 3 by a; 6 → 5 by c.
+    const gyms = [gym(1, 0, 3), gym(3, 1, 2), gym(4, 1.5, 3), gym(5, 1.2, 3), gym(6, 3, 5)];
+    const changes = nearestAfterGone(
+      gyms,
+      { removed: new Set([2]), unlinked: new Set([3, 5]) },
+      together,
+    );
+    // One by one, as gym administration's deletion and unlinking would.
+    let oneByOne = gyms;
+    for (const event of [{ removed: 2 }, { placed: 3 }, { placed: 5 }]) {
+      oneByOne = applied(oneByOne, nearestGymChanges(oneByOne, event, together));
+    }
+    expect(applied(gyms, changes)).toEqual(oneByOne);
+    expect(changes).toEqual([
+      { id: 3, nearestGym: 4 },
+      { id: 5, nearestGym: 6 },
+    ]);
   });
 });
 

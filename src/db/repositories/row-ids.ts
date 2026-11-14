@@ -123,6 +123,16 @@ export class RowIds {
     if (id !== undefined) this.guildSnowflakes.delete(id);
   }
 
+  /**
+   * The server's data was deleted, its `Guild` row with it (plan 19C-3): neither way is it known
+   * any more, so that a server added back is given its new row. The server of the old row is
+   * still known (`serverOfRow`): a row id is never another server's.
+   */
+  forgetServer(snowflake: string): void {
+    this.forgetGuild(snowflake);
+    this.rowsOfServers.delete(snowflake);
+  }
+
   /** The member's row turned out to be gone. */
   forgetUser(snowflake: string): void {
     this.users.delete(snowflake);

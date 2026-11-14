@@ -113,6 +113,13 @@ export interface PartySchedulerOptions {
    */
   eventForum?: { upkeep(): Promise<unknown> };
   /**
+   * The servers Pine left more than 30 days ago, whose data goes (plan 19C-3,
+   * `ServerDeletion.sweep`): last in the upkeep, at most once a day (the sweep keeps its own day;
+   * the first at the start's upkeep). Told of the clock's stop, it ends between two statements
+   * and the next start goes on.
+   */
+  deletions?: { sweep(options: { isStopped: () => boolean }): Promise<unknown> };
+  /**
    * The new trains of splits left pending in the process (plan 8T: a split whose write failed,
    * and whose new train could not be ended then), taken back with the upkeep once they are a
    * minute old (`PartyService.settlePendingSplits`).
@@ -358,7 +365,7 @@ export class PartyScheduler {
    * sessions of the web pages, settles the new trains
    * of splits left pending, records the parties the party history was left without and adds the
    * history's new records to the activity heatmap, and reads the application's emoji anew: at
-   * start and hourly.
+   * start and hourly; last, the data of the servers Pine left more than 30 days ago (once a day).
    */
   private upkeep(): void {
     const { posts, access, routes, spawns, pictures, screenshots, emoji, webSessions, log } =
@@ -366,7 +373,7 @@ export class PartyScheduler {
     const { history, activity, splits, stops, grunts, eventForum, legacyFillIns, audit } =
       this.options;
     const { settingsAudit } = this.options;
-    const { placePictures, googleAnswers } = this.options;
+    const { placePictures, googleAnswers, deletions } = this.options;
     this.lastUpkeep = this.now();
     // Each by itself: one that fails does not keep the others from running. Once the clock has
     // stopped none starts: the shutdown waits for the upkeep (review r1 C3).
@@ -414,6 +421,8 @@ export class PartyScheduler {
       // Last, after the days have the history's new records: "On this day" waits for them
       // (plan 8H-8, A1).
       if (eventForum) await step(() => eventForum.upkeep());
+      // After the rest: a server's deletion may take a while, once a day.
+      if (deletions) await step(() => deletions.sweep({ isStopped: () => this.stopped }));
     })()
       .catch((err: unknown) => {
         log.error({ err }, 'the upkeep of the forums failed');

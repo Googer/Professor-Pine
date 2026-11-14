@@ -12,6 +12,7 @@ export const OTHER_STANDING_SERVER = '412345678901234568';
 export const NEVER_THERE = '412345678901234569';
 export const STANDING_OPERATOR = '323456789012345678';
 export const STANDING_NOW = Date.parse('2026-11-13T15:00:00Z');
+const DAY = 24 * 3_600_000;
 
 /** A row that says nothing yet but its server. */
 export function serverRecordRow(overrides: Partial<StoredServerRecord> = {}): StoredServerRecord {
@@ -23,6 +24,9 @@ export function serverRecordRow(overrides: Partial<StoredServerRecord> = {}): St
     blockedAt: null,
     blockedBy: null,
     leftAt: null,
+    deletingAt: null,
+    deletedAt: null,
+    filesLeftAt: null,
     ...overrides,
   };
 }
@@ -78,6 +82,76 @@ export function serverRecordCases(
       expect(await store.all()).toEqual([
         serverRecordRow({ recordedAt: STANDING_NOW }),
         serverRecordRow({ serverId: OTHER_STANDING_SERVER, leftAt: STANDING_NOW }),
+      ]);
+    });
+
+    it('takes a server whose data was deleted back, keeping when it was deleted (plan 19C-3)', async () => {
+      store = await fresh({
+        rows: [
+          serverRecordRow({
+            recordedAt: STANDING_NOW,
+            leftAt: STANDING_NOW - 40 * DAY,
+            deletedAt: STANDING_NOW,
+          }),
+        ],
+      });
+      await store.cameBack([STANDING_SERVER]);
+      expect(await store.all()).toEqual([
+        serverRecordRow({ recordedAt: STANDING_NOW, deletedAt: STANDING_NOW }),
+      ]);
+    });
+
+    it('records when a deletion began, keeping the first time, and when it ended (plan 19C-3)', async () => {
+      const left = STANDING_NOW - 40 * DAY;
+      store = await fresh({ rows: [serverRecordRow({ recordedAt: left, leftAt: left })] });
+      await store.markDeleting(STANDING_SERVER, STANDING_NOW);
+      // Begun again after a failure: it began the first time.
+      await store.markDeleting(STANDING_SERVER, STANDING_NOW + 1);
+      await store.markDeleting(NEVER_THERE, STANDING_NOW);
+      expect(await store.all()).toEqual([
+        serverRecordRow({ recordedAt: left, leftAt: left, deletingAt: STANDING_NOW }),
+      ]);
+      await store.markDeleted(STANDING_SERVER, STANDING_NOW + 2);
+      await store.markDeleted(NEVER_THERE, STANDING_NOW + 2);
+      // Its record stays, left, with what an operator said of it; its kept screenshots up to the
+      // end are left to remove.
+      const deleted = serverRecordRow({
+        recordedAt: left,
+        leftAt: left,
+        deletedAt: STANDING_NOW + 2,
+        filesLeftAt: STANDING_NOW + 2,
+      });
+      expect(await store.all()).toEqual([deleted]);
+      // Removed: only the files of that deletion are forgotten.
+      await store.filesRemoved(STANDING_SERVER, STANDING_NOW + 1);
+      expect(await store.all()).toEqual([deleted]);
+      await store.filesRemoved(STANDING_SERVER, STANDING_NOW + 2);
+      await store.filesRemoved(NEVER_THERE, STANDING_NOW + 2);
+      expect(await store.all()).toEqual([{ ...deleted, filesLeftAt: null }]);
+    });
+
+    it('marks a deleted server left anew though its return was never written (plan 19C-3)', async () => {
+      const left = STANDING_NOW - 40 * DAY;
+      store = await fresh({
+        rows: [
+          // Deleted, then added back, its return's write failed: still left since before.
+          serverRecordRow({ recordedAt: left, leftAt: left, deletedAt: left + 31 * DAY }),
+          // Deleted, back, and left again since: left since then.
+          serverRecordRow({
+            serverId: OTHER_STANDING_SERVER,
+            leftAt: STANDING_NOW - DAY,
+            deletedAt: left + 31 * DAY,
+          }),
+        ],
+        guilds: [STANDING_SERVER, OTHER_STANDING_SERVER],
+      });
+      expect(await store.markLeft([STANDING_SERVER, OTHER_STANDING_SERVER], STANDING_NOW)).toEqual([
+        serverRecordRow({ recordedAt: left, leftAt: STANDING_NOW, deletedAt: left + 31 * DAY }),
+        serverRecordRow({
+          serverId: OTHER_STANDING_SERVER,
+          leftAt: STANDING_NOW - DAY,
+          deletedAt: left + 31 * DAY,
+        }),
       ]);
     });
 

@@ -3,7 +3,13 @@ import type { Gym, GymStorage } from '../db/repositories/gym-repository.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
 import { geodataJson, placesRadius, placesText } from '../domain/geo/google.js';
 import { WAYSPOT_MOVED_METRES } from '../domain/geo/spot-address.js';
-import { nearestGymChanges, type NearestEvent } from '../domain/gyms/nearest.js';
+import {
+  nearestAfterGone,
+  nearestGymChanges,
+  type NearestChange,
+  type NearestEvent,
+  type Together,
+} from '../domain/gyms/nearest.js';
 import { isMeetup, isRaid, isTrain, type Party } from '../domain/party/party.js';
 import type { Logger } from '../log.js';
 import type { GeoFailure, GeoGateway } from './geo-gateway.js';
@@ -802,13 +808,48 @@ export class GymUpkeep {
     await this.queuePlaces(await this.settle({ placed: id }));
   }
 
+  /**
+   * After a server's data was deleted (plan 19C-3, `forgetServerMemory`): `removed` its gyms no
+   * other server had (the directory no longer has them), `unlinked` those others keep (the
+   * directory has them with their servers now). What `removed` and `unlinked` do for each, the
+   * nearest gyms worked out once for all of them (`nearestAfterGone`): one pass over every gym
+   * whatever the server's count, and one write of the line. Never rejects.
+   */
+  async serverGone(removed: readonly number[], unlinked: readonly number[]): Promise<void> {
+    for (const id of removed) {
+      // The database takes the gym out of the line with its row; the twin in memory is told.
+      await this.lookups.remove(id).catch((err: unknown) => {
+        this.options.log.warn({ err, gym: id }, 'could not take a deleted gym out of the line');
+      });
+      this.generation.delete(`address:${id}`);
+      this.generation.delete(`places:${id}`);
+    }
+    const gone = { removed: new Set(removed), unlinked: new Set(unlinked) };
+    const settled = await this.settleWith(
+      (gyms, together) => nearestAfterGone(gyms, gone, together),
+      { removed: removed.length, unlinked: unlinked.length },
+    );
+    await this.queuePlaces(settled);
+  }
+
   /** Writes the nearest gyms an event changed; gives the gyms that were written. */
-  private async settle(event: NearestEvent): Promise<number[]> {
+  private settle(event: NearestEvent): Promise<number[]> {
+    return this.settleWith((gyms, together) => nearestGymChanges(gyms, event, together), event);
+  }
+
+  /**
+   * Writes the nearest gyms `changesOf` works out of every gym (one pass over them), `about`
+   * named in the log; gives the gyms that were written.
+   */
+  private async settleWith(
+    changesOf: (gyms: readonly Gym[], together: Together) => readonly NearestChange[],
+    about: object,
+  ): Promise<number[]> {
     const { gyms, directory, log } = this.options;
     const done: number[] = [];
     try {
       // Per server (plan 19B-3): a gym's nearest is of the gyms that share a server with it.
-      for (const change of nearestGymChanges(directory.all(), event, (a, b) =>
+      for (const change of changesOf(directory.all(), (a, b) =>
         sharesServer(directory.serversOf(a), directory.serversOf(b)),
       )) {
         await gyms.update(change.id, { nearestGym: change.nearestGym });
@@ -818,12 +859,12 @@ export class GymUpkeep {
         done.push(change.id);
       }
     } catch (err) {
-      log.warn({ err, ...event }, 'could not bring the nearest gyms up to date');
+      log.warn({ err, ...about }, 'could not bring the nearest gyms up to date');
     }
     // One gym changes the nearest gym of a few around it. Many at once is a database whose
     // gyms had none yet (the first change settles them all): worth knowing, and no fault.
     if (done.length > MANY_NEAREST) {
-      log.info({ count: done.length, ...event }, 'many gyms got another nearest gym');
+      log.info({ count: done.length, ...about }, 'many gyms got another nearest gym');
     }
     return done;
   }

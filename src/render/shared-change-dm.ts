@@ -110,6 +110,139 @@ export function waitingServersDm(servers: readonly NamedServer[]): V2Message {
   ]);
 }
 
+/**
+ * A server whose data was deleted (plan 19C-3), by a sweep or by its return since the last
+ * sweep: its id, since when Pine had left it, whether the old bot's member index holds a folder
+ * of it (`indexFolder`), and whether some of its kept screenshots could not be removed yet
+ * (`screenshotsLeft`: its files' step did not succeed in the sweep that tells of it).
+ */
+export interface DeletedServer {
+  id: string;
+  leftAt: number | null;
+  indexFolder: boolean;
+  screenshotsLeft: boolean;
+}
+
+/** What a server's line says of kept screenshots not removed yet (fix round 2, R1-3). */
+const SCREENSHOTS_LEFT = '(some kept screenshots are still being removed)';
+
+/**
+ * The DM to the bot's owner after a sweep that deleted servers' data (plan 19C-3,
+ * `ServerDeletion`): how many, each by its id (its name is no longer known: Pine left it) and
+ * when Pine left it, the first `ADOPTED_NAMED`, then how many more; what went and what stays.
+ * The kept screenshots are said to be deleted only of the servers whose files went in that sweep;
+ * another's line says some are still being removed (fix round 2, R1-3). The old bot's member
+ * index (`LEGACY_INDEX_DIR`, which Pine only reads): the folders it holds of these servers, and
+ * only those, are named as the owner's to remove, as `/operator forget` names a member's files
+ * there (fix round 1, 7; fix round 2, R1-3).
+ */
+export function deletedServersDm(servers: readonly DeletedServer[]): V2Message {
+  const count = servers.length;
+  const shown = servers.slice(0, ADOPTED_NAMED);
+  const lines = shown.map((server) => {
+    const left =
+      server.leftAt === null ? '' : ` · left <t:${String(Math.floor(server.leftAt / 1000))}:D>`;
+    return `${server.id}${left}${server.screenshotsLeft ? ` ${SCREENSHOTS_LEFT}` : ''}`;
+  });
+  const more = count - lines.length;
+  const moreLeft = servers.slice(ADOPTED_NAMED).filter((server) => server.screenshotsLeft).length;
+  const moreLine =
+    more === 0
+      ? []
+      : [
+          `and ${String(more)} more` +
+            (moreLeft === 0
+              ? ''
+              : ` (${String(moreLeft)} of them with some kept screenshots still being removed)`),
+        ];
+  const filesLeft = servers.filter((server) => server.screenshotsLeft).length;
+  const screenshots =
+    filesLeft === 0
+      ? []
+      : [
+          (count === 1
+            ? 'Some of its kept screenshots could not be removed yet'
+            : filesLeft === count
+              ? 'Some of their kept screenshots could not be removed yet'
+              : 'Some kept screenshots of the servers marked so could not be removed yet') +
+            ': Pine tries again at each daily sweep.',
+        ];
+  return textMessage(SHARED_ACCENT, [
+    `### ${count === 1 ? 'A server’s data deleted' : `${String(count)} servers’ data deleted`}`,
+    `Pine left ${count === 1 ? 'this server' : `these ${String(count)} servers`} more than 30 ` +
+      'days ago, so everything it held of them is deleted: their settings, regions, Wayspots, ' +
+      'parties, history, boards, wants, routes, moderation and meetup records, ' +
+      (filesLeft === 0 ? 'kept screenshots, ' : '') +
+      'and the gyms no other server has. Members’ own settings stay, and so does each server’s ' +
+      'record with what an operator allowed or blocked; backups keep the data until they age out.',
+    [...lines, ...moreLine].join('\n'),
+    ...screenshots,
+    ...indexFolders(servers),
+    'If Pine is added back to one, it starts anew.',
+  ]);
+}
+
+/**
+ * The paragraph of `deletedServersDm` that names the old bot's member index folders of the
+ * deleted servers that have one (the first `ADOPTED_NAMED`, then how many more); none where no
+ * server has one.
+ */
+function indexFolders(servers: readonly DeletedServer[]): string[] {
+  const withFolder = servers.filter((server) => server.indexFolder);
+  if (withFolder.length === 0) return [];
+  const folders = withFolder.slice(0, ADOPTED_NAMED).map((server) => `\`${server.id}/\``);
+  const more = withFolder.length - folders.length;
+  const whose =
+    servers.length === 1
+      ? 'its members'
+      : withFolder.length === servers.length
+        ? 'their members'
+        : `the members of ${withFolder.length === 1 ? 'one of them' : `${String(withFolder.length)} of them`}`;
+  return [
+    `The old bot’s history of ${whose} is on the host, where I can only read it: delete ` +
+      (folders.length === 1
+        ? `the folder ${folders.join('')}`
+        : `the folders ${folders.join(', ')}`) +
+      ' in the member index folder (`LEGACY_INDEX_DIR`)' +
+      (more > 0
+        ? `, and those of the ${String(more)} more ${more === 1 ? 'server' : 'servers'}.`
+        : '.'),
+  ];
+}
+
+/**
+ * The step of a server's deletion that failed (plan 19C-3, `ServerDeletion`), as the owner is
+ * told it: its rows in the database, its kept screenshots, or the record of the deletion.
+ */
+export type DeletionStep = 'database' | 'screenshots' | 'record';
+
+/** A server whose deletion keeps failing: its id, and the step that failed last. */
+export interface FailingDeletion {
+  id: string;
+  step: DeletionStep;
+}
+
+/**
+ * The DM to the bot's owner of the servers whose deletion failed `sweeps` sweeps running (plan
+ * 19C-3, `ServerDeletion`): each by its id and what failed in a word, the first `ADOPTED_NAMED`,
+ * then how many more; where the reason is (the log), and that it is tried again each day.
+ */
+export function failingDeletionsDm(servers: readonly FailingDeletion[], sweeps: number): V2Message {
+  const count = servers.length;
+  const lines = servers.slice(0, ADOPTED_NAMED).map((server) => `${server.id} · ${server.step}`);
+  const more = count - lines.length;
+  return textMessage(SHARED_ACCENT, [
+    `### ${count === 1 ? 'A server’s data could not be deleted' : `${String(count)} servers’ data could not be deleted`}`,
+    `Pine left ${count === 1 ? 'this server' : `these ${String(count)} servers`} more than 30 days ` +
+      `ago, and could not delete what it held of ${count === 1 ? 'it' : 'them'} ` +
+      `${String(sweeps)} days running. Each failed at the step named: the database, the kept ` +
+      'screenshots, or the record of the deletion. The bot’s log says why: “could not delete the ' +
+      'data of a server Pine left”, with the server’s id.',
+    [...lines, ...(more > 0 ? [`and ${String(more)} more`] : [])].join('\n'),
+    'Pine tries again each day, and tells you again only if it fails anew after it succeeds.',
+  ]);
+}
+
 /** A name as the owner's DMs show it, plain and without links; `fallback` for none. */
 function named(name: string | undefined, fallback: string): string {
   const shown = name === undefined ? '' : plainNoLinks(name).trim();

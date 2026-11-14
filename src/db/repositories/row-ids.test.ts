@@ -92,6 +92,20 @@ describe('RowIds', () => {
     expect(ids.rowOfServer('g2001')).toBeUndefined();
   });
 
+  it('forgets a deleted server’s row, and still knows the row was that server’s (plan 19C-3)', () => {
+    const ids = new RowIds();
+    ids.sawGuild('g1', 7);
+    ids.forgetServer('g1');
+    expect(ids.guild('g1')).toBeUndefined();
+    expect(ids.guildSnowflake(7)).toBeUndefined();
+    expect(ids.rowOfServer('g1')).toBeUndefined();
+    // A row id is never another server's: the party of a row still names its server.
+    expect(ids.serverOfRow(7)).toBe('g1');
+    // Added back: a new row.
+    ids.sawGuild('g1', 9);
+    expect(ids.rowOfServer('g1')).toBe(9);
+  });
+
   it('remembers nothing when it is the one a repository has by default', () => {
     RowIds.none.sawGuild('g1', 7);
     RowIds.none.sawUser('u1', 42);

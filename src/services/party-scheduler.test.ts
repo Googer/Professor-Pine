@@ -813,6 +813,45 @@ describe('PartyScheduler: running', () => {
     expect(swept).toBe(1);
   });
 
+  // Plan 19C-3: the servers left more than 30 days ago are deleted (the sweep runs once a day).
+  it('has the servers Pine left 30 days ago deleted last in the upkeep, told of the clock’s stop', async () => {
+    const made = await reportedRaid();
+    const order: string[] = [];
+    let stopped: (() => boolean) | undefined;
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      eventForum: {
+        upkeep: () => {
+          order.push('events forum');
+          return Promise.resolve();
+        },
+      },
+      deletions: {
+        sweep: (options) => {
+          order.push('deletions');
+          stopped = options.isStopped;
+          return Promise.resolve([]);
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    expect(order).toEqual(['events forum', 'deletions']);
+    expect(stopped?.()).toBe(false);
+    await scheduler.stop();
+    expect(stopped?.()).toBe(true);
+  });
+
   // Plan 8V-1: the events forum is drawn hourly (a post still open three days after its end).
   it('has the events forum drawn with the upkeep', async () => {
     const made = await reportedRaid();

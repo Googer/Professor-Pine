@@ -224,6 +224,36 @@ describe('ServerAdmission (plan 19C-1)', () => {
     expect(store.rows.get(GONE)?.leftAt).toBeNull();
   });
 
+  it('at a ready takes back the returning servers and marks the gone, whatever a deletion that fails (plan 19C-3)', async () => {
+    const { admission, standings, store, entries } = admissionWith([
+      // Back while Pine was away, its deletion begun and not ended: it fails again.
+      serverRecordRow({ serverId: GONE, recordedAt: NOW - 1, leftAt: NOW - 1, deletingAt: NOW }),
+      // Back while Pine was away as well.
+      serverRecordRow({ serverId: DOWN, recordedAt: NOW - 1, leftAt: NOW - 1 }),
+    ]);
+    await standings.load();
+    let tries = 0;
+    standings.finishDeletionsWith(() => {
+      tries += 1;
+      return Promise.reject(new Error('the database went away'));
+    });
+    // ALLOWED removed the bot while it was away.
+    await admission.everyShardReady(every([GONE, DOWN]));
+    await standings.settled(GONE);
+    expect(standings.isLeft(DOWN)).toBe(false);
+    expect(store.rows.get(DOWN)?.leftAt).toBeNull();
+    expect(standings.isLeft(ALLOWED)).toBe(true);
+    expect(standings.isLeft(GONE)).toBe(true);
+    expect(tries).toBe(1);
+    expect(
+      entries.filter((entry) => entry.msg === 'could not check which servers the bot is in'),
+    ).toEqual([]);
+    // The next ready tries it again, once.
+    await admission.everyShardReady(every([GONE, DOWN]));
+    await standings.settled(GONE);
+    expect(tries).toBe(2);
+  });
+
   it('marks left no server that joined between the snapshot and the read of the servers Pine was in (J2)', async () => {
     const live = new Set([ALLOWED, DOWN]);
     let release!: () => void;

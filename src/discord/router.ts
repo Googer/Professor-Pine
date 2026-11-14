@@ -31,7 +31,7 @@ import { answerApart, deferLate, LATE_DEFER_MS } from './late-reply.js';
 import { Throttles, waitText, type Throttle } from './throttle.js';
 import { LockOverdueError } from '../services/keyed-lock.js';
 import { REHEARSAL_REFUSAL } from '../services/rehearsal.js';
-import { inSetupWords, notSetUpIn, notSetUpWords } from './set-up.js';
+import { BEING_READIED, inSetupWords, notSetUpIn, notSetUpWords } from './set-up.js';
 import { isServerAdmin } from './guards.js';
 
 export const STALE_COMPONENT = 'This no longer works.';
@@ -211,6 +211,7 @@ export class InteractionRouter {
    * that asks nothing of the bot, so the measure of a round trip), `ms` everything from arrival.
    */
   async handle(received: Interaction): Promise<void> {
+    if (this.beingReadied(received)) return this.answerBeingReadied(received);
     if (!this.admitted(received)) return this.refuseInRehearsal(received);
     if (this.heldInSetup(received)) return this.refuseInSetup(received);
     const interaction = this.answeredInRehearsal(received);
@@ -315,7 +316,41 @@ export class InteractionRouter {
   }
 
   /**
+   * Whether the interaction came from a server added back while its data is being deleted (plan
+   * 19C-3, fix round 1, 3b: `ServerStandings.pending`). Never in a DM. Asked before anything else,
+   * so that nothing is counted, run or read of the server.
+   */
+  private beingReadied(interaction: Interaction): boolean {
+    const { guildId } = interaction;
+    return guildId !== null && this.ctx.standings.pending(guildId);
+  }
+
+  /**
+   * Answers everything of a server whose data is being deleted with one line, privately
+   * (`BEING_READIED`), whoever asks; an autocomplete with nothing. A failure is only logged.
+   */
+  private async answerBeingReadied(interaction: Interaction): Promise<void> {
+    try {
+      if (interaction.isAutocomplete()) await interaction.respond([]);
+      else if (
+        interaction.isChatInputCommand() ||
+        interaction.isMessageContextMenuCommand() ||
+        interaction.isMessageComponent() ||
+        interaction.isModalSubmit()
+      ) {
+        await replyEphemeral(interaction, BEING_READIED);
+      }
+    } catch (err) {
+      this.ctx.log.warn(
+        { err, interaction: describe(interaction) },
+        'could not answer in a server whose data is being deleted',
+      );
+    }
+  }
+
+  /**
    * Answers what a server in setup does not do (plan 19C-2): privately, "Pine is not set up in
+
    * this server yet.", and to whoever may set it up (`isServerAdmin`: its owner, who may manage
    * it, its staff) where to go on;
    * an autocomplete with nothing. A failure is only logged.

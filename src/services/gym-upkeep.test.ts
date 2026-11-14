@@ -443,6 +443,31 @@ describe('GymUpkeep.removed', () => {
   });
 });
 
+describe('GymUpkeep.serverGone (plan 19C-3)', () => {
+  it('takes the gyms deleted with a server out of the line, and gives those that pointed at them another nearest one', async () => {
+    const lookups = new MemoryGymLookups();
+    const { upkeep, gyms, directory, add } = await upkeepWith({ lookups });
+    const first = await add(BESIDE_LONELY.lat, BESIDE_LONELY.lon);
+    const second = await add(BESIDE_LONELY.lat + 0.0005, BESIDE_LONELY.lon);
+    await upkeep.placed(first, { places: 'later' });
+    await upkeep.placed(second, { places: 'later' });
+    expect(directory.stored(LONELY)?.nearestGym).toBe(first);
+    expect(hasRow(lookups, first) && hasRow(lookups, second)).toBe(true);
+    for (const id of [first, second]) {
+      await gyms.delete(id);
+      directory.forget(id);
+    }
+    gyms.writes.length = 0;
+    await upkeep.serverGone([first, second], []);
+    expect(hasRow(lookups, first) || hasRow(lookups, second)).toBe(false);
+    const lonely = directory.stored(LONELY);
+    expect(lonely?.nearestGym).not.toBe(first);
+    expect(gyms.written('nearestGym')).toEqual([[LONELY, lonely?.nearestGym]]);
+    // It waits for its places, around its other nearest gym.
+    expect(hasRow(lookups, LONELY)).toBe(true);
+  });
+});
+
 describe('the cap of lookups by hand (plan 8Z)', () => {
   /** Pacific noon on a day of the fixtures' choosing: the month and the day it counts in. */
   const NOW = new Date('2026-10-11T12:00:00-07:00').getTime();

@@ -25,7 +25,7 @@ function nearestAmong(gym: NearGym, gyms: readonly NearGym[], together: Together
 }
 
 /** A gym whose stored nearest gym is no longer right, with what it should be. */
-interface NearestChange {
+export interface NearestChange {
   id: number;
   /** Null when there is no other gym. */
   nearestGym: number | null;
@@ -83,6 +83,38 @@ export function nearestGymChanges(
     const now = metresBetween(gym, pointsAt);
     const offered = metresBetween(gym, placed);
     if (offered < now || (offered === now && placed.id < pointsAt.id)) note(gym, placed.id);
+  }
+  return changes.sort((a, b) => a.id - b.id);
+}
+
+/** The gyms a server's deletion took from it at once (plan 19C-3). */
+export interface GymsGone {
+  /** Deleted with the server, no other server having them: not among the gyms. */
+  removed: ReadonlySet<number>;
+  /** Unlinked from the server, others keeping them: among the gyms, with their servers now. */
+  unlinked: ReadonlySet<number>;
+}
+
+/**
+ * `nearestGymChanges` for the gyms a server's deletion took away (plan 19C-3), worked out once
+ * for all of them instead of once per gym: the gyms unlinked, and the gyms that pointed at a gym
+ * deleted or unlinked, look for their nearest anew (`together` as it is now); nothing came nearer
+ * to any other gym. Of two gyms equally near, the lower id. Sorted by id.
+ */
+export function nearestAfterGone(
+  gyms: readonly NearGym[],
+  gone: GymsGone,
+  together: Together = ALL_TOGETHER,
+): NearestChange[] {
+  const changes: NearestChange[] = [];
+  for (const gym of gyms) {
+    const anew =
+      gone.unlinked.has(gym.id) ||
+      (gym.nearestGym !== null &&
+        (gone.removed.has(gym.nearestGym) || gone.unlinked.has(gym.nearestGym)));
+    if (!anew) continue;
+    const nearest = nearestAmong(gym, gyms, together);
+    if (gym.nearestGym !== nearest) changes.push({ id: gym.id, nearestGym: nearest });
   }
   return changes.sort((a, b) => a.id - b.id);
 }

@@ -19,7 +19,10 @@ export interface ServerExits {
 }
 
 export interface ServerAdmissionOptions {
-  standings: Pick<ServerStandings, 'mayHave' | 'isLeft' | 'markLeft' | 'cameBack' | 'allow'>;
+  standings: Pick<
+    ServerStandings,
+    'mayHave' | 'isLeft' | 'markLeft' | 'cameBack' | 'allow' | 'retryDeletions'
+  >;
   /**
    * Whether a server's shard names it present now (`ShardReadiness.isPresent`; false before the
    * shards are there): what an operator's allowance begins asks it (`allow`).
@@ -78,7 +81,10 @@ function waitUnref(ms: number): Promise<void> {
  * servers present by `ShardReadiness`, never the cache), since a server can add or remove Pine
  * while it is down and Discord says nothing of it afterwards: then also every server Pine was in
  * that no shard names (gone, not merely unavailable) is marked left, and a present one marked left
- * is so no more.
+ * is so no more. A present server whose data's deletion is pending (plan 19C-3) is taken back in
+ * its own turn once the deletion is over (`ServerStandings.cameBack`): neither its failure nor
+ * its time holds the others' return or the marking of the gone; each ready tries an unfinished
+ * deletion that failed at a return once more (`retryDeletions`).
  */
 export class ServerAdmission {
   /** The servers being refused now: each told and left once at a time. */
@@ -228,6 +234,8 @@ export class ServerAdmission {
   async everyShardReady(every: EveryShardReady): Promise<void> {
     const { standings, log } = this.options;
     const isPresent = (serverId: string): boolean => every.isPresent(serverId);
+    // A ready tries again an unfinished deletion that failed at a server's return (plan 19C-3).
+    standings.retryDeletions();
     try {
       const allowed: string[] = [];
       for (const serverId of every.present) {

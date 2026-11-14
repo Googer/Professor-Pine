@@ -34,6 +34,13 @@ export type SetUpContext = Pick<AppContext, 'config' | 'standings'>;
 export const IN_SETUP = 'Pine is not set up in this server yet.';
 
 /**
+ * What everyone is told of every interaction of a server added back while its data is being
+ * deleted (plan 19C-3, fix round 1, 3b: `ServerStandings.pending`), staff included: one line,
+ * nothing behind it. Once the deletion is over the server starts anew, in setup.
+ */
+export const BEING_READIED = 'Pine is getting this server ready. Try again in a few minutes.';
+
+/**
  * What the router answers in a server in setup: to whoever may set it up (`isServerAdmin`), where
  * to go on.
  */

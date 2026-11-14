@@ -293,6 +293,21 @@ describe('ServerSettings', () => {
     expect(servers.of(OTHER_SETTINGS_SERVER)).toEqual(fileDefaults(settings));
   });
 
+  it('forgets the row of a server whose data was deleted, which a fill then gives anew (plan 19C-3)', async () => {
+    const { servers, store } = await servicesWith([
+      filledRow(),
+      filledRow({ serverId: OTHER_SETTINGS_SERVER }),
+    ]);
+    store.rows.delete(SETTINGS_SERVER);
+    await servers.forget(SETTINGS_SERVER);
+    expect(servers.has(SETTINGS_SERVER)).toBe(false);
+    expect(servers.of(SETTINGS_SERVER)).toEqual(fileDefaults(settings));
+    expect(servers.has(OTHER_SETTINGS_SERVER)).toBe(true);
+    // Its fill writes a first row again: a server that starts anew.
+    expect(await servers.create(SETTINGS_SERVER, fileDefaults(settings), false)).toBe(true);
+    expect(servers.setUpAt(SETTINGS_SERVER)).toBeNull();
+  });
+
   it("logs each setting a change changed in the staff's log, with who and when", async () => {
     const { servers, store, pass } = await servicesWith();
     pass(60_000);

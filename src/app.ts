@@ -14,6 +14,7 @@ import { configWarnings } from './config/warnings.js';
 import { dbConfigFrom } from './db/db-config.js';
 import { createDb } from './db/kysely.js';
 import { runMigrations } from './db/migrator.js';
+import { isSnowflake } from './db/snowflake.js';
 import { AccessGrantRepository } from './db/repositories/access-grant-repository.js';
 import { DmContactRepository } from './db/repositories/dm-contact-repository.js';
 import { PartyAuditRepository } from './db/repositories/party-audit-repository.js';
@@ -73,6 +74,8 @@ import { ServerSettings } from './services/server-settings.js';
 import { ServerStandings } from './services/server-standings.js';
 import { quietServers } from './services/quiet-servers.js';
 import { ServerSetup, setupCounts } from './services/server-setup.js';
+import { ServerDeletion } from './services/server-deletion.js';
+import { ServerDataRepository } from './db/repositories/server-data-repository.js';
 import { ServerAdmission } from './services/server-admission.js';
 import { ServerAdoption } from './services/server-adoption.js';
 import { DiscordServerExits } from './discord/server-exits.js';
@@ -154,7 +157,7 @@ import { LegacyFillInRepository } from './db/repositories/legacy-fill-in-reposit
 import { LegacyFillInService } from './services/legacy-fill-in.js';
 import { MemberDataRepository } from './db/repositories/member-data-repository.js';
 import { MemberRemoval } from './services/member-removal.js';
-import { memberIndexServers } from './ops/legacy-index.js';
+import { hasServerIndex, memberIndexServers } from './ops/legacy-index.js';
 import { OcrAssets } from './services/ocr-assets.js';
 import { OcrService } from './services/ocr-service.js';
 import { ScreenshotService } from './services/screenshot-service.js';
@@ -214,6 +217,10 @@ import {
   eventsFeedStep,
   followLeaving,
   followServers,
+  forgetServerMemory,
+  afterDeletions,
+  backAfterDeletion,
+  servedOnWeb,
   followZones,
   liveSources,
   notOfQuietServers,
@@ -491,8 +498,9 @@ export async function startApp(
     notices: serverNotices,
     recordedForum: async (serverId) => (await eventForumRecords.forum(serverId))?.forumId,
     // Set up already where the record has it from before 2.1 or adopted by a new install at its
-    // first start (plan 19C-2, S2), asked when its fill is written.
-    recorded: (serverId) => standings.standingOf(serverId).recorded,
+    // first start (plan 19C-2, S2), and its data was never deleted (plan 19C-3), asked when its
+    // fill is written.
+    recorded: (serverId) => standings.setUpOnRecord(serverId),
   });
   // Who is in (plan 19C-1): a server that may not have this Pine is told so in its system channel
   // and left, on joining and at every ready; a server Pine was in that no shard names any more is
@@ -1220,6 +1228,46 @@ export async function startApp(
     log,
   });
   reports.watch(parties);
+  // The servers Pine left more than 30 days ago are deleted (plan 19C-3): the database table by
+  // table, then what the bot keeps of them in memory, then their kept screenshots; once a day with
+  // the upkeep (none in rehearsal mode, which only rehearses), never one Pine is in by its shards'
+  // view, and a deletion cut short is finished when its server adds Pine back. The owner is told
+  // by DM.
+  // Each server's Pokémon search, with its own nicknames (plan 19B-4).
+  const pokemon = new PokemonSearchService(gameData, new PokemonNicknameRepository(db), log);
+  const serverDeletion = new ServerDeletion({
+    standings,
+    data: new ServerDataRepository(db),
+    screenshots: screenshotStore,
+    forget: forgetServerMemory({
+      rowIds,
+      servers,
+      notices: serverNotices,
+      parties,
+      access,
+      regions,
+      gyms,
+      wayspots: { load: (guildRow) => wayspots.load(guildRow) },
+      pineStops,
+      nicknames: pokemon,
+      line: gymUpkeep,
+      log,
+    }),
+    // By the live client's shards (unavailable included), made at the login; not known before.
+    present: (serverId) => liveShards?.isPresent(serverId),
+    // The old bot's member index, which Pine only reads: the owner removes a server's folder,
+    // where it holds one (a leftover `.<server>.old` included; a record's id is a snowflake, which
+    // `hasServerIndex` requires).
+    ...(legacyIndexDir === undefined
+      ? {}
+      : {
+          legacyIndex: (serverId: string) =>
+            isSnowflake(serverId) && hasServerIndex(legacyIndexDir, serverId),
+        }),
+    dms,
+    ownerId: config.env.OWNER_ID,
+    log,
+  });
   const scheduler = new PartyScheduler({
     store: parties,
     history: partyHistory,
@@ -1259,6 +1307,8 @@ export async function startApp(
     // Google's answers no gym or Wayspot of any server shows, once a day (plan 19B-3): the
     // scheduler starts after both are loaded.
     googleAnswers: { sweep: () => googleAnswers.sweep([gyms, wayspots]) },
+    // The servers Pine left more than 30 days ago, once a day (plan 19C-3); not in rehearsal mode.
+    ...(rehearsal ? {} : { deletions: serverDeletion }),
     screenshots: screenshotStore,
     emoji: appEmoji,
     webSessions,
@@ -1307,7 +1357,6 @@ export async function startApp(
     settingsChannelNames: channelNamesOf(config.settings),
     log,
   });
-  const pokemon = new PokemonSearchService(gameData, new PokemonNicknameRepository(db), log);
   const checkpoint = startCheckpoint(options.stopRequested);
   try {
     await runMigrations(db, log);
@@ -1388,6 +1437,9 @@ export async function startApp(
   // What a server's setup reaches that is made after it (fix round 1, S5): the posts of the stops
   // below, and what the live client's `configure` makes.
   const setupLate: SetupLate = { ...(eventForum ? { eventForum } : {}) };
+  // A server added back while its deletion was pending: once it is over, its fill and its `Guild`
+  // row, as its joining would have begun them (by the live client's start, made at the login).
+  standings.whenBackAfterDeletion(backAfterDeletion({ late: setupLate, guilds, log }));
   // A server's setup (plan 19C-2): what /admin setup reads, and the leaving of setup once its
   // required items are done, its bot lab told so (only where Pine may post there); then what was
   // held for it begins (`serverSetUpWork`): the zones in use (with it now), its summaries, the
@@ -1697,7 +1749,10 @@ export async function startApp(
       // stood through the restart; at `ClientReady`, the servers that added the bot meanwhile
       // without an event. Who is in is checked once every shard is ready (plan 19C-1).
       const startWork = shardStartWork({
-        syncServers: (servers) => syncGuilds(guilds, servers, log),
+        // A server added back while its data is deleted: once the deletion is over (plan 19C-3).
+        syncServers: afterDeletions(standings).syncServers((servers) =>
+          syncGuilds(guilds, servers, log),
+        ),
         // Where meetup safety cannot work: once per server, in the log of the start.
         warnAtStart: (servers) => {
           meetupSafety.warnAtStart(servers);
@@ -1737,7 +1792,9 @@ export async function startApp(
       // follows, which reads the servers' values, once every shard's is done: the clock and the
       // web wait for `connected`.
       const serverStart = wireServerStart<Guild, Interaction>(client, {
-        fill: serverFill,
+        // A server added back while its data is deleted is filled, and its interactions routed,
+        // once the deletion is over (plan 19C-3).
+        fill: afterDeletions(standings).fill(serverFill),
         namesOf: serverNamesOf,
         serverOf: (serverId) => client.guilds.cache.get(serverId),
         shards,
@@ -2031,7 +2088,7 @@ export async function startApp(
       // A server Pine left is answered as one it is not in (plan 19C-1); one in setup too, but
       // for its staff's region editor (plan 19C-2).
       servers: {
-        has: (guildId) => client.guilds.cache.has(guildId) && !standings.isLeft(guildId),
+        has: (guildId) => client.guilds.cache.has(guildId) && servedOnWeb(standings)(guildId),
         inSetup: (guildId) => servers.inSetup(guildId),
       },
       serverSettings: servers,
@@ -2043,7 +2100,7 @@ export async function startApp(
         joined: () =>
           joinedServers(
             [...client.guilds.cache.values()].filter(
-              (guild) => !standings.isLeft(guild.id) && !servers.inSetup(guild.id),
+              (guild) => servedOnWeb(standings)(guild.id) && !servers.inSetup(guild.id),
             ),
           ),
         guilds,

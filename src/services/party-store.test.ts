@@ -43,6 +43,19 @@ describe('PartyStore', () => {
     expect(() => store.active()).toThrow('Parties have not been loaded yet');
   });
 
+  it('forgets the parties of a deleted server’s row, without a write or a word (plan 19C-3)', async () => {
+    const theirs = testRaid({ id: ID(1) });
+    const ours = { ...testRaid({ id: ID(2), regionId: 2, gymId: 7 }), guildId: 2 };
+    const { store } = await partyStoreWith([theirs, ours]);
+    const heard: string[] = [];
+    store.onChange((_before, after) => heard.push(after.id));
+    expect(store.forgetServer(theirs.guildId)).toBe(1);
+    expect(store.active().map((party) => party.id)).toEqual([ID(2)]);
+    expect(store.get(ID(1))).toBeUndefined();
+    expect(heard).toEqual([]);
+    expect(store.forgetServer(theirs.guildId)).toBe(0);
+  });
+
   it('loads the active parties and finds them by id, post, region and gym', async () => {
     const posted = { ...testRaid({ id: ID(1) }), forumPostId: '300000000000000001' };
     const east = testRaid({ id: ID(2), regionId: 2, gymId: 7, now: PARTY_NOW + MINUTE });

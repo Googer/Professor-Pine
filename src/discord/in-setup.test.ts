@@ -25,7 +25,11 @@ import { commandGroup } from './command-group.js';
 import { decodeCustomId } from './custom-id.js';
 import type { ComponentHandler, MessageCommand, SimpleCommand } from './command.js';
 import { InteractionRouter } from './router.js';
-import { IN_SETUP } from './set-up.js';
+import { BEING_READIED, IN_SETUP } from './set-up.js';
+import type { ServerStandings } from '../services/server-standings.js';
+import { standingsWith } from '../../test/support/server-standings.js';
+import { serverRecordRow } from '../../test/support/server-record-cases.js';
+
 import { Throttles } from './throttle.js';
 
 /** A server set up long ago (the fakes' own) and one that just added Pine (plan 19C-2). */
@@ -41,9 +45,9 @@ function servers(): TestServers {
   return made;
 }
 
-function setup() {
+function setup(standings?: ServerStandings) {
   const throttles = new Throttles();
-  const { ctx } = createTestContext({ servers: servers() });
+  const { ctx } = createTestContext({ servers: servers(), ...(standings ? { standings } : {}) });
   const raid = vi.fn(() => Promise.resolve());
   const raidTyped = vi.fn(() => Promise.resolve());
   const help = vi.fn(() => Promise.resolve());
@@ -309,5 +313,53 @@ describe('a server in setup (plan 19C-2)', () => {
       ),
     );
     expect(removal).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a server whose data is being deleted (plan 19C-3, fix round 1)', () => {
+  /** Added back while its deletion, begun and not ended, is not finished: pending. */
+  const BEING = '412345678901234598';
+  const WORDS = 'Pine is getting this server ready. Try again in a few minutes.';
+
+  function deleting() {
+    const { standings } = standingsWith({
+      rows: [serverRecordRow({ serverId: BEING, recordedAt: 1, leftAt: 2, deletingAt: 3 })],
+    });
+    return setup(standings);
+  }
+
+  it('answers everything with one line, privately, and runs nothing: staff, /help, the setup', async () => {
+    const { router, raid, help, settings, join, report } = deleting();
+    expect(BEING_READIED).toBe(WORDS);
+    const asked = [
+      fakeChatInput({ commandName: 'raid', guildId: BEING }),
+      fakeChatInput({ commandName: 'help', guildId: BEING }),
+      fakeChatInput({
+        commandName: 'admin',
+        subcommand: 'settings',
+        guildId: BEING,
+        roleNames: ['Admin'],
+      }),
+      fakeButton({ customId: 'party:1:join', guildId: BEING }),
+      fakeModal({ customId: 'server:timezone:set', guildId: BEING, roleNames: ['Admin'] }),
+      fakeMessageCommand({ guildId: BEING }),
+    ];
+    for (const one of asked) {
+      await router.handle(asInteraction(one));
+      expect(sent(one.reply)).toEqual({ content: WORDS, flags: MessageFlags.Ephemeral });
+    }
+    for (const handler of [raid, help, settings, join, report]) {
+      expect(handler).not.toHaveBeenCalled();
+    }
+  });
+
+  it('answers its autocomplete with nothing, and another server as ever', async () => {
+    const { router, raidTyped, raid } = deleting();
+    const typing = fakeAutocomplete({ commandName: 'raid', guildId: BEING });
+    await router.handle(asInteraction(typing));
+    expect(typing.respond).toHaveBeenCalledWith([]);
+    expect(raidTyped).not.toHaveBeenCalled();
+    await router.handle(asInteraction(fakeChatInput({ commandName: 'raid', guildId: SET_UP })));
+    expect(raid).toHaveBeenCalledTimes(1);
   });
 });

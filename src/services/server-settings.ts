@@ -278,6 +278,17 @@ export class ServerSettings implements ServerSettingsService {
     return this.kept.has(serverId);
   }
 
+  /**
+   * Forgets the row of a server whose data was deleted (plan 19C-3), in its turn: it has the
+   * file's defaults until a fill gives it a first row again, as a server that joins anew.
+   */
+  forget(serverId: string): Promise<void> {
+    return this.inTurn(serverId, () => {
+      this.kept.delete(serverId);
+      return Promise.resolve();
+    });
+  }
+
   /** When the server finished its setup; null when not (yet), or without a row. */
   setUpAt(serverId: string): number | null {
     return this.kept.get(serverId)?.setUpAt ?? null;

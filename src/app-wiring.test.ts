@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { EventEmitter } from 'node:events';
+import { Events } from 'discord.js';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestLogger } from '../test/support/test-logger.js';
+import { FakeGeoGateway } from '../test/support/geo.js';
+import { gymDirectoryWith } from '../test/support/gym-store.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW } from '../test/support/gyms.js';
+import { GymUpkeep } from './services/gym-upkeep.js';
 import {
   DRATINI,
   REPORT_SERVER,
@@ -9,10 +15,24 @@ import {
 import { reportedRaid } from '../test/support/party-service.js';
 import { TestServers, testServerValues, withZones } from '../test/support/server-values.js';
 import { heldCall, type HeldCall } from '../test/support/held-call.js';
-import { standingsWith } from '../test/support/server-standings.js';
+import { MemoryServerRecords, standingsWith } from '../test/support/server-standings.js';
+import { admissionWith } from '../test/support/server-admission.js';
+import { wireServerStart, type ServerStartClient } from './discord/server-start.js';
+import type { ShardStart } from './discord/shard-readiness.js';
+import { serverRecordRow } from '../test/support/server-record-cases.js';
+import { MemoryServerSettings } from '../test/support/server-settings.js';
+import { filledRow } from '../test/support/server-settings-cases.js';
+import { TEST_SETTINGS_PATH } from '../test/support/test-settings.js';
+import { loadSettings } from './config/settings.js';
+import { ServerFill } from './services/server-fill.js';
+import { ServerSettings } from './services/server-settings.js';
+import { ServerStandings } from './services/server-standings.js';
 import {
+  afterDeletions,
+  backAfterDeletion,
   bossSyncStep,
   directMessagesStep,
+  forgetServerMemory,
   eventsFeedStep,
   followLeaving,
   followServers,
@@ -23,6 +43,7 @@ import {
   reportPictures,
   serverSetUpWork,
   servesRow,
+  servedOnWeb,
   serversNotQuiet,
   shardStartWork,
   stopReportSteps,
@@ -771,5 +792,597 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
     expect(
       entries.filter((entry) => entry['msg'] === 'could not begin what waited for a server set up'),
     ).toHaveLength(1);
+  });
+});
+
+describe('a server added back while its data is deleted (plan 19C-3)', () => {
+  const GONE = '412345678901234567';
+  const PRESENT = '412345678901234568';
+  const DAY = 24 * 3_600_000;
+  const NOW = Date.parse('2026-12-20T18:00:00Z');
+
+  /**
+   * GONE's deletion held as it runs; what its return begins (`backAfterDeletion`, as `app.ts`
+   * wires it): its fill as one that joins (`admitted`), then its `Guild` row (`rows`).
+   */
+  function deleting() {
+    const { log, entries } = createTestLogger();
+    const { standings, store } = standingsWith({
+      recorded: [GONE, PRESENT],
+      log,
+      now: () => NOW,
+    });
+    const row = store.rows.get(GONE);
+    if (row) row.leftAt = NOW - 31 * DAY;
+    const held = heldCall('the deletion');
+    const deletion = standings.load().then(() =>
+      standings.deleteIfDue(GONE, 30 * DAY, async () => {
+        held.arrive();
+        await held.released;
+      }),
+    );
+    const rows: string[] = [];
+    const admitted: string[] = [];
+    const guilds = {
+      ensure: (serverId: string) => {
+        rows.push(serverId);
+        return Promise.resolve(1);
+      },
+    };
+    standings.whenBackAfterDeletion(
+      backAfterDeletion({
+        late: { serverStart: { admitted: (serverId) => admitted.push(serverId) } },
+        guilds,
+        log,
+      }),
+    );
+    return { standings, store, held, deletion, log, entries, rows, admitted, guilds };
+  }
+
+  it('writes the Guild row of a server added back only once its deletion is over, and begins its fill', async () => {
+    const made = deleting();
+    await made.held.reached;
+    const servers = followServers({
+      admission: { admits: () => true },
+      standings: made.standings,
+      guilds: made.guilds,
+      presenceChanged: () => undefined,
+      log: made.log,
+    });
+    // Its joining does not wait for the deletion, and another server is not held behind it.
+    await servers.joined(GONE);
+    await servers.joined(PRESENT);
+    expect(made.rows).toEqual([PRESENT]);
+    expect(made.admitted).toEqual([]);
+    expect(made.standings.isLeft(GONE)).toBe(true);
+    made.held.release();
+    await made.deletion;
+    await made.standings.settled(GONE);
+    // Taken back, then what its joining would have begun.
+    expect(made.rows).toEqual([PRESENT, GONE]);
+    expect(made.admitted).toEqual([GONE]);
+    expect(made.standings.isLeft(GONE)).toBe(false);
+    expect(made.store.rows.get(GONE)).toMatchObject({ leftAt: null, deletedAt: NOW });
+  });
+
+  it('begins no fill of a server while its deletion is pending, and has nothing wait for it', async () => {
+    const made = deleting();
+    await made.held.reached;
+    const begun: string[] = [];
+    let filled = 0;
+    const fill = afterDeletions(made.standings).fill({
+      begin: (names) => {
+        begun.push(names.serverId);
+      },
+      whenFilled: () => {
+        filled += 1;
+        return Promise.resolve();
+      },
+    });
+    const names = (serverId: string) => ({
+      serverId,
+      channel: () => undefined,
+      category: () => undefined,
+      role: () => undefined,
+      howMany: () => 0,
+    });
+    fill.begin(names(GONE), 'joined');
+    fill.begin(names(PRESENT), 'joined');
+    // Neither its shard's start nor its interactions wait for the deletion (they are answered
+    // that Pine is getting the server ready).
+    await fill.whenFilled(GONE);
+    await fill.whenFilled(PRESENT);
+    await fill.whenFilled(null);
+    expect(begun).toEqual([PRESENT]);
+    expect(filled).toBe(2);
+    made.held.release();
+    await made.deletion;
+    // Once it is over, its fill as it was: its return begins it (`backAfterDeletion`).
+    fill.begin(names(GONE), 'joined');
+    expect(begun).toEqual([PRESENT, GONE]);
+  });
+
+  it('records at a ready the servers not being deleted, and none being deleted: its return does', async () => {
+    const made = deleting();
+    await made.held.reached;
+    const synced: (readonly string[])[] = [];
+    const sync = afterDeletions(made.standings).syncServers((servers) => {
+      synced.push(servers);
+      return Promise.resolve();
+    });
+    await sync([GONE, PRESENT]);
+    await sync([GONE]);
+    expect(synced).toEqual([[PRESENT]]);
+    made.held.release();
+    await made.deletion;
+    // The ready's own return of it.
+    await made.standings.cameBack([GONE, PRESENT]);
+    await made.standings.settled(GONE);
+    expect(made.rows).toEqual([GONE]);
+    expect(made.admitted).toEqual([GONE]);
+  });
+
+  it('logs what fails of what a server added back begins, and goes on', async () => {
+    const { log, entries } = createTestLogger();
+    const begin = backAfterDeletion({
+      late: {
+        serverStart: {
+          admitted: () => {
+            throw new Error('the cache is away');
+          },
+        },
+      },
+      guilds: { ensure: () => Promise.reject(new Error('the database went away')) },
+      log,
+    });
+    await begin(GONE);
+    expect(entries.filter((entry) => entry.level === 50)).toMatchObject([
+      { msg: 'could not begin the fill of a server added back', guild: GONE },
+      { msg: 'could not record guild', guild: GONE },
+    ]);
+  });
+
+  it('reaches the start with a server whose unfinished deletion fails, tried once', async () => {
+    const { log } = createTestLogger();
+    const { admission, standings, store } = admissionWith({
+      recorded: [GONE, PRESENT],
+      rows: [
+        serverRecordRow({
+          serverId: GONE,
+          recordedAt: NOW - 90 * DAY,
+          leftAt: NOW - 31 * DAY,
+          deletingAt: NOW - DAY,
+        }),
+      ],
+      log,
+      now: () => NOW,
+    });
+    await standings.load();
+    let tries = 0;
+    standings.finishDeletionsWith(() => {
+      tries += 1;
+      return Promise.reject(new Error('the database went away'));
+    });
+    const client = new EventEmitter();
+    const shard: { ready?: (start: ShardStart) => void } = {};
+    const cache = new Map([
+      [GONE, { id: GONE, available: true }],
+      [PRESENT, { id: PRESENT, available: true }],
+    ]);
+    const servers = new ServerSettings({
+      store: new MemoryServerSettings(),
+      settings: loadSettings(TEST_SETTINGS_PATH),
+      log,
+    });
+    await servers.load();
+    const fill = new ServerFill({
+      servers,
+      settings: loadSettings(TEST_SETTINGS_PATH),
+      log,
+      notices: { tell: () => undefined },
+      recorded: (serverId) => standings.setUpOnRecord(serverId),
+    });
+    const synced: string[] = [];
+    let started = false;
+    let markStarted!: () => void;
+    const startedNow = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    wireServerStart(
+      client as unknown as ServerStartClient<
+        { id: string; available: boolean },
+        { guildId: string | null }
+      >,
+      {
+        fill: afterDeletions(standings).fill(fill),
+        namesOf: (guild) => ({
+          serverId: guild.id,
+          channel: () => undefined,
+          category: () => undefined,
+          role: () => undefined,
+          howMany: () => 0,
+        }),
+        serverOf: (serverId) => cache.get(serverId),
+        shards: {
+          onShardReady: (listener) => {
+            shard.ready = listener;
+          },
+        },
+        work: shardStartWork({
+          syncServers: afterDeletions(standings).syncServers((servers) => {
+            synced.push(...servers);
+            return Promise.resolve();
+          }),
+          warnAtStart: () => undefined,
+          prepareStanding: () => undefined,
+        }),
+        started: () => {
+          started = true;
+          markStarted();
+        },
+        route: () => undefined,
+        admits: () => true,
+        refuse: () => undefined,
+        log,
+      },
+    );
+    // The login: each server made available, the shard's first ready, the client's ready.
+    for (const guild of cache.values()) client.emit(Events.GuildAvailable, guild);
+    shard.ready?.({
+      shard: 0,
+      servers: [GONE, PRESENT],
+      gone: [],
+      unavailable: new Set(),
+      first: true,
+    });
+    client.emit(Events.ClientReady, { guilds: { cache } });
+    await startedNow;
+    // Every shard ready, then the client's ready: its return tried once.
+    await admission.everyShardReady({
+      present: new Set([GONE, PRESENT]),
+      isPresent: (serverId) => cache.has(serverId),
+    });
+    await admission.clientReady([GONE]);
+    await standings.settled(GONE);
+    expect(started).toBe(true);
+    expect(synced).toEqual([PRESENT]);
+    expect(tries).toBe(1);
+    expect(standings.isLeft(GONE)).toBe(true);
+    expect(store.rows.get(GONE)?.deletingAt).toBe(NOW - DAY);
+  });
+});
+
+describe('what the web answers of a server (plan 19C-3, fix round 1)', () => {
+  it('answers a server whose deletion is pending as one Pine is not in, as one it left', async () => {
+    const BEING = '412345678901234567';
+    const BACK = '412345678901234568';
+    const LEFT = '412345678901234569';
+    const { standings } = standingsWith({
+      recorded: [BEING, BACK, LEFT],
+      rows: [
+        serverRecordRow({ serverId: BEING, recordedAt: 1, leftAt: 1, deletingAt: 2 }),
+        serverRecordRow({ serverId: LEFT, recordedAt: 1, leftAt: 1 }),
+      ],
+    });
+    await standings.load();
+    const served = servedOnWeb(standings);
+    expect([BEING, BACK, LEFT].filter(served)).toEqual([BACK]);
+  });
+});
+
+describe('a server whose data was deleted, added back (plan 19C-3)', () => {
+  const GONE = '412345678901234567';
+  const KEPT = '412345678901234568';
+  const DAY = 24 * 3_600_000;
+  const NOW = Date.parse('2026-12-20T18:00:00Z');
+  const fileSettings = loadSettings(TEST_SETTINGS_PATH);
+  const names = (serverId: string) => ({
+    serverId,
+    channel: () => undefined,
+    category: () => undefined,
+    role: () => undefined,
+    howMany: () => 0,
+  });
+
+  /**
+   * One start of the bot: its standings over `records`, its servers' rows over `rows` (each kept
+   * set up), its fill as `app.ts` wires it (by `setUpOnRecord`, around `afterDeletions`), and the
+   * deletion's work, which deletes the server's row of settings and forgets it.
+   */
+  async function start(records: MemoryServerRecords, rows: string[]) {
+    const { log } = createTestLogger();
+    const standings = new ServerStandings({
+      store: records,
+      settings: { servers: undefined },
+      log,
+      now: () => NOW,
+    });
+    await standings.load();
+    const settingsStore = new MemoryServerSettings(rows.map((serverId) => filledRow({ serverId })));
+    const servers = new ServerSettings({
+      store: settingsStore,
+      settings: fileSettings,
+      log,
+      now: () => NOW,
+    });
+    await servers.load();
+    // Its row deleted with its data (`ServerDataRepository`), then forgotten.
+    const work = (serverId: string) => {
+      settingsStore.rows.delete(serverId);
+      return servers.forget(serverId);
+    };
+    standings.finishDeletionsWith(work);
+    const fill = afterDeletions(standings).fill(
+      new ServerFill({
+        servers,
+        settings: fileSettings,
+        log,
+        notices: { tell: () => undefined },
+        recorded: (serverId) => standings.setUpOnRecord(serverId),
+      }),
+    );
+    /** The server is named at a shard's ready, or joins: filled once its deletion is over. */
+    const named = async (serverId: string, how: 'present' | 'joined') => {
+      fill.begin(names(serverId), how);
+      await standings.settled(serverId);
+      await fill.whenFilled(serverId);
+    };
+    return { standings, servers, work, named };
+  }
+
+  /** Both servers recorded at the upgrade; GONE left 31 days ago, KEPT 10. */
+  function records() {
+    return new MemoryServerRecords(
+      [
+        serverRecordRow({ serverId: GONE, recordedAt: NOW - 90 * DAY, leftAt: NOW - 31 * DAY }),
+        serverRecordRow({ serverId: KEPT, recordedAt: NOW - 90 * DAY, leftAt: NOW - 10 * DAY }),
+      ],
+      [GONE, KEPT],
+    );
+  }
+
+  it('starts in setup, still allowed, when added back while Pine runs', async () => {
+    const store = records();
+    const made = await start(store, [GONE, KEPT]);
+    expect(await made.standings.deleteIfDue(GONE, 30 * DAY, () => made.work(GONE))).toBe(true);
+    await made.standings.cameBack([GONE, KEPT]);
+    await made.named(GONE, 'joined');
+    expect(made.servers.inSetup(GONE)).toBe(true);
+    expect(made.standings.mayHave(GONE)).toBe(true);
+    // Back within 30 days: as it was.
+    expect(made.servers.inSetup(KEPT)).toBe(false);
+  });
+
+  it('starts in setup, still allowed, when added back while Pine was down', async () => {
+    const store = records();
+    const before = await start(store, [GONE, KEPT]);
+    expect(await before.standings.deleteIfDue(GONE, 30 * DAY, () => before.work(GONE))).toBe(true);
+    // The next start: its row of settings went with its data; both are present at the login.
+    const made = await start(store, [KEPT]);
+    await made.named(GONE, 'present');
+    await made.named(KEPT, 'present');
+    await made.standings.cameBack([GONE, KEPT]);
+    expect(made.servers.inSetup(GONE)).toBe(true);
+    expect(made.standings.mayHave(GONE)).toBe(true);
+    expect(made.servers.inSetup(KEPT)).toBe(false);
+    // Its fill tried again after its return reads the same.
+    expect(made.standings.setUpOnRecord(GONE)).toBe(false);
+    expect(made.standings.setUpOnRecord(KEPT)).toBe(true);
+  });
+
+  it('starts in setup when added back while Pine was down, its deletion cut short by the stop', async () => {
+    const store = records();
+    const before = await start(store, [GONE, KEPT]);
+    await expect(
+      before.standings.deleteIfDue(GONE, 30 * DAY, () => Promise.reject(new Error('stopped'))),
+    ).rejects.toThrow('stopped');
+    const made = await start(store, [GONE, KEPT]);
+    // Its return, at the ready, finishes the deletion first.
+    await made.standings.cameBack([GONE]);
+    expect(await made.standings.settled(GONE)).toBe(true);
+    await made.named(GONE, 'present');
+
+    expect(made.servers.inSetup(GONE)).toBe(true);
+    expect(made.standings.mayHave(GONE)).toBe(true);
+    expect(made.standings.isLeft(GONE)).toBe(false);
+  });
+});
+
+describe('what the bot forgets of a server whose data was deleted (plan 19C-3)', () => {
+  it('forgets each thing it keeps of the server, a step that fails logged and the rest done', async () => {
+    const { log, entries } = createTestLogger();
+    const done: string[] = [];
+    const forget = forgetServerMemory({
+      rowIds: { forgetServer: (serverId) => done.push(`row ids ${serverId}`) },
+      servers: {
+        forget: (serverId) => {
+          done.push(`settings ${serverId}`);
+          return Promise.resolve();
+        },
+      },
+      notices: { forget: (serverId) => done.push(`notices ${serverId}`) },
+      parties: { forgetServer: (row) => done.push(`parties ${String(row)}`) },
+      access: { forgetServer: (row) => done.push(`access ${String(row)}`) },
+      regions: {
+        load: () => {
+          done.push('regions');
+          return Promise.reject(new Error('the database went away'));
+        },
+      },
+      gyms: {
+        forget: (id) => done.push(`gym gone ${String(id)}`),
+        unlink: (id, row) => done.push(`gym unlinked ${String(id)} ${String(row)}`),
+      },
+      wayspots: {
+        load: (row) => {
+          done.push(`wayspots ${String(row)}`);
+          return Promise.resolve();
+        },
+      },
+      pineStops: {
+        load: () => {
+          done.push('pine stops');
+          return Promise.resolve();
+        },
+      },
+      nicknames: {
+        load: (servers) => {
+          done.push(`nicknames ${servers.join()}`);
+          return Promise.resolve();
+        },
+      },
+      line: {
+        serverGone: (removed, unlinked) => {
+          done.push(`line gone ${removed.join()}, unlinked ${unlinked.join()}`);
+          return Promise.resolve();
+        },
+        servingChanged: (rows) => done.push(`line serving ${rows.join()}`),
+      },
+      log,
+    });
+    await forget('412345678901234567', {
+      counts: {},
+      guildRow: 5,
+      gyms: { unlinked: [7], deleted: [8] },
+    });
+    expect(done).toEqual([
+      'row ids 412345678901234567',
+      'settings 412345678901234567',
+      'notices 412345678901234567',
+      'parties 5',
+      'access 5',
+      'regions',
+      'gym gone 8',
+      'gym unlinked 7 5',
+      'wayspots 5',
+      'pine stops',
+      'nicknames 412345678901234567',
+      'line gone 8, unlinked 7',
+      'line serving 5',
+    ]);
+    expect(
+      entries.filter(
+        (entry) =>
+          entry.msg === 'could not forget what was kept of a server whose data was deleted',
+      ),
+    ).toMatchObject([{ what: 'regions', server: '412345678901234567' }]);
+  });
+
+  it('works out the nearest gyms of the server’s gyms once for all of them, as one by one', async () => {
+    const GONE_ROW = OTHER_GUILD_ROW;
+    const { gyms, directory, answers } = await gymDirectoryWith();
+    const geo = new FakeGeoGateway();
+    // Without Google: what is measured is the nearest gyms alone, not the line.
+    geo.enabled = false;
+    const upkeep = new GymUpkeep({
+      gyms,
+      directory,
+      geo,
+      parties: { active: () => [] },
+      posts: { changed: () => undefined },
+      log: createTestLogger().log,
+      setTimer: () => () => undefined,
+      answers,
+    });
+    // Beside gym 10, far from the others: two gyms both servers have, and one the server deleted
+    // alone had, nearest to both.
+    const make = async (lat: number, servers: number[]) => {
+      const gym = await gyms.create({ name: 'Gym', lat, lon: -80.05 }, servers[0]!);
+      for (const row of servers.slice(1)) gyms.link(gym.id, row);
+      return gym.id;
+    };
+    const near = await make(40.5009, [TEST_GUILD_ROW, GONE_ROW]);
+    const gone = await make(40.501, [GONE_ROW]);
+    const far = await make(40.503, [TEST_GUILD_ROW, GONE_ROW]);
+    await gyms.update(10, { nearestGym: near });
+    await gyms.update(near, { nearestGym: gone });
+    await gyms.update(far, { nearestGym: gone });
+    await directory.load();
+    gyms.writes.length = 0;
+    // What the database's deletion did.
+    await gyms.delete(gone);
+    gyms.unlink(near, GONE_ROW);
+    gyms.unlink(far, GONE_ROW);
+    const passes = vi.spyOn(directory, 'all');
+    const nothing = () => Promise.resolve();
+    const forget = forgetServerMemory({
+      rowIds: { forgetServer: () => undefined },
+      servers: { forget: nothing },
+      notices: { forget: () => undefined },
+      parties: { forgetServer: () => undefined },
+      access: { forgetServer: () => undefined },
+      regions: { load: nothing },
+      gyms: directory,
+      wayspots: { load: nothing },
+      pineStops: { load: nothing },
+      nicknames: { load: nothing },
+      line: upkeep,
+      log: createTestLogger().log,
+    });
+    await forget('412345678901234567', {
+      counts: {},
+      guildRow: GONE_ROW,
+      gyms: { unlinked: [near, far], deleted: [gone] },
+    });
+    // The kept server's gyms only: the one beside gym 10 takes it, the farther one the nearer.
+    expect(gyms.written('nearestGym')).toEqual([
+      [near, 10],
+      [far, near],
+    ]);
+    expect(directory.stored(near)?.nearestGym).toBe(10);
+    expect(directory.stored(10)?.nearestGym).toBe(near);
+    // One pass over every gym, not one per gym.
+    expect(passes).toHaveBeenCalledTimes(1);
+  });
+
+  it('forgets only what is the server’s by its snowflake where it had no Guild row any more', async () => {
+    const { log } = createTestLogger();
+    const done: string[] = [];
+    const nothing = () => Promise.resolve();
+    const forget = forgetServerMemory({
+      rowIds: { forgetServer: () => done.push('row ids') },
+      servers: {
+        forget: () => {
+          done.push('settings');
+          return nothing();
+        },
+      },
+      notices: { forget: () => done.push('notices') },
+      parties: { forgetServer: () => done.push('parties') },
+      access: { forgetServer: () => done.push('access') },
+      regions: {
+        load: () => {
+          done.push('regions');
+          return nothing();
+        },
+      },
+      gyms: { forget: () => done.push('gym'), unlink: () => done.push('gym') },
+      wayspots: {
+        load: () => {
+          done.push('wayspots');
+          return nothing();
+        },
+      },
+      pineStops: {
+        load: () => {
+          done.push('pine stops');
+          return nothing();
+        },
+      },
+      nicknames: {
+        load: () => {
+          done.push('nicknames');
+          return nothing();
+        },
+      },
+      line: { serverGone: nothing, servingChanged: () => done.push('line') },
+      log,
+    });
+    await forget('412345678901234567', {
+      counts: {},
+      guildRow: undefined,
+      gyms: { unlinked: [], deleted: [] },
+    });
+    expect(done).toEqual(['row ids', 'settings', 'notices', 'regions', 'pine stops', 'nicknames']);
   });
 });

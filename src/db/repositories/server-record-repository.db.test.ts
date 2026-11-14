@@ -45,6 +45,9 @@ describe('ServerRecordRepository', () => {
             allowedAt: row.allowedAt === null ? null : String(row.allowedAt),
             blockedAt: row.blockedAt === null ? null : String(row.blockedAt),
             leftAt: row.leftAt === null ? null : String(row.leftAt),
+            deletingAt: row.deletingAt === null ? null : String(row.deletingAt),
+            deletedAt: row.deletedAt === null ? null : String(row.deletedAt),
+            filesLeftAt: row.filesLeftAt === null ? null : String(row.filesLeftAt),
           })),
         )
         .execute();
