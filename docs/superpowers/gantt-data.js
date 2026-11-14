@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-14T03:07",
+  "updated": "2026-11-14T03:22",
   "items": [
     {
       "id": "0",
@@ -12829,15 +12829,15 @@ window.GANTT = {
       "status": "done",
       "planning": {
         "start": "2026-11-13T23:53",
-        "end": "2026-11-14T03:07",
+        "end": "2026-11-14T03:22",
         "review": {
           "start": "2026-11-14T01:09",
           "end": "2026-11-14T03:04"
         }
       },
       "review": {
-        "start": "2026-11-14T03:04",
-        "end": "2026-11-14T03:04"
+        "start": "2026-11-14T03:22",
+        "end": "2026-11-14T03:22"
       }
     },
     {
@@ -12874,7 +12874,7 @@ window.GANTT = {
       "name": "The list of servers says which were deleted and which are being deleted",
       "status": "done",
       "start": "2026-11-14T03:04",
-      "end": "2026-11-14T03:04"
+      "end": "2026-11-14T03:22"
     },
     {
       "id": "19C-3.5",
@@ -12882,8 +12882,8 @@ window.GANTT = {
       "parent": "19C-3",
       "name": "Docs of the deletion of a server left 30 days",
       "status": "done",
-      "start": "2026-11-14T03:04",
-      "end": "2026-11-14T03:04"
+      "start": "2026-11-14T03:22",
+      "end": "2026-11-14T03:22"
     },
     {
       "id": "19C-4",

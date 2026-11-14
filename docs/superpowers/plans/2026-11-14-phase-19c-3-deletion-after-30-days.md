@@ -12,15 +12,15 @@
 
 **Brief:** `.superpowers/sdd/19c-onboarding/brief-19c3.md` and `19c3-rebase.md` (with `split.md` and `survey.md`); fix rounds `19c3-fix-round-1.md`, `19c3-fix-round-2.md` there; ledger `progress.md`.
 
-**How it was built.** Prototyped on `proto-19c3` from main-dev 9ce2950ae (19C-1), beside 19C-2; rebased onto 19C-2 with the controller's rulings (a deleted server added back starts in setup; a deletion failing three sweeps in a row reaches the owner; a deleted server's gyms forgotten in one pass). An Opus review (3 Important: one failing deletion at a ready held every returning server, the sweep never checked that a server was present, a return whose deletion failed again was not quiet; 7 Minor), folded (fix round 1); a re-review (1 Important: a present server whose unfinished deletion kept failing was never counted toward the owner's alert; 3 Minor), folded (round 2). The reviewed commits are the plan's commits (no transcription).
+**How it was built.** Prototyped on `proto-19c3` from main-dev 9ce2950ae (19C-1), beside 19C-2; rebased onto 19C-2 with the controller's rulings (a deleted server added back starts in setup; a deletion failing three sweeps in a row reaches the owner; a deleted server's gyms forgotten in one pass). An Opus review (3 Important: one failing deletion at a ready held every returning server, the sweep never checked that a server was present, a return whose deletion failed again was not quiet; 7 Minor), folded (fix round 1); a re-review (1 Important: a present server whose unfinished deletion kept failing was never counted toward the owner's alert; 3 Minor), folded (round 2); a help paragraph over the length limit, found by the full check, split in task 4 before the merge. The reviewed commits are the plan's commits (no transcription).
 
 | Task | Commit | Title |
 |---|---|---|
 | 1 | `396fdd432` | 19C-3 1: the record of a server's deletion, and the indexes it reads |
 | 2 | `90aa3d45b` | 19C-3 2: the deletion of one server's data, table by table in batches |
 | 3 | `a13521132` | 19C-3 3: the daily sweep of servers left 30 days, and a server added back meanwhile |
-| 4 | `16dd0c89b` | 19C-3 4: the list of servers says which were deleted and which are being deleted |
-| 5 | `50db28fcd` | 19C-3 5: docs of the deletion of a server left 30 days |
+| 4 | `455bd5699` | 19C-3 4: the list of servers says which were deleted and which are being deleted |
+| 5 | `5b398a81d` | 19C-3 5: docs of the deletion of a server left 30 days |
 
 On the tip: `npm run check`, `npm run build`, `npm run test:db`, one at a time, each judged by its exit status.
 
