@@ -132,8 +132,8 @@ const CHANNELS: Readonly<Record<ServerChannelRole, { name: string; about: string
     name: 'Moderators’ channel',
     // What clearing its select does, as Leave unset says it (fix round 4, I2).
     about:
-      'where reports to the moderators and meetups that need their approval go; a channel of ' +
-      'its own. Clearing it turns meetup safety off: meetups no longer wait for approval, ' +
+      'where reports to the moderators and meetups that need approval go (use a channel only ' +
+      'for this). Clearing it turns meetup safety off: meetups no longer wait for approval, ' +
       'members blocked from meetups can make them again, and reports are refused',
   },
   events: {
@@ -447,13 +447,13 @@ function offered(
  */
 const STILL_CLOSED: Readonly<Record<UnmatchedKey, string>> = {
   'channels.moderation':
+    // "As above": the channel's line says what turning meetup safety off does (review T4).
     'Not found: pick a channel. Until you do, meetups that need approval and reports to the ' +
-    'moderators are refused. Or leave it unset to turn meetup safety off: meetups no longer wait ' +
-    'for approval, members blocked from meetups can make them again, and reports stay refused.',
-  // "Them": the raids and the rest on the web map, which the line above names.
+    'moderators are refused. Or press Leave unset to turn meetup safety off, as above.',
+  // "The rest": max battles, meetups and trains, which the role's line above names.
   'roles.mapMember':
-    'Not found: pick a role. Until you do, only administrators can see them. Or leave it unset ' +
-    'to let every member see them.',
+    'Not found: pick a role. Until you do, only administrators can see and join raids and the ' +
+    'rest on the web map. Or press Leave unset to let every member do so.',
 };
 
 /** What the first press of Leave unset asks, in that setting's place (fix round 4, I2). */
@@ -599,7 +599,8 @@ function rolesSection(
     roleSelect('roles.unown', unown),
     ...settingText(
       '**Map’s member role** · only members with this role (and administrators) can see and ' +
-        'join raids, max battles, meetups and trains on the web map. Not set: every member can',
+        'join raids, max battles, meetups and trains on the web map. If it is not set, every ' +
+        'member can.',
       values.roles.mapMember,
       member,
       unmatchedOf(values, 'roles.mapMember'),
@@ -625,8 +626,8 @@ function zoneLine(timezone: string, chosen: boolean, now: number): string {
   // Not chosen yet (plan 19C-2, S9: a new server's): the instance's zone stands in meanwhile.
   const zone = chosen ? code(timezone) : `not chosen yet, so Pine uses ${code(timezone)}`;
   return (
-    `**Time zone** · for every time and date members type and Pine shows: ${zone}, where it ` +
-    `is now ${clockWords(there)}, ${dayWords(there)}`
+    `**Time zone** · ${zone}, where it is now ${clockWords(there)}, ${dayWords(there)} · ` +
+    'every time and date members type and Pine shows is in it'
   );
 }
 
@@ -639,7 +640,7 @@ const WORDS_SHOWN: Readonly<Record<WordListKey, { name: string; about: string; n
   },
   blacklistWords: {
     name: 'Words gym search ignores',
-    about: 'skipped in gym names and in searches, like common English words',
+    about: 'skipped in gym names and searches, as common English words are',
     none: 'none',
   },
 };

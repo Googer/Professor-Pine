@@ -105,7 +105,7 @@ describe('/admin setup (plan 19C-2)', () => {
     const text = textOf(shown);
     // Until its staff choose one, the instance's zone stands in.
     expect(text).toContain(
-      'Pine reads and shows every time in this zone. Until you choose one, Pine uses ' +
+      'Pine reads and shows every time in the server’s time zone. Until you choose one, Pine uses ' +
         '`America/New_York`. Distances are in meters and kilometers.',
     );
     // The test settings have no web pages, and so no region editor to name.

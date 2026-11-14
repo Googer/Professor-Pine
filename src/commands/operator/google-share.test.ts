@@ -61,6 +61,9 @@ describe('/operator google share (plan 19B-5)', () => {
 
   it('is in /operator’s group google, for the instance operators alone', async () => {
     expect([...operator.subcommands.keys()]).toContain('google share');
+    expect(operator.subcommands.get('google share')?.help?.details).toContain(
+      'none takes more than half of the month’s budget while the others still need theirs.',
+    );
     const made = await setup();
     const refused = await made.share(
       { server: OTHER_GUILD_ID, extra: 100 },
@@ -111,6 +114,14 @@ describe('/operator google share (plan 19B-5)', () => {
         'searches and 50 addresses on top of its share (`/operator google share`).',
     );
     expect(text).toContain(OPERATOR_ID);
+    // Its title fits a raise taken back too (text pass review T13).
+    expect(text).toContain('A server’s Google share changed');
+    await made.share({ server: OTHER_GUILD_ID, extra: 0 }, { userId: OPERATOR_ID });
+    const back = textDisplays(made.toldOwner()[1]?.message).join('\n');
+    expect(back).toContain('A server’s Google share changed');
+    expect(back).toContain(
+      `Took back this month’s raise of the Google share of the server \`${OTHER_GUILD_ID}\``,
+    );
   });
 
   it('refuses what is not a server’s id, and a server Pine is not in', async () => {

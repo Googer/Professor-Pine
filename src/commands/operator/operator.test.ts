@@ -60,7 +60,7 @@ describe('/operator (plan 19B-1)', () => {
     expect(details).toContain(
       'The operators of this Pine change them, from any server or in a direct message with me. ' +
         'Unless this Pine is open to every server, the admins, moderators and bot developers of ' +
-        'the servers it serves may too, from their own server.',
+        'the servers I serve may too, from their own server.',
     );
   });
 

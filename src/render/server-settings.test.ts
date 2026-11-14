@@ -170,7 +170,7 @@ describe('the words of a refused change', () => {
       'Not changed: the days before an event its post opens must be 0 to 365.',
     );
     expect(refused(forum({ onThisDay: 11 }))).toBe(
-      'Not changed: the days a year “On this day” recalls must be 0 to 10.',
+      'Not changed: the busiest days “On this day” recalls must be 0 to 10.',
     );
     expect(refused((values) => ({ ...values, regionMapLink: 'ftp://maps.example.test' }))).toBe(
       'Not changed: the region map link must be an https:// address.',

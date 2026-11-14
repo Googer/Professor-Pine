@@ -522,7 +522,7 @@ describe('EventForumService: the listing "Events" (plan 8V-1)', () => {
       server: SERVER,
       key: 'events-forum:gone',
       text:
-        'The events forum is gone, so I cannot post events. Staff choose another in ' +
+        'The events forum is gone, so I cannot post events. Choose another in ' +
         '/admin settings, or make one with /admin setup-forums.',
     };
     expect(notices.told).toEqual([gone, gone]);
@@ -812,8 +812,8 @@ describe('EventForumService: the review’s fixes (plan 8V-1, round 1)', () => {
       server: SERVER,
       key: 'events-forum:pin',
       text:
-        'I could not pin the events listing in <#600000000000000001>, the events forum. Staff ' +
-        'give me Manage Posts there or, if another post is pinned there, unpin it: a forum has ' +
+        'I could not pin the events listing in <#600000000000000001>, the events forum. Give ' +
+        'me Manage Posts there or, if another post is pinned there, unpin it: a forum has ' +
         'only one pin.',
     };
     expect(made.notices.told).toEqual([unpinned, unpinned]);
@@ -887,7 +887,7 @@ describe('EventForumService: the re-review’s fixes (plan 8V-1, round 2)', () =
       key: 'events-forum:manage-posts',
       text:
         `I may not manage the posts of <#${forumId}>, the events forum, so I cannot close or ` +
-        'rename the posts of events that ended. Staff give me Manage Posts there.',
+        'rename the posts of events that ended. Give me Manage Posts there.',
     };
     expect(notices.told).toEqual([refused, refused]);
   });
@@ -1205,7 +1205,7 @@ describe('EventForumService: how many posts a feed may make (plan 8Z-2)', () => 
         key: 'events-forum:cannot-post',
         text:
           `I may not make posts in <#${forumId}>, the events forum: I lack the permission Send ` +
-          'Messages in Posts there. I cannot post events. Staff give me that permission in the ' +
+          'Messages in Posts there. I cannot post events. Give me that permission in the ' +
           'forum’s settings.',
       },
       {
@@ -1213,7 +1213,7 @@ describe('EventForumService: how many posts a feed may make (plan 8Z-2)', () => 
         key: 'events-forum:cannot-post',
         text:
           `Discord does not let me make posts in <#${forumId}>, the events forum. I cannot post ` +
-          'events. Staff check my permissions in the forum’s settings.',
+          'events. Check my permissions in the forum’s settings.',
       },
     ]);
   });
@@ -2100,7 +2100,7 @@ describe('EventForumService: a notice told at the next occasion once the server 
     await read([COMMUNITY_DAY]);
     await read([COMMUNITY_DAY, FAR_OFF]);
     expect(await sent()).toEqual([
-      `${LAB} The events forum is gone, so I cannot post events. Staff choose another in ` +
+      `${LAB} The events forum is gone, so I cannot post events. Choose another in ` +
         '/admin settings, or make one with /admin setup-forums.',
     ]);
     expect(entries.filter((entry) => entry.msg === 'the events forum is gone')).toHaveLength(1);
@@ -2142,7 +2142,7 @@ describe('EventForumService: a notice told at the next occasion once the server 
     made.service.start();
     await made.read([COMMUNITY_DAY, RAID_HOUR]);
     expect(await made.sent()).toEqual([
-      `${LAB} I could not pin the events listing in <#${FORUM}>, the events forum. Staff give me ` +
+      `${LAB} I could not pin the events listing in <#${FORUM}>, the events forum. Give me ` +
         'Manage Posts there or, if another post is pinned there, unpin it: a forum has only one ' +
         'pin.',
     ]);

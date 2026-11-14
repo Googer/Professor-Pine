@@ -136,8 +136,7 @@ function line(result: ForumSetup): string {
       ? ' I could not close it to posts by members (I need Manage Permissions and Send Messages there; see the log).'
       : '';
   // A server in setup (plan 19C-2): the forum is made, and what is posted in it waits.
-  const waits =
-    result.boardWaits === true ? ' I post the board once Pine is set up in this server.' : '';
+  const waits = result.boardWaits === true ? ' I post the board once I am set up here.' : '';
   const seen =
     result.hidden === 'not-allowed'
       ? ` I could not hide it from members for the rehearsal (I need Manage Permissions there; see the log). ${HIDE_BY_HAND}`
@@ -188,9 +187,7 @@ function eventsLine(result: EventsForumSetup | 'thrown'): string {
     ...(result.listing === 'waiting'
       ? [' The listing is posted once the events feed is read.']
       : []),
-    ...(result.listing === 'setup'
-      ? [' The listing is posted once Pine is set up in this server.']
-      : []),
+    ...(result.listing === 'setup' ? [' I post the listing once I am set up here.'] : []),
   ];
   return `Events forum: ${what.join(', ')}.${not.join('')}`;
 }

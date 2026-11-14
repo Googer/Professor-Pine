@@ -618,6 +618,11 @@ describe('/operator forget', () => {
       'only the operators of this Pine (its owner and those its settings name) can use it',
     );
     expect(details).toContain('cannot be undone');
+    // One voice (text pass review T14): "this Pine" is the instance, "I" the bot.
+    expect(details).toContain('It works across every server I am in and cannot be undone');
+    expect(details).toContain('It first shows, for you alone, what I hold of that person');
+    expect(details).toContain('- the record that I have sent them direct messages');
+    expect(details).not.toMatch(/\bPine (is|holds|has)\b/u);
     expect(details).toContain('meetup blocks');
     // As the removal does since fix round 1: ids too, and what they wrote of their parties.
     expect(details).toContain('their ID and name off the reports they made to the moderators');

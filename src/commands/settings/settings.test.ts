@@ -236,10 +236,10 @@ describe('/settings', () => {
     expect(paragraphs.slice(2)).toEqual([
       '**Your history.** I keep a history of every raid, max battle, train and meetup that ' +
         'ends: what it was, where and when, and how many signed up, came and completed it. You ' +
-        'always count in it, without your Discord id.',
+        'always count in it, without your Discord ID.',
       'I keep every field research and Team GO Rocket report that ends too: what was reported, ' +
         'when, how it ended and how many others reported the same.',
-      'With your history on, I also keep your Discord id with what you do from then on: what ' +
+      'With your history on, I also keep your Discord ID with what you do from then on: what ' +
         'you sign up for and when, how far you get, and what you report. `/stats me` shows your ' +
         'numbers. Turning it off takes your id out of everything kept so far; it all still counts.',
       'While a raid, max battle, train or meetup is going on, or a report stands, I keep who ' +
@@ -519,7 +519,7 @@ describe('the controls of /settings', () => {
     const made = setup();
     const on = shownAfter(await made.press('settings:history:set:on'));
     expect(textDisplays(on)[0]).toBe(
-      '### Your settings\nYour history is on: from now on I keep your Discord id with the ' +
+      '### Your settings\nYour history is on: from now on I keep your Discord ID with the ' +
         'raids, max battles, trains and meetups you join, including those going on now, and ' +
         'with the reports you make at stops. `/stats me` shows your numbers.',
     );
@@ -929,7 +929,7 @@ describe('turning the history off in /settings (S1, S2)', () => {
     expect(dialog.custom_id).toBe('settings:history:forget');
     expect(dialog.title).toBe('Turn your history off');
     expect(dialogTexts(dialog)).toEqual([
-      'I will take your Discord id off 3 entries of your history (the server still counts ' +
+      'I will take your Discord ID off 3 entries of your history (the server still counts ' +
         'them) and take you off the boards. Submit turns your history off.',
     ]);
     // Nothing changed before the Submit.
@@ -943,7 +943,7 @@ describe('turning the history off in /settings (S1, S2)', () => {
     const opted = (await optOut.mock.results[0]?.value) as OptedOut | undefined;
     expect(opted?.forgotten).toBe(counted);
     expect(textDisplays(shownAfter(submitted))[0]).toBe(
-      '### Your settings\nYour history is off. I took your Discord id off 3 entries of your ' +
+      '### Your settings\nYour history is off. I took your Discord ID off 3 entries of your ' +
         'history; the server still counts them. You are off the boards too.',
     );
     expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(false);
@@ -954,13 +954,13 @@ describe('turning the history off in /settings (S1, S2)', () => {
     [
       1,
       false,
-      'I will take your Discord id off the one entry of your history (the server still ' +
+      'I will take your Discord ID off the one entry of your history (the server still ' +
         'counts it). Submit turns your history off.',
     ],
     [
       2,
       false,
-      'I will take your Discord id off 2 entries of your history (the server still counts ' +
+      'I will take your Discord ID off 2 entries of your history (the server still counts ' +
         'them). Submit turns your history off.',
     ],
     [0, true, 'I will take you off the boards. Submit turns your history off.'],
@@ -984,7 +984,7 @@ describe('turning the history off in /settings (S1, S2)', () => {
     const dialog = shownDialog(await made.press('settings:history:set:off'));
     const submitted = await made.submit(dialog.custom_id, dialog, {});
     expect(textDisplays(shownAfter(submitted))[0]).toBe(
-      '### Your settings\nYour history is off. I took your Discord id off the one entry of ' +
+      '### Your settings\nYour history is off. I took your Discord ID off the one entry of ' +
         'your history; the server still counts it.',
     );
   });

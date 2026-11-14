@@ -245,8 +245,10 @@ export function failingDeletionsDm(servers: readonly FailingDeletion[], sweeps: 
       'My log says why: look for “could not delete the data of a server Pine left” with the ' +
       'server’s ID.',
     [...lines, ...(more > 0 ? [`and ${String(more)} more`] : [])].join('\n'),
-    'I try again each day. Once a server’s deletion succeeds, I tell you again only if a ' +
-      `later one fails ${String(sweeps)} days running.`,
+    // As `ServerDeletion` does (text pass review T12): told once a streak (`failing.told`), and a
+    // deletion that succeeds is told by the DM of the servers deleted.
+    `I try again each day. I do not tell you again while ${count === 1 ? 'it keeps' : 'they keep'} ` +
+      `failing; you get a message when ${count === 1 ? 'its' : 'their'} data is deleted.`,
   ]);
 }
 

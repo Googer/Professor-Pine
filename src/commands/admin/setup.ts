@@ -96,8 +96,8 @@ function itemDetail(key: SetupItemKey, state: ChecklistState): string {
   switch (key) {
     case 'timezone':
       return timezone === undefined
-        ? 'Pine reads and shows every time in this zone. Until you choose one, Pine uses ' +
-            `\`${state.defaultZone}\`. Distances are in ${units}.`
+        ? 'Pine reads and shows every time in the server’s time zone. Until you choose one, ' +
+            `Pine uses \`${state.defaultZone}\`. Distances are in ${units}.`
         : `\`${timezone}\`. Distances are in ${units}.`;
     case 'bot-lab':
       return channelLine(

@@ -81,8 +81,8 @@ describe('PartyService: a forum where the bot may not make posts', () => {
         key: `forum-posts:${WEST_FORUM}`,
         text:
           `I may not make posts in <#${WEST_FORUM}>: I lack the permission Manage Posts there. ` +
-          'No raid, max battle, train or meetup of the forum’s region can be posted. Staff ' +
-          'give me that permission in the forum’s settings.',
+          'No raid, max battle, train or meetup of the forum’s region can be posted. Give ' +
+          'me that permission in the forum’s settings.',
       },
     ]);
   });

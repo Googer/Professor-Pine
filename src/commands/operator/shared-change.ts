@@ -58,7 +58,8 @@ export function tellOwnerOfShareRaise(
   change: string,
   now: number = Date.now(),
 ): void {
-  tellOwner(interaction, ctx, { title: 'A server’s Google share raised', change }, now);
+  // A raise or one taken back (`extra:0`): one title for both (text pass review T13).
+  tellOwner(interaction, ctx, { title: 'A server’s Google share changed', change }, now);
 }
 
 /**

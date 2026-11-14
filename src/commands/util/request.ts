@@ -116,8 +116,8 @@ function failureText(outcome: Extract<IssueOutcome, { ok: false }>): string {
       return 'Your request could not be sent: GitHub could not be reached. Please try again later.';
     case 'refused':
       return (
-        'Your request could not be sent: GitHub refused it. Please tell a moderator: the bot’s ' +
-        'log says why.'
+        'Your request could not be sent: GitHub refused it. Please tell a moderator: my log says ' +
+        'why, for whoever runs me.'
       );
     case 'disabled':
       return 'Requests are not set up here. Please tell a moderator.';

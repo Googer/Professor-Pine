@@ -138,7 +138,8 @@ const CLOSED_UNTIL: Record<UnmatchedKey, (name: string) => string> = {
     'reports and meetups that need approval are refused.',
   'roles.mapMember': (name) =>
     `I could not find the map’s member role ${name}. Until you pick one in /admin settings, ` +
-    'the map shows parties to administrators only.',
+    'only administrators can see and join raids, max battles, meetups and trains on the web ' +
+    'map.',
 };
 
 /**

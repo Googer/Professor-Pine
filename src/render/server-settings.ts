@@ -42,7 +42,7 @@ export const SETTINGS: Readonly<Record<string, Setting>> = {
   distanceUnits: { label: 'the distance units', kind: 'choice' },
   'eventsForum.horizonDays': { label: 'the days ahead the events forum lists', kind: 'number' },
   'eventsForum.postDaysAhead': { label: 'the days before an event its post opens', kind: 'number' },
-  'eventsForum.onThisDay': { label: 'the days a year “On this day” recalls', kind: 'number' },
+  'eventsForum.onThisDay': { label: 'the busiest days “On this day” recalls', kind: 'number' },
   flaggedWords: { label: 'the flagged words', kind: 'words' },
   blacklistWords: { label: 'the words gym search ignores', kind: 'words' },
   regionForumSuffix: { label: 'the ending of region forums', kind: 'code' },

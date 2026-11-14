@@ -376,6 +376,11 @@ describe('ServerDeletion (plan 19C-3)', () => {
       const told = failingTold(made.dms);
       expect(told).toHaveLength(1);
       expect(told[0]).toContain(`${FIRST} · database`);
+      // What it says of later sweeps is what they do (text pass review T12).
+      expect(told[0]).toContain(
+        'I try again each day. I do not tell you again while it keeps failing; you get a message ' +
+          'when its data is deleted.',
+      );
       // A fourth and a fifth: told once.
       await sweepOn(made, 3);
       await sweepOn(made, 4);

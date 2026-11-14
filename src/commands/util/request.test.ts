@@ -176,8 +176,8 @@ describe('/request: an issue', () => {
     const made = setup();
     made.issues.failing = { ok: false, reason: 'refused', status: 401 };
     expect(told(await made.run({ text: 'Gone', gym: 'g:2' }))).toBe(
-      'Your request could not be sent: GitHub refused it. Please tell a moderator: the bot’s ' +
-        'log says why.',
+      'Your request could not be sent: GitHub refused it. Please tell a moderator: my log says ' +
+        'why, for whoever runs me.',
     );
     made.issues.failing = { ok: false, reason: 'unreachable' };
     expect(told(await made.run({ text: 'Gone', gym: 'g:2' }))).toBe(

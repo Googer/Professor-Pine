@@ -264,7 +264,8 @@ describe('the fill: rows for servers that have none', () => {
         'I could not find the moderators’ channel #moderators. Until you pick one in ' +
           '/admin settings, reports and meetups that need approval are refused.',
         'I could not find the map’s member role Verified. Until you pick one in /admin settings, ' +
-          'the map shows parties to administrators only.',
+          'only administrators can see and join raids, max battles, meetups and trains on the ' +
+          'web map.',
       ].join('\n\n'),
     ]);
   });

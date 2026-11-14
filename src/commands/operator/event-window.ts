@@ -185,7 +185,9 @@ function typedTime(
 
 /**
  * What a window changes, as `set` says it (`from` named when it is still to come), on `zone`'s
- * clock (`window` in it).
+ * clock (`window` in it). A start in the past (a `from:` gone by, or the start kept of a window
+ * on, review LW-1) is named as what it counts from, beside what reported before now keeps (text
+ * pass review T1): nothing reported since then was changed.
  */
 function windowWords(
   ctx: Pick<AppContext, 'config'>,
@@ -199,10 +201,14 @@ function windowWords(
     window.start > now
       ? `From ${momentWords(zone, window.start)} until ${until}`
       : `Until ${until}`;
+  const kept =
+    window.start < now
+      ? `It counts from ${momentWords(zone, window.start)}: raids and battles reported before ` +
+        'now keep their times.'
+      : 'Raids and battles already reported keep their times.';
   return (
     `${when}, raids last ${String(minutes)} minutes as in a Raid Hour, and Dynamax and ` +
-    'Gigantamax battles change every 30 minutes, as on a Max Battle Day. ' +
-    'Raids and battles already reported keep their times.'
+    `Gigantamax battles change every 30 minutes, as on a Max Battle Day. ${kept}`
   );
 }
 
@@ -251,7 +257,7 @@ export const setEventWindow: SubcommandPart = {
         'End it with `/operator event-window end` once raids and battles are back to normal.\n\n' +
         'There is one window for every server. The operators of this Pine set and end it, from ' +
         'any server or in a direct message with me. Unless this Pine is open to every server, ' +
-        'the admins, moderators and bot developers of the servers it serves may too, from their ' +
+        'the admins, moderators and bot developers of the servers I serve may too, from their ' +
         'own server.\n\nMy owner is told who set or ended it, and from where.'
       );
     },
@@ -314,15 +320,13 @@ export const setEventWindow: SubcommandPart = {
       now,
     );
     const shown = timedIn(window, zone);
-    const stillFrom =
-      shown.start < now ? `It has been on since ${momentWords(zone, shown.start)}.` : undefined;
     const was = before === undefined ? undefined : timedIn(before, zone);
     const replaced =
       was === undefined || was.end <= now
         ? undefined
         : `This replaces the window that was to last until ${momentWords(zone, was.end)}.`;
     await interaction.editReply(
-      v2Answer(textMessage(LIST_COLOUR, [windowWords(ctx, zone, shown, now), stillFrom, replaced])),
+      v2Answer(textMessage(LIST_COLOUR, [windowWords(ctx, zone, shown, now), replaced])),
     );
   },
 };

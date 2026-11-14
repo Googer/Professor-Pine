@@ -1,19 +1,20 @@
 /**
  * What a server's staff are told of their server's setup in its moderators' bot lab (plan 19B-1,
- * `ServerNotices`): plain sentences for staff, naming no member, each saying what does not work
- * and what to do. Channels by mention (`<#id>`: a lab is a text channel, where Discord shows them).
+ * `ServerNotices`): plain sentences to staff, naming no member, each saying what does not work
+ * and what to do, as an instruction to them (text pass review T6, as the fill's notice speaks).
+ * Channels by mention (`<#id>`: a lab is a text channel, where Discord shows them).
  */
 
 /** The bot updates channel set for the server is not among its channels any more. */
 export const BOT_UPDATES_GONE =
-  'The bot updates channel is gone, so I could not announce a change of the raid bosses. Staff ' +
-  'choose another in /admin settings.';
+  'The bot updates channel is gone, so I could not announce a change of the raid bosses. Choose ' +
+  'another in /admin settings.';
 
 /** The bot may not post in the bot updates channel (the boss announcer's check, `mayPost`). */
 export function botUpdatesRefusedWords(channelId: string): string {
   return (
     `I may not post in <#${channelId}>, the bot updates channel, so I could not announce a ` +
-    'change of the raid bosses. Staff give me View Channel, Send Messages and Embed Links there.'
+    'change of the raid bosses. Give me View Channel, Send Messages and Embed Links there.'
   );
 }
 
@@ -29,12 +30,12 @@ export function meetupSafetyWords(problem: MeetupSafetyProblem, channelId?: stri
     case 'gone':
       return (
         'The moderators’ channel is gone, so meetups that need a moderator’s approval cannot ' +
-        'be made. Staff choose another in /admin settings.'
+        'be made. Choose another in /admin settings.'
       );
     case 'cannot-post':
       return (
         `I may not post in ${channelId === undefined ? 'the moderators’ channel' : `<#${channelId}>, the moderators’ channel`}, ` +
-        'so meetups that need a moderator’s approval cannot be made. Staff give me View ' +
+        'so meetups that need a moderator’s approval cannot be made. Give me View ' +
         'Channel, Send Messages and Embed Links there.'
       );
   }
@@ -68,7 +69,7 @@ function refusalWords(forum: string, missing: readonly string[]): { refused: str
   if (missing.length === 0) {
     return {
       refused: `Discord does not let me make posts in ${forum}.`,
-      fix: 'Staff check my permissions in the forum’s settings.',
+      fix: 'Check my permissions in the forum’s settings.',
     };
   }
   const one = missing.length === 1;
@@ -76,27 +77,27 @@ function refusalWords(forum: string, missing: readonly string[]): { refused: str
     refused:
       `I may not make posts in ${forum}: I lack ${one ? 'the permission' : 'the permissions'} ` +
       `${andList(missing)} there.`,
-    fix: `Staff give me ${one ? 'that permission' : 'those permissions'} in the forum’s settings.`,
+    fix: `Give me ${one ? 'that permission' : 'those permissions'} in the forum’s settings.`,
   };
 }
 
 /** The events forum chosen for the server is gone. */
 export const EVENTS_FORUM_GONE =
-  'The events forum is gone, so I cannot post events. Staff choose another in /admin settings, ' +
+  'The events forum is gone, so I cannot post events. Choose another in /admin settings, ' +
   'or make one with /admin setup-forums.';
 
 /** The bot may not lock, archive or rename the posts of the events forum. */
 export function eventsForumRefusedWords(forumId: string): string {
   return (
     `I may not manage the posts of <#${forumId}>, the events forum, so I cannot close or rename ` +
-    'the posts of events that ended. Staff give me Manage Posts there.'
+    'the posts of events that ended. Give me Manage Posts there.'
   );
 }
 
 /** The listing of the events forum could not be pinned. */
 export function eventsListingUnpinnedWords(forumId: string): string {
   return (
-    `I could not pin the events listing in <#${forumId}>, the events forum. Staff give me ` +
+    `I could not pin the events listing in <#${forumId}>, the events forum. Give me ` +
     'Manage Posts there or, if another post is pinned there, unpin it: a forum has only one pin.'
   );
 }

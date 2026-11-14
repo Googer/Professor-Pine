@@ -248,14 +248,14 @@ describe('RaidBossAnnouncer', () => {
         key: 'bot-updates:gone',
         text:
           'The bot updates channel is gone, so I could not announce a change of the raid ' +
-          'bosses. Staff choose another in /admin settings.',
+          'bosses. Choose another in /admin settings.',
       },
       {
         server: OTHER_GUILD,
         key: 'bot-updates:cannot-post',
         text:
           `I may not post in <#700000000000000003>, the bot updates channel, so I could not ` +
-          'announce a change of the raid bosses. Staff give me View Channel, Send Messages ' +
+          'announce a change of the raid bosses. Give me View Channel, Send Messages ' +
           'and Embed Links there.',
       },
     ]);

@@ -263,6 +263,18 @@ describe('/admin settings', () => {
     expect(menu(panel, 'server:channels.events:set').channel_types).toEqual([15]);
   });
 
+  it('names the sections of settings in its help as one list (text pass review T2)', () => {
+    expect(admin.subcommands.get('settings')?.help?.details).toContain(
+      '\n\n- **Channels**: the bot lab, the moderators’ channel and the others\n' +
+        '- **Category and roles**: the PvP category, the Unown role and the map’s member role\n' +
+        '- **Features**: what Pine does, each on or off\n' +
+        '- **Text and numbers**: the time zone, distance units, events forum, word lists, ' +
+        'region forums and the web map’s links\n\n' +
+        '**Recent changes** shows the latest changes. Every change is logged for 30 days with ' +
+        'who made it and when; `/audit member:` lists a member’s changes too.',
+    );
+  });
+
   it('names each channel by what Pine uses it for', async () => {
     const { panel } = await setup();
     const text = textOf(await panel());
@@ -369,7 +381,7 @@ describe('/admin settings', () => {
     const { pick, store } = await setup();
     const picked = await pick('server:channels.bot-lab:set', [TEST_SERVER_CHANNELS['bot-lab']]);
     expect(textOf(shownAfter(picked))).toContain(
-      'Nothing was changed: it was set that way already.',
+      'Nothing was changed: it was already so, or someone changed it meanwhile.',
     );
     expect(store.rows.get(FAKE_GUILD_ID)?.updatedBy).toBeNull();
   });
@@ -393,7 +405,8 @@ describe('/admin settings', () => {
     );
     expect(textOf(shown)).toContain(
       '**Map’s member role** · only members with this role (and administrators) can see and ' +
-        'join raids, max battles, meetups and trains on the web map. Not set: every member can',
+        'join raids, max battles, meetups and trains on the web map. If it is not set, every ' +
+        'member can.',
     );
     const category = menu(shown, 'server:categories.pvp:set');
     expect(category.channel_types).toEqual([4]);
@@ -427,7 +440,8 @@ describe('/admin settings', () => {
     expect(defaults(roles).every((one) => isSnowflake(one))).toBe(true);
     expect(menu(roles, 'server:roles.mapMember:set').default_values).toEqual([]);
     expect(textOf(roles)).toContain(
-      'Not found: pick a role. Until you do, only administrators can see them.',
+      'Not found: pick a role. Until you do, only administrators can see and join raids and the ' +
+        'rest on the web map.',
     );
     // A role picked is set, and is found from then on; the log has the role alone.
     const picked = shownAfter(await pick('server:roles.mapMember:set', [NEW_ROLE]));
@@ -445,9 +459,7 @@ describe('/admin settings', () => {
     expectV2Sendable(channels);
     expect(textOf(channels)).toContain(
       'Not found: pick a channel. Until you do, meetups that need approval and reports to the ' +
-        'moderators are refused. Or leave it unset to turn meetup safety off: meetups no longer ' +
-        'wait for approval, members blocked from meetups can make them again, and reports stay ' +
-        'refused.',
+        'moderators are refused. Or press Leave unset to turn meetup safety off, as above.',
     );
     expect(buttonsOf(channels).map((one) => [one.label, one.style, one.customId])).toContainEqual([
       'Leave unset',
@@ -456,8 +468,8 @@ describe('/admin settings', () => {
     ]);
     const roles = shownAfter(await pick('server:panel:show', ['roles']));
     expect(textOf(roles)).toContain(
-      'Not found: pick a role. Until you do, only administrators can see them. Or leave it ' +
-        'unset to let every member see them.',
+      'Not found: pick a role. Until you do, only administrators can see and join raids and the ' +
+        'rest on the web map. Or press Leave unset to let every member do so.',
     );
   });
 
@@ -514,7 +526,7 @@ describe('/admin settings', () => {
     ]);
     // Confirmed again (a panel drawn before), it changes nothing.
     expect(textOf(shownAfter(await press('server:channels.moderation:unset:confirm')))).toContain(
-      'Nothing was changed: it was set that way already.',
+      'Nothing was changed: it was already so, or someone changed it meanwhile.',
     );
   });
 
@@ -543,8 +555,8 @@ describe('/admin settings', () => {
   it('says what clearing the moderators’ channel does, beside its select (fix round 4, I2)', async () => {
     const { panel } = await setup();
     expect(textOf(await panel())).toContain(
-      '**Moderators’ channel** · where reports to the moderators and meetups that need their ' +
-        'approval go; a channel of its own. Clearing it turns meetup safety off: meetups no ' +
+      '**Moderators’ channel** · where reports to the moderators and meetups that need approval ' +
+        'go (use a channel only for this). Clearing it turns meetup safety off: meetups no ' +
         'longer wait for approval, members blocked from meetups can make them again, and ' +
         'reports are refused\n',
     );
@@ -609,7 +621,7 @@ describe('/admin settings', () => {
     expect(servers.of(FAKE_GUILD_ID).features.roles).toBe(false);
     // A second press of the same button (a panel drawn before) sets the same.
     expect(textOf(shownAfter(await press('server:features.roles:set:off')))).toContain(
-      'Nothing was changed: it was set that way already.',
+      'Nothing was changed: it was already so, or someone changed it meanwhile.',
     );
     await press('server:features.roles:set:on');
     expect(servers.of(FAKE_GUILD_ID).features.roles).toBe(true);
@@ -648,7 +660,7 @@ describe('/admin settings', () => {
     });
     // Pressed again, what is so already.
     expect(textOf(shownAfter(await press('server:publicMap:set:on')))).toContain(
-      'Nothing was changed: it was set that way already.',
+      'Nothing was changed: it was already so, or someone changed it meanwhile.',
     );
     const off = shownAfter(await press('server:publicMap:set:off'));
     expect(textOf(off)).toContain('Turned off the map for visitors who are not logged in.');
@@ -720,14 +732,15 @@ describe('/admin settings', () => {
     });
     const shown = shownAfter(await pick('server:panel:show', ['text']));
     expect(textOf(shown)).toContain(
-      '**Time zone** · for every time and date members type and Pine shows: not chosen yet, ' +
-        'so Pine uses `America/New_York`, where it is now 10:00 AM, Thursday, November 12',
+      '**Time zone** · not chosen yet, so Pine uses `America/New_York`, where it is now ' +
+        '10:00 AM, Thursday, November 12 · every time and date members type and Pine shows is ' +
+        'in it',
     );
     const form = shownDialog(await press('server:timezone:ask'));
     const set = await submit(form, { zone: 'America/New_York' });
     // Chosen, the same zone as the instance's: chosen all the same.
     expect(textOf(shownAfter(set))).toContain(
-      'Pine shows: `America/New_York`, where it is now 10:00 AM',
+      '**Time zone** · `America/New_York`, where it is now 10:00 AM',
     );
   });
 
@@ -737,8 +750,8 @@ describe('/admin settings', () => {
     const shown = shownAfter(await pick('server:panel:show', ['text']));
     // The zone, and the time there now, so that staff can see it is right.
     expect(textOf(shown)).toContain(
-      '**Time zone** · for every time and date members type and Pine shows: ' +
-        '`America/New_York`, where it is now 10:00 AM, Thursday, November 12',
+      '**Time zone** · `America/New_York`, where it is now 10:00 AM, Thursday, November 12 · ' +
+        'every time and date members type and Pine shows is in it',
     );
     expect(buttonsOf(shown).map((one) => one.customId)).toContain('server:timezone:ask');
     const form = shownDialog(await press('server:timezone:ask'));
@@ -779,7 +792,7 @@ describe('/admin settings', () => {
     expect(servers.of(FAKE_GUILD_ID).timezone).toBe('Asia/Kolkata');
     const again = await submit(form, { zone: 'Asia/Calcutta' });
     expect(textOf(shownAfter(again))).toContain(
-      'Nothing was changed: it was set that way already.',
+      'Nothing was changed: it was already so, or someone changed it meanwhile.',
     );
     expect(servers.of(FAKE_GUILD_ID).timezone).toBe('Asia/Kolkata');
     const log = textOf(shownAfter(await pick('server:panel:show', ['changes'])));
@@ -833,7 +846,7 @@ describe('/admin settings', () => {
       ['Days ahead to list events', '1 to 365'],
       ['Days before an event to open its post', '0 to 365, and no more than the days ahead'],
       [
-        'Days a year “On this day” recalls',
+        'Busiest days “On this day” recalls',
         'Each earlier year’s busiest raid days, 0 to 10; 0 turns it off',
       ],
     ]);
@@ -936,8 +949,10 @@ describe('/admin settings', () => {
       values: testServerValues({ blacklistWords: ['gym', 'raid'] }),
     });
     const text = textOf(shownAfter(await pick('server:panel:show', ['text'])));
-    expect(text).toContain('**Words gym search ignores**');
-    expect(text).toContain('“gym”, “raid”');
+    expect(text).toContain(
+      '**Words gym search ignores** · skipped in gym names and searches, as common English ' +
+        'words are: 2 words (“gym”, “raid”)',
+    );
     const form = shownDialog(await press('server:blacklistWords:ask'));
     expect(dialogField(form, 'Words').value).toBe('gym\nraid');
     const set = await submit(form, { words: 'gym\n raid \nMall\nmall\n\n' });

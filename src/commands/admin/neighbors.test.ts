@@ -162,6 +162,15 @@ describe('/admin neighbors (plan 19E)', () => {
     );
   });
 
+  it('says in its help what the limit counts, and that a copy takes what the neighbor adds later', () => {
+    expect(admin.subcommands.get('neighbors ask')?.help?.details).toContain(
+      'A server may have 10 neighbors and requests it sent, together.',
+    );
+    expect(admin.subcommands.get('neighbors copy')?.help?.details).toContain(
+      'run it again to copy what the neighbor adds later.',
+    );
+  });
+
   it('refuses an acceptance past the limit, saying how to make room', async () => {
     const others = Array.from({ length: NEIGHBORS_MAX }, (_, n) =>
       neighborRow({
@@ -172,8 +181,9 @@ describe('/admin neighbors (plan 19E)', () => {
     );
     const made = await neighborCommandsWith({ rows: [neighborRow(), ...others] });
     expect(said(await made.press(`neighbor:${ASH}:accept`, BROCK))).toBe(
-      'This server already has 10 neighbors and open requests, the most it may have. End a ' +
-        'neighbor or take back a request with `/admin neighbors end`, then accept this one.',
+      'This server already has 10 neighbors and requests it sent, together the most it may ' +
+        'have. End a neighbor or take back a request with `/admin neighbors end`, then accept ' +
+        'this one.',
     );
   });
 
@@ -246,7 +256,7 @@ describe('/admin neighbors (plan 19E)', () => {
       ],
     });
     const listed = said(await made.use('list', {}));
-    expect(listed).toContain('**Neighbors** (1 of 10)\n- **Pewter City** (`412345678901234502`)');
+    expect(listed).toContain('**Neighbors** (1)\n- **Pewter City** (`412345678901234502`)');
     // A request this server sent names the server by the id it was given, never by its name.
     expect(listed).toContain('**Requests sent**\n- `412345678901234503`, asked');
     expect(listed).not.toContain('Cerulean City');
@@ -256,7 +266,7 @@ describe('/admin neighbors (plan 19E)', () => {
     expect(misty).toContain('**Requests received**\n- **Pallet Town**');
     const none = await neighborCommandsWith();
     expect(said(await none.use('list', {}))).toBe(
-      '**Neighbors** (0 of 10)\nNone yet. Ask a server with `/admin neighbors ask`.',
+      '**Neighbors** (0)\nNone yet. Ask a server with `/admin neighbors ask`.',
     );
   });
 
@@ -289,13 +299,14 @@ describe('/admin neighbors (plan 19E)', () => {
     expect(said(await made.use('copy', { server: BROCK }))).toBe(
       'Copied from **Pewter City** onto 2 gyms of this server: 1 nickname, 1 notice and 1 list ' +
         'of search words. Nothing your staff set was replaced. 1 gym is already shared by both ' +
-        'servers, with the same texts in both.\n\nRun it again later to copy what they add.',
+        'servers, with the same texts in both.\n\nRun it again later to copy what **Pewter City** ' +
+        'adds.',
     );
     expect(made.copying.directory.of(1).get(2)?.nickname).toBe('Splash');
     expect(said(await made.use('copy', { server: BROCK }))).toBe(
-      'Nothing to copy from **Pewter City**. On the same gyms, this server’s texts are filled in ' +
-        'already, or the neighbor’s are empty. 1 gym is already shared by both servers, with the ' +
-        'same texts in both.',
+      'Nothing to copy from **Pewter City**: on the gyms you both have, this server’s texts are ' +
+        'filled in already, or **Pewter City**’s are empty. 1 gym is already shared by both ' +
+        'servers, with the same texts in both.',
     );
     // Only from a neighbor.
     expect(said(await made.use('copy', { server: MISTY }))).toBe(
@@ -307,13 +318,13 @@ describe('/admin neighbors (plan 19E)', () => {
     const one = { gyms: 1, shared: 0, nickname: 1, notice: 0, description: 0, keywords: 0 };
     expect(copySaid('**Pewter City**', one)).toBe(
       'Copied from **Pewter City** onto 1 gym of this server: 1 nickname. Nothing your staff ' +
-        'set was replaced.\n\nRun it again later to copy what they add.',
+        'set was replaced.\n\nRun it again later to copy what **Pewter City** adds.',
     );
     const shared = { gyms: 0, shared: 2, nickname: 0, notice: 0, description: 0, keywords: 0 };
     expect(copySaid('**Pewter City**', shared)).toBe(
-      'Nothing to copy from **Pewter City**. On the same gyms, this server’s texts are filled in ' +
-        'already, or the neighbor’s are empty. 2 gyms are already shared by both servers, with ' +
-        'the same texts in both.',
+      'Nothing to copy from **Pewter City**: on the gyms you both have, this server’s texts are ' +
+        'filled in already, or **Pewter City**’s are empty. 2 gyms are already shared by both ' +
+        'servers, with the same texts in both.',
     );
   });
 });

@@ -74,7 +74,7 @@ const NEW_TRAIN_OFF = 'No more DMs for new trains in this server.';
 
 /** The history opt-in turned on (S4: two sentences; `/help settings` says the rest). */
 const HISTORY_ON =
-  'Your history is on: from now on I keep your Discord id with the raids, max battles, ' +
+  'Your history is on: from now on I keep your Discord ID with the raids, max battles, ' +
   'trains and meetups you join, including those going on now, and with the reports you make ' +
   'at stops. `/stats me` shows your numbers.';
 const HISTORY_OFF = 'Your history is off.';
@@ -96,8 +96,8 @@ function legacyAsked(state: Exclude<FillInState, { state: 'failed' }>): string {
 /** What turning the history off took the member's name off, where it did. */
 export function forgottenIn(records: number): string {
   return records === 1
-    ? ' I took your Discord id off the one entry of your history; the server still counts it.'
-    : ` I took your Discord id off ${String(records)} entries of your history; the server still counts them.`;
+    ? ' I took your Discord ID off the one entry of your history; the server still counts it.'
+    : ` I took your Discord ID off ${String(records)} entries of your history; the server still counts them.`;
 }
 
 /** Added where turning the history off took the member off the boards too. */
@@ -229,7 +229,7 @@ function recordsWords(records: number): string {
 /** The question before the history goes off: what it takes away, and what Submit does. */
 function historyDialog(records: number, boards: boolean) {
   const takes = [
-    ...(records > 0 ? [`take your Discord id off ${recordsWords(records)}`] : []),
+    ...(records > 0 ? [`take your Discord ID off ${recordsWords(records)}`] : []),
     ...(boards ? ['take you off the boards'] : []),
   ].join(' and ');
   return dialog({
@@ -569,10 +569,10 @@ export const settings: SimpleCommand = {
           'history and the boards.') +
       '\n\n**Your history.** I keep a history of every raid, max battle, train and meetup that ' +
       'ends: what it was, where and when, and how many signed up, came and completed it. You ' +
-      'always count in it, without your Discord id.' +
+      'always count in it, without your Discord ID.' +
       '\n\nI keep every field research and Team GO Rocket report that ends too: what was ' +
       'reported, when, how it ended and how many others reported the same.' +
-      '\n\nWith your history on, I also keep your Discord id with what you do from then on: ' +
+      '\n\nWith your history on, I also keep your Discord ID with what you do from then on: ' +
       'what you sign up for and when, how far you get, and what you report. `/stats me` shows ' +
       'your numbers. Turning it off takes your id out of everything kept so far; it all still ' +
       'counts.' +

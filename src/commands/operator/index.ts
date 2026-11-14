@@ -49,7 +49,7 @@ export const operator = commandGroup({
       'the map pictures I keep.\n\n' +
       'The operators of this Pine change them, from any server or in a direct message with me. ' +
       'Unless this Pine is open to every server, the admins, moderators and bot developers of ' +
-      'the servers it serves may too, from their own server.\n\n' +
+      'the servers I serve may too, from their own server.\n\n' +
       'My owner gets a direct message about every change: who made it, and from where.',
   },
   seenBy: isSharedDataOperatorAt,

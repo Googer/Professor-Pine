@@ -53,7 +53,7 @@ export const googleShare: SubcommandPart = {
     details:
       'I ask Google about the places of gyms, PokéStops and Power Spots within a monthly ' +
       'budget. The servers share it by how much each has waiting, and none takes more than ' +
-      'half of a month while the others still need theirs.\n\n' +
+      'half of the month’s budget while the others still need theirs.\n\n' +
       'This raises one server’s share for this month, past those limits: for a server that has ' +
       'just imported its gyms, say. Setting it again replaces the earlier raise, and `extra:0` ' +
       'takes it back. A raise ends when the month starts again.\n\n' +

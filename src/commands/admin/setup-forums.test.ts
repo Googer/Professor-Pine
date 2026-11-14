@@ -235,11 +235,11 @@ describe('/admin setup-forums', () => {
     expect(servers.of(FAKE_GUILD_ID).channels.events).toBe(events);
     expect(lines, lines.join(NEWLINE)).toContain(
       `<#${UNBOUNDED_CHANNEL}>: created <#${north}>, closed it to posts by members. I post ` +
-        'the board once Pine is set up in this server.',
+        'the board once I am set up here.',
     );
     expect(lines.at(-1)).toBe(
-      `Events forum: created <#${events}>, closed it to posts by members. The listing is ` +
-        'posted once Pine is set up in this server.',
+      `Events forum: created <#${events}>, closed it to posts by members. I post the ` +
+        'listing once I am set up here.',
     );
     // Nothing is posted in them meanwhile, and nothing failed.
     expect(regions.byChannel(UNBOUNDED_CHANNEL)?.summaryMessageId).toBeNull();

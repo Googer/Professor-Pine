@@ -71,8 +71,9 @@ const ITSELF = 'That is this server: a server cannot be its own neighbor.';
 /** Why a server cannot take another neighbor, and what staff do about it (`then` …). */
 function fullText(then: string): string {
   return (
-    `This server already has ${String(NEIGHBORS_MAX)} neighbors and open requests, the most it ` +
-    `may have. End a neighbor or take back a request with \`/admin neighbors end\`, then ${then}.`
+    `This server already has ${String(NEIGHBORS_MAX)} neighbors and requests it sent, together ` +
+    'the most it may have. End a neighbor or take back a request with `/admin neighbors end`, ' +
+    `then ${then}.`
   );
 }
 export const REQUEST_EXPIRED = 'This request has expired or was answered already.';
@@ -136,8 +137,9 @@ export const askNeighbor: SubcommandPart = {
       `${NEIGHBORS_SHARE}\n\n` +
       'The other server’s staff accept or decline in their moderators’ bot lab, and your ' +
       'moderators’ bot lab hears the answer.\n\n' +
-      `A server may have ${String(NEIGHBORS_MAX)} neighbors and open requests in all. A request ` +
-      'expires after a week. After a decline, the same server may be asked again a week later.',
+      `A server may have ${String(NEIGHBORS_MAX)} neighbors and requests it sent, together. ` +
+      'A request expires after a week. After a decline, the same server may be asked again a ' +
+      'week later.',
     examples: ['/admin neighbors ask server:https://discord.gg/abc123'],
   },
   defer: 'ephemeral',
@@ -227,7 +229,8 @@ function listLines(ctx: AppContext, serverId: string): string[] {
     }
   }
   const parts = [
-    `**Neighbors** (${String(neighbors.length)} of ${String(NEIGHBORS_MAX)})`,
+    // Neighbors alone: the limit counts the requests sent too, so it is not named here (T20).
+    `**Neighbors** (${String(neighbors.length)})`,
     ...(neighbors.length === 0
       ? ['None yet. Ask a server with `/admin neighbors ask`.']
       : neighbors),
@@ -384,14 +387,14 @@ function sharedWords(counts: CopyCounts): string {
 export function copySaid(name: string, copied: CopyCounts): string {
   if (copied.gyms === 0) {
     return (
-      `Nothing to copy from ${name}. On the same gyms, this server’s texts are filled in ` +
-      `already, or the neighbor’s are empty.${sharedWords(copied)}`
+      `Nothing to copy from ${name}: on the gyms you both have, this server’s texts are filled ` +
+      `in already, or ${name}’s are empty.${sharedWords(copied)}`
     );
   }
   return (
     `Copied from ${name} onto ${count(copied.gyms, 'gym')} of this server: ` +
     `${copiedWords(copied)}. Nothing your staff set was replaced.${sharedWords(copied)}\n\n` +
-    'Run it again later to copy what they add.'
+    `Run it again later to copy what ${name} adds.`
   );
 }
 
@@ -427,7 +430,8 @@ export const copyFromNeighbor: SubcommandPart = {
       'same gyms in this server. A gym is the same when it has the same Wayfarer ID, or the ' +
       'same name at the same place.\n\n' +
       'Each text is copied only where this server’s is empty, so nothing your staff set is ' +
-      'replaced. It is a one-time copy, not a live link: run it again to copy what they add later.',
+      'replaced. It is a one-time copy, not a live link: run it again to copy what the ' +
+      'neighbor adds later.',
     examples: ['/admin neighbors copy server:123456789012345678'],
   },
   guards: [requireNeighborNamed],

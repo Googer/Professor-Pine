@@ -72,10 +72,10 @@ export const forget: SubcommandPart = {
     ),
   help: {
     details:
-      'For a request to have somebody’s data removed. It works across every server Pine is ' +
-      'in and cannot be undone, so only the operators of this Pine (its owner and those its ' +
+      'For a request to have somebody’s data removed. It works across every server I am in ' +
+      'and cannot be undone, so only the operators of this Pine (its owner and those its ' +
       'settings name) can use it, also in a direct message with me.\n\n' +
-      'It first shows, for you alone, what Pine holds of that person in every server, as ' +
+      'It first shows, for you alone, what I hold of that person in every server, as ' +
       'counts: what a removal takes, what it leaves and why, and what is left for you to do ' +
       'by hand. Nothing changes until you press "Remove…" and confirm, within ' +
       `${String(FORGET_MINUTES)} minutes.\n\n` +
@@ -83,7 +83,7 @@ export const forget: SubcommandPart = {
       '- their settings, friend code, in-game name and Pokebattler ID\n' +
       '- their wants, gym notices and saved routes\n' +
       '- their web logins, kept screenshots and access to the export tool\n' +
-      '- the record that Pine has sent them direct messages\n\n' +
+      '- the record that I have sent them direct messages\n\n' +
       'It takes their ID out of the history of every server, with the names and descriptions ' +
       'of the trains and meetups they made while their history was on, and turns their ' +
       'history and boards off. (A record made while their history was off never said who ' +

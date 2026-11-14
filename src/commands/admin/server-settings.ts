@@ -69,8 +69,11 @@ import {
   wordsTooMany,
 } from './server-settings-panel.js';
 
-/** What a change of what is set already says. */
-const ALREADY = 'Nothing was changed: it was set that way already.';
+/**
+ * What a change of what is set already says: also a second Leave unset after another staff
+ * member picked one meanwhile (follow-up J1).
+ */
+const ALREADY = 'Nothing was changed: it was already so, or someone changed it meanwhile.';
 
 /** What the instance allows a server (the file, and the intents Pine was granted at login). */
 function instanceOf(ctx: AppContext): Instance {
@@ -430,7 +433,7 @@ function settingDialog(
           ),
           number(
             FIELDS.onThisDay,
-            'Days a year “On this day” recalls',
+            'Busiest days “On this day” recalls',
             values.eventsForum.onThisDay,
             'Each earlier year’s busiest raid days, 0 to 10; 0 turns it off',
           ),
@@ -698,16 +701,13 @@ export const serverSettings: SubcommandPart = {
     details:
       'Shows this server’s settings, only to you. Pick a section in the menu at the top; each ' +
       'setting has a menu or a button to change it.\n\n' +
-      '- **Channels**: the channels Pine uses, such as the bot lab and the moderators’ channel\n' +
+      '- **Channels**: the bot lab, the moderators’ channel and the others\n' +
       '- **Category and roles**: the PvP category, the Unown role and the map’s member role\n' +
-      '- **Features**: what Pine does here, each turned on or off\n\n' +
-      '- **Text and numbers**: the time zone (of every time and date members type and Pine ' +
-      'shows), the distance units, the events forum’s numbers, the flagged words of meetup ' +
-      'safety, the words gym search ignores, the ending of region forums, the region map link ' +
-      'and the web map’s invite\n' +
-      '- **Recent changes**: the latest changes\n\n' +
-      'Every change is logged for 30 days with who made it and when. `/audit member:` lists a ' +
-      'member’s changes too.',
+      '- **Features**: what Pine does, each on or off\n' +
+      '- **Text and numbers**: the time zone, distance units, events forum, word lists, region ' +
+      'forums and the web map’s links\n\n' +
+      '**Recent changes** shows the latest changes. Every change is logged for 30 days with who ' +
+      'made it and when; `/audit member:` lists a member’s changes too.',
     examples: ['/admin settings'],
   },
   defer: 'late',

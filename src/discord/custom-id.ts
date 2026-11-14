@@ -77,7 +77,7 @@
  * many to show in a dialog `server:<key>:ask` (the dialog `server:<key>:add:~<token>`) and
  * `server:<key>:ask:remove` (`server:<key>:remove:~<token>`); `server:<key>:unset`
  * (Leave unset, of a setting the settings file named and the fill did not find, which asks),
- * `server:<key>:unset:confirm` (which writes) and `server:<key>:keep` (Keep it closed). The server
+ * `server:<key>:unset:confirm` (which writes) and `server:<key>:keep` (Cancel). The server
  * is the interaction's.
  *
  * The controls of `/admin setup`'s checklist have the kind `setup` (`src/commands/admin/setup.ts`,
