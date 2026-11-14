@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-13T23:53",
+  "updated": "2026-11-14T00:48",
   "items": [
     {
       "id": "0",
@@ -12756,7 +12756,64 @@ window.GANTT = {
       ],
       "scope": "a new server in setup answers only its setup, the /admin setup checklist, leaving setup, an open instance from the code’s defaults",
       "doneWhen": "Merged into main-dev",
-      "status": "unplanned"
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T20:22",
+        "end": "2026-11-14T00:48",
+        "review": {
+          "start": "2026-11-13T21:09",
+          "end": "2026-11-14T00:40"
+        }
+      },
+      "review": {
+        "start": "2026-11-14T00:40",
+        "end": "2026-11-14T00:40"
+      }
+    },
+    {
+      "id": "19C-2.1",
+      "kind": "task",
+      "parent": "19C-2",
+      "name": "A server in setup answers only what its setup needs",
+      "status": "done",
+      "start": "2026-11-14T00:39",
+      "end": "2026-11-14T00:39"
+    },
+    {
+      "id": "19C-2.2",
+      "kind": "task",
+      "parent": "19C-2",
+      "name": "Nothing posts, sends or sweeps for a server in setup",
+      "status": "done",
+      "start": "2026-11-14T00:39",
+      "end": "2026-11-14T00:39"
+    },
+    {
+      "id": "19C-2.3",
+      "kind": "task",
+      "parent": "19C-2",
+      "name": "The setup checklist, and leaving setup once its required items are done",
+      "status": "done",
+      "start": "2026-11-14T00:39",
+      "end": "2026-11-14T00:39"
+    },
+    {
+      "id": "19C-2.4",
+      "kind": "task",
+      "parent": "19C-2",
+      "name": "An open instance starts a server from the code's defaults",
+      "status": "done",
+      "start": "2026-11-14T00:39",
+      "end": "2026-11-14T00:40"
+    },
+    {
+      "id": "19C-2.5",
+      "kind": "task",
+      "parent": "19C-2",
+      "name": "Docs of the setup state",
+      "status": "done",
+      "start": "2026-11-14T00:40",
+      "end": "2026-11-14T00:40"
     },
     {
       "id": "19C-3",
