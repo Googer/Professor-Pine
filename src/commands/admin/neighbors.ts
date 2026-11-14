@@ -359,6 +359,22 @@ function sharedWords(counts: CopyCounts): string {
   return ` ${count(counts.shared, 'gym')} both servers have as one ${counts.shared === 1 ? 'was' : 'were'} left as ${counts.shared === 1 ? 'it is' : 'they are'}.`;
 }
 
+/** What `copy` says of a copy from the neighbor `name` (staging F2: one gym in the singular). */
+export function copySaid(name: string, copied: CopyCounts): string {
+  if (copied.gyms === 0) {
+    return (
+      `Nothing to copy from ${name}: every gym of this server that is its gym too has its ` +
+      `texts already, or theirs are empty.${sharedWords(copied)}`
+    );
+  }
+  const theirs = copied.gyms === 1 ? 'is its gym' : 'are its gyms';
+  return (
+    `Copied from ${name} onto ${count(copied.gyms, 'gym')} of this server that ${theirs} too: ` +
+    `${copiedWords(copied)}. Nothing this server’s staff set was replaced.` +
+    `${sharedWords(copied)} Run it again to copy what they add.`
+  );
+}
+
 /** The refusal of `copy` from a server that is not a neighbor. */
 function notANeighbor(other: string | undefined): UserError {
   return new UserError(
@@ -420,15 +436,7 @@ export const copyFromNeighbor: SubcommandPart = {
       'a neighbor’s gym texts were copied',
     );
     const name = named(ctx, other).replace(/ \(`\d+`\)$/, '');
-    await interaction.editReply({
-      content:
-        copied.gyms === 0
-          ? `Nothing to copy from ${name}: every gym of this server that is its gym too has its ` +
-            `texts already, or theirs are empty.${sharedWords(copied)}`
-          : `Copied from ${name} onto ${count(copied.gyms, 'gym')} of this server that are its ` +
-            `gyms too: ${copiedWords(copied)}. Nothing this server’s staff set was replaced.` +
-            `${sharedWords(copied)} Run it again to copy what they add.`,
-    });
+    await interaction.editReply({ content: copySaid(name, copied) });
   },
   autocomplete: (interaction, ctx) => respondWithNeighbors(interaction, ctx, false),
 };

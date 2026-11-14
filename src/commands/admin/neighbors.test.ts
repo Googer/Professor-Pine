@@ -22,7 +22,7 @@ import { InteractionRouter } from '../../discord/router.js';
 import type { NeighborRow } from '../../domain/servers/neighbors.js';
 import { ASKED } from '../../render/server-neighbors.js';
 import { admin } from './index.js';
-import { neighborControls, NOT_A_SERVER } from './neighbors.js';
+import { copySaid, neighborControls, NOT_A_SERVER } from './neighbors.js';
 
 const STAFF = '200000000000000001';
 const MEMBER = '200000000000000002';
@@ -259,6 +259,14 @@ describe('/admin neighbors (plan 19E)', () => {
     // Only from a neighbor.
     expect(said(await made.use('copy', { server: MISTY }))).toBe(
       'This server is not a neighbor of `412345678901234503`: copy only from a neighbor.',
+    );
+  });
+
+  it('says a copy onto one gym in the singular (staging F2)', () => {
+    const one = { gyms: 1, shared: 0, nickname: 1, notice: 0, description: 0, keywords: 0 };
+    expect(copySaid('**Pewter City**', one)).toBe(
+      'Copied from **Pewter City** onto 1 gym of this server that is its gym too: 1 nickname. ' +
+        'Nothing this server’s staff set was replaced. Run it again to copy what they add.',
     );
   });
 });
