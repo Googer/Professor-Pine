@@ -26,8 +26,8 @@ export function setUpWords(items: readonly SetupItem[]): string {
     const name = item.done ? undefined : FOLLOWING[item.key];
     return name === undefined ? [] : [name];
   });
-  const said = 'Pine is set up in this server: its commands work for everybody now.';
+  const said = 'I am set up, and my commands work for everyone now.';
   return rest.length === 0
     ? said
-    : `${said} Its staff can add the rest when they like: ${listed(rest)}.`;
+    : `${said} Staff can set up more when they like: ${listed(rest)}.`;
 }

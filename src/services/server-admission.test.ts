@@ -76,8 +76,9 @@ describe('ServerAdmission (plan 19C-1)', () => {
     expect(exits.said).toEqual([{ serverId: STRANGER, text: PRIVATE_INSTANCE_TEXT }]);
     expect(exits.left).toEqual([STRANGER]);
     expect(PRIVATE_INSTANCE_TEXT).toBe(
-      'This Pine is private: it serves only the servers its operators allow. To run Pine for ' +
-        'your community, see <https://github.com/Googer/Professor-Pine/blob/master/docs/guides/new-instance.md>.',
+      'I am a private Pine: I serve only the servers my operators allow, so I am leaving this ' +
+        'server.\n\nTo run a Pine of your own for your community, see ' +
+        '<https://github.com/Googer/Professor-Pine/blob/master/docs/guides/new-instance.md>.',
     );
     const line = entries.find(
       (entry) => entry['msg'] === 'left a server that may not have this Pine',

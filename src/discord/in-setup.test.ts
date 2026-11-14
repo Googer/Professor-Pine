@@ -118,8 +118,8 @@ function setup(standings?: ServerStandings) {
   };
 }
 
-const MEMBER_WORDS = 'Pine is not set up in this server yet.';
-const STAFF_WORDS = 'Pine is not set up in this server yet. Run /admin setup.';
+const MEMBER_WORDS = 'I am not set up here yet.';
+const STAFF_WORDS = 'I am not set up here yet. Set me up with /admin setup.';
 
 describe('a server in setup (plan 19C-2)', () => {
   it('answers a member and staff that Pine is not set up yet, privately, and runs nothing', async () => {
@@ -319,7 +319,7 @@ describe('a server in setup (plan 19C-2)', () => {
 describe('a server whose data is being deleted (plan 19C-3, fix round 1)', () => {
   /** Added back while its deletion, begun and not ended, is not finished: pending. */
   const BEING = '412345678901234598';
-  const WORDS = 'Pine is getting this server ready. Try again in a few minutes.';
+  const WORDS = 'I am getting this server ready. Try again in a few minutes.';
 
   function deleting() {
     const { standings } = standingsWith({

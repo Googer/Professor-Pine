@@ -31,21 +31,21 @@ export type SetUpContext = Pick<AppContext, 'config' | 'standings'>;
  * What a member is told of anything but what works in a server in setup (plan 19C-2,
  * `CommandHandler.worksInSetup`); staff are told more (`inSetupWords`).
  */
-export const IN_SETUP = 'Pine is not set up in this server yet.';
+export const IN_SETUP = 'I am not set up here yet.';
 
 /**
  * What everyone is told of every interaction of a server added back while its data is being
  * deleted (plan 19C-3, fix round 1, 3b: `ServerStandings.pending`), staff included: one line,
  * nothing behind it. Once the deletion is over the server starts anew, in setup.
  */
-export const BEING_READIED = 'Pine is getting this server ready. Try again in a few minutes.';
+export const BEING_READIED = 'I am getting this server ready. Try again in a few minutes.';
 
 /**
  * What the router answers in a server in setup: to whoever may set it up (`isServerAdmin`), where
  * to go on.
  */
 export function inSetupWords(staff: boolean): string {
-  return staff ? `${IN_SETUP} Run /admin setup.` : IN_SETUP;
+  return staff ? `${IN_SETUP} Set me up with /admin setup.` : IN_SETUP;
 }
 
 /** What a member who is not staff is told after `NOT_SET_UP` (review F11: no staff command named). */

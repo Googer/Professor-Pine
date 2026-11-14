@@ -89,8 +89,8 @@ describe('/admin setup (plan 19C-2)', () => {
     const shown = asV2(payload);
     expectV2Sendable(shown);
     expect(textDisplays(shown)[0]).toBe(
-      '### Setting up Pine in this server\n' +
-        'Pine works here once the four required items are done; the rest can follow.',
+      '### Setting up Pine\n' +
+        'Pine works here once the four required items are done. The rest can follow later.',
     );
     expect(itemLines(shown)).toEqual([
       '**Time zone and units** · required · not yet',
@@ -104,14 +104,22 @@ describe('/admin setup (plan 19C-2)', () => {
     ]);
     const text = textOf(shown);
     // Until its staff choose one, the instance's zone stands in.
-    expect(text).toContain('Until you choose one, Pine uses `America/New_York`.');
-    expect(text).toContain('`/region import`');
-    // The test settings have no web pages, and so no region editor to name.
-    expect(text).not.toContain('/region edit');
-    // The way to ask for the Wayfarer tool, in words; the import once Pine is set up (S7).
-    expect(text).toContain('https://profpine.com/userscript');
     expect(text).toContain(
-      'Once Pine is set up, import your gyms from Wayfarer with `/gym import`',
+      'Pine reads and shows every time in this zone. Until you choose one, Pine uses ' +
+        '`America/New_York`. Distances are in meters and kilometers.',
+    );
+    // The test settings have no web pages, and so no region editor to name.
+    expect(text).toContain('To make one, import a KML file of outlines with `/region import`.');
+    expect(text).not.toContain('/region edit');
+    // The other channels by name, then how many of them are set.
+    expect(text).toContain(
+      'Unown, elite gym raids, remote raids, PvP and bot updates: 0 of 5 set.',
+    );
+    // The way to ask for the Wayfarer tool, in words; the import once Pine is set up (S7).
+    expect(text).toContain(
+      'Once Pine is set up, import your gyms from Wayfarer with `/gym import` and the file the ' +
+        'Pine Wayfarer export tool saves. The tool’s owner hands it out: ask for it at ' +
+        '<https://profpine.com/userscript>.',
     );
     expect(buttonsOf(shown).map((button) => button.label)).toEqual([
       'Text and numbers…',
@@ -143,8 +151,7 @@ describe('/admin setup (plan 19C-2)', () => {
     const pressed = await made.press(again);
     const shown = asV2(pressed.update.mock.calls[0]?.[0] as never);
     expect(textDisplays(shown)[0]).toBe(
-      '### Setting up Pine in this server\nPine is set up in this server; the rest can follow ' +
-        'whenever you like.',
+      '### Setting up Pine\nPine is set up here. The rest can follow whenever you like.',
     );
     expect(itemLines(shown).slice(0, 4)).toEqual([
       '**Time zone and units** · required · done',

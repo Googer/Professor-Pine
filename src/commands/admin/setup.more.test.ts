@@ -115,7 +115,7 @@ describe('setting a server up, by whom (plan 19C-2)', () => {
     await made.made.press(importId ?? '', owner);
     expect(made.made.regions.byChannel(SOUTH_CHANNEL)?.bounds).toEqual(SOUTH_RING);
     const last = await made.admin('setup', owner);
-    expect(textDisplays(asV2(answered(last)))[0]).toContain('Pine is set up in this server');
+    expect(textDisplays(asV2(answered(last)))[0]).toContain('Pine is set up here.');
     expect(made.servers.inSetup(SERVER)).toBe(false);
     expect(made.told).toHaveLength(1);
   });

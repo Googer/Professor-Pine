@@ -134,18 +134,18 @@ export interface ClosedSetting {
 /** What stays closed of a setting the fill could not find, said after its name. */
 const CLOSED_UNTIL: Record<UnmatchedKey, (name: string) => string> = {
   'channels.moderation': (name) =>
-    `The moderators’ channel #${name} could not be found, so it stays closed until staff pick ` +
-    'one in /admin settings: meetups that need approval and reports are refused until then.',
+    `I could not find the moderators’ channel #${name}. Until you pick one in /admin settings, ` +
+    'reports and meetups that need approval are refused.',
   'roles.mapMember': (name) =>
-    `The map’s member role ${name} could not be found, so it stays closed until staff pick one ` +
-    'in /admin settings: the map shows parties to administrators only until then.',
+    `I could not find the map’s member role ${name}. Until you pick one in /admin settings, ` +
+    'the map shows parties to administrators only.',
 };
 
 /**
  * What the moderators' bot lab is told of the names the fill could not find: those left unset in
- * one sentence, then each that stays closed on a line of its own (the ruling on fix round 1);
- * then the names that matched several channels or categories, with the one taken by mention
- * (fix round 3, H10).
+ * one sentence, then each that stays closed in a paragraph of its own (the ruling on fix round
+ * 1); then the names that matched several channels or categories, with the one taken by mention
+ * (fix round 3, H10). Each part is a paragraph.
  */
 export function unmatchedWords(
   unmatched: readonly string[],
@@ -156,18 +156,18 @@ export function unmatchedWords(
     unmatched.length === 0
       ? []
       : [
-          'I could not find these channels and roles of my settings file in this server, so they ' +
-            `are not set: ${unmatched.join(', ')}. Staff set them with /admin settings.`,
+          'I could not find these channels and roles named in my settings file, so they are not ' +
+            `set: ${unmatched.join(', ')}. Set them in /admin settings.`,
         ];
   const taken =
     several.length === 0
       ? []
       : [
-          'These names match more than one channel or category in this server, so I took one of ' +
-            `each: ${several.map((one) => `<#${one.kept}> as ${one.setting}`).join(', ')}. ` +
-            'Staff pick others with /admin settings.',
+          'These names match more than one channel or category, so I took one of each: ' +
+            `${several.map((one) => `<#${one.kept}> as ${one.setting}`).join(', ')}. ` +
+            'If I took the wrong one, pick another in /admin settings.',
         ];
-  return [...unset, ...closed.map((one) => CLOSED_UNTIL[one.key](one.name)), ...taken].join('\n');
+  return [...unset, ...closed.map((one) => CLOSED_UNTIL[one.key](one.name)), ...taken].join('\n\n');
 }
 
 /** How many times the fill of a server is tried before it is given up until the next start. */
