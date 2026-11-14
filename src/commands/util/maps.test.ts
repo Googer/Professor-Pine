@@ -50,8 +50,8 @@ describe('/maps', () => {
   it("is registered everywhere, set up where there is a map: the web pages, or the server's link", () => {
     const { ctx } = createTestContext();
     const { web: _none, ...settings } = ctx.config.settings;
-    const without = { ...ctx.config, settings };
-    const withWeb = { ...ctx.config, settings: { ...settings, web: TEST_WEB } };
+    const without = { ...ctx, config: { ...ctx.config, settings } };
+    const withWeb = { ...ctx, config: { ...ctx.config, settings: { ...settings, web: TEST_WEB } } };
     const values = testServerValues();
     const { regionMapLink: _link, ...noLink } = values;
     expect(maps.enabled).toBeUndefined();

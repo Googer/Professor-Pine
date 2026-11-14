@@ -59,6 +59,7 @@ import { memberIndexes } from './2026_11_13_057_member_indexes.js';
 import { pokemonNicknames } from './2026_11_13_058_pokemon_nicknames.js';
 import { serverWayspots } from './2026_11_13_059_server_wayspots.js';
 import { dmContacts } from './2026_11_13_060_dm_contacts.js';
+import { serverRecord } from './2026_11_13_061_server_record.js';
 
 /**
  * Every migration, keyed by name. Kysely applies them in name order, so names are
@@ -125,4 +126,5 @@ export const migrations: Record<string, Migration> = {
   '2026_11_13_058_pokemon_nicknames': pokemonNicknames,
   '2026_11_13_059_server_wayspots': serverWayspots,
   '2026_11_13_060_dm_contacts': dmContacts,
+  '2026_11_13_061_server_record': serverRecord,
 };

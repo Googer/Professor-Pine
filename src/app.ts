@@ -66,11 +66,13 @@ import { DiscordApplicationEmoji } from './discord/application-emoji.js';
 import { DiscordPartyGateway } from './discord/party-gateway.js';
 import { syncGuilds } from './discord/guild-sync.js';
 import { ServerSettings } from './services/server-settings.js';
+import { ServerStandings } from './services/server-standings.js';
 import { ServerFill } from './services/server-fill.js';
 import { noticeSender, ServerNotices } from './services/server-notices.js';
 import { serverNamesOf } from './discord/server-names.js';
 import { wireServerStart } from './discord/server-start.js';
 import { ServerSettingsRepository } from './db/repositories/server-settings-repository.js';
+import { ServerRecordRepository } from './db/repositories/server-record-repository.js';
 import { ServerSettingsAuditRepository } from './db/repositories/server-settings-audit-repository.js';
 import { InteractionRouter } from './discord/router.js';
 import { lobbySize } from './domain/party/lobby.js';
@@ -415,6 +417,13 @@ export async function startApp(
   // would otherwise ask for a row id before every statement (plan 4F).
   const rowIds = new RowIds();
   const guilds = new GuildRepository(db, rowIds);
+  // Who may have this Pine and which servers it left (plan 19C-1): each server's standing, read
+  // once the migrations ran, before the login.
+  const standings = new ServerStandings({
+    store: new ServerRecordRepository(db),
+    settings: config.settings,
+    log,
+  });
   // Each server's values (plan 19A-1): what the settings file held that is a server's, one row
   // per server, read once the migrations ran; the file's server keys are a new row's defaults.
   // The staff's log of the servers' settings (plan 19A-1): written with each change of a server's
@@ -1124,7 +1133,7 @@ export async function startApp(
     servers,
     // Where a server's staff may not change the boss list, its operators decide (plan 19B-1):
     // the owner is told of screenshots against it, through the queue, also in rehearsal mode.
-    staffChangeShared: (serverId) => serverStaffShareData(serverId, { config }),
+    staffChangeShared: (serverId) => serverStaffShareData(serverId, { config, standings }),
     ownerId: config.env.OWNER_ID,
     dms,
     log,
@@ -1234,6 +1243,7 @@ export async function startApp(
     await raidEvents.loadMax();
     await eventWindows.load();
     await servers.load();
+    await standings.load();
     // Before the first read too: the events forum's listing survives a restart (plan 8V-1).
     await raidEvents.loadListed();
     // Before the gyms and the Wayspots, whose addresses and places they are (plan 19B-3).
@@ -1297,6 +1307,7 @@ export async function startApp(
     memberRemoval,
     config,
     servers,
+    standings,
     log,
     db,
     commands,

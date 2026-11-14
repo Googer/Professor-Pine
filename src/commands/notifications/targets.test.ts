@@ -142,8 +142,8 @@ describe('the target commands', () => {
     for (const command of [target, untarget, targets, untargetAll]) {
       // Registered whatever the server (plan 19A-1); not set up where it does not notify.
       expect(command.enabled).toBeUndefined();
-      expect(command.setUpIn?.(values, ctx.config, FAKE_GUILD_ID)).toBeUndefined();
-      expect(command.setUpIn?.(off, ctx.config, FAKE_GUILD_ID)).toBe(
+      expect(command.setUpIn?.(values, ctx, FAKE_GUILD_ID)).toBeUndefined();
+      expect(command.setUpIn?.(off, ctx, FAKE_GUILD_ID)).toBe(
         'Staff turn on notifications in /admin settings.',
       );
       expect(command.help.category).toBe('notifications');

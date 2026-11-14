@@ -619,6 +619,20 @@ describe('migration 057: indexes that begin with the member, for the removal and
           })),
         )
         .execute();
+      // The servers' record (plan 19C-1, migration 061): who allowed and who blocked each, some
+      // of them both by one operator. Five hundred servers, as on an instance that serves many.
+      await db
+        .insertInto('ServerRecord')
+        .values(
+          rows(500, (n) => ({
+            serverId: `5123456789012${String(n).padStart(5, '0')}`,
+            allowedAt: at(n),
+            allowedBy: member(n),
+            blockedAt: n % 3 === 0 ? at(n) : null,
+            blockedBy: n % 3 === 0 ? member(n % 2 === 0 ? n + 1 : n) : null,
+          })),
+        )
+        .execute();
 
       await sql`analyze table HistoryOptIn, LeaderboardOptIn, LegacyFillIn, MeetupBlock,
                               NewTrainNotification, UnownWantGift, PartyHistory,
@@ -627,7 +641,7 @@ describe('migration 057: indexes that begin with the member, for the removal and
                               ServerSettingsAudit, StopReport, PartyAccessGrant,
                               MeetupPlaceRuling, ModerationReport, RaidBossOverride, PineStop,
                               Gym, GymWayfarer, WayspotImport, GymReview, EventWindow,
-                              ServerSettings`.execute(db);
+                              ServerSettings, ServerRecord`.execute(db);
     });
 
     it('finds the servers whose history names a member by keys that begin with the member, and counts their switches', async () => {
@@ -772,6 +786,8 @@ describe('migration 057: indexes that begin with the member, for the removal and
             + (select count(*) from WayspotImport where staffId = ${memberId})
             + (select count(*) from EventWindow where setBy = ${memberId})
             + (select count(*) from ServerSettings where updatedBy = ${memberId})
+            + (select count(*) from ServerRecord
+                where allowedBy = ${memberId} or blockedBy = ${memberId})
             as staffActs`.execute(db);
       const row = counted.rows[0] ?? {};
       return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, Number(value)]));
@@ -803,6 +819,10 @@ describe('migration 057: indexes that begin with the member, for the removal and
         madeAndChanged: await matching(
           'PineStop',
           sql`createdBy = ${LOOKED} and updatedBy = ${LOOKED}`,
+        ),
+        allowedAndBlocked: await matching(
+          'ServerRecord',
+          sql`allowedBy = ${LOOKED} and blockedBy = ${LOOKED}`,
         ),
       };
       for (const [what, count] of Object.entries(twice)) expect(count, what).toBeGreaterThan(0);
@@ -841,6 +861,9 @@ describe('migration 057: indexes that begin with the member, for the removal and
           'WayspotImport:wayspotimport_staffid_index',
           'EventWindow:eventwindow_setby_index',
           'ServerSettings:serversettings_updatedby_index',
+          // The servers' record of migration 061 (plan 19C-1).
+          'ServerRecord:serverrecord_allowedby_index',
+          'ServerRecord:serverrecord_blockedby_index',
         ].sort(),
       );
       expect(unkeyed(left ?? [])).toEqual([]);

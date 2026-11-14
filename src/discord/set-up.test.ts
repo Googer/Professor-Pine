@@ -102,13 +102,13 @@ describe('a command that a server must set up (plan 19A-1)', () => {
     const subcommands = (list: ReturnType<typeof commandsIn>) =>
       list.flatMap((c) => (c.subcommands ? [...c.subcommands.keys()] : [c.data.name]));
     expect(
-      subcommands(commandsIn([notifying().command, admin], values, ctx.config, FAKE_GUILD_ID)),
+      subcommands(commandsIn([notifying().command, admin], values, ctx, FAKE_GUILD_ID)),
     ).toEqual(['want', 'tutorial', 'self-roles']);
     expect(
-      subcommands(commandsIn([notifying().command, admin], without, ctx.config, FAKE_GUILD_ID)),
+      subcommands(commandsIn([notifying().command, admin], without, ctx, FAKE_GUILD_ID)),
     ).toEqual(['want', 'tutorial']);
     expect(
-      subcommands(commandsIn([notifying().command, admin], quiet(), ctx.config, FAKE_GUILD_ID)),
+      subcommands(commandsIn([notifying().command, admin], quiet(), ctx, FAKE_GUILD_ID)),
     ).toEqual(['tutorial', 'self-roles']);
   });
 

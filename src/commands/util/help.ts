@@ -63,7 +63,7 @@ function visibleCommands(staff: boolean, ctx: AppContext, where: Asker): readonl
   // Without what the server has not set up (plan 19A-1); in a DM, as registered.
   return where.guildId === null
     ? seen
-    : commandsIn(seen, ctx.servers.of(where.guildId), ctx.config, where.guildId);
+    : commandsIn(seen, ctx.servers.of(where.guildId), ctx, where.guildId);
 }
 
 /** The message commands a member may read about: staff ones are shown to staff only. */

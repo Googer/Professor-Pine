@@ -52,8 +52,11 @@ import {
   requireRegion,
   requireSharedDataOperator,
   requireTimed,
+  serverStaffShareData,
 } from './guards.js';
 import { instanceConfig, OPERATOR_ID } from '../../test/support/operators.js';
+import { serverRecordRow } from '../../test/support/server-record-cases.js';
+import { standingsWith } from '../../test/support/server-standings.js';
 
 const OWNER = '223456789012345678'; // TEST_ENV.OWNER_ID
 const USER = '700000000000000001';
@@ -114,8 +117,10 @@ describe('the operators’ tiers (plan 19B-1)', () => {
   });
 
   it('lets the staff of a server that the instance does not list change nothing shared', () => {
+    // Nor recorded at the upgrade (plan 19C-1).
     const elsewhere = createTestContext({
       config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: ['512345678901234567'] }),
+      standings: standingsWith({ recorded: [] }).standings,
     }).ctx;
     // Their roles would never pass there: the operators' words.
     expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), elsewhere)).toThrow(
@@ -125,11 +130,54 @@ describe('the operators’ tiers (plan 19B-1)', () => {
     expect(() =>
       requireSharedDataOperator(as(fakeChatInput({ userId: OPERATOR_ID })), elsewhere),
     ).not.toThrow();
-    // An empty list is no list: any server's staff, as unset.
+    // An empty list is no list, as unset: a recorded server's staff (plan 19C-1).
     const empty = createTestContext({
       config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: [] }),
     }).ctx;
     expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), empty)).not.toThrow();
+    const emptyUnrecorded = createTestContext({
+      config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: [] }),
+      standings: standingsWith({ recorded: [] }).standings,
+    }).ctx;
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), emptyUnrecorded)).toThrow(
+      ONLY_OPERATORS,
+    );
+  });
+
+  it('lets, without a list of servers, the staff of an allowed server alone (plan 19C-1)', () => {
+    // FAKE_GUILD_ID was recorded at the upgrade (the context's standings); OTHER_GUILD_ID not.
+    const newcomer = createTestContext({
+      standings: standingsWith({ recorded: [FAKE_GUILD_ID] }).standings,
+    }).ctx;
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), newcomer)).not.toThrow();
+    const there = fakeChatInput({ ...admin, guildId: OTHER_GUILD_ID });
+    expect(() => requireSharedDataOperator(as(there), newcomer)).toThrow(ONLY_OPERATORS);
+    expect(serverStaffShareData(OTHER_GUILD_ID, newcomer)).toBe(false);
+    // Allowed by an operator: its staff too.
+    const allowed = createTestContext({
+      standings: standingsWith({
+        recorded: [FAKE_GUILD_ID],
+        rows: [
+          {
+            ...serverRecordRow({ serverId: OTHER_GUILD_ID }),
+            allowedAt: 1,
+            allowedBy: OPERATOR_ID,
+          },
+        ],
+      }).standings,
+    }).ctx;
+    expect(() => requireSharedDataOperator(as(there), allowed)).not.toThrow();
+    // Blocked: never, though recorded.
+    const blocked = createTestContext({
+      standings: standingsWith({
+        recorded: [OTHER_GUILD_ID],
+        rows: [{ ...serverRecordRow(), blockedAt: 1, blockedBy: OPERATOR_ID }],
+      }).standings,
+    }).ctx;
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), blocked)).toThrow(
+      ONLY_OPERATORS,
+    );
+    expect(() => requireSharedDataOperator(as(there), blocked)).not.toThrow();
   });
 
   it('lets on an open instance only its operators change the shared data', () => {

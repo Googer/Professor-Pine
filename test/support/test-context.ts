@@ -1,4 +1,5 @@
 import { RecordingNotices } from './server-notices.js';
+import { standingsWith } from './server-standings.js';
 import type { Kysely } from 'kysely';
 import type { AppContext } from '../../src/app-context.js';
 import { Throttles } from '../../src/discord/throttle.js';
@@ -119,6 +120,9 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     config: { settings: loadSettings(TEST_SETTINGS_PATH), env: loadEnv(TEST_ENV) },
     // Every server has the test settings' values (`testServerValues`), unless a test passes its own.
     servers: new TestServers(),
+    // The test server and the second were recorded at the upgrade (plan 19C-1), unless a test
+    // passes its own (`standingsWith`).
+    standings: standingsWith({ log }).standings,
     log,
     db: {} as Kysely<DB>,
     commands: [],

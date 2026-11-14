@@ -487,11 +487,14 @@ export const settingsObject = z.strictObject({
    */
   operators: z.array(z.string().regex(/^\d{17,20}$/u, 'must be a Discord ID')).default([]),
   /**
-   * Which servers may have this Pine (spec "Joining"): a list of server ids, or `"open"` for any
-   * server (a public instance). Unset, or an empty list: no list. Plan 19B-1 reads it only for
-   * who changes what every server shares (`isOpenInstance`, `listedServers`): on an open instance
-   * the operators alone; on any other a server's staff too, where the instance lists no servers or
-   * lists theirs. Who may join by it is plan 19C's.
+   * Which servers may have this Pine (spec "Joining"; plan 19C-1, `mayHave` of
+   * `src/domain/operators/admission.ts`): `"open"` for any server not blocked (a public
+   * instance); a list of server ids for those, besides the servers recorded at the upgrade to 2.1
+   * and those an instance operator allowed (`/operator servers allow`); unset, or an empty list,
+   * for no list: closed to new servers, open only to the recorded and the allowed. A server that
+   * may not have it is told so and left. Read through `isOpenInstance` and `listedServers`, also
+   * for who changes what every server shares (plan 19B-1): on an open instance the operators
+   * alone; on any other a server's staff too, where that server is allowed.
    */
   servers: z
     .union([z.literal('open'), z.array(z.string().regex(/^\d{17,20}$/u, "must be a server's ID"))])
@@ -782,9 +785,9 @@ export function isOpenInstance(settings: Pick<Settings, 'servers'>): boolean {
 }
 
 /**
- * The servers the file lists (`servers`, plan 19B-1), whose staff alone of all servers' change
- * what every server shares; undefined where it lists none: unset, open, or an empty list (as
- * unset).
+ * The servers the file lists (`servers`, plan 19B-1), which may have this Pine besides those
+ * recorded at the upgrade and those an operator allowed (plan 19C-1); undefined where it lists
+ * none: unset, open, or an empty list (as unset).
  */
 export function listedServers(settings: Pick<Settings, 'servers'>): readonly string[] | undefined {
   const { servers } = settings;

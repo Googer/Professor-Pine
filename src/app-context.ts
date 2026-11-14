@@ -79,6 +79,7 @@ import type { Boards } from './services/boards.js';
 import type { MemberStatsService } from './services/member-stats.js';
 import type { EventWindows } from './services/event-window-service.js';
 import type { ServerSettingsService } from './services/server-settings.js';
+import type { ServerStandings } from './services/server-standings.js';
 
 /** Everything a handler may use. Later phases add services here. */
 export interface AppContext {
@@ -88,6 +89,11 @@ export interface AppContext {
    * server's, read through `servers.of(serverId)`, never from `config.settings`.
    */
   readonly servers: ServerSettingsService;
+  /**
+   * Each server's standing with the instance (plan 19C-1, `servers.md`, "Who may have this
+   * Pine"): recorded at the upgrade, allowed or blocked by an operator, left.
+   */
+  readonly standings: ServerStandings;
   readonly log: Logger;
   readonly db: Kysely<DB>;
   readonly commands: readonly CommandModule[];

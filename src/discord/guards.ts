@@ -202,30 +202,38 @@ export const requireBotManagement: Guard = (interaction, ctx) => {
   }
 };
 
-/** The instance as the operators' tiers read it (`src/domain/operators/tiers.ts`). */
-export function instanceOf(ctx: Pick<AppContext, 'config'>): Instance {
+/**
+ * The instance as the operators' tiers read it (`src/domain/operators/tiers.ts`): the file's
+ * operators and servers, and each server's standing (plan 19C-1).
+ */
+export function instanceOf(ctx: Pick<AppContext, 'config' | 'standings'>): Instance {
   return {
     ownerId: ctx.config.env.OWNER_ID.trim(),
     operators: ctx.config.settings.operators,
     open: isOpenInstance(ctx.config.settings),
     listed: listedServers(ctx.config.settings),
+    standingOf: (serverId) => ctx.standings.standingOf(serverId),
   };
 }
 
 /** Whether this user is an instance operator (plan 19B-1): the owner or an operator of the file. */
-export function isInstanceOperatorOf(userId: string, ctx: Pick<AppContext, 'config'>): boolean {
+export function isInstanceOperatorOf(
+  userId: string,
+  ctx: Pick<AppContext, 'config' | 'standings'>,
+): boolean {
   return isInstanceOperator(userId, instanceOf(ctx));
 }
 
 /**
  * Whether the invoking member may change what every server shares where they ask (plan 19B-1,
  * `isSharedDataOperator`): an instance operator anywhere; on an instance that is not open, also
- * the bot-management staff of the server asked from, where the instance lists no servers or lists
- * that one; in a DM the instance operators alone.
+ * the bot-management staff of the server asked from, where that server is allowed (plan 19C-1:
+ * listed, recorded at the upgrade or allowed by an operator, not blocked); in a DM the instance
+ * operators alone.
  */
 export function isSharedDataOperatorAt(
   interaction: LocatedInteraction,
-  ctx: Pick<AppContext, 'config'>,
+  ctx: Pick<AppContext, 'config' | 'standings'>,
 ): boolean {
   return isSharedDataOperator(
     {
@@ -240,9 +248,12 @@ export function isSharedDataOperatorAt(
 /**
  * Whether a server's bot-management staff change what every server shares from that server (plan
  * 19B-1): the shared-data tier asked for a member of its staff who is no operator. False on an
- * open instance, and for a server the instance does not list.
+ * open instance, and for a server that is not allowed (plan 19C-1).
  */
-export function serverStaffShareData(serverId: string, ctx: Pick<AppContext, 'config'>): boolean {
+export function serverStaffShareData(
+  serverId: string,
+  ctx: Pick<AppContext, 'config' | 'standings'>,
+): boolean {
   return isSharedDataOperator({ userId: '', serverId, botManagement: true }, instanceOf(ctx));
 }
 
@@ -256,8 +267,8 @@ export const ONLY_OPERATORS_IN_A_DM =
 /**
  * The shared-data tier (plan 19B-1): what every server shares (the boss list's overrides and its
  * sync, the event window, the image cache). Refused in the words of where it would pass: in a
- * server whose staff it passes (an instance that is not open, and lists no servers or lists that
- * one), as `/admin` refuses; in another server, the operators'; in a DM, the DM's.
+ * server whose staff it passes (an allowed server of an instance that is not open), as `/admin`
+ * refuses; in another server, the operators'; in a DM, the DM's.
  */
 export const requireSharedDataOperator: Guard = (interaction, ctx) => {
   if (isSharedDataOperatorAt(interaction, ctx)) return;

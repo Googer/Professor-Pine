@@ -1,16 +1,20 @@
+import { mayHave, type Standing } from './admission.js';
+
 /**
  * Who looks after what every server of an instance shares (plan 19B-1; spec
  * `2026-11-12-multi-server-instance-design.md`, "Operators"): the one rule of the two tiers, which
  * every surface asks (the guards of `/operator`, `/help`).
  *
  * - **Instance operators:** the owner (`OWNER_ID`) and the ids of the file's `operators`. They
- *   alone remove a member's data (`/operator forget`), and later see and remove servers.
+ *   alone remove a member's data (`/operator forget`) and see, allow, remove and block servers
+ *   (`/operator servers`, plan 19C-1).
  * - **Shared-data operators:** the instance operators, and on an instance that is not open the
  *   bot-management staff of the server a command came from, where that server may have this Pine
- *   (`servers` unset: any server; a list: a server of the list). On an open instance
- *   (`servers: "open"`) the instance operators alone. In a direct message the instance operators
- *   alone: no member's roles are read across servers. They change the boss list's overrides and
- *   sync it, set and end the event window, and clear the image cache.
+ *   (`isTrustedServer`: `mayHave` of `admission.ts`, plan 19C-1: listed, recorded at the upgrade
+ *   or allowed by an operator, and not blocked). On an open instance (`servers: "open"`) the
+ *   instance operators alone. In a direct message the instance operators alone: no member's
+ *   roles are read across servers. They change the boss list's overrides and sync it, set and end
+ *   the event window, and clear the image cache.
  */
 
 /** What the tiers read of an instance. */
@@ -26,6 +30,8 @@ export interface Instance {
    * list (which is as unset).
    */
   listed: readonly string[] | undefined;
+  /** What the instance's database says of a server (`ServerStandings`, plan 19C-1). */
+  standingOf(serverId: string): Standing;
 }
 
 /** Who asks, and where. */
@@ -48,14 +54,14 @@ export function isInstanceOperator(userId: string, instance: Instance): boolean 
 }
 
 /**
- * Whether the instance trusts a server with what every server shares: an instance that is not
- * open, and lists no servers or lists that one. Its staff are shared-data operators there
- * (`isSharedDataOperator`), and its gym requests go to the instance's repository (plan 19B-4,
- * `gymRequestWay`).
+ * Whether the instance trusts a server with what every server shares: an allowed server
+ * (`mayHave`) of an instance that is not open (plan 19C-1; before it, any server where the file
+ * listed none). Its staff are shared-data operators there (`isSharedDataOperator`), and its gym
+ * requests go to the instance's repository (plan 19B-4, `gymRequestWay`).
  */
 export function isTrustedServer(serverId: string, instance: Instance): boolean {
   if (instance.open) return false;
-  return instance.listed === undefined || instance.listed.includes(serverId);
+  return mayHave(serverId, instance, instance.standingOf(serverId));
 }
 
 /**

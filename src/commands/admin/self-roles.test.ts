@@ -82,7 +82,7 @@ describe('/admin self-roles', () => {
         commandsIn(
           enabledCommands([admin], ctx.config),
           values,
-          ctx.config,
+          ctx,
           FAKE_GUILD_ID,
         )[0]?.data.toJSON().options,
       ).filter((path) => !/^nickname |^member-settings$|^cleanup-legacy$|^tutorial$/.test(path));

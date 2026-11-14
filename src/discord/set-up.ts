@@ -1,5 +1,4 @@
 import { ApplicationCommandOptionType, type APIApplicationCommandOption } from 'discord.js';
-import type { Config } from '../config/index.js';
 import type { ServerValues } from '../config/server-settings.js';
 import type { AppContext } from '../app-context.js';
 import {
@@ -21,6 +20,12 @@ import {
  */
 export const NOT_SET_UP = 'This is not set up in this server.';
 
+/**
+ * What a command's `setUpIn` may read besides the server's values: the instance's settings and
+ * each server's standing (where a server's gym requests go, plan 19C-1: `isTrustedServer`).
+ */
+export type SetUpContext = Pick<AppContext, 'config' | 'standings'>;
+
 /** What a member who is not staff is told after `NOT_SET_UP` (review F11: no staff command named). */
 export const NOT_TURNED_ON = 'The server’s staff have not turned this on.';
 
@@ -36,10 +41,10 @@ export function notSetUpWords(what: string, staff: boolean): string {
 export function notSetUpIn(
   handler: Pick<CommandHandler, 'setUpIn'>,
   values: ServerValues,
-  config: Config,
+  ctx: SetUpContext,
   serverId: string,
 ): string | undefined {
-  return handler.setUpIn?.(values, config, serverId);
+  return handler.setUpIn?.(values, ctx, serverId);
 }
 
 /**
@@ -50,15 +55,15 @@ export function notSetUpIn(
 export function commandsIn(
   commands: readonly CommandModule[],
   values: ServerValues,
-  config: Config,
+  ctx: SetUpContext,
   serverId: string,
 ): CommandModule[] {
   return commands.flatMap((command): CommandModule[] =>
     command.subcommands === undefined
-      ? notSetUpIn(command, values, config, serverId) === undefined
+      ? notSetUpIn(command, values, ctx, serverId) === undefined
         ? [command]
         : []
-      : keptOf(command, (handler) => notSetUpIn(handler, values, config, serverId) === undefined),
+      : keptOf(command, (handler) => notSetUpIn(handler, values, ctx, serverId) === undefined),
   );
 }
 

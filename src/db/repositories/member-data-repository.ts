@@ -58,7 +58,8 @@ export interface MemberHoldings {
   /**
    * Records of what they did as staff, which stay as the servers' record: decisions on reports,
    * requests, appeals and asks, rulings of places, blocks they gave or lifted, boss overrides,
-   * stops of Pine's own they made or changed, gym reviews and marks, imports, the event window.
+   * stops of Pine's own they made or changed, gym reviews and marks, imports, the event window,
+   * the servers they allowed or blocked as an instance operator.
    */
   staffActs: number;
 }
@@ -231,11 +232,13 @@ type Left = 'audit' | 'stopReports' | 'stopConfirms' | 'accessGrants' | 'staffAc
 /**
  * What the removal leaves, counted: the staff's log, what is live, and what the member did as
  * staff. One statement (one snapshot), each count of it a read of one table along an index that
- * begins with the member (migration 057, the index audit's X11), added up here.
+ * begins with the member (migration 057, the index audit's X11; migration 061's for the servers an
+ * instance operator allowed or blocked, plan 19C-1), added up here.
  *
  * A row that names the member in two ways counts once: where one table is read by two or three
  * columns (an entry of the log by who did it, the conductor after `$.to.id` and before
- * `$.from.id`; a block given and lifted; a stop made and changed), each read after the first
+ * `$.from.id`; a block given and lifted; a stop made and changed; a server allowed and blocked),
+ * each read after the first
  * leaves out the rows an earlier one counted (`not (… <=> member)`, which holds for a null as
  * well), a filter on the rows its own index found. A JSON path is read as
  * `json_unquote(json_extract(detail, '$.to.id'))`, which MySQL serves by migration 057's
@@ -277,7 +280,12 @@ async function left(db: Kysely<DB>, memberId: string): Promise<Pick<MemberHoldin
       (select count(*) from GymWayfarer where notInWayfarerBy = ${memberId}) as marks,
       (select count(*) from WayspotImport where staffId = ${memberId}) as imports,
       (select count(*) from EventWindow where setBy = ${memberId}) as eventWindow,
-      (select count(*) from ServerSettings where updatedBy = ${memberId}) as settings`.execute(db);
+      (select count(*) from ServerSettings where updatedBy = ${memberId}) as settings,
+      (select count(*) from ServerRecord where allowedBy = ${memberId}) as serversAllowed,
+      (select count(*) from ServerRecord
+        where blockedBy = ${memberId} and not (allowedBy <=> ${memberId})) as serversBlocked`.execute(
+    db,
+  );
   const row = counted.rows[0] ?? {};
   const sum = (...columns: string[]) =>
     columns.reduce((total, column) => total + Number(row[column] ?? 0), 0);
@@ -302,6 +310,8 @@ async function left(db: Kysely<DB>, memberId: string): Promise<Pick<MemberHoldin
       'imports',
       'eventWindow',
       'settings',
+      'serversAllowed',
+      'serversBlocked',
     ),
   };
 }

@@ -10,7 +10,9 @@ import {
 import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
 import { FakePartyGateway } from '../../../test/support/fake-gateway.js';
 import { textOf, v2 } from '../../../test/support/messages.js';
-import { instanceConfig } from '../../../test/support/operators.js';
+import { instanceConfig, OPERATOR_ID } from '../../../test/support/operators.js';
+import { serverRecordRow } from '../../../test/support/server-record-cases.js';
+import { standingsWith } from '../../../test/support/server-standings.js';
 import {
   TEST_SERVER_CHANNELS,
   TestServers,
@@ -343,11 +345,41 @@ describe('/request per server (plan 19B-4)', () => {
       { repository: false },
     ];
     for (const where of ways) {
-      const made = setup({}, where);
+      // Not recorded at the upgrade either (plan 19C-1).
+      const made = setup({ standings: standingsWith({ recorded: [] }).standings }, where);
       await made.run({ text: 'Gone', gym: 'g:2' });
       expect(made.issues.opened, JSON.stringify(where)).toEqual([]);
       expect(made.gateway.messagesIn(LAB), JSON.stringify(where)).toHaveLength(1);
     }
+  });
+
+  // Plan 19C-1: the servers the instance trusts are its allowed servers (`mayHave`), the file's
+  // `servers` unset closed to new servers.
+  it('goes to the repository from an allowed server alone, without a list of servers', async () => {
+    const recorded = setup({}, {});
+    await recorded.run({ text: 'Gone', gym: 'g:2' });
+    expect(recorded.issues.opened).toHaveLength(1);
+    const newcomer = setup({ standings: standingsWith({ recorded: [] }).standings }, {});
+    await newcomer.run({ text: 'Gone', gym: 'g:2' });
+    expect(newcomer.issues.opened).toEqual([]);
+    expect(newcomer.gateway.messagesIn(LAB)).toHaveLength(1);
+    const allowed = standingsWith({
+      recorded: [],
+      rows: [
+        { ...serverRecordRow({ serverId: FAKE_GUILD_ID }), allowedAt: 1, allowedBy: OPERATOR_ID },
+      ],
+    }).standings;
+    const allowedThere = setup({ standings: allowed }, {});
+    await allowedThere.run({ text: 'Gone', gym: 'g:2' });
+    expect(allowedThere.issues.opened).toHaveLength(1);
+    const blocked = standingsWith({
+      rows: [
+        { ...serverRecordRow({ serverId: FAKE_GUILD_ID }), blockedAt: 1, blockedBy: OPERATOR_ID },
+      ],
+    }).standings;
+    const blockedThere = setup({ standings: blocked }, { servers: [FAKE_GUILD_ID] });
+    await blockedThere.run({ text: 'Gone', gym: 'g:2' });
+    expect(blockedThere.issues.opened).toEqual([]);
   });
 
   it('keeps the member’s words as text in the bot lab, and their name', async () => {

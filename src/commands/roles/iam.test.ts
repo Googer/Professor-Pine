@@ -67,7 +67,7 @@ describe('the role commands', () => {
   it('are registered for every server, set up where its members give themselves roles, under Roles', () => {
     const { ctx } = createTestContext();
     const names = (values: ServerValues) =>
-      commandsIn(enabledCommands(commands, ctx.config), values, ctx.config, FAKE_GUILD_ID).map(
+      commandsIn(enabledCommands(commands, ctx.config), values, ctx, FAKE_GUILD_ID).map(
         (command) => command.data.name,
       );
     const values = testServerValues();
@@ -75,7 +75,7 @@ describe('the role commands', () => {
     const off = { ...values, features: { ...values.features, roles: false } };
     expect(names(off)).not.toContain('iam');
     expect(names(off)).not.toContain('iamnot');
-    expect(iam.setUpIn?.(off, ctx.config, FAKE_GUILD_ID)).toBe(
+    expect(iam.setUpIn?.(off, ctx, FAKE_GUILD_ID)).toBe(
       'Staff turn on self-assigned roles in /admin settings.',
     );
     expect(iam.help.category).toBe('roles');

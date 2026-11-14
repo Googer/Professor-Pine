@@ -7,7 +7,6 @@ import { channelContext } from '../../discord/channel-context.js';
 import { guildIdOf, instanceOf, partyOf, requireGuild } from '../../discord/guards.js';
 import { serverValuesOf } from '../../discord/server-values.js';
 import { NOT_SET_UP } from '../../discord/set-up.js';
-import type { Config } from '../../config/index.js';
 import type { ServerValues } from '../../config/server-settings.js';
 import { gymRequestWay, type GymRequestWay } from '../../domain/servers/gym-requests.js';
 import type { LabPost } from '../../services/moderators-lab.js';
@@ -135,14 +134,15 @@ export const REQUEST_NOT_SET_UP =
  * shares, else the server's moderators' bot lab, else nowhere.
  */
 export function requestWayIn(
-  config: Config,
+  ctx: Pick<AppContext, 'config' | 'standings'>,
   serverId: string,
   values: Pick<ServerValues, 'channels'>,
 ): GymRequestWay {
-  const repository = config.env.GITHUB_TOKEN !== undefined && config.env.GITHUB_REPO !== undefined;
+  const { env } = ctx.config;
+  const repository = env.GITHUB_TOKEN !== undefined && env.GITHUB_REPO !== undefined;
   return gymRequestWay(
     serverId,
-    { ...instanceOf({ config }), repository },
+    { ...instanceOf(ctx), repository },
     values.channels['mod-bot-lab'],
   );
 }
@@ -216,8 +216,8 @@ export const request: SimpleCommand = {
     ],
   },
   // Offered everywhere; not set up where a request can go nowhere (plan 19B-4).
-  setUpIn: (values, config, serverId) =>
-    requestWayIn(config, serverId, values) === 'nowhere' ? REQUEST_NOT_SET_UP : undefined,
+  setUpIn: (values, ctx, serverId) =>
+    requestWayIn(ctx, serverId, values) === 'nowhere' ? REQUEST_NOT_SET_UP : undefined,
   guards: [refusedInRehearsal, requireGuild, requireRequest],
   defer: 'ephemeral',
   throttle: REQUEST_THROTTLE,
@@ -226,7 +226,7 @@ export const request: SimpleCommand = {
     const gym = await requestedGym(interaction, ctx);
     const serverId = guildIdOf(interaction);
     const memberName = memberInfo(interaction).name ?? interaction.user.username;
-    const way = requestWayIn(ctx.config, serverId, serverValuesOf(interaction, ctx));
+    const way = requestWayIn(ctx, serverId, serverValuesOf(interaction, ctx));
     if (way === 'nowhere') throw new UserError(NOT_SET_UP, { givesBack: true });
     if (way === 'bot-lab') {
       const posted = await ctx.moderatorsLab.post(

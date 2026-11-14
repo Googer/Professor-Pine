@@ -36,7 +36,7 @@ export const maps: SimpleCommand = {
   },
   // Registered everywhere (plan 19A-1): any server could set its link; set up where the instance
   // serves the web pages or the server has its link.
-  setUpIn: (values, config) =>
+  setUpIn: (values, { config }) =>
     config.settings.web !== undefined || values.regionMapLink !== undefined
       ? undefined
       : MAPS_NOT_SET_UP,

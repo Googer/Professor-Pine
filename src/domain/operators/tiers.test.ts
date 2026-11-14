@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { isInstanceOperator, isSharedDataOperator, type Instance } from './tiers.js';
+import { NO_STANDING, type Standing } from './admission.js';
+import {
+  isInstanceOperator,
+  isSharedDataOperator,
+  isTrustedServer,
+  type Instance,
+} from './tiers.js';
 
 const OWNER = '223456789012345678';
 const OPERATOR = '323456789012345678';
@@ -7,12 +13,17 @@ const STAFF = '423456789012345678';
 const HOME = '512345678901234567';
 const ELSEWHERE = '612345678901234567';
 
+/** HOME was recorded at the upgrade to 2.1 (plan 19C-1); ELSEWHERE has no standing. */
+const standings: Record<string, Standing> = { [HOME]: { ...NO_STANDING, recorded: true } };
+const standingOf = (serverId: string): Standing => standings[serverId] ?? NO_STANDING;
+
 /** Pittsburgh's: no list of servers, so that its staff look after the shared data. */
 const unlisted: Instance = {
   ownerId: OWNER,
   operators: [OPERATOR],
   open: false,
   listed: undefined,
+  standingOf,
 };
 /** An instance that lists its servers. */
 const listed: Instance = { ...unlisted, listed: [HOME] };
@@ -39,15 +50,19 @@ describe('the shared-data operators', () => {
     botManagement,
   });
 
-  it('are, on an instance without a list, also the staff of any server asked from', () => {
+  it('are, on an instance without a list, also the staff of a server recorded there', () => {
     expect(isSharedDataOperator(staffAt(HOME), unlisted)).toBe(true);
-    expect(isSharedDataOperator(staffAt(ELSEWHERE), unlisted)).toBe(true);
+    // Unset is closed to new servers (plan 19C-1): a server not recorded nor allowed is no
+    // server of this Pine.
+    expect(isSharedDataOperator(staffAt(ELSEWHERE), unlisted)).toBe(false);
     expect(isSharedDataOperator(staffAt(HOME, false), unlisted)).toBe(false);
   });
 
-  it('are, on an instance that lists its servers, the staff of a listed server only', () => {
+  it('are, on an instance that lists its servers, the staff of an allowed server only', () => {
+    const listing: Instance = { ...listed, listed: [ELSEWHERE], standingOf: () => NO_STANDING };
+    expect(isSharedDataOperator(staffAt(ELSEWHERE), listing)).toBe(true);
+    expect(isSharedDataOperator(staffAt(HOME), listing)).toBe(false);
     expect(isSharedDataOperator(staffAt(HOME), listed)).toBe(true);
-    expect(isSharedDataOperator(staffAt(ELSEWHERE), listed)).toBe(false);
     expect(isSharedDataOperator(staffAt(HOME, false), listed)).toBe(false);
     // The operators wherever they ask.
     expect(
@@ -62,6 +77,17 @@ describe('the shared-data operators', () => {
     ).toBe(true);
   });
 
+  it('are never the staff of a blocked server', () => {
+    const blocked: Instance = {
+      ...listed,
+      standingOf: (serverId) => ({ ...standingOf(serverId), blocked: serverId === HOME }),
+    };
+    expect(isSharedDataOperator(staffAt(HOME), blocked)).toBe(false);
+    expect(isSharedDataOperator(staffAt(ELSEWHERE), { ...blocked, listed: [ELSEWHERE] })).toBe(
+      true,
+    );
+  });
+
   it('are in a direct message the instance operators only, whatever their roles', () => {
     expect(isSharedDataOperator(staffAt(undefined), unlisted)).toBe(false);
     expect(isSharedDataOperator(staffAt(undefined), listed)).toBe(false);
@@ -71,5 +97,22 @@ describe('the shared-data operators', () => {
     expect(
       isSharedDataOperator({ userId: OWNER, serverId: undefined, botManagement: false }, listed),
     ).toBe(true);
+  });
+});
+
+describe('the servers the instance trusts (plan 19C-1)', () => {
+  it('are the allowed servers of an instance that is not open', () => {
+    expect(isTrustedServer(HOME, unlisted)).toBe(true);
+    expect(isTrustedServer(ELSEWHERE, unlisted)).toBe(false);
+    const allowedThere: Instance = {
+      ...unlisted,
+      standingOf: (serverId) => ({ ...standingOf(serverId), allowed: serverId === ELSEWHERE }),
+    };
+    expect(isTrustedServer(ELSEWHERE, allowedThere)).toBe(true);
+  });
+
+  it('are none on an open instance, where every server may have it', () => {
+    expect(isTrustedServer(HOME, open)).toBe(false);
+    expect(isTrustedServer(ELSEWHERE, open)).toBe(false);
   });
 });

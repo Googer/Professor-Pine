@@ -280,6 +280,12 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
     // A server's settings they changed last (plan 19A-1).
     await sql`insert into ServerSettings (serverId, settings, updatedAt, updatedBy)
               values (${`41234567890123456${String(n)}`}, '{}', ${NOW}, ${member})`.execute(db);
+    // As an instance operator (plan 19C-1): a server allowed and blocked, another blocked.
+    await sql`insert into ServerRecord (serverId, allowedAt, allowedBy, blockedAt, blockedBy)
+              values (${`51234567890123456${String(n)}`}, ${NOW}, ${member}, ${NOW}, ${member}),
+                     (${`51234567890123457${String(n)}`}, null, null, ${NOW}, ${member})`.execute(
+      db,
+    );
     await sql`insert into Gym (id, name, lat, lon) values (${100 + n}, ${`Gym ${String(n)}`}, 40,
                                                          -80)`.execute(db);
     await sql`insert into GymWayfarer (gymId, notInWayfarer, notInWayfarerBy, notInWayfarerAt)
@@ -489,8 +495,8 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
     accessGrants: 1,
     // Two rulings (one by allowing an ask), a boss override, a stop, the event window, a gym
     // review, a gym marked, an import, and a report, a request, an appeal, an ask and a block
-    // decided.
-    staffActs: 14,
+    // decided; as an instance operator two servers allowed or blocked (one both, counted once).
+    staffActs: 16,
   };
 
   it('looks: counts what Pine holds of a member over every server, and changes nothing', async () => {
@@ -635,7 +641,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
         stopReports: 1,
         stopConfirms: 1,
         accessGrants: 1,
-        staffActs: 14,
+        staffActs: 16,
       },
       screenshots: { sent: 0, feedback: 0 },
       liveParties: 2,

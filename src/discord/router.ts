@@ -447,7 +447,7 @@ export class InteractionRouter {
     return notSetUpIn(
       handler,
       this.ctx.servers.of(interaction.guildId),
-      this.ctx.config,
+      this.ctx,
       interaction.guildId,
     );
   }

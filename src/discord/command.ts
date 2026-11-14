@@ -141,7 +141,11 @@ export interface CommandHandler {
    * those words where it is not on, and is left out of that server's `/help`. A command that
    * depends on the instance alone has `enabled(config)` instead.
    */
-  setUpIn?: (values: ServerValues, config: Config, serverId: string) => string | undefined;
+  setUpIn?: (
+    values: ServerValues,
+    ctx: Pick<AppContext, 'config' | 'standings'>,
+    serverId: string,
+  ) => string | undefined;
   execute(interaction: ChatInputCommandInteraction, ctx: AppContext): Promise<void>;
   autocomplete?(interaction: AutocompleteInteraction, ctx: AppContext): Promise<void>;
 }
