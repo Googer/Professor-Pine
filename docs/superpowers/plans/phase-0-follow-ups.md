@@ -3600,6 +3600,15 @@ What a design has to settle (a first look, 2026-11-12, not a design):
 - **Load and limits.** The heartbeat and the watchdog assume one gateway connection; Discord's global rate limit (50 requests a second per bot) is shared by every server; the DM sender, the OCR worker and the schedulers must be fair per server; the database grows with every server.
 - **Sharding.** Discord still requires it: one gateway connection (a shard) serves at most 2,500 servers, and a bot in more must shard (Discord says how many through `GET /gateway/bot`). discord.js does it inside one process (the client's `shards: 'auto'`) or across processes (`ShardingManager`). In one process little changes but the heartbeat and `gatewayConnected` over several shards (they already take `client.ws.shards`). Across processes, everything that lives in memory and is shared (the party store's one-change-at-a-time, the throttles, the caches, the schedulers, the web server, the DM queue) has to be split by server or moved into the database, and a process sees only its shards' servers. Plan: one process with `shards: 'auto'` first; several processes only when one machine's process is the limit.
 
+## From Phase 19C-2 (the setup state, 2026-11-14)
+
+Plan `2026-11-14-phase-19c-2-setup-state.md`, merged on main-dev; full check, database suite and build pass. **Staging** with the rest of phase 19 (Matt, 2026-11-13).
+
+- A joining server whose fill gave up for good stays in setup until the next start (`ServerSettings.fillsInSetup`): never runs on the defaults as a set-up server; the next start's fill retries.
+- A new install whose `servers` lists servers, or is `"open"`, starts even its first servers in setup (nothing records them before the adoption, which is only for an unset `servers`); `new-instance.md` says so.
+- The region editor hides the removal of a saved region from those `mayRemoveRegions` refuses; the server refuses it too (tested), but the hidden buttons have no test of the page's own.
+- A staff command whose guards name nobody (`Guard.admits` absent) is listed by `/help` to staff by role (fail closed): a new guard should carry `admits`.
+
 ## From Phase 19C-1 (joining and leaving, 2026-11-13)
 
 Plan `2026-11-13-phase-19c-1-joining-and-leaving.md`, merged on main-dev after 19B-5 (migration 061 after 059 and 060); full check, database suite and build pass. **Staging** with the rest of phase 19 (Matt, 2026-11-13).
