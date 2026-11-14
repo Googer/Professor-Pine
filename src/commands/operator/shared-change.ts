@@ -58,7 +58,7 @@ export function tellOwnerOfShareRaise(
   change: string,
   now: number = Date.now(),
 ): void {
-  tellOwner(interaction, ctx, { title: 'A server’s share of Google raised', change }, now);
+  tellOwner(interaction, ctx, { title: 'A server’s Google share raised', change }, now);
 }
 
 /**

@@ -356,16 +356,16 @@ export const addBoss: SubcommandPart = {
     details:
       'For a boss the feed has not listed yet (a leak, an event) or lists wrongly. A max ' +
       'battle tier (Dynamax 1★ to 5★, Gigantamax) changes the max boss list where max battles ' +
-      'are on.\n\nA boss has one tier at a time among the Dynamax tiers, the raid tiers (Elite ' +
-      'included) and the shadow raid tiers: adding it at one of them moves it there, and the ' +
-      "feed's listing of it at another tier of the same kind is left out while the add lasts " +
-      '(Gigantamax and mega tiers are kinds of their own).\n\nRaids and max battles on now ' +
+      'are on.\n\nA boss has one tier at a time of each kind: Dynamax, raid (Elite included) ' +
+      'and shadow raid. Adding it at a tier moves it there: while the add lasts, the feed’s ' +
+      'listing of it at another tier of the same kind is left out. Gigantamax and mega tiers ' +
+      'are kinds of their own.\n\nRaids and max battles on now ' +
       'at the tier it moved from, in every server, move with it and their posts say so; ' +
       'removing the add does not move them back (`/boss` fixes one).\n\n' +
       `It lasts ${String(DEFAULT_DAYS)} days unless you give \`days\`; \`days:0\` keeps ` +
       'it until you remove it with `/operator boss remove`. Adding it again replaces the earlier one.' +
-      '\n\nThe boss lists are shared by every server I run in: my owner is told of each ' +
-      'change of the overrides, with who made it and in which server.',
+      '\n\nThe boss lists are every server’s: my owner is told of each change of the ' +
+      'overrides, who made it, and from where.',
     examples: [
       '/operator boss add pokemon:Zekrom tier:T5',
       '/operator boss add pokemon:Mew tier:T5 days:3',

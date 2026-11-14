@@ -615,16 +615,16 @@ describe('/operator forget', () => {
     const part = operator.subcommands.get('forget');
     const details = typeof part?.help?.details === 'string' ? part.help.details : '';
     expect(details).toContain(
-      'Only the operators of this Pine (its owner and those its settings name) can use it',
+      'only the operators of this Pine (its owner and those its settings name) can use it',
     );
     expect(details).toContain('cannot be undone');
     expect(details).toContain('meetup blocks');
     // As the removal does since fix round 1: ids too, and what they wrote of their parties.
-    expect(details).toContain('their id and name off the reports they made to the moderators');
+    expect(details).toContain('their ID and name off the reports they made to the moderators');
     // Only those recorded with their id: made while their history was on (final review).
     expect(details).toContain(
-      'the trains and meetups they made while their history was on (a record made without it ' +
-        'does not say who made it)',
+      'the trains and meetups they made while their history was on, and turns their history ' +
+        'and boards off. (A record made while their history was off never said who made it.)',
     );
     expect(part?.help?.examples).toEqual(['/operator forget member:@Ash']);
   });

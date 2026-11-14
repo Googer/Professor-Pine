@@ -79,11 +79,10 @@ describe('/operator event-window', () => {
     const text =
       typeof details === 'function' ? details(createTestContext().ctx.config.settings) : details;
     expect(text).toContain(
-      'There is one window for all servers: the operators of this Pine set and end it, from any ' +
-        'server or a direct message with me. Unless this Pine is open to every server, the ' +
-        'admins, moderators and bot developers of its servers may too, from their server (where ' +
-        'it lists its servers, those of the listed ones only).\n\nMy owner is told who ' +
-        'did, and from where.',
+      'There is one window for every server. The operators of this Pine set and end it, from ' +
+        'any server or in a direct message with me. Unless this Pine is open to every server, ' +
+        'the admins, moderators and bot developers of the servers it serves may too, from their ' +
+        'own server.\n\nMy owner is told who set or ended it, and from where.',
     );
     expect(text).not.toContain('/admin');
   });
@@ -180,7 +179,7 @@ describe('/operator event-window', () => {
         'Until Sunday, November 15 at 8:00 PM, raids last 25 minutes as in a Raid Hour, and ' +
           'Dynamax and Gigantamax battles change every 30 minutes, as on a Max Battle Day. ' +
           'Raids and battles already reported keep their times.\n' +
-          'Still counted from Monday, November 9 at 10:00 AM.\n' +
+          'It has been on since Monday, November 9 at 10:00 AM.\n' +
           'This replaces the window that was to last until Friday, November 13 at 8:00 PM.',
       );
     });
@@ -198,7 +197,7 @@ describe('/operator event-window', () => {
       vi.setSystemTime(at('2026-11-13T21:00'));
       const used = await made.use('event-window', 'set', { until: '11-15 8pm' });
       expect(made.eventWindows.current()).toMatchObject({ start: START });
-      expect(answerOf(used)).toContain('Still counted from Monday, November 9 at 10:00 AM.');
+      expect(answerOf(used)).toContain('It has been on since Monday, November 9 at 10:00 AM.');
     });
 
     it('starts now after one that ended 2 hours ago or more', async () => {
@@ -207,7 +206,7 @@ describe('/operator event-window', () => {
       vi.setSystemTime(now);
       const used = await made.use('event-window', 'set', { until: '11-15 8pm' });
       expect(made.eventWindows.current()).toMatchObject({ start: now });
-      expect(answerOf(used)).not.toContain('Still counted');
+      expect(answerOf(used)).not.toContain('It has been on since');
     });
 
     it('takes from: when it is given', async () => {

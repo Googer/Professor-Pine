@@ -58,9 +58,9 @@ describe('/operator (plan 19B-1)', () => {
   it('says in its help who may use it, also where the instance lists no servers', () => {
     const { details } = operator.help;
     expect(details).toContain(
-      'Its operators change them, from any server or a direct message with me. Unless this Pine ' +
-        'is open to every server, the admins, moderators and bot developers of the servers it ' +
-        'serves may too, from their server.',
+      'The operators of this Pine change them, from any server or in a direct message with me. ' +
+        'Unless this Pine is open to every server, the admins, moderators and bot developers of ' +
+        'the servers it serves may too, from their own server.',
     );
   });
 

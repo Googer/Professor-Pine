@@ -74,15 +74,18 @@ describe('/operator google share (plan 19B-5)', () => {
     const made = await setup();
     const asked = await made.share({ server: OTHER_GUILD_ID, extra: 300 });
     expect(said(asked)).toBe(
-      `The share of Google of the server ${OTHER_GUILD_ID} this month is now 300 places ` +
-        'searches and 300 addresses, 300 of each added by an operator; the line used 0 and 0 ' +
-        `of it. A raise lasts until the month starts again, <t:${String(RESET)}:f>.`,
+      `The Google share of the server \`${OTHER_GUILD_ID}\` this month is now:\n` +
+        '- 300 places searches, 0 used\n' +
+        '- 300 addresses, 0 used\n\n' +
+        'That includes 300 of each added by an operator. A raise lasts until the month starts ' +
+        `again, <t:${String(RESET)}:f>.`,
     );
     expect(made.shares.of(OTHER_GUILD_ROW)).toMatchObject({ raise: 300 });
     expect(made.toldOwner()).toEqual([]);
     // Set again: it replaces the raise, 0 takes it back.
-    await made.share({ server: OTHER_GUILD_ID, extra: 0 });
+    const back = await made.share({ server: OTHER_GUILD_ID, extra: 0 });
     expect(made.shares.of(OTHER_GUILD_ROW)?.raise ?? 0).toBe(0);
+    expect(said(back)).not.toContain('added by an operator');
   });
 
   it('says a raise is written and worked out at the line’s next turn when the shares cannot be worked out now (fix round 3, T10)', async () => {
@@ -90,9 +93,9 @@ describe('/operator google share (plan 19B-5)', () => {
     vi.spyOn(made.lookups, 'needs').mockRejectedValue(new Error('the database is away'));
     const asked = await made.share({ server: OTHER_GUILD_ID, extra: 300 });
     expect(said(asked)).toBe(
-      `Set what is added to the share of Google of the server ${OTHER_GUILD_ID} this month to ` +
-        '300. It is worked out at the line’s next turn. A raise lasts until the month starts ' +
-        `again, <t:${String(RESET)}:f>.`,
+      `The Google share of the server \`${OTHER_GUILD_ID}\` has 300 places searches and 300 ` +
+        'addresses on top of it this month. I work out the new share at the next round of ' +
+        `lookups. A raise lasts until the month starts again, <t:${String(RESET)}:f>.`,
     );
     expect(made.shareRaises.rows.size).toBe(1);
   });
@@ -103,18 +106,20 @@ describe('/operator google share (plan 19B-5)', () => {
     const [job] = made.toldOwner();
     expect(job).toMatchObject({ userId: OWNER, serverId: null });
     const text = textDisplays(job?.message).join('\n');
-    expect(text).toContain(`the server ${OTHER_GUILD_ID}`);
-    expect(text).toContain('50');
+    expect(text).toContain(
+      `Raised the Google share of the server \`${OTHER_GUILD_ID}\` this month: 50 places ` +
+        'searches and 50 addresses on top of its share (`/operator google share`).',
+    );
     expect(text).toContain(OPERATOR_ID);
   });
 
   it('refuses what is not a server’s id, and a server Pine is not in', async () => {
     const made = await setup();
     expect(said(await made.share({ server: 'Pittsburgh', extra: 5 }))).toBe(
-      'That is not a server’s id: give the number Discord shows with Copy Server ID.',
+      'That is not a server’s ID: use Copy Server ID in the server’s menu.',
     );
     expect(said(await made.share({ server: '412345678901234599', extra: 5 }))).toBe(
-      'I am not in a server with that id.',
+      'I am not in a server with that ID.',
     );
     expect(made.shareRaises.rows.size).toBe(0);
   });

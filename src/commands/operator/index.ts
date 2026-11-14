@@ -45,12 +45,12 @@ export const operator = commandGroup({
   help: {
     category: 'admin',
     details:
-      'What every server of this Pine shares: the boss list’s overrides, the event window and ' +
-      'the map pictures it keeps.\n\n' +
-      'Its operators change them, from any server or a direct message with me. Unless this ' +
-      'Pine is open to every server, the admins, moderators and bot developers of the servers ' +
-      'it serves may too, from their server.' +
-      '\n\nMy owner is told by direct message of every change, by whom and from where.',
+      'What every server of this Pine shares: the raid and max boss lists, the event window and ' +
+      'the map pictures I keep.\n\n' +
+      'The operators of this Pine change them, from any server or in a direct message with me. ' +
+      'Unless this Pine is open to every server, the admins, moderators and bot developers of ' +
+      'the servers it serves may too, from their own server.\n\n' +
+      'My owner gets a direct message about every change: who made it, and from where.',
   },
   seenBy: isSharedDataOperatorAt,
   guards: [requireSharedDataOperator],

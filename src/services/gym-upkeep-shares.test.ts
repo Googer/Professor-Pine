@@ -218,12 +218,13 @@ describe('Google’s month shared between servers by need (plan 19B-5)', () => {
       expect.objectContaining({ guildId: HOME, key: 'google-share:places:2026-10-01' }),
     ]);
     expect(made.told[0]?.text).toBe(
-      'This server has used its share of this month’s places searches (9) at Google, which ' +
-        'Pine shares between the servers it is in by what each has waiting. Its gyms, ' +
-        'PokéStops and Power Spots that still wait for Google stay in line and are asked about ' +
-        `again when the month starts again, <t:${String(NOVEMBER_FIRST / 1000)}:f>, or sooner ` +
-        'should the shares give it more. `/gym google` shows the line and the share; an ' +
-        'operator of this Pine can raise it.',
+      'This server has used its share of this month’s places searches (9) at Google. I share ' +
+        'Google’s monthly budget between the servers I am in, by how much each has waiting.\n\n' +
+        'Its gyms, PokéStops and Power Spots that still wait for Google stay in line. I ask ' +
+        `about them when the month starts again, <t:${String(NOVEMBER_FIRST / 1000)}:f>, or ` +
+        'sooner if the shares give this server more.\n\n' +
+        '`/gym google` shows the line and this server’s share. An operator of this Pine can ' +
+        'raise the share.',
     );
     expect(made.owner).toHaveLength(1);
     expect(made.shares.of(HOME)).toMatchObject({ share: { places: 9 }, used: { places: 9 } });

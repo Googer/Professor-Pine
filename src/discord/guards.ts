@@ -334,7 +334,7 @@ export const ONLY_OPERATORS = 'Only the operators of this Pine can do that.';
 
 /** What the operators' guards tell anybody they refuse in a DM with the bot (plan 19B-1). */
 export const ONLY_OPERATORS_IN_A_DM =
-  'In a direct message only the operators of this Pine can do that.';
+  'In a direct message, only the operators of this Pine can do that.';
 
 /**
  * The shared-data tier (plan 19B-1): what every server shares (the boss list's overrides and its
