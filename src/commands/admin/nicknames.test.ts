@@ -110,8 +110,8 @@ describe('/admin nickname add', () => {
     expect(
       textOf(await made.use('nickname', 'add', { pokemon: 'dratini', nickname: 'Shadow Noodle' })),
     ).toBe(
-      'A nickname cannot be or have a word that the Pokémon options read as something else: a ' +
-        'tier, `shadow`, `mega`, an egg, an IV target, `none`; nor begin with a tier (`3`, `t5`).',
+      'A nickname cannot use a word that Pokémon options read as something else (a tier, ' +
+        '`shadow`, `mega`, an egg, an IV target, `none`), nor begin with a tier (`3`, `t5`).',
     );
     expect(textOf(await made.use('nickname', 'add', { pokemon: 'dratini', nickname: '147' }))).toBe(
       'A nickname needs a letter: digits alone are read as a Pokédex number.',
@@ -127,8 +127,8 @@ describe('/admin nickname add', () => {
     expect(
       textOf(await made.use('nickname', 'add', { pokemon: 'dratini', nickname: 'wiggle' })),
     ).toBe(
-      'Dratini has as many nicknames as the stored list holds (255 characters with their ' +
-        'commas), so **wiggle** does not fit. Remove one first with `/admin nickname remove`.',
+      'Dratini’s nicknames are full (255 characters in all, with their commas), so **wiggle** ' +
+        'does not fit. Remove one first with `/admin nickname remove`.',
     );
   });
 
@@ -155,7 +155,7 @@ describe('/admin nickname remove', () => {
     ]);
     const used = await made.use('nickname', 'remove', { pokemon: 'dratini', nickname: 'Wiggle' });
     expect(textOf(used)).toBe(
-      "Members no longer find Dratini by **wiggle**. Dratini: danger noodle (and the bot's own: noodle)",
+      'Members no longer find Dratini by **wiggle**. Dratini: danger noodle (and my own: noodle)',
     );
     expect(made.ctx.pokemon.of(FAKE_GUILD_ID).exact('wiggle')).toBeUndefined();
   });
@@ -191,15 +191,10 @@ describe('/admin nickname remove', () => {
     const made = await bossCommandsWith({ nicknames: { dratini: ['danger noodle'] } });
     expect(
       textOf(await made.use('nickname', 'remove', { pokemon: 'dratini', nickname: 'splashy' })),
-    ).toBe(
-      "Dratini has no nickname **splashy**. Dratini: danger noodle (and the bot's own: noodle)",
-    );
+    ).toBe('Dratini has no nickname **splashy**. Dratini: danger noodle (and my own: noodle)');
     expect(
       textOf(await made.use('nickname', 'remove', { pokemon: 'dratini', nickname: 'Noodle' })),
-    ).toBe(
-      "**noodle** is one of the bot's own nicknames of Dratini, and the bot's own (see " +
-        '`/admin nickname list`) cannot be removed.',
-    );
+    ).toBe('**noodle** is one of my own nicknames for Dratini, and mine cannot be removed.');
   });
 });
 
@@ -212,7 +207,7 @@ describe('/admin nickname list', () => {
       '**Nicknames staff added** (2 Pokémon)\n- Dratini: danger noodle, wiggle\n- Magikarp: splashy',
     );
     expect(textOf(await made.use('nickname', 'list', { pokemon: 'tyranitar' }))).toBe(
-      "Tyranitar: none added (and the bot's own: ttar)",
+      'Tyranitar: none added (and my own: ttar)',
     );
   });
 
@@ -237,7 +232,7 @@ describe('/admin nickname list', () => {
       { guildId: OTHER_GUILD_ID },
     );
     expect(textOf(refused)).toBe(
-      "Dratini has no nickname **splashy**. Dratini: danger noodle (and the bot's own: noodle)",
+      'Dratini has no nickname **splashy**. Dratini: danger noodle (and my own: noodle)',
     );
   });
 

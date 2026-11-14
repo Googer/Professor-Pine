@@ -6,8 +6,8 @@
 
 /** The bot updates channel set for the server is not among its channels any more. */
 export const BOT_UPDATES_GONE =
-  'The bot updates channel set for this server is gone, so I could not announce a change of the ' +
-  'raid bosses. Staff choose another in /admin settings.';
+  'The bot updates channel is gone, so I could not announce a change of the raid bosses. Staff ' +
+  'choose another in /admin settings.';
 
 /** The bot may not post in the bot updates channel (the boss announcer's check, `mayPost`). */
 export function botUpdatesRefusedWords(channelId: string): string {
@@ -28,13 +28,13 @@ export function meetupSafetyWords(problem: MeetupSafetyProblem, channelId?: stri
   switch (problem) {
     case 'gone':
       return (
-        'The moderators’ channel set for this server is gone, so meetups that need a ' +
-        'moderator’s approval cannot be made here. Staff choose another in /admin settings.'
+        'The moderators’ channel is gone, so meetups that need a moderator’s approval cannot ' +
+        'be made. Staff choose another in /admin settings.'
       );
     case 'cannot-post':
       return (
         `I may not post in ${channelId === undefined ? 'the moderators’ channel' : `<#${channelId}>, the moderators’ channel`}, ` +
-        'so meetups that need a moderator’s approval cannot be made here. Staff give me View ' +
+        'so meetups that need a moderator’s approval cannot be made. Staff give me View ' +
         'Channel, Send Messages and Embed Links there.'
       );
   }
@@ -45,10 +45,9 @@ export function meetupSafetyWords(problem: MeetupSafetyProblem, channelId?: stri
  * there by the names the forum's settings show; none named is Discord's Missing Access.
  */
 export function forumRefusedWords(forumId: string, missing: readonly string[]): string {
+  const { refused, fix } = refusalWords(`<#${forumId}>`, missing);
   return (
-    `I may not make posts in <#${forumId}>: ${lacksWords(missing)}, so no raid, max battle, ` +
-    'train or meetup of its region can be posted. Staff give me what it needs in the forum’s ' +
-    'settings.'
+    `${refused} No raid, max battle, train or meetup of the forum’s region can be posted. ` + fix
   );
 }
 
@@ -57,23 +56,34 @@ export function forumRefusedWords(forumId: string, missing: readonly string[]): 
  * plan 19B-1): what it lacks there, as `forumRefusedWords` says it.
  */
 export function eventsForumCannotPostWords(forumId: string, missing: readonly string[]): string {
-  return (
-    `I may not make posts in <#${forumId}>, the events forum: ${lacksWords(missing)}, so I ` +
-    'post no events. Staff give me what it needs in the forum’s settings.'
-  );
+  const { refused, fix } = refusalWords(`<#${forumId}>, the events forum`, missing);
+  return `${refused} I cannot post events. ${fix}`;
 }
 
-/** What the bot lacks in a forum, by the names its settings show; none named is Missing Access. */
-function lacksWords(missing: readonly string[]): string {
-  return missing.length === 0
-    ? 'Discord does not let me make posts there'
-    : `I lack ${missing.length === 1 ? 'the permission' : 'the permissions'} ${andList(missing)} there`;
+/**
+ * What the bot lacks in a forum, by the names its settings show, and what staff do about it; none
+ * named is Missing Access, which names nothing to give.
+ */
+function refusalWords(forum: string, missing: readonly string[]): { refused: string; fix: string } {
+  if (missing.length === 0) {
+    return {
+      refused: `Discord does not let me make posts in ${forum}.`,
+      fix: 'Staff check my permissions in the forum’s settings.',
+    };
+  }
+  const one = missing.length === 1;
+  return {
+    refused:
+      `I may not make posts in ${forum}: I lack ${one ? 'the permission' : 'the permissions'} ` +
+      `${andList(missing)} there.`,
+    fix: `Staff give me ${one ? 'that permission' : 'those permissions'} in the forum’s settings.`,
+  };
 }
 
 /** The events forum chosen for the server is gone. */
 export const EVENTS_FORUM_GONE =
-  'The events forum set for this server is gone, so I post no events. Staff choose another in ' +
-  '/admin settings, or make one with /admin setup-forums.';
+  'The events forum is gone, so I cannot post events. Staff choose another in /admin settings, ' +
+  'or make one with /admin setup-forums.';
 
 /** The bot may not lock, archive or rename the posts of the events forum. */
 export function eventsForumRefusedWords(forumId: string): string {
@@ -87,7 +97,7 @@ export function eventsForumRefusedWords(forumId: string): string {
 export function eventsListingUnpinnedWords(forumId: string): string {
   return (
     `I could not pin the events listing in <#${forumId}>, the events forum. Staff give me ` +
-    'Manage Posts there, or unpin the post that holds the forum’s one pin.'
+    'Manage Posts there or, if another post is pinned there, unpin it: a forum has only one pin.'
   );
 }
 

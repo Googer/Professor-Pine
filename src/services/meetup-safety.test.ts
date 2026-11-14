@@ -736,15 +736,15 @@ describe('MeetupSafety.warnAtStart', () => {
         key: 'meetup-safety:cannot-post',
         text:
           `I may not post in <#${MOD_CHANNEL}>, the moderators’ channel, so meetups that need a ` +
-          'moderator’s approval cannot be made here. Staff give me View Channel, Send Messages ' +
+          'moderator’s approval cannot be made. Staff give me View Channel, Send Messages ' +
           'and Embed Links there.',
       },
       {
         server: THIRD_SERVER,
         key: 'meetup-safety:gone',
         text:
-          'The moderators’ channel set for this server is gone, so meetups that need a ' +
-          'moderator’s approval cannot be made here. Staff choose another in /admin settings.',
+          'The moderators’ channel is gone, so meetups that need a moderator’s approval cannot ' +
+          'be made. Staff choose another in /admin settings.',
       },
     ]);
     expect(made.notices.of(AWAY)).toEqual([]);

@@ -31,8 +31,8 @@ const PROBLEMS: Readonly<Record<NicknameProblem, string>> = {
   characters: 'A nickname has letters, digits, spaces and hyphens only.',
   'no-letter': 'A nickname needs a letter: digits alone are read as a Pokédex number.',
   reserved:
-    'A nickname cannot be or have a word that the Pokémon options read as something else: a ' +
-    'tier, `shadow`, `mega`, an egg, an IV target, `none`; nor begin with a tier (`3`, `t5`).',
+    'A nickname cannot use a word that Pokémon options read as something else (a tier, ' +
+    '`shadow`, `mega`, an egg, an IV target, `none`), nor begin with a tier (`3`, `t5`).',
 };
 
 /** The characters the legacy column holds for all nicknames of one Pokémon. */
@@ -55,9 +55,7 @@ function nicknamesLine(ctx: AppContext, serverId: string, entry: PokemonEntry): 
   const own =
     stored.length === 0 ? 'none added' : stored.map((nickname) => plain(nickname)).join(', ');
   const builtIn =
-    curated.length === 0
-      ? ''
-      : ` (and the bot's own: ${curated.map((one) => plain(one)).join(', ')})`;
+    curated.length === 0 ? '' : ` (and my own: ${curated.map((one) => plain(one)).join(', ')})`;
   return `${plain(entry.name)}: ${own}${builtIn}`;
 }
 
@@ -139,9 +137,9 @@ export function addedText(entry: PokemonEntry, added: NicknameAdded): string {
       return `${shown(added.nickname)} finds ${name} already.`;
     case 'full':
       return (
-        `${name} has as many nicknames as the stored list holds (${String(MAX_STORED)} ` +
-        `characters with their commas), so ${shown(added.nickname)} ` +
-        'does not fit. Remove one first with `/admin nickname remove`.'
+        `${name}’s nicknames are full (${String(MAX_STORED)} characters in all, with their ` +
+        `commas), so ${shown(added.nickname)} does not fit. Remove one first with ` +
+        '`/admin nickname remove`.'
       );
   }
 }
@@ -163,10 +161,10 @@ export const addNickname: SubcommandPart = {
     ),
   help: {
     details:
-      'The nickname works wherever members of this server type a Pokémon (`/raid`, `/want`, ' +
-      '`/wild`, …) from then on; other servers have nicknames of their own. ' +
-      `It has ${String(NICKNAME_MIN)} to ${String(NICKNAME_MAX)} letters, digits, ` +
-      'spaces or hyphens, and must not be the name or a nickname of another Pokémon.',
+      'Members can then type the nickname wherever they type a Pokémon (`/raid`, `/want`, ' +
+      '`/wild`, …). Nicknames are this server’s own: other servers have theirs.\n\n' +
+      `A nickname has ${String(NICKNAME_MIN)} to ${String(NICKNAME_MAX)} letters, digits, ` +
+      'spaces or hyphens, and cannot be the name or a nickname of another Pokémon.',
     examples: ['/admin nickname add pokemon:Dratini nickname:danger noodle'],
   },
   // The server's own (plan 19B-4): for its staff, by `/admin`'s guard.
@@ -232,8 +230,8 @@ export const removeNickname: SubcommandPart = {
       const builtIn = ctx.nicknames.curated(entry.key).includes(nickname);
       throw new UserError(
         builtIn
-          ? `${shown(nickname)} is one of the bot's own nicknames of ${plain(entry.name)}, and ` +
-              "the bot's own (see `/admin nickname list`) cannot be removed."
+          ? `${shown(nickname)} is one of my own nicknames for ${plain(entry.name)}, and mine ` +
+              'cannot be removed.'
           : `${plain(entry.name)} has no nickname ${shown(nickname)}. ` +
               nicknamesLine(ctx, serverId, entry),
       );
@@ -260,7 +258,7 @@ export const listNicknames: SubcommandPart = {
     .addStringOption((option) =>
       option
         .setName('pokemon')
-        .setDescription("Only this Pokémon, with the bot's own nicknames too")
+        .setDescription('Only this Pokémon, with Pine’s own nicknames too')
         .setMaxLength(100)
         .setAutocomplete(true),
     ),

@@ -127,12 +127,12 @@ describe('reporting a party to the moderators on the map (plan 8M-8B)', () => {
     expect(opened.status).toBe(422);
     expect(opened.json).toEqual({
       error:
-        "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
+        'Reports cannot be sent here: staff have not chosen a moderators’ channel. You can tell a moderator directly.',
     });
     const sent = await map.send({ reason: 'A duplicate of the other raid here.' });
     expect(sent.json).toEqual({
       ok: false,
-      text: "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
+      text: 'Reports cannot be sent here: staff have not chosen a moderators’ channel. You can tell a moderator directly.',
     });
     await made.service.flush();
     expect(made.said()).toHaveLength(before);
@@ -196,7 +196,10 @@ describe('reporting a party to the moderators on the map (plan 8M-8B)', () => {
     map.made.gateway.failing.set('sendMessage', new Error('Discord is away'));
     expect(await map.send({ reason: 'Somebody’s yard.' })).toEqual({
       status: 422,
-      json: { ok: false, text: 'I could not send your report to the moderators. Try again later.' },
+      json: {
+        ok: false,
+        text: 'Your report could not reach the moderators right now. You can tell a moderator directly.',
+      },
     });
     map.made.gateway.failing.delete('sendMessage');
     expect((await map.send({ reason: 'Somebody’s yard.' })).json).toEqual({

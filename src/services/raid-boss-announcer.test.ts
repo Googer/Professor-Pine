@@ -247,8 +247,8 @@ describe('RaidBossAnnouncer', () => {
         server: '412345678901234567',
         key: 'bot-updates:gone',
         text:
-          'The bot updates channel set for this server is gone, so I could not announce a ' +
-          'change of the raid bosses. Staff choose another in /admin settings.',
+          'The bot updates channel is gone, so I could not announce a change of the raid ' +
+          'bosses. Staff choose another in /admin settings.',
       },
       {
         server: OTHER_GUILD,

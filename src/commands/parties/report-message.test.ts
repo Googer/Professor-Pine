@@ -177,7 +177,7 @@ describe('Report to moderators (the Apps menu of a message)', () => {
     const made = await setup({ moderation: null });
     const used = await made.use({ id: '800000000000000001', authorId: DAVE });
     expect(sent(used.reply).content).toBe(
-      "This server's staff have not set a moderators' channel, so reports cannot be sent here.",
+      'Reports cannot be sent here: staff have not chosen a moderators’ channel. You can tell a moderator directly.',
     );
   });
 });

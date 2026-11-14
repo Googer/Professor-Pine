@@ -270,7 +270,8 @@ export interface ReportStore {
  * (plan 19A-1): a report goes to the moderators alone, never into the open (a party's post).
  */
 export const NO_MODERATORS_CHANNEL =
-  "This server's staff have not set a moderators' channel, so reports cannot be sent here.";
+  'Reports cannot be sent here: staff have not chosen a moderators’ channel. You can tell a ' +
+  'moderator directly.';
 
 /**
  * Whether a server takes reports (`/report`, "Report to moderators" in the Apps menu, the map's

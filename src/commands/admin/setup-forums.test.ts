@@ -201,8 +201,8 @@ describe('/admin setup-forums', () => {
     const north = regions.byChannel(UNBOUNDED_CHANNEL)?.forumChannelId;
     expect(sent(interaction.editReply).content?.split('\n')[2]).toBe(
       `<#${UNBOUNDED_CHANNEL}>: created <#${north}>, closed it to posts by members, posted and pinned the board. ` +
-        `<#${OLD_BOARD}> and <#${OLDER_BOARD}> have the same name and are no region’s boards: ` +
-        'if they were my boards before, delete them.',
+        `<#${OLD_BOARD}> and <#${OLDER_BOARD}> have the same name as the new forum but belong ` +
+        'to no region: if they are old boards of mine, delete them.',
     );
   });
 
