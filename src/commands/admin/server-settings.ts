@@ -1,6 +1,8 @@
 import {
   ChannelType,
+  PermissionFlagsBits,
   SlashCommandSubcommandBuilder,
+  type Guild,
   type AnySelectMenuInteraction,
   type ButtonInteraction,
   type ModalSubmitInteraction,
@@ -80,6 +82,26 @@ function instanceOf(ctx: AppContext): Instance {
   };
 }
 
+/** What the bot needs to post in a channel: what `PartyGateway.mayPost` asks. */
+const CAN_POST = [
+  PermissionFlagsBits.ViewChannel,
+  PermissionFlagsBits.SendMessages,
+  PermissionFlagsBits.EmbedLinks,
+];
+
+/**
+ * The channels set (`values.channels`) that the bot may not post in, from the cache (staging F1):
+ * one not cached, or where the bot's own member is not, counts as allowed, as `mayPost` takes it.
+ */
+function cannotPostIn(guild: Guild, values: ServerValues): Set<string> {
+  const me = guild.members.me;
+  const set = Object.values(values.channels).filter((id) => id !== undefined);
+  if (me === null) return new Set();
+  return new Set(
+    set.filter((id) => guild.channels.cache.get(id)?.permissionsFor(me)?.has(CAN_POST) === false),
+  );
+}
+
 /**
  * The panel of the interaction's server at `section`, read afresh (Recent changes from the
  * staff's log), with what the press changed.
@@ -98,9 +120,10 @@ export async function panelNow(
         await ctx.serverSettingsAudit.ofServer(serverId, RECENT_CHANGES + 1)
       : undefined;
   const now = Date.now();
+  const values = ctx.servers.of(serverId);
   return serverPanel(
     {
-      values: ctx.servers.of(serverId),
+      values,
       section,
       instance: instanceOf(ctx),
       timezone: ctx.servers.zoneOf(serverId),
@@ -114,6 +137,7 @@ export async function panelNow(
             known: {
               channels: new Set(interaction.guild.channels.cache.keys()),
               roles: new Set(interaction.guild.roles.cache.keys()),
+              cannotPost: cannotPostIn(interaction.guild, values),
             },
           }
         : {}),

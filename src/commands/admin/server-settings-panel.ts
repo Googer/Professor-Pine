@@ -285,7 +285,15 @@ export interface ServerPanelState {
    * longer has is not offered as a select's default but said not found (review G2). Not said:
    * every id is taken as there.
    */
-  known?: { channels: ReadonlySet<string>; roles: ReadonlySet<string> };
+  known?: {
+    channels: ReadonlySet<string>;
+    roles: ReadonlySet<string>;
+    /**
+     * The set channels the bot may not post in (View Channel, Send Messages, Embed Links; staging
+     * F1): said under each. None said: it may post in every one.
+     */
+    cannotPost?: ReadonlySet<string>;
+  };
   /**
    * The setting whose Leave unset was pressed once: its line asks whether to (fix round 4, I2),
    * while the settings file's name of it is still not found.
@@ -501,6 +509,10 @@ function settingText(
 const unmatchedOf = (values: ServerValues, key: UnmatchedKey): UnmatchedKey | undefined =>
   values.unmatched?.includes(key) === true ? key : undefined;
 
+/** What the panel says under a channel the bot may not post in (staging F1). */
+export const CANNOT_POST =
+  'Pine may not post there: give it View Channel, Send Messages and Embed Links in that channel.';
+
 function channelsSection(
   values: ServerValues,
   known: ServerPanelState['known'],
@@ -511,9 +523,15 @@ function channelsSection(
     const shown = offered(set, known?.channels);
     const unmatched =
       role === 'moderation' ? unmatchedOf(values, 'channels.moderation') : undefined;
+    const shutOut = shown !== undefined && known?.cannotPost?.has(shown) === true;
     return [
       ...settingText(
-        `**${CHANNELS[role].name}** · ${CHANNELS[role].about}`,
+        `**${CHANNELS[role].name}** · ${CHANNELS[role].about}${
+          shutOut
+            ? `
+-# ${CANNOT_POST}`
+            : ''
+        }`,
         set,
         shown,
         unmatched,

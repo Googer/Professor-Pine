@@ -115,6 +115,8 @@ async function setup(
     open?: boolean;
     /** Whether the instance has web pages (`settings.web`); it has unless a test says not. */
     web?: boolean;
+    /** Channels of the server the bot may not post in (`botShutOutOf`). */
+    shutOutOf?: string[];
   } = {},
 ) {
   const known = options.known ?? KNOWN;
@@ -163,6 +165,7 @@ async function setup(
     displayName: userId === STAFF ? 'Staff' : 'Member',
     guildChannelNames: Object.fromEntries(known.channels.map((one) => [one, 'channel'])),
     guildRoleNames: known.roles,
+    ...(options.shutOutOf === undefined ? {} : { botShutOutOf: options.shutOutOf }),
   });
   const open = async (userId = STAFF) => {
     const interaction = fakeChatInput({
@@ -533,6 +536,22 @@ describe('/admin settings', () => {
       { id: TEST_MAP_ROLE, type: 'role' },
     ]);
     expect(textOf(roles)).toContain('not found: pick a role');
+  });
+
+  it('says where Pine may not post, as soon as such a channel is picked (staging F1)', async () => {
+    const lab = TEST_SERVER_CHANNELS['mod-bot-lab'];
+    const { panel, pick } = await setup({ shutOutOf: [lab, MODERATORS] });
+    const note =
+      'Pine may not post there: give it View Channel, Send Messages and Embed Links in that ' +
+      'channel.';
+    const channels = await panel();
+    expectV2Sendable(channels);
+    // Under the moderators' bot lab alone: the moderators' channel is not set yet.
+    expect(textOf(channels).split(note).length - 1).toBe(1);
+    // Picked where Pine may not post: set all the same, and said under it at once.
+    const picked = shownAfter(await pick('server:channels.moderation:set', [MODERATORS]));
+    expect(textOf(picked)).toContain(`Set the moderators’ channel to <#${MODERATORS}>.`);
+    expect(textOf(picked).split(note).length - 1).toBe(2);
   });
 
   it('turns a feature on and off with what its button sets, never a toggle', async () => {

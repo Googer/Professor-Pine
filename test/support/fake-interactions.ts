@@ -97,6 +97,11 @@ export interface FakeOptions {
   guildChannelNames?: Record<string, string>;
   /** The names of roles of the server by id: `interaction.guild.roles.cache`. */
   guildRoleNames?: Record<string, string>;
+  /**
+   * Channels of `guildChannelNames` the bot may do nothing in: their `permissionsFor` the bot
+   * (`interaction.guild.members.me`) is empty; every other channel's is everything.
+   */
+  botShutOutOf?: string[];
   /** Name of the category the channel is under. */
   parentName?: string | null;
   /** Id of the category the channel is under (plan 19A-1: the PvP category is one by id). */
@@ -1002,9 +1007,20 @@ function base(kind: Kind, o: FakeOptions) {
             ...(o.guildOwnerId === undefined ? {} : { ownerId: o.guildOwnerId }),
             channels: {
               cache: new Map(
-                Object.entries(o.guildChannelNames ?? {}).map(([id, name]) => [id, { id, name }]),
+                Object.entries(o.guildChannelNames ?? {}).map(([id, name]) => [
+                  id,
+                  {
+                    id,
+                    name,
+                    permissionsFor: () =>
+                      new PermissionsBitField(
+                        (o.botShutOutOf ?? []).includes(id) ? 0n : PermissionsBitField.All,
+                      ).freeze(),
+                  },
+                ]),
               ),
             },
+            members: { me: { id: FAKE_BOT_ID } },
             roles: {
               cache: new Collection(
                 Object.entries(o.guildRoleNames ?? {}).map(([id, name]) => [id, { id, name }]),
