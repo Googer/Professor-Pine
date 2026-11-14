@@ -9,6 +9,7 @@ import {
 } from '../commands/regions/import.js';
 import { goesWith, outcomeLines } from '../commands/regions/remove.js';
 import { REGION_GONE, regionInSentence, roleReminder } from '../commands/regions/shared.js';
+import { BOT_STAFF_ONLY } from '../discord/guards.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import { MAX_KML_AREAS, MAX_KML_CORNERS } from '@pine/wayspot-core/kml';
 import { MAX_OUTLINE_CORNERS } from '@pine/wayspot-core/outline';
@@ -410,6 +411,8 @@ async function prepare(
     return { answer: conflictAnswer(all, staff, channels, plan.conflicts) };
   }
   const refused = plan.problems.map((problem) => problemLine(problem, names));
+  // A removal is staff's by role, as `/region remove` (plan 19C-2): in its words.
+  if (plan.removals.length > 0 && staff.mayRemoveRegions !== true) refused.push(BOT_STAFF_ONLY);
   if (!staff.mayManageChannels && plan.removals.some((removal) => removal.forum === 'delete')) {
     refused.push(
       'Deleting the forum of a region takes the Manage Channels permission, which you lack.',

@@ -52,8 +52,12 @@ export interface WebDeps {
   pictureOrigins: readonly string[];
   /** `GOOGLE_MAPS_BROWSER_KEY`: Google's tiles are offered only with it and `tiles: 'google'`. */
   googleKey: string | undefined;
-  /** The servers the bot is in (the client's cache): any other is not found. */
-  servers: { has(guildId: string): boolean };
+  /**
+   * The servers the bot is in (the client's cache): any other is not found. A server in setup
+   * (plan 19C-2, `ServerSettings.inSetup`) is not found either, but for the region editor and the
+   * map it draws on, for its staff (`guildRoutes`).
+   */
+  servers: { has(guildId: string): boolean; inSetup(guildId: string): boolean };
   /** Each server's values (plan 19A-1): the map's member role, by id. */
   serverSettings: ServerSettingsLookup;
   /** A role's name as the server has it now, from the client's cache; undefined for one it lacks. */

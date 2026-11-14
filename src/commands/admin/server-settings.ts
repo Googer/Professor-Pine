@@ -595,6 +595,8 @@ function submitted(
  */
 export const serverSettingsControls: ComponentHandler = {
   kind: SERVER_KIND,
+  // The panel works in a server in setup (plan 19C-2): its checklist sends staff here.
+  worksInSetup: true,
   guards: [requireBotManagement],
   throttle: () => MEMBER_WRITE_THROTTLE,
   async button(interaction, id, ctx) {
@@ -649,6 +651,7 @@ export const serverSettingsControls: ComponentHandler = {
  * `/admin` is for. Opens on the channels.
  */
 export const serverSettings: SubcommandPart = {
+  worksInSetup: true,
   data: new SlashCommandSubcommandBuilder()
     .setName('settings')
     .setDescription('See and change this server’s settings: channels, roles, features'),

@@ -699,7 +699,10 @@ describe('who is asking', () => {
     const members = new FakeMemberDirectory().add(ASH, 'Ash');
     web = webServerWith({
       members,
-      servers: { has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999' },
+      servers: {
+        has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999',
+        inSetup: () => false,
+      },
     });
     const cookie = await web.loggedIn(ASH, 'Ash');
     const here = (await web.app.inject({ url: ME, headers: { cookie } })).json<object>();
@@ -795,11 +798,20 @@ describe('who is asking', () => {
       manageGuild: true,
     });
     expect(await ask()).toMatchObject({ member: false, mayEditRegions: true });
+    // Who may manage the server, without a staff role, as `/region edit`'s guard admits them
+    // (plan 19C-2).
     members.standing(ASH, {
       roleNames: ['Trainer'],
       roleIds: [],
       administrator: true,
       manageGuild: true,
+    });
+    expect(await ask()).toMatchObject({ mayEditRegions: true });
+    members.standing(ASH, {
+      roleNames: ['Trainer'],
+      roleIds: [],
+      administrator: false,
+      manageGuild: false,
     });
     expect(await ask()).toMatchObject({ mayEditRegions: false });
     // The bot's owner, as `/region`'s guard admits them.
@@ -837,7 +849,10 @@ describe('who is asking', () => {
       members,
       // The server's invite (plan 19A-1: its values).
       serverSettings: withInvites({ [FAKE_GUILD_ID]: invite }, withMapRole()),
-      servers: { has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999' },
+      servers: {
+        has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999',
+        inSetup: () => false,
+      },
     });
     web = map;
     const cookie = await map.loggedIn(ASH, 'Ash');

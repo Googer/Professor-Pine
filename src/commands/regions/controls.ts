@@ -1,6 +1,7 @@
-import type { ComponentHandler } from '../../discord/command.js';
+import type { ComponentHandler, Guard, LocatedInteraction } from '../../discord/command.js';
+import { decodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
-import { requireBotManagement } from '../../discord/guards.js';
+import { requireBotManagement, requireServerAdmin } from '../../discord/guards.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import { count } from '../../render/text.js';
 import { importAnswers } from './import.js';
@@ -37,6 +38,32 @@ function working(request: PendingRegion): string {
 const ANSWERS: Readonly<Record<string, ButtonAnswer>> = { ...importAnswers };
 
 /**
+ * Whether an action of a `/region` custom id is one of the import's questions: its Cancel, or one
+ * of its answers (`importAnswers`, `import:<action>`).
+ */
+function isImportAction(action: string): boolean {
+  return action === 'cancel' || Object.hasOwn(importAnswers, `import:${action}`);
+}
+
+/** Whether a control of `/region` is a button of the import's questions: by its custom id. */
+function isImportQuestion(interaction: LocatedInteraction): boolean {
+  if (!interaction.isButton()) return false;
+  const id = decodeCustomId(interaction.customId);
+  return id !== undefined && isImportAction(id.action);
+}
+
+/**
+ * The guard of the part a control or dialog of `/region` belongs to (plan 19C-2): the import's
+ * questions admit whoever may set the server up (`requireServerAdmin`, as `/region import`);
+ * everything else, the dialog of `/region remove` and whatever is added, its staff alone
+ * (`requireBotManagement`; fix round 3, R2-3: staff is the default, as for the parts).
+ */
+const partsGuard: Guard = (interaction, ctx) =>
+  isImportQuestion(interaction)
+    ? requireServerAdmin(interaction, ctx)
+    : requireBotManagement(interaction, ctx);
+
+/**
  * The buttons of `/region` (custom-id kind `region`): each belongs to a pending request of the
  * staff member who used the command, by the token in its custom id, and nobody else may answer
  * it. The guard of `/region` applies here as well: a control can be pressed by whoever sees
@@ -51,7 +78,9 @@ const ANSWERS: Readonly<Record<string, ButtonAnswer>> = { ...importAnswers };
  */
 export const regionControls: ComponentHandler = {
   kind: REGION_KIND,
-  guards: [requireBotManagement],
+  // The import's questions, also in a server in setup (plan 19C-2).
+  worksInSetup: true,
+  guards: [partsGuard],
 
   async button(interaction, id, ctx) {
     const found = pendingRegions.take(id.id, interaction);

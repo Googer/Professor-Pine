@@ -13,7 +13,7 @@ import {
   type SimpleCommand,
 } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
-import { isBotStaff, type memberRoleNames } from '../../discord/guards.js';
+import { isServerAdmin, type memberRoleNames } from '../../discord/guards.js';
 import { v2Answer } from '../../discord/late-reply.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
@@ -32,7 +32,7 @@ import {
   type HelpGroup,
 } from './help-render.js';
 import { serverValuesOf, zoneOf } from '../../discord/server-values.js';
-import { commandsIn, commandsSeenBy } from '../../discord/set-up.js';
+import { commandsIn, commandsInSetup, commandsSeenBy } from '../../discord/set-up.js';
 
 const MAX_CHOICES = 25;
 
@@ -43,8 +43,12 @@ function normalise(text: string): string {
 
 type Asker = Parameters<typeof memberRoleNames>[0];
 
+/**
+ * Who is staff here as the router counts them (plan 19C-2, `isServerAdmin`): also the server's
+ * owner and who may manage it, so that whoever is told to run `/admin setup` finds it listed.
+ */
 function isStaff(interaction: Asker, ctx: AppContext): boolean {
-  return isBotStaff(interaction, ctx);
+  return isServerAdmin(interaction, ctx);
 }
 
 /**
@@ -60,14 +64,23 @@ function visibleCommands(staff: boolean, ctx: AppContext, where: Asker): readonl
     where,
     ctx,
   );
-  // Without what the server has not set up (plan 19A-1); in a DM, as registered.
-  return where.guildId === null
-    ? seen
-    : commandsIn(seen, ctx.servers.of(where.guildId), ctx, where.guildId);
+  // Without what the server has not set up (plan 19A-1); in a DM, as registered. In a server in
+  // setup, only what works there (plan 19C-2).
+  if (where.guildId === null) return seen;
+  const set = commandsIn(seen, ctx.servers.of(where.guildId), ctx, where.guildId);
+  return ctx.servers.inSetup(where.guildId) ? commandsInSetup(set) : set;
 }
 
-/** The message commands a member may read about: staff ones are shown to staff only. */
-function visibleMessageCommands(staff: boolean, ctx: AppContext): readonly MessageCommand[] {
+/**
+ * The message commands a member may read about: staff ones are shown to staff only; none in a
+ * server in setup (plan 19C-2).
+ */
+function visibleMessageCommands(
+  staff: boolean,
+  ctx: AppContext,
+  where: Asker,
+): readonly MessageCommand[] {
+  if (where.guildId !== null && ctx.servers.inSetup(where.guildId)) return [];
   return staff
     ? ctx.messageCommands
     : ctx.messageCommands.filter((c) => !isStaffCommand(c, ctx.config.settings.helpGroups));
@@ -78,8 +91,9 @@ function messageCommandNamed(
   path: string,
   staff: boolean,
   ctx: AppContext,
+  where: Asker,
 ): MessageCommand | undefined {
-  return visibleMessageCommands(staff, ctx).find((c) => normalise(c.data.name) === path);
+  return visibleMessageCommands(staff, ctx, where).find((c) => normalise(c.data.name) === path);
 }
 
 /** What a member is told of a command they cannot see or that does not exist. */
@@ -104,7 +118,7 @@ const TOLD_INSTEAD: ReadonlyMap<string, string> = new Map([
  * as one that does not exist.
  */
 function commandPage(path: string, staff: boolean, ctx: AppContext, where: Asker): V2Message {
-  const onMessage = messageCommandNamed(normalise(path), staff, ctx);
+  const onMessage = messageCommandNamed(normalise(path), staff, ctx, where);
   if (onMessage) return renderMessageCommandHelp(onMessage, ctx.config.settings);
   const [name = '', ...rest] = path.split(' ');
   const command = visibleCommands(staff, ctx, where).find((c) => c.data.name === name);
@@ -131,7 +145,7 @@ function groupsFor(staff: boolean, ctx: AppContext, where: Asker): HelpGroup[] {
     ctx.config.settings.helpGroups,
     // The staff's groups also for an operator who is no staff here (`/operator` in a DM).
     staff || commands.some((command) => command.seenBy !== undefined),
-    visibleMessageCommands(staff, ctx),
+    visibleMessageCommands(staff, ctx, where),
   );
 }
 
@@ -143,6 +157,8 @@ function groupPage(category: string, staff: boolean, ctx: AppContext, where: Ask
 }
 
 export const help: SimpleCommand = {
+  // Also in a server in setup (plan 19C-2).
+  worksInSetup: true,
   data: new SlashCommandBuilder()
     .setName('help')
     .setDescription('Show what Professor Pine can do')
@@ -199,7 +215,10 @@ export const help: SimpleCommand = {
     // A message command by the name its menu shows, without a slash.
     const names = [
       ...slashNames.map((name) => ({ name: `/${name}`, value: name })),
-      ...visibleMessageCommands(staff, ctx).map((c) => ({ name: c.data.name, value: c.data.name })),
+      ...visibleMessageCommands(staff, ctx, interaction).map((c) => ({
+        name: c.data.name,
+        value: c.data.name,
+      })),
     ];
     const key = (choice: { value: string }) => normalise(choice.value);
     const startsFirst = (a: { value: string }, b: { value: string }) =>
@@ -221,6 +240,7 @@ export const help: SimpleCommand = {
  */
 export const helpControls: ComponentHandler = {
   kind: HELP_KIND,
+  worksInSetup: true,
   throttle: MEMBER_READ_THROTTLE,
   async button(interaction, id, ctx) {
     const staff = isStaff(interaction, ctx);
@@ -229,7 +249,7 @@ export const helpControls: ComponentHandler = {
     if (control === HELP_CONTROLS.overview) {
       page = renderHelpOverview(groupsFor(staff, ctx, interaction));
     } else if (id.id === HELP_PAGES.command && control === HELP_CONTROLS.back) {
-      const onMessage = messageCommandNamed(id.action, staff, ctx);
+      const onMessage = messageCommandNamed(id.action, staff, ctx, interaction);
       const words = id.action.split(' ');
       const [name = ''] = words;
       if (onMessage) {

@@ -83,6 +83,9 @@ export function testServerValues(overrides: Partial<ServerValues> = {}): ServerV
   });
 }
 
+/** When the servers of a test that are not in setup were set up (`TestServers.setUpAt`). */
+export const SET_UP_LONG_AGO = Date.parse('2026-01-01T00:00:00Z');
+
 /** The file's defaults of the test settings, read once (`TestServers.defaults`). */
 let testDefaults: ServerValues | undefined;
 
@@ -98,6 +101,11 @@ export class TestServers implements ServerSettingsService {
   readonly changes: Array<{ serverId: string; by: SettingsActor; values: ServerValues }> = [];
   readonly without = new Set<string>();
   readonly setUp = new Map<string, number>();
+  /**
+   * The servers in setup (plan 19C-2): their rows have no `setUpAt`. Every other server with a row
+   * was set up long ago (`SET_UP_LONG_AGO`) unless `setUp` gives its time.
+   */
+  readonly settingUp = new Set<string>();
   readonly audit = new MemoryServerSettingsAudit();
   failing: Error | undefined;
   /** The clock of the log's entries. */
@@ -195,7 +203,13 @@ export class TestServers implements ServerSettingsService {
   }
 
   setUpAt(serverId: string): number | null {
-    return this.setUp.get(serverId) ?? null;
+    if (!this.has(serverId) || this.settingUp.has(serverId)) return null;
+    return this.setUp.get(serverId) ?? SET_UP_LONG_AGO;
+  }
+
+  /** As the real one: a server with a row that has no `setUpAt` (plan 19C-2). */
+  inSetup(serverId: string): boolean {
+    return this.has(serverId) && this.setUpAt(serverId) === null;
   }
 
   async set(

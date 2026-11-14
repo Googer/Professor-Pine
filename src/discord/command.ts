@@ -146,6 +146,13 @@ export interface CommandHandler {
     ctx: Pick<AppContext, 'config' | 'standings'>,
     serverId: string,
   ) => string | undefined;
+  /**
+   * Whether it works in a server in setup (plan 19C-2, `servers.md`): `/help`, `/admin setup`,
+   * `/admin settings`, and what the setup's checklist sends staff to for the first region
+   * (`/region import`, `/region edit`). Anything else is answered there "Pine is not set up in this
+   * server yet." by the router, before its guards and uncounted.
+   */
+  worksInSetup?: true;
   execute(interaction: ChatInputCommandInteraction, ctx: AppContext): Promise<void>;
   autocomplete?(interaction: AutocompleteInteraction, ctx: AppContext): Promise<void>;
 }
@@ -374,6 +381,11 @@ export type ControlThrottle = Throttle & { as?: string };
 export interface ComponentHandler {
   kind: string;
   guards?: readonly Guard[];
+  /**
+   * Whether its controls and dialogs work in a server in setup (plan 19C-2): those of the
+   * commands that do (`CommandHandler.worksInSetup`).
+   */
+  worksInSetup?: true;
   /**
    * How often one member may use the controls of this kind, all of them together. A use counts
    * once the guards have let it through. A function, asked after the guards, for a kind some of

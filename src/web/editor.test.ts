@@ -46,6 +46,19 @@ describe("the region editor's data", () => {
     expect(data.gyms.map(([id]) => id)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 11, 12]);
   });
 
+  it('tells the page whether the member may remove regions: staff by role, not who may only manage the server', async () => {
+    const staff = new FakeRegionStaff()
+      .asMember(STAFF, { roleNames: ['Moderator'], manageGuild: true, manageChannels: true })
+      .asMember(MEMBER, { roleNames: [], manageGuild: true, manageChannels: true });
+    const { web } = await made(staff);
+    const dataOf = async (userId: string, name: string) =>
+      (
+        await web.app.inject({ url: DATA, headers: { cookie: await web.loggedIn(userId, name) } })
+      ).json<EditorData>();
+    expect((await dataOf(STAFF, 'Brock')).mayRemoveRegions).toBe(true);
+    expect((await dataOf(MEMBER, 'Misty')).mayRemoveRegions).toBe(false);
+  });
+
   it('is for those logged in', async () => {
     const { web } = await made();
     const answer = await web.app.inject({ url: DATA });

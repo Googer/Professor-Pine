@@ -172,9 +172,11 @@ export const FILL_RETRY_MS = 60_000;
 /**
  * The fill (plan 19A-1, `servers.md`): a server the bot is in without a row gets one, from the
  * file's server keys, its names resolved in that server (`begin`: at each shard's ready, when a
- * server becomes available and when the bot joins one, `wireServerStart`). When the table was
- * empty at the start (the upgrade to 2.1), a server its shard's first READY named is recorded set
- * up (`present`); otherwise none is (plan C's setup reads it).
+ * server becomes available and when the bot joins one, `wireServerStart`). A server its shard's
+ * first READY named (`present`) is recorded set up where the instance's record says it was there
+ * before 2.1 or was adopted by a new install at its first start (`recorded`, plan 19C-2:
+ * `ServerStandings`, never whether the table was empty in this process); any other starts in
+ * setup.
  *
  * An interaction waits for its server's fill (`whenFilled`) before it is handled: the fill is
  * begun in the client's own events (a shard's ready, a server available or joined), before
@@ -193,9 +195,15 @@ export class ServerFill {
 
   constructor(
     private readonly options: {
-      servers: Pick<ServerSettings, 'has' | 'of' | 'create' | 'upgrading' | 'filling'>;
+      servers: Pick<ServerSettings, 'has' | 'of' | 'create' | 'filling'>;
       settings: Settings;
       log: Logger;
+      /**
+       * Whether the instance's record has the server as there before 2.1 (migration 061) or
+       * adopted by a new install at its first start (`ServerStandings.standingOf(…).recorded`,
+       * plan 19C-2): such a server, present at the login, is set up already.
+       */
+      recorded: (serverId: string) => boolean;
       /**
        * Tells a server's staff in its moderators' bot lab, or logs it without one (plan 19B-1,
        * `ServerNotices`); returns at once and never throws.
@@ -255,7 +263,7 @@ export class ServerFill {
   ): Promise<void> {
     const { servers, settings, log } = this.options;
     try {
-      const setUp = how === 'present' && servers.upgrading;
+      const setUp = how === 'present' && this.options.recorded(names.serverId);
       const { values, unmatched, closed, several } = filledValues(
         settings,
         names,

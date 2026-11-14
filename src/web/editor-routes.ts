@@ -231,6 +231,7 @@ export function editorRoutes(scope: FastifyInstance, deps: WebDeps): void {
         userId: viewer.userId,
         readOnly: viewer.kind === 'unreachable',
         mayManageChannels: viewer.kind === 'staff' && viewer.staff.mayManageChannels,
+        mayRemoveRegions: viewer.kind === 'staff' && viewer.staff.mayRemoveRegions === true,
       });
       void reply.header('etag', view.etag);
       if (etagMatches(request.headers['if-none-match'], view.etag)) return reply.code(304).send();

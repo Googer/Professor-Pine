@@ -41,6 +41,12 @@ export interface RegionStaff {
    * the bot does that for them only then.
    */
   mayManageChannels: boolean;
+  /**
+   * Whether they may remove regions (plan 19C-2): staff as `/admin` counts them
+   * (`isBotManagement`), as `/region remove` asks; absent, no. Who may set the server up without a
+   * staff role adds and edits regions, and removes none.
+   */
+  mayRemoveRegions?: boolean;
 }
 
 /** What an import would do (`planImport`), and whether the bot may create channels at all. */

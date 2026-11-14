@@ -429,20 +429,24 @@ export function officialMeetupsLine(): PageNode {
 
 /**
  * The side pane of somebody who is not a member: how to log in, or that it is for members; with
- * `officialMeetups` (the Meetups layer offered) the line to Campfire at its foot.
+ * `officialMeetups` (the Meetups layer offered) the line to Campfire at its foot. In a server in
+ * setup (`in-setup`, plan 19C-2), which only its staff's region editor reaches: that it is not
+ * set up yet, and where its regions are drawn.
  */
 export function loggedOutPane(
   section: HTMLElement,
-  login: 'discord' | 'links' | 'member-only',
+  login: 'discord' | 'links' | 'member-only' | 'in-setup',
   officialMeetups = false,
 ): void {
   const heading = document.createElement('h2');
   heading.textContent = LIST_HEADING;
   const line = document.createElement('p');
   line.textContent =
-    login === 'member-only'
-      ? 'Only members of this server see what is going on.'
-      : 'Log in to see what is going on.';
+    login === 'in-setup'
+      ? 'Pine is not set up in this server yet. Draw its regions with Edit regions in your menu.'
+      : login === 'member-only'
+        ? 'Only members of this server see what is going on.'
+        : 'Log in to see what is going on.';
   const parts: HTMLElement[] = [heading, line];
   if (login === 'discord') {
     const link = document.createElement('a');

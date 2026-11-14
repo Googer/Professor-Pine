@@ -89,6 +89,8 @@ export interface FakeOptions {
   guildId?: string | null;
   /** The name of the server: `interaction.guild.name` ("Test Server" unless given). */
   guildName?: string;
+  /** The server's Discord owner: `interaction.guild.ownerId` (nobody the fakes name unless given). */
+  guildOwnerId?: string;
   channelId?: string;
   channelName?: string;
   /** The names of channels of the server by id: `interaction.guild.channels.cache`. */
@@ -997,6 +999,7 @@ function base(kind: Kind, o: FakeOptions) {
         ? null
         : {
             name: o.guildName ?? 'Test Server',
+            ...(o.guildOwnerId === undefined ? {} : { ownerId: o.guildOwnerId }),
             channels: {
               cache: new Map(
                 Object.entries(o.guildChannelNames ?? {}).map(([id, name]) => [id, { id, name }]),

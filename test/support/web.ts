@@ -15,7 +15,12 @@ import { EditorCache, type EditorSources } from '../../src/web/editor-cache.js';
 import { GeoCache, type GeoSources } from '../../src/web/geo-cache.js';
 import { MAP_WRITES_PER_MINUTE } from '../../src/web/acting.js';
 import { RateLimiter } from '../../src/web/rate-limit.js';
-import type { RegionStaffSource, StaffAnswer } from '../../src/web/region-staff.js';
+import {
+  regionStaffAnswer,
+  type RegionStaffSource,
+  type StaffAnswer,
+  type StaffFacts,
+} from '../../src/web/region-staff.js';
 import { LoginLinks } from '../../src/web/login-links.js';
 import type { MapServer, MapServers } from '../../src/web/map-servers.js';
 import type { WebAssets } from '../../src/web/page.js';
@@ -177,12 +182,26 @@ export class FakeRegionStaff implements RegionStaffSource {
     return this;
   }
 
-  /** Makes somebody staff of the fakes' server (row 1). */
+  /** Makes somebody staff of the fakes' server (row 1), by role: they may remove regions too. */
   asStaff(userId: string, mayManageChannels = true): this {
     return this.answer(userId, {
       kind: 'staff',
-      staff: { staffId: userId, guildId: 1, server: FAKE_GUILD_ID, mayManageChannels },
+      staff: {
+        staffId: userId,
+        guildId: 1,
+        server: FAKE_GUILD_ID,
+        mayManageChannels,
+        mayRemoveRegions: true,
+      },
     });
+  }
+
+  /**
+   * What Discord says of a member of the fakes' server (row 1), decided as the bot decides it
+   * (`regionStaffAnswer`; the bot's owner is nobody of the tests).
+   */
+  asMember(userId: string, facts: StaffFacts): this {
+    return this.answer(userId, regionStaffAnswer(facts, userId, '', FAKE_GUILD_ID, 1));
   }
 
   check(guildId: string, userId: string): Promise<StaffAnswer> {
@@ -1046,7 +1065,10 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     // As the bot's: the feeds' host and its own address, whose /pictures/ and /eggs/ posts show.
     pictureOrigins: ['https://cdn.leekduck.com', settings.publicUrl],
     googleKey: options.googleKey,
-    servers: options.servers ?? { has: (guildId) => guildId === FAKE_GUILD_ID },
+    servers: options.servers ?? {
+      has: (guildId) => guildId === FAKE_GUILD_ID,
+      inSetup: () => false,
+    },
     serverSettings: options.serverSettings ?? new TestServers(),
     // The fakes' server names the map's role of the tests (`withMapRole`) `Verified`.
     roleName: (guildId, roleId) =>

@@ -11,7 +11,12 @@ import { channelContext } from '../../discord/channel-context.js';
 import type { GuardableInteraction, LocatedInteraction } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf, managesChannels } from '../../discord/guards.js';
+import {
+  guildIdOf,
+  isBotManagement,
+  managesChannels,
+  memberRoleNames,
+} from '../../discord/guards.js';
 import { answerApart, sayInPlace, showInPlace, type Press } from '../../discord/late-reply.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import type { PlannedImport, ServerChannel } from '../../domain/regions/region-import.js';
@@ -138,7 +143,13 @@ export async function regionStaff(
   }
   // Read from the server, never from the channel of the command (`managesChannels`).
   const mayManageChannels = managesChannels(interaction);
-  return { staffId: interaction.user.id, guildId, server, mayManageChannels };
+  // As `/region remove`'s guard (plan 19C-2): staff by role.
+  const mayRemoveRegions = isBotManagement(
+    memberRoleNames(interaction),
+    interaction.user.id,
+    ctx.config.env.OWNER_ID,
+  );
+  return { staffId: interaction.user.id, guildId, server, mayManageChannels, mayRemoveRegions };
 }
 
 /**

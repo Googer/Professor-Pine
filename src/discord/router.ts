@@ -31,8 +31,8 @@ import { answerApart, deferLate, LATE_DEFER_MS } from './late-reply.js';
 import { Throttles, waitText, type Throttle } from './throttle.js';
 import { LockOverdueError } from '../services/keyed-lock.js';
 import { REHEARSAL_REFUSAL } from '../services/rehearsal.js';
-import { notSetUpIn, notSetUpWords } from './set-up.js';
-import { isBotStaff } from './guards.js';
+import { inSetupWords, notSetUpIn, notSetUpWords } from './set-up.js';
+import { isServerAdmin } from './guards.js';
 
 export const STALE_COMPONENT = 'This no longer works.';
 /**
@@ -212,6 +212,7 @@ export class InteractionRouter {
    */
   async handle(received: Interaction): Promise<void> {
     if (!this.admitted(received)) return this.refuseInRehearsal(received);
+    if (this.heldInSetup(received)) return this.refuseInSetup(received);
     const interaction = this.answeredInRehearsal(received);
     if (interaction.isAutocomplete()) return this.handleAutocomplete(interaction);
     const started = performance.now();
@@ -292,6 +293,50 @@ export class InteractionRouter {
     }
   }
 
+  /**
+   * Whether the interaction came from a server in setup (plan 19C-2, `ServerSettings.inSetup`)
+   * and is for anything but what works there (`worksInSetup`: `/help`, `/admin setup`, `/admin
+   * settings`, `/region import`, `/region edit`, and their controls and dialogs by kind). Never
+   * in a DM. Asked before anything else of the interaction, so that nothing is counted.
+   */
+  private heldInSetup(interaction: Interaction): boolean {
+    const { guildId } = interaction;
+    if (guildId === null || !this.ctx.servers.inSetup(guildId)) return false;
+    if (interaction.isChatInputCommand() || interaction.isAutocomplete()) {
+      return this.find(interaction)?.handler.worksInSetup !== true;
+    }
+    if (interaction.isMessageComponent() || interaction.isModalSubmit()) {
+      const id = decodeCustomId(interaction.customId);
+      return (id && this.components.get(id.kind))?.worksInSetup !== true;
+    }
+    return true;
+  }
+
+  /**
+   * Answers what a server in setup does not do (plan 19C-2): privately, "Pine is not set up in
+   * this server yet.", and to whoever may set it up (`isServerAdmin`: its owner, who may manage
+   * it, its staff) where to go on;
+   * an autocomplete with nothing. A failure is only logged.
+   */
+  private async refuseInSetup(interaction: Interaction): Promise<void> {
+    try {
+      if (interaction.isAutocomplete()) await interaction.respond([]);
+      else if (
+        interaction.isChatInputCommand() ||
+        interaction.isMessageContextMenuCommand() ||
+        interaction.isMessageComponent() ||
+        interaction.isModalSubmit()
+      ) {
+        await replyEphemeral(interaction, inSetupWords(isServerAdmin(interaction, this.ctx)));
+      }
+    } catch (err) {
+      this.ctx.log.warn(
+        { err, interaction: describe(interaction) },
+        'could not answer in a server in setup',
+      );
+    }
+  }
+
   /** Answers how long the deferral took, for a command that was deferred. */
   private async handleCommand(
     interaction: ChatInputCommandInteraction,
@@ -307,7 +352,7 @@ export class InteractionRouter {
       // Before its guards (plan 19A-1): a command the server has not set up is said so, uncounted.
       const missing = this.notSetUp(interaction, handler);
       if (missing !== undefined) {
-        throw new UserError(notSetUpWords(missing, isBotStaff(interaction, this.ctx)));
+        throw new UserError(notSetUpWords(missing, isServerAdmin(interaction, this.ctx)));
       }
       await runGuards(found.guards, interaction, this.ctx);
       const { checks } = handler;
@@ -404,11 +449,12 @@ export class InteractionRouter {
 
   /**
    * Answers the list of an option while it is typed. For a command that is for staff
-   * (`default_member_permissions`) the guards of the command run first, and whoever they refuse
-   * gets an empty list, never an error: Discord hides such a command, but a server can grant it
-   * to anybody, and its lists must tell them no more than the command would. The guards of a
-   * subcommand and those of ordinary commands do not run here: some read options that are not
-   * there yet while the member types.
+   * (`default_member_permissions`) the guards of the command and of the subcommand typed run
+   * first (plan 19C-2: `/admin`'s and `/region`'s are their parts'), and whoever they refuse gets
+   * an empty list, never an error: Discord hides such a command, but a server can grant it to
+   * anybody, and its lists must tell them no more than the command would. Those guards must
+   * therefore read no option: what the member types is not all there yet. The guards of ordinary
+   * commands do not run here: some read options.
    */
   private async handleAutocomplete(interaction: AutocompleteInteraction): Promise<void> {
     try {
@@ -420,7 +466,13 @@ export class InteractionRouter {
       const command = this.commands.get(interaction.commandName);
       if (command && this.staffOnly.has(command.data.name)) {
         try {
-          await runGuards(command.guards ?? [], interaction, this.ctx);
+          // The subcommand's guards with the command's (plan 19C-2: `/admin`'s and `/region`'s
+          // are their parts').
+          await runGuards(
+            this.find(interaction)?.guards ?? command.guards ?? [],
+            interaction,
+            this.ctx,
+          );
         } catch (err) {
           if (!(err instanceof UserError)) throw err;
           await interaction.respond([]);

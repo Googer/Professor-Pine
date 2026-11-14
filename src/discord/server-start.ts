@@ -72,11 +72,13 @@ export interface ServerStartDeps<G, I> {
  * interactions never routed; one that joins is refused (`refuse`) before anything else. Those
  * present at a ready are refused by the check once every shard is ready (`ServerAdmission`).
  *
- * Who was present at the upgrade (`'present'`, recorded set up while `upgrading`): only a server
- * its shard's first READY named, those Discord said unavailable included, so that one down at the
- * login is set up when it comes. Any other server without a row is `'joined'`: one that adds the
- * bot (`GuildCreate`, or no event between two readies), or one that added it while its shard was
- * away (named by a later session's READY, then `GuildAvailable`).
+ * Who was present at the login (`'present'`, recorded set up where the instance's record has it
+ * from before 2.1 or adopted at a new install's first start: `ServerFill`, plan 19C-2): only a
+ * server its shard's first READY named, those Discord said unavailable included, so that one down
+ * at the login is set up when it comes. Any other server without a row is `'joined'`: one that
+ * adds the bot (`GuildCreate`, or no event between two readies), one that added it while its
+ * shard was away (named by a later session's READY, then `GuildAvailable`), or one an operator
+ * allowed after it waited (`admitted`).
  */
 export function wireServerStart<
   G extends { id: string; available: boolean },

@@ -54,8 +54,7 @@ describe('/region: who may use it', () => {
   it('is shown to staff only, tied to no channel, and has its subcommands', () => {
     const json = region.data.toJSON();
     expect(json.default_member_permissions).toBe('32');
-    expect(region.guards).toHaveLength(1);
-    // `edit` only where the web pages are on (edit.test.ts).
+    // Who may use each part: staff-parts.test.ts. `edit` only where the web pages are on (edit.test.ts).
     expect([...region.subcommands.keys()]).toEqual(['import', 'edit', 'list', 'export', 'remove']);
   });
 

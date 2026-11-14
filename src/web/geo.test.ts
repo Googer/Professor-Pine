@@ -418,7 +418,10 @@ describe('the regions and gyms of a server', () => {
     const sources = await geoSourcesWith();
     web = webServerWith({
       geo: sources,
-      servers: { has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999' },
+      servers: {
+        has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999',
+        inSetup: () => false,
+      },
     });
     const answer = await web.app.inject({ url: '/s/412345678901234999/api/geo' });
     expect(answer.json()).toEqual({ regions: [], gyms: [] });

@@ -19,7 +19,13 @@ describe('staff of a server on the web pages', () => {
         regionStaffAnswer(facts({ roleNames: ['Raider', role] }), USER, OWNER, SERVER, 1),
       ).toEqual({
         kind: 'staff',
-        staff: { staffId: USER, guildId: 1, server: SERVER, mayManageChannels: false },
+        staff: {
+          staffId: USER,
+          guildId: 1,
+          server: SERVER,
+          mayManageChannels: false,
+          mayRemoveRegions: true,
+        },
       });
     }
     expect(
@@ -29,21 +35,42 @@ describe('staff of a server on the web pages', () => {
     expect(regionStaffAnswer(facts({ roleNames: [] }), OWNER, OWNER, SERVER, 1).kind).toBe('staff');
   });
 
-  it('are not members without such a role, nor such members who may not manage the server', () => {
+  it('are also those who may manage the server without a staff role, its owner too (plan 19C-2)', () => {
+    // `/region import` and `/region edit` admit them (`requireServerAdmin`); Discord says Manage
+    // Server of the server's owner too. They remove no region: `/region remove` refuses them.
     expect(regionStaffAnswer(facts({ roleNames: ['Raider'] }), USER, OWNER, SERVER, 1)).toEqual({
-      kind: 'not-staff',
+      kind: 'staff',
+      staff: {
+        staffId: USER,
+        guildId: 1,
+        server: SERVER,
+        mayManageChannels: false,
+        mayRemoveRegions: false,
+      },
     });
+  });
+
+  it('are not members who may not manage the server, whatever their roles', () => {
     // Discord offers /region only to those who may manage the server (its default permission).
     expect(regionStaffAnswer(facts({ manageGuild: false }), USER, OWNER, SERVER, 1)).toEqual({
       kind: 'not-staff',
     });
+    expect(
+      regionStaffAnswer(
+        facts({ roleNames: ['Raider'], manageGuild: false }),
+        USER,
+        OWNER,
+        SERVER,
+        1,
+      ),
+    ).toEqual({ kind: 'not-staff' });
     expect(regionStaffAnswer(undefined, USER, OWNER, SERVER, 1)).toEqual({ kind: 'not-member' });
   });
 
   it('may edit regions by the one rule the answer and the map’s hint share (plan 8M-10)', () => {
     expect(mayEditRegions({ roleNames: ['Moderator'], manageGuild: true }, USER, OWNER)).toBe(true);
     expect(mayEditRegions({ roleNames: [], manageGuild: true }, OWNER, OWNER)).toBe(true);
-    expect(mayEditRegions({ roleNames: ['Raider'], manageGuild: true }, USER, OWNER)).toBe(false);
+    expect(mayEditRegions({ roleNames: ['Raider'], manageGuild: true }, USER, OWNER)).toBe(true);
     expect(mayEditRegions({ roleNames: ['Moderator'], manageGuild: false }, USER, OWNER)).toBe(
       false,
     );

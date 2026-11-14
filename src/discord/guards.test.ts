@@ -1,3 +1,4 @@
+import { PermissionFlagsBits } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import {
   FAKE_CHANNEL_ID,
@@ -35,7 +36,9 @@ import {
   ONLY_OPERATORS,
   ONLY_OPERATORS_IN_A_DM,
   isPvpContext,
+  isServerAdmin,
   isStaffRoleName,
+  mayManageServer,
   partyOf,
   partyOfServer,
   raidOf,
@@ -50,8 +53,10 @@ import {
   requirePvpContext,
   requireRaid,
   requireRegion,
+  requireServerAdmin,
   requireSharedDataOperator,
   requireTimed,
+  SERVER_ADMIN_ONLY,
   serverStaffShareData,
 } from './guards.js';
 import { instanceConfig, OPERATOR_ID } from '../../test/support/operators.js';
@@ -274,6 +279,46 @@ describe('guards', () => {
     expect(() =>
       requireBotManagement(as(fakeChatInput({ roleNames: ['bot developer'] })), ctx),
     ).not.toThrow();
+  });
+
+  it('requireServerAdmin accepts the server’s owner and who may manage it without a staff role (plan 19C-2)', () => {
+    const owner = fakeChatInput({ userId: USER, guildOwnerId: USER });
+    expect(() => requireServerAdmin(as(owner), ctx)).not.toThrow();
+    expect(isServerAdmin(as(owner), ctx)).toBe(true);
+    const manager = fakeChatInput({ userId: USER, permissions: PermissionFlagsBits.ManageGuild });
+    expect(() => requireServerAdmin(as(manager), ctx)).not.toThrow();
+    // Staff by role, and the bot's owner, as `/admin` had them.
+    for (const staff of [
+      fakeChatInput({ userId: USER, roleNames: ['Bot Developer'] }),
+      fakeChatInput({ userId: OWNER }),
+    ]) {
+      expect(() => requireServerAdmin(as(staff), ctx)).not.toThrow();
+    }
+    // Anybody else, the owner of another server too.
+    for (const member of [
+      fakeChatInput({ userId: USER, roleNames: ['Raider'] }),
+      fakeChatInput({ userId: USER, guildOwnerId: '700000000000000002' }),
+      fakeChatInput({ userId: USER, permissions: PermissionFlagsBits.ManageChannels }),
+    ]) {
+      expect(() => requireServerAdmin(as(member), ctx)).toThrow(SERVER_ADMIN_ONLY);
+      expect(isServerAdmin(as(member), ctx)).toBe(false);
+    }
+    expect(SERVER_ADMIN_ONLY).toBe(
+      'Only the server’s owner, members who may manage the server, and its admins, moderators ' +
+        'and bot developers can do that.',
+    );
+    expect(() => requireServerAdmin(as(fakeChatInput({ isDm: true, userId: OWNER })), ctx)).toThrow(
+      UserError,
+    );
+  });
+
+  it('decides who may manage a server by one rule, for the web pages too (plan 19C-2)', () => {
+    const facts = { roleNames: [] as string[], manageGuild: false, guildOwner: false };
+    expect(mayManageServer(facts, USER, OWNER)).toBe(false);
+    expect(mayManageServer({ ...facts, guildOwner: true }, USER, OWNER)).toBe(true);
+    expect(mayManageServer({ ...facts, manageGuild: true }, USER, OWNER)).toBe(true);
+    expect(mayManageServer({ ...facts, roleNames: ['moderator'] }, USER, OWNER)).toBe(true);
+    expect(mayManageServer(facts, OWNER, OWNER)).toBe(true);
   });
 
   it('requireBotChannel names the channel to use', () => {

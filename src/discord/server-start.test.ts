@@ -43,7 +43,7 @@ type WhoIsIn = (
   client: EventEmitter,
   shards: ShardReadiness,
   cache: Map<string, FakeGuild>,
-) => { admits: (serverId: string) => boolean };
+) => { admits: (serverId: string) => boolean; recorded: (serverId: string) => boolean };
 
 /** A server's names: its bot lab only. */
 const namesOf = (guild: FakeGuild): ServerNames => ({
@@ -105,7 +105,17 @@ async function start(count = 1, refused: ReadonlySet<string> = new Set(), wire?:
   const { log } = createTestLogger();
   const servers = new ServerSettings({ store, settings, log });
   await servers.load();
-  const fill = new ServerFill({ servers, settings, log, notices: new RecordingNotices() });
+  /** What the record holds (plan 19C-2, S2): wired below, else as an upgrade's record. */
+  const record: { recorded?: (serverId: string) => boolean } = {};
+  // As at the upgrade, every server Pine was in is recorded but those refused at the start.
+  const recordedAtStart = new Set(refused);
+  const fill = new ServerFill({
+    servers,
+    settings,
+    log,
+    notices: new RecordingNotices(),
+    recorded: (serverId) => record.recorded?.(serverId) ?? !recordedAtStart.has(serverId),
+  });
   const client = new EventEmitter();
   const cache = new Map<string, FakeGuild>();
   /** What the start-up work did, in order; each sync of `Guild` rows waits for the test (`sync`). */
@@ -435,7 +445,10 @@ describe('a new install keeps its owner’s server (plan 19C-1, J1)', () => {
         adoption,
         admission,
       });
-      return { admits: (serverId) => admission.admits(serverId) };
+      return {
+        admits: (serverId) => admission.admits(serverId),
+        recorded: (serverId) => standings.standingOf(serverId).recorded,
+      };
     };
     return { wire, standings, store, exits, written: written.promise, holder };
   }

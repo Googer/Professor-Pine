@@ -105,9 +105,15 @@ describe('ServerSettings', () => {
     expect(mapMemberRole(values)).toBe(ADMINISTRATORS_ONLY);
   });
 
-  it('says whether the table was empty when it was loaded: the upgrade to 2.1', async () => {
-    expect((await servicesWith()).servers.upgrading).toBe(false);
-    expect((await servicesWith([])).servers.upgrading).toBe(true);
+  it('says a server is in setup where its row has no setUpAt, and only there (plan 19C-2)', async () => {
+    const { servers } = await servicesWith([
+      filledRow(),
+      filledRow({ serverId: OTHER_SETTINGS_SERVER, setUpAt: null }),
+    ]);
+    expect(servers.inSetup(SETTINGS_SERVER)).toBe(false);
+    expect(servers.inSetup(OTHER_SETTINGS_SERVER)).toBe(true);
+    // Without a row (its fill under way or given up): not in setup.
+    expect(servers.inSetup(THIRD_SERVER)).toBe(false);
   });
 
   it('gives the file defaults to a server whose stored values cannot be read, and logs it', async () => {

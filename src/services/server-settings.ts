@@ -79,6 +79,12 @@ export interface ServerSettingsService extends ServerSettingsLookup {
   /** When the server finished its setup; null when not (yet), or without a row. */
   setUpAt(serverId: string): number | null;
   /**
+   * Whether the server is in setup (plan 19C-2): it has its row, and the row has no `setUpAt`. The
+   * one test of it: the router's gate, the web's and the places that do nothing for a quiet server
+   * ask it. A server without a row (its fill under way, retrying or given up) is not.
+   */
+  inSetup(serverId: string): boolean;
+  /**
    * Changes a server's values: `change` gets them as they are (after every change asked before
    * it) and gives them changed. Checked (`ServerValuesError` for a value that is not valid,
    * nothing written), written with `by` and the time, each setting it changed into the staff's
@@ -137,7 +143,6 @@ export class ServerSettings implements ServerSettingsService {
    * (`fileUnmatched`; fix round 4, I1).
    */
   private readonly withoutRow: ServerValues;
-  private emptyAtLoad = false;
   /**
    * Per server, the last change or fill asked for: the next one of that server starts after it,
    * whether it failed or not; another server's never waits for it (fix round 4, I3). Dropped
@@ -180,18 +185,12 @@ export class ServerSettings implements ServerSettingsService {
    */
   async load(): Promise<void> {
     const rows = await this.options.store.all();
-    this.emptyAtLoad = rows.length === 0;
     for (const row of rows) {
       const values = this.read(row.serverId, row.settings);
       this.kept.set(row.serverId, { values, setUpAt: row.setUpAt });
     }
     this.zonesTold = this.zonesInUse();
     this.options.log.info({ servers: rows.length }, 'server settings loaded');
-  }
-
-  /** Whether the table was empty when it was loaded: the first start of 2.1 (the upgrade). */
-  get upgrading(): boolean {
-    return this.emptyAtLoad;
   }
 
   of(serverId: string): ServerValues {
@@ -266,6 +265,11 @@ export class ServerSettings implements ServerSettingsService {
   /** When the server finished its setup; null when not (yet), or without a row. */
   setUpAt(serverId: string): number | null {
     return this.kept.get(serverId)?.setUpAt ?? null;
+  }
+
+  inSetup(serverId: string): boolean {
+    const kept = this.kept.get(serverId);
+    return kept !== undefined && kept.setUpAt === null;
   }
 
   /**

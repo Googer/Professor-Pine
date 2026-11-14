@@ -2,6 +2,7 @@ import {
   ApplicationCommandType,
   ContextMenuCommandBuilder,
   MessageFlags,
+  PermissionFlagsBits,
   SlashCommandBuilder,
   SlashCommandSubcommandBuilder,
   type AutocompleteInteraction,
@@ -37,7 +38,7 @@ import { end } from '../raids/change.js';
 import { operator } from '../operator/index.js';
 import { instanceConfig, OPERATOR_ID } from '../../../test/support/operators.js';
 import { help, helpControls } from './help.js';
-import { withFeatures } from '../../../test/support/server-values.js';
+import { TestServers, withFeatures } from '../../../test/support/server-values.js';
 
 const noop = () => Promise.resolve();
 const sub = (name: string) =>
@@ -118,6 +119,55 @@ describe('/help: what a server has not set up', () => {
     );
     // In a DM, which is no server, it is as registered.
     expect(await choices('wa', { isDm: true }, quiet)).toEqual(['want']);
+  });
+});
+
+// Plan 19C-2: a server in setup lists, offers and explains only what works there.
+describe('/help: a server in setup', () => {
+  const NEW = '412345678901234599';
+  const settingsPart = {
+    data: sub('settings'),
+    worksInSetup: true as const,
+    execute: noop,
+  };
+  const admin = commandGroup({
+    data: new SlashCommandBuilder().setName('admin').setDescription('Admin'),
+    help: { category: 'admin' },
+    parts: [settingsPart, { data: sub('tutorial'), execute: noop }],
+  });
+  const servers = new TestServers();
+  servers.settingUp.add(NEW);
+  const context = createTestContext({ commands: [help, route, admin], servers }).ctx;
+  const inNew = { guildId: NEW, ...MODERATOR };
+
+  it('lists only what works in setup, and all of it where the server is set up', async () => {
+    const groups = groupsOf(await ask(inNew, context));
+    expect(groupsOf(await ask(MODERATOR, context)).filter((one) => !groups.includes(one))).toEqual([
+      'Trains',
+    ]);
+    const page = JSON.stringify(
+      textDisplays(await ask({ ...inNew, options: { command: 'admin' } }, context)),
+    );
+    expect(page).toContain('settings');
+    expect(page).not.toContain('tutorial');
+    expect(await choices('ro', inNew, context)).toEqual([]);
+    expect(await choices('admin', inNew, context)).toEqual(['admin', 'admin settings']);
+    await expect(ask({ ...inNew, options: { command: 'route' } }, context)).rejects.toThrow(
+      'There is no /route command.',
+    );
+    expect(await choices('ro', MODERATOR, context)).toContain('route');
+  });
+
+  it('counts the server’s owner and who may manage it as staff, without a staff role', async () => {
+    const owner = {
+      guildId: NEW,
+      userId: '700000000000000050',
+      guildOwnerId: '700000000000000050',
+    };
+    expect(await choices('admin', owner, context)).toEqual(['admin', 'admin settings']);
+    const manager = { guildId: NEW, permissions: PermissionFlagsBits.ManageGuild };
+    expect(await choices('admin', manager, context)).toEqual(['admin', 'admin settings']);
+    expect(await choices('admin', { guildId: NEW }, context)).toEqual([]);
   });
 });
 

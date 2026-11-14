@@ -326,7 +326,10 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
     const made = webServerWith({
       emoji,
       geo: sources,
-      servers: { has: (guild) => guild === FAKE_GUILD_ID || others.includes(guild) },
+      servers: {
+        has: (guild) => guild === FAKE_GUILD_ID || others.includes(guild),
+        inSetup: () => false,
+      },
     });
     web = made;
     // Built for a visitor, then the visitors spend the cap on the other servers' views.

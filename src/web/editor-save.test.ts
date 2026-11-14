@@ -1,6 +1,9 @@
 import { Readable } from 'node:stream';
+import { PermissionFlagsBits } from 'discord.js';
 import { afterEach, describe, expect, it } from 'vitest';
-import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
+import { FAKE_GUILD_ID, sent } from '../../test/support/fake-interactions.js';
+import { regionCommandsWith } from '../../test/support/region-commands.js';
+import { BOT_STAFF_ONLY } from '../discord/guards.js';
 import { SOUTH_CHANNEL, squareRing } from '../../test/support/region-admin.js';
 import { Tally } from '../../test/support/tally.js';
 import {
@@ -435,6 +438,50 @@ describe('preview and save of the region editor', () => {
         'Deleting the forum of a region takes the Manage Channels permission, which you lack.',
       ],
     });
+  });
+
+  it('refuses a removal to a member who may manage the server without a staff role, as /region remove does', async () => {
+    const MANAGER = { roleNames: [], manageGuild: true, manageChannels: true };
+    const removal = request({
+      removals: [{ regionId: 2, forum: 'keep', version: regionVersion(EAST, null) }],
+    });
+    const { post } = await made(new FakeRegionStaff().asMember(STAFF, MANAGER));
+    for (const url of [PREVIEW, SAVE]) {
+      const answer = await post(url, removal);
+      expect(answer.status).toBe(422);
+      expect(answer.json).toEqual({ kind: 'refused', lines: [BOT_STAFF_ONLY] });
+    }
+    // They may still change outlines (plan 19C-2: the editor is theirs for the setup).
+    const change = request({
+      changes: [{ regionId: 1, outline: points(WEST_SHRUNK), version: regionVersion(WEST, null) }],
+    });
+    expect((await post(PREVIEW, change)).status).toBe(200);
+    // `/region remove` says the same to them.
+    const commands = await regionCommandsWith();
+    const used = await commands.use(
+      'remove',
+      { region: 'id:2' },
+      { userId: STAFF, roleNames: [], permissions: PermissionFlagsBits.ManageGuild },
+    );
+    expect(sent(used.reply).content).toBe(BOT_STAFF_ONLY);
+  });
+
+  it('lets staff by role remove a region on the web, as with /region remove', async () => {
+    const STAFF_ROLE = { roleNames: ['Moderator'], manageGuild: true, manageChannels: true };
+    const { post } = await made(new FakeRegionStaff().asMember(STAFF, STAFF_ROLE));
+    const answer = await post(
+      PREVIEW,
+      request({ removals: [{ regionId: 2, forum: 'keep', version: regionVersion(EAST, null) }] }),
+    );
+    expect(answer.status).toBe(200);
+    expect(answer.json.kind).toBe('preview');
+    const commands = await regionCommandsWith();
+    const used = await commands.use(
+      'remove',
+      { region: 'id:2' },
+      { userId: STAFF, roleNames: ['Moderator'] },
+    );
+    expect(used.showModal).toHaveBeenCalled();
   });
 
   it("is for staff, from Pine's own page, with a body it can read", async () => {

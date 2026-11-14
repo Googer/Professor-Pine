@@ -42,6 +42,8 @@ export interface EditorViewer {
   /** Discord could not say who is asking: the page saves nothing, and is offered no channel. */
   readOnly: boolean;
   mayManageChannels: boolean;
+  /** Whether they may remove regions (`RegionStaff.mayRemoveRegions`). */
+  mayRemoveRegions: boolean;
 }
 
 const hash = (text: string): string =>
@@ -93,6 +95,7 @@ export class EditorCache {
       userId: viewer.userId,
       readOnly: viewer.readOnly,
       mayManageChannels: !viewer.readOnly && viewer.mayManageChannels,
+      mayRemoveRegions: !viewer.readOnly && viewer.mayRemoveRegions,
     });
     const offered = viewer.readOnly ? '[]' : kept.channels;
     const body = `${front.slice(0, -1)},"channels":${offered},${kept.json.slice(1)}`;

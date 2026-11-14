@@ -1,4 +1,4 @@
-import { DiscordAPIError, MessageFlags, RESTJSONErrorCodes } from 'discord.js';
+import { DiscordAPIError, MessageFlags, PermissionFlagsBits, RESTJSONErrorCodes } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import {
   dialogChoices,
@@ -411,6 +411,16 @@ describe('/region remove: staff without Manage Channels, and rehearsal mode', ()
     const { dialog } = await asked(made, 'id:3');
     const member = await made.submit(dialog, {}, { userId: MEMBER, roleNames: [] });
     expect(regionSaid(sent(member.reply))).toBe(
+      'Only admins, moderators and bot developers can do that.',
+    );
+    // Nor who may manage the server without a staff role, whom the import's questions admit
+    // (plan 19C-2): the dialog is `/region remove`'s.
+    const manager = await made.submit(
+      dialog,
+      {},
+      { userId: MEMBER, roleNames: [], permissions: PermissionFlagsBits.ManageGuild },
+    );
+    expect(regionSaid(sent(manager.reply))).toBe(
       'Only admins, moderators and bot developers can do that.',
     );
     expect(made.regions.byId(3)).toBeDefined();

@@ -753,6 +753,9 @@ export function outcomeWords(
  * done and pressed Import.
  */
 export const importRegions: SubcommandPart = {
+  // One of the two ways to the first region of a server in setup (plan 19C-2), for whoever may
+  // set the server up: its guard is `/region`'s list's (`staffParts`).
+  worksInSetup: true,
   data: new SlashCommandSubcommandBuilder()
     .setName('import')
     .setDescription('Give channels their outlines from a KML file')

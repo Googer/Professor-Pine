@@ -26,12 +26,27 @@ export const NOT_SET_UP = 'This is not set up in this server.';
  */
 export type SetUpContext = Pick<AppContext, 'config' | 'standings'>;
 
+/**
+ * What a member is told of anything but what works in a server in setup (plan 19C-2,
+ * `CommandHandler.worksInSetup`); staff are told more (`inSetupWords`).
+ */
+export const IN_SETUP = 'Pine is not set up in this server yet.';
+
+/**
+ * What the router answers in a server in setup: to whoever may set it up (`isServerAdmin`), where
+ * to go on.
+ */
+export function inSetupWords(staff: boolean): string {
+  return staff ? `${IN_SETUP} Run /admin setup.` : IN_SETUP;
+}
+
 /** What a member who is not staff is told after `NOT_SET_UP` (review F11: no staff command named). */
 export const NOT_TURNED_ON = 'The server’s staff have not turned this on.';
 
 /**
  * What a member is told of a command that is not set up in the server: then, to staff
- * (`isBotStaff`), what to set and where; to anybody else, that staff have not.
+ * (`isServerAdmin`, who may use `/admin settings`), what to set and where; to anybody else, that
+ * staff have not.
  */
 export function notSetUpWords(what: string, staff: boolean): string {
   return `${NOT_SET_UP} ${staff ? what : NOT_TURNED_ON}`;
@@ -64,6 +79,20 @@ export function commandsIn(
         ? [command]
         : []
       : keptOf(command, (handler) => notSetUpIn(handler, values, ctx, serverId) === undefined),
+  );
+}
+
+/**
+ * The commands that work in a server in setup (plan 19C-2, `worksInSetup`): of a command of
+ * subcommands only those that do, so that its `/help` lists what works there.
+ */
+export function commandsInSetup(commands: readonly CommandModule[]): CommandModule[] {
+  return commands.flatMap((command): CommandModule[] =>
+    command.subcommands === undefined
+      ? command.worksInSetup === true
+        ? [command]
+        : []
+      : keptOf(command, (handler) => handler.worksInSetup === true),
   );
 }
 

@@ -65,7 +65,7 @@ const pittsburgh = serverNamed(SERVER, {
 async function fillWith(
   rows = [] as ReturnType<typeof filledRow>[],
   settings: Settings = fileSettings,
-  more: Partial<Pick<ConstructorParameters<typeof ServerFill>[0], 'recordedForum'>> & {
+  more: Partial<Pick<ConstructorParameters<typeof ServerFill>[0], 'recordedForum' | 'recorded'>> & {
     /** What sends a notice into the lab (plan 19B-1, `ServerNotices`); recorded unless given. */
     send?: (channelId: string, text: string) => Promise<void>;
   } = {},
@@ -91,6 +91,8 @@ async function fillWith(
     settings,
     log,
     notices,
+    // As at the upgrade: every server Pine was in is recorded (migration 061), unless given.
+    recorded: more.recorded ?? (() => true),
     ...(more.recordedForum === undefined ? {} : { recordedForum: more.recordedForum }),
   });
   return { store, servers, fill, told, entries, notices };
@@ -196,7 +198,7 @@ describe('the fill: rows for servers that have none', () => {
     );
   });
 
-  it('records every server present at the upgrade set up, and a server that joins later not', async () => {
+  it('records a server present and recorded set up, and a server that joins later not', async () => {
     const { servers, fill } = await fillWith();
     await fillPresent(fill, [pittsburgh]);
     fill.begin(serverNamed(JOINED, {}), 'joined');
@@ -205,11 +207,24 @@ describe('the fill: rows for servers that have none', () => {
     expect(servers.setUpAt(JOINED)).toBeNull();
   });
 
-  it('records no server set up when the table had rows at the start', async () => {
-    const { servers, fill } = await fillWith([filledRow({ serverId: JOINED })]);
-    await fillPresent(fill, [pittsburgh]);
-    expect(servers.has(SERVER)).toBe(true);
-    expect(servers.setUpAt(SERVER)).toBeNull();
+  it('decides set up by the record, never by an empty table (plan 19C-2, S2)', async () => {
+    // A server present at the first start that was never recorded (a new install's listed or
+    // open server, one waiting for the owner's word) starts in setup, the table empty or not.
+    const empty = await fillWith([], fileSettings, { recorded: () => false });
+    await fillPresent(empty.fill, [pittsburgh]);
+    expect(empty.servers.setUpAt(SERVER)).toBeNull();
+    // A server recorded at the upgrade whose row could not be written then is set up at the
+    // next start, where other servers have their rows.
+    const later = await fillWith([filledRow({ serverId: JOINED })], fileSettings, {
+      recorded: (serverId) => serverId === SERVER,
+    });
+    await fillPresent(later.fill, [pittsburgh]);
+    expect(later.servers.setUpAt(SERVER)).toBe(NOW);
+    // One recorded that comes as joined (it added the bot again later) is not.
+    const joined = await fillWith([], fileSettings, { recorded: () => true });
+    joined.fill.begin(serverNamed(JOINED, {}), 'joined');
+    await joined.fill.whenFilled(JOINED);
+    expect(joined.servers.setUpAt(JOINED)).toBeNull();
   });
 
   it('leaves a server that has its row as it is', async () => {

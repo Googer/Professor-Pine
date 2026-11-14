@@ -40,6 +40,7 @@ function setup() {
   });
   const servers = new TestServers();
   servers.setUp.set(HOME, NOW - 10 * DAY);
+  servers.settingUp.add(NEIGHBOR);
   const base = createTestContext().ctx;
   const { ctx } = createTestContext({
     config: instanceConfig(base, { operators: [OPERATOR_ID] }),

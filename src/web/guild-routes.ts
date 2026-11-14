@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isSnowflake } from '../db/snowflake.js';
 import { REFUSED } from '../services/costly.js';
 import { sendFailure, shortPage } from './answers.js';
@@ -43,6 +43,56 @@ export type GuildRequest = FastifyRequest<{ Params: { guild: string } }>;
 /** The map's member role where the bot cannot name it: `you need the map member role`. */
 export const MAP_ROLE_UNNAMED = 'map member';
 
+/**
+ * The addresses of a server in setup that its staff may use (plan 19C-2): the region editor
+ * (`editorRoutes`) and the map it draws on, with the two answers the map needs to open it (who is
+ * asking, the regions and gyms). Each by its route, under `/s/:guild`.
+ */
+const SETUP_ROUTES: ReadonlySet<string> = new Set([
+  '/regions/edit',
+  '/api/regions/edit',
+  '/api/regions/preview',
+  '/api/regions/save',
+  '/map',
+  '/api/me',
+  '/api/geo',
+]);
+
+/** The prefix of a server's routes (`buildWebServer`). */
+const GUILD_PREFIX = '/s/:guild';
+
+/**
+ * Whether a request to a server in setup is let through (plan 19C-2): one of `SETUP_ROUTES`, by
+ * somebody logged in whom the member directory finds staff who may edit the server's regions
+ * (`mayEditRegions`, as the map's hint of the editor reads them: kept a minute, never a fresh
+ * look-up for every request); the editor's own routes then ask Discord afresh, as anywhere. Not
+ * where the directory cannot say.
+ */
+async function editsInSetup(
+  request: GuildRequest,
+  reply: FastifyReply,
+  deps: WebDeps,
+): Promise<boolean> {
+  const route = request.routeOptions.url;
+  if (route === undefined || !route.startsWith(GUILD_PREFIX)) return false;
+  if (!SETUP_ROUTES.has(route.slice(GUILD_PREFIX.length))) return false;
+  const session = await deps.sessions.of(request, reply);
+  if (!session) return false;
+  try {
+    const found = await deps.members.find(request.params.guild, session.userId);
+    return (
+      found?.standing !== undefined &&
+      mayEditRegions(found.standing, session.userId, deps.parties.ownerId)
+    );
+  } catch (err) {
+    deps.log.warn(
+      { err, guild: request.params.guild, user: session.userId },
+      'could not ask whether somebody on the web pages is staff of a server in setup',
+    );
+    return false;
+  }
+}
+
 export function guildRoutes(
   scope: FastifyInstance,
   deps: WebDeps,
@@ -66,6 +116,10 @@ export function guildRoutes(
   scope.addHook('onRequest', async (request: GuildRequest, reply) => {
     const { guild } = request.params;
     if (!isSnowflake(guild) || !deps.servers.has(guild)) return sendFailure(request, reply, 404);
+    // A server in setup (plan 19C-2) is one Pine is not in, but for its staff's region editor.
+    if (deps.servers.inSetup(guild) && !(await editsInSetup(request, reply, deps))) {
+      return sendFailure(request, reply, 404);
+    }
     // The server's zone, once for the whole answer (plan 19A-2, `requestZone`).
     takeZone(request, deps.serverSettings.zoneOf(guild));
   });
@@ -181,6 +235,9 @@ export function guildRoutes(
         csrf: sessions.csrfToken(session),
         readOnly,
         mayEditRegions: mayEdit,
+        // A server in setup (plan 19C-2, S11), which only its staff's region editor reaches: the
+        // page starts no live layer.
+        ...(deps.servers.inSetup(guild) ? { inSetup: true } : {}),
         ...(missingRole === undefined ? {} : { missingRole }),
         ...(invite === undefined ? {} : { invite }),
       };

@@ -1,4 +1,4 @@
-import { isBotManagement } from '../discord/guards.js';
+import { isBotManagement, mayManageServer } from '../discord/guards.js';
 import type { RegionStaff } from '../services/region-admin-service.js';
 
 /**
@@ -35,24 +35,32 @@ export interface RegionStaffSource {
 
 /**
  * Whether a member may edit a server's regions by their roles and permissions: the same check as
- * the guard of `/region` (`requireBotManagement`: an admin, a moderator or a bot developer by
- * role, or the bot's owner: `isBotManagement`), and the permission Discord asks of whoever is
- * offered `/region` by default (Manage Server, its `default_member_permissions`): on the web
- * nobody but the bot checks, so it checks both. One rule for the decision (`regionStaffAnswer`,
- * on the member fetched fresh) and the map's hint (`/api/me`'s `mayEditRegions`, plan 8M-10, on
- * the member as the directory keeps them); a Manage Server the facts do not say is none.
+ * the guard of `/region edit` and `/region import` (`requireServerAdmin`, plan 19C-2:
+ * `mayManageServer`, the server's owner, who may manage it, its staff by role, the bot's owner),
+ * and the permission Discord asks of whoever is offered `/region` by default (Manage Server, its
+ * `default_member_permissions`): on the web nobody but the bot checks, so it checks both, which
+ * come to Manage Server (Discord says it of the server's owner and administrators too). One rule
+ * for the decision (`regionStaffAnswer`, on the member fetched fresh), the map's hint (`/api/me`'s
+ * `mayEditRegions`, plan 8M-10) and the editor of a server in setup (`guildRoutes`), the last two
+ * on the member as the directory keeps them; a Manage Server the facts do not say is none.
  */
 export function mayEditRegions(
   facts: { roleNames: readonly string[]; manageGuild?: boolean },
   userId: string,
   ownerId: string,
 ): boolean {
-  return facts.manageGuild === true && isBotManagement(facts.roleNames, userId, ownerId);
+  const manageGuild = facts.manageGuild === true;
+  return (
+    manageGuild &&
+    mayManageServer({ roleNames: facts.roleNames, manageGuild, guildOwner: false }, userId, ownerId)
+  );
 }
 
 /**
  * The decision, from what Discord says of the member (`mayEditRegions`). Whether they may create
- * channels is their own Manage Channels on the server, as `regionStaff` reads it for the command.
+ * channels is their own Manage Channels on the server, as `regionStaff` reads it for the command;
+ * whether they may remove a region is whether `/region remove` lets them (`isBotManagement`, plan
+ * 19C-2: staff by role, the bot's owner), the save refusing a removal to anybody else.
  */
 export function regionStaffAnswer(
   member: StaffFacts | undefined,
@@ -66,6 +74,12 @@ export function regionStaffAnswer(
   if (guildRow === undefined) return { kind: 'unknown-server' };
   return {
     kind: 'staff',
-    staff: { staffId: userId, guildId: guildRow, server, mayManageChannels: member.manageChannels },
+    staff: {
+      staffId: userId,
+      guildId: guildRow,
+      server,
+      mayManageChannels: member.manageChannels,
+      mayRemoveRegions: isBotManagement(member.roleNames, userId, ownerId),
+    },
   };
 }

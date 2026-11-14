@@ -36,6 +36,11 @@ export interface EditorData {
   readOnly: boolean;
   /** Whether the member may create channels (Manage Channels): new names need it. */
   mayManageChannels: boolean;
+  /**
+   * Whether the member may remove regions (plan 19C-2: staff by role, as `/region remove`): the
+   * page offers no removal of a saved region otherwise. Absent (a page of before): no.
+   */
+  mayRemoveRegions?: boolean;
   /** The server's regions, by id. */
   regions: EditorRegion[];
   /** Other servers' regions near these (grey, not selectable): their outlines alone. */

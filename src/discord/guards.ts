@@ -93,16 +93,38 @@ export function isStaff(interaction: LocatedInteraction, ctx: AppContext): boole
 }
 
 /**
- * Whether the invoking member is staff as `/admin` and `/help` count them (admins, moderators, bot
- * developers, the bot's owner: `requireBotManagement`): only they are told of a staff command,
- * such as `/admin settings` in a refusal (plan 19A-1, review F11).
+ * Who may set a server up (plan 19C-2, `servers.md`): its Discord owner, a member who may manage
+ * it (Manage Server, which administrators have), and its staff as `/admin` counts them
+ * (`isBotManagement`: an admin, a moderator or a bot developer by role, or the bot's owner). A
+ * new community's staff may lack the role names, so the server's own word counts too. The one
+ * rule of `requireServerAdmin`, of the router's and `/help`'s staff test, and of the web's region
+ * editor (`mayEditRegions`).
  */
-export function isBotStaff(
+export function mayManageServer(
+  facts: { roleNames: Iterable<string>; manageGuild: boolean; guildOwner: boolean },
+  userId: string,
+  ownerId: string,
+): boolean {
+  return facts.guildOwner || facts.manageGuild || isBotManagement(facts.roleNames, userId, ownerId);
+}
+
+/**
+ * Whether the invoking member may set the server up (`mayManageServer`): the server's owner, as
+ * the client has the server; Manage Server from the interaction (`memberPermissions`); or staff
+ * by role. In a DM only the bot's owner. Also who is staff as the router and `/help` count them
+ * (plan 19C-2): only they are told of a staff command, such as `/admin settings` or `/admin
+ * setup` in a refusal (plan 19A-1, review F11), and `/help` lists the staff commands to them.
+ */
+export function isServerAdmin(
   interaction: LocatedInteraction,
   ctx: Pick<AppContext, 'config'>,
 ): boolean {
-  return isBotManagement(
-    memberRoleNames(interaction),
+  return mayManageServer(
+    {
+      roleNames: memberRoleNames(interaction),
+      manageGuild: interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) ?? false,
+      guildOwner: interaction.inCachedGuild() && interaction.guild.ownerId === interaction.user.id,
+    },
     interaction.user.id,
     ctx.config.env.OWNER_ID,
   );
@@ -202,6 +224,21 @@ export const requireBotManagement: Guard = (interaction, ctx) => {
   }
 };
 
+/** What `requireServerAdmin` tells anybody else (plan 19C-2). */
+export const SERVER_ADMIN_ONLY =
+  'Only the server’s owner, members who may manage the server, and its admins, moderators and ' +
+  'bot developers can do that.';
+
+/**
+ * For what sets a server up (plan 19C-2, `isServerAdmin`): `/admin setup`, `/admin settings` and
+ * their controls and dialogs, and the ways to a server's regions its checklist sends to
+ * (`/region import`, `/region edit`, the import's questions). In a server only.
+ */
+export const requireServerAdmin: Guard = (interaction, ctx) => {
+  assertGuild(interaction);
+  if (!isServerAdmin(interaction, ctx)) throw new UserError(SERVER_ADMIN_ONLY);
+};
+
 /**
  * The instance as the operators' tiers read it (`src/domain/operators/tiers.ts`): the file's
  * operators and servers, and each server's standing (plan 19C-1).
@@ -293,11 +330,11 @@ export const requireBotChannel: Guard = (interaction, ctx) => {
   const values = ctx.servers.of(guildIdOf(interaction));
   if (!isBotChannel(channelContext(interaction).baseChannelId, values)) {
     const lab = values.channels['bot-lab'];
-    // `/admin settings` is named to staff only (review F11).
+    // `/admin settings` is named only to who may use it (review F11; plan 19C-2).
     throw new UserError(
       lab !== undefined
         ? `Use this in <#${lab}>.`
-        : isBotStaff(interaction, ctx)
+        : isServerAdmin(interaction, ctx)
           ? 'This server has no bot lab yet: staff set one with /admin settings.'
           : 'This server has no bot lab yet.',
     );

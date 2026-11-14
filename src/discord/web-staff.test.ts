@@ -60,16 +60,22 @@ describe('who is staff of a server on the web pages, asked of Discord', () => {
     const { staff, asked } = setup(() => member(['Moderator'], PermissionFlagsBits.Administrator));
     expect(await staff.check(SERVER, USER)).toEqual({
       kind: 'staff',
-      staff: { staffId: USER, guildId: 1, server: SERVER, mayManageChannels: true },
+      staff: {
+        staffId: USER,
+        guildId: 1,
+        server: SERVER,
+        mayManageChannels: true,
+        mayRemoveRegions: true,
+      },
     });
     expect(asked).toEqual([{ user: USER, force: true }]);
   });
 
-  it('is no staff without Manage Server, nor without a staff role', async () => {
+  it('is no staff without Manage Server, but staff with it without a staff role (plan 19C-2)', async () => {
     const noManage = setup(() => member(['Moderator'], PermissionFlagsBits.ManageChannels));
     expect(await noManage.staff.check(SERVER, USER)).toEqual({ kind: 'not-staff' });
     const noRole = setup(() => member(['Raider'], PermissionFlagsBits.ManageGuild));
-    expect(await noRole.staff.check(SERVER, USER)).toEqual({ kind: 'not-staff' });
+    expect(await noRole.staff.check(SERVER, USER)).toMatchObject({ kind: 'staff' });
   });
 
   it('is no member for somebody Discord does not know in the server', async () => {

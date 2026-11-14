@@ -478,6 +478,9 @@ export async function startApp(
     log,
     notices: serverNotices,
     recordedForum: async (serverId) => (await eventForumRecords.forum(serverId))?.forumId,
+    // Set up already where the record has it from before 2.1 or adopted by a new install at its
+    // first start (plan 19C-2, S2), asked when its fill is written.
+    recorded: (serverId) => standings.standingOf(serverId).recorded,
   });
   // Who is in (plan 19C-1): a server that may not have this Pine is told so in its system channel
   // and left, on joining and at every ready; a server Pine was in that no shard names any more is
@@ -1955,18 +1958,23 @@ export async function startApp(
       settings: webSettings,
       pictureOrigins: pictureOrigins(webSettings.publicUrl),
       googleKey: config.env.GOOGLE_MAPS_BROWSER_KEY,
-      // A server Pine left is answered as one it is not in (plan 19C-1).
+      // A server Pine left is answered as one it is not in (plan 19C-1); one in setup too, but
+      // for its staff's region editor (plan 19C-2).
       servers: {
         has: (guildId) => client.guilds.cache.has(guildId) && !standings.isLeft(guildId),
+        inSetup: (guildId) => servers.inSetup(guildId),
       },
       serverSettings: servers,
       roleName: (guildId, roleId) =>
         client.guilds.cache.get(guildId)?.roles.cache.get(roleId)?.name,
-      // The top page's servers (plan 8M-14): those the bot is in with a region that has an outline.
+      // The top page's servers (plan 8M-14): those the bot is in with a region that has an outline;
+      // not those it left (plan 19C-1) nor those in setup (plan 19C-2), whose maps are not there.
       serversWithMap: mapServers({
         joined: () =>
           joinedServers(
-            [...client.guilds.cache.values()].filter((guild) => !standings.isLeft(guild.id)),
+            [...client.guilds.cache.values()].filter(
+              (guild) => !standings.isLeft(guild.id) && !servers.inSetup(guild.id),
+            ),
           ),
         guilds,
         regions,

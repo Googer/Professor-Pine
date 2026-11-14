@@ -1250,7 +1250,9 @@ class Editor {
         }
         if (draft.regionId === null) {
           actions.append(button('Remove', () => this.remove(key, 'keep')));
-        } else {
+        } else if (this.data.mayRemoveRegions === true) {
+          // A saved region is removed by staff by role alone, as with `/region remove` (plan
+          // 19C-2): the save refuses it to anybody else.
           actions.append(button('Remove, keep its forum', () => this.remove(key, 'keep')));
           if (this.data.mayManageChannels) {
             actions.append(
