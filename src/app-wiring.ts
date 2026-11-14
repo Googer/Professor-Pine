@@ -183,10 +183,13 @@ export function followServers(deps: {
  * no server's), and Google's line is told of both by their `Guild` rows (`GymUpkeep.servingChanged`:
  * the shares are worked out anew, a left server's rows are held out of the line's range at
  * `OUT_OF_SHARE_RANK`, one back has its rows ranked anew by its regions, the raids read first, and
- * the line hurried; a server without a row known has none in the line).
+ * the line hurried; a server without a row known has none in the line). So is a server an operator
+ * allowed, blocked or unblocked (`whenStandingChanged`), whose being served may change without its
+ * leaving or coming back (a block whose leave failed, an unblock of a server Pine is still in): the
+ * line serves it, or not, at once rather than at its next turn.
  */
 export function followLeaving(
-  standings: Pick<ServerStandings, 'whenLeftChanged'>,
+  standings: Pick<ServerStandings, 'whenLeftChanged' | 'whenStandingChanged'>,
   deps: {
     dms: { dropServer(serverId: string): void };
     line: { servingChanged(guildRows: readonly number[]): void };
@@ -198,6 +201,10 @@ export function followLeaving(
     for (const serverId of left) dms.dropServer(serverId);
     const rows = [...left, ...back].flatMap((serverId) => rowOf(serverId) ?? []);
     if (rows.length > 0) line.servingChanged(rows);
+  });
+  standings.whenStandingChanged((serverId) => {
+    const row = rowOf(serverId);
+    if (row !== undefined) line.servingChanged([row]);
   });
 }
 

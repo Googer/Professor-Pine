@@ -61,6 +61,21 @@ export function tellOwnerOfShareRaise(
   tellOwner(interaction, ctx, { title: 'A server’s share of Google raised', change }, now);
 }
 
+/**
+ * Tells the bot's owner by DM that another instance operator changed which servers this Pine
+ * serves (`/operator servers allow`, `remove`, `block`, `unblock`, plan 19C-1), as
+ * `tellOwnerOfSharedChange` tells of a shared change: who and from where, and the server by its
+ * id. Called once the change is stored.
+ */
+export function tellOwnerOfServerChange(
+  interaction: GuardableInteraction,
+  ctx: Pick<AppContext, 'config' | 'dms'>,
+  change: string,
+  now: number = Date.now(),
+): void {
+  tellOwner(interaction, ctx, { title: 'This Pine’s servers changed', change }, now);
+}
+
 function tellOwner(
   interaction: GuardableInteraction,
   ctx: Pick<AppContext, 'config' | 'dms'>,

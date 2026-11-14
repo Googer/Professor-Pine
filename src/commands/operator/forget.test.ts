@@ -224,8 +224,8 @@ describe('/operator forget', () => {
         'at once: until those end, Pine treats them in those as a new member), 1 report at a ' +
         'stop, 2 confirmations of others’ reports at stops, 1 forum they were let into for a ' +
         'party.',
-      '- 4 records of what they did as staff (decisions, rulings, boss overrides, gyms and ' +
-        'stops): the servers’ record.',
+      '- 4 records of what they did as staff (decisions, rulings, boss overrides, servers, gyms ' +
+        'and stops): the servers’ record.',
       '- Counts without a name: the history’s entries and the activity.',
       '- Wild spawns they reported name them for about half an hour (the region’s message, the ' +
         'map), and the database holds no id of theirs; the direct messages others got of them ' +
@@ -307,8 +307,8 @@ describe('/operator forget', () => {
         'days.',
       '- What is live ends by itself: 1 report at a stop, 2 confirmations of others’ reports ' +
         'at stops, 1 forum they were let into for a party.',
-      '- 4 records of what they did as staff (decisions, rulings, boss overrides, gyms and ' +
-        'stops): the servers’ record.',
+      '- 4 records of what they did as staff (decisions, rulings, boss overrides, servers, gyms ' +
+        'and stops): the servers’ record.',
       '- Counts without a name: the history’s entries and the activity.',
       '- Wild spawns they reported name them for about half an hour (the region’s message, the ' +
         'map), and the database holds no id of theirs; the direct messages others got of them ' +

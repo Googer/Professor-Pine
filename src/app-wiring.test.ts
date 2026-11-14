@@ -472,6 +472,7 @@ describe('a server joining and removing Pine (plan 19C-1)', () => {
   const RECORDED = '412345678901234567';
   const STRANGER = '412345678901234568';
   const NOW = Date.parse('2026-11-13T18:00:00Z');
+  const OPERATOR = '323456789012345678';
 
   function followed(writing?: HeldCall) {
     const { log, entries } = createTestLogger();
@@ -564,6 +565,25 @@ describe('a server joining and removing Pine (plan 19C-1)', () => {
     // Nothing is dropped at its return; the line serves it again.
     expect(dropped).toEqual([RECORDED]);
     expect(served).toEqual([[7], [7]]);
+  });
+
+  it('tells Google’s line of a server an operator allows, blocks or unblocks, which neither leaves nor comes back', async () => {
+    const made = followed();
+    const dropped: string[] = [];
+    const served: (readonly number[])[] = [];
+    followLeaving(made.standings, {
+      dms: { dropServer: (serverId) => dropped.push(serverId) },
+      line: { servingChanged: (rows) => served.push(rows) },
+      rowOf: (serverId) => (serverId === RECORDED ? 7 : undefined),
+    });
+    await made.standings.block(RECORDED, OPERATOR);
+    await made.standings.unblock(RECORDED);
+    await made.standings.allow(RECORDED, OPERATOR);
+    // A server without a row has none in the line.
+    await made.standings.allow(STRANGER, OPERATOR);
+    expect(served).toEqual([[7], [7], [7]]);
+    // Its direct messages go only when it is left.
+    expect(dropped).toEqual([]);
   });
 
   it('logs what fails, and throws nothing', async () => {

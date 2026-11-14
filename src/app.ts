@@ -82,6 +82,7 @@ import { serverNamesOf } from './discord/server-names.js';
 import { wireServerStart } from './discord/server-start.js';
 import { ServerSettingsRepository } from './db/repositories/server-settings-repository.js';
 import { ServerRecordRepository } from './db/repositories/server-record-repository.js';
+import { LastPartyRepository } from './db/repositories/last-party-repository.js';
 import { ServerSettingsAuditRepository } from './db/repositories/server-settings-audit-repository.js';
 import { InteractionRouter } from './discord/router.js';
 import { lobbySize } from './domain/party/lobby.js';
@@ -486,6 +487,7 @@ export async function startApp(
     standings,
     exits: rehearsal ? undefined : serverExits,
     recorded: () => guilds.snowflakes(),
+    inServer: (serverId) => serverExits.inServer(serverId) && !standings.isLeft(serverId),
     // A new install's adoption (plan 19C-1, J1), made just before the login once it is known
     // whether the application is public; asked only once the client is there.
     undecided: (serverId) => serverAdoption.undecided(serverId),
@@ -1035,7 +1037,8 @@ export async function startApp(
     places: wayspotPlaces,
   });
   // A server Pine left (plan 19C-1), however it was marked: its queued DMs are dropped, and
-  // Google's line holds its rows until it is back.
+  // Google's line holds its rows until it is back. An operator's allow, block or unblock tells
+  // the line too: whether it serves a server may change without its leaving or coming back.
   followLeaving(standings, {
     dms,
     line: gymUpkeep,
@@ -1369,6 +1372,8 @@ export async function startApp(
     config,
     servers,
     standings,
+    admission,
+    lastParties: new LastPartyRepository(db),
     log,
     db,
     commands,

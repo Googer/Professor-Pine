@@ -11,8 +11,11 @@ export interface ServerExits {
    * and send there; whether it did. Never a DM to anyone.
    */
   tell(serverId: string, text: string): Promise<boolean>;
-  /** Pine leaves the server. */
-  leave(serverId: string): Promise<void>;
+  /**
+   * Pine leaves the server: `left`, or `gone` where Discord says Pine is not in it (Unknown Guild:
+   * it was left already, or removed while nothing said so). Any other failure is thrown.
+   */
+  leave(serverId: string): Promise<'left' | 'gone'>;
 }
 
 export interface ServerAdmissionOptions {
@@ -27,19 +30,38 @@ export interface ServerAdmissionOptions {
    * of one row per server, bounded small by nature).
    */
   recorded: () => Promise<readonly string[]>;
+  /** Whether Pine is in a server now (the client's servers, those it left not among them). */
+  inServer: (serverId: string) => boolean;
   /**
    * A server a new install waits on (`ServerAdoption.undecided`: down at its first start, its
    * owner not known yet): neither refused nor marked until it is decided.
    */
   undecided?: (serverId: string) => boolean;
+  /** The waits before each further try of a leave that failed (`LEAVE_RETRY_MS` unless given). */
+  leaveRetryMs?: readonly number[];
+  /** How a wait between tries is waited (an unref'd timer unless given: tests record them). */
+  wait?: (ms: number) => Promise<void>;
   log: Logger;
 }
+
+/**
+ * The waits before each further try of a leave that failed (J8): a minute, five, thirty; then
+ * the next ready asks again.
+ */
+export const LEAVE_RETRY_MS: readonly number[] = [60_000, 5 * 60_000, 30 * 60_000];
 
 /**
  * How many servers are remembered as told that this Pine is private (oldest out; one forgotten
  * is told again, which costs a line in its system channel).
  */
 const TOLD_SERVERS = 10_000;
+
+/** A wait that keeps no process alive (a shutdown does not wait for a leave's next try). */
+function waitUnref(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms).unref();
+  });
+}
 
 /**
  * Who is in (plan 19C-1; spec "Joining, the setup state, leaving"): a server that may not have
@@ -67,9 +89,11 @@ export class ServerAdmission {
   }
 
   /**
-   * Tells the server that this Pine is private, where it may, and leaves it; logged with the
-   * server's id. Once at a time per server (a join and a ready meet); returns at once, never
-   * throws.
+   * Tells the server that this Pine is private, where it may and once while the bot runs, and
+   * leaves it, a leave that fails tried again (`LEAVE_RETRY_MS`, J8) while the server may still
+   * not have this Pine (an operator may allow it meanwhile); then it is marked left (where Pine
+   * had it: a `Guild` row). Logged with the server's id. Once at a time per server (a join and a
+   * ready meet); returns at once, never throws.
    */
   refuse(serverId: string): void {
     if (this.refusing.has(serverId)) return;
@@ -81,7 +105,7 @@ export class ServerAdmission {
       );
       return;
     }
-    const work = (async () => {
+    this.track(serverId, async () => {
       // Once while the bot runs (a server whose staff add Pine again is not told again).
       let told = this.told.has(serverId);
       if (!told) {
@@ -92,16 +116,67 @@ export class ServerAdmission {
           log.warn({ err, server: serverId }, 'could not tell a server that this Pine is private');
         }
       }
-      try {
-        await exits.leave(serverId);
-        log.info({ server: serverId, told }, 'left a server that may not have this Pine');
-      } catch (err) {
-        log.error({ err, server: serverId }, 'could not leave a server');
-      }
-    })().finally(() => {
+      await this.leaveTrying(
+        exits,
+        serverId,
+        0,
+        // An operator may allow it meanwhile: then Pine stays.
+        () => !this.admits(serverId),
+        async () => {
+          await this.options.standings.markLeft([serverId]);
+          log.info({ server: serverId, told }, 'left a server that may not have this Pine');
+        },
+      );
+    });
+  }
+
+  /** Runs a server's leave in the background, one at a time per server (`idle` waits for it). */
+  private track(serverId: string, work: () => Promise<void>): void {
+    const done = work().finally(() => {
       this.refusing.delete(serverId);
     });
-    this.refusing.set(serverId, work);
+    this.refusing.set(serverId, done);
+  }
+
+  /**
+   * Leaves a server, a failed try made again after each of `leaveRetryMs` (J8: Discord away for a
+   * while), from the try `from`, each try only while `wanted` holds (a refusal: while the server
+   * may still not have this Pine; an operator's removal: always); then `left`, where the leave went
+   * through or Discord says Pine is not in the server (`gone`, Unknown Guild: neither tried again
+   * nor an error). After the last, given up until the next ready asks again. Never rejects: each
+   * failure is logged.
+   */
+  private async leaveTrying(
+    exits: ServerExits,
+    serverId: string,
+    from: number,
+    wanted: () => boolean,
+    left: () => Promise<void> | void,
+  ): Promise<void> {
+    const { log } = this.options;
+    const waits = this.options.leaveRetryMs ?? LEAVE_RETRY_MS;
+    const wait = this.options.wait ?? waitUnref;
+    for (let attempt = from; attempt <= waits.length; attempt += 1) {
+      if (attempt > 0) await wait(waits[attempt - 1] ?? 0);
+      if (!wanted()) {
+        log.info({ server: serverId }, 'stopped leaving a server that may have this Pine now');
+        return;
+      }
+      try {
+        const how = await exits.leave(serverId);
+        if (how === 'gone') log.info({ server: serverId }, 'Pine was not in a server it left');
+      } catch (err) {
+        log.error({ err, server: serverId, attempt }, 'could not leave a server');
+        continue;
+      }
+      try {
+        await left();
+      } catch (err) {
+        log.error({ err, server: serverId }, 'could not record that the bot left a server');
+      }
+      return;
+    }
+    log.warn({ server: serverId }, 'gave up leaving a server until the next ready');
   }
 
   /**
@@ -160,6 +235,35 @@ export class ServerAdmission {
 
   private undecided(serverId: string): boolean {
     return this.options.undecided?.(serverId) === true;
+  }
+
+  /**
+   * An instance operator has Pine leave a server (`/operator servers remove`, `block`): it leaves
+   * without a word and the server is marked left (its row and everything on it kept, as for a
+   * server whose staff removed Pine). `not-in` where Pine is not in it; `rehearsal` in rehearsal
+   * mode, which leaves no server; `trying` where the leave failed (or one is under way already):
+   * it is tried again in the background as a refusal's is (J8), and the server marked left once
+   * it went through. A write that fails after the leave is thrown.
+   */
+  async remove(serverId: string): Promise<'left' | 'not-in' | 'rehearsal' | 'trying'> {
+    const { exits, standings, inServer, log } = this.options;
+    if (!inServer(serverId)) return 'not-in';
+    if (exits === undefined) return 'rehearsal';
+    if (this.refusing.has(serverId)) return 'trying';
+    const left = async (): Promise<void> => {
+      await standings.markLeft([serverId]);
+      log.info({ server: serverId }, 'left a server an operator removed');
+    };
+    try {
+      await exits.leave(serverId);
+    } catch (err) {
+      log.warn({ err, server: serverId }, 'could not leave a server an operator removed');
+      // The operator's word stands, whatever allows the server.
+      this.track(serverId, () => this.leaveTrying(exits, serverId, 1, () => true, left));
+      return 'trying';
+    }
+    await left();
+    return 'left';
   }
 
   /** Once every refusal under way is done (shutdown, tests). */

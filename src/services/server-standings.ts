@@ -59,6 +59,8 @@ export class ServerStandings {
   private readonly turns = new Map<string, Promise<unknown>>();
   /** Who is told of the servers marked left and back (`whenLeftChanged`). */
   private readonly leftListeners: ((change: LeftChange) => void)[] = [];
+  /** Who is told of a server an operator allowed, blocked or unblocked (`whenStandingChanged`). */
+  private readonly standingListeners: ((serverId: string) => void)[] = [];
 
   constructor(private readonly options: ServerStandingsOptions) {
     for (const row of options.rows ?? []) this.rows.set(row.serverId, { ...row });
@@ -192,6 +194,73 @@ export class ServerStandings {
     for (const serverId of adopted) this.unwritten.delete(serverId);
     this.open = false;
     return adopted;
+  }
+
+  /** Every server's row as kept, by server (`/operator servers list`). */
+  all(): readonly StoredServerRecord[] {
+    return [...this.rows.values()].sort((a, b) => a.serverId.localeCompare(b.serverId));
+  }
+
+  /**
+   * An instance operator allows a server (`/operator servers allow`): written, then kept, then
+   * the listeners told (`whenStandingChanged`).
+   */
+  async allow(serverId: string, by: string): Promise<void> {
+    await this.inTurn([serverId], async () => {
+      const at = this.now();
+      await this.options.store.allow(serverId, at, by);
+      this.rows.set(serverId, { ...this.rowOf(serverId), allowedAt: at, allowedBy: by });
+      this.tellStanding(serverId);
+    });
+  }
+
+  /**
+   * An instance operator blocks a server (`/operator servers block`): written, then kept, then the
+   * listeners told (`whenStandingChanged`).
+   */
+  async block(serverId: string, by: string): Promise<void> {
+    await this.inTurn([serverId], async () => {
+      const at = this.now();
+      await this.options.store.block(serverId, at, by);
+      this.rows.set(serverId, { ...this.rowOf(serverId), blockedAt: at, blockedBy: by });
+      this.tellStanding(serverId);
+    });
+  }
+
+  /**
+   * A server's block taken back (`/operator servers unblock`): written, then kept, then the
+   * listeners told (`whenStandingChanged`).
+   */
+  async unblock(serverId: string): Promise<void> {
+    await this.inTurn([serverId], async () => {
+      await this.options.store.unblock(serverId);
+      const row = this.rows.get(serverId);
+      if (row) this.rows.set(serverId, { ...row, blockedAt: null, blockedBy: null });
+      this.tellStanding(serverId);
+    });
+  }
+
+  /**
+   * Tells `listener` of each server an operator allowed, blocked or unblocked, once written and
+   * kept (plan 19C-1: whether it may have this Pine may have changed without its leaving or
+   * coming back, as a block whose leave failed: Google's line serves it, or not, at once). Every
+   * listener is told; one that throws is logged.
+   */
+  whenStandingChanged(listener: (serverId: string) => void): void {
+    this.standingListeners.push(listener);
+  }
+
+  private tellStanding(serverId: string): void {
+    for (const listener of this.standingListeners) {
+      try {
+        listener(serverId);
+      } catch (err) {
+        this.options.log.error(
+          { err, server: serverId },
+          'a listener of servers’ standings failed',
+        );
+      }
+    }
   }
 
   /**

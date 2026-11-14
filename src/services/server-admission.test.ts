@@ -4,7 +4,7 @@ import { serverRecordRow } from '../../test/support/server-record-cases.js';
 import { standingsWith } from '../../test/support/server-standings.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { PRIVATE_INSTANCE_TEXT } from '../render/server-admission.js';
-import { RecordingExits } from '../../test/support/server-admission.js';
+import { RecordingExits, recordedWaits } from '../../test/support/server-admission.js';
 import { ServerAdmission } from './server-admission.js';
 
 /** Recorded at the upgrade: allowed. */
@@ -29,6 +29,8 @@ function admissionWith(
   more: {
     recorded?: () => Promise<readonly string[]>;
     undecided?: (serverId: string) => boolean;
+    /** Runs during each wait between tries of a leave, once it is recorded. */
+    whileWaiting?: () => Promise<void>;
   } = {},
 ) {
   const { log, entries } = createTestLogger();
@@ -41,14 +43,21 @@ function admissionWith(
   // Every server Pine was in has its Guild row: the recorded ones.
   store.guilds.add(GONE);
   const exits = new RecordingExits();
+  const waits = recordedWaits();
   const admission = new ServerAdmission({
+    wait: async (ms) => {
+      await waits.wait(ms);
+      await more.whileWaiting?.();
+    },
     standings,
     exits: rehearsal ? undefined : exits,
     recorded: more.recorded ?? (() => Promise.resolve([...store.guilds])),
+    // GONE removed the bot while it was away: no longer among its servers.
+    inServer: (serverId) => [ALLOWED, DOWN].includes(serverId) && !standings.isLeft(serverId),
     ...(more.undecided === undefined ? {} : { undecided: more.undecided }),
     log,
   });
-  return { admission, standings, store, exits, entries };
+  return { admission, standings, store, exits, entries, waited: waits.waited };
 }
 
 describe('ServerAdmission (plan 19C-1)', () => {
@@ -103,6 +112,92 @@ describe('ServerAdmission (plan 19C-1)', () => {
     await admission.idle();
     const failed = entries.find((entry) => entry['msg'] === 'could not leave a server');
     expect(failed).toMatchObject({ server: STRANGER });
+  });
+
+  it('tries a leave that failed again a minute, five and thirty minutes later, telling the server once (J8)', async () => {
+    const { admission, exits, waited } = admissionWith();
+    exits.failLeaves = 2;
+    admission.refuse(STRANGER);
+    await admission.idle();
+    expect(exits.left).toEqual([STRANGER]);
+    expect(exits.leavesAsked).toEqual([STRANGER, STRANGER, STRANGER]);
+    expect(waited).toEqual([60_000, 5 * 60_000]);
+    expect(exits.said).toHaveLength(1);
+  });
+
+  it('gives a leave up after its last try, until the next ready asks again (J8)', async () => {
+    const { admission, exits, waited, entries } = admissionWith();
+    exits.failLeave = new Error('Discord is away');
+    admission.refuse(STRANGER);
+    await admission.idle();
+    expect(waited).toEqual([60_000, 5 * 60_000, 30 * 60_000]);
+    expect(exits.leavesAsked).toHaveLength(4);
+    expect(
+      entries.find((entry) => entry['msg'] === 'gave up leaving a server until the next ready'),
+    ).toMatchObject({ server: STRANGER });
+  });
+
+  it('stops trying to leave a server it refused once an operator allows it meanwhile', async () => {
+    const OPERATOR = '323456789012345671';
+    const hooks: { whileWaiting?: () => Promise<void> } = {};
+    const { admission, standings, exits, waited, entries } = admissionWith(undefined, false, {
+      whileWaiting: () => hooks.whileWaiting?.() ?? Promise.resolve(),
+    });
+    exits.failLeave = new Error('Discord is away');
+    hooks.whileWaiting = () => standings.allow(STRANGER, OPERATOR);
+    admission.refuse(STRANGER);
+    await admission.idle();
+    // One try, then a wait during which it was allowed: no further try.
+    expect(exits.leavesAsked).toEqual([STRANGER]);
+    expect(waited).toEqual([60_000]);
+    expect(
+      entries.find(
+        (entry) => entry['msg'] === 'stopped leaving a server that may have this Pine now',
+      ),
+    ).toMatchObject({ server: STRANGER });
+    expect(
+      entries.some((entry) => entry['msg'] === 'gave up leaving a server until the next ready'),
+    ).toBe(false);
+  });
+
+  it('keeps trying to leave a server an operator removes, which stays allowed', async () => {
+    const { admission, standings, exits } = admissionWith();
+    exits.failLeaves = 2;
+    expect(admission.admits(ALLOWED)).toBe(true);
+    expect(await admission.remove(ALLOWED)).toBe('trying');
+    await admission.idle();
+    expect(exits.leavesAsked).toEqual([ALLOWED, ALLOWED, ALLOWED]);
+    expect(standings.isLeft(ALLOWED)).toBe(true);
+  });
+
+  it('counts a leave Discord answers with Unknown Guild as done: marked left, neither tried again nor logged as an error', async () => {
+    const { admission, standings, store, exits, waited, entries } = admissionWith();
+    // STRANGER had Pine (a Guild row) and may no longer have it; Pine is in neither it nor
+    // ALLOWED any more, though nothing said so.
+    store.guilds.add(STRANGER);
+    exits.gone.add(STRANGER);
+    exits.gone.add(ALLOWED);
+    admission.refuse(STRANGER);
+    await admission.idle();
+    expect(await admission.remove(ALLOWED)).toBe('left');
+    await admission.idle();
+    expect(standings.isLeft(STRANGER)).toBe(true);
+    expect(standings.isLeft(ALLOWED)).toBe(true);
+    expect(exits.leavesAsked).toEqual([STRANGER, ALLOWED]);
+    expect(waited).toEqual([]);
+    expect(entries.some((entry) => entry['level'] === 50)).toBe(false);
+  });
+
+  it('tries again in the background to leave a server an operator removes, and says so (J8)', async () => {
+    const { admission, standings, exits, waited } = admissionWith();
+    exits.failLeaves = 1;
+    expect(await admission.remove(ALLOWED)).toBe('trying');
+    await admission.idle();
+    expect(exits.left).toEqual([ALLOWED]);
+    expect(waited).toEqual([60_000]);
+    expect(standings.isLeft(ALLOWED)).toBe(true);
+    // Nothing is said in the server.
+    expect(exits.said).toEqual([]);
   });
 
   it('at every ready leaves the present servers that may not have it, and marks left the recorded that are gone', async () => {
@@ -205,6 +300,20 @@ describe('ServerAdmission (plan 19C-1)', () => {
           'a server may not have this Pine: rehearsal mode neither tells nor leaves it',
       ),
     ).toMatchObject({ server: STRANGER });
+  });
+
+  it('leaves a server an operator removes, without a word, and marks it left', async () => {
+    const { admission, standings, exits } = admissionWith();
+    expect(await admission.remove(ALLOWED)).toBe('left');
+    expect(exits.left).toEqual([ALLOWED]);
+    expect(exits.said).toEqual([]);
+    expect(standings.isLeft(ALLOWED)).toBe(true);
+    // Still allowed: its staff may add Pine again.
+    expect(admission.admits(ALLOWED)).toBe(true);
+    // A server Pine is not in is not left.
+    expect(await admission.remove(STRANGER)).toBe('not-in');
+    expect(await admission.remove(GONE)).toBe('not-in');
+    expect(exits.left).toEqual([ALLOWED]);
   });
 
   it('logs a check that failed, and throws nothing', async () => {

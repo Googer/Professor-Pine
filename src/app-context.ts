@@ -80,6 +80,8 @@ import type { MemberStatsService } from './services/member-stats.js';
 import type { EventWindows } from './services/event-window-service.js';
 import type { ServerSettingsService } from './services/server-settings.js';
 import type { ServerStandings } from './services/server-standings.js';
+import type { ServerAdmission } from './services/server-admission.js';
+import type { LastPartyReader } from './db/repositories/last-party-repository.js';
 
 /** Everything a handler may use. Later phases add services here. */
 export interface AppContext {
@@ -94,6 +96,13 @@ export interface AppContext {
    * Pine"): recorded at the upgrade, allowed or blocked by an operator, left.
    */
   readonly standings: ServerStandings;
+  /**
+   * Pine leaving a server an instance operator removes or blocks (`/operator servers`, plan
+   * 19C-1; `ServerAdmission.remove`).
+   */
+  readonly admission: Pick<ServerAdmission, 'remove'>;
+  /** When each server's last party was made, from the history (`/operator servers list`). */
+  readonly lastParties: LastPartyReader;
   readonly log: Logger;
   readonly db: Kysely<DB>;
   readonly commands: readonly CommandModule[];

@@ -23,6 +23,12 @@ const SHARED = [
   'event-window set',
   'event-window end',
   'google share',
+  // The servers this Pine serves (plan 19C-1): the instance's, never /admin's.
+  'servers list',
+  'servers allow',
+  'servers remove',
+  'servers block',
+  'servers unblock',
 ];
 
 /** `/operator` on an instance with an operator of the file, listed (unset) or `open`. */
@@ -53,8 +59,8 @@ describe('/operator (plan 19B-1)', () => {
     const { details } = operator.help;
     expect(details).toContain(
       'Its operators change them, from any server or a direct message with me. Unless this Pine ' +
-        'is open to every server, the admins, moderators and bot developers of its servers may ' +
-        'too, from their server (where it lists its servers, those of the listed ones only).',
+        'is open to every server, the admins, moderators and bot developers of the servers it ' +
+        'serves may too, from their server.',
     );
   });
 

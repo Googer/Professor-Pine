@@ -159,6 +159,29 @@ describe('/help: /operator', () => {
     expect(groupsOf(await ask(OPERATOR_IN_DM, listed))).toContain('Administration');
   });
 
+  it('names google share and servers to the instance operators alone, as forget (plan 19C-1)', async () => {
+    const instanceOnly = [
+      'operator google share',
+      'operator servers list',
+      'operator servers allow',
+      'operator servers remove',
+      'operator servers block',
+      'operator servers unblock',
+    ];
+    const toStaff = await choices('operator', MODERATOR, listed);
+    for (const path of instanceOnly) expect(toStaff).not.toContain(path);
+    for (const asker of [{ userId: ctx.config.env.OWNER_ID }, OPERATOR_IN_DM]) {
+      const offered = [
+        ...(await choices('operator g', asker, listed)),
+        ...(await choices('operator s', asker, listed)),
+      ];
+      for (const path of instanceOnly) expect(offered).toContain(path);
+    }
+    await expect(
+      ask({ ...MODERATOR, options: { command: 'operator servers list' } }, listed),
+    ).rejects.toThrow('There is no /operator servers list command.');
+  });
+
   it('answers it as nonexistent to staff who are no operators where they ask', async () => {
     // An open instance: a server's staff change none of what every server shares.
     expect(await choices('operator', MODERATOR, open)).toEqual([]);

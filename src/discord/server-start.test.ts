@@ -425,6 +425,7 @@ describe('a new install keeps its owner’s server (plan 19C-1, J1)', () => {
         standings,
         exits,
         recorded: () => Promise.resolve([...store.guilds]),
+        inServer: () => true,
         undecided: (serverId) => adoption.undecided(serverId),
         log,
       });

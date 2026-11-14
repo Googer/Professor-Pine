@@ -8,6 +8,7 @@ import { ServerStandings } from './server-standings.js';
 
 const RECORDED = '412345678901234567';
 const NEWCOMER = '412345678901234568';
+const STAFF = '323456789012345678';
 
 function standingsWith(servers: Settings['servers'], rows = [recordedRow()]) {
   const settings = { ...loadSettings(TEST_SETTINGS_PATH), servers };
@@ -70,6 +71,20 @@ describe('ServerStandings', () => {
     await standings.cameBack([RECORDED, NEWCOMER]);
     expect(standings.isLeft(RECORDED)).toBe(false);
     expect(store.rows.get(RECORDED)?.leftAt).toBeNull();
+  });
+
+  it('records an operator’s allowance, block and unblock, and keeps them in memory', async () => {
+    const { standings, store } = standingsWith(undefined);
+    await standings.load();
+    await standings.allow(NEWCOMER, STAFF);
+    expect(standings.mayHave(NEWCOMER)).toBe(true);
+    await standings.block(RECORDED, STAFF);
+    expect(standings.mayHave(RECORDED)).toBe(false);
+    expect(store.rows.get(RECORDED)).toMatchObject({ blockedBy: STAFF });
+    expect(standings.all().map((row) => row.serverId)).toEqual([RECORDED, NEWCOMER]);
+    await standings.unblock(RECORDED);
+    expect(standings.mayHave(RECORDED)).toBe(true);
+    expect(store.rows.get(RECORDED)).toMatchObject({ blockedAt: null, blockedBy: null });
   });
 
   it('is open to adopting servers only while no server was ever recorded, on an instance without a list', async () => {
@@ -169,6 +184,33 @@ describe('ServerStandings', () => {
     expect(
       entries.filter((entry) => entry.msg === 'a listener of servers left failed'),
     ).toHaveLength(2);
+  });
+
+  it('tells its listeners of each server an operator allowed, blocked or unblocked, once written and kept', async () => {
+    const { standings, store, entries } = standingsWith(undefined);
+    await standings.load();
+    const heard: { serverId: string; mayHave: boolean }[] = [];
+    standings.whenStandingChanged((serverId) =>
+      heard.push({ serverId, mayHave: standings.mayHave(serverId) }),
+    );
+    standings.whenStandingChanged(() => {
+      throw new Error('a listener that fails');
+    });
+    await standings.allow(NEWCOMER, STAFF);
+    await standings.block(RECORDED, STAFF);
+    await standings.unblock(RECORDED);
+    // A write that fails changes nothing, and nobody is told.
+    store.failing.set('block', new Error('the database is away'));
+    await expect(standings.block(NEWCOMER, STAFF)).rejects.toThrow('the database is away');
+    expect(heard).toEqual([
+      { serverId: NEWCOMER, mayHave: true },
+      { serverId: RECORDED, mayHave: false },
+      { serverId: RECORDED, mayHave: true },
+    ]);
+    // The listener that fails is logged; the others are told all the same.
+    expect(
+      entries.filter((entry) => entry.msg === 'a listener of servers’ standings failed'),
+    ).toHaveLength(3);
   });
 
   it('may start from rows read already, where nothing is awaited', () => {

@@ -1,4 +1,10 @@
-import { PermissionFlagsBits, Routes, type Client } from 'discord.js';
+import {
+  DiscordAPIError,
+  PermissionFlagsBits,
+  RESTJSONErrorCodes,
+  Routes,
+  type Client,
+} from 'discord.js';
 import type { ServerExits } from '../services/server-admission.js';
 
 /**
@@ -16,6 +22,11 @@ export class DiscordServerExits implements ServerExits {
     this.current = client;
   }
 
+  /** Whether the client's cache has the server (one Pine left may be among them: ask that too). */
+  inServer(serverId: string): boolean {
+    return this.current?.guilds.cache.has(serverId) === true;
+  }
+
   async tell(serverId: string, text: string): Promise<boolean> {
     const guild = this.current?.guilds.cache.get(serverId);
     const channel = guild?.systemChannel;
@@ -27,8 +38,17 @@ export class DiscordServerExits implements ServerExits {
     return true;
   }
 
-  async leave(serverId: string): Promise<void> {
+  /** `gone` where Discord answers Unknown Guild (10004): Pine is not in the server. */
+  async leave(serverId: string): Promise<'left' | 'gone'> {
     if (!this.current) throw new Error('no client to leave a server with');
-    await this.current.rest.delete(Routes.userGuild(serverId));
+    try {
+      await this.current.rest.delete(Routes.userGuild(serverId));
+    } catch (err) {
+      if (err instanceof DiscordAPIError && err.code === RESTJSONErrorCodes.UnknownGuild) {
+        return 'gone';
+      }
+      throw err;
+    }
+    return 'left';
   }
 }

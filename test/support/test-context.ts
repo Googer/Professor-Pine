@@ -1,5 +1,6 @@
 import { RecordingNotices } from './server-notices.js';
 import { standingsWith } from './server-standings.js';
+import type { ServerAdmission } from '../../src/services/server-admission.js';
 import type { Kysely } from 'kysely';
 import type { AppContext } from '../../src/app-context.js';
 import { Throttles } from '../../src/discord/throttle.js';
@@ -123,6 +124,13 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     // The test server and the second were recorded at the upgrade (plan 19C-1), unless a test
     // passes its own (`standingsWith`).
     standings: standingsWith({ log }).standings,
+    // No server can be left; a test of `/operator servers` passes its own (`admissionWith`).
+    admission: unavailable<Pick<ServerAdmission, 'remove'>>(
+      'admission',
+      'pass { admission } from admissionWith() (test/support/server-admission.ts)',
+    ),
+    // No party was recorded in any server.
+    lastParties: { lastPartyAt: () => Promise.resolve(new Map()) },
     log,
     db: {} as Kysely<DB>,
     commands: [],

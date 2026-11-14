@@ -293,7 +293,7 @@ function leftLines(look: MemberLook, written: Written): string[] {
   if (held.staffActs > 0) {
     lines.push(
       `${count(held.staffActs, 'record')} of what they did as staff (decisions, rulings, boss ` +
-        `overrides, gyms and stops): the servers’ record.`,
+        `overrides, servers, gyms and stops): the servers’ record.`,
     );
   }
   return lines;

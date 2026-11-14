@@ -213,6 +213,10 @@ export interface FakeOptions {
    * Change… names its server (plan 8R-4).
    */
   serverNames?: Record<string, string>;
+  /** The member counts of those servers (`Guild.memberCount`, plan 19C-1); none unless given. */
+  serverMembers?: Record<string, number>;
+  /** Those of them Discord says are unavailable (`Guild.available` false, plan 19C-1). */
+  unavailableServers?: readonly string[];
   /** A control: the message it is on is private (`interaction.message.flags` has Ephemeral). */
   ephemeralMessage?: boolean;
   /**
@@ -950,7 +954,20 @@ function base(kind: Kind, o: FakeOptions) {
       // DM reads a server's name from.
       guilds: {
         cache: new Map(
-          Object.entries(o.serverNames ?? {}).map(([id, name]) => [id, { id, name }] as const),
+          Object.entries(o.serverNames ?? {}).map(
+            ([id, name]) =>
+              [
+                id,
+                {
+                  id,
+                  name,
+                  available: !(o.unavailableServers ?? []).includes(id),
+                  ...(o.serverMembers?.[id] === undefined
+                    ? {}
+                    : { memberCount: o.serverMembers[id] }),
+                },
+              ] as const,
+          ),
         ),
       },
     },
