@@ -19,11 +19,13 @@ export function shareUsedNotice(
       ? `its share of this month’s places searches (${amount(share)})`
       : `its share of this month’s addresses (${amount(share)})`;
   return (
-    `This server has used ${what} at Google, which Pine shares between the servers it is in ` +
-    'by what each has waiting. Its gyms, PokéStops and Power Spots that still wait for Google ' +
-    `stay in line and are asked about again when the month starts again, ` +
-    `${timestamp(nextReset, 'f')}, or sooner should the shares give it more. \`/gym google\` ` +
-    'shows the line and the share; an operator of this Pine can raise it.'
+    `This server has used ${what} at Google. I share Google’s monthly budget between the ` +
+    'servers I am in, by how much each has waiting.\n\n' +
+    'Its gyms, PokéStops and Power Spots that still wait for Google stay in line. I ask ' +
+    `about them when the month starts again, ${timestamp(nextReset, 'f')}, or sooner if the ` +
+    'shares give this server more.\n\n' +
+    '`/gym google` shows the line and this server’s share. An operator of this Pine can ' +
+    'raise the share.'
   );
 }
 
@@ -33,10 +35,11 @@ export function shareUsedNotice(
  */
 export function budgetUsedAlert(places: number, reserve: number, nextReset: number): string {
   return (
-    '**Google’s budget for this month is used.** The line of gyms, PokéStops and Power ' +
-    `Spots that wait for Google has asked its ${amount(Math.max(0, places - reserve))} places ` +
-    `searches of ${amount(places)}; only the reserve of ${amount(reserve)} is left, for ` +
-    `lookups by hand. Every server’s part of the line waits until ${timestamp(nextReset, 'f')}. ` +
+    '**Google’s budget for this month is used up.** The line of gyms, PokéStops and Power ' +
+    `Spots waiting for Google has used its ${amount(Math.max(0, places - reserve))} of the ` +
+    `${amount(places)} places searches; only the reserve of ${amount(reserve)} is left, for ` +
+    'lookups by hand.\n\n' +
+    `Every server’s part of the line waits until ${timestamp(nextReset, 'f')}. The setting ` +
     '`googleLookupsPerMonth` sets the budget.'
   );
 }

@@ -19,7 +19,8 @@ export const SERVERS_GROUP = 'servers';
 export const SERVERS_DESCRIPTION = 'The servers this Pine serves: allow, remove, block (operators)';
 
 /** What a `server:` that is no server's id is told. */
-export const NOT_A_SERVER_ID = 'That is not a server’s ID: copy it from the server’s menu.';
+export const NOT_A_SERVER_ID =
+  'That is not a server’s ID: use Copy Server ID in the server’s menu.';
 
 /** The instance tier, for every part (plan 19B-1, `requireInstanceOperator`). */
 const instanceOnly = {
@@ -89,14 +90,14 @@ export const listServers: SubcommandPart = {
     ),
   help: {
     details:
-      'Every server this Pine is in, by name: how many members it has, whether its staff ' +
-      'finished its setup, and when its last party was made. Never a member of a server.\n\n' +
+      'Every server this Pine is in, by name: how many members it has, whether it is set up ' +
+      '(`/admin setup`), and when its last party was made. It names no member.\n\n' +
       'Then the servers it left, those blocked, and those allowed that have not added it yet. ' +
-      'Twenty servers a page at most, fewer where their names are long.\n\n' +
-      'The servers it left are kept 30 days after Pine left them, then their data is deleted ' +
-      '(the list says when, or that it is being deleted): added back within the 30 days, a ' +
-      'server picks up where it was; after them, it starts anew.\n\nA server’s ' +
-      'share of Google’s month is shown in that server by `/gym google`; ' +
+      'A page shows 20 servers at most, fewer when their names are long.\n\n' +
+      'A server’s data is kept for 30 days after Pine leaves it, then deleted; the list says ' +
+      'when, or that it is being deleted. A server that adds Pine back within the 30 days ' +
+      'picks up where it was; after them, it starts over with `/admin setup`.\n\n' +
+      'A server’s share of Google’s monthly budget is shown in that server by `/gym google`; ' +
       '`/operator google share` raises it.',
     examples: ['/operator servers list', '/operator servers list page:2'],
   },
@@ -127,9 +128,10 @@ export const allowServer: SubcommandPart = {
   ),
   help: {
     details:
-      'Lets a server add this Pine, besides those the settings list and those it served at ' +
-      'its update to 2.1. A blocked server stays blocked until you unblock it.\n\nMy owner is ' +
-      'told who allowed it, and from where.',
+      'Lets a server add this Pine. The servers the settings list, and those this Pine was in ' +
+      'when it was updated to 2.1, may have it already.\n\n' +
+      'A blocked server stays blocked until you unblock it.\n\n' +
+      'My owner is told who allowed it, and from where.',
     examples: ['/operator servers allow server:412345678901234567'],
   },
   async execute(interaction, ctx) {
@@ -146,7 +148,7 @@ export const allowServer: SubcommandPart = {
       interaction,
       `Allowed ${serverNamed(interaction, serverId)}: its staff may add this Pine.` +
         (blocked
-          ? ' It is blocked, which wins: `/operator servers unblock` takes the block back.'
+          ? ' It is still blocked, and a block wins: take it back with `/operator servers unblock`.'
           : ''),
     );
   },
@@ -171,10 +173,10 @@ export const removeServer: SubcommandPart = {
   ),
   help: {
     details:
-      'Has this Pine leave a server now, without a word there. The server is kept as one Pine ' +
-      'left: its data is kept 30 days, then deleted, and its staff may add Pine back if it is ' +
-      'allowed; to keep it from coming back, block it instead.\n\nMy owner is told who removed ' +
-      'it, and from where.',
+      'Makes this Pine leave a server now, without saying anything there.\n\n' +
+      'It counts as a server Pine left: its data is kept for 30 days, then deleted. Its staff ' +
+      'may add Pine back while the server is allowed; to keep it out, block it instead.\n\n' +
+      'My owner is told who removed it, and from where.',
     examples: ['/operator servers remove server:412345678901234567'],
   },
   async execute(interaction, ctx) {
@@ -208,9 +210,9 @@ export const blockServer: SubcommandPart = {
   ),
   help: {
     details:
-      'Keeps a server from having this Pine, whatever allows it, and leaves it now where Pine ' +
-      'is in it. If its staff add Pine again, it says this Pine is private and leaves.\n\nMy ' +
-      'owner is told who blocked it, and from where.',
+      'Keeps a server from having this Pine, whatever else allows it, and leaves the server ' +
+      'now if Pine is in it. If its staff add Pine again, Pine says it is private and leaves.\n\n' +
+      'My owner is told who blocked it, and from where.',
     examples: ['/operator servers block server:412345678901234567'],
   },
   async execute(interaction, ctx) {
@@ -241,21 +243,22 @@ export const unblockServer: SubcommandPart = {
   ),
   help: {
     details:
-      'Takes back a server’s block. It may add this Pine again where something allows it: the ' +
-      'settings list it, it was served at the update to 2.1, or an operator allowed it.\n\nMy ' +
-      'owner is told who unblocked it, and from where.',
+      'Takes back a server’s block. It may add this Pine again only if something allows it: ' +
+      'the settings list it, this Pine was in it when it was updated to 2.1, or an operator ' +
+      'allowed it.\n\n' +
+      'My owner is told who unblocked it, and from where.',
     examples: ['/operator servers unblock server:412345678901234567'],
   },
   async execute(interaction, ctx) {
     const serverId = serverOption(interaction);
     await ctx.standings.unblock(serverId);
-    tellOwnerOfServerChange(interaction, ctx, `Took back the block of the server \`${serverId}\`.`);
+    tellOwnerOfServerChange(interaction, ctx, `Unblocked the server \`${serverId}\`.`);
     await say(
       interaction,
       `Unblocked ${serverNamed(interaction, serverId)}. ` +
         (ctx.standings.mayHave(serverId)
           ? 'Its staff may add this Pine again.'
-          : 'It may still not add this Pine: nothing allows it (`/operator servers allow`).'),
+          : 'It still may not add this Pine, as nothing allows it: use `/operator servers allow`.'),
     );
   },
 };

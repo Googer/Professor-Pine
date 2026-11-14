@@ -169,9 +169,9 @@ export function serverListTexts(lines: readonly ServerLine[], page: number): str
   const body = slice.length === 0 ? 'No server yet.' : slice.join('\n');
   const footer =
     pageCount > 1
-      ? `-# Page ${String(shown)} of ${String(pageCount)}. The next: \`/operator servers list page:${String(
-          shown < pageCount ? shown + 1 : 1,
-        )}\`.`
+      ? `-# Page ${String(shown)} of ${String(pageCount)}. ${
+          shown < pageCount ? 'Next page' : 'Back to the first'
+        }: \`/operator servers list page:${String(shown < pageCount ? shown + 1 : 1)}\`.`
       : undefined;
   return [title, body, ...(footer === undefined ? [] : [footer])];
 }

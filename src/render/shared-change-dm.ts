@@ -84,10 +84,11 @@ function serverList(servers: readonly NamedServer[]): string {
 export function adoptedServersDm(servers: readonly NamedServer[]): V2Message {
   return textMessage(SHARED_ACCENT, [
     '### Servers kept by a new install',
-    'This Pine had recorded no server yet, so it keeps the servers it is in now: they may have ' +
-      'it from now on, and a server added later needs your allowance (`/operator servers allow`).',
+    'I had no server on record yet, so I keep the servers I am in now: they may have me from ' +
+      'now on. A server that adds me later needs your permission first: ' +
+      '`/operator servers allow`.',
     serverList(servers),
-    'A server that should not have it: `/operator servers block`.',
+    'If one of them should not have me: `/operator servers block`.',
   ]);
 }
 
@@ -100,13 +101,14 @@ export function adoptedServersDm(servers: readonly NamedServer[]): V2Message {
 export function waitingServersDm(servers: readonly NamedServer[]): V2Message {
   return textMessage(SHARED_ACCENT, [
     '### Servers waiting for your word',
-    'This Pine had recorded no server yet and could not read whether its application is public ' +
-      '(Public Bot), so it neither keeps nor leaves these servers, which neither you nor an ' +
-      'operator own: they wait, and Pine does nothing in them.',
+    'I had no server on record yet, and I could not read whether my application is public ' +
+      '(Public Bot in the Developer Portal). So I neither keep nor leave these servers, which ' +
+      'neither you nor an operator owns: they wait, and I do nothing in them.',
     serverList(servers),
-    'To keep one: `/operator servers allow`. To have Pine leave it: `/operator servers remove`, ' +
-      'or `/operator servers block` to keep it out. At its next start Pine decides a server still ' +
-      'waiting by its usual rules, which leave a server nothing allows.',
+    'To keep one: `/operator servers allow`. To have me leave one: `/operator servers remove`, ' +
+      'or `/operator servers block` to keep it out.',
+    'At my next start, a server still waiting is treated as any other: I leave it unless ' +
+      'something allows it.',
   ]);
 }
 
@@ -165,20 +167,23 @@ export function deletedServersDm(servers: readonly DeletedServer[]): V2Message {
             : filesLeft === count
               ? 'Some of their kept screenshots could not be removed yet'
               : 'Some kept screenshots of the servers marked so could not be removed yet') +
-            ': Pine tries again at each daily sweep.',
+            ': I try again at each daily sweep.',
         ];
+  const one = count === 1;
   return textMessage(SHARED_ACCENT, [
-    `### ${count === 1 ? 'A server’s data deleted' : `${String(count)} servers’ data deleted`}`,
-    `Pine left ${count === 1 ? 'this server' : `these ${String(count)} servers`} more than 30 ` +
-      'days ago, so everything it held of them is deleted: their settings, regions, Wayspots, ' +
-      'parties, history, boards, wants, routes, moderation and meetup records, ' +
-      (filesLeft === 0 ? 'kept screenshots, ' : '') +
-      'and the gyms no other server has. Members’ own settings stay, and so does each server’s ' +
-      'record with what an operator allowed or blocked; backups keep the data until they age out.',
+    `### ${one ? 'A server’s data deleted' : `${String(count)} servers’ data deleted`}`,
+    `I left ${one ? 'this server' : `these ${String(count)} servers`} more than 30 days ago, ` +
+      `so I deleted everything I held of ${one ? 'it: its' : 'them: their'} settings, ` +
+      'regions, Wayspots, parties, history, boards, wants, routes, moderation and meetup ' +
+      `records, ${filesLeft === 0 ? 'kept screenshots, ' : ''}and the gyms no other server ` +
+      'has.\n\n' +
+      `Members’ own settings stay, and so does ${one ? 'the server’s' : 'each server’s'} ` +
+      'record of what an operator allowed or blocked. Backups keep the data until they age out.',
     [...lines, ...moreLine].join('\n'),
     ...screenshots,
     ...indexFolders(servers),
-    'If Pine is added back to one, it starts anew.',
+    `If ${one ? 'it adds me back, it starts' : 'one adds me back, it starts'} over ` +
+      'with `/admin setup`.',
   ]);
 }
 
@@ -233,13 +238,15 @@ export function failingDeletionsDm(servers: readonly FailingDeletion[], sweeps: 
   const more = count - lines.length;
   return textMessage(SHARED_ACCENT, [
     `### ${count === 1 ? 'A server’s data could not be deleted' : `${String(count)} servers’ data could not be deleted`}`,
-    `Pine left ${count === 1 ? 'this server' : `these ${String(count)} servers`} more than 30 days ` +
-      `ago, and could not delete what it held of ${count === 1 ? 'it' : 'them'} ` +
-      `${String(sweeps)} days running. Each failed at the step named: the database, the kept ` +
-      'screenshots, or the record of the deletion. The bot’s log says why: “could not delete the ' +
-      'data of a server Pine left”, with the server’s id.',
+    `I left ${count === 1 ? 'this server' : `these ${String(count)} servers`} more than 30 days ` +
+      `ago, and could not delete what I held of ${count === 1 ? 'it' : 'them'} ` +
+      `${String(sweeps)} days running. ${count === 1 ? 'It' : 'Each'} failed at the step ` +
+      'named: the database, the kept screenshots, or the record of the deletion.\n\n' +
+      'My log says why: look for “could not delete the data of a server Pine left” with the ' +
+      'server’s ID.',
     [...lines, ...(more > 0 ? [`and ${String(more)} more`] : [])].join('\n'),
-    'Pine tries again each day, and tells you again only if it fails anew after it succeeds.',
+    'I try again each day. Once a server’s deletion succeeds, I tell you again only if a ' +
+      `later one fails ${String(sweeps)} days running.`,
   ]);
 }
 

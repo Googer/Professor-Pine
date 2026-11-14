@@ -16,11 +16,11 @@ export const clearImageCache: SubcommandPart = {
     .setDescription('Delete the map pictures I keep of gyms and regions'),
   help: {
     details:
-      'Deletes the map pictures I keep. I keep every map picture I download, and pictures of ' +
-      'gyms that were deleted or moved and of regions that were redrawn are never used again: ' +
-      'they stay until this is run. The pictures still in use are downloaded again when they ' +
-      'are next shown.\n\nThe pictures are every server’s: my owner is told who cleared them, ' +
-      'and from where.',
+      'Deletes the map pictures I keep of gyms and regions. I keep every map picture I ' +
+      'download, so pictures of gyms that were moved or deleted, and of regions that were ' +
+      'redrawn, stay until this is run, though they are never used again.\n\n' +
+      'Pictures still in use are downloaded again the next time they are shown.\n\n' +
+      'The pictures are every server’s: my owner is told who cleared them, and from where.',
     examples: ['/operator clear-image-cache'],
   },
   defer: 'ephemeral',

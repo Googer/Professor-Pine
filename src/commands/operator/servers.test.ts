@@ -163,14 +163,14 @@ describe('/operator servers (plan 19C-1)', () => {
   it('says in its help that a server left is kept 30 days, then its data deleted (plan 19C-3)', () => {
     const details = listServers.help?.details;
     expect(typeof details === 'string' ? details : '').toContain(
-      'kept 30 days after Pine left them, then their data is deleted',
+      'A server’s data is kept for 30 days after Pine leaves it, then deleted',
     );
   });
 
   it('says in its help where a server’s share of Google is shown, which the list does not show (M-3)', () => {
     const details = listServers.help?.details;
     expect(typeof details === 'string' ? details : '').toContain(
-      'A server’s share of Google’s month is shown in that server by `/gym google`',
+      'A server’s share of Google’s monthly budget is shown in that server by `/gym google`',
     );
   });
 
@@ -242,7 +242,10 @@ describe('/operator servers (plan 19C-1)', () => {
     await made.run('block', { server: STRANGER });
     expect(made.exits.left).toEqual([HOME]);
     const still = await made.run('unblock', { server: STRANGER });
-    expect(answerOf(still)).toContain('It may still not add this Pine: nothing allows it');
+    expect(answerOf(still)).toBe(
+      `Unblocked \`${STRANGER}\`. It still may not add this Pine, as nothing allows it: ` +
+        'use `/operator servers allow`.',
+    );
   });
 
   it('keeps a block whose leave failed, says so, and has told the owner (J8)', async () => {
@@ -281,9 +284,9 @@ describe('/operator servers (plan 19C-1)', () => {
     for (let n = 0; n < 25; n += 1)
       await made.standings.allow(`5123456789012345${String(n).padStart(2, '0')}`, OWNER);
     const first = answerOf(await made.run('list'));
-    expect(first).toContain('-# Page 1 of 2. The next: `/operator servers list page:2`.');
+    expect(first).toContain('-# Page 1 of 2. Next page: `/operator servers list page:2`.');
     const second = answerOf(await made.run('list', { page: 2 }));
-    expect(second).toContain('-# Page 2 of 2.');
+    expect(second).toContain('-# Page 2 of 2. Back to the first: `/operator servers list page:1`.');
     expect(second).toContain('allowed, not added yet');
   });
 

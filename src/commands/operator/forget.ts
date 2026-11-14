@@ -67,33 +67,36 @@ export const forget: SubcommandPart = {
     .addUserOption((option) =>
       option
         .setName('member')
-        .setDescription('Whose data: a member, or anybody’s Discord id')
+        .setDescription('Whose data: a member, or anybody’s Discord ID')
         .setRequired(true),
     ),
   help: {
     details:
-      'For a request to have somebody’s data removed. Only the operators of this Pine (its ' +
-      'owner and those its settings name) can use it, also in a direct message with me: it ' +
-      'works across every server Pine is in, and it cannot be undone.\n\n' +
+      'For a request to have somebody’s data removed. It works across every server Pine is ' +
+      'in and cannot be undone, so only the operators of this Pine (its owner and those its ' +
+      'settings name) can use it, also in a direct message with me.\n\n' +
       'It first shows, for you alone, what Pine holds of that person in every server, as ' +
       'counts: what a removal takes, what it leaves and why, and what is left for you to do ' +
       'by hand. Nothing changes until you press "Remove…" and confirm, within ' +
       `${String(FORGET_MINUTES)} minutes.\n\n` +
-      'A removal takes their settings, friend code, in-game name and Pokebattler id, their ' +
-      'wants, gym notices and saved routes, and their web logins, kept screenshots, access ' +
-      'to the export tool and the record that Pine has sent them direct messages.\n\n' +
-      'It takes their id out of the history of every server, with the names and descriptions ' +
-      'of the trains and meetups they made while their history was on (a record made without ' +
-      'it does not say who made it), and switches their history and boards off.\n\n' +
-      'It takes their id and name off the reports they made to the moderators and off their ' +
+      'A removal takes:\n' +
+      '- their settings, friend code, in-game name and Pokebattler ID\n' +
+      '- their wants, gym notices and saved routes\n' +
+      '- their web logins, kept screenshots and access to the export tool\n' +
+      '- the record that Pine has sent them direct messages\n\n' +
+      'It takes their ID out of the history of every server, with the names and descriptions ' +
+      'of the trains and meetups they made while their history was on, and turns their ' +
+      'history and boards off. (A record made while their history was off never said who ' +
+      'made it.)\n\n' +
+      'It takes their ID and name off the reports they made to the moderators and off their ' +
       'own meetup requests, appeals and asks that are decided; what they wrote there stays, ' +
       'without who wrote it.\n\n' +
       'It leaves what the moderators need: meetup blocks and rulings, reports about the ' +
       'person, and anything still waiting for a decision. The staff’s log ages out and what ' +
-      'is live ends by itself (a party staff saved, when they let it go); counts that name ' +
-      'nobody stay.\n\n' +
+      'is live ends by itself; a party staff saved with `/admin save-party` ends when they ' +
+      'let it go. Counts that name nobody stay.\n\n' +
       'Backups keep the data until they age out, and posts on Discord are not edited. The ' +
-      'person is not told. `member` takes an id too, for somebody who has left.',
+      'person is not told. `member` takes an ID too, for somebody who has left.',
     examples: ['/operator forget member:@Ash'],
   },
   guards: [requireInstanceOperator],

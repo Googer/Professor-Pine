@@ -208,7 +208,7 @@ describe('the operators’ tiers (plan 19B-1)', () => {
       requireSharedDataOperator(as(fakeChatInput({ ...admin, isDm: true })), open),
     ).toThrow(ONLY_OPERATORS_IN_A_DM);
     expect(ONLY_OPERATORS_IN_A_DM).toBe(
-      'In a direct message only the operators of this Pine can do that.',
+      'In a direct message, only the operators of this Pine can do that.',
     );
   });
 

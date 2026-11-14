@@ -220,7 +220,7 @@ export const setEventWindow: SubcommandPart = {
     .addStringOption((option) =>
       option
         .setName('until')
-        .setDescription('When it ends: a time with am or pm, or a date and one (month-day 8pm)')
+        .setDescription('When it ends: a time with am or pm, or a date and a time (month-day 8pm)')
         .setRequired(true)
         .setMaxLength(100),
     )
@@ -228,7 +228,7 @@ export const setEventWindow: SubcommandPart = {
       option
         .setName('from')
         .setDescription(
-          'When it starts, if not now: a time with am or pm, or a date and one (month-day 10am)',
+          'When it starts, if not now: a time with am or pm, or a date and a time (month-day 10am)',
         )
         .setMaxLength(100),
     ),
@@ -236,9 +236,9 @@ export const setEventWindow: SubcommandPart = {
     details: (settings) => {
       const minutes = String(settings.raidEvents.hatchedDuration['raid-hour']);
       return (
-        'For the days around a big event, its lead-up and the event itself, when the game ' +
+        'For the days around a big event (its lead-up and the event itself) when the game ' +
         `runs all-day Raid Hour raids (no eggs, every raid ${minutes} minutes) and Max Battle ` +
-        'Day rotations, though the events feed does not say so.\n\n' +
+        'Day rotations, and the events feed does not say so.\n\n' +
         `While it is on, a raid that hatches lasts ${minutes} minutes, and a Dynamax or ` +
         'Gigantamax battle ends at the next half hour. Raids and battles reported before keep ' +
         'their times.\n\n' +
@@ -249,11 +249,10 @@ export const setEventWindow: SubcommandPart = {
         'Setting it again replaces it. Without `from:` it keeps the start of a window that is ' +
         'on or ended less than 2 hours ago.\n\n' +
         'End it with `/operator event-window end` once raids and battles are back to normal.\n\n' +
-        'There is one window for all servers: the operators of this Pine set and end it, from ' +
-        'any server or a direct message with me. Unless this Pine is open to every server, the ' +
-        'admins, moderators and bot developers of its servers may too, from their server (where ' +
-        'it lists its servers, those of the listed ones only).\n\nMy owner is told who did, ' +
-        'and from where.'
+        'There is one window for every server. The operators of this Pine set and end it, from ' +
+        'any server or in a direct message with me. Unless this Pine is open to every server, ' +
+        'the admins, moderators and bot developers of the servers it serves may too, from their ' +
+        'own server.\n\nMy owner is told who set or ended it, and from where.'
       );
     },
     examples: [
@@ -316,7 +315,7 @@ export const setEventWindow: SubcommandPart = {
     );
     const shown = timedIn(window, zone);
     const stillFrom =
-      shown.start < now ? `Still counted from ${momentWords(zone, shown.start)}.` : undefined;
+      shown.start < now ? `It has been on since ${momentWords(zone, shown.start)}.` : undefined;
     const was = before === undefined ? undefined : timedIn(before, zone);
     const replaced =
       was === undefined || was.end <= now
@@ -336,9 +335,9 @@ export const endEventWindow: SubcommandPart = {
     .setDescription('End the event window now: raids and max battles as usual again'),
   help: {
     details:
-      'Ends the event window now in every server: where it has not begun yet, it is called ' +
-      'off; where it has, what ran stays. Raids and battles ' +
-      'reported from then on last as usual; those reported before keep their times.',
+      'Ends the event window now, in every server; one that has not begun yet is called off. ' +
+      'Raids and battles reported from now on last as usual; those reported while it was on ' +
+      'keep their times.\n\nMy owner is told who ended it, and from where.',
     examples: ['/operator event-window end'],
   },
   defer: 'ephemeral',

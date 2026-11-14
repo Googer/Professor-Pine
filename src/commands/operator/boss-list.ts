@@ -313,15 +313,16 @@ export const listBosses: SubcommandPart = {
     .addStringOption(tierOption(false, 'Only this tier')),
   help: {
     details:
-      'The bosses tier by tier as members see them. Each says whether it came from the feed ' +
-      '(and how the feed entry was identified: by its picture, its name or both) or from an ' +
-      'override, and what overrides act on it with their number and expiry; an add that moves ' +
-      "a boss from the feed's tier says which.\n\nA boss the game " +
-      'data does not know yet is listed by the name the feed gives, with its ids. Hidden ' +
-      'bosses and overrides that change nothing are listed apart; an override older than 30 ' +
-      'days, or one the feed has made pointless, is marked "old?".\n\nWhere max battles are on, ' +
-      "the max bosses follow (Pokebattler's feed), with the bosses it lists ahead of their start " +
-      'under Coming; a max battle tier shows that tier only.',
+      'Shows the bosses tier by tier, as members see them. Each says where it came from: the ' +
+      'feed (found by its picture, its name or both) or an override. The overrides that act on ' +
+      'it are listed with their number and end date; an add that moved a boss from the feed’s ' +
+      'tier says from which.\n\n' +
+      'A boss the game data does not know yet is listed by the name the feed gives, with its ' +
+      'ids. Hidden bosses and overrides that change nothing are listed apart; an override ' +
+      'older than 30 days, or one the feed has made pointless, is marked "old?".\n\n' +
+      'Where max battles are on, the max bosses follow (from Pokebattler’s feed), with those ' +
+      'announced ahead of their start under Coming. Pick a max battle tier to see that tier ' +
+      'only.',
     examples: [
       '/operator boss list',
       '/operator boss list tier:T5',
@@ -478,7 +479,7 @@ export const syncBosses: SubcommandPart = {
       'Reads the feed at once and says what changed. A read that fails leaves the list as it ' +
       'was.\n\nThe game data (names, stats, forms) is not read again by this. With `max:True` it ' +
       "reads the max boss feed (Pokebattler's) instead.\n\nThe boss lists are every server's: " +
-      'my owner is told of each read that went through, by whom and from where.',
+      'my owner is told of each read that went through, who asked for it, and from where.',
     examples: ['/operator boss sync', '/operator boss sync max:True'],
   },
   defer: 'ephemeral',
