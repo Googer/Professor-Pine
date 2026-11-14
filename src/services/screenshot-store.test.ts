@@ -686,4 +686,75 @@ describe('ScreenshotStore', () => {
       ).toBe(true);
     });
   });
+
+  describe('a server’s deleted (plan 19C-3, a server left more than 30 days)', () => {
+    const refused: NewScreenshot['decision'] = { kind: 'refuse', reason: 'not-a-raid-screen' };
+
+    it('removes every screenshot of the server from both folders, and none of another', async () => {
+      // One is shown by a raid of the server: it goes all the same (its parties go too).
+      const shown = new Set<string>();
+      const { store, files } = storeWith(shown);
+      const plain = await kept(store, screenshot());
+      shown.add(plain);
+      await store.inUse(plain);
+      const reviewed = await kept(store, screenshot(refused, { senderId: OTHER }));
+      const away = await kept(store, screenshot({ kind: 'report' }, { guildId: AWAY_SERVER }));
+      const awayReviewed = await kept(store, screenshot(refused, { guildId: AWAY_SERVER }));
+
+      expect(await store.forgetServer('412345678901234567', Number.MAX_SAFE_INTEGER)).toEqual({
+        removed: 2,
+        failed: 0,
+      });
+
+      expect(files('held')).toEqual(
+        [away, awayReviewed].flatMap((id) => [`${id}.json`, `${id}.png`]).sort(),
+      );
+      expect(files('review')).toEqual([`${awayReviewed}.json`, `${awayReviewed}.png`].sort());
+      expect(await store.get(plain)).toBeUndefined();
+      expect(await store.get(reviewed)).toBeUndefined();
+      // The other server's, with its sender's: untouched.
+      expect(await store.heldOf(SENDER)).toEqual({ sent: 2, feedback: 0 });
+      // Run again, there is nothing.
+      expect(await store.forgetServer('412345678901234567', Number.MAX_SAFE_INTEGER)).toEqual({
+        removed: 0,
+        failed: 0,
+      });
+    });
+
+    it('removes only what was read up to the deletion’s end: the server added back since keeps its own', async () => {
+      const { store, clock, files } = storeWith();
+      const before = await kept(store, screenshot());
+      const deletedAt = clock.now + 60_000;
+      clock.now = deletedAt;
+      const atTheEnd = await kept(store, screenshot());
+      // Added back since, and a member sent one again.
+      clock.now = deletedAt + 1;
+      const anew = await kept(store, screenshot());
+
+      expect(await store.forgetServer('412345678901234567', deletedAt)).toEqual({
+        removed: 2,
+        failed: 0,
+      });
+      expect(await store.get(before)).toBeUndefined();
+      expect(await store.get(atTheEnd)).toBeUndefined();
+      expect(await store.get(anew)).toMatchObject({ record: { id: anew } });
+      expect(files('held')).toEqual([`${anew}.json`, `${anew}.png`]);
+    });
+
+    it('counts what it could not remove, and says so without what it shows', async () => {
+      const { store, dir, entries } = storeWith();
+      const id = await kept(store, screenshot());
+      const { mkdirSync, rmSync } = await import('node:fs');
+      rmSync(path.join(dir, 'held', `${id}.png`));
+      mkdirSync(path.join(dir, 'held', `${id}.png`));
+      writeFileSync(path.join(dir, 'held', `${id}.png`, 'inside'), 'x');
+      expect(await store.forgetServer('412345678901234567', Number.MAX_SAFE_INTEGER)).toEqual({
+        removed: 0,
+        failed: 1,
+      });
+      expect(
+        entries.some((entry) => entry.msg === 'could not remove a kept screenshot of a server'),
+      ).toBe(true);
+    });
+  });
 });

@@ -493,6 +493,43 @@ export class ScreenshotStore implements ScreenshotKeeping {
     return { removed: removed.size, feedback: feedback.size, failed: failed.size };
   }
 
+  /**
+   * Removes what is kept of a server, from both folders (plan 19C-3: a server Pine left more than
+   * 30 days ago is deleted): every screenshot whose record names it (`guildId`) and that was read
+   * up to `upTo` (the end of the deletion's database part: what was read after it is the server's
+   * added back since, which starts anew), the picture and its record, also one a raid shows (the
+   * server's parties go with it). Each record under its turn, read again there. Found by reading
+   * every record of both folders, once per deletion and once per sweep while some are left (the
+   * store keeps no index by server; a deletion is rare, and the daily sweep reads them all as
+   * well). `removed` counts screenshots (one in both folders once); `failed` those of which
+   * something could not be removed, said in the log without what it shows (the deletion notes
+   * them left, and each sweep tries them again). Never throws.
+   */
+  async forgetServer(serverId: string, upTo: number): Promise<{ removed: number; failed: number }> {
+    const removed = new Set<string>();
+    const failed = new Set<string>();
+    for (const folder of [this.held, this.review]) {
+      for (const id of await this.recordIds(folder)) {
+        try {
+          await this.serially(this.key(folder, id), async () => {
+            const record = await this.read(folder, id);
+            if (record?.guildId !== serverId || record.readAt > upTo) return;
+            await this.removeRecord(folder, record);
+            removed.add(id);
+          });
+        } catch (err) {
+          failed.add(id);
+          this.options.log.error(
+            { reason: failureReason(err), server: serverId },
+            'could not remove a kept screenshot of a server',
+          );
+        }
+      }
+    }
+    for (const id of failed) removed.delete(id);
+    return { removed: removed.size, failed: failed.size };
+  }
+
   /** The ids of the records of a folder, by their files' names; none for a folder not there. */
   private async recordIds(folder: string): Promise<string[]> {
     const names = await readdir(folder).catch(() => [] as string[]);
