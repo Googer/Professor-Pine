@@ -54,6 +54,7 @@ function admissionWith(
     recorded: more.recorded ?? (() => Promise.resolve([...store.guilds])),
     // GONE removed the bot while it was away: no longer among its servers.
     inServer: (serverId) => [ALLOWED, DOWN].includes(serverId) && !standings.isLeft(serverId),
+    isPresent: (serverId) => [ALLOWED, DOWN].includes(serverId),
     ...(more.undecided === undefined ? {} : { undecided: more.undecided }),
     log,
   });

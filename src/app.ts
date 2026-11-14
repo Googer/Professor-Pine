@@ -219,9 +219,13 @@ import {
   notOfQuietServers,
   picturesServed,
   reportPictures,
+  serverSetUpWork,
+  servesRow,
   serversNotQuiet,
   shardStartWork,
   stopReportSteps,
+  wireServerSetup,
+  type SetupLate,
 } from './app-wiring.js';
 import { createShutdown } from './shutdown.js';
 import { maxLook } from './render/max-post.js';
@@ -447,6 +451,8 @@ export async function startApp(
   const serverSettingsAudit = new ServerSettingsAuditRepository(db);
   // The servers the bot is in, once the client is ready (fix round 1, K5).
   let serversPresent: (() => readonly string[]) | undefined;
+  // The shards of the client the login keeps, made in its `configure` (plan 19C-2, S6).
+  let liveShards: ShardReadiness | undefined;
   const servers = new ServerSettings({
     store: new ServerSettingsRepository(db),
     audit: serverSettingsAudit,
@@ -497,6 +503,8 @@ export async function startApp(
     exits: rehearsal ? undefined : serverExits,
     recorded: () => guilds.snowflakes(),
     inServer: (serverId) => serverExits.inServer(serverId) && !standings.isLeft(serverId),
+    // By the live client's shards, made at the login (plan 19C-2, S6); none before.
+    isPresent: (serverId) => liveShards?.isPresent(serverId) ?? false,
     // A new install's adoption (plan 19C-1, J1), made just before the login once it is known
     // whether the application is public; asked only once the client is there.
     undecided: (serverId) => serverAdoption.undecided(serverId),
@@ -1019,15 +1027,16 @@ export async function startApp(
     byHandPerServer: config.settings.googleByHandPerServer,
     servers: serverRows,
     shares: googleShares,
-    // Not a server Pine left or that may no longer have it (plan 19C-1): its rows are held out of
-    // the line's range at `OUT_OF_SHARE_RANK` and count for no share; once it is served again
-    // (the line's next turn notices it, told or not) they are ranked anew from the raids read
-    // first. Every row is known from the start (`guilds.loadRows`, before `resume`); one made
-    // since is known when made.
-    serves: (guildRow) => {
-      const server = rowIds.serverOfRow(guildRow);
-      return server === undefined || (admission.admits(server) && !standings.isLeft(server));
-    },
+    // Not a quiet server (plan 19C-1: one Pine left; plan 19C-2: one in setup) nor one that may
+    // no longer have it: its rows are held out of the line's range at `OUT_OF_SHARE_RANK` and
+    // count for no share; once it is served again (back, or set up: the line's next turn notices
+    // it, told or not) they are ranked anew from the raids read first. Every row is known from the
+    // start (`guilds.loadRows`, before `resume`); one made since is known when made.
+    serves: servesRow({
+      serverOfRow: (row) => rowIds.serverOfRow(row),
+      admits: (server) => admission.admits(server),
+      quiet,
+    }),
     // The line goes by the raids of each place's best region (plan 8W-6), from the history.
     ranks: new GoogleRanks({
       regions,
@@ -1376,22 +1385,31 @@ export async function startApp(
     heldReports: reports,
     log,
   });
+  // What a server's setup reaches that is made after it (fix round 1, S5): the posts of the stops
+  // below, and what the live client's `configure` makes.
+  const setupLate: SetupLate = { ...(eventForum ? { eventForum } : {}) };
   // A server's setup (plan 19C-2): what /admin setup reads, and the leaving of setup once its
   // required items are done, its bot lab told so (only where Pine may post there); then what was
-  // held for it begins: the zones in use (with it now), its summaries, the events forums and the
-  // posts of the stops.
+  // held for it begins (`serverSetUpWork`): the zones in use (with it now), its summaries, the
+  // events forums, the posts of the stops, meetup safety's warnings of it, Google's line.
   const serverSetup = new ServerSetup({
     servers,
     counts: setupCounts({ guilds, regions, gyms }),
     send: (channelId, text) => noticeSender(partyGateway)(channelId, text),
-    setUp: () => {
-      servers.presenceChanged();
-      void partyService.checkSummaries().catch((err: unknown) => {
-        log.warn({ err }, 'could not make the summaries of a server set up');
-      });
-      eventForum?.zonesChanged();
-      stopPosts?.zonesChanged();
-    },
+    setUp: serverSetUpWork({
+      presenceChanged: () => {
+        servers.presenceChanged();
+      },
+      checkSummaries: () => partyService.checkSummaries(),
+      warnAtStart: (serverIds) => {
+        meetupSafety.warnAtStart(serverIds);
+      },
+      // Google's line serves its rows from now on (plan 19C-2).
+      line: gymUpkeep,
+      rowOf: (server) => rowIds.rowOfServer(server),
+      late: setupLate,
+      log,
+    }),
     log,
   });
   const ctx: AppContext = {
@@ -1593,6 +1611,17 @@ export async function startApp(
   const connected = new Promise<void>((resolve) => {
     markConnected = resolve;
   });
+  // A server leaves setup once its required items are done (plan 19C-2), whatever did the last,
+  // checked from the start on; a server an operator allows after it waited begins on the live
+  // client. Wired once, before the login (fix round 1, S5).
+  wireServerSetup({
+    setup: serverSetup,
+    servers,
+    regions,
+    admission,
+    late: setupLate,
+    connected,
+  });
 
   try {
     await options.beforeLogin?.();
@@ -1683,6 +1712,8 @@ export async function startApp(
           ...client.guilds.cache.filter((guild) => guild.shardId === shard).keys(),
         ],
       }).attach(client);
+      // The servers present by this client's shards, for an operator's allowance (plan 19C-2, S6).
+      liveShards = shards;
       // Who is in (plan 19C-1): a new install's adoption, then the check once every shard is
       // ready, by the servers present by the shards, never the cache; before `wireServerStart`,
       // whose listeners ask `admits` in the same events.
@@ -1705,7 +1736,7 @@ export async function startApp(
       // routed after its server's; a shard's start work after its servers' rows, and what
       // follows, which reads the servers' values, once every shard's is done: the clock and the
       // web wait for `connected`.
-      wireServerStart<Guild, Interaction>(client, {
+      const serverStart = wireServerStart<Guild, Interaction>(client, {
         fill: serverFill,
         namesOf: serverNamesOf,
         serverOf: (serverId) => client.guilds.cache.get(serverId),
@@ -1746,6 +1777,11 @@ export async function startApp(
       client.on(Events.GuildDelete, (guild) => {
         void serverEvents.removed(guild.id);
       });
+      // A present server an instance operator allows after it waited (plan 19C-2; a new install's
+      // undecided one) begins on this client, the one the login keeps (`wireServerSetup`): its
+      // fill, its `Guild` row and its return, as its joining would.
+      setupLate.serverStart = serverStart;
+      setupLate.joined = (serverId) => serverEvents.joined(serverId);
       // A party's post deleted by hand ends its party at once (the `Guilds` intent delivers it;
       // discord.js emits it only for a thread in its cache, otherwise the next render notices);
       // the bot's own deletions find no active party there.
@@ -1850,7 +1886,10 @@ export async function startApp(
         pictures: stopPictures,
       });
   researchPostLinks.posts = stopPosts;
-  if (stopPosts) partyService.setStopPosts(stopPosts);
+  if (stopPosts) {
+    partyService.setStopPosts(stopPosts);
+    setupLate.stopPosts = stopPosts;
+  }
   // The lines of new tasks and leaders in the region channels (plan 8R-9, B9), linking the
   // board's messages; none in rehearsal mode, which makes no posts of the stops.
   const stopLines = stopPosts
@@ -1916,14 +1955,6 @@ export async function startApp(
   // The want counts (plan 8H-3), once the game data reads the forms of the wants.
   void connected.then(() => {
     wantCounts.start();
-  });
-  // A server leaves setup once its required items are done (plan 19C-2), whatever did the last:
-  // a change of its settings, a region saved or imported; and at the start, for one whose items
-  // were done meanwhile. From the start on: the first load of the regions comes before it.
-  void connected.then(() => {
-    servers.onChange((serverId) => void serverSetup.check(serverId));
-    regions.whenOutlinesChanged(() => void serverSetup.checkAll());
-    void serverSetup.checkAll();
   });
   // A server's zone changed (plan 19A-2): its summaries and active posts drawn anew on the new
   // clock, the events forums and the posts of the stops too, and every midnight timer following

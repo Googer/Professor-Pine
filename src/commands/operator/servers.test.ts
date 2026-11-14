@@ -28,6 +28,8 @@ const NEIGHBOR = '412345678901234568';
 const GONE = '412345678901234569';
 /** Never in it: no standing. */
 const STRANGER = '412345678901234570';
+/** Pine is in it, waiting for an operator's word: no standing (plan 19C-2). */
+const WAITING = '412345678901234571';
 const NOW = Date.parse('2026-11-13T18:00:00Z');
 const DAY = 24 * 3_600_000;
 
@@ -131,6 +133,28 @@ describe('/operator servers (plan 19C-1)', () => {
     // The owner's own change is not told to the owner.
     await made.run('allow', { server: GONE });
     expect(made.toldOwner()).toHaveLength(1);
+  });
+
+  it('begins what a server that waited begins on coming, once it is allowed (plan 19C-2)', async () => {
+    const made = setup();
+    const begun: string[] = [];
+    made.admission.onAllowed((serverId) => begun.push(serverId));
+    // Allowed while its shard does not name it present: it begins when it comes.
+    await made.run('allow', { server: STRANGER }, { userId: OPERATOR_ID });
+    expect(begun).toEqual([]);
+    // A server that waited, present: it begins (S6), once.
+    made.present.add(WAITING);
+    await made.run('allow', { server: WAITING }, { userId: OPERATOR_ID });
+    expect(begun).toEqual([WAITING]);
+    await made.run('allow', { server: WAITING }, { userId: OPERATOR_ID });
+    // One allowed already by its record: nothing begins, it had begun.
+    await made.run('allow', { server: HOME });
+    expect(begun).toEqual([WAITING]);
+    // A blocked server stays out: nothing begins.
+    await made.run('block', { server: GONE });
+    made.present.add(GONE);
+    await made.run('allow', { server: GONE });
+    expect(begun).toEqual([WAITING]);
   });
 
   it('has Pine leave a server it removes, kept as left and still allowed', async () => {

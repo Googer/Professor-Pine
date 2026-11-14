@@ -99,9 +99,9 @@ export interface AppContext {
   readonly standings: ServerStandings;
   /**
    * Pine leaving a server an instance operator removes or blocks (`/operator servers`, plan
-   * 19C-1; `ServerAdmission.remove`).
+   * 19C-1; `ServerAdmission.remove`), and a server an operator allows (`allow`, plan 19C-2).
    */
-  readonly admission: Pick<ServerAdmission, 'remove'>;
+  readonly admission: Pick<ServerAdmission, 'remove' | 'allow'>;
   /**
    * A server's setup (plan 19C-2, `servers.md`): what `/admin setup`'s checklist reads, and the
    * leaving of setup once its required items are done.

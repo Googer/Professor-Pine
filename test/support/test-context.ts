@@ -126,7 +126,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     // passes its own (`standingsWith`).
     standings: standingsWith({ log }).standings,
     // No server can be left; a test of `/operator servers` passes its own (`admissionWith`).
-    admission: unavailable<Pick<ServerAdmission, 'remove'>>(
+    admission: unavailable<Pick<ServerAdmission, 'remove' | 'allow'>>(
       'admission',
       'pass { admission } from admissionWith() (test/support/server-admission.ts)',
     ),

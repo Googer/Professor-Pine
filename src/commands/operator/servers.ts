@@ -132,7 +132,8 @@ export const allowServer: SubcommandPart = {
   },
   async execute(interaction, ctx) {
     const serverId = serverOption(interaction);
-    await ctx.standings.allow(serverId, interaction.user.id);
+    // Written; a present server that waited begins as its joining would (plan 19C-2).
+    await ctx.admission.allow(serverId, interaction.user.id);
     tellOwnerOfServerChange(
       interaction,
       ctx,

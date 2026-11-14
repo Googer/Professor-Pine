@@ -85,6 +85,8 @@ export function admissionWith(
     exits,
     recorded: () => Promise.resolve([...store.guilds]),
     inServer: (serverId) => present.has(serverId) && !standings.isLeft(serverId),
+    // Its shard names it present (plan 19C-2): one of `present`.
+    isPresent: (serverId) => present.has(serverId),
     wait: waits.wait,
     log,
   });

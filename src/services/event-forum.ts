@@ -235,7 +235,7 @@ export function eventForumWanted(settings: Pick<Settings, 'rehearsal'>): boolean
 }
 
 /** The name of a new events forum: the file's `channels.events` (plan 8V-1), else `events`. */
-export function newEventsForumName(settings: Pick<Settings, 'channels'>): string {
+export function newEventsForumName(settings: Pick<Settings, 'channels' | 'servers'>): string {
   const name = fileChannelNames(settings).events ?? 'events';
   return channelNameFor(name) || name;
 }

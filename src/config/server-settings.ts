@@ -5,6 +5,7 @@ import {
   flaggedWordsSchema,
   ignoredWordsSchema,
   inviteSchema,
+  isOpenInstance,
   regionForumSuffixSchema,
   regionMapLinkSchema,
   timezoneSchema,
@@ -246,20 +247,27 @@ export function settingChanges(before: ServerValues, after: ServerValues): Setti
  */
 export const NOT_FOUND = 'not found';
 
-/** A server's invite in the file (`web.invites`, one per server), the default of its `invite`. */
-export function fileInvite(settings: Pick<Settings, 'web'>, serverId: string): string | undefined {
+/**
+ * A server's invite in the file (`web.invites`, one per server), the default of its `invite`; none
+ * on an open instance, which ignores the file's server keys (plan 19C-2).
+ */
+export function fileInvite(
+  settings: Pick<Settings, 'web' | 'servers'>,
+  serverId: string,
+): string | undefined {
+  if (isOpenInstance(settings)) return undefined;
   return settings.web?.invites?.[serverId];
 }
 
 /**
  * The names the file gives a server's channels by their role (the file names them, a server's
  * values hold ids): what the fill looks for in each server (`filledValues`), and the name a new
- * events forum is made with (`newEventsForumName`).
+ * events forum is made with (`newEventsForumName`). None on an open instance (plan 19C-2).
  */
 export function fileChannelNames(
-  settings: Pick<Settings, 'channels'>,
+  settings: Pick<Settings, 'channels' | 'servers'>,
 ): Partial<Record<ServerChannelRole, string>> {
-  return settings.channels;
+  return isOpenInstance(settings) ? {} : settings.channels;
 }
 
 /** The names the file gives the PvP category, the Unown role and the map's member role. */
@@ -281,8 +289,13 @@ export function fileCategoryAndRoleNames(
  * The values of the file's server keys (spec: the defaults of a server's first row), for a server
  * without a row: the channels, the category and the roles are names in the file and ids here, so
  * they stay unset until the fill has resolved them in that server (`fillValues`).
+ *
+ * On an open instance (`servers: "open"`, plan 19C-2; spec "Per-server settings") the file's
+ * server keys are ignored: the code's defaults, without a zone (the instance's default stands in
+ * until its staff choose one). An instance with a list, or none, keeps the file's.
  */
 export function fileDefaults(settings: Settings, serverId?: string): ServerValues {
+  if (isOpenInstance(settings)) return parseServerValues({});
   const invite = serverId === undefined ? undefined : fileInvite(settings, serverId);
   return parseServerValues({
     features: settings.features,
@@ -306,7 +319,11 @@ export function fileDefaults(settings: Settings, serverId?: string): ServerValue
  * or a map member role, meetup safety and reports stay on and the map closed (`moderatorsNamed`,
  * `mapMemberRole`) until a row with ids exists, as they would with a name the fill did not find.
  */
-export function fileUnmatched(settings: Pick<Settings, 'channels' | 'web'>): UnmatchedKey[] {
+export function fileUnmatched(
+  settings: Pick<Settings, 'channels' | 'web' | 'servers'>,
+): UnmatchedKey[] {
+  // An open instance names nothing (plan 19C-2).
+  if (isOpenInstance(settings)) return [];
   return [
     ...(settings.channels.moderation === undefined ? [] : ['channels.moderation' as const]),
     ...(settings.web?.memberRole === undefined ? [] : ['roles.mapMember' as const]),

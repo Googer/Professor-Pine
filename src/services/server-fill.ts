@@ -8,7 +8,7 @@ import {
   type ServerValues,
   type UnmatchedKey,
 } from '../config/server-settings.js';
-import type { Settings } from '../config/settings.js';
+import { isOpenInstance, type Settings } from '../config/settings.js';
 import type { Logger } from '../log.js';
 import type { ServerSettings } from './server-settings.js';
 import { channelNameFor } from '../domain/regions/region-import.js';
@@ -47,6 +47,9 @@ export interface SeveralNamed {
  * keeps closed what the file's name kept closed, and is listed in `closed`, by its name. A name
  * that several channels or categories have is listed in `several` with the one taken (fix round
  * 3, H10).
+ *
+ * On an open instance (plan 19C-2) the file's server keys are ignored: the code's defaults
+ * (`fileDefaults`), no zone, no name looked for, nothing to say.
  */
 export function filledValues(
   settings: Settings,
@@ -58,6 +61,9 @@ export function filledValues(
   closed: ClosedSetting[];
   several: SeveralNamed[];
 } {
+  if (isOpenInstance(settings)) {
+    return { values: fileDefaults(settings), unmatched: [], closed: [], several: [] };
+  }
   const unmatched: string[] = [];
   const closed: ClosedSetting[] = [];
   const several: SeveralNamed[] = [];

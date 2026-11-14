@@ -5,7 +5,9 @@ import type { PartyService } from './services/party-service.js';
 import type { PartyStore } from './services/party-store.js';
 import type { PictureMaking } from './services/research-task-service.js';
 import type { ServerAdmission } from './services/server-admission.js';
-import type { ServerSettingsLookup } from './services/server-settings.js';
+import type { ServerSettings, ServerSettingsLookup } from './services/server-settings.js';
+import type { ServerSetup } from './services/server-setup.js';
+import type { ServerStart } from './discord/server-start.js';
 import type { QuietServers } from './services/quiet-servers.js';
 import type { ServerStandings } from './services/server-standings.js';
 import type { SpawnService } from './services/spawn-service.js';
@@ -223,6 +225,25 @@ export function serversNotQuiet(
 }
 
 /**
+ * Whether Google's line serves the rows of a server, by its `Guild` row (`GymUpkeepOptions.serves`):
+ * one that may have this Pine and is not quiet (plan 19C-1: Pine left it; plan 19C-2: it is in
+ * setup, as anything else that works for a server outside its interactions): the rows of a quiet
+ * one are held out of the line's range and count for no share, until it is back or set up (the
+ * line's next turn notices it, `servingChanged` at once). A row of no server known is served, as
+ * the line served every row before. Asked at each call.
+ */
+export function servesRow(deps: {
+  serverOfRow: (guildRow: number) => string | undefined;
+  admits: (serverId: string) => boolean;
+  quiet: QuietServers;
+}): (guildRow: number) => boolean {
+  return (guildRow) => {
+    const server = deps.serverOfRow(guildRow);
+    return server === undefined || (deps.admits(server) && !deps.quiet.isQuiet(server));
+  };
+}
+
+/**
  * A listener of the messages posted (`MessageCreate`) that passes over those of a quiet server
  * (plan 19C-2, S1: Pine left it, or it is in setup) before anything looks at them: the region's
  * board keeps nothing of it, the screenshot trigger reads nothing, no post counts as active. A
@@ -236,6 +257,106 @@ export function notOfQuietServers<M extends { guildId: string | null }>(
     if (message.guildId !== null && quiet.isQuiet(message.guildId)) return;
     listener(message);
   };
+}
+
+/**
+ * What a server's setup reaches that `startApp` makes after it (plan 19C-2, fix round 1, S5),
+ * set where each is made: the events forum and the posts of the stops (made later; none in
+ * rehearsal mode), and what the live client's `configure` makes (the start of its servers, Pine
+ * joining a server). Read at each call, never kept: a client the login dropped (its intents
+ * refused) leaves nothing behind.
+ */
+export interface SetupLate {
+  eventForum?: { zonesChanged(): void };
+  stopPosts?: { zonesChanged(): void };
+  serverStart?: Pick<ServerStart, 'admitted'>;
+  joined?: (serverId: string) => Promise<void>;
+}
+
+/**
+ * What begins for a server once it leaves setup (`ServerSetup`'s `setUp`, plan 19C-2): what was
+ * held for a quiet server. The zones in use are read again (its zone is in use now), its
+ * summaries made, the events forums and the posts of the stops follow the zones, meetup safety's
+ * warnings of the start are said of it alone (S10), and Google's line serves its rows from now on
+ * at once (`servingChanged` by its `Guild` row: the shares worked out anew, its rows ranked anew
+ * by its regions, the raids read first, and the line hurried; a server without a row known has
+ * none in the line). Each step that throws is logged and the rest still run.
+ */
+export function serverSetUpWork(deps: {
+  presenceChanged: () => void;
+  checkSummaries: () => Promise<unknown>;
+  warnAtStart: (servers: readonly string[]) => void;
+  line: { servingChanged(guildRows: readonly number[]): void };
+  rowOf: (serverId: string) => number | undefined;
+  late: Pick<SetupLate, 'eventForum' | 'stopPosts'>;
+  log: Logger;
+}): (serverId: string) => void {
+  const { late, log } = deps;
+  return (serverId) => {
+    const steps: [string, () => void][] = [
+      ['zones in use', deps.presenceChanged],
+      [
+        'summaries',
+        () => {
+          void deps.checkSummaries().catch((err: unknown) => {
+            log.warn({ err, server: serverId }, 'could not make the summaries of a server set up');
+          });
+        },
+      ],
+      ['events forum', () => late.eventForum?.zonesChanged()],
+      ['posts of the stops', () => late.stopPosts?.zonesChanged()],
+      ['meetup safety', () => deps.warnAtStart([serverId])],
+      [
+        "Google's line",
+        () => {
+          const row = deps.rowOf(serverId);
+          if (row !== undefined) deps.line.servingChanged([row]);
+        },
+      ],
+    ];
+    for (const [what, step] of steps) {
+      try {
+        step();
+      } catch (err) {
+        log.error(
+          { err, server: serverId, what },
+          'could not begin what waited for a server set up',
+        );
+      }
+    }
+  };
+}
+
+/**
+ * The setup of the servers wired (plan 19C-2; fix round 1, S5), before the login: a server
+ * leaves setup once its required items are done, whatever did the last (a change of its values,
+ * `ServerSettings.onChange`; a region saved or imported, `whenOutlinesChanged`), and at the start
+ * for one whose items were done meanwhile; every check waits for `connected` (the first load of
+ * the regions, the client ready), so that nothing begins for a server before the bot is there.
+ * A server an instance operator allows after it waited, present (`ServerAdmission.onAllowed`,
+ * S6), is begun on the live client as its joining would be (`late`): its fill, its `Guild` row,
+ * its return. Registered once, whatever client the login keeps.
+ */
+export function wireServerSetup(deps: {
+  setup: Pick<ServerSetup, 'check' | 'checkAll'>;
+  servers: Pick<ServerSettings, 'onChange'>;
+  regions: { whenOutlinesChanged(listener: () => void): unknown };
+  admission: Pick<ServerAdmission, 'onAllowed'>;
+  late: Pick<SetupLate, 'serverStart' | 'joined'>;
+  connected: Promise<unknown>;
+}): void {
+  const { setup, late, connected } = deps;
+  deps.servers.onChange((serverId) => {
+    void connected.then(() => setup.check(serverId));
+  });
+  deps.regions.whenOutlinesChanged(() => {
+    void connected.then(() => setup.checkAll());
+  });
+  void connected.then(() => setup.checkAll());
+  deps.admission.onAllowed((serverId) => {
+    late.serverStart?.admitted(serverId);
+    void late.joined?.(serverId);
+  });
 }
 
 /** Something the shutdown closes and waits for. */

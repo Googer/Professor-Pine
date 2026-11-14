@@ -21,9 +21,13 @@ import {
   notOfQuietServers,
   picturesServed,
   reportPictures,
+  serverSetUpWork,
+  servesRow,
   serversNotQuiet,
   shardStartWork,
   stopReportSteps,
+  wireServerSetup,
+  type SetupLate,
 } from './app-wiring.js';
 import { PartyStatus } from './domain/party/status.js';
 import { ENCOUNTER_PICTURE } from './domain/stops/pictures.js';
@@ -615,5 +619,157 @@ describe('the messages of a quiet server (plan 19C-2, S1)', () => {
     // A direct message is of no server.
     listener({ guildId: null });
     expect(seen).toEqual([SET_UP, null]);
+  });
+
+  it('has Google serve the rows of a server set up alone: not one in setup, left or refused', () => {
+    const SET_UP = '412345678901234567';
+    const IN_SETUP = '412345678901234599';
+    const LEFT = '412345678901234598';
+    const REFUSED = '412345678901234597';
+    const servers = [SET_UP, IN_SETUP, LEFT, REFUSED];
+    const serves = servesRow({
+      serverOfRow: (row) => servers[row - 1],
+      admits: (serverId) => serverId !== REFUSED,
+      quiet: { isQuiet: (serverId) => serverId === IN_SETUP || serverId === LEFT },
+    });
+    expect([1, 2, 3, 4].map(serves)).toEqual([true, false, false, false]);
+    // A row of no server known is served, as the line served it before.
+    expect(serves(9)).toBe(true);
+  });
+});
+
+describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
+  const IN_SETUP = '412345678901234599';
+  const WAITED = '412345678901234598';
+
+  /** A promise and its resolve. */
+  function deferred(): { promise: Promise<void>; resolve: () => void } {
+    let resolve = (): void => undefined;
+    const promise = new Promise<void>((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  }
+
+  function wired() {
+    const connected = deferred();
+    const asked: string[] = [];
+    const times = (what: string): number => asked.filter((one) => one === what).length;
+    /** Resolves once the setup was asked `what` (`check <server>`, `checkAll`) `n` times. */
+    const waiting: { what: string; n: number; resolve: () => void }[] = [];
+    const ask = (what: string): Promise<boolean> => {
+      asked.push(what);
+      for (const one of waiting) if (one.what === what && times(what) >= one.n) one.resolve();
+      return Promise.resolve(false);
+    };
+    const asking = (what: string, n = 1): Promise<void> =>
+      times(what) >= n
+        ? Promise.resolve()
+        : new Promise((resolve) => {
+            waiting.push({ what, n, resolve });
+          });
+    const changeListeners: ((serverId: string) => void)[] = [];
+    const outlineListeners: (() => void)[] = [];
+    const allowedListeners: ((serverId: string) => void)[] = [];
+    const late: SetupLate = {};
+    wireServerSetup({
+      setup: {
+        check: (serverId) => ask(`check ${serverId}`),
+        checkAll: () => ask('checkAll').then(() => undefined),
+      },
+      servers: { onChange: (listener) => changeListeners.push(listener) },
+      regions: { whenOutlinesChanged: (listener) => outlineListeners.push(listener) },
+      admission: { onAllowed: (listener) => allowedListeners.push(listener) },
+      late,
+      connected: connected.promise,
+    });
+    return {
+      connected,
+      asked,
+      asking,
+      late,
+      changed: (serverId: string) => {
+        for (const listener of changeListeners) listener(serverId);
+      },
+      outlinesChanged: () => {
+        for (const listener of outlineListeners) listener();
+      },
+      allowed: (serverId: string) => {
+        for (const listener of allowedListeners) listener(serverId);
+      },
+      listeners: () => [changeListeners, outlineListeners, allowedListeners].map((l) => l.length),
+    };
+  }
+
+  it('listens before the login, and checks only once the bot is connected', async () => {
+    const made = wired();
+    // Registered at once, before the login.
+    expect(made.listeners()).toEqual([1, 1, 1]);
+    made.changed(IN_SETUP);
+    expect(made.asked).toEqual([]);
+    made.connected.resolve();
+    // The change asked meanwhile, and every server in setup at the start.
+    await made.asking(`check ${IN_SETUP}`);
+    await made.asking('checkAll');
+    // A region saved or imported: every server in setup again.
+    made.outlinesChanged();
+    await made.asking('checkAll', 2);
+    made.changed(WAITED);
+    await made.asking(`check ${WAITED}`);
+  });
+
+  it('begins a server an operator allowed on the client the login kept, once', () => {
+    const made = wired();
+    const begun: string[] = [];
+    // Before the client is made: nothing to begin on, nothing thrown.
+    made.allowed(WAITED);
+    made.late.serverStart = { admitted: (serverId) => begun.push(`fill ${serverId}`) };
+    made.late.joined = (serverId) => {
+      begun.push(`joined ${serverId}`);
+      return Promise.resolve();
+    };
+    made.allowed(WAITED);
+    expect(begun).toEqual([`fill ${WAITED}`, `joined ${WAITED}`]);
+    // A client the login dropped leaves nothing: the holder names the live one's.
+    made.late.serverStart = { admitted: (serverId) => begun.push(`live fill ${serverId}`) };
+    made.allowed(IN_SETUP);
+    expect(begun.slice(2)).toEqual([`live fill ${IN_SETUP}`, `joined ${IN_SETUP}`]);
+  });
+
+  it('begins what waited for a server once it is set up, a step that throws logged (S10)', () => {
+    const { log, entries } = createTestLogger();
+    const done: string[] = [];
+    const late: SetupLate = {};
+    const setUp = serverSetUpWork({
+      presenceChanged: () => done.push('zones'),
+      checkSummaries: () => {
+        done.push('summaries');
+        return Promise.resolve();
+      },
+      warnAtStart: (servers) => done.push(`meetup safety ${servers.join(',')}`),
+      line: { servingChanged: (rows) => done.push(`google ${rows.join(',')}`) },
+      rowOf: (serverId) => (serverId === IN_SETUP ? 7 : undefined),
+      late,
+      log,
+    });
+    // The events forum and the posts of the stops are made after the setup's hook.
+    late.eventForum = {
+      zonesChanged: () => {
+        throw new Error('the forum is away');
+      },
+    };
+    late.stopPosts = { zonesChanged: () => done.push('posts of the stops') };
+    setUp(IN_SETUP);
+    expect(done).toEqual([
+      'zones',
+      'summaries',
+      'posts of the stops',
+      `meetup safety ${IN_SETUP}`,
+      // Google's line serves its rows from now on (its shares, its Wayspots, the line hurried).
+      'google 7',
+    ]);
+    expect(
+      entries.filter((entry) => entry['msg'] === 'could not begin what waited for a server set up'),
+    ).toHaveLength(1);
   });
 });

@@ -19,7 +19,12 @@ export interface ServerExits {
 }
 
 export interface ServerAdmissionOptions {
-  standings: Pick<ServerStandings, 'mayHave' | 'isLeft' | 'markLeft' | 'cameBack'>;
+  standings: Pick<ServerStandings, 'mayHave' | 'isLeft' | 'markLeft' | 'cameBack' | 'allow'>;
+  /**
+   * Whether a server's shard names it present now (`ShardReadiness.isPresent`; false before the
+   * shards are there): what an operator's allowance begins asks it (`allow`).
+   */
+  isPresent: (serverId: string) => boolean;
   /**
    * How a server is told and left; none in rehearsal mode, which posts nothing outside the
    * rehearsed posts and leaves no server (`operations.md`): a refusal is only logged there.
@@ -86,6 +91,39 @@ export class ServerAdmission {
   /** Whether the server may have this Pine. */
   admits(serverId: string): boolean {
     return this.options.standings.mayHave(serverId);
+  }
+
+  /** What begins a server's start once it may have this Pine (`allow`). */
+  private readonly allowedListeners: ((serverId: string) => void)[] = [];
+
+  /**
+   * Hears a server an instance operator allowed that may have this Pine now and did not before,
+   * and that is present (plan 19C-2: one a new install waited on, there all along): `app.ts`
+   * begins its fill, its `Guild` row and its return as its joining would. A listener that throws
+   * is logged.
+   */
+  onAllowed(listener: (serverId: string) => void): void {
+    this.allowedListeners.push(listener);
+  }
+
+  /**
+   * An instance operator allows a server (`/operator servers allow`): written
+   * (`ServerStandings.allow`), then, only where it went from not admitted to admitted (not
+   * blocked, not allowed already by its record or the file) and its shard names it present
+   * (`isPresent`, fix round 1, S6), what its joining would have begun begins (`onAllowed`). A
+   * server not present begins when it comes, as any. A failed write is thrown.
+   */
+  async allow(serverId: string, by: string): Promise<void> {
+    const before = this.admits(serverId);
+    await this.options.standings.allow(serverId, by);
+    if (before || !this.admits(serverId) || !this.options.isPresent(serverId)) return;
+    for (const listener of this.allowedListeners) {
+      try {
+        listener(serverId);
+      } catch (err) {
+        this.options.log.error({ err, server: serverId }, 'could not begin a server allowed');
+      }
+    }
   }
 
   /**

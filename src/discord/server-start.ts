@@ -52,6 +52,17 @@ export interface ServerStartDeps<G, I> {
   log: Logger;
 }
 
+/** What the start gives back (`wireServerStart`). */
+export interface ServerStart {
+  /**
+   * A server that may have this Pine now and did not before (plan 19C-2: `/operator servers
+   * allow` of a present server that waited): its fill begins as its joining would, so that it
+   * starts in setup (fix round 1, S2); nothing for a server the cache does not have, one not
+   * available (its `GuildAvailable` begins it), or one still not admitted.
+   */
+  admitted(serverId: string): void;
+}
+
 /**
  * The start of the servers (plan 19A-1, `servers.md`; review F14; on plan 19D's shards, fix
  * round 3, H1). A server's fill is begun in the client's own events, before discord.js hands on
@@ -83,7 +94,7 @@ export interface ServerStartDeps<G, I> {
 export function wireServerStart<
   G extends { id: string; available: boolean },
   I extends { guildId: string | null },
->(client: ServerStartClient<G, I>, deps: ServerStartDeps<G, I>): void {
+>(client: ServerStartClient<G, I>, deps: ServerStartDeps<G, I>): ServerStart {
   const { fill, namesOf, log } = deps;
   /** The servers a shard's READY named before the shard's first ready: those of the login. */
   const atLogin = new Set<string>();
@@ -156,4 +167,13 @@ export function wireServerStart<
     // After its server's fill, if one is under way: never before its row.
     void fill.whenFilled(interaction.guildId).then(() => deps.route(interaction));
   });
+  return {
+    admitted: (serverId) => {
+      const guild = deps.serverOf(serverId);
+      if (guild === undefined || !guild.available || !admits(guild.id)) return;
+      // As one that joins (plan 19C-2, S2): an operator's allowance is no record of it from
+      // before 2.1, so it starts in setup, present at the login though it was.
+      fill.begin(namesOf(guild), 'joined');
+    },
+  };
 }

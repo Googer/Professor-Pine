@@ -6,6 +6,7 @@ import { MemoryServerSettings } from '../../test/support/server-settings.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
 import { FILL_TRIES, ServerFill, type ServerNames } from './server-fill.js';
+import { newEventsForumName } from './event-forum.js';
 import { ServerNotices } from './server-notices.js';
 import { ServerSettings, SETTINGS_LOADING } from './server-settings.js';
 
@@ -474,6 +475,60 @@ describe('the fill: rows for servers that have none', () => {
       expect(servers.has(SERVER)).toBe(false);
       expect(closed()).toEqual([true, ADMINISTRATORS_ONLY]);
     });
+  });
+});
+
+// Plan 19C-2 (spec "Per-server settings"): an open instance ignores the file's server keys.
+describe('the fill of an open instance', () => {
+  const open: Settings = { ...namingMore, servers: 'open' };
+
+  it("starts a joining server from the code's defaults, no zone, nothing looked for or said", async () => {
+    const { servers, fill, told } = await fillWith([], open, {
+      recordedForum: () => Promise.resolve('510000000000000001'),
+    });
+    fill.begin(pittsburgh, 'joined');
+    await fill.whenFilled(SERVER);
+    const values = servers.of(SERVER);
+    // Its names match the file's, and none is taken: no channel, category or role.
+    expect(values.channels).toEqual({});
+    expect(values.categories).toEqual({});
+    expect(values.roles).toEqual({});
+    expect(values.unmatched).toBeUndefined();
+    // No zone until its staff choose one; the instance's default meanwhile.
+    expect(values.timezone).toBeUndefined();
+    expect(servers.zoneOf(SERVER)).toBe('America/New_York');
+    // The code's defaults, not the file's (metric, "-meetups", gyms posted).
+    expect(values.distanceUnits).toBe('imperial');
+    expect(values.regionForumSuffix).toBe('-board');
+    expect(values.postNewGyms).toBe(false);
+    expect(told).toEqual([]);
+    expect(servers.inSetup(SERVER)).toBe(true);
+  });
+
+  it("gives a server without a row the code's defaults, and a DM too", async () => {
+    const { servers } = await fillWith([], open);
+    expect(servers.of(JOINED).distanceUnits).toBe('imperial');
+    expect(servers.of(JOINED).unmatched).toBeUndefined();
+    expect(servers.defaults().timezone).toBeUndefined();
+    expect(servers.defaults().regionForumSuffix).toBe('-board');
+  });
+
+  it("names a new events forum by the code's name, not the file's", () => {
+    const naming = {
+      ...fileSettings,
+      channels: { ...fileSettings.channels, events: 'Happenings' },
+    };
+    expect(newEventsForumName({ ...naming, servers: 'open' })).toBe('events');
+    expect(newEventsForumName(naming)).toBe('happenings');
+  });
+
+  it("keeps the file's keys as a joining server's defaults on an instance with a list", async () => {
+    const { servers, fill } = await fillWith([], { ...fileSettings, servers: [SERVER] });
+    fill.begin(pittsburgh, 'joined');
+    await fill.whenFilled(SERVER);
+    expect(servers.of(SERVER).timezone).toBe('America/New_York');
+    expect(servers.of(SERVER).distanceUnits).toBe('metric');
+    expect(servers.of(SERVER).channels['bot-lab']).toBe(pittsburgh.channel('the-bot-lab', 'text'));
   });
 });
 

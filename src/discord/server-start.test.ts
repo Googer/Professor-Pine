@@ -158,7 +158,8 @@ async function start(count = 1, refused: ReadonlySet<string> = new Set(), wire?:
   const refusals: string[] = [];
   // Who is in, wired before the start's own listeners as `app.ts` does (plan 19C-1, J1).
   const who = wire?.(client, shards, cache);
-  wireServerStart<FakeGuild, { guildId: string | null }>(client, {
+  if (who) record.recorded = who.recorded;
+  const begun = wireServerStart<FakeGuild, { guildId: string | null }>(client, {
     fill,
     namesOf,
     serverOf: (id) => cache.get(id),
@@ -242,8 +243,12 @@ async function start(count = 1, refused: ReadonlySet<string> = new Set(), wire?:
     routed,
     routedOnce: routedOnce.promise,
     refusals,
+    admitted: (serverId: string) => begun.admitted(serverId),
   };
 }
+
+/** A server the cache has never had. */
+const STRANGER_ID = '412345678901234579';
 
 describe('the start of the servers over the shards (plan 19A-1, review F14; fix round 3, H1)', () => {
   it('does a shard’s start work once its servers are filled and recorded, and is started once every shard’s is', async () => {
@@ -395,6 +400,37 @@ describe('the start of the servers over the shards (plan 19A-1, review F14; fix 
     expect(made.routed).toEqual([{ guildId: SERVER_A, hadRow: true }]);
     expect(store.creates.map((one) => one.serverId)).toEqual([SERVER_A]);
   });
+
+  it('fills a present server that waited once an operator allows it, as its coming would (plan 19C-2)', async () => {
+    const waiting = new Set([SERVER_B]);
+    const made = await start(1, waiting);
+    const { discord, store } = made;
+    discord.readyPacket(0, [SERVER_A, SERVER_B]);
+    discord.available(SERVER_A);
+    discord.available(SERVER_B);
+    discord.shardReady(0);
+    await made.sync();
+    await store.allow(SERVER_A);
+    discord.clientReady();
+    await made.started;
+    expect(made.servers.has(SERVER_B)).toBe(false);
+    // Allowed: its fill begins, as one that joined: an operator's allowance is no record of it
+    // from before, so it starts in setup (S2), present at the login though it was.
+    waiting.delete(SERVER_B);
+    made.admitted(SERVER_B);
+    await store.allow(SERVER_B);
+    await made.fill.whenFilled(SERVER_B);
+    expect(made.servers.has(SERVER_B)).toBe(true);
+    expect(made.servers.inSetup(SERVER_B)).toBe(true);
+    expect(made.servers.setUpAt(SERVER_A)).not.toBeNull();
+    // Its interactions are routed from now on, after its row.
+    discord.interaction(SERVER_B);
+    await made.routedOnce;
+    expect(made.routed).toEqual([{ guildId: SERVER_B, hadRow: true }]);
+    // One the cache does not have, or still not admitted, begins nothing.
+    made.admitted(STRANGER_ID);
+    expect(store.creates.map((one) => one.serverId)).toEqual([SERVER_A, SERVER_B]);
+  });
 });
 
 describe('a new install keeps its owner’s server (plan 19C-1, J1)', () => {
@@ -436,6 +472,7 @@ describe('a new install keeps its owner’s server (plan 19C-1, J1)', () => {
         exits,
         recorded: () => Promise.resolve([...store.guilds]),
         inServer: () => true,
+        isPresent: (serverId) => shards.isPresent(serverId),
         undecided: (serverId) => adoption.undecided(serverId),
         log,
       });
