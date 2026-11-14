@@ -150,9 +150,8 @@ describe('the fill: rows for servers that have none', () => {
       {
         channelId: pittsburgh.channel('mod-bot-only', 'text'),
         text:
-          'I could not find these channels and roles of my settings file in this server, so ' +
-          'they are not set: the Unown channel #unown-sightings. Staff set them with ' +
-          '/admin settings.',
+          'I could not find these channels and roles named in my settings file, so they are ' +
+          'not set: the Unown channel #unown-sightings. Set them in /admin settings.',
       },
     ]);
   });
@@ -177,9 +176,9 @@ describe('the fill: rows for servers that have none', () => {
     const lab = twice.channel('the-bot-lab', 'text') ?? '';
     const pvp = twice.category('PVP CHAT AND TOURNAMENTS') ?? '';
     expect(told.map((one) => one.text)).toEqual([
-      'These names match more than one channel or category in this server, so I took one of ' +
-        `each: <#${lab}> as the bot lab #the-bot-lab, <#${pvp}> as the PvP category PVP ` +
-        'CHAT AND TOURNAMENTS. Staff pick others with /admin settings.',
+      'These names match more than one channel or category, so I took one of each: ' +
+        `<#${lab}> as the bot lab #the-bot-lab, <#${pvp}> as the PvP category PVP CHAT AND ` +
+        'TOURNAMENTS. If I took the wrong one, pick another in /admin settings.',
     ]);
   });
 
@@ -259,15 +258,14 @@ describe('the fill: rows for servers that have none', () => {
     // The two that stay closed are worded apart from those left unset.
     expect(told.map((one) => one.text)).toEqual([
       [
-        'I could not find these channels and roles of my settings file in this server, so they ' +
-          'are not set: the Unown channel #unown-sightings, the events forum #events. Staff set ' +
-          'them with /admin settings.',
-        'The moderators’ channel #moderators could not be found, so it stays closed until staff ' +
-          'pick one in /admin settings: meetups that need approval and reports are refused until ' +
-          'then.',
-        'The map’s member role Verified could not be found, so it stays closed until staff pick ' +
-          'one in /admin settings: the map shows parties to administrators only until then.',
-      ].join('\n'),
+        'I could not find these channels and roles named in my settings file, so they are not ' +
+          'set: the Unown channel #unown-sightings, the events forum #events. Set them in ' +
+          '/admin settings.',
+        'I could not find the moderators’ channel #moderators. Until you pick one in ' +
+          '/admin settings, reports and meetups that need approval are refused.',
+        'I could not find the map’s member role Verified. Until you pick one in /admin settings, ' +
+          'the map shows parties to administrators only.',
+      ].join('\n\n'),
     ]);
   });
 

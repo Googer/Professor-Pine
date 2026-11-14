@@ -96,9 +96,9 @@ function itemDetail(key: SetupItemKey, state: ChecklistState): string {
   switch (key) {
     case 'timezone':
       return timezone === undefined
-        ? 'Every time members type and Pine shows here is in it. Until you choose one, Pine ' +
-            `uses \`${state.defaultZone}\`. Distances in ${units}.`
-        : `\`${timezone}\`; distances in ${units}.`;
+        ? 'Pine reads and shows every time in this zone. Until you choose one, Pine uses ' +
+            `\`${state.defaultZone}\`. Distances are in ${units}.`
+        : `\`${timezone}\`. Distances are in ${units}.`;
     case 'bot-lab':
       return channelLine(
         channels['bot-lab'],
@@ -114,11 +114,11 @@ function itemDetail(key: SetupItemKey, state: ChecklistState): string {
     case 'region': {
       const { regions } = state.facts;
       if (regions > 0) return `${count(regions, 'region')} with an outline.`;
-      const editor = state.editor ? 'draw it on a map with `/region edit`, or ' : '';
+      const editor = state.editor ? 'draw a channel’s outline with `/region edit`, or ' : '';
       return (
-        'A region is a channel of the server with an outline on the map: its raids and trains ' +
-        `are posted in its own forum. Give a channel its outline: ${editor}import a KML file ` +
-        'of outlines with `/region import`.'
+        'A region is a channel with an outline on the map. Its raids and trains are posted in ' +
+        `a forum of its own. To make one, ${editor}import a KML file of outlines with ` +
+        '`/region import`.'
       );
     }
     case 'moderation':
@@ -135,16 +135,17 @@ function itemDetail(key: SetupItemKey, state: ChecklistState): string {
         'The game’s events are in',
       );
     case 'channels': {
-      const named = OTHER_CHANNELS.map((role) => OTHER_NAMES[role]).join(', ');
-      return `${String(otherChannels(state.facts))} of ${String(OTHER_CHANNELS.length)} set: ${named}.`;
+      const names = OTHER_CHANNELS.map((role) => OTHER_NAMES[role]);
+      const named = `${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''}`;
+      return `${named}: ${String(otherChannels(state.facts))} of ${String(OTHER_CHANNELS.length)} set.`;
     }
     case 'gyms':
       // `/gym import` works once the server is set up (S7).
       return state.facts.gyms > 0
         ? `${count(state.facts.gyms, 'gym')}.`
         : `${state.inSetup ? 'Once Pine is set up, import' : 'Import'} your gyms from Wayfarer ` +
-            'with `/gym import` and the file the Pine Wayfarer export tool saves. To have the ' +
-            `tool, ask for it at <${state.tool}>: its owner hands it out.`;
+            'with `/gym import` and the file the Pine Wayfarer export tool saves. The tool’s ' +
+            `owner hands it out: ask for it at <${state.tool}>.`;
   }
 }
 
@@ -179,10 +180,10 @@ const SECTION_LABELS: Readonly<Partial<Record<SectionName, string>>> = {
  */
 export function setupChecklist(state: ChecklistState): V2Message {
   const title =
-    '### Setting up Pine in this server\n' +
+    '### Setting up Pine\n' +
     (state.inSetup
-      ? 'Pine works here once the four required items are done; the rest can follow.'
-      : 'Pine is set up in this server; the rest can follow whenever you like.');
+      ? 'Pine works here once the four required items are done. The rest can follow later.'
+      : 'Pine is set up here. The rest can follow whenever you like.');
   const items = setupItems(state.facts).map((item): APIComponentInContainer => {
     const panelSection = ITEMS[item.key].section;
     const label = panelSection === undefined ? undefined : SECTION_LABELS[panelSection];
@@ -261,16 +262,20 @@ export const serverSetup: SubcommandPart = {
   // Its guard is `/admin`'s list's (`staffParts`): a setup part.
   data: new SlashCommandSubcommandBuilder()
     .setName('setup')
-    .setDescription('The checklist of setting Pine up in this server'),
+    .setDescription('Set Pine up: what it needs and what is done'),
   help: {
     details:
-      'Shows, only to you, what Pine needs in this server and what is done: the time zone and ' +
-      'units, the bot lab and the moderators’ bot lab, the first region, then what can follow ' +
-      '(the moderators’ channel, the events forum, the other channels, the gyms). Each has a ' +
-      'button to where it is set, or the command that sets it.\n\nUntil the four required ' +
-      'items are done, Pine answers members only that it is not set up yet, and posts and ' +
-      'sends nothing in this server. Once they are, it is set up for good, and the bot lab is ' +
-      'told so.',
+      'Shows you, privately, a checklist of what Pine needs and what is done. Each item has a ' +
+      'button to where it is set, or names the command that sets it.\n\n' +
+      'Four items are required:\n' +
+      '- the time zone and units\n' +
+      '- the bot lab\n' +
+      '- the moderators’ bot lab\n' +
+      '- the first region\n\n' +
+      'Until they are done, Pine tells members only that it is not set up yet, and posts and ' +
+      'sends nothing here. Once they are, Pine is set up for good and says so in the bot lab.' +
+      '\n\nThe rest can follow whenever you like: the moderators’ channel, the events forum, ' +
+      'the other channels and the gyms.',
     examples: ['/admin setup'],
   },
   defer: 'late',

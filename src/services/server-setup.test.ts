@@ -76,9 +76,8 @@ describe('leaving setup (plan 19C-2)', () => {
       {
         channelId: NEW_LAB,
         text:
-          'Pine is set up in this server: its commands work for everybody now. Its staff can ' +
-          'add the rest when they like: the moderators’ channel, the events forum, the other ' +
-          'channels and the gyms.',
+          'I am set up, and my commands work for everyone now. Staff can set up more when ' +
+          'they like: the moderators’ channel, the events forum, the other channels and the gyms.',
       },
     ]);
     expect(made.heard).toEqual([NEW]);
@@ -144,8 +143,8 @@ describe('leaving setup (plan 19C-2)', () => {
     });
     await made.setup.check(NEW);
     expect(made.sent[0]?.text).toBe(
-      'Pine is set up in this server: its commands work for everybody now. Its staff can add ' +
-        'the rest when they like: the other channels and the gyms.',
+      'I am set up, and my commands work for everyone now. Staff can set up more when they ' +
+        'like: the other channels and the gyms.',
     );
   });
 });

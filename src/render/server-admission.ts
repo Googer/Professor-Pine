@@ -33,5 +33,5 @@ export const OWN_PINE_GUIDE =
  * (plan 19C-1; spec "Joining, the setup state, leaving"): plain text, naming nobody.
  */
 export const PRIVATE_INSTANCE_TEXT =
-  'This Pine is private: it serves only the servers its operators allow. To run Pine for your ' +
-  `community, see <${OWN_PINE_GUIDE}>.`;
+  'I am a private Pine: I serve only the servers my operators allow, so I am leaving this ' +
+  `server.\n\nTo run a Pine of your own for your community, see <${OWN_PINE_GUIDE}>.`;
