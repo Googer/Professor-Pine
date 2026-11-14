@@ -53,7 +53,16 @@ import { FakePartyGateway } from './fake-gateway.js';
 import { FAKE_GUILD_ID } from './fake-interactions.js';
 import { TEST_ENV } from './test-env.js';
 import { gymDirectoryWith } from './gym-store.js';
-import { EAST_CHANNEL, EAST_FORUM, testRegions, WEST_CHANNEL, WEST_FORUM } from './gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  OTHER_GUILD_ID,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
+  testRegions,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from './gyms.js';
 import { FakeMemberDirectory } from './members.js';
 import { regionAdminWith } from './region-admin.js';
 import { createTestLogger } from './test-logger.js';
@@ -139,11 +148,15 @@ export const TOWN_CATEGORY_ID = '100000000000000041';
  * Where the region editor's view is built from in tests: the sources of `geoSourcesWith` (the
  * invented gyms and regions, `regionRows` to change them), the kept Wayspots of `rows`, and the
  * server's channels as `ServerChannel`s: `west` and `east` in the category `Town`, `south` (no
- * region) and a forum. `servers.serverName` names the server `Pinewood`.
+ * region) and a forum. `servers.serverName` names the server `Pinewood`. The servers' snowflakes by
+ * their rows are `snowflakes` (the fakes' server row 1, the second server row 2; a test adds
+ * more), and the web lists those `listed` says (every one by default; `webServers`' `listed` for
+ * the bot's own rule).
  */
 export async function editorSourcesWith(
   rows: readonly WayspotRow[] = [],
   others: Parameters<typeof wayspotsWith>[3] = [],
+  listed: (serverId: string) => boolean = () => true,
 ) {
   const geo = await geoSourcesWith();
   const { wayspots } = await wayspotsWith(rows, undefined, undefined, others);
@@ -154,17 +167,25 @@ export async function editorSourcesWith(
     { id: SOUTH_TEXT_CHANNEL, name: 'south', kind: 'text', categoryId: null },
     { id: '100000000000000011', name: 'west-raids', kind: 'forum', categoryId: TOWN_CATEGORY_ID },
   ];
+  const snowflakes = new Map<number, string>([
+    [TEST_GUILD_ROW, FAKE_GUILD_ID],
+    [OTHER_GUILD_ROW, OTHER_GUILD_ID],
+  ]);
   const sources: EditorSources = {
-    guilds: geo.sources.guilds,
+    guilds: {
+      idFor: (guild) => geo.sources.guilds.idFor(guild),
+      snowflakeOf: (row) => Promise.resolve(snowflakes.get(row)),
+    },
     regions: geo.regions,
     gyms: geo.directory,
     wayspots,
     servers: {
       serverChannels: (guild) => (guild === FAKE_GUILD_ID ? channels : undefined),
       serverName: (guild) => (guild === FAKE_GUILD_ID ? 'Pinewood' : undefined),
+      listed,
     },
   };
-  return { ...geo, wayspots, channels, sources };
+  return { ...geo, wayspots, channels, snowflakes, sources };
 }
 
 /**
@@ -213,11 +234,14 @@ export class FakeRegionStaff implements RegionStaffSource {
 
 /** No regions, gyms or Wayspots: the editor of a server that has none. */
 const NO_EDITOR: EditorSources = {
-  guilds: { idFor: () => Promise.resolve(undefined) },
+  guilds: {
+    idFor: () => Promise.resolve(undefined),
+    snowflakeOf: () => Promise.resolve(undefined),
+  },
   regions: { all: () => [], generation: 0 },
   gyms: { of: () => ({ all: () => [], regionsOf: () => [] }), generation: 0 },
   wayspots: { of: () => ({ all: () => [] }), generation: 0 },
-  servers: { serverChannels: () => undefined, serverName: () => undefined },
+  servers: { serverChannels: () => undefined, serverName: () => undefined, listed: () => true },
 };
 
 /** No regions and no gyms: the map of a server that has none. */
@@ -1025,6 +1049,37 @@ function membersForEditor(staff: RegionStaffSource | undefined): FakeMemberDirec
 }
 
 /**
+ * The routes of a web server as Fastify lists them once it is ready (`printRoutes`: a tree, a
+ * line per path, four characters of indent per level, its methods in brackets), each method of
+ * each path with its parameters' names; `method` keeps only those of one (and the page's `HEAD`
+ * of a `GET` is left out unless asked for).
+ */
+export function serverRoutes(
+  app: FastifyInstance,
+  method?: string,
+): Array<{ method: string; url: string }> {
+  const parents: string[] = [];
+  const routes: Array<{ method: string; url: string }> = [];
+  const tree = app.printRoutes(
+    method === undefined ? { commonPrefix: false } : { commonPrefix: false, method },
+  );
+  for (const line of tree.split('\n')) {
+    const match = /^([│ ]*)[├└]── (.+?)(?: \((.+)\))?$/u.exec(line);
+    if (!match) continue;
+    const [, indent = '', part = '', methods] = match;
+    const depth = indent.length / 4;
+    parents.length = depth;
+    parents.push(part);
+    for (const one of methods?.split(', ') ?? []) {
+      if (method === undefined ? one !== 'HEAD' : one === method) {
+        routes.push({ method: one, url: parents.join('') });
+      }
+    }
+  }
+  return routes;
+}
+
+/**
  * The web server over fakes: the bot is in the server of the fake interactions alone, unless
  * `servers` says otherwise; sessions in memory, on a clock of the test's. Close `app` after the
  * test.
@@ -1068,6 +1123,7 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     servers: options.servers ?? {
       has: (guildId) => guildId === FAKE_GUILD_ID,
       inSetup: () => false,
+      openToVisitors: () => true,
     },
     serverSettings: options.serverSettings ?? new TestServers(),
     // The fakes' server names the map's role of the tests (`withMapRole`) `Verified`.

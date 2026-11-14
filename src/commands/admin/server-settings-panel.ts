@@ -11,6 +11,7 @@ import {
   type APIStringSelectComponent,
 } from 'discord.js';
 import {
+  publicMapOn,
   SERVER_CHANNEL_ROLES,
   type ServerChannelRole,
   type ServerValues,
@@ -134,13 +135,30 @@ export interface Switch {
   name: string;
   /** Whether the instance allows it (passive reading, the auto-assigned role); always else. */
   allowed?: (instance: Instance) => boolean;
-  on(values: ServerValues): boolean;
+  /** The section it is shown in, beside what it goes with: Features unless said. */
+  section?: SectionName;
+  /** What being on and off means, after its state: who sees what. None for a feature's. */
+  means?: { on: string; off: string };
+  /** Whether it is on, as Pine applies it: a value its staff never set is the instance's default. */
+  on(values: ServerValues, instance: Instance): boolean;
+  /**
+   * Whether its staff set it (fix round 1, R4): one never set follows the instance's default,
+   * which a change of the instance moves, so the panel says so and offers to keep it as it is.
+   * Always set unless said.
+   */
+  chosen?: (values: ServerValues) => boolean;
 }
 
-/** What the instance allows a server, of what decides the intents Pine logs in with. */
+/**
+ * What the instance allows a server, of what decides the intents Pine logs in with; whether it
+ * is open (`servers: "open"`), which decides the defaults a server's staff did not set; and
+ * whether it has web pages (`settings.web`), without which a server has no map to open.
+ */
 export interface Instance {
   passiveReading: boolean;
   autoAssignRole: boolean;
+  open: boolean;
+  web: boolean;
 }
 
 export const SWITCHES: readonly Switch[] = [
@@ -173,11 +191,59 @@ export const SWITCHES: readonly Switch[] = [
     allowed: (instance) => instance.autoAssignRole,
     on: (v) => v.autoAssignRole,
   },
+  {
+    // Beside the map's member role (plan 19C-4): on by default where the instance lists its
+    // servers, off on an open one (`publicMapOn`); only where there are web pages (R9).
+    key: 'publicMap',
+    name: 'Map for visitors who are not logged in',
+    allowed: (instance) => instance.web,
+    section: 'roles',
+    means: {
+      on:
+        'anybody can open this server’s web map and see its regions and gyms; only members see ' +
+        'its parties',
+      off:
+        'only somebody logged in with Discord can open this server’s web map; to anybody else ' +
+        'it is not there',
+    },
+    on: (v, instance) => publicMapOn(v, instance),
+    chosen: (v) => v.publicMap !== undefined,
+  },
 ];
 
 /** The switches the panel shows on this instance. */
 export const switchesOf = (instance: Instance): Switch[] =>
   SWITCHES.filter((one) => one.allowed?.(instance) ?? true);
+
+/** What a switch its staff never set says after its state (fix round 1, R4). */
+const INSTANCE_DEFAULT = ' (the instance’s default)';
+
+/**
+ * A switch's line: its name and state, what that means where it says, and its button. One its
+ * staff never set (`chosen`) says it is the instance's default, and offers Keep on (or off),
+ * which writes it as it is, beside the button that turns it the other way (fix round 1, R4).
+ */
+function switchLine(
+  one: Switch,
+  values: ServerValues,
+  instance: Instance,
+): APIComponentInContainer[] {
+  const on = one.on(values, instance);
+  const state = on ? ON : OFF;
+  const means = one.means === undefined ? '' : ` · ${one.means[state]}`;
+  const name = one.means === undefined ? one.name : `**${one.name}**`;
+  if (one.chosen?.(values) ?? true) {
+    return [section(`${name}: **${state}**${means}`, switchButton(one.key, on))];
+  }
+  return [
+    textDisplay(`${name}: **${state}**${INSTANCE_DEFAULT}${means}`),
+    actionRow([keepButton(one.key, on), switchButton(one.key, on)]),
+  ];
+}
+
+/** The switches of one section that the panel shows on this instance. */
+const switchesIn = (sectionName: SectionName, instance: Instance): Switch[] =>
+  switchesOf(instance).filter((one) => (one.section ?? 'features') === sectionName);
 
 /** The settings changed in a dialog: `server:<key>:ask`. */
 export const DIALOGS = [
@@ -195,7 +261,8 @@ export type DialogKey = (typeof DIALOGS)[number];
 export function sectionOf(key: string): SectionName {
   if (key.startsWith('channels.')) return 'channels';
   if (key.startsWith('categories.') || key.startsWith('roles.')) return 'roles';
-  if (SWITCHES.some((one) => one.key === key)) return 'features';
+  const one = SWITCHES.find((each) => each.key === key);
+  if (one !== undefined) return one.section ?? 'features';
   return 'text';
 }
 
@@ -308,6 +375,16 @@ function switchButton(key: string, on: boolean): APIButtonComponentWithCustomId 
         label: 'Turn on',
         custom_id: id(key, SET, [ON]),
       };
+}
+
+/** Keep on (or off): writes a switch's state as it is, the instance's default (R4). */
+function keepButton(key: string, on: boolean): APIButtonComponentWithCustomId {
+  return {
+    type: ComponentType.Button,
+    style: ButtonStyle.Secondary,
+    label: on ? 'Keep on' : 'Keep off',
+    custom_id: id(key, SET, [on ? ON : OFF]),
+  };
 }
 
 function changeButton(
@@ -450,6 +527,7 @@ function channelsSection(
 
 function rolesSection(
   values: ServerValues,
+  instance: Instance,
   known: ServerPanelState['known'],
   confirming: UnmatchedKey | undefined,
 ): APIComponentInContainer[] {
@@ -485,14 +563,13 @@ function rolesSection(
       confirming,
     ),
     roleSelect('roles.mapMember', member),
+    // The map for visitors who are not logged in (plan 19C-4).
+    ...switchesIn('roles', instance).flatMap((one) => switchLine(one, values, instance)),
   ];
 }
 
 function featuresSection(values: ServerValues, instance: Instance): APIComponentInContainer[] {
-  return switchesOf(instance).map((one) => {
-    const on = one.on(values);
-    return section(`${one.name}: **${on ? ON : OFF}**`, switchButton(one.key, on));
-  });
+  return switchesIn('features', instance).flatMap((one) => switchLine(one, values, instance));
 }
 
 /**
@@ -648,7 +725,7 @@ export function serverPanel(state: ServerPanelState, said?: string): V2Message {
     chosen === 'channels'
       ? channelsSection(values, state.known, confirming)
       : chosen === 'roles'
-        ? rolesSection(values, state.known, confirming)
+        ? rolesSection(values, state.instance, state.known, confirming)
         : chosen === 'features'
           ? featuresSection(values, state.instance)
           : chosen === 'text'

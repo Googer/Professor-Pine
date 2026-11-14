@@ -421,6 +421,7 @@ describe('the regions and gyms of a server', () => {
       servers: {
         has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999',
         inSetup: () => false,
+        openToVisitors: () => true,
       },
     });
     const answer = await web.app.inject({ url: '/s/412345678901234999/api/geo' });

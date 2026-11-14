@@ -6,6 +6,7 @@ import { sendButtonPage, sendFailure } from './answers.js';
 import { addressBucket, prefixBucket } from './client-address.js';
 import { postGuard } from './csrf.js';
 import { authorizeUrl } from './discord-oauth.js';
+import { hiddenFrom } from './hidden-servers.js';
 import { localPath } from './local-path.js';
 import type { LinkPage } from './login-links.js';
 import { limitedPerAddress, RateLimiter } from './rate-limit.js';
@@ -164,14 +165,21 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     (page: LinkPage) =>
     async (request: FastifyRequest<{ Params: LinkParams }>, reply: FastifyReply) => {
       const { guild, token } = request.params;
+      // Who the browser is logged in as, read first for every link alike (fix round 1, R1): a
+      // server Pine is in does no more work than one it is not in.
+      const session = await sessions.of(request, reply);
       if (!isSnowflake(guild) || !servers.has(guild)) return sendFailure(request, reply, 404);
       const holder = loginLinks.peek(token, now());
       if (!holder || holder.guildId !== guild) {
+        // Where the page would answer as a server Pine is not in, so does a link that is none
+        // (plan 19C-4: a closed map, a server in setup); a link of the server's still logs in.
+        if (await hiddenFrom(request, reply, deps, guild, `/${page}`)) {
+          return sendFailure(request, reply, 404);
+        }
         return reply.redirect(`/s/${guild}/${page}?login=expired`, 303);
       }
-      // Who the browser is logged in as (plan 8Z-2): only one that is not logged in has the
-      // button pressed for it; a session's holder sees whose link it is and presses, or not.
-      const session = await sessions.of(request, reply);
+      // Only a browser that is not logged in has the button pressed for it (plan 8Z-2); a
+      // session's holder sees whose link it is and presses, or not.
       return sendButtonPage(reply, {
         sentence: LINK_SENTENCES[page],
         action: `/auth/link/${guild}/${encodeURIComponent(token)}${LINK_SUFFIXES[page]}`,
@@ -201,7 +209,16 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     (page: LinkPage) =>
     async (request: FastifyRequest<{ Params: LinkParams }>, reply: FastifyReply) => {
       const { guild, token } = request.params;
+      // The session first, for every link alike, as the link's page reads it (fix round 1, R1).
+      await sessions.of(request, reply);
       if (!isSnowflake(guild) || !servers.has(guild)) return sendFailure(request, reply, 404);
+      // As the link's page (plan 19C-4): before anything else says the server is here.
+      if (
+        loginLinks.peek(token, now())?.guildId !== guild &&
+        (await hiddenFrom(request, reply, deps, guild, `/${page}`))
+      ) {
+        return sendFailure(request, reply, 404);
+      }
       if (request.headers.origin !== settings.publicUrl) return sendFailure(request, reply, 403);
       const holder = loginLinks.redeem(token, now());
       if (!holder || holder.guildId !== guild) {

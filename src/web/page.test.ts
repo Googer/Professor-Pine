@@ -190,7 +190,11 @@ describe('the map page', () => {
     web = webServerWith({
       assets: builtAssets(),
       serverSettings,
-      servers: { has: (guild) => guild === FAKE_GUILD_ID || guild === other, inSetup: () => false },
+      servers: {
+        has: (guild) => guild === FAKE_GUILD_ID || guild === other,
+        inSetup: () => false,
+        openToVisitors: () => true,
+      },
     });
     const page = await web.app.inject({ url: MAP });
     expect(bodyData(page.body)['data-distance-units']).toBe('metric');

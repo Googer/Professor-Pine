@@ -6,6 +6,7 @@ import {
   type ModalSubmitInteraction,
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
+import { isOpenInstance } from '../../config/settings.js';
 import {
   SERVER_CHANNEL_ROLES,
   settingChanges,
@@ -74,6 +75,8 @@ function instanceOf(ctx: AppContext): Instance {
   return {
     passiveReading: ctx.config.settings.ocr.passive && ctx.features.ocrPassive,
     autoAssignRole: ctx.config.settings.autoAssignRole && ctx.features.autoAssignRole,
+    open: isOpenInstance(ctx.config.settings),
+    web: ctx.config.settings.web !== undefined,
   };
 }
 
@@ -255,7 +258,10 @@ function switched(interaction: ButtonInteraction, id: CustomId, ctx: AppContext)
     throw new UserError(STALE_COMPONENT);
   // `features.roles` is one of the features; `postNewGyms` and the others stand by themselves.
   const feature = one.key.startsWith('features.') ? one.key.slice('features.'.length) : undefined;
-  return changed(interaction, ctx, 'features', () =>
+  return changed(interaction, ctx, sectionOf(one.key), () =>
+    // A press always writes the value it names (fix round 1, R4): Keep on of the map for visitors,
+    // whose default is the instance's, makes it the server's own, which no change of the
+    // instance's `servers` moves.
     setValues(interaction, ctx, (values) =>
       feature === undefined
         ? { ...values, [one.key]: on }

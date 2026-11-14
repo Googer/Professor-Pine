@@ -28,6 +28,7 @@ import {
 } from '../../../test/support/server-values.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { TEST_SETTINGS_PATH } from '../../../test/support/test-settings.js';
+import { TEST_WEB } from '../../../test/support/web.js';
 import type { ServerValues } from '../../config/server-settings.js';
 import { loadSettings } from '../../config/settings.js';
 import { isSnowflake } from '../../db/snowflake.js';
@@ -110,10 +111,19 @@ async function setup(
     passive?: boolean;
     values?: ServerValues;
     known?: { channels: string[]; roles: Record<string, string> };
+    /** An open instance (`servers: "open"`, plan 19C-4); else the test settings' (none listed). */
+    open?: boolean;
+    /** Whether the instance has web pages (`settings.web`); it has unless a test says not. */
+    web?: boolean;
   } = {},
 ) {
   const known = options.known ?? KNOWN;
-  const settings = loadSettings(TEST_SETTINGS_PATH);
+  const read = loadSettings(TEST_SETTINGS_PATH);
+  const settings = {
+    ...read,
+    ...(options.open === true ? { servers: 'open' as const } : {}),
+    ...(options.web === false ? { web: undefined } : { web: TEST_WEB }),
+  };
   const store = new MemoryServerSettings([
     {
       serverId: FAKE_GUILD_ID,
@@ -144,7 +154,7 @@ async function setup(
           },
           features: { ocrPassive: true, autoAssignRole: false },
         }
-      : {}),
+      : { config: { ...ctx.config, settings } }),
   };
   const router = new InteractionRouter(context, [admin], [serverSettingsControls]);
   const who = (userId: string) => ({
@@ -543,6 +553,84 @@ describe('/admin settings', () => {
     );
     await press('server:features.roles:set:on');
     expect(servers.of(FAKE_GUILD_ID).features.roles).toBe(true);
+  });
+
+  it('opens and closes the map to visitors who are not logged in, under the map’s member role (plan 19C-4)', async () => {
+    const { press, pick, servers, store } = await setup();
+    const roles = shownAfter(await pick('server:panel:show', ['roles']));
+    // On by default where the instance lists its servers, or none: said so, with a button that
+    // keeps it on and one that closes it (fix round 1, R4).
+    expect(textOf(roles)).toContain(
+      '**Map for visitors who are not logged in**: **on** (the instance’s default)',
+    );
+    expect(textOf(roles)).toContain('only members see its parties');
+    const ofMap = (shown: V2Message) =>
+      buttonsOf(shown)
+        .filter((one) => one.customId?.startsWith('server:publicMap'))
+        .map((one) => [one.label, one.customId]);
+    expect(ofMap(roles)).toEqual([
+      ['Keep on', 'server:publicMap:set:on'],
+      ['Turn off', 'server:publicMap:set:off'],
+    ]);
+    // Keep on writes the value, so that the instance's default no longer moves it.
+    const kept = shownAfter(await press('server:publicMap:set:on'));
+    expect(servers.of(FAKE_GUILD_ID).publicMap).toBe(true);
+    expect(textOf(kept)).toContain('**Map for visitors who are not logged in**: **on** ·');
+    expect(textOf(kept)).not.toContain('the instance’s default');
+    expect(ofMap(kept)).toEqual([['Turn off', 'server:publicMap:set:off']]);
+    expect((await store.audit.ofServer(FAKE_GUILD_ID, 5)).at(-1)).toMatchObject({
+      key: 'publicMap',
+      before: null,
+      after: true,
+    });
+    // Pressed again, what is so already.
+    expect(textOf(shownAfter(await press('server:publicMap:set:on')))).toContain(
+      'That was so already.',
+    );
+    const off = shownAfter(await press('server:publicMap:set:off'));
+    expect(textOf(off)).toContain('Turned off the map for visitors who are not logged in.');
+    expect(textOf(off)).toContain('**Map for visitors who are not logged in**: **off**');
+    expect(textOf(off)).toContain('only somebody logged in with Discord can open');
+    expect(ofMap(off)).toEqual([['Turn on', 'server:publicMap:set:on']]);
+    // The press shows the section it changed again.
+    expect(menu(off, 'server:panel:show').options?.find((one) => one.default)?.value).toBe('roles');
+    expect(servers.of(FAKE_GUILD_ID).publicMap).toBe(false);
+    expect((await store.audit.ofServer(FAKE_GUILD_ID, 5)).at(-1)).toMatchObject({
+      key: 'publicMap',
+      before: true,
+      after: false,
+    });
+  });
+
+  it('keeps the map closed to such visitors on an open instance until staff open it (plan 19C-4)', async () => {
+    const { press, pick, servers } = await setup({ open: true });
+    const roles = shownAfter(await pick('server:panel:show', ['roles']));
+    expect(textOf(roles)).toContain(
+      '**Map for visitors who are not logged in**: **off** (the instance’s default)',
+    );
+    expect(
+      buttonsOf(roles)
+        .filter((one) => one.customId?.startsWith('server:publicMap'))
+        .map((one) => [one.label, one.customId]),
+    ).toEqual([
+      ['Keep off', 'server:publicMap:set:off'],
+      ['Turn on', 'server:publicMap:set:on'],
+    ]);
+    // Keep off writes it: closed whatever the instance's default becomes.
+    await press('server:publicMap:set:off');
+    expect(servers.of(FAKE_GUILD_ID).publicMap).toBe(false);
+    const on = shownAfter(await press('server:publicMap:set:on'));
+    expect(textOf(on)).toContain('Turned on the map for visitors who are not logged in.');
+    expect(servers.of(FAKE_GUILD_ID).publicMap).toBe(true);
+  });
+
+  it('offers the map for visitors only on an instance with web pages (fix round 1, R9)', async () => {
+    const { press, pick, servers } = await setup({ web: false });
+    const roles = textOf(shownAfter(await pick('server:panel:show', ['roles'])));
+    expect(roles).not.toContain('Map for visitors');
+    const refused = await press('server:publicMap:set:off');
+    expect(answered(refused).content).toContain('no longer');
+    expect(servers.of(FAKE_GUILD_ID).publicMap).toBeUndefined();
   });
 
   it('offers passive reading and the auto-assigned role only where the instance allows them', async () => {

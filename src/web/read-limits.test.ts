@@ -1,8 +1,12 @@
-import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
-import { geoSourcesWith, webServerWith, type TestWeb } from '../../test/support/web.js';
+import {
+  geoSourcesWith,
+  serverRoutes,
+  webServerWith,
+  type TestWeb,
+} from '../../test/support/web.js';
 import { REFUSED } from '../services/costly.js';
 import { EmojiPictures } from '../services/post-pictures.js';
 import { PARTIES_PER_MINUTE } from './party-routes.js';
@@ -24,25 +28,6 @@ const LOWERED = 2;
 
 /** The nth address of the test: each a client of its own to the limits per address. */
 const address = (n: number) => `198.51.${Math.floor(n / 250)}.${(n % 250) + 1}`;
-
-/**
- * The GET routes of the server as Fastify lists them (`printRoutes`: a tree, a line per route,
- * four characters of indent per level), as paths with their parameters' names.
- */
-function getRoutes(app: FastifyInstance): string[] {
-  const parents: string[] = [];
-  const routes: string[] = [];
-  for (const line of app.printRoutes({ commonPrefix: false, method: 'GET' }).split('\n')) {
-    const match = /^([│ ]*)[├└]── (.+?)(?: \((.+)\))?$/u.exec(line);
-    if (!match) continue;
-    const [, indent = '', part = '', methods] = match;
-    const depth = indent.length / 4;
-    parents.length = depth;
-    parents.push(part);
-    if (methods?.split(', ').includes('GET')) routes.push(parents.join(''));
-  }
-  return routes;
-}
 
 /** A route's path with something in the place of each parameter. */
 const filled = (route: string) =>
@@ -104,12 +89,14 @@ describe('the reads of one member (plan 8Z-2)', () => {
     const made = webServerWith({ readUses: () => LOWERED });
     web = made;
     await made.app.ready();
-    const reads = getRoutes(made.app).filter(
-      (route) =>
-        route.startsWith('/s/:guild/api/') ||
-        route.startsWith('/s/:guild/pictures/') ||
-        route === '/s/:guild/regions/edit',
-    );
+    const reads = serverRoutes(made.app, 'GET')
+      .map(({ url }) => url)
+      .filter(
+        (route) =>
+          route.startsWith('/s/:guild/api/') ||
+          route.startsWith('/s/:guild/pictures/') ||
+          route === '/s/:guild/regions/edit',
+      );
     // The list is read off a printout: it must have found the routes.
     expect(reads).toContain('/s/:guild/api/parties/:party/post');
     expect(reads).toContain('/s/:guild/api/history/trains/:train');
@@ -329,6 +316,7 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
       servers: {
         has: (guild) => guild === FAKE_GUILD_ID || others.includes(guild),
         inSetup: () => false,
+        openToVisitors: () => true,
       },
     });
     web = made;

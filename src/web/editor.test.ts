@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { OTHER_GUILD_ROW, TEST_GUILD_ROW } from '../../test/support/gyms.js';
+import { webServers } from '../app-wiring.js';
+import { OTHER_GUILD_ID, OTHER_GUILD_ROW, TEST_GUILD_ROW } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { keptRow } from '../../test/support/wayspot-cases.js';
 import {
@@ -44,6 +45,57 @@ describe("the region editor's data", () => {
     const cookie = await web.loggedIn(STAFF, 'Brock');
     const data = (await web.app.inject({ url: DATA, headers: { cookie } })).json<EditorData>();
     expect(data.gyms.map(([id]) => id)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 11, 12]);
+  });
+
+  it('shows the outlines of other servers’ regions nearby only of servers the web serves: not of one Pine left, one being deleted or one in setup (plan 19C-4)', async () => {
+    const LEFT = '412345678901234571';
+    const PENDING = '412345678901234572';
+    const SETUP = '412345678901234573';
+    const left = new Set([LEFT]);
+    // The bot's own rule (`webServers`): the client has all of them, as it may a server it is
+    // leaving.
+    const onWeb = webServers({
+      has: (guild) => [FAKE_GUILD_ID, OTHER_GUILD_ID, LEFT, PENDING, SETUP].includes(guild),
+      standings: { isLeft: (guild) => left.has(guild), pending: (guild) => guild === PENDING },
+      servers: { inSetup: (guild) => guild === SETUP, of: () => ({}) },
+      open: false,
+    });
+    const editor = await editorSourcesWith([], [], (guild) => onWeb.listed(guild));
+    // Four servers with a region each just north of West: the second server (served), one Pine
+    // left, one being deleted, one in setup.
+    const servers = [OTHER_GUILD_ID, LEFT, PENDING, SETUP];
+    servers.forEach((guild, index) => {
+      const row = OTHER_GUILD_ROW + index;
+      editor.snowflakes.set(row, guild);
+      const west = -80.1 + index * 0.02;
+      editor.regionRows.rows.push({
+        id: 10 + index,
+        guildId: row,
+        channelId: String(100000000000000060n + BigInt(index)),
+        description: null,
+        bounds: [
+          { lat: 40.1, lon: west },
+          { lat: 40.11, lon: west },
+          { lat: 40.11, lon: west + 0.01 },
+          { lat: 40.1, lon: west + 0.01 },
+          { lat: 40.1, lon: west },
+        ],
+        forumChannelId: null,
+        summaryMessageId: null,
+      });
+    });
+    await editor.regions.load();
+    const served = webServerWith({ staff: new FakeRegionStaff().asStaff(STAFF), editor });
+    web = served;
+    const cookie = await served.loggedIn(STAFF, 'Brock');
+    const others = async () =>
+      (await served.app.inject({ url: DATA, headers: { cookie } }))
+        .json<EditorData>()
+        .others.map((other) => other.id);
+    expect(await others()).toEqual([10]);
+    // The served neighbor leaves: its outline goes from the next answer.
+    left.add(OTHER_GUILD_ID);
+    expect(await others()).toEqual([]);
   });
 
   it('tells the page whether the member may remove regions: staff by role, not who may only manage the server', async () => {

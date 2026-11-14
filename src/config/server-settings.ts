@@ -129,6 +129,13 @@ export const serverValuesSchema = z.strictObject({
   /** The server's invite for a visitor of its map who is not in it (`web.invites` of the file). */
   invite: inviteSchema.optional(),
   /**
+   * Whether the server's web map is open to visitors who are not logged in (plan 19C-4), as its
+   * staff set it in `/admin settings`. Absent until they do: the instance's default, read only
+   * through `publicMapOn` (closed on an open instance, open on any other), so that a row written
+   * before 2.1, or by a fill, follows the instance's `servers`.
+   */
+  publicMap: z.boolean().optional(),
+  /**
    * Whether the server uses passive screenshot reading and the auto-assigned role, where the
    * instance allows them (`ocr.passive`, `autoAssignRole` of the file, which decide the intents):
    * on unless its staff turn them off.
@@ -168,7 +175,12 @@ export function parseServerValues(raw: unknown): ServerValues {
 
 // The map's member role and whether the moderators can be reached, as the values say them: pure
 // rules of the domain (fix round 3, H3), here for the code that reads a server's values.
-export { ADMINISTRATORS_ONLY, mapMemberRole, moderatorsNamed } from '../domain/servers/standing.js';
+export {
+  ADMINISTRATORS_ONLY,
+  mapMemberRole,
+  moderatorsNamed,
+  publicMapOn,
+} from '../domain/servers/standing.js';
 
 /**
  * One setting of a server that a change changed (plan 19A-1, the staff's log of settings,

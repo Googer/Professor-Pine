@@ -702,6 +702,7 @@ describe('who is asking', () => {
       servers: {
         has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999',
         inSetup: () => false,
+        openToVisitors: () => true,
       },
     });
     const cookie = await web.loggedIn(ASH, 'Ash');
@@ -852,6 +853,7 @@ describe('who is asking', () => {
       servers: {
         has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999',
         inSetup: () => false,
+        openToVisitors: () => true,
       },
     });
     web = map;

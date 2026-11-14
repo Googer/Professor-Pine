@@ -1,5 +1,6 @@
 import type { DeletedServerData } from './db/repositories/server-data-repository.js';
 import type { ShardStart } from './discord/shard-readiness.js';
+import { publicMapOn } from './domain/servers/standing.js';
 import { taskPictureSources } from './domain/stops/pictures.js';
 import type { Logger } from './log.js';
 import type { PartyService } from './services/party-service.js';
@@ -16,6 +17,14 @@ import type { SpawnService } from './services/spawn-service.js';
 import type { StopReportListener } from './services/stop-reports.js';
 import type { ShutdownStep } from './shutdown.js';
 import type { LiveSignals } from './web/live-signals.js';
+import {
+  joinedServers,
+  mapServers,
+  type CachedServer,
+  type MapServers,
+  type MapServerSources,
+} from './web/map-servers.js';
+import type { WebDeps } from './web/server.js';
 
 /*
  * Parts of `startApp`'s wiring kept apart so that a test can reach them (plan 8R-6, review W5):
@@ -293,6 +302,56 @@ export function servedOnWeb(
   standings: Pick<ServerStandings, 'isLeft' | 'pending'>,
 ): (serverId: string) => boolean {
   return (serverId) => !standings.isLeft(serverId) && !standings.pending(serverId);
+}
+
+/**
+ * The servers of the web pages (`WebDeps.servers`), which `hiddenFrom` reads as one rule: a server
+ * the client has (`has`) and the web serves (`servedOnWeb`: not left, plan 19C-1, nor being
+ * deleted, plan 19C-3), else answered as a server Pine is not in, to everybody; whether it is in
+ * setup (plan 19C-2); whether its map is open to visitors who are not logged in (plan 19C-4,
+ * `publicMapOn`, by the instance's `servers` being `"open"`). `listed`: served and not in setup,
+ * the servers the top page may name (`topPageServers`) and whose regions' outlines another
+ * server's region editor shows (`EditorCache`; fix round 3, R1).
+ */
+export function webServers(deps: {
+  has: (serverId: string) => boolean;
+  standings: Pick<ServerStandings, 'isLeft' | 'pending'>;
+  servers: {
+    inSetup(serverId: string): boolean;
+    of(serverId: string): { publicMap?: boolean };
+  };
+  open: boolean;
+}): WebServers {
+  const served = servedOnWeb(deps.standings);
+  const has = (serverId: string) => deps.has(serverId) && served(serverId);
+  const inSetup = (serverId: string) => deps.servers.inSetup(serverId);
+  return {
+    has,
+    inSetup,
+    openToVisitors: (serverId) => publicMapOn(deps.servers.of(serverId), { open: deps.open }),
+    listed: (serverId) => has(serverId) && !inSetup(serverId),
+  };
+}
+
+/** The servers of the web pages (`webServers`), and those the web lists to other servers. */
+export type WebServers = WebDeps['servers'] & { listed(serverId: string): boolean };
+
+/**
+ * The top page's servers with a map (plan 8M-14, `mapServers`): of those the bot's client has,
+ * only those the web lists (`WebServers.listed`): not one Pine left (plan 19C-1) or is deleting
+ * (plan 19C-3), nor one in setup (plan 19C-2), whose maps are not there.
+ */
+export function topPageServers(deps: {
+  cached: () => Iterable<CachedServer>;
+  web: Pick<WebServers, 'listed'>;
+  guilds: MapServerSources['guilds'];
+  regions: MapServerSources['regions'];
+}): () => Promise<MapServers> {
+  return mapServers({
+    joined: () => joinedServers([...deps.cached()].filter((guild) => deps.web.listed(guild.id))),
+    guilds: deps.guilds,
+    regions: deps.regions,
+  });
 }
 
 /** What the bot keeps in memory of a server, which `forgetServerMemory` forgets. */

@@ -62,6 +62,7 @@ function inSetupWeb(): TestWeb {
     servers: {
       has: (guild) => guild === SET_UP || guild === NEW,
       inSetup: (guild) => serverSettings.inSetup(guild),
+      openToVisitors: () => true,
     },
   });
 }
@@ -156,7 +157,11 @@ describe('the region editor of a server in setup (plan 19C-2, S11)', () => {
       editing: editing.editing,
       serverSettings,
       members,
-      servers: { has: () => true, inSetup: (guild) => serverSettings.inSetup(guild) },
+      servers: {
+        has: () => true,
+        inSetup: (guild) => serverSettings.inSetup(guild),
+        openToVisitors: () => true,
+      },
     });
     const headers = await web.posting(STAFF, 'Staff');
     const post = (route: string) =>

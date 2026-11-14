@@ -1,4 +1,4 @@
-import { escapeHtml, shortDocument } from './answers.js';
+import { escapeHtml, shortDocument, TOP_LOGIN } from './answers.js';
 import type { MapServer } from './map-servers.js';
 import type { JoinableServer, TopAnswer } from './top-answer.js';
 
@@ -12,9 +12,6 @@ export const TOP_SCRIPT = '/assets/top.js';
 
 /** The tag of `TOP_SCRIPT`, run once the page is read. */
 const TOP_SCRIPT_TAG = `<script src="${TOP_SCRIPT}" defer></script>`;
-
-/** Where "Log in with Discord" leads: Discord's login, back to the top page. */
-export const TOP_LOGIN = '/auth/login?next=/';
 
 export const NO_MAP = 'Professor Pine has no map here yet.';
 /** What the login page says first, under its heading "Professor Pine" (review BR-1, F6). */

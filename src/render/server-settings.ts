@@ -51,6 +51,7 @@ export const SETTINGS: Readonly<Record<string, Setting>> = {
   regionForumSuffix: { label: 'the ending of region forums', kind: 'code' },
   regionMapLink: { label: 'the region map link', kind: 'code' },
   invite: { label: 'the invite', kind: 'code' },
+  publicMap: { label: 'the map for visitors who are not logged in', kind: 'switch' },
 };
 
 /** What a setting is called; its key where Pine has no name for it. */

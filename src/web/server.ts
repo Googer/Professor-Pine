@@ -12,7 +12,7 @@ import { EGG_FOLDER, EGG_PATH } from '../services/egg-pictures.js';
 import { LockOverdueError } from '../services/keyed-lock.js';
 import { EMOJI_PATH, type EmojiPictures } from '../services/post-pictures.js';
 import { PICTURE_PATH, type StopPictures } from '../services/stop-pictures.js';
-import { carriesContinueScript, sendFailure } from './answers.js';
+import { carriesContinueScript, offerLogin, sendFailure } from './answers.js';
 import { authRoutes } from './auth-routes.js';
 import { isNearbyPeer } from './client-address.js';
 import type { OAuthGateway } from './discord-oauth.js';
@@ -55,9 +55,15 @@ export interface WebDeps {
   /**
    * The servers the bot is in (the client's cache): any other is not found. A server in setup
    * (plan 19C-2, `ServerSettings.inSetup`) is not found either, but for the region editor and the
-   * map it draws on, for its staff (`guildRoutes`).
+   * map it draws on, for its staff (`guildRoutes`). One whose map is closed to visitors who are
+   * not logged in (plan 19C-4, `publicMapOn` over its values and the instance) is not found by
+   * such a visitor (`hiddenFrom`).
    */
-  servers: { has(guildId: string): boolean; inSetup(guildId: string): boolean };
+  servers: {
+    has(guildId: string): boolean;
+    inSetup(guildId: string): boolean;
+    openToVisitors(guildId: string): boolean;
+  };
   /** Each server's values (plan 19A-1): the map's member role, by id. */
   serverSettings: ServerSettingsLookup;
   /** A role's name as the server has it now, from the client's cache; undefined for one it lacks. */
@@ -156,6 +162,13 @@ export function buildWebServer(deps: WebDeps): FastifyInstance {
   const scriptedHeaders = securityHeaders({ ...policy, continueScript: true });
 
   void app.register(fastifyCookie);
+  // A server's address not found offers "Log in with Discord" where there is one (fix round 1,
+  // R8; `sendFailure`).
+  if (deps.oauth) {
+    app.addHook('onRequest', async (_request, reply) => {
+      offerLogin(reply);
+    });
+  }
   app.addHook('onSend', async (_request, reply, payload) => {
     reply.headers(carriesContinueScript(reply) ? scriptedHeaders : headers);
     return payload;

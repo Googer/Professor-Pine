@@ -52,6 +52,7 @@ describe('the web server', () => {
           throw new Error('the cache is gone');
         },
         inSetup: () => false,
+        openToVisitors: () => true,
       },
     });
     const answer = await web.app.inject({ url: `/s/${FAKE_GUILD_ID}/api/me` });
@@ -71,6 +72,7 @@ describe('the web server', () => {
           throw new LockOverdueError('a party');
         },
         inSetup: () => false,
+        openToVisitors: () => true,
       },
     });
     const answer = await web.app.inject({ url: `/s/${FAKE_GUILD_ID}/api/me` });

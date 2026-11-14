@@ -9,7 +9,7 @@ import { wildExceptionsOf } from './commands/notifications/wild.js';
 import { components } from './components/index.js';
 import { ScreenshotTrigger } from './commands/screenshots/mention.js';
 import { loadConfig } from './config/index.js';
-import { channelNamesOf, instanceZone } from './config/settings.js';
+import { channelNamesOf, instanceZone, isOpenInstance } from './config/settings.js';
 import { configWarnings } from './config/warnings.js';
 import { dbConfigFrom } from './db/db-config.js';
 import { createDb } from './db/kysely.js';
@@ -220,7 +220,8 @@ import {
   forgetServerMemory,
   afterDeletions,
   backAfterDeletion,
-  servedOnWeb,
+  webServers,
+  topPageServers,
   followZones,
   liveSources,
   notOfQuietServers,
@@ -243,7 +244,6 @@ import { SaveCheckWorker } from './web/save-check.js';
 import { EditorCache } from './web/editor-cache.js';
 import { GeoCache } from './web/geo-cache.js';
 import { LIVE_ON_THE_CLOCK, LiveSignals } from './web/live-signals.js';
-import { joinedServers, mapServers } from './web/map-servers.js';
 import { MEMBER_LOOKUPS_PER_SECOND } from './web/paced-members.js';
 import { readAssets } from './web/page.js';
 import { WayspotToolFiles } from './services/wayspot-tool.js';
@@ -2077,6 +2077,16 @@ export async function startApp(
   liveSessions.end = (sessionId) => {
     live.endSession(sessionId);
   };
+  // A server Pine left or whose data is being deleted is answered as one it is not in (plans
+  // 19C-1, 19C-3); one in setup too, but for its staff's region editor (plan 19C-2); one whose
+  // map its staff keep closed, to visitors who are not logged in (plan 19C-4: closed unless
+  // opened on an open instance).
+  const onWeb = webServers({
+    has: (guildId) => client.guilds.cache.has(guildId),
+    standings,
+    servers,
+    open: isOpenInstance(config.settings),
+  });
   const web =
     webSettings &&
     webSessions &&
@@ -2085,24 +2095,15 @@ export async function startApp(
       settings: webSettings,
       pictureOrigins: pictureOrigins(webSettings.publicUrl),
       googleKey: config.env.GOOGLE_MAPS_BROWSER_KEY,
-      // A server Pine left is answered as one it is not in (plan 19C-1); one in setup too, but
-      // for its staff's region editor (plan 19C-2).
-      servers: {
-        has: (guildId) => client.guilds.cache.has(guildId) && servedOnWeb(standings)(guildId),
-        inSetup: (guildId) => servers.inSetup(guildId),
-      },
+      servers: onWeb,
       serverSettings: servers,
       roleName: (guildId, roleId) =>
         client.guilds.cache.get(guildId)?.roles.cache.get(roleId)?.name,
-      // The top page's servers (plan 8M-14): those the bot is in with a region that has an outline;
-      // not those it left (plan 19C-1) nor those in setup (plan 19C-2), whose maps are not there.
-      serversWithMap: mapServers({
-        joined: () =>
-          joinedServers(
-            [...client.guilds.cache.values()].filter(
-              (guild) => servedOnWeb(standings)(guild.id) && !servers.inSetup(guild.id),
-            ),
-          ),
+      // The top page's servers (plan 8M-14): those the bot is in with a region that has an outline
+      // and that the web lists (`topPageServers`).
+      serversWithMap: topPageServers({
+        cached: () => client.guilds.cache.values(),
+        web: onWeb,
         guilds,
         regions,
       }),
@@ -2159,6 +2160,8 @@ export async function startApp(
           servers: {
             serverChannels: (guildId) => partyGateway.serverChannels(guildId),
             serverName: (guildId) => client.guilds.cache.get(guildId)?.name,
+            // Other servers' regions only of those the web lists (fix round 3, R1).
+            listed: (guildId) => onWeb.listed(guildId),
           },
         }),
         editing: {

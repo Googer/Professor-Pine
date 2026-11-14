@@ -354,6 +354,8 @@ function conflictAnswer(
     gyms: [],
     regionsOf: () => [],
     wayspots: [],
+    // Only the server's own regions are read.
+    othersShown: () => false,
   }).regions;
   return {
     kind: 'conflicts',
