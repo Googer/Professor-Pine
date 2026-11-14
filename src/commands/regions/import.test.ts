@@ -405,6 +405,20 @@ describe('/region import: Import and Cancel', () => {
     expect(made.directory.of(TEST_GUILD_ROW).isRegion(SOUTH_CHANNEL)).toBe(true);
   });
 
+  it('names a forum of the new forum’s name that no region has, never taking it (staging F3)', async () => {
+    const made = await regionCommandsWith();
+    // A board of South from before the server's data was deleted: no party names it any more.
+    const OLD_BOARD = '100000000000000777';
+    made.gateway.addChannel(OLD_BOARD, 'south-meetups', { kind: 'forum' });
+    const { answer } = await importing(made, [area('South', SOUTH_RING)]);
+    const done = answerOf(await made.press(importButton(answer)));
+    expect(listed(done, 'Imported')).toEqual([
+      `- <#${SOUTH_CHANNEL}> · new region · 0 gyms · forum created · <#${OLD_BOARD}> has the ` +
+        'same name and is no region’s board: if it was my board before, delete it',
+    ]);
+    expect(made.regions.byChannel(SOUTH_CHANNEL)?.forumChannelId).not.toBe(OLD_BOARD);
+  });
+
   it('says nothing of roles where members do not give themselves any', async () => {
     const made = await regionCommandsWith();
     changeServers(made.ctx, {

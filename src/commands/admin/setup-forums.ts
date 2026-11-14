@@ -3,6 +3,7 @@ import type { SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
 import { actorOf } from '../../discord/member-info.js';
 import { MAX_FORUM_TAGS } from '../../discord/party-gateway.js';
+import { oldBoardsWords } from '../../render/old-boards.js';
 import { count, fitItems, fitMessages, LIMITS, plain } from '../../render/text.js';
 import type { ForumSetup } from '../../services/party-service.js';
 import type { EventsForumSetup } from '../../services/event-forum.js';
@@ -141,7 +142,9 @@ function line(result: ForumSetup): string {
     result.hidden === 'not-allowed'
       ? ` I could not hide it from members for the rehearsal (I need Manage Permissions there; see the log). ${HIDE_BY_HAND}`
       : '';
-  return `<#${region.channelId}>: ${what.join(', ')}.${open}${waits}${seen}`;
+  // Old boards of the server's that nothing names (staging F3 of phase 19).
+  const old = result.alsoNamed === undefined ? '' : ` ${oldBoardsWords(result.alsoNamed)}.`;
+  return `<#${region.channelId}>: ${what.join(', ')}.${open}${waits}${seen}${old}`;
 }
 
 /** The events forum's line (plan 8V-1): what was done, then what was not and why. */

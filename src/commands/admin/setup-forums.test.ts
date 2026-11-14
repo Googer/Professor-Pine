@@ -187,6 +187,25 @@ describe('/admin setup-forums', () => {
     ]);
   });
 
+  it('names the forums of a new forum’s name that no region has, not one a region has (staging F3)', async () => {
+    const { run, gateway, regions } = await setup();
+    gateway.channelNames.set(UNBOUNDED_CHANNEL, 'north');
+    const OLD_BOARD = '100000000000000777';
+    const OLDER_BOARD = '100000000000000778';
+    gateway.addChannel(OLD_BOARD, 'north-meetups', { kind: 'forum' });
+    gateway.addChannel(OLDER_BOARD, 'north-meetups', { kind: 'forum' });
+    // A region's own forum of that name is no old board.
+    const west = gateway.forums.get(WEST_FORUM);
+    if (west) west.name = 'north-meetups';
+    const interaction = await run();
+    const north = regions.byChannel(UNBOUNDED_CHANNEL)?.forumChannelId;
+    expect(sent(interaction.editReply).content?.split('\n')[2]).toBe(
+      `<#${UNBOUNDED_CHANNEL}>: created <#${north}>, closed it to posts by members, posted and pinned the board. ` +
+        `<#${OLD_BOARD}> and <#${OLDER_BOARD}> have the same name and are no region’s boards: ` +
+        'if they were my boards before, delete them.',
+    );
+  });
+
   // Plan 8V-1: the events forum, where the settings name one.
   it('makes the events forum beside bot-updates and says so, after the regions', async () => {
     const { run, gateway } = await setup({}, undefined, { events: true });

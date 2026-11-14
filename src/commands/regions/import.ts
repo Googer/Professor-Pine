@@ -27,6 +27,7 @@ import {
   type LeftOutReason,
   type PlannedImport,
 } from '../../domain/regions/region-import.js';
+import { oldBoardsWords } from '../../render/old-boards.js';
 import { count, fitItems, plain, truncate, unplain } from '../../render/text.js';
 import { actionRow, container, fileComponent, separator, textDisplay } from '../../render/v2.js';
 import {
@@ -650,6 +651,9 @@ function importedLine(region: ImportedRegion): string {
     ...(region.channelCreated ? ['channel created'] : []),
     count(region.gyms, 'gym'),
     ...(region.forum === 'created' ? ['forum created'] : []),
+    ...(region.forum === 'created' && region.alsoNamed !== undefined
+      ? [oldBoardsWords(region.alsoNamed)]
+      : []),
     ...(region.forum === 'adopted' && region.adoptedForum !== undefined
       ? [`forum <#${region.adoptedForum}> taken back`]
       : []),

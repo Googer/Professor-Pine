@@ -710,6 +710,12 @@ export interface ForumSetup {
    * which only the category gives it (none named when nothing more was asked).
    */
   refused?: readonly string[];
+  /**
+   * Set when a forum was `created`: the server's forums of its name that no region has (staging
+   * F3 of phase 19: a board from before the server's data was deleted, which no party names, so
+   * it is not taken back). Staff are told; nothing is done with them.
+   */
+  alsoNamed?: readonly string[];
 }
 
 /** Told of a post drawn (`PartyService.onPostShown`): the party, its server's row, whether it changed. */
@@ -4898,14 +4904,14 @@ export class PartyService {
       tagsAdded = Object.keys(tags).length - (Object.keys(had).length - tagsRemoved);
       tagsMissing = FORUM_TAGS.filter((tag) => tags[tag] === undefined);
     }
+    let alsoNamed: readonly string[] = [];
     if (!tags) {
+      const name = this.forumName(
+        before.channelId,
+        gateway.channelName(before.channelId) ?? 'region',
+      );
       const made = await gateway
-        .createForum(
-          before.channelId,
-          this.forumName(before.channelId, gateway.channelName(before.channelId) ?? 'region'),
-          FORUM_TAGS,
-          hidden,
-        )
+        .createForum(before.channelId, name, FORUM_TAGS, hidden)
         .catch((err: unknown) => {
           throw hidden && isMissingPermission(err) ? new HiddenForumRefused(err) : err;
         });
@@ -4932,7 +4938,9 @@ export class PartyService {
       }
       await regions.load();
       forum = 'created';
+      alsoNamed = this.forumsAlsoNamed(before.channelId, name, made.forumId);
     }
+    const others = alsoNamed.length > 0 ? { alsoNamed } : {};
     const region = regions.byId(before.id) ?? before;
     let hiding: ForumSetup['hidden'];
     let refused: readonly string[] | undefined;
@@ -4968,6 +4976,7 @@ export class PartyService {
           ...(tagsMissing.length > 0 ? { tagsMissing } : {}),
           summary: false,
           hidden: 'not-allowed',
+          ...others,
         };
       }
     }
@@ -4984,6 +4993,7 @@ export class PartyService {
         ...(tagsMissing.length > 0 ? { tagsMissing } : {}),
         summary: false,
         boardWaits: true,
+        ...others,
         ...(renamed ? { renamed } : {}),
         ...(posting === undefined ? {} : { posting }),
         ...(hiding === undefined ? {} : { hidden: hiding }),
@@ -4999,6 +5009,7 @@ export class PartyService {
       ...(tagsRemoved > 0 ? { tagsRemoved } : {}),
       ...(tagsMissing.length > 0 ? { tagsMissing } : {}),
       summary,
+      ...others,
       ...(unpinned === undefined ? {} : { unpinned }),
       ...(closed === undefined ? {} : { closed }),
       // Whether members' messages in the board can be deleted (plan 8R-9F).
@@ -5010,6 +5021,25 @@ export class PartyService {
       ...(hiding === undefined ? {} : { hidden: hiding }),
       ...(refused === undefined ? {} : { refused }),
     };
+  }
+
+  /**
+   * The forums of its server named `name` but the one just made (`madeId`) that no region has
+   * (staging F3 of phase 19), from the cache.
+   */
+  private forumsAlsoNamed(channelId: string, name: string, madeId: string): string[] {
+    const { gateway, regions } = this.options;
+    const server = gateway.serverOf(channelId);
+    if (server === undefined) return [];
+    return (gateway.serverChannels(server) ?? [])
+      .filter(
+        (channel) =>
+          channel.kind === 'forum' &&
+          channel.name === name &&
+          channel.id !== madeId &&
+          regions.byForum(channel.id) === undefined,
+      )
+      .map((channel) => channel.id);
   }
 
   /**

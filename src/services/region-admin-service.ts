@@ -74,6 +74,8 @@ export interface ImportedRegion {
   forum: 'had' | 'created' | 'adopted' | 'none';
   forumReason?: string;
   adoptedForum?: string;
+  /** With a forum `created`: the server's forums of its name that no region has (`ForumSetup`). */
+  alsoNamed?: readonly string[];
 }
 
 /**
@@ -512,8 +514,10 @@ export class RegionAdminService {
       for (const result of results) {
         const region = needForum.find((one) => one.regionId === result.region.id);
         if (!region || region.forum === 'adopted') continue;
-        if (result.forum === 'created') region.forum = 'created';
-        else if (result.reason !== undefined) region.forumReason = result.reason;
+        if (result.forum === 'created') {
+          region.forum = 'created';
+          if (result.alsoNamed !== undefined) region.alsoNamed = result.alsoNamed;
+        } else if (result.reason !== undefined) region.forumReason = result.reason;
       }
     } catch (err) {
       log.error({ err, staff: staff.staffId }, 'could not set up the forums of imported regions');
