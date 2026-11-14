@@ -3602,6 +3602,8 @@ What a design has to settle (a first look, 2026-11-12, not a design):
 
 ## From Phase 19C-4 (the visitors' view, the texts and the checks, 2026-11-14)
 
+Plan `2026-11-14-phase-19c-4-visitors-texts-checks.md`, merged on main-dev; full check, database suite and build pass. **Staging** with the rest of phase 19 (Matt, 2026-11-13). Plan C is complete. **Matt reads the Privacy Policy and the Terms (dated 2026-11-14) before the next release.**
+
 With 19C-4 the Privacy Policy and the Terms say what 2.1 does, including 19C-3's deletion after 30 days: **a release may ship again once 19C-3 and 19C-4 are both merged** (19C-1's hold below), not before.
 
 - Every 404 of a server's address and of a login link, unknown, closed and in setup alike, says that a link of `/maps` lasts five minutes and offers "Log in with Discord" to the top page (fix round 1, R8); a member who opens a shared address of a closed map logs in there or with `/maps`.
