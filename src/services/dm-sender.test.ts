@@ -688,6 +688,26 @@ describe('QueuedDmSender between servers', () => {
     expect(made.logged('direct messages sent')[0]).toMatchObject({ overflowed: 2 });
   });
 
+  it('drops what waits for a server Pine left, in both its lines, and sends the others’ (plan 19C-1)', async () => {
+    const made = setup({ contacts: new MemoryDmContacts([idOf(1)]) });
+    // Away's: one to a member written to before, one to a member never written to, an urgent one.
+    made.sender.send(made.job(1, { serverId: AWAY }));
+    made.sender.send(made.job(2, { serverId: AWAY }));
+    made.sender.send(made.job(3, { serverId: AWAY, priority: DM_PRIORITY.urgent }));
+    made.sender.send(made.job(10, { serverId: HOME }));
+    made.sender.send(made.job(11, { serverId: null }));
+    made.sender.dropServer(AWAY);
+    expect(made.sender.depth).toBe(2);
+    expect(made.logged('dropped the direct messages of a server Pine left')).toEqual([
+      expect.objectContaining({ server: AWAY, dropped: 3 }),
+    ]);
+    await pullUntilIdle(made.sender);
+    expect(ids(made.gateway.sent).sort()).toEqual([idOf(10), idOf(11)]);
+    // A server with nothing waiting: nothing to say.
+    made.sender.dropServer(HOME);
+    expect(made.logged('dropped the direct messages of a server Pine left')).toHaveLength(1);
+  });
+
   it('goes on to the next server when one has a long line of messages that wait', async () => {
     const made = setup();
     made.gateway.hold = true;

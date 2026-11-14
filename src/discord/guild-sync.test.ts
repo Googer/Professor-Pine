@@ -13,7 +13,6 @@ describe('syncGuilds', () => {
         calls.push(ids);
         return Promise.resolve();
       },
-      remove: () => Promise.resolve(),
     };
     await syncGuilds(store, ['a', 'b', 'c'], log);
     expect(calls).toEqual([['a', 'b', 'c']]);
@@ -25,7 +24,6 @@ describe('syncGuilds', () => {
     const store: GuildStore = {
       ensure: () => Promise.resolve(1),
       ensureAll: () => Promise.reject(new Error('db down')),
-      remove: () => Promise.resolve(),
     };
     await syncGuilds(store, ['a', 'b'], log);
     expect(entries).toEqual([
@@ -42,7 +40,6 @@ describe('syncGuilds', () => {
         calls.push(ids);
         return Promise.resolve();
       },
-      remove: () => Promise.resolve(),
     };
     await syncGuilds(store, [], log);
     expect(calls).toEqual([]);

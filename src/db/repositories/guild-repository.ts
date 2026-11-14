@@ -8,17 +8,18 @@ export interface GuildStore {
   ensure(snowflake: string): Promise<number>;
   /** Creates the rows of those servers that lack one, in chunks (`ensure` for many). */
   ensureAll(snowflakes: readonly string[]): Promise<void>;
-  remove(snowflake: string): Promise<void>;
 }
 
 /** As many servers as one statement of `ensureAll` writes and reads back. */
 export const GUILD_CHUNK = 500;
 
 /**
- * The Guild table: one row per Discord server the bot is in. With `ids` (the process's memory
- * of rows it has seen) a server's row id is asked for once. The row can be deleted behind this
- * process (the legacy bot does when it leaves a server), so `ensure` never trusts the memory:
- * it is what puts it right (`RowIds`).
+ * The Guild table: one row per Discord server the bot is in or was in. Since plan 19C-1 a server
+ * that removes Pine keeps its row (it is marked left in `ServerRecord`), so that one that adds
+ * it back keeps its row id and everything hanging on it; plan 19C-3 deletes the rows of servers
+ * left more than 30 days. With `ids` (the process's memory of rows it has seen) a server's row
+ * id is asked for once. The row can be deleted behind this process (the legacy bot does when it
+ * leaves a server), so `ensure` never trusts the memory: it is what puts it right (`RowIds`).
  */
 export class GuildRepository implements GuildStore {
   constructor(
@@ -85,14 +86,6 @@ export class GuildRepository implements GuildStore {
     if (failure !== undefined) throw failure;
   }
 
-  /** Deleting a guild cascades to its regions, roles and notifications. */
-  async remove(snowflake: string): Promise<void> {
-    // Forgotten before and after: a look-up that runs beside the deletion may see the row.
-    this.ids.forgetGuild(snowflake);
-    await this.db.deleteFrom('Guild').where('snowflake', '=', snowflake).execute();
-    this.ids.forgetGuild(snowflake);
-  }
-
   /** The snowflake of the server with this row id: parties and regions name a server by its row. */
   async snowflakeOf(id: number): Promise<string | undefined> {
     const seen = this.ids.guildSnowflake(id);
@@ -121,10 +114,12 @@ export class GuildRepository implements GuildStore {
   }
 
   /**
-   * The servers that have a row: those the bot is in, as the table has them (a row is made at
-   * each start and when the bot joins a server, and deleted when it leaves one). For what must
-   * know the servers before the login, when the client has none yet (the line that waits for
-   * Google ranks its regions at start, plan 8Z-2).
+   * The servers that have a row: those the bot is in or was in, as the table has them (a row is
+   * made at each start and when the bot joins a server, and kept when it leaves one, plan
+   * 19C-1). For what must know the servers before the login, when the client has none yet (the
+   * line that waits for Google ranks its regions at start, plan 8Z-2), and the check of who is in
+   * at every ready (`ServerAdmission`, the servers Pine was in). A whole read: one row per
+   * server, bounded small by nature.
    */
   async snowflakes(): Promise<string[]> {
     const rows = await this.db.selectFrom('Guild').select('snowflake').orderBy('id').execute();

@@ -99,7 +99,7 @@ describe('NewTrainRepository', () => {
     await trains.set(ALICE, HOME, true, NOW);
     const flag = await db.selectFrom('User').select('newTrain').executeTakeFirstOrThrow();
     expect(flag.newTrain).toBe(0);
-    await new GuildRepository(db).remove(HOME);
+    await db.deleteFrom('Guild').where('snowflake', '=', HOME).execute();
     expect(await stored()).toEqual([]);
   });
 

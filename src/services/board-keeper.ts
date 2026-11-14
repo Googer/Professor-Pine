@@ -48,6 +48,11 @@ export interface BoardKeeperOptions {
   zoneOfRow: (row: number | null) => string;
   /** The server of a `Guild` row (`RowIds.serverOfRow`): the server its DMs are of (plan 19B-5). */
   serverOfRow: (row: number) => string | undefined;
+  /**
+   * Whether a region's server is one Pine left (plan 19C-1; `PartyService.ofLeftServer`, by its
+   * `Guild` row): the sweep passes over its board, kept as it is for when it is back.
+   */
+  ofLeftServer?: (region: Pick<Region, 'guildId'>) => boolean;
   log: Logger;
   /**
    * Told of every message in a region's board that is neither the bot's own nor Discord's, as it
@@ -149,12 +154,14 @@ export class BoardKeeper {
    * `BOARD_READ_LIMIT` messages of each, each author asked for afresh once (a message read over
    * REST carries no member, Q1), in one request where two or more are younger than 14 days.
    * Removes the reactions on the bot's own messages among them (plan 8R-9G); a moderator's kept
-   * message and another application's are left as they are.
+   * message and another application's are left as they are. The boards of a server Pine left
+   * (plan 19C-1) are passed over.
    */
   async sweep(): Promise<void> {
     if (this.options.inRehearsal === true) return;
     for (const region of this.options.regions.all()) {
       if (region.summaryMessageId === null) continue;
+      if (this.options.ofLeftServer?.(region) === true) continue;
       try {
         await this.sweepBoard(region, region.summaryMessageId);
       } catch (err) {

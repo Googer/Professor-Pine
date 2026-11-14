@@ -4,11 +4,11 @@ import { gymDirectoryWith, MemoryGyms } from '../../test/support/gym-store.js';
 import { OTHER_GUILD_ROW, TEST_GUILD_ROW } from '../../test/support/gyms.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { watchEachTest } from '../../test/support/timers.js';
-import type { GoogleBudget } from '../domain/geo/google-line.js';
+import { OUT_OF_SHARE_RANK, type GoogleBudget } from '../domain/geo/google-line.js';
 import { GoogleShares, MemoryGoogleShareRaises } from './google-shares.js';
 import { MemoryGoogleUse } from './google-use.js';
 import { MemoryGymLookups, type QueuedGym } from './gym-lookups.js';
-import { GymUpkeep } from './gym-upkeep.js';
+import { GymUpkeep, type LineRanks } from './gym-upkeep.js';
 
 const background = watchEachTest();
 
@@ -81,6 +81,10 @@ async function sharedLine(
     max?: number;
     /** The line's writes land in a later turn of the event loop, as a database's may. */
     slowWrites?: boolean;
+    /** Whether the line serves a server's rows (plan 19C-1: not one Pine left). */
+    serves?: (guildId: number) => boolean;
+    /** The ranks of the line's places; default all alike. */
+    ranks?: LineRanks;
   } = {},
 ) {
   const budget = options.budget ?? BUDGET;
@@ -127,6 +131,8 @@ async function sharedLine(
     shares,
     answers,
     now: () => clock.now,
+    ...(options.serves === undefined ? {} : { serves: options.serves }),
+    ...(options.ranks === undefined ? {} : { ranks: options.ranks }),
   });
   let next = 0;
   /** A server's gym, far from the others, not in the line; its id. */
@@ -157,6 +163,9 @@ async function sharedLine(
       .length;
   const waiting = async (guildId: number) =>
     (await lookups.list()).filter((row) => row.guildId === guildId).length;
+  /** The ranks of a server's rows, in the line's order. */
+  const ranksOf = async (guildId: number) =>
+    (await lookups.list()).filter((row) => row.guildId === guildId).map((row) => row.rank);
   /** Starts the next turn of the line's timer. */
   const fire = () => {
     timers.shift()?.();
@@ -182,6 +191,7 @@ async function sharedLine(
     gymOf,
     askedOf,
     waiting,
+    ranksOf,
     fire,
     turn,
   };
@@ -445,3 +455,144 @@ describe('Google’s month shared between servers by need (plan 19B-5)', () => {
     expect(made.askedOf(home)).toBe(20);
   });
 });
+
+describe('a server Pine left in Google’s line (plan 19C-1)', () => {
+  it('leaves its rows waiting unserved and counts them for no share, and serves it again once it is back', async () => {
+    const left = new Set([AWAY]);
+    const made = await sharedLine({ serves: (guildId) => !left.has(guildId) });
+    // Away's gym came first, and Home's fourteen want more than the month above the reserve.
+    const away = await made.gymsOf(AWAY, 1, 1_000);
+    const home = await made.gymsOf(HOME, 14, 2_000);
+    await made.upkeep.resume();
+    await made.upkeep.flush();
+    // Home alone has a share: the whole month is its own, and Away's gym is never asked about.
+    expect(made.askedOf(away)).toBe(0);
+    expect(made.askedOf(home)).toBe(10);
+    expect(made.shares.of(AWAY)).toBeUndefined();
+    expect(made.shares.of(HOME)).toMatchObject({ share: { places: 10 } });
+    // Its row waits, neither asked about nor taken out of the line.
+    expect(await made.waiting(AWAY)).toBe(1);
+    // Nobody is told of a share Away never had.
+    expect(made.told.filter((one) => one.guildId === AWAY)).toEqual([]);
+    // Back the next month: the shares are worked out with it, and the line goes on at its pace.
+    made.clock.now = NOVEMBER;
+    await made.upkeep.flush();
+    expect(made.askedOf(away)).toBe(0);
+    left.delete(AWAY);
+    made.upkeep.servingChanged([AWAY]);
+    await made.turn();
+    expect(made.askedOf(away)).toBe(1);
+    expect(made.shares.of(AWAY)).toBeDefined();
+  });
+
+  it('holds its rows out of the line’s range while it is away, through the daily ranking, and ranks them by its raids read anew when it is back', async () => {
+    const left = new Set<number>();
+    // Away's regions are the busier: its gyms rank above Home's.
+    const raids = new Map([
+      [HOME, 0.2],
+      [AWAY, 0.5],
+    ]);
+    const made = await sharedLine({
+      serves: (guildId) => !left.has(guildId),
+      ranks: raidRanks(raids),
+    });
+    await made.gymsOf(AWAY, 2, 1_000);
+    await made.gymsOf(HOME, 2, 2_000);
+    await made.upkeep.resume();
+    expect(await made.ranksOf(AWAY)).toEqual([0.5, 0.5]);
+    left.add(AWAY);
+    made.upkeep.servingChanged([AWAY]);
+    await background.settle();
+    expect(await made.ranksOf(AWAY)).toEqual([OUT_OF_SHARE_RANK, OUT_OF_SHARE_RANK]);
+    expect(await made.ranksOf(HOME)).toEqual([0.2, 0.2]);
+    // The next day's ranking keeps them there; Home's gyms are asked about, Away's not.
+    made.clock.now += 24 * 3_600_000;
+    await made.upkeep.flush();
+    expect(await made.ranksOf(AWAY)).toEqual([OUT_OF_SHARE_RANK, OUT_OF_SHARE_RANK]);
+    expect(await made.waiting(HOME)).toBe(0);
+    // Back, its regions busier meanwhile (the raids of a server away are not read): ranked by
+    // the raids read at its return.
+    raids.set(AWAY, 0.8);
+    left.delete(AWAY);
+    made.upkeep.servingChanged([AWAY]);
+    await background.settle();
+    expect(await made.ranksOf(AWAY)).toEqual([0.8, 0.8]);
+  });
+
+  it('holds out of the line’s range the rows of a server that leaves while out of its share', async () => {
+    const left = new Set<number>();
+    const made = await sharedLine({ serves: (guildId) => !left.has(guildId), max: 2 });
+    await made.gymsOf(AWAY, 4, 1_000);
+    await made.gymsOf(HOME, 1, 2_000);
+    await made.upkeep.flush();
+    // Away used its two: its other two are held.
+    expect(await made.ranksOf(AWAY)).toEqual([OUT_OF_SHARE_RANK, OUT_OF_SHARE_RANK]);
+    left.add(AWAY);
+    made.upkeep.servingChanged([AWAY]);
+    await background.settle();
+    // No share any more, and still held: never in the range the line reads.
+    expect(made.shares.of(AWAY)).toBeUndefined();
+    expect(await made.ranksOf(AWAY)).toEqual([OUT_OF_SHARE_RANK, OUT_OF_SHARE_RANK]);
+  });
+
+  it('passes over the gyms of a server that left after the shares were read, before the line is told', async () => {
+    const left = new Set<number>();
+    const made = await sharedLine({ serves: (guildId) => !left.has(guildId) });
+    // Away's gyms first in the line.
+    const away = await made.gymsOf(AWAY, 2, 1_000);
+    const home = await made.gymsOf(HOME, 2, 2_000);
+    await made.upkeep.resume();
+    left.add(AWAY);
+    await made.upkeep.flush();
+    expect(made.askedOf(away)).toBe(0);
+    expect(made.askedOf(home)).toBe(2);
+    expect(await made.waiting(AWAY)).toBe(2);
+    // The rows found are held from then on: the line's reads no longer walk them.
+    expect(await made.ranksOf(AWAY)).toEqual([OUT_OF_SHARE_RANK, OUT_OF_SHARE_RANK]);
+  });
+
+  it('ranks the held rows of a server served again by its regions at the next turn, though nothing told the line, and asks about them', async () => {
+    // Blocked, and its leave failed: neither left nor back, and the line is told nothing.
+    const blocked = new Set<number>();
+    const raids = new Map([
+      [HOME, 0.2],
+      [AWAY, 0.5],
+    ]);
+    const made = await sharedLine({
+      serves: (guildId) => !blocked.has(guildId),
+      ranks: raidRanks(raids),
+    });
+    const away = await made.gymsOf(AWAY, 2, 1_000);
+    const home = await made.gymsOf(HOME, 1, 2_000);
+    await made.upkeep.resume();
+    blocked.add(AWAY);
+    // The turn finds Away's rows first, holds them, and asks about Home's gym.
+    await made.turn();
+    expect(made.askedOf(home)).toBe(1);
+    expect(await made.ranksOf(AWAY)).toEqual([OUT_OF_SHARE_RANK, OUT_OF_SHARE_RANK]);
+    // Unblocked, its regions busier meanwhile; the same day.
+    raids.set(AWAY, 0.8);
+    blocked.delete(AWAY);
+    await made.turn();
+    // Ranked by the raids read anew, and the first of its gyms asked about in that turn.
+    expect(made.askedOf(away)).toBe(1);
+    expect(await made.ranksOf(AWAY)).toEqual([0.8]);
+    expect(made.clock.now).toBe(OCTOBER);
+  });
+});
+
+/**
+ * Ranks by server, read anew from `raids` at each `refresh` (as `GoogleRanks` reads the history of
+ * the servers Pine is in): a gym or Wayspot of a server ranks as its server.
+ */
+function raidRanks(raids: ReadonlyMap<number, number>): LineRanks {
+  let read = new Map<number, number>();
+  return {
+    refresh: () => {
+      read = new Map(raids);
+      return Promise.resolve();
+    },
+    ofGym: (guildId) => read.get(guildId) ?? 0,
+    ofWayspot: (guildId) => read.get(guildId) ?? 0,
+  };
+}

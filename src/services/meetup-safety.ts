@@ -62,6 +62,7 @@ import { forumBarred } from './forum-access.js';
 import type { RegionProvider } from './region-directory.js';
 import { moderatorsNamed } from '../config/server-settings.js';
 import type { ServerSettingsLookup } from './server-settings.js';
+import type { LeftServers } from './server-standings.js';
 
 /** Who asks for a check of a place: the maker, in a server, and whether they are staff. */
 export interface PlaceAsk {
@@ -204,6 +205,12 @@ export interface MeetupSafetyOptions {
   notices: Pick<ServerNotices, 'tell'>;
   log: Logger;
   now?: () => number;
+  /**
+   * The servers Pine left (plan 19C-1, `ServerStandings`): their requests, appeals, asks and
+   * approvals are not expired nor failed, and nobody is told, until the server is back (or plan
+   * 19C-3 deletes them).
+   */
+  left?: LeftServers;
 }
 
 /**
@@ -1542,12 +1549,16 @@ export class MeetupSafety {
    * expired, its post edited and its maker told. Answers how many. Also while the safety is off:
    * the requests made before it was turned off end all the same. Then the approvals that never
    * got their meetup (the bot stopped in between) fail once they are `STRANDED_MS` old: their
-   * posts are edited and their makers told.
+   * posts are edited and their makers told. Nothing of a server Pine left (plan 19C-1, `left`):
+   * its records wait for its return.
    */
   async expire(): Promise<number> {
     const { storage, log } = this.options;
     const now = this.now();
-    const due = await storage.duePending(now);
+    // A server Pine left (plan 19C-1): its records wait as they are.
+    const kept = (record: { serverId: string }): boolean =>
+      this.options.left?.isLeft(record.serverId) !== true;
+    const due = (await storage.duePending(now)).filter(kept);
     let expired = 0;
     for (const request of due) {
       try {
@@ -1556,21 +1567,21 @@ export class MeetupSafety {
         log.error({ err, request: request.id }, 'could not expire a meetup request');
       }
     }
-    for (const appeal of await storage.staleAppeals(this.staleBounds())) {
+    for (const appeal of (await storage.staleAppeals(this.staleBounds())).filter(kept)) {
       try {
         await this.expireAppeal(appeal, true);
       } catch (err) {
         log.error({ err, appeal: appeal.id }, 'could not close an appeal nobody decided');
       }
     }
-    for (const ask of await storage.staleAsks(this.staleAskBounds())) {
+    for (const ask of (await storage.staleAsks(this.staleAskBounds())).filter(kept)) {
       try {
         await this.expireAsk(ask, true);
       } catch (err) {
         log.error({ err, ask: ask.id }, 'could not close an ask nobody decided');
       }
     }
-    for (const request of await storage.strandedApprovals(now - STRANDED_MS)) {
+    for (const request of (await storage.strandedApprovals(now - STRANDED_MS)).filter(kept)) {
       try {
         await this.settleStranded(request);
       } catch (err) {

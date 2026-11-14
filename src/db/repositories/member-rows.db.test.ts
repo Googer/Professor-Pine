@@ -414,19 +414,14 @@ describe('member rows with a memory of the rows that were seen', () => {
     expect(ids.guild(HOME)).toBe(made);
   });
 
-  it('forgets a server whose row the bot deletes, and takes its new row when it comes back', async () => {
+  it('keeps the row of a server the bot left, which gets it again when it comes back (plan 19C-1)', async () => {
     const ids = new RowIds();
     const guilds = new GuildRepository(db, ids);
     const first = await guilds.ensure(AWAY);
     expect(ids.guild(AWAY)).toBe(first);
-    await guilds.remove(AWAY);
-    expect(ids.guild(AWAY)).toBeUndefined();
-    expect(ids.guildSnowflake(first)).toBeUndefined();
-    expect(await guilds.idFor(AWAY)).toBeUndefined();
-    expect(await guilds.snowflakeOf(first)).toBeUndefined();
-    const second = await guilds.ensure(AWAY);
-    expect(second).not.toBe(first);
-    expect(await guilds.idFor(AWAY)).toBe(second);
-    expect(await guilds.snowflakeOf(second)).toBe(AWAY);
+    // Removed and added again: nothing deleted its row.
+    const again = await new GuildRepository(db, new RowIds()).ensure(AWAY);
+    expect(again).toBe(first);
+    expect(await guilds.snowflakeOf(first)).toBe(AWAY);
   });
 });

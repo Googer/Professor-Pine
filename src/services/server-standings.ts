@@ -6,6 +6,20 @@ import type {
 import { mayHave, NO_STANDING, type Standing } from '../domain/operators/admission.js';
 import type { Logger } from '../log.js';
 
+/**
+ * Whether Pine left a server (plan 19C-1; `ServerStandings.isLeft`): what the few places that act
+ * on a server outside its interactions ask, so that nothing is posted, edited or sent for it.
+ */
+export interface LeftServers {
+  isLeft(serverId: string): boolean;
+}
+
+/** The servers a write of `ServerStandings` marked left, and those it took back (plan 19C-1). */
+export interface LeftChange {
+  left: readonly string[];
+  back: readonly string[];
+}
+
 export interface ServerStandingsOptions {
   store: ServerRecordStorage;
   /** The file's `servers` (`isOpenInstance`, `listedServers`). */
@@ -43,6 +57,8 @@ export class ServerStandings {
   private readonly unwritten = new Set<string>();
   /** Each server's last write, the next one after it. */
   private readonly turns = new Map<string, Promise<unknown>>();
+  /** Who is told of the servers marked left and back (`whenLeftChanged`). */
+  private readonly leftListeners: ((change: LeftChange) => void)[] = [];
 
   constructor(private readonly options: ServerStandingsOptions) {
     for (const row of options.rows ?? []) this.rows.set(row.serverId, { ...row });
@@ -100,9 +116,12 @@ export class ServerStandings {
     if (serverIds.length === 0) return;
     await this.inTurn(serverIds, async () => {
       const rows = await this.options.store.markLeft(serverIds, this.now());
+      const marked: string[] = [];
       for (const row of rows) {
+        if (row.leftAt !== null && !this.isLeft(row.serverId)) marked.push(row.serverId);
         this.rows.set(row.serverId, { ...this.rowOf(row.serverId), leftAt: row.leftAt });
       }
+      this.tellLeft({ left: marked, back: [] });
     });
   }
 
@@ -120,7 +139,29 @@ export class ServerStandings {
         const row = this.rows.get(serverId);
         if (row) this.rows.set(serverId, { ...row, leftAt: null });
       }
+      this.tellLeft({ left: [], back: left });
     });
+  }
+
+  /**
+   * Tells `listener` of the servers each write marked left (they were not) and of those it took
+   * back, once written and kept (plan 19C-1: what is queued for a server Pine left is dropped,
+   * Google's line serves it no more, and again once it is back). Every listener is told; one that
+   * throws is logged.
+   */
+  whenLeftChanged(listener: (change: LeftChange) => void): void {
+    this.leftListeners.push(listener);
+  }
+
+  private tellLeft(change: LeftChange): void {
+    if (change.left.length === 0 && change.back.length === 0) return;
+    for (const listener of this.leftListeners) {
+      try {
+        listener(change);
+      } catch (err) {
+        this.options.log.error({ err }, 'a listener of servers left failed');
+      }
+    }
   }
 
   /**

@@ -4,6 +4,7 @@ import { partyServiceWith } from '../../test/support/party-service.js';
 import { BoardKeeper } from './board-keeper.js';
 import { at } from '../../test/support/parties.js';
 import { TestServers, withZones } from '../../test/support/server-values.js';
+import type { LeftServers } from './server-standings.js';
 
 const MEMBER = '300000000000000001';
 const OTHER = '300000000000000002';
@@ -16,8 +17,11 @@ const SERVER = '412345678901234567';
  * A board on the fake gateway (the west region's, made by the party service) and its keeper,
  * which tells the regions whose board it deleted in (`changed`).
  */
-async function keeping(servers?: TestServers) {
-  const made = await partyServiceWith([], servers === undefined ? {} : { servers });
+async function keeping(servers?: TestServers, left?: LeftServers) {
+  const made = await partyServiceWith([], {
+    ...(servers === undefined ? {} : { servers }),
+    ...(left === undefined ? {} : { left }),
+  });
   const west = made.regions.rows[0]!;
   await made.service.ensureSummary(west);
   const board = west.summaryMessageId ?? '';
@@ -28,6 +32,8 @@ async function keeping(servers?: TestServers) {
     dms: made.dms,
     zoneOfRow: (row) => made.service.zoneOfRow(row),
     serverOfRow: (row) => (row === 1 ? made.gateway.guildId : undefined),
+    // As `app.ts` asks it (plan 19C-1).
+    ofLeftServer: (region) => made.service.ofLeftServer(region),
     log: made.log,
     changed: (regionId) => changed.push(regionId),
     now: () => made.clock.now,
@@ -246,6 +252,21 @@ describe('BoardKeeper in rehearsal mode (review W2)', () => {
 });
 
 describe('BoardKeeper: the catch-up (plan 8R-9F, B6)', () => {
+  it('passes over the boards of a server Pine left, and sweeps them once it is back (plan 19C-1)', async () => {
+    const left = new Set<string>();
+    const { keeper, board, gateway, deletedIn, clock } = await keeping(undefined, {
+      isLeft: (serverId) => left.has(serverId),
+    });
+    const written = gateway.write(board, MEMBER, { createdAt: clock.now - 60_000 });
+    left.add(SERVER);
+    await keeper.sweep();
+    expect(gateway.calls.filter((call) => call.startsWith('boardMessages'))).toEqual([]);
+    expect(deletedIn(board)).toEqual([]);
+    left.delete(SERVER);
+    await keeper.sweep();
+    expect(deletedIn(board)).toEqual([written]);
+  });
+
   it('deletes what members wrote while it was away in one request, each author asked once afresh', async () => {
     const { keeper, board, gateway, deletedIn, dms, changed, west, clock } = await keeping();
     gateway.managers.add(MODERATOR);

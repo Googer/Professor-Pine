@@ -11,6 +11,7 @@ import { attendeeOf, type Party } from '../domain/party/party.js';
 import type { Logger } from '../log.js';
 import { KeyedLock } from './keyed-lock.js';
 import type { PartyListener } from './party-store.js';
+import type { LeftServers } from './server-standings.js';
 
 /** A forum that refused the bot for lack of a permission is left alone for this long. */
 const REFUSED_FOR_MS = 10 * 60_000;
@@ -24,6 +25,12 @@ export interface AccessServiceOptions {
   storage: AccessGrantStorage;
   log: Logger;
   now?: () => number;
+  /**
+   * The servers Pine left (plan 19C-1, `ServerStandings`), by the server of a grant's row
+   * (`serverOfRow`): their grants are not swept, kept as they are until the server is back.
+   */
+  left?: LeftServers;
+  serverOfRow?: (row: number) => string | undefined;
 }
 
 /**
@@ -277,15 +284,24 @@ export class AccessService {
    * a failure or a stop of the process left behind, and the grants of a forum that no party is
    * in), and a member who should be in a forum and cannot see it (a record without its
    * overwrite) is let in again. It never lets anybody in who has no record. At start and hourly
-   * (spec 5.4 asks for daily). Gives how many grants are gone. Never rejects.
+   * (spec 5.4 asks for daily). Gives how many grants are gone. Never rejects. The grants of a
+   * server Pine left are passed over (plan 19C-1): kept for its return, or its deletion.
    */
   async sweep(): Promise<number> {
     const before = new Set(this.grants.keys());
     for (const grant of [...this.grants.values()]) {
+      if (this.ofLeftServer(grant.guildId)) continue;
       this.settle(grant.forumChannelId, grant.memberId, grant.guildId, true);
     }
     await this.flush();
     return [...before].filter((key) => !this.grants.has(key)).length;
+  }
+
+  /** Whether the server of a `Guild` row is one Pine left. */
+  private ofLeftServer(row: number): boolean {
+    const { left, serverOfRow } = this.options;
+    const server = serverOfRow?.(row);
+    return server !== undefined && left?.isLeft(server) === true;
   }
 
   /** Waits for everything that is under way. For shutdown and for tests. */

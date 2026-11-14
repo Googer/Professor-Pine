@@ -13,6 +13,7 @@ import {
   magikarpLineup,
   MUDKIP,
   REPORT_NOW,
+  REPORT_SERVER,
   rocketReport,
 } from '../../test/support/stop-report-cases.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
@@ -20,6 +21,7 @@ import { watchForTest } from '../../test/support/timers.js';
 import { ENCOUNTER_PICTURE } from '../domain/stops/pictures.js';
 import type { RocketReport, StopReport } from '../domain/stops/report.js';
 import { GIVE_UP_MS, GruntMessageService } from './grunt-messages.js';
+import type { LeftServers } from './server-standings.js';
 import type { PictureMaker } from './stop-pictures.js';
 import type { StopReportListener } from './stop-reports.js';
 
@@ -31,8 +33,11 @@ const grunt = (id: number, overrides: Partial<Omit<RocketReport, 'id'>> = {}): R
   id,
 });
 
-/** A service over a store and the fake gateway; `again()` is the service of the next process. */
-function messagesWith(pictures?: PictureMaker) {
+/**
+ * A service over a store and the fake gateway; `again()` is the service of the next process.
+ * `left`: the servers Pine left (plan 19C-1).
+ */
+function messagesWith(pictures?: PictureMaker, left?: LeftServers) {
   const gateway = new FakePartyGateway();
   const store = new MemoryGruntMessages();
   const clock = { now: REPORT_NOW };
@@ -81,6 +86,7 @@ function messagesWith(pictures?: PictureMaker) {
       store,
       reports: { listen: (listener) => listeners.push(listener) },
       ...(pictures ? { pictures } : {}),
+      ...(left ? { left } : {}),
       log,
       now: () => clock.now,
       setTimer: (run, ms) => {
@@ -612,6 +618,30 @@ describe('GruntMessageService', () => {
     await next.fire();
     expect(made.store.rows.map((row) => row.messageId)).toEqual([]);
     expect(made.gateway.deleted.map((one) => one.messageId)).toContain(later[0]?.messageId);
+  });
+
+  it('keeps the messages of a server Pine left through the sweeps, and deletes them once it is back (plan 19C-1)', async () => {
+    const left = new Set<string>();
+    const made = messagesWith(undefined, { isLeft: (serverId) => left.has(serverId) });
+    const [posted] = await made.messages.post(grunt(1), [WEST_CHANNEL]);
+    await made.messages.close();
+    left.add(REPORT_SERVER);
+    // Overdue, and even past giving up: neither deleted nor forgotten while it is left.
+    made.clock.now += GIVE_UP_MS + HALF_HOUR;
+    const next = made.again();
+    expect(await next.messages.sweep()).toBe(0);
+    expect(next.timers).toEqual([]);
+    expect(made.store.rows.map((row) => row.messageId)).toEqual([posted?.messageId]);
+    expect(made.entries.some((entry) => entry.msg === 'gave up deleting a grunt report')).toBe(
+      false,
+    );
+    // Back an hour after its time: deleted at once.
+    left.delete(REPORT_SERVER);
+    made.clock.now = REPORT_NOW + 2 * HALF_HOUR;
+    expect(await next.messages.sweep()).toBe(1);
+    await next.fire();
+    expect(made.gateway.deleted.map((one) => one.messageId)).toEqual([posted?.messageId]);
+    expect(made.store.rows).toEqual([]);
   });
 
   it('tries a failed delete again, and gives up a day after its time', async () => {

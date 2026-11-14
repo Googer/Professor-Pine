@@ -10,7 +10,10 @@ const OTHER = '412345678901234599';
 const LAB = '700000000000000005';
 const OTHER_LAB = '700000000000000006';
 
-function noticesWith(send?: (channelId: string, text: string) => Promise<void>) {
+function noticesWith(
+  send?: (channelId: string, text: string) => Promise<void>,
+  left: ReadonlySet<string> = new Set(),
+) {
   const servers = new TestServers(testServerValues({ channels: { 'mod-bot-lab': LAB } }));
   servers.changed.set(OTHER, testServerValues({ channels: { 'mod-bot-lab': OTHER_LAB } }));
   servers.changed.set('412345678901234500', testServerValues({ channels: {} }));
@@ -24,6 +27,7 @@ function noticesWith(send?: (channelId: string, text: string) => Promise<void>) 
         sent.push({ channelId, text });
         return Promise.resolve();
       }),
+    left: { isLeft: (serverId) => left.has(serverId) },
     log,
   });
   return { notices, sent, entries, servers };
@@ -42,6 +46,19 @@ describe('ServerNotices (plan 19B-1)', () => {
       { channelId: LAB, text: 'The bot updates channel is gone.' },
       { channelId: OTHER_LAB, text: 'The moderators’ channel is gone.' },
     ]);
+  });
+
+  it('tells nothing to a server Pine left, and tells it once the server is back (plan 19C-1)', async () => {
+    const left = new Set([SERVER]);
+    const { notices, sent } = noticesWith(undefined, left);
+    notices.tell(SERVER, 'meetup-safety:gone', 'The moderators’ channel is gone.');
+    notices.tell(OTHER, 'meetup-safety:gone', 'The moderators’ channel is gone.');
+    await notices.flush();
+    expect(sent).toEqual([{ channelId: OTHER_LAB, text: 'The moderators’ channel is gone.' }]);
+    left.clear();
+    notices.tell(SERVER, 'meetup-safety:gone', 'The moderators’ channel is gone.');
+    await notices.flush();
+    expect(sent.at(-1)).toEqual({ channelId: LAB, text: 'The moderators’ channel is gone.' });
   });
 
   it('logs with the server what it cannot say, without a lab or where the lab refuses', async () => {

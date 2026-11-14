@@ -87,24 +87,12 @@ describe('GuildRepository', () => {
     expect(await guilds.snowflakeOf(guildId + 1)).toBeUndefined();
   });
 
-  it('snowflakes gives the servers that have a row, a server the bot left no longer', async () => {
+  it('snowflakes gives the servers that have a row', async () => {
     expect(await guilds.snowflakes()).toEqual([]);
     await guilds.ensure('412345678901234567');
     await guilds.ensure('412345678901234568');
     await guilds.ensure('412345678901234567');
     expect(await guilds.snowflakes()).toEqual(['412345678901234567', '412345678901234568']);
-    await guilds.remove('412345678901234567');
-    expect(await guilds.snowflakes()).toEqual(['412345678901234568']);
-  });
-
-  it('remove deletes the guild and cascades to its regions', async () => {
-    const guildId = await guilds.ensure('412345678901234567');
-    await db.insertInto('Region').values({ guildId, channelId: '512345678901234567' }).execute();
-
-    await guilds.remove('412345678901234567');
-
-    expect(await guilds.idFor('412345678901234567')).toBeUndefined();
-    expect(await db.selectFrom('Region').selectAll().execute()).toHaveLength(0);
   });
 
   it('round-trips a 19-digit snowflake in a BIGINT column', async () => {

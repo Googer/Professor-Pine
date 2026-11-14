@@ -42,6 +42,21 @@ describe('PartyService: the copies ended parties left', () => {
     expect(made.gateway.deleted).toHaveLength(asked);
   });
 
+  it('keeps every copy of a server Pine left, its copies in other channels too, until it is back (plan 19C-1, J7)', async () => {
+    const made = await copied();
+    await made.store.update(made.party.id, (party) => ({
+      party: endParty(party),
+      ended: { how: 'clock' },
+    }));
+    const servers = new Set([made.gateway.guildId]);
+    const again = await restarted(made, { left: { isLeft: (serverId) => servers.has(serverId) } });
+    expect(await again.service.sweepCopies()).toEqual({ swept: 0, failed: 0 });
+    expect(outside(made)).toBe(2);
+    servers.clear();
+    expect(await again.service.sweepCopies()).toEqual({ swept: 2, failed: 0 });
+    expect(outside(made)).toBe(0);
+  });
+
   it('deletes after a restart the copies the network kept the closing from deleting', async () => {
     const made = await copied();
     made.gateway.failing.set('deleteMessage', networkAway());

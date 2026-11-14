@@ -50,6 +50,7 @@ export interface PartySchedulerOptions {
     | 'sweepPosts'
     | 'checkSummaries'
     | 'whileOpen'
+    | 'ofLeftServer'
   >;
   attendance: Pick<AttendanceService, 'ask' | 'removeQuestions'>;
   /** The access of members of other regions, whose leftovers are swept with the forums. */
@@ -306,8 +307,11 @@ export class PartyScheduler {
       }
       return input;
     };
-    for (const { id } of store.active()) {
+    for (const party of store.active()) {
       if (this.stopped) return;
+      // A server Pine left (plan 19C-1): its parties wait as they are, until it is back.
+      if (posts.ofLeftServer(party)) continue;
+      const { id } = party;
       try {
         await this.tickParty(id, inputOf);
       } catch (err) {

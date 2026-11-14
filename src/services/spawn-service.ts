@@ -31,6 +31,7 @@ import type { PictureMaking } from './research-task-service.js';
 import { ReadsBetweenWrites } from './reads-between-writes.js';
 import { serverChannel } from './server-channels.js';
 import type { ServerSettingsLookup } from './server-settings.js';
+import type { LeftServers } from './server-standings.js';
 
 /** The Pokédex number of Unown, whose sightings a server may collect in a channel of their own. */
 export const UNOWN_DEX = 201;
@@ -121,6 +122,11 @@ export interface SpawnServiceOptions {
    * deleted by the next one (`sweep`). Without it they are kept in memory only.
    */
   store?: SpawnReportStorage;
+  /**
+   * The servers Pine left (plan 19C-1, `ServerStandings`): the sweep passes over their reports,
+   * kept for when they are back.
+   */
+  left?: LeftServers;
   settings: Settings;
   log: Logger;
   now?: () => number;
@@ -442,17 +448,21 @@ export class SpawnService {
   /**
    * Takes up the recorded reports that do not wait in this process; answers how many. Each is
    * deleted when it is due (now, when that has passed), and tried again at the next sweep when
-   * that fails, until `GIVE_UP_MS` after its time.
+   * that fails, until `GIVE_UP_MS` after its time. Those of a server Pine left (plan 19C-1: the
+   * report's server, else its channel's by the cache) are passed over, neither deleted nor given
+   * up: kept for when it is back.
    */
   async sweep(): Promise<number> {
-    const { store, log } = this.options;
+    const { store, log, left, gateway } = this.options;
     if (!store || this.closed) return 0;
     const rows = await store.all();
     const now = this.now();
     let taken = 0;
-    for (const { channelId, messageId, deleteAt } of rows) {
+    for (const { channelId, messageId, deleteAt, guildId } of rows) {
       if (this.closed) break;
       if (this.waiting.has(messageId) || this.removing.has(messageId)) continue;
+      const server = guildId ?? gateway.serverOf(channelId);
+      if (server !== undefined && left?.isLeft(server) === true) continue;
       if (now - deleteAt >= GIVE_UP_MS) {
         await this.forget(channelId, messageId);
         log.warn({ channel: channelId, message: messageId }, 'gave up deleting a spawn report');

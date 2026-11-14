@@ -147,6 +147,30 @@ describe('ServerStandings', () => {
     expect(store.rows.get(RECORDED)?.leftAt).toBeNull();
   });
 
+  it('tells its listeners which servers it marked left and which came back, once written', async () => {
+    const { standings, entries } = standingsWith(undefined);
+    await standings.load();
+    const heard: { left: readonly string[]; back: readonly string[] }[] = [];
+    standings.whenLeftChanged((change) => heard.push(change));
+    standings.whenLeftChanged(() => {
+      throw new Error('a listener that fails');
+    });
+    // NEWCOMER has no Guild row: never marked, never told.
+    await standings.markLeft([RECORDED, NEWCOMER]);
+    // Left already: nothing changes, nobody is told.
+    await standings.markLeft([RECORDED]);
+    await standings.cameBack([RECORDED, NEWCOMER]);
+    await standings.cameBack([RECORDED]);
+    expect(heard).toEqual([
+      { left: [RECORDED], back: [] },
+      { left: [], back: [RECORDED] },
+    ]);
+    // The listener that fails is logged; the others are told all the same.
+    expect(
+      entries.filter((entry) => entry.msg === 'a listener of servers left failed'),
+    ).toHaveLength(2);
+  });
+
   it('may start from rows read already, where nothing is awaited', () => {
     const settings = { ...loadSettings(TEST_SETTINGS_PATH), servers: undefined };
     const standings = new ServerStandings({

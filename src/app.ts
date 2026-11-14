@@ -209,10 +209,13 @@ import {
   bossSyncStep,
   directMessagesStep,
   eventsFeedStep,
+  followLeaving,
+  followServers,
   followZones,
   liveSources,
   picturesServed,
   reportPictures,
+  serversNotLeft,
   shardStartWork,
   stopReportSteps,
 } from './app-wiring.js';
@@ -463,6 +466,8 @@ export async function startApp(
   // asked only once a notice is told.
   const serverNotices = new ServerNotices({
     servers,
+    // A server Pine left is told nothing until it is back (plan 19C-1).
+    left: standings,
     log,
     send: (channelId, text) => noticeSender(partyGateway)(channelId, text),
   });
@@ -606,7 +611,9 @@ export async function startApp(
     },
   });
   const parties = new PartyStore({ storage: partyRepository, log, history: partyHistory });
-  const discordGateway = new DiscordPartyGateway(log);
+  // A server Pine left is none of its servers (plan 19C-1): the events forum, the boss announcer
+  // and meetup safety's check at the start ask `serverAvailable`.
+  const discordGateway = new DiscordPartyGateway(log, standings);
   // In rehearsal mode nothing is posted but into the posts of parties in the rehearsed forums
   // (and meetup safety's own posts into the moderators' channel: its gateway, below).
   const partyGateway = rehearsal
@@ -670,6 +677,9 @@ export async function startApp(
     guilds,
     storage: new AccessGrantRepository(db),
     log,
+    // The grants of a server Pine left are not swept (plan 19C-1).
+    left: standings,
+    serverOfRow: (row) => rowIds.serverOfRow(row),
   });
   // The staff audit log (`/audit`): listens to the store, so every change is logged whoever made
   // it; entries older than 30 days go with the scheduler's upkeep.
@@ -705,6 +715,8 @@ export async function startApp(
     // A party's server, whose zone its times are in (plan 19A-2): every row is read at the start,
     // before the parties, and every row made since is added (fix round 1, K1).
     serverOfRow: (row) => rowIds.serverOfRow(row),
+    // A server Pine left: its parties neither drawn nor advanced (plan 19C-1).
+    left: standings,
     // A forum the bot may not make posts in, told to the server's staff (plan 19B-1).
     notices: serverNotices,
     // The raids along an ended train's way, for its card (plan 8H-7A).
@@ -781,6 +793,8 @@ export async function startApp(
     // the start or made since (fix round 1, K1).
     servers,
     serverOfRow: (row) => rowIds.serverOfRow(row),
+    // Nobody is told of a server Pine left (plan 19C-1).
+    left: standings,
     pictures: stopPictures,
     wants,
     targetWants,
@@ -834,6 +848,8 @@ export async function startApp(
     pictures: stopPictures,
     notify,
     store: new SpawnReportRepository(db),
+    // Kept for its return (plan 19C-1).
+    left: standings,
     settings: config.settings,
     servers,
     log,
@@ -847,6 +863,8 @@ export async function startApp(
         store: new GruntMessageRepository(db),
         reports: stopReports,
         pictures: stopPictures,
+        // Kept for its return (plan 19C-1).
+        left: standings,
         log,
       });
   // The events forum (plan 8V-1): only where the settings name one, never in rehearsal mode (R8:
@@ -989,14 +1007,24 @@ export async function startApp(
     byHandPerServer: config.settings.googleByHandPerServer,
     servers: serverRows,
     shares: googleShares,
+    // Not a server Pine left or that may no longer have it (plan 19C-1): its rows are held out of
+    // the line's range at `OUT_OF_SHARE_RANK` and count for no share; once it is served again
+    // (the line's next turn notices it, told or not) they are ranked anew from the raids read
+    // first. Every row is known from the start (`guilds.loadRows`, before `resume`); one made
+    // since is known when made.
+    serves: (guildRow) => {
+      const server = rowIds.serverOfRow(guildRow);
+      return server === undefined || (admission.admits(server) && !standings.isLeft(server));
+    },
     // The line goes by the raids of each place's best region (plan 8W-6), from the history.
     ranks: new GoogleRanks({
       regions,
       // Each server's row by that server's regions (plan 19B-3).
       gymRegions: (guildId, id) => gyms.regionsIn(guildId, id),
       wayspotRegions: (guildId, id) => wayspots.regionsIn(guildId, id),
-      // The servers by their rows: the first reading comes before the login (plan 8Z-2).
-      servers: () => guilds.snowflakes(),
+      // The servers by their rows: the first reading comes before the login (plan 8Z-2); those
+      // Pine left keep theirs, and are left out (plan 19C-1).
+      servers: serversNotLeft(() => guilds.snowflakes(), standings),
       activity: history,
     }),
     wayspots,
@@ -1005,6 +1033,13 @@ export async function startApp(
     wayspotLookups,
     answers: googleAnswers,
     places: wayspotPlaces,
+  });
+  // A server Pine left (plan 19C-1), however it was marked: its queued DMs are dropped, and
+  // Google's line holds its rows until it is back.
+  followLeaving(standings, {
+    dms,
+    line: gymUpkeep,
+    rowOf: (server) => rowIds.rowOfServer(server),
   });
   // Map pictures from Google Static Maps, through the image cache (also for gym announcements).
   const mapCache = new ImageCache({
@@ -1138,6 +1173,8 @@ export async function startApp(
     servers,
     // What keeps it from working in a server, told to that server's staff (plan 19B-1).
     notices: serverNotices,
+    // A server Pine left: its records are not expired, nobody told (plan 19C-1).
+    left: standings,
     log,
   });
   // Reports to the moderators (plan 8S-2): their posts go into meetup safety's channel, through
@@ -1274,12 +1311,14 @@ export async function startApp(
     await regions.load();
     await wayspots.load();
     await pineStops.load();
+    // Every party's server, so its zone, known from its first moment (fix round 1, K1); and
+    // every row's server before the line for Google is taken up, which serves no row of a
+    // server Pine left (plan 19C-1).
+    await guilds.loadRows();
     // The gyms that waited for Google before a restart, and those that lack what it gives;
     // after the regions and the Wayspots, which its ranks read, and Google's answers, which
     // say which were asked (plans 8W-6, 19B-3).
     await gymUpkeep.resume();
-    // Every party's server, so its zone, known from its first moment (fix round 1, K1).
-    await guilds.loadRows();
     await parties.load();
     await access.load();
     // What a stop between storing a raid and creating its post left behind: only the store is
@@ -1501,6 +1540,8 @@ export async function startApp(
     dms: memberDms,
     zoneOfRow: (row) => partyService.zoneOfRow(row),
     serverOfRow: (row) => rowIds.serverOfRow(row),
+    // A board of a server Pine left is not swept (plan 19C-1).
+    ofLeftServer: (region) => partyService.ofLeftServer(region),
     log,
     changed: (regionId) => {
       partyService.summaryChanged(regionId, true);
@@ -1618,7 +1659,9 @@ export async function startApp(
           { user: ready.user.tag, guilds: ready.guilds.cache.size, shards: ready.ws.shards.size },
           'connected to Discord',
         );
-        botServers = () => [...ready.guilds.cache.keys()];
+        // Not those Pine left (plan 19C-1): discord.js keeps one that removed the bot while its
+        // shard was away.
+        botServers = () => [...ready.guilds.cache.keys()].filter((id) => !standings.isLeft(id));
         // The zones in use are those of the servers present from now on (fix round 1, K5).
         serversPresent = botServers;
         servers.presenceChanged();
@@ -1651,20 +1694,23 @@ export async function startApp(
         },
         log,
       });
+      // A server joining gets its `Guild` row and is no longer left; one removing Pine is marked
+      // left, its row and everything on it kept (plan 19C-1); a refused one is neither. Either way
+      // the zones in use are read again (a zone of its own, fix round 1, N5).
+      const serverEvents = followServers({
+        admission,
+        standings,
+        guilds,
+        presenceChanged: () => {
+          servers.presenceChanged();
+        },
+        log,
+      });
       client.on(Events.GuildCreate, (guild) => {
-        // Refused by `wireServerStart` (plan 19C-1): no `Guild` row.
-        if (!admission.admits(guild.id)) return;
-        guilds
-          .ensure(guild.id)
-          .catch((err: unknown) => log.error({ err, guild: guild.id }, 'could not record guild'));
-        // A server joining may bring a zone of its own (fix round 1, N5).
-        servers.presenceChanged();
+        void serverEvents.joined(guild.id);
       });
       client.on(Events.GuildDelete, (guild) => {
-        guilds
-          .remove(guild.id)
-          .catch((err: unknown) => log.error({ err, guild: guild.id }, 'could not remove guild'));
-        servers.presenceChanged();
+        void serverEvents.removed(guild.id);
       });
       // A party's post deleted by hand ends its party at once (the `Guilds` intent delivers it;
       // discord.js emits it only for a thread in its cache, otherwise the next render notices);
@@ -1746,6 +1792,8 @@ export async function startApp(
   const stopPosts = rehearsal
     ? undefined
     : new StopPostService({
+        // A server Pine left: its posts kept as they are (plan 19C-1).
+        left: standings,
         storage: new StopPostRepository(db),
         reports: stopReports,
         events: raidEvents,
@@ -1768,6 +1816,7 @@ export async function startApp(
   // board's messages; none in rehearsal mode, which makes no posts of the stops.
   const stopLines = stopPosts
     ? new StopLineService({
+        left: standings,
         storage: new StopLineRepository(db),
         reports: stopReports,
         posts: stopPosts,
@@ -1901,13 +1950,19 @@ export async function startApp(
       settings: webSettings,
       pictureOrigins: pictureOrigins(webSettings.publicUrl),
       googleKey: config.env.GOOGLE_MAPS_BROWSER_KEY,
-      servers: { has: (guildId) => client.guilds.cache.has(guildId) },
+      // A server Pine left is answered as one it is not in (plan 19C-1).
+      servers: {
+        has: (guildId) => client.guilds.cache.has(guildId) && !standings.isLeft(guildId),
+      },
       serverSettings: servers,
       roleName: (guildId, roleId) =>
         client.guilds.cache.get(guildId)?.roles.cache.get(roleId)?.name,
       // The top page's servers (plan 8M-14): those the bot is in with a region that has an outline.
       serversWithMap: mapServers({
-        joined: () => joinedServers(client.guilds.cache.values()),
+        joined: () =>
+          joinedServers(
+            [...client.guilds.cache.values()].filter((guild) => !standings.isLeft(guild.id)),
+          ),
         guilds,
         regions,
       }),

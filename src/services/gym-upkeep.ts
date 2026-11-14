@@ -11,6 +11,7 @@ import {
   googleMonth,
   lineAllowance,
   NO_REGION_RANK,
+  OUT_OF_SHARE_RANK,
   type GoogleBudget,
   type GoogleUsed,
 } from '../domain/geo/google-line.js';
@@ -29,6 +30,7 @@ import {
   MemoryGymLookups,
   type GymLookups,
   type GymRank,
+  type OutOfShare,
   type QueuedGym,
   type WaitingGym,
 } from './gym-lookups.js';
@@ -226,6 +228,16 @@ export interface GymUpkeepOptions {
    * each server up to its share. Without it the line is one, as before.
    */
   shares?: GoogleShares;
+  /**
+   * Whether the line serves a server's rows (plan 19C-1; by `Guild` row), asked at each turn:
+   * not one Pine left or that may no longer have it (`app.ts`: admitted and not left). A server
+   * not served keeps its rows, which wait unasked, held out of the range the line reads
+   * (`OUT_OF_SHARE_RANK`, as a server's out of its share), and count for no share, until it is
+   * served again (ranked by its regions anew at the line's next turn, whatever made it served;
+   * `servingChanged` hurries that turn) or plan 19C-3 deletes them.
+   * Default: every server.
+   */
+  serves?: (guildId: number) => boolean;
   /** The ranks of the places of the line (`GoogleRanks` in the bot); default all alike. */
   ranks?: LineRanks;
   /**
@@ -369,6 +381,21 @@ export class GymUpkeep {
    */
   private readonly asideGyms = new Set<number>();
   private readonly asideSpots = new Set<string>();
+  /**
+   * The servers not served (`serves`, plan 19C-1) a read of a line found a row of in its range, by
+   * `Guild` row, of each line: rows written before their server's were held (`OUT_OF_SHARE_RANK`,
+   * as `rankServer` and `queueWayspotsNow` hold them). That line's reads pass over their rows as
+   * over those of a server out of its share, until a ranking of the line held them all; one served
+   * again is dropped at the next turn.
+   */
+  private readonly unserved = { gyms: new Set<number>(), spots: new Set<number>() };
+  /**
+   * The servers whose rows were written held for not being served (`shareRank`, `rankServer`,
+   * `queueWayspotsNow`), by `Guild` row: the line's next turn ranks anew each one served again
+   * (`nextNow`), whatever made it served (an operator's word, a return), told or not; a ranking of
+   * it while served (`rankServer`) drops it.
+   */
+  private readonly heldUnserved = new Set<number>();
   private stopped = false;
 
   constructor(private readonly options: GymUpkeepOptions) {
@@ -488,7 +515,9 @@ export class GymUpkeep {
    * whose own point has no answer about its places (`GoogleAnswers.ownAt`, whichever server's
    * question it was) is queued (by its kind and rank); one no longer in a region of its server
    * leaves the line, and so does one that is no PokéStop or Power Spot any more (it became a gym,
-   * was found gone, is a Wayfarer gym). The answers are the places', and stay. Never rejects.
+   * was found gone, is a Wayfarer gym). The answers are the places', and stay. A server the line
+   * does not serve (`serves`, plan 19C-1) has its rows held (`OUT_OF_SHARE_RANK`, their ranks
+   * alone written), none added or taken out. Never rejects.
    *
    * With a server (`guildId`: its import, a change of its stops of Pine's own, of its outlines),
    * that server's part alone: its rows of the line are read by its key, the others' neither read
@@ -538,8 +567,11 @@ export class GymUpkeep {
       const waiting = new Map(rows.map((row): [string, WaitingWayspot] => [spotKey(row), row]));
       const add: QueuedWayspot[] = [];
       const kept = new Set<string>();
-      // Each server's own rows, once each (plan 19B-3): its copy, ranked by its regions.
+      // Each server's own rows, once each (plan 19B-3): its copy, ranked by its regions. A server
+      // the line does not serve (plan 19C-1: Pine left it) has none added or taken out: they wait,
+      // held below, until it is back.
       for (const guildId of servers === 'all' ? wayspots.servers() : servers) {
+        if (!this.serves(guildId)) continue;
         for (const wayspot of wayspots.of(guildId).all()) {
           if (wayspot.kind !== 'stop' && wayspot.kind !== 'powerspot') continue;
           const regionRank = this.ranks.ofWayspot(guildId, wayspot.id);
@@ -556,12 +588,31 @@ export class GymUpkeep {
           add.push({ guildId, wayspotId: wayspot.id, kind: wayspot.kind, rank });
         }
       }
-      const leave = [...waiting].flatMap(([key, row]) => (kept.has(key) ? [] : [row]));
+      // A server not served has its rows held, ranks alone written: out of the range the line's
+      // reads walk (`next({ outOfShare })`), as an out-of-share server's.
+      const read = new Set(rows.map((row) => row.guildId));
+      const held = new Set<number>();
+      for (const { guildId, wayspotId, kind, rank } of rows) {
+        if (this.serves(guildId)) continue;
+        held.add(guildId);
+        this.heldUnserved.add(guildId);
+        if (rank !== OUT_OF_SHARE_RANK) {
+          add.push({ guildId, wayspotId, kind, rank: OUT_OF_SHARE_RANK });
+        }
+      }
+      const leave = [...waiting].flatMap(([key, row]) =>
+        kept.has(key) || !this.serves(row.guildId) ? [] : [row],
+      );
       const note = this.beforeWrite(add.map((row) => ({ guildId: row.guildId, address: false })));
       await this.wayspotLookups.add(add, this.now());
       await this.wayspotLookups.remove(leave);
       this.afterWrite(note);
-      if (add.length > 0) this.hurry();
+      // Of the servers read, those held and those without rows have none in the line's range:
+      // its reads need not name them.
+      for (const guildId of servers === 'all' ? [...this.unserved.spots] : servers) {
+        if (held.has(guildId) || !read.has(guildId)) this.unserved.spots.delete(guildId);
+      }
+      if (add.some((row) => !held.has(row.guildId))) this.hurry();
     } catch (err) {
       log.warn(
         { err },
@@ -1101,16 +1152,82 @@ export class GymUpkeep {
    * of its share (`GoogleShares.rank`), else its own; never for a server the shares do not know
    * (fix round 3, T1: nothing of it, or of the kind, waited when they were worked out, or the line
    * has asked about all that did), whose row the writer has worked out anew (`beforeWrite`,
-   * `afterWrite`; which also rank a server again whose being held changed during the write).
+   * `afterWrite`; which also rank a server again whose being held changed during the write). A
+   * server the line does not serve (plan 19C-1) is held as one out of its share: its rows are out
+   * of the range the line's reads walk, whatever its share, and noted (`heldUnserved`) to be
+   * ranked anew once it is served again.
    */
   private shareRank(guildId: number, address: boolean, rank: number): number {
+    if (!this.serves(guildId)) {
+      this.heldUnserved.add(guildId);
+      return OUT_OF_SHARE_RANK;
+    }
     const { shares } = this;
     if (!shares?.knows(guildId, address)) return rank;
     return shares.rank(guildId, address, rank);
   }
 
+  /** Whether the line serves a server's rows now (`GymUpkeepOptions.serves`, plan 19C-1). */
+  private serves(guildId: number): boolean {
+    return this.options.serves?.(guildId) ?? true;
+  }
+
+  /**
+   * Servers whose being served changed (plan 19C-1: Pine left them, or they came back; `serves`
+   * says which now): the shares are worked out anew in the line's turn (without those not served,
+   * with those back), then each server's rows are ranked anew in the line's turn (`rankServer`,
+   * its Wayspots' part brought up to date as after its import): held out of the line's range while
+   * it is not served, ranked by its regions when it is back, by the raids read anew first (those
+   * of a server away are not read: `GoogleRanks.refresh`); and the line goes on at its usual pace
+   * (`hurry`), whatever long wait its timer was set for.
+   */
+  servingChanged(guildIds: readonly number[]): void {
+    if (this.stopped || !this.fetches) return;
+    this.sharesAnew();
+    this.aside(() =>
+      this.inTurn(async () => {
+        if (guildIds.some((guildId) => this.serves(guildId))) {
+          try {
+            await this.ranks.refresh();
+          } catch (err) {
+            this.options.log.warn(
+              { err },
+              'could not read the raids of the regions: a server back is ranked as before',
+            );
+          }
+        }
+        for (const guildId of guildIds) await this.rankServer(guildId);
+      }),
+    );
+    this.hurry();
+  }
+
+  /**
+   * The servers whose rows were held for not being served (`heldUnserved`) and that are served
+   * now, whatever made them so (an operator's allow or unblock, a return; told by `servingChanged`
+   * or not): the raids read anew once (`LineRanks.refresh`, as `servingChanged` does), then each
+   * one's rows ranked by its regions (`rankServer`, which drops it from the set), its Wayspots'
+   * part brought up to date before the turn reads the line. Only in the line's turn; never
+   * rejects.
+   */
+  private async rankServedAgain(): Promise<void> {
+    const back = [...this.heldUnserved].filter((guildId) => this.serves(guildId));
+    if (back.length === 0) return;
+    try {
+      await this.ranks.refresh();
+    } catch (err) {
+      this.options.log.warn(
+        { err },
+        'could not read the raids of the regions: a server served again is ranked as before',
+      );
+    }
+    for (const guildId of back) await this.rankServer(guildId);
+    if (this.resumed) await Promise.all(back.map((guildId) => this.queueWayspots(guildId)));
+  }
+
   /** Whether a server's row is held as `shareRank` ranks it now (`OUT_OF_SHARE_RANK`). */
   private isHeld(guildId: number, address: boolean): boolean {
+    if (!this.serves(guildId)) return true;
     const { shares } = this;
     return shares !== undefined && shares.knows(guildId, address) && shares.holds(guildId, address);
   }
@@ -1119,14 +1236,18 @@ export class GymUpkeep {
    * What a writer notes of the rows it is about to write, before the write (their ranks are
    * `shareRank`'s of this moment): the servers the shares do not know (fix round 3, T1), and
    * whether each server's rows (of places alone, or with an address) were ranked as held (fix
-   * round 4, R3). `afterWrite` takes it.
+   * round 4, R3; also by not being served, plan 19C-1). `afterWrite` takes it.
    */
   private beforeWrite(rows: readonly { guildId: number; address: boolean }[]): WriteNote {
     const note: WriteNote = { unknown: new Set(), held: new Map() };
     const { shares } = this;
-    if (!shares) return note;
+    // Neither shares nor servers left out: no row is ever held.
+    if (!shares && this.options.serves === undefined) return note;
     for (const { guildId, address } of rows) {
-      if (!shares.knows(guildId, address)) note.unknown.add(guildId);
+      // A server the line does not serve has no share to work out (plan 19C-1).
+      if (shares?.knows(guildId, address) === false && this.serves(guildId)) {
+        note.unknown.add(guildId);
+      }
       note.held.set(`${String(guildId)}:${String(address)}`, {
         guildId,
         address,
@@ -1199,7 +1320,9 @@ export class GymUpkeep {
    * Reads every server's need (its rows of both lines) and works the shares out by it. Gives
    * the servers whose being out of their share changed; none without shares; undefined when a
    * reading fails (logged: the shares stay as they were, and `sharesUnread` has the line's next
-   * turn read them again).
+   * turn read them again). A server the line does not serve (`serves`, plan 19C-1: Pine left it)
+   * needs nothing: its rows count for no share, and are held out of the line's range
+   * (`shareRank`).
    */
   private async readShares(): Promise<Set<number> | undefined> {
     const { shares } = this;
@@ -1209,6 +1332,9 @@ export class GymUpkeep {
       for (const [guildId, spots] of await this.wayspotLookups.needs()) {
         const kept = needs.get(guildId) ?? { places: 0, geocodes: 0 };
         needs.set(guildId, { ...kept, places: kept.places + spots });
+      }
+      for (const guildId of [...needs.keys()]) {
+        if (!this.serves(guildId)) needs.delete(guildId);
       }
       const changed = await shares.refresh(needs);
       this.sharesUnread = false;
@@ -1221,14 +1347,15 @@ export class GymUpkeep {
   }
 
   /**
-   * Ranks one server's rows anew (its share used or raised): its gyms read by its key and their
-   * ranks set where they changed, then its part of the Wayspots' line. Only in the line's turn.
-   * Never rejects.
+   * Ranks one server's rows anew (its share used or raised, its being served changed): its gyms
+   * read by its key and their ranks set where they changed, then its part of the Wayspots' line.
+   * Only in the line's turn. Never rejects.
    */
   private async rankServer(guildId: number): Promise<void> {
     try {
       const rows = await this.lookups.ofServer(guildId);
       const changed: GymRank[] = [];
+      const served = this.serves(guildId);
       for (const row of rows) {
         const rank = this.shareRank(guildId, row.address, this.ranks.ofGym(guildId, row.gymId));
         if (rank !== row.rank) changed.push({ guildId, gymId: row.gymId, rank });
@@ -1237,6 +1364,10 @@ export class GymUpkeep {
       const note = this.beforeWrite(rows);
       await this.lookups.setRanks(changed);
       this.afterWrite(note);
+      // Not served: every row of it is held now, and the line's reads need not name it. Served:
+      // its rows are ranked by its regions, its Wayspots' part below.
+      if (!served) this.unserved.gyms.delete(guildId);
+      else this.heldUnserved.delete(guildId);
     } catch (err) {
       this.options.log.warn({ err, guild: guildId }, 'could not rank a server’s part of the line');
     }
@@ -1310,6 +1441,8 @@ export class GymUpkeep {
     try {
       const rows = await this.lookups.list();
       const changed: GymRank[] = [];
+      // Those not served (plan 19C-1) are held as one out of its share is (`shareRank`).
+      const held = new Set([...this.unserved.gyms].filter((guildId) => !this.serves(guildId)));
       for (const row of rows) {
         const rank = this.shareRank(
           row.guildId,
@@ -1321,6 +1454,8 @@ export class GymUpkeep {
       const note = this.beforeWrite(rows);
       await this.lookups.setRanks(changed);
       this.afterWrite(note);
+      // Every row of them is held now: the line's reads need not name them.
+      for (const guildId of held) this.unserved.gyms.delete(guildId);
     } catch (err) {
       log.warn({ err }, 'could not rank the line of gyms that wait for Google anew');
     }
@@ -1405,20 +1540,33 @@ export class GymUpkeep {
       // wait; the others go on, then the PokéStops and Power Spots.
       const refusedFor = this.geocodeRefusedUntil - now;
       const placesOnly = refusedFor > 0 || !allowance.geocode;
-      // By shares (plan 19B-5): a server out of its share waits, the others go on.
-      const outOfShare = this.shares?.outOfShare();
+      // By shares (plan 19B-5): a server out of its share waits, the others go on. A server the
+      // line does not serve (plan 19C-1) has its rows held out of the range read, as one out of
+      // its share; a row of it written before they were held is passed over (`unserved`).
+      for (const line of [this.unserved.gyms, this.unserved.spots]) {
+        for (const guildId of line) if (this.serves(guildId)) line.delete(guildId);
+      }
+      // One whose rows were held and that is served again, whether or not the line was told
+      // (`servingChanged`): ranked by its regions before this turn reads the line.
+      await this.rankServedAgain();
       first = allowance.gyms
-        ? await this.lookups.next({
-            placesOnly,
-            except: this.asideGyms,
-            ...(outOfShare === undefined ? {} : { outOfShare }),
+        ? await this.servedRow(this.unserved.gyms, () => {
+            const outOfShare = this.outOfShareOrUnserved(this.unserved.gyms);
+            return this.lookups.next({
+              placesOnly,
+              except: this.asideGyms,
+              ...(outOfShare === undefined ? {} : { outOfShare }),
+            });
           })
         : undefined;
       if (!first) {
         spot = allowance.wayspots
-          ? await this.wayspotLookups.next({
-              except: this.asideSpots,
-              ...(outOfShare === undefined ? {} : { outOfShare: outOfShare.places }),
+          ? await this.servedRow(this.unserved.spots, () => {
+              const outOfShare = this.outOfShareOrUnserved(this.unserved.spots);
+              return this.wayspotLookups.next({
+                except: this.asideSpots,
+                ...(outOfShare === undefined ? {} : { outOfShare: outOfShare.places }),
+              });
             })
           : undefined;
         if (!spot) {
@@ -1432,6 +1580,9 @@ export class GymUpkeep {
             return allowance.waitMs;
           }
           const month = googleMonth(now);
+          // Rows of servers the line does not serve alone (plan 19C-1, held) wait for the month
+          // too, a turn every `MAX_TIMER_MS`, which ranks anew one served again
+          // (`rankServedAgain`); a change told to the line hurries it (`servingChanged`).
           return Math.min(
             // Only gyms that wait for their address are left.
             gyms && refusedFor > 0 && allowance.geocode ? refusedFor : month.nextReset - now,
@@ -1536,6 +1687,41 @@ export class GymUpkeep {
       this.asking = undefined;
     }
     return undefined;
+  }
+
+  /**
+   * What a line's read passes over (`next({ outOfShare })`): the rows held (`OUT_OF_SHARE_RANK`:
+   * of servers out of their share, plan 19B-5, or not served, plan 19C-1), read above them alone,
+   * the servers out of their share, and those not served a row of which was found in that range
+   * (the line's `unserved`) as out of places. Undefined where no row can be held (neither shares
+   * nor `serves`): the line reads in its plain order.
+   */
+  private outOfShareOrUnserved(unserved: ReadonlySet<number>): OutOfShare | undefined {
+    const out = this.shares?.outOfShare();
+    if (unserved.size === 0 && (out !== undefined || this.options.serves === undefined)) return out;
+    return {
+      places: new Set([...(out?.places ?? []), ...unserved]),
+      geocodes: out?.geocodes ?? new Set(),
+    };
+  }
+
+  /**
+   * The first row a read of a line gives of a server the line serves (plan 19C-1): a row of one it
+   * does not serve (written before its rows were held, or the line not told yet) adds that server
+   * to the line's `unserved`, has its rows held in a later turn (`rankServer`), and the line is
+   * read again past it. Each read passes over one more server, so it ends.
+   */
+  private async servedRow<T extends { guildId: number }>(
+    unserved: Set<number>,
+    read: () => Promise<T | undefined>,
+  ): Promise<T | undefined> {
+    for (;;) {
+      const row = await read();
+      if (row === undefined || this.serves(row.guildId)) return row;
+      const { guildId } = row;
+      unserved.add(guildId);
+      this.aside(() => this.inTurn(() => this.rankServer(guildId)));
+    }
   }
 
   /**

@@ -1768,6 +1768,19 @@ describe('DiscordPartyGateway: whether a server is available (plan 19B-1)', () =
     expect(gateway.serverChannels('up')).toEqual(listed);
     expect(gateway.serverChannels('down')).toEqual(listed);
     expect(gateway.serverChannels('gone')).toBeUndefined();
+    // A server Pine left while it was away, which discord.js keeps in its cache, is none of the
+    // bot's (plan 19C-1); the other servers still are.
+    const left = new DiscordPartyGateway(createTestLogger().log, { isLeft: (id) => id === 'up' });
+    left.use({
+      guilds: {
+        cache: new Map([
+          ['up', guildOf(true)],
+          ['other', guildOf(true)],
+        ]),
+      },
+    } as unknown as Client);
+    expect(left.serverAvailable('up')).toBe(false);
+    expect(left.serverAvailable('other')).toBe(true);
   });
 });
 

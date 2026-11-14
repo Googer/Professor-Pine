@@ -60,7 +60,7 @@ describe('AccessGrantRepository', () => {
 
   it('loses the grants of a server whose row is removed', async () => {
     await grants.add({ forumChannelId: WEST_FORUM, memberId: ALICE, guildId, createdAt: NOW });
-    await new GuildRepository(db).remove('412345678901234567');
+    await db.deleteFrom('Guild').where('snowflake', '=', '412345678901234567').execute();
     expect(await grants.list()).toEqual([]);
   });
 });

@@ -4,7 +4,9 @@ import type { Logger } from './log.js';
 import type { PartyService } from './services/party-service.js';
 import type { PartyStore } from './services/party-store.js';
 import type { PictureMaking } from './services/research-task-service.js';
+import type { ServerAdmission } from './services/server-admission.js';
 import type { ServerSettingsLookup } from './services/server-settings.js';
+import type { LeftServers, ServerStandings } from './services/server-standings.js';
 import type { SpawnService } from './services/spawn-service.js';
 import type { StopReportListener } from './services/stop-reports.js';
 import type { ShutdownStep } from './shutdown.js';
@@ -122,6 +124,93 @@ export function shardStartWork(work: ShardStartWork): {
       if (missed.length > 0) await work.syncServers(missed);
     },
   };
+}
+
+/**
+ * A server adding or removing Pine (plan 19C-1; `GuildCreate`, `GuildDelete`, after
+ * `wireServerStart`'s refusal): one that may have this Pine gets its `Guild` row and, were it
+ * marked left, is so no more, its return queued in its server's turn at the event itself, so that
+ * a removal while its row is written comes after it (back within 30 days, it picks up where it
+ * was: same row id,
+ * everything on it kept); one that removes it is marked left, its row and everything on it kept
+ * (plan 19C-3 deletes them after 30 days), which only a server Pine was in (a `Guild` row) can be:
+ * one it refused on joining is neither written nor marked. Either way the zones in use are read
+ * again (a zone of its own may come or go, fix round 1, N5). Each resolves once written; neither
+ * rejects: what fails is logged.
+ */
+export function followServers(deps: {
+  admission: Pick<ServerAdmission, 'admits'>;
+  standings: Pick<ServerStandings, 'markLeft' | 'cameBack'>;
+  guilds: { ensure(serverId: string): Promise<unknown> };
+  presenceChanged: () => void;
+  log: Logger;
+}): { joined(serverId: string): Promise<void>; removed(serverId: string): Promise<void> } {
+  const { admission, standings, guilds, presenceChanged, log } = deps;
+  return {
+    joined: async (serverId) => {
+      if (admission.admits(serverId)) {
+        // Its return is queued at the event, before its row is written: a removal that comes
+        // meanwhile is queued after it and stays.
+        const back = standings.cameBack([serverId]).catch((err: unknown) => {
+          log.error({ err, guild: serverId }, 'could not take back that a server left');
+        });
+        try {
+          await guilds.ensure(serverId);
+        } catch (err) {
+          log.error({ err, guild: serverId }, 'could not record guild');
+        }
+        await back;
+      }
+      presenceChanged();
+    },
+    removed: async (serverId) => {
+      // Marked only where Pine was in it (its `Guild` row): never a server it refused, but one
+      // it left at a ready because it may no longer have it (dropped from `servers`) is.
+      try {
+        await standings.markLeft([serverId]);
+      } catch (err) {
+        log.error({ err, guild: serverId }, 'could not mark a server left');
+      }
+      presenceChanged();
+    },
+  };
+}
+
+/**
+ * What follows a server Pine left or that came back (plan 19C-1; `ServerStandings.whenLeftChanged`,
+ * whichever way it was marked: its `GuildDelete`, a refusal, an operator's removal, a ready): the
+ * direct messages queued for one left are dropped (`QueuedDmSender.dropServer`; the instance's are
+ * no server's), and Google's line is told of both by their `Guild` rows (`GymUpkeep.servingChanged`:
+ * the shares are worked out anew, a left server's rows are held out of the line's range at
+ * `OUT_OF_SHARE_RANK`, one back has its rows ranked anew by its regions, the raids read first, and
+ * the line hurried; a server without a row known has none in the line).
+ */
+export function followLeaving(
+  standings: Pick<ServerStandings, 'whenLeftChanged'>,
+  deps: {
+    dms: { dropServer(serverId: string): void };
+    line: { servingChanged(guildRows: readonly number[]): void };
+    rowOf: (serverId: string) => number | undefined;
+  },
+): void {
+  const { dms, line, rowOf } = deps;
+  standings.whenLeftChanged(({ left, back }) => {
+    for (const serverId of left) dms.dropServer(serverId);
+    const rows = [...left, ...back].flatMap((serverId) => rowOf(serverId) ?? []);
+    if (rows.length > 0) line.servingChanged(rows);
+  });
+}
+
+/**
+ * The servers Pine is in by their `Guild` rows (`GuildRepository.snowflakes`), for what must know
+ * them before the login (the Google line's ranks, plan 8Z-2): since plan 19C-1 a server Pine left
+ * keeps its row, so those it left are left out (`ServerStandings.isLeft`, read at each call).
+ */
+export function serversNotLeft(
+  snowflakes: () => Promise<readonly string[]>,
+  left: LeftServers,
+): () => Promise<string[]> {
+  return async () => (await snowflakes()).filter((serverId) => !left.isLeft(serverId));
 }
 
 /** Something the shutdown closes and waits for. */

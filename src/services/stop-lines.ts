@@ -6,6 +6,7 @@ import { isLeaderOrGiovanni } from '../domain/rocket/lineups.js';
 import { localDay } from '../domain/time/local-day.js';
 import { taskOfSubject } from '../domain/research/reports.js';
 import type { ReportedStop, RocketReport } from '../domain/stops/report.js';
+import type { LeftServers } from './server-standings.js';
 import type { Logger } from '../log.js';
 import { postLink } from '../render/notify-dm.js';
 import { hideoutLine, researchLine } from '../render/stop-lines.js';
@@ -22,6 +23,11 @@ interface Waiting {
 }
 
 export interface StopLineServiceOptions {
+  /**
+   * The servers Pine left (plan 19C-1, `ServerStandings`): their lines are kept, not deleted,
+   * until they are back.
+   */
+  left?: LeftServers;
   storage: StopLineStorage;
   /** The reports at stops: research that is news, and hideouts reported (`hideoutReported`). */
   reports: Pick<StopReportService, 'listen'>;
@@ -251,7 +257,8 @@ export class StopLineService {
       .zonesInUse()
       .map((zone) => localDay(now, zone))
       .reduce((one, other) => (other > one ? other : one));
-    for (const line of (await storage.before(latest)).filter(ended)) {
+    const kept = (line: StopLineKey) => this.options.left?.isLeft(line.serverId) !== true;
+    for (const line of (await storage.before(latest)).filter(ended).filter(kept)) {
       if (line.messageId !== null) {
         try {
           await gateway.deleteMessage(line.regionChannelId, line.messageId);

@@ -2,6 +2,7 @@ import type { MeetupRequestRecord } from '../../src/domain/meetups/records.js';
 import type { Party } from '../../src/domain/party/party.js';
 import { MeetupSafety, type RequestAsk } from '../../src/services/meetup-safety.js';
 import type { WayspotProvider } from '../../src/services/wayspot-directory.js';
+import type { LeftServers } from '../../src/services/server-standings.js';
 import { WEST_CHANNEL } from './gyms.js';
 import { LIBRARY, MAKER, SAFETY_SERVER } from './meetup-safety-cases.js';
 import { MemoryMeetupSafety } from './meetup-safety.js';
@@ -24,6 +25,8 @@ export interface SafetyOptions {
   flaggedWords?: string[];
   /** The kept Wayspots a ruled place of none kept is read from (`wayspotsWith`); none without. */
   wayspots?: Pick<WayspotProvider, 'stored'>;
+  /** The servers Pine left (plan 19C-1): their records are not expired. Default none. */
+  left?: LeftServers;
 }
 
 /**
@@ -68,6 +71,7 @@ export async function meetupSafetyWith(
     notices: made.notices,
     log: made.log,
     now: () => made.clock.now,
+    ...(options.left === undefined ? {} : { left: options.left }),
   });
   const held = async (ask: Partial<RequestAsk> = {}): Promise<MeetupRequestRecord> => {
     const outcome = await safety.submit(bookSwap(made.clock.now, ask));

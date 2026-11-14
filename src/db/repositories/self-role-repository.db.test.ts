@@ -4,7 +4,6 @@ import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import { MemorySelfRoles } from '../../../test/support/self-roles.js';
 import { isDuplicateEntry } from '../errors.js';
 import type { DB } from '../types.js';
-import { GuildRepository } from './guild-repository.js';
 import { SelfRoleRepository, type SelfRoleStorage } from './self-role-repository.js';
 
 const HOME = '412345678901234567';
@@ -365,7 +364,7 @@ describe('SelfRoleRepository', () => {
       aliases: ['n'],
       groupId: group.group.id,
     });
-    await new GuildRepository(db).remove(HOME);
+    await db.deleteFrom('Guild').where('snowflake', '=', HOME).execute();
     expect(await storedRoles()).toEqual([]);
     expect(await db.selectFrom('RoleGroup').select('id').execute()).toEqual([]);
     expect(await db.selectFrom('Alias').select('id').execute()).toEqual([]);

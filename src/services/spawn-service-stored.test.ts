@@ -7,6 +7,7 @@ import { partyServiceWith } from '../../test/support/party-service.js';
 import { MemorySpawnReports } from '../../test/support/spawn-reports.js';
 import { pokemonPicture } from '../domain/pogo/pokemon-icons.js';
 import { SPAWN_MINUTES } from '../render/spawn.js';
+import type { LeftServers } from './server-standings.js';
 import { GIVE_UP_MS, SpawnService, type SpawnReport } from './spawn-service.js';
 
 const HALF_HOUR = SPAWN_MINUTES * 60_000;
@@ -27,8 +28,11 @@ async function until(done: () => boolean): Promise<void> {
   if (!done()) throw new Error('it never happened');
 }
 
-/** A service over a store of reports; `again()` is the service of the next process. */
-async function stored() {
+/**
+ * A service over a store of reports; `again()` is the service of the next process. `left`: the
+ * servers Pine left (plan 19C-1).
+ */
+async function stored(left?: LeftServers) {
   const made = await partyServiceWith();
   const store = new MemorySpawnReports();
   const service = () => {
@@ -38,6 +42,7 @@ async function stored() {
       raidBosses: { bosses: () => [] },
       gameData: { catalogue: catalogueFixture() },
       store,
+      ...(left ? { left } : {}),
       settings: made.settings,
       servers: made.servers,
       log: made.log,
@@ -158,6 +163,33 @@ describe('SpawnService with stored reports', () => {
     await until(() => store.rows.length === 1);
     expect(made.gateway.deleted).toEqual([{ channelId: WEST_CHANNEL, messageId: early.messageId }]);
     expect(store.rows).toMatchObject([{ messageId: late.messageId }]);
+  });
+
+  it('keeps the reports of a server Pine left through the sweeps, and deletes them once it is back (plan 19C-1)', async () => {
+    const left = new Set<string>();
+    const { made, store, spawns, again } = await stored({
+      isLeft: (serverId) => left.has(serverId),
+    });
+    const posted = await spawns.report(report(made.gateway.guildId));
+    if (posted.kind !== 'posted') throw new Error('not posted');
+    // The process is killed; Pine is removed from the server meanwhile.
+    left.add(made.gateway.guildId);
+    const start = made.clock.now;
+    made.clock.now += GIVE_UP_MS + HALF_HOUR;
+    const next = again();
+    // Overdue, and even past giving up: neither deleted nor forgotten while it is left.
+    expect(await next.spawns.sweep()).toBe(0);
+    expect(next.timers).toEqual([]);
+    expect(store.rows).toHaveLength(1);
+    // Back an hour after its time: deleted at once.
+    left.delete(made.gateway.guildId);
+    made.clock.now = start + 2 * HALF_HOUR;
+    expect(await next.spawns.sweep()).toBe(1);
+    next.timers[0]?.run();
+    await until(() => store.rows.length === 0);
+    expect(made.gateway.deleted).toEqual([
+      { channelId: WEST_CHANNEL, messageId: posted.messageId },
+    ]);
   });
 
   it('leaves alone at a sweep what already waits for its time', async () => {

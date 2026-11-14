@@ -2,6 +2,7 @@ import { BoundedMap } from '../bounded-map.js';
 import type { PartyGateway } from '../discord/party-gateway.js';
 import type { Logger } from '../log.js';
 import type { ServerSettingsLookup } from './server-settings.js';
+import type { LeftServers } from './server-standings.js';
 
 /** How many notices (server and key) are remembered as said; the oldest go first. */
 const REMEMBERED = 10_000;
@@ -14,6 +15,11 @@ export interface ServerNoticesOptions {
    * the channel is gone: `noticeSender`).
    */
   send: (channelId: string, text: string) => Promise<void>;
+  /**
+   * The servers Pine left (plan 19C-1, `ServerStandings`): told nothing, and nothing counted as
+   * said, so that a server back hears it at the next occasion.
+   */
+  left?: LeftServers;
   log: Logger;
 }
 
@@ -45,6 +51,7 @@ export class ServerNotices {
     const { servers, send } = this.options;
     const told = `${serverId}:${key}`;
     if (this.said.has(told) || this.sending.has(told)) return;
+    if (this.options.left?.isLeft(serverId) === true) return;
     const about = { server: serverId, notice: key, text };
     let lab: string | undefined;
     try {

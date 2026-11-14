@@ -8,15 +8,19 @@ import {
 } from '../test/support/stop-report-cases.js';
 import { reportedRaid } from '../test/support/party-service.js';
 import { TestServers, testServerValues, withZones } from '../test/support/server-values.js';
-import { heldCall } from '../test/support/held-call.js';
+import { heldCall, type HeldCall } from '../test/support/held-call.js';
+import { standingsWith } from '../test/support/server-standings.js';
 import {
   bossSyncStep,
   directMessagesStep,
   eventsFeedStep,
+  followLeaving,
+  followServers,
   followZones,
   liveSources,
   picturesServed,
   reportPictures,
+  serversNotLeft,
   shardStartWork,
   stopReportSteps,
 } from './app-wiring.js';
@@ -461,5 +465,113 @@ describe('what follows the servers’ zones (plan 19A-2; fix round 1, N5, N7)', 
     const { heard } = hooked(servers);
     await servers.set(SERVER, (values) => ({ ...values, timezone: 'US/Eastern' }), STAFF);
     expect(heard).toEqual(['bosses', 'midnights']);
+  });
+});
+
+describe('a server joining and removing Pine (plan 19C-1)', () => {
+  const RECORDED = '412345678901234567';
+  const STRANGER = '412345678901234568';
+  const NOW = Date.parse('2026-11-13T18:00:00Z');
+
+  function followed(writing?: HeldCall) {
+    const { log, entries } = createTestLogger();
+    const { standings, store } = standingsWith({ recorded: [RECORDED], log, now: () => NOW });
+    const rows: string[] = [];
+    let presence = 0;
+    const servers = followServers({
+      admission: { admits: (serverId) => standings.mayHave(serverId) },
+      standings,
+      guilds: {
+        ensure: async (serverId) => {
+          rows.push(serverId);
+          if (writing) {
+            writing.arrive();
+            await writing.released;
+          }
+          return rows.length;
+        },
+      },
+      presenceChanged: () => {
+        presence += 1;
+      },
+      log,
+    });
+    return { servers, standings, store, rows, presence: () => presence, entries };
+  }
+
+  it('marks a server that removes Pine left, keeping its row and everything on it', async () => {
+    const made = followed();
+    await made.servers.removed(RECORDED);
+    expect(made.standings.isLeft(RECORDED)).toBe(true);
+    expect(made.store.rows.get(RECORDED)?.leftAt).toBe(NOW);
+    // Nothing else of it is written: no row is made, none deleted (there is no way to).
+    expect(made.rows).toEqual([]);
+    expect(made.presence()).toBe(1);
+  });
+
+  it('takes back that a server left when it adds Pine again, and writes its row', async () => {
+    const made = followed();
+    await made.servers.removed(RECORDED);
+    await made.servers.joined(RECORDED);
+    expect(made.standings.isLeft(RECORDED)).toBe(false);
+    expect(made.rows).toEqual([RECORDED]);
+    expect(made.presence()).toBe(2);
+  });
+
+  it('keeps a server left that removes Pine again while the row of its return is written', async () => {
+    const writing = heldCall('the row of the server that came back');
+    const made = followed(writing);
+    await made.servers.removed(RECORDED);
+    const joined = made.servers.joined(RECORDED);
+    await writing.reached;
+    // Its staff remove Pine again before the row of its return is written.
+    const removed = made.servers.removed(RECORDED);
+    writing.release();
+    await Promise.all([joined, removed]);
+    expect(made.standings.isLeft(RECORDED)).toBe(true);
+    expect(made.store.rows.get(RECORDED)?.leftAt).not.toBeNull();
+  });
+
+  it('writes nothing of a server that may not have this Pine', async () => {
+    const made = followed();
+    await made.servers.joined(STRANGER);
+    await made.servers.removed(STRANGER);
+    expect(made.rows).toEqual([]);
+    expect(made.store.rows.has(STRANGER)).toBe(false);
+  });
+
+  it('gives the servers Pine is in by their rows, never one it left (J6)', async () => {
+    const made = followed();
+    const recorded = serversNotLeft(() => Promise.resolve([RECORDED, STRANGER]), made.standings);
+    expect(await recorded()).toEqual([RECORDED, STRANGER]);
+    await made.servers.removed(RECORDED);
+    expect(await recorded()).toEqual([STRANGER]);
+  });
+
+  it('drops the direct messages queued for a server it left, and tells Google’s line of it and of its return', async () => {
+    const made = followed();
+    const dropped: string[] = [];
+    const served: (readonly number[])[] = [];
+    followLeaving(made.standings, {
+      dms: { dropServer: (serverId) => dropped.push(serverId) },
+      line: { servingChanged: (rows) => served.push(rows) },
+      rowOf: (serverId) => (serverId === RECORDED ? 7 : undefined),
+    });
+    await made.servers.removed(RECORDED);
+    expect(dropped).toEqual([RECORDED]);
+    expect(served).toEqual([[7]]);
+    await made.servers.joined(RECORDED);
+    // Nothing is dropped at its return; the line serves it again.
+    expect(dropped).toEqual([RECORDED]);
+    expect(served).toEqual([[7], [7]]);
+  });
+
+  it('logs what fails, and throws nothing', async () => {
+    const made = followed();
+    made.store.failing.set('markLeft', new Error('the database is away'));
+    await made.servers.removed(RECORDED);
+    expect(made.entries.some((entry) => entry['msg'] === 'could not mark a server left')).toBe(
+      true,
+    );
   });
 });

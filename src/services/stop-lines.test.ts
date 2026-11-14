@@ -37,7 +37,7 @@ const link = (channelId: string, key: string): string =>
   `https://discord.com/channels/${FAKE_GUILD_ID}/${BOARDS[channelId] ?? ''}/${String(key.length)}`;
 
 /** The lines over fakes; every server in the test settings' zone unless `servers` say otherwise. */
-function linesWith(servers = new TestServers()) {
+function linesWith(servers = new TestServers(), left: ReadonlySet<string> = new Set()) {
   const clock = { now: at('2026-11-21T10:00') };
   const { log, entries } = createTestLogger();
   const gateway = new FakePartyGateway();
@@ -99,6 +99,7 @@ function linesWith(servers = new TestServers()) {
       guilds: { idFor: (id) => Promise.resolve(id === FAKE_GUILD_ID ? 1 : undefined) },
       gateway: held,
       servers,
+      left: { isLeft: (serverId) => left.has(serverId) },
       log,
       now: () => clock.now,
     });
@@ -455,6 +456,23 @@ describe('StopLineService (plan 8R-9, B9)', () => {
     expect(made.storage.rows.size).toBe(1);
     // The network is back: the catch-up's sweep deletes it.
     made.gateway.failing.clear();
+    await made.lines.sweep();
+    expect(made.gateway.deleted).toEqual([{ channelId: WEST_CHANNEL, messageId: line?.id }]);
+    expect(made.storage.rows.size).toBe(0);
+  });
+
+  it('keeps the lines of a server Pine left, and deletes them once it is back (plan 19C-1)', async () => {
+    const left = new Set<string>();
+    made = linesWith(undefined, left);
+    await made.report(pageTask('Catch 7 Pokémon'));
+    await made.lines.flush();
+    const [line] = made.gateway.messagesIn(WEST_CHANNEL);
+    left.add(FAKE_GUILD_ID);
+    made.clock.now = at('2026-11-22T00:00:01');
+    await made.lines.sweep();
+    expect(made.gateway.deleted).toEqual([]);
+    expect(made.storage.rows.size).toBe(1);
+    left.clear();
     await made.lines.sweep();
     expect(made.gateway.deleted).toEqual([{ channelId: WEST_CHANNEL, messageId: line?.id }]);
     expect(made.storage.rows.size).toBe(0);

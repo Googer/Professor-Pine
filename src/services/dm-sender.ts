@@ -461,6 +461,14 @@ class Turns {
     }
   }
 
+  /** Drops a server's lines, both of them; how many messages they held. */
+  dropServer(server: string): number {
+    const lines = this.lines.get(server);
+    if (!lines) return 0;
+    this.lines.delete(server);
+    return lines.clear();
+  }
+
   /** Every server's lines, in the order of the turns. */
   servers(): IterableIterator<[string, ServerLines]> {
     return this.lines.entries();
@@ -683,6 +691,32 @@ export class QueuedDmSender implements DmSender {
     if (!known) this.toRead(job.userId);
     if (this.waiting > this.maxDepth) this.overflow(burst);
     burst.deepest = Math.max(burst.deepest, this.waiting);
+  }
+
+  /**
+   * Drops every message that waits for a server (plan 19C-1: Pine left it), of every priority and
+   * both its lines; those on their way go on. How many is logged with the server's id. Never the
+   * instance's (`serverId` null): it is no server's. Never throws.
+   */
+  dropServer(serverId: string): void {
+    if (serverId === INSTANCE) return;
+    try {
+      let dropped = 0;
+      for (const turns of this.turns.values()) dropped += turns.dropServer(serverId);
+      if (dropped === 0) return;
+      this.waiting -= dropped;
+      this.waitingOf.delete(serverId);
+      this.options.log.info(
+        { server: serverId, dropped },
+        'dropped the direct messages of a server Pine left',
+      );
+      this.finishSafely();
+    } catch (err) {
+      this.options.log.error(
+        { err, server: serverId },
+        'could not drop a server’s direct messages',
+      );
+    }
   }
 
   /** Counts a message out of the line, whatever became of it. */

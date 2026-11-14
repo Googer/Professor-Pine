@@ -1,4 +1,5 @@
 import { maxSpotName } from '../domain/party/max.js';
+import type { LeftServers } from './server-standings.js';
 import type { Settings } from '../config/settings.js';
 import type { GymTargetStorage } from '../db/repositories/gym-notification-repository.js';
 import type { WantStorage } from '../db/repositories/pokemon-notification-repository.js';
@@ -225,6 +226,8 @@ export interface PartyNotifier {
 }
 
 export interface NotifyServiceOptions {
+  /** The servers Pine left (plan 19C-1, `ServerStandings`): none of their members is told. */
+  left?: LeftServers;
   /** The parties: an ended one is not announced, and what was told about it is forgotten. */
   store: Pick<PartyStore, 'get' | 'onChange'>;
   /** A party's post in brief as it is now (`PartyService.briefOf`). */
@@ -550,8 +553,12 @@ export class NotifyService implements PartyNotifier {
     });
   }
 
-  /** Whether a server notifies its members (its `features.notifications`, plan 19A-1). */
+  /**
+   * Whether a server notifies its members (its `features.notifications`, plan 19A-1): never one
+   * Pine left (plan 19C-1).
+   */
   private enabledIn(server: string): boolean {
+    if (this.options.left?.isLeft(server) === true) return false;
     return this.options.servers.of(server).features.notifications;
   }
 

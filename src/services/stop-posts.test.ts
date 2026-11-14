@@ -53,6 +53,8 @@ async function postsWith(
   initial: ResearchEvent[] = [],
   pictures?: PictureMaker,
   servers = new TestServers(),
+  /** The servers Pine left (plan 19C-1). */
+  left: Set<string> = new Set(),
 ) {
   const clock = { now: at('2026-11-21T10:00') };
   const { log, entries } = createTestLogger();
@@ -118,6 +120,7 @@ async function postsWith(
       log,
       now: () => clock.now,
       delayMs: 0,
+      left: { isLeft: (serverId) => left.has(serverId) },
       changed: (channelId) => changes.push(channelId),
       ...(pictures ? { pictures } : {}),
     });
@@ -555,6 +558,23 @@ describe('StopPostService', () => {
     const edits = made.gateway.messagesIn(made.west)[0]?.edits;
     await made.posts.catchUp();
     expect(made.gateway.messagesIn(made.west)[0]?.edits).toBe(edits);
+  });
+
+  it('draws nothing of a server Pine left, also at a catch-up, and draws it once it is back (plan 19C-1)', async () => {
+    const left = new Set<string>();
+    made = await postsWith(undefined, undefined, undefined, left);
+    await made.report(pageTask('Catch a Dragon-type Pokémon'));
+    await made.posts.flush();
+    left.add(FAKE_GUILD_ID);
+    const edits = made.gateway.messagesIn(made.west)[0]?.edits;
+    await made.report(pageTask('Catch 7 Pokémon'), [west(2)]);
+    await made.posts.flush();
+    await made.posts.catchUp();
+    expect(made.gateway.messagesIn(made.west)[0]?.edits).toBe(edits);
+    expect(made.said()[0]).not.toContain('Yellow Mural 2');
+    left.clear();
+    await made.posts.catchUp();
+    expect(made.said()[0]).toContain('Yellow Mural 2');
   });
 
   it('sends a message anew whose edit Discord refuses after a restart, its kind not known (F3)', async () => {

@@ -14,6 +14,7 @@ import { watchEachTest } from '../../test/support/timers.js';
 import { keptRow } from '../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
+import { OUT_OF_SHARE_RANK } from '../domain/geo/google-line.js';
 import type { WayspotRow } from '../domain/wayspots/kept.js';
 import { GoogleAnswers, MemoryGoogleAnswerStorage } from './google-answers.js';
 import { GoogleShares, MemoryGoogleShareRaises } from './google-shares.js';
@@ -408,6 +409,128 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     expect((await made.spots.list()).map((row) => [row.guildId, row.wayspotId])).toEqual([
       [TEST_GUILD_ROW, STOP.id],
     ]);
+  });
+
+  it('neither queues nor takes out the stops of a server Pine left, nor asks about them, until it is back (plan 19C-1)', async () => {
+    const regions = regionsFixture([
+      ...testRegions(),
+      { ...northRegion(), bounds: testRegions()[0]!.bounds },
+    ]);
+    const away = keptRow(9, { title: 'Away’s Mural', lat: 40.05, lon: -80.02 });
+    const left = new Set([OTHER_GUILD_ROW]);
+    const made = await lineWith([STOP], { serves: (guildId) => !left.has(guildId) }, regions, [
+      { guildId: OTHER_GUILD_ROW, rows: [away] },
+    ]);
+    // A row of it from before it left, of a Wayspot no longer in its regions.
+    await made.spots.add(
+      [{ guildId: OTHER_GUILD_ROW, wayspotId: AWAY.id, kind: 'stop', rank: 0 }],
+      1_000,
+    );
+    await made.upkeep.resume();
+    await made.upkeep.flush();
+    // The test server's stop is asked about; the left server's rows are as they were.
+    expect(made.geo.questions('places').map((question) => question.point.lat)).toEqual([STOP.lat]);
+    expect((await made.spots.list()).map((row) => [row.guildId, row.wayspotId])).toEqual([
+      [OTHER_GUILD_ROW, AWAY.id],
+    ]);
+    // Back: its part of the line is brought up to date and asked about.
+    left.delete(OTHER_GUILD_ROW);
+    made.upkeep.servingChanged([OTHER_GUILD_ROW]);
+    await background.settle();
+    await made.upkeep.flush();
+    expect(made.geo.questions('places').map((question) => question.point.lat)).toEqual([
+      STOP.lat,
+      away.lat,
+    ]);
+    expect(await made.spots.count()).toBe(0);
+  });
+
+  it('holds the stops of a server Pine left out of the line’s range, and ranks them by its regions when it is back (plan 19C-1)', async () => {
+    const regions = regionsFixture([
+      ...testRegions(),
+      { ...northRegion(), bounds: testRegions()[0]!.bounds },
+    ]);
+    const away = keptRow(9, { title: 'Away’s Mural', lat: 40.05, lon: -80.02 });
+    const left = new Set<number>();
+    const made = await lineWith([STOP], { serves: (guildId) => !left.has(guildId) }, regions, [
+      { guildId: OTHER_GUILD_ROW, rows: [away] },
+    ]);
+    await made.upkeep.resume();
+    const ranks = async () =>
+      new Map((await made.spots.list()).map((row) => [row.guildId, row.rank]));
+    const ours = (await ranks()).get(TEST_GUILD_ROW);
+    const before = (await ranks()).get(OTHER_GUILD_ROW);
+    expect(before).toBeGreaterThan(OUT_OF_SHARE_RANK);
+    left.add(OTHER_GUILD_ROW);
+    made.upkeep.servingChanged([OTHER_GUILD_ROW]);
+    await background.settle();
+    expect(await ranks()).toEqual(
+      new Map([
+        [TEST_GUILD_ROW, ours],
+        [OTHER_GUILD_ROW, OUT_OF_SHARE_RANK],
+      ]),
+    );
+    // Asked about: the test server's stop alone.
+    await made.upkeep.flush();
+    expect(made.geo.questions('places').map((question) => question.point.lat)).toEqual([STOP.lat]);
+    left.delete(OTHER_GUILD_ROW);
+    made.upkeep.servingChanged([OTHER_GUILD_ROW]);
+    await background.settle();
+    expect(await ranks()).toEqual(new Map([[OTHER_GUILD_ROW, before]]));
+  });
+
+  it('ranks the held stops of a server served again by its regions at the next turn, though nothing told the line, and asks about them (plan 19C-1)', async () => {
+    const regions = regionsFixture([
+      ...testRegions(),
+      { ...northRegion(), bounds: testRegions()[0]!.bounds },
+    ]);
+    const first = keptRow(9, { title: 'Away’s Mural', lat: 40.05, lon: -80.02 });
+    const second = keptRow(10, { title: 'Away’s Fountain', lat: 40.06, lon: -80.02 });
+    // Blocked, and its leave failed: neither left nor back, and the line is told nothing.
+    const blocked = new Set<number>();
+    // The other server's regions are the busier: its stops come first.
+    const raids = new Map([
+      [TEST_GUILD_ROW, 0.2],
+      [OTHER_GUILD_ROW, 0.5],
+    ]);
+    let read = new Map<number, number>();
+    const made = await lineWith(
+      [STOP],
+      {
+        serves: (guildId) => !blocked.has(guildId),
+        ranks: {
+          refresh: () => {
+            read = new Map(raids);
+            return Promise.resolve();
+          },
+          ofGym: () => 0,
+          ofWayspot: (guildId) => read.get(guildId) ?? 0,
+        },
+      },
+      regions,
+      [{ guildId: OTHER_GUILD_ROW, rows: [first, second] }],
+    );
+    const ranks = async () => (await made.spots.list()).map((row) => [row.guildId, row.rank]);
+    const turn = async () => {
+      made.timers.shift()?.();
+      await background.settle();
+    };
+    await made.upkeep.resume();
+    blocked.add(OTHER_GUILD_ROW);
+    // The turn finds its stops first, holds them, and asks about the test server's.
+    await turn();
+    expect(made.geo.questions('places').map((question) => question.point.lat)).toEqual([STOP.lat]);
+    expect(await ranks()).toEqual([
+      [OTHER_GUILD_ROW, OUT_OF_SHARE_RANK],
+      [OTHER_GUILD_ROW, OUT_OF_SHARE_RANK],
+    ]);
+    // Unblocked, its regions busier meanwhile.
+    raids.set(OTHER_GUILD_ROW, 0.8);
+    blocked.delete(OTHER_GUILD_ROW);
+    await turn();
+    // Ranked by the raids read anew, and the first of its stops asked about in that turn.
+    expect(made.geo.questions('places')).toHaveLength(2);
+    expect(await ranks()).toEqual([[OTHER_GUILD_ROW, 0.8]]);
   });
 
   it('queues the stops a region newly covers when the regions change, with nothing else waiting', async () => {

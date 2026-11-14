@@ -12,6 +12,7 @@ import type { Logger } from '../log.js';
 import { gruntMessage, gruntTextMessage, type GruntView } from '../render/rocket.js';
 import { KeyedLock } from './keyed-lock.js';
 import { ReadsBetweenWrites } from './reads-between-writes.js';
+import type { LeftServers } from './server-standings.js';
 import type { PictureMaker } from './stop-pictures.js';
 import { isHideoutReport, type StopReportListener } from './stop-reports.js';
 
@@ -97,6 +98,11 @@ export interface GruntMessageServiceOptions {
   store: GruntMessageStorage;
   /** The reports at stops: a grunt that ended early (replaced, taken back) is deleted at once. */
   reports: { listen(listener: StopReportListener): void };
+  /**
+   * The servers Pine left (plan 19C-1, `ServerStandings`): the sweep passes over their messages,
+   * kept for when they are back.
+   */
+  left?: LeftServers;
   log: Logger;
   now?: () => number;
   /**
@@ -486,16 +492,18 @@ export class GruntMessageService {
   /**
    * Takes up the recorded messages that do not wait in this process; answers how many. Each is
    * deleted when it is due (now, when that has passed), and tried again at the next sweep when
-   * that fails, until `GIVE_UP_MS` after its time.
+   * that fails, until `GIVE_UP_MS` after its time. Those of a server Pine left (plan 19C-1) are
+   * passed over, neither deleted nor given up: kept for when it is back.
    */
   async sweep(): Promise<number> {
     if (this.closed) return 0;
     const rows = await this.store.all();
     const now = this.now();
     let taken = 0;
-    for (const { channelId, messageId, deleteAt } of rows) {
+    for (const { channelId, messageId, deleteAt, serverId } of rows) {
       if (this.closed) break;
       if (this.waiting.has(messageId) || this.removing.has(messageId)) continue;
+      if (this.options.left?.isLeft(serverId) === true) continue;
       if (now - deleteAt >= GIVE_UP_MS) {
         await this.forget(channelId, messageId);
         this.options.log.warn(

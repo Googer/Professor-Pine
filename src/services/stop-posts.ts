@@ -19,6 +19,7 @@ import { inPeriod, nextPeriodChange, waitsIn } from '../domain/time/research-per
 import { taskOfSubject, type ResearchSubjectKey } from '../domain/research/reports.js';
 import { isEventCategory } from '../domain/research/task.js';
 import { versionValue } from '../domain/research/versions.js';
+import type { LeftServers } from './server-standings.js';
 import type { Logger } from '../log.js';
 import {
   postPictures,
@@ -59,6 +60,11 @@ export interface PostLink {
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
 export interface StopPostServiceOptions {
+  /**
+   * The servers Pine left (plan 19C-1, `ServerStandings`): their posts are not drawn, turned over
+   * nor deleted, until they are back.
+   */
+  left?: LeftServers;
   storage: StopPostStorage;
   /** The reports, and the version of each (`versionOf`, review R2), by which the post groups. */
   reports: Pick<StopReportService, 'standing' | 'period' | 'listen' | 'versionOf' | 'linksChanged'>;
@@ -319,11 +325,14 @@ export class StopPostService {
         ...[...this.posts.values()].map((post) =>
           this.queue.run(post.channelId, () => this.draw(post.channelId, post.serverId)),
         ),
-        ...[...this.leftovers.values()].map((post) =>
-          this.queue.run(post.channelId, async () => {
-            await this.remove(post);
-          }),
-        ),
+        ...[...this.leftovers.values()]
+          // Kept for when its server is back (plan 19C-1).
+          .filter((post) => this.options.left?.isLeft(post.serverId) !== true)
+          .map((post) =>
+            this.queue.run(post.channelId, async () => {
+              await this.remove(post);
+            }),
+          ),
         ...undrawn.map(async (channelId) => {
           const serverId = await this.serverOf(channelId);
           if (serverId !== undefined) {
@@ -422,6 +431,7 @@ export class StopPostService {
   /** Draws a channel's post as its reports are now; in the channel's queue. */
   private async draw(channelId: string, serverId: string): Promise<void> {
     const { gateway, storage, log } = this.options;
+    if (this.options.left?.isLeft(serverId) === true) return;
     const day = this.dayOf(serverId, this.now());
     await this.retryLeftovers(channelId, day);
     let kept = this.posts.get(channelId) ?? (await this.recall(channelId, day));

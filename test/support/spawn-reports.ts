@@ -3,6 +3,7 @@ import type {
   SpawnReportStorage,
   StandingSpawn,
   StoredSpawnReport,
+  SweptSpawnReport,
 } from '../../src/db/repositories/spawn-report-repository.js';
 
 /**
@@ -70,10 +71,10 @@ export class MemorySpawnReports implements SpawnReportStorage {
     });
   }
 
-  all(): Promise<StoredSpawnReport[]> {
+  all(): Promise<SweptSpawnReport[]> {
     return this.attempt(() =>
       this.rows
-        .map((row) => ({ ...row }))
+        .map((row) => ({ ...row, guildId: this.shown.get(row.messageId)?.guildId ?? null }))
         .sort((a, b) => a.deleteAt - b.deleteAt || a.messageId.localeCompare(b.messageId)),
     );
   }
