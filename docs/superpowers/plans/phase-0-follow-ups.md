@@ -3608,6 +3608,17 @@ Plan `2026-11-12-phase-19d-sharding.md`, merged on main-dev; check 13,747, datab
 - `onEveryShardReady` and `ShardStart.gone` are built for plan 19C, which marks a gone server left; nothing acts on them yet.
 - Beyond about 90,000 servers (36 shards and more at a `max_concurrency` of 1) the login's identify slots are long; the health rule gives each shard its slot, but nothing has been tried at that size.
 
+## From Phase 19B-5 (fairness between servers, 2026-11-13)
+
+Plan `2026-11-13-phase-19b-5-fairness.md`, merged on main-dev; full check, database suite and build pass. **Staging** with the rest of phase 19 (Matt, 2026-11-13). Plan B is complete.
+
+- The notifier's told maps are instance-wide (`maxHeard`, `researchTold`, `rocketTold`, …): one server's burst can push another's out, and a member may get a DM twice.
+- `NAMES_PER_MINUTE` (the member names' requests) is the instance's; only the order takes turns between servers.
+- After `/operator forget`, the DM sender's in-memory "written to" flag of the member stays until it is pushed out or the bot restarts (the row is deleted).
+- `ServerBoundedMap`'s `set` on a full map walks every server: buckets or a heap at thousands of servers.
+- Power Spot address lookups on the map stay instance-wide (bounded per member and server); no share by need.
+- For 19C-4's Privacy Policy: `DmContact` (a member's id and their first DM's time; why; `/operator forget` removes it); `GoogleUseServerDay` and `GoogleShareRaise` are a server's (go with its row).
+
 ## From Phase 19B-3 (Wayspots, the import and Google per server, 2026-11-13)
 
 Plan `2026-11-13-phase-19b-3-wayspots-and-google.md`, merged on main-dev; full check, database suite and build pass. **Staging** with the rest of phase 19 (Matt, 2026-11-13).
