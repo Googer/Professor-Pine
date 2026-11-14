@@ -1,4 +1,5 @@
 import type { StoredServerRecord } from '../db/repositories/server-record-repository.js';
+import { deletedSinceLeft } from '../domain/servers/deletion.js';
 import { TEXT_BUDGET } from './party-post.js';
 import { serverNameShown } from './server-admission.js';
 import { count } from './text.js';
@@ -22,6 +23,10 @@ export interface ServerLine {
   setUpAt: number | null;
   /** Since when Pine left it; null where it did not. */
   leftAt: number | null;
+  /** Since when its data is being deleted (plan 19C-3); null where it is not. */
+  deletingAt: number | null;
+  /** When its data was deleted (plan 19C-3); null where it was not. */
+  deletedAt: number | null;
   /** Since when it is blocked; null where it is not. */
   blockedAt: number | null;
   /** Allowed by an operator, not by the file nor the record. */
@@ -56,6 +61,8 @@ export function serverLines(
       present,
       setUpAt: facts.setUpAt(id),
       leftAt: row?.leftAt ?? null,
+      deletingAt: row?.deletingAt ?? null,
+      deletedAt: row?.deletedAt ?? null,
       blockedAt: row?.blockedAt ?? null,
       allowed: row?.allowedAt !== null && row?.allowedAt !== undefined,
       lastParty: facts.lastParty.get(id),
@@ -103,8 +110,14 @@ function lineWords(server: ServerLine): string {
   }
   if (server.present && server.name === undefined) parts.push('unavailable now');
   if (server.blockedAt !== null) parts.push(`blocked <t:${String(seconds(server.blockedAt))}:R>`);
-  if (server.leftAt !== null) parts.push(`left <t:${String(seconds(server.leftAt))}:R>`);
-  else if (!server.present && server.allowed) parts.push('allowed, not added yet');
+  if (server.deletedAt !== null && deletedSinceLeft(server)) {
+    // Its data went 30 days after (plan 19C-3): the day it went is what is left to say. One that
+    // left again since it was added back is left, its data kept 30 days again.
+    parts.push(`left, data deleted <t:${String(seconds(server.deletedAt))}:D>`);
+  } else if (server.leftAt !== null) {
+    const left = `left <t:${String(seconds(server.leftAt))}:R>`;
+    parts.push(server.deletingAt === null ? left : `${left}, being deleted`);
+  } else if (!server.present && server.allowed) parts.push('allowed, not added yet');
   if (server.present) parts.push(server.setUpAt === null ? 'not set up' : 'set up');
   parts.push(
     server.lastParty === undefined

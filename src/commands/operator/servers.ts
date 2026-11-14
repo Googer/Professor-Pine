@@ -91,9 +91,11 @@ export const listServers: SubcommandPart = {
     details:
       'Every server this Pine is in, by name: how many members it has, whether its staff ' +
       'finished its setup, and when its last party was made. Never a member of a server.\n\n' +
-      'Then the servers it left (nothing of them is deleted, and they pick up where they ' +
-      'were if they add Pine back), those blocked, and those allowed that have not added it ' +
-      'yet. Twenty servers a page at most, fewer where their names are long.\n\nA server’s ' +
+      'Then the servers it left, those blocked, and those allowed that have not added it yet. ' +
+      'Twenty servers a page at most, fewer where their names are long.\n\n' +
+      'The servers it left are kept 30 days after Pine left them, then their data is deleted ' +
+      '(the list says when, or that it is being deleted): added back within the 30 days, a ' +
+      'server picks up where it was; after them, it starts anew.\n\nA server’s ' +
       'share of Google’s month is shown in that server by `/gym google`; ' +
       '`/operator google share` raises it.',
     examples: ['/operator servers list', '/operator servers list page:2'],
@@ -170,7 +172,7 @@ export const removeServer: SubcommandPart = {
   help: {
     details:
       'Has this Pine leave a server now, without a word there. The server is kept as one Pine ' +
-      'left: nothing of it is deleted, and its staff may add Pine back if it is ' +
+      'left: its data is kept 30 days, then deleted, and its staff may add Pine back if it is ' +
       'allowed; to keep it from coming back, block it instead.\n\nMy owner is told who removed ' +
       'it, and from where.',
     examples: ['/operator servers remove server:412345678901234567'],

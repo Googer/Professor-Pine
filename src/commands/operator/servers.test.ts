@@ -9,6 +9,7 @@ import {
 import { textOf } from '../../../test/support/messages.js';
 import { instanceConfig, OPERATOR_ID } from '../../../test/support/operators.js';
 import { admissionWith } from '../../../test/support/server-admission.js';
+import { serverRecordRow } from '../../../test/support/server-record-cases.js';
 import { TestServers } from '../../../test/support/server-values.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { TEST_ENV } from '../../../test/support/test-env.js';
@@ -112,6 +113,57 @@ describe('/operator servers (plan 19C-1)', () => {
         `**Neighbors** \`${NEIGHBOR}\` · 56 members · not set up · no party yet\n` +
         `**Pittsburgh** \`${HOME}\` · 1,234 members · set up · last party <t:${String((NOW - DAY) / 1000)}:R>\n` +
         `**Old Friends** \`${GONE}\` · left <t:${String(NOW / 1000)}:R> · no party yet`,
+    );
+  });
+
+  it('lists a server whose data was deleted as such, and one being deleted (plan 19C-3)', async () => {
+    const DELETED = '412345678901234571';
+    const DELETING = '412345678901234572';
+    const LEFT_AGAIN = '412345678901234573';
+    const made = admissionWith({
+      recorded: [HOME],
+      present: [HOME],
+      rows: [
+        serverRecordRow({ serverId: DELETED, leftAt: NOW - 40 * DAY, deletedAt: NOW - 9 * DAY }),
+        serverRecordRow({ serverId: DELETING, leftAt: NOW - 31 * DAY, deletingAt: NOW }),
+        // Deleted, added back, and left again since: left, its data kept 30 days again.
+        serverRecordRow({ serverId: LEFT_AGAIN, leftAt: NOW - 2 * DAY, deletedAt: NOW - 9 * DAY }),
+      ],
+      now: () => NOW,
+    });
+    const base = createTestContext().ctx;
+    const { ctx } = createTestContext({
+      config: instanceConfig(base, { operators: [OPERATOR_ID] }),
+      servers: new TestServers(),
+      standings: made.standings,
+      admission: made.admission,
+      lastParties: { lastPartyAt: () => Promise.resolve(new Map()) },
+    });
+    const interaction = fakeChatInput({
+      commandName: 'operator',
+      subcommandGroup: 'servers',
+      subcommand: 'list',
+      userId: OWNER,
+      serverNames: { [HOME]: 'Pittsburgh' },
+      serverMembers: { [HOME]: 1_234 },
+    });
+    await new InteractionRouter(ctx, [operator], components).handle(interaction as never);
+    const text = answerOf(interaction);
+    expect(text).toContain(
+      `\`${DELETED}\` · left, data deleted <t:${String((NOW - 9 * DAY) / 1000)}:D> · no party yet`,
+    );
+    expect(text).toContain(
+      `\`${DELETING}\` · left <t:${String((NOW - 31 * DAY) / 1000)}:R>, being deleted · no party yet`,
+    );
+    expect(text).toContain(
+      `\`${LEFT_AGAIN}\` · left <t:${String((NOW - 2 * DAY) / 1000)}:R> · no party yet`,
+    );
+  });
+
+  it('says in its help that a server left is kept 30 days, then its data deleted (plan 19C-3)', () => {
+    const details = listServers.help?.details;
+    expect(typeof details === 'string' ? details : '').toContain(
+      'kept 30 days after Pine left them, then their data is deleted',
     );
   });
 
