@@ -27,8 +27,22 @@ import {
   type CutoverStore,
 } from './cutover-check.js';
 import type { StoredServer } from '../db/repositories/server-settings-repository.js';
+import type { StoredServerRecord } from '../db/repositories/server-record-repository.js';
 
 const bits = (...flags: bigint[]): string => String(flags.reduce((all, flag) => all | flag, 0n));
+
+/** A server's record with nothing recorded (each test sets the server and its facts). */
+const NO_RECORD: Omit<StoredServerRecord, 'serverId'> = {
+  recordedAt: null,
+  allowedAt: null,
+  allowedBy: null,
+  blockedAt: null,
+  blockedBy: null,
+  leftAt: null,
+  deletingAt: null,
+  deletedAt: null,
+  filesLeftAt: null,
+};
 
 /** What the cutover check reads of the database, in memory. */
 class MemoryCutoverStore implements CutoverStore {
@@ -42,6 +56,8 @@ class MemoryCutoverStore implements CutoverStore {
   roles: CutoverSelfRole[] = [];
   /** The servers' settings of 2.1 (plan 19A-1); none before its first start. */
   stored: StoredServer[] = [];
+  /** The servers' records of 2.1 (plan 19C-1, `ServerRecord`); no table before its first start. */
+  records: StoredServerRecord[] | undefined;
   /** The sections that fail when read (a table the database lacks). */
   failing = new Set<'plan' | 'servers' | 'restrictions'>();
 
@@ -55,6 +71,9 @@ class MemoryCutoverStore implements CutoverStore {
   }
   serverSettings(): Promise<StoredServer[]> {
     return Promise.resolve(this.stored);
+  }
+  serverRecords(): Promise<StoredServerRecord[] | undefined> {
+    return Promise.resolve(this.records);
   }
   guilds(): Promise<string[]> {
     if (this.failing.has('servers'))
@@ -219,10 +238,42 @@ describe('cutoverCheck', () => {
       expect(line(await check(), 'application')).toMatchObject({ status: 'fail' });
     });
 
-    it('warns while anybody can add the bot to a server', async () => {
-      expect((await check()).some((one) => one.what === 'public-bot')).toBe(false);
+    // Plan 19C-4: Discord's Public Bot beside the instance's `servers`.
+    it('passes a bot only its owner can add on an instance that is not open', async () => {
+      expect(line(await check(), 'public-bot')).toMatchObject({
+        status: 'pass',
+        text: expect.stringContaining('Public Bot is off') as string,
+      });
+    });
+
+    it('warns of a public bot on an instance that is not open: Pine leaves every server it does not allow', async () => {
       api.application.bot_public = true;
-      expect(line(await check(), 'public-bot')).toMatchObject({ status: 'warn' });
+      for (const servers of [undefined, ['412345678901234567']]) {
+        settings = { ...settings, servers };
+        const said = line(await check(), 'public-bot');
+        expect(said.status).toBe('warn');
+        expect(said.text).toContain('anybody can add this bot');
+        expect(said.text).toContain('leaves every server it does not allow');
+        // How to turn it off.
+        expect(said.text).toContain('Install Link None; then Bot, Public Bot');
+      }
+    });
+
+    it('warns of an open instance whose bot nobody but its owner can add: open in name only', async () => {
+      settings = { ...settings, servers: 'open' };
+      const said = line(await check(), 'public-bot');
+      expect(said.status).toBe('warn');
+      expect(said.text).toContain('open in name only');
+      expect(said.text).toContain('the application’s owner');
+    });
+
+    it('passes a public bot on an open instance', async () => {
+      settings = { ...settings, servers: 'open' };
+      api.application.bot_public = true;
+      expect(line(await check(), 'public-bot')).toMatchObject({
+        status: 'pass',
+        text: expect.stringContaining('anybody can add this bot') as string,
+      });
     });
 
     it('fails once when Discord cannot be read, and still checks the database', async () => {
@@ -921,12 +972,274 @@ describe('cutoverCheck', () => {
       expect(line(await check(), 'servers')).toMatchObject({ status: 'warn' });
     });
 
+    // Plan 19C-4: every page of Discord's list, and the servers Pine left named as left.
+    describe('at any number of servers', () => {
+      /** `n` servers the bot is in whose ids come before every other's: the first pages. */
+      const before = (n: number) =>
+        Array.from({ length: n }, (_, i) => {
+          const guild = api.addGuild(`Town ${String(i + 1)}`, {
+            id: String(100000000000000000n + BigInt(i)),
+          });
+          guild.members.set(FAKE_BOT_ID, []);
+          return guild;
+        });
+
+      it('reads every page of the servers the bot is in, 200 at a time', async () => {
+        before(450);
+        settings = { ...settings, servers: 'open' };
+        const lines = await check();
+        // Pittsburgh's id comes after the first 400: on the third page.
+        expect(line(lines, 'servers')).toMatchObject({
+          status: 'pass',
+          text: expect.stringMatching(
+            /^servers: the bot is in every server of the database \(1\), and in 450 others \(Town 1, .*, and 440 more\), which it adds at its start$/u,
+          ) as string,
+        });
+        expect(lines.some((one) => one.text.startsWith('server Pittsburgh:'))).toBe(true);
+        const asked = api.requests.filter((one) => one.route === '/users/@me/guilds');
+        expect(asked.map((one) => one.query)).toEqual([
+          'limit=200',
+          `limit=200&after=${String(100000000000000000n + 199n)}`,
+          `limit=200&after=${String(100000000000000000n + 399n)}`,
+        ]);
+      });
+
+      it('warns of servers the bot is in that this Pine does not allow: it leaves them at its start', async () => {
+        before(3);
+        const said = line(await check(), 'servers');
+        expect(said.status).toBe('warn');
+        expect(said.text).toContain(
+          'Pine leaves Town 1, Town 2, Town 3 at its start: this Pine does not allow them',
+        );
+        // A server the file lists, or an operator allowed, is added; a blocked one is left.
+        settings = { ...settings, servers: ['100000000000000000'] };
+        store.records = [
+          { ...NO_RECORD, serverId: shape.guild.id, recordedAt: 1 },
+          { ...NO_RECORD, serverId: '100000000000000001', allowedAt: 2, allowedBy: '1' },
+          { ...NO_RECORD, serverId: '100000000000000002', blockedAt: 3, blockedBy: '1' },
+        ];
+        const allowed = line(await check(), 'servers');
+        expect(allowed.text).toContain(
+          'and in 2 others (Town 1, Town 2), which it adds at its start',
+        );
+        expect(allowed.text).toContain('Pine leaves Town 3 at its start');
+      });
+
+      it('fails when the bot keeps none of the servers of the database: it leaves those it is in (F2)', async () => {
+        const gone = '412345678901234598';
+        store.servers = [...store.servers, gone];
+        // The one server the bot is in blocked since, the other left: not one is kept.
+        store.records = [
+          { ...NO_RECORD, serverId: shape.guild.id, recordedAt: 1, blockedAt: 3, blockedBy: '1' },
+          { ...NO_RECORD, serverId: gone, recordedAt: 1, leftAt: 5 },
+        ];
+        const lines = await check();
+        expect(line(lines, 'servers')).toEqual({
+          what: 'servers',
+          status: 'fail',
+          text:
+            'servers: the bot keeps none of the servers of the database; Pine was removed from ' +
+            `${gone}, marked left: not checked; Pine leaves Pittsburgh at its start: this Pine ` +
+            'does not allow them (servers, or /operator servers allow)',
+        });
+        expect(checkFailed(lines)).toBe(true);
+        // The servers it adds are said beside, and do not make up for them.
+        before(1);
+        settings = { ...settings, servers: ['100000000000000000'] };
+        expect(line(await check(), 'servers')).toEqual({
+          what: 'servers',
+          status: 'fail',
+          text:
+            'servers: the bot keeps none of the servers of the database; the bot is in 1 other ' +
+            '(Town 1), which it adds at its start; Pine was removed from ' +
+            `${gone}, marked left: not checked; Pine leaves Pittsburgh at its start: this Pine ` +
+            'does not allow them (servers, or /operator servers allow)',
+        });
+      });
+
+      it('names a server Pine left as left, not as missing', async () => {
+        const gone = '412345678901234598';
+        store.servers = [...store.servers, gone];
+        store.records = [
+          { ...NO_RECORD, serverId: shape.guild.id, recordedAt: 1 },
+          { ...NO_RECORD, serverId: gone, recordedAt: 1, leftAt: 5 },
+        ];
+        expect(line(await check(), 'servers')).toEqual({
+          what: 'servers',
+          status: 'pass',
+          text: `servers: the bot is in every server of the database (1); Pine was removed from ${gone}, marked left: not checked`,
+        });
+        // One the bot is in again comes back at its start.
+        store.records = [{ ...NO_RECORD, serverId: shape.guild.id, recordedAt: 1, leftAt: 5 }];
+        store.servers = [shape.guild.id];
+        expect(line(await check(), 'servers')).toMatchObject({
+          status: 'pass',
+          text: 'servers: the bot is in Pittsburgh again, marked left: it comes back at its start',
+        });
+      });
+
+      it('names a server whose data was deleted as deleted, not missing, and one added back as starting anew (plan 19C-3)', async () => {
+        // Removed, and its data deleted 30 days later with its `Guild` row: only its record is left.
+        const gone = '412345678901234598';
+        const deleted = { ...NO_RECORD, recordedAt: 1, leftAt: 5, deletedAt: 9, filesLeftAt: 9 };
+        store.records = [
+          { ...NO_RECORD, serverId: shape.guild.id, recordedAt: 1 },
+          { ...deleted, serverId: gone },
+        ];
+        expect(line(await check(), 'servers')).toEqual({
+          what: 'servers',
+          status: 'pass',
+          text:
+            'servers: the bot is in every server of the database (1); the data of ' +
+            `${gone} was deleted 30 days after Pine was removed: not checked`,
+        });
+        // The bot in it again: it starts anew, in setup, not as a server the bot is added to.
+        const elmwood = api.addGuild('Elmwood', { id: gone });
+        elmwood.members.set(FAKE_BOT_ID, []);
+        expect(line(await check(), 'servers')).toEqual({
+          what: 'servers',
+          status: 'pass',
+          text:
+            'servers: the bot is in every server of the database (1); the bot is in Elmwood ' +
+            'again, its data deleted: it starts anew there, in setup, at its start',
+        });
+        // Its data being deleted still (its `Guild` row there): anew once the deletion ends.
+        store.servers = [...store.servers, gone];
+        store.records = [
+          { ...NO_RECORD, serverId: shape.guild.id, recordedAt: 1 },
+          { ...NO_RECORD, serverId: gone, recordedAt: 1, leftAt: 5, deletingAt: 8 },
+        ];
+        expect(line(await check(), 'servers')).toEqual({
+          what: 'servers',
+          status: 'pass',
+          text:
+            'servers: the bot is in every server of the database (1); the bot is in Elmwood ' +
+            'again, its data being deleted: it starts anew there, in setup, once the deletion ends',
+        });
+      });
+
+      /** A server whose deletion took its `Guild` row and has not ended: its record alone left. */
+      const deleting = (serverId: string) => ({
+        ...NO_RECORD,
+        serverId,
+        recordedAt: 1,
+        leftAt: 5,
+        deletingAt: 8,
+      });
+
+      it('names a server whose data is being deleted, its Guild row gone, as being deleted (fix round 3, R5)', async () => {
+        const gone = '412345678901234598';
+        store.records = [{ ...NO_RECORD, serverId: shape.guild.id, recordedAt: 1 }, deleting(gone)];
+        expect(line(await check(), 'servers')).toEqual({
+          what: 'servers',
+          status: 'pass',
+          text:
+            'servers: the bot is in every server of the database (1); the data of ' +
+            `${gone} is being deleted, 30 days after Pine was removed: not checked`,
+        });
+      });
+
+      it('counts a server whose data is being deleted, its Guild row gone, that the bot is in again as starting anew once the deletion ends (fix round 3, R5)', async () => {
+        const elmwood = api.addGuild('Elmwood', { id: '412345678901234598' });
+        elmwood.members.set(FAKE_BOT_ID, []);
+        store.records = [
+          { ...NO_RECORD, serverId: shape.guild.id, recordedAt: 1 },
+          deleting(elmwood.id),
+        ];
+        expect(line(await check(), 'servers')).toEqual({
+          what: 'servers',
+          status: 'pass',
+          text:
+            'servers: the bot is in every server of the database (1); the bot is in Elmwood ' +
+            'again, its data being deleted: it starts anew there, in setup, once the deletion ends',
+        });
+      });
+
+      it('says a new install keeps the servers the bot is in at its first start', async () => {
+        before(2);
+        store.plan = { kind: 'new-install', pending: [] };
+        store.servers = [];
+        store.regions = [];
+        const said = line(await check(), 'servers');
+        expect(said.text).toBe(
+          'servers: the database names no server; the bot is in 3 (Town 1, Town 2, Pittsburgh), ' +
+            'which this new install keeps at its first start',
+        );
+        // With Public Bot on, only those of its owner or an operator; the others are told and
+        // left at that start (`ServerAdoption`, `ServerAdmission.everyShardReady`; R2).
+        api.application.bot_public = true;
+        expect(line(await check(), 'servers')).toEqual({
+          what: 'servers',
+          status: 'warn',
+          text:
+            'servers: the database names no server; the bot is in 3 (Town 1, Town 2, Pittsburgh), ' +
+            'which this new install keeps at its first start only where their owner is OWNER_ID ' +
+            'or an operator, since Public Bot is on: the others are told this Pine is private ' +
+            'and left at that start. Turn Public Bot off before it, or list them in servers',
+        });
+      });
+
+      it('leaves a blocked server Pine left that added it again, and counts it among none it keeps (R5)', async () => {
+        const elmwood = api.addGuild('Elmwood', { id: '412345678901234598' });
+        elmwood.members.set(FAKE_BOT_ID, []);
+        store.servers = [...store.servers, elmwood.id];
+        const leaves =
+          'Pine leaves Elmwood at its start: this Pine does not allow them (servers, or ' +
+          '/operator servers allow)';
+        // Left and blocked: never said to come back.
+        store.records = [
+          { ...NO_RECORD, serverId: shape.guild.id, recordedAt: 1 },
+          {
+            ...NO_RECORD,
+            serverId: elmwood.id,
+            recordedAt: 1,
+            blockedAt: 3,
+            blockedBy: '1',
+            leftAt: 5,
+          },
+        ];
+        expect(line(await check(), 'servers')).toEqual({
+          what: 'servers',
+          status: 'warn',
+          text: `servers: the bot is in every server of the database (1); ${leaves}`,
+        });
+        // Blocked while the bot was in it: not one of those it keeps.
+        store.records = [
+          { ...NO_RECORD, serverId: shape.guild.id, recordedAt: 1 },
+          { ...NO_RECORD, serverId: elmwood.id, recordedAt: 1, blockedAt: 3, blockedBy: '1' },
+        ];
+        expect(line(await check(), 'servers')).toEqual({
+          what: 'servers',
+          status: 'warn',
+          text: `servers: the bot is in every server of the database (1); ${leaves}`,
+        });
+      });
+
+      it('counts the servers of a database before 2.1 as recorded, as the upgrade records them', async () => {
+        // No `ServerRecord` yet: migration 061 records every server of `Guild`.
+        store.records = undefined;
+        expect(line(await check(), 'servers')).toMatchObject({ status: 'pass' });
+        // One with a record of 2.1 and none for the server: not recorded, not allowed (on an
+        // instance that lists its servers: one without a list adopts those it is in).
+        store.records = [];
+        settings = { ...settings, servers: ['412345678901234599'] };
+        // Its one server left at the start: it keeps none of them (F2).
+        expect(line(await check(), 'servers')).toMatchObject({
+          status: 'fail',
+          text: expect.stringContaining('Pine leaves Pittsburgh at its start') as string,
+        });
+      });
+    });
+
     it('fails when the bot is in none of the servers of the database: nothing was checked', async () => {
       store.servers = ['412345678901234599'];
       const lines = await check();
       expect(line(lines, 'servers')).toMatchObject({
         status: 'fail',
-        text: 'servers: the bot is in none of the servers of the database (412345678901234599): none of them was checked',
+        text:
+          'servers: the bot is in none of the servers of the database (412345678901234599): ' +
+          'none of them was checked; Pine leaves Pittsburgh at its start: this Pine does not ' +
+          'allow them (servers, or /operator servers allow)',
       });
       expect(checkFailed(lines)).toBe(true);
     });

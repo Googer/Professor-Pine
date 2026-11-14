@@ -1,8 +1,16 @@
 import { trustProxyWarning } from '../config/warnings.js';
 import { ApplicationFlags, ChannelType, PermissionFlagsBits, Routes } from 'discord.js';
 import { parseServerValues, type ServerValues } from '../config/server-settings.js';
-import { channelNamesOf, type Settings } from '../config/settings.js';
+import {
+  channelNamesOf,
+  isOpenInstance,
+  listedServers,
+  type Settings,
+} from '../config/settings.js';
 import type { StoredServer } from '../db/repositories/server-settings-repository.js';
+import type { StoredServerRecord } from '../db/repositories/server-record-repository.js';
+import { mayHave, NO_STANDING, type Standing } from '../domain/operators/admission.js';
+import { deletedSinceLeft } from '../domain/servers/deletion.js';
 import { filledValues, type ServerNames } from '../services/server-fill.js';
 import type { MigrationPlan } from '../db/migrator.js';
 import type { CutoverRegion, CutoverSelfRole } from '../db/repositories/cutover-repository.js';
@@ -53,6 +61,12 @@ export interface CutoverStore {
   selfRoles(): Promise<CutoverSelfRole[]>;
   /** The servers' settings (plan 19A-1, `ServerSettings`); none before the first start of 2.1. */
   serverSettings(): Promise<StoredServer[]>;
+  /**
+   * The servers' records (plan 19C-1, `ServerRecord`: recorded, allowed, blocked, left);
+   * undefined where the table is not there yet (before the first start of 2.1, whose migration
+   * 061 records every server of `Guild`).
+   */
+  serverRecords(): Promise<StoredServerRecord[] | undefined>;
 }
 
 export type CheckStatus = 'pass' | 'warn' | 'fail';
@@ -982,6 +996,300 @@ function restrictionsLine(rows: readonly LegacyCommandRoles[]): CheckLine {
   };
 }
 
+/** How Public Bot is turned off, in the Developer Portal. */
+const PUBLIC_BOT_OFF =
+  'Turn it off in the Developer Portal: Installation, Install Link None; then Bot, Public Bot.';
+
+/**
+ * Discord's Public Bot beside the instance's `servers` (plan 19C-4; spec "Discord's verification
+ * and the public switch"): where they agree a pass that says who can add the bot; Public Bot on
+ * where `servers` is not `"open"` warns that anybody can add it and Pine leaves every server it
+ * does not allow (`mayHave`), off where it is `"open"` that nobody but the application's owner
+ * (or its team) can, so that the instance is open in name only.
+ */
+function publicBotLine(publicBot: boolean, settings: Settings): CheckLine {
+  const open = isOpenInstance(settings);
+  if (publicBot && open) {
+    return {
+      what: 'public-bot',
+      status: 'pass',
+      text: 'public bot: Public Bot is on and servers is "open": anybody can add this bot to a server of theirs',
+    };
+  }
+  if (publicBot) {
+    return {
+      what: 'public-bot',
+      status: 'warn',
+      text:
+        'public bot: Public Bot is on, so anybody can add this bot to a server of theirs, but ' +
+        'servers is not "open": Pine tells each server it does not allow that this Pine is ' +
+        `private, and leaves every server it does not allow. ${PUBLIC_BOT_OFF} For a public ` +
+        'instance, set servers to "open" instead.',
+    };
+  }
+  if (open) {
+    return {
+      what: 'public-bot',
+      status: 'warn',
+      text:
+        'public bot: servers is "open", but Public Bot is off: nobody but the application’s ' +
+        'owner (or its team’s members) can add this bot, so the instance is open in name only. ' +
+        'Turn Public Bot on in the Developer Portal (Bot, Public Bot) once it is to be public, ' +
+        'or list its servers in servers.',
+    };
+  }
+  return {
+    what: 'public-bot',
+    status: 'pass',
+    text:
+      'public bot: Public Bot is off: only the application’s owner (or its team’s members) can ' +
+      'add this bot, and Pine keeps only the servers this Pine allows',
+  };
+}
+
+/** As many servers as `GET /users/@me/guilds` gives in one page (Discord's most). */
+const GUILDS_PAGE = 200;
+
+/**
+ * Every server the bot is in, as Discord lists them (`GET /users/@me/guilds`), page by page:
+ * `GUILDS_PAGE` at a time by id, each page after the last id of the one before, until a page is
+ * not full (plan 19C-4: an open instance may be in thousands of servers).
+ */
+async function joinedServers(discord: DiscordRead): Promise<{ id: string; name: string }[]> {
+  const joined: { id: string; name: string }[] = [];
+  let after: string | undefined;
+  for (;;) {
+    const query = new URLSearchParams({ limit: String(GUILDS_PAGE) });
+    if (after !== undefined) query.set('after', after);
+    const page = (await discord.get(Routes.userGuilds(), { query })) as {
+      id: string;
+      name: string;
+    }[];
+    joined.push(...page);
+    const last = page.at(-1);
+    if (page.length < GUILDS_PAGE || last === undefined) return joined;
+    after = last.id;
+  }
+}
+
+/** How many servers a clause of the servers line names before it counts the rest. */
+const SERVERS_NAMED = 10;
+
+/** Names, the first `SERVERS_NAMED`, then how many more. */
+function named(names: readonly string[]): string {
+  const shown = names.slice(0, SERVERS_NAMED).join(', ');
+  const more = names.length - SERVERS_NAMED;
+  return more > 0 ? `${shown}, and ${String(more)} more` : shown;
+}
+
+/** What the servers line is decided from. */
+interface ServersFacts {
+  /** The servers of `Guild`: those Pine has had. */
+  guildIds: readonly string[];
+  /** The servers' records; undefined before 2.1's migration 061 (`CutoverStore.serverRecords`). */
+  records: readonly StoredServerRecord[] | undefined;
+  /** The servers the bot is in, as Discord lists them (every page). */
+  joined: readonly { id: string; name: string }[];
+  settings: Settings;
+  publicBot: boolean;
+}
+
+/**
+ * The servers line (plan 19C-4): the servers the bot is in, every page of them, beside those Pine
+ * records. A server of the database Pine was removed from (`leftAt`) is named as left, never as
+ * missing, and one the bot is in again comes back at its start (anew, in setup, where its data is
+ * being deleted, plan 19C-3); one whose data was deleted 30 days after (its record alone left) is
+ * named as deleted, and starts anew where the bot is in it again; one whose deletion took its
+ * `Guild` row and has not ended (`deletingAt`, its record alone left) is named as being deleted,
+ * and where the bot is in it again starts anew once it ends; one the bot is in that this Pine
+ * does not allow (`mayHave`, with the file's `servers` and the records) is left at its start, and
+ * is neither counted among those it keeps nor said to come back; one it allows and has no row of
+ * is added; a new install (no server recorded, `servers` unset) keeps those it is in at its first
+ * start (`ServerAdoption`: with Public Bot on, only those whose owner is the owner or an operator,
+ * the others told and left at that start, a warning). Where it keeps none of the database's
+ * servers and leaves one of them at its start, the line fails, as where the bot is in none of them.
+ * Before 2.1 every server of `Guild` counts as recorded, as its migration 061 records them.
+ */
+function serversLine(facts: ServersFacts): CheckLine {
+  const { guildIds, records, joined, settings } = facts;
+  const ofDatabase = new Set(guildIds);
+  const joinedIds = new Set(joined.map((one) => one.id));
+  const nameOf = (id: string) => joined.find((one) => one.id === id)?.name ?? id;
+  const recordOf = new Map((records ?? []).map((row) => [row.serverId, row]));
+  const standingOf = (id: string): Standing => {
+    if (records === undefined) return { ...NO_STANDING, recorded: ofDatabase.has(id) };
+    const row = recordOf.get(id);
+    return row === undefined
+      ? NO_STANDING
+      : {
+          recorded: row.recordedAt !== null,
+          allowed: row.allowedAt !== null,
+          blocked: row.blockedAt !== null,
+        };
+  };
+  const admission = { open: isOpenInstance(settings), listed: listedServers(settings) };
+  // A new install adopts the servers present at its first start (plan 19C-1).
+  const adopting =
+    !admission.open &&
+    admission.listed === undefined &&
+    (records === undefined
+      ? guildIds.length === 0
+      : !records.some((row) => row.recordedAt !== null));
+  // A new install leaves none it adopts: with Public Bot on it adopts only those its owner or an
+  // operator owns, which the check cannot know, and says so (`addedWords`).
+  const refused = adopting
+    ? []
+    : joined.filter((one) => !mayHave(one.id, admission, standingOf(one.id)));
+  const refusedIds = new Set(refused.map((one) => one.id));
+  // A server it leaves at its start is neither kept nor back (fix round 1, R5): it is said once,
+  // as left at the start.
+  const left = guildIds.filter((id) => recordOf.get(id)?.leftAt != null);
+  const kept = guildIds.filter((id) => !left.includes(id) && !refusedIds.has(id));
+  const absent = kept.filter((id) => !joinedIds.has(id));
+  const back = left.filter((id) => joinedIds.has(id) && !refusedIds.has(id));
+  // A server whose deletion took its `Guild` row and has not ended (`deletingAt`, its record
+  // alone left; fix round 3, R5): being deleted, and where the bot is in it again, back anew.
+  const deletingOnRecord = new Set(
+    (records ?? [])
+      .filter(
+        (row) => !ofDatabase.has(row.serverId) && row.leftAt !== null && row.deletingAt !== null,
+      )
+      .map((row) => row.serverId),
+  );
+  const deletingGone = [...deletingOnRecord].filter((id) => !joinedIds.has(id));
+  // One whose data is being deleted (plan 19C-3, `deletingAt`) comes back anew once it is.
+  const backAnew = [
+    ...back.filter((id) => recordOf.get(id)?.deletingAt != null),
+    ...joined
+      .filter((one) => deletingOnRecord.has(one.id) && !refusedIds.has(one.id))
+      .map((one) => one.id),
+  ];
+  const gone = left.filter((id) => !joinedIds.has(id));
+  // A server whose data was deleted 30 days after Pine was removed (plan 19C-3): its `Guild` row
+  // went with it, its record stays. Named as deleted, never missing; the bot in it again, it
+  // starts anew, in setup (`ServerStandings.setUpOnRecord`), not as a server added.
+  const deleted = new Set(
+    (records ?? [])
+      .filter(
+        (row) =>
+          !ofDatabase.has(row.serverId) &&
+          !deletingOnRecord.has(row.serverId) &&
+          deletedSinceLeft(row),
+      )
+      .map((row) => row.serverId),
+  );
+  const deletedGone = [...deleted].filter((id) => !joinedIds.has(id));
+  const deletedBack = joined.filter((one) => deleted.has(one.id) && !refusedIds.has(one.id));
+  const added = joined.filter(
+    (one) =>
+      !ofDatabase.has(one.id) &&
+      !refusedIds.has(one.id) &&
+      !deleted.has(one.id) &&
+      !deletingOnRecord.has(one.id),
+  );
+  // Not one server of the database kept, nor back, and one it is in left at the start (fix
+  // round 2, F2): a go would mean nothing, as where the bot is in none of them.
+  const keepsNone =
+    kept.length === 0 && back.length === 0 && guildIds.some((id) => refusedIds.has(id));
+
+  let status: CheckStatus = 'pass';
+  const clauses: string[] = [];
+  // With Public Bot on, a new install's first start keeps only the servers its owner or an
+  // operator owns, and tells and leaves the others (`ServerAdoption`, then
+  // `ServerAdmission.everyShardReady`; fix round 1, R2).
+  const addedWords = adopting
+    ? facts.publicBot
+      ? 'which this new install keeps at its first start only where their owner is OWNER_ID or ' +
+        'an operator, since Public Bot is on: the others are told this Pine is private and left ' +
+        'at that start. Turn Public Bot off before it, or list them in servers'
+      : 'which this new install keeps at its first start'
+    : 'which it adds at its start';
+  const addedCount = `${String(added.length)} ${added.length === 1 ? 'other' : 'others'}`;
+  if (guildIds.length === 0) {
+    status = 'warn';
+    clauses.push(
+      'the database names no server' +
+        (added.length === 0
+          ? ''
+          : `; the bot is in ${String(added.length)} (${named(added.map((one) => one.name))}), ${addedWords}`),
+    );
+  } else if (kept.length > 0) {
+    if (absent.length === kept.length && back.length === 0) {
+      // Not one server checked: a go would mean nothing.
+      status = 'fail';
+      clauses.push(
+        `the bot is in none of the servers of the database (${named(absent)}): none of them was checked`,
+      );
+    } else if (absent.length > 0) {
+      status = 'warn';
+      clauses.push(
+        `the bot is not in ${named(absent)}, which the database has: their regions are not checked`,
+      );
+    } else {
+      clauses.push(
+        `the bot is in every server of the database (${String(kept.length)})` +
+          (added.length === 0
+            ? ''
+            : `, and in ${addedCount} (${named(added.map((one) => one.name))}), ${addedWords}`),
+      );
+    }
+  } else {
+    // The servers it leaves are named once, below, with every other it leaves.
+    if (keepsNone) {
+      status = 'fail';
+      clauses.push('the bot keeps none of the servers of the database');
+    }
+    if (added.length > 0) {
+      clauses.push(
+        `the bot is in ${addedCount} (${named(added.map((one) => one.name))}), ${addedWords}`,
+      );
+    }
+  }
+  const backKept = back.filter((id) => !backAnew.includes(id));
+  if (backKept.length > 0) {
+    clauses.push(
+      `the bot is in ${named(backKept.map(nameOf))} again, marked left: it comes back at its start`,
+    );
+  }
+  if (backAnew.length > 0) {
+    clauses.push(
+      `the bot is in ${named(backAnew.map(nameOf))} again, its data being deleted: it starts ` +
+        'anew there, in setup, once the deletion ends',
+    );
+  }
+  if (deletedBack.length > 0) {
+    clauses.push(
+      `the bot is in ${named(deletedBack.map((one) => one.name))} again, its data deleted: it ` +
+        'starts anew there, in setup, at its start',
+    );
+  }
+  if (gone.length > 0) {
+    clauses.push(`Pine was removed from ${named(gone)}, marked left: not checked`);
+    // Every server of the database left, and the bot in none of them: nothing was checked.
+    if (kept.length === 0 && back.length === 0 && status === 'pass') status = 'warn';
+  }
+  if (deletingGone.length > 0) {
+    clauses.push(
+      `the data of ${named(deletingGone)} is being deleted, 30 days after Pine was removed: not checked`,
+    );
+  }
+  if (deletedGone.length > 0) {
+    clauses.push(
+      `the data of ${named(deletedGone)} was deleted 30 days after Pine was removed: not checked`,
+    );
+  }
+  // Servers a new install may leave at its first start (R2) warn as those it leaves do.
+  if (adopting && facts.publicBot && added.length > 0 && status === 'pass') status = 'warn';
+  if (refused.length > 0) {
+    if (status === 'pass') status = 'warn';
+    clauses.push(
+      `Pine leaves ${named(refused.map((one) => one.name))} at its start: this Pine does not ` +
+        'allow them (servers, or /operator servers allow)',
+    );
+  }
+  return { what: 'servers', status, text: `servers: ${clauses.join('; ')}` };
+}
+
 /** Discord's part of the check; a failure to read the application ends it with one line. */
 async function discordLines(
   options: CutoverCheckOptions,
@@ -989,6 +1297,7 @@ async function discordLines(
   guildIds: readonly string[],
   selfRoles: readonly CutoverSelfRole[],
   stored: readonly StoredServer[],
+  records: readonly StoredServerRecord[] | undefined,
 ): Promise<CheckLine[]> {
   const { discord, appId, settings } = options;
   let application: { id: string; name: string; flags?: number; bot_public?: boolean };
@@ -1019,16 +1328,7 @@ async function discordLines(
       text: `application: ${application.name}, the application of DISCORD_TOKEN`,
     });
   }
-  if (application.bot_public === true) {
-    lines.push({
-      what: 'public-bot',
-      status: 'warn',
-      text:
-        'public bot: anybody can add this bot to a server of theirs, and the staff of any server ' +
-        'it is in can change what all its servers share. Turn it off in the Developer Portal: ' +
-        'Installation, Install Link None; then Bot, Public Bot.',
-    });
-  }
+  lines.push(publicBotLine(application.bot_public === true, settings));
   lines.push(intentsLine(application.flags ?? 0, settings));
   if (settings.web) lines.push(webLine(settings.web));
   // What Discord refuses from here on (a server it no longer answers for, a 5xx) ends the reading
@@ -1083,37 +1383,18 @@ async function discordLines(
         );
     }
     const bot = (await discord.get(Routes.user())) as { id: string; username: string };
-    // The first 200 servers, unpaginated: Pine is in a server or two, not in hundreds.
-    const joined = (await discord.get(Routes.userGuilds())) as { id: string; name: string }[];
+    // Every server the bot is in, page by page (plan 19C-4): an open instance may be in thousands.
+    const joined = await joinedServers(discord);
     const joinedIds = new Set(joined.map((one) => one.id));
-    const absent = guildIds.filter((id) => !joinedIds.has(id));
-    const unknown = joined.filter((one) => !guildIds.includes(one.id));
-    if (guildIds.length === 0) {
-      lines.push({
-        what: 'servers',
-        status: 'warn',
-        text: 'servers: the database names no server',
-      });
-    } else if (absent.length === guildIds.length) {
-      // Not one server checked: a go would mean nothing.
-      lines.push({
-        what: 'servers',
-        status: 'fail',
-        text: `servers: the bot is in none of the servers of the database (${absent.join(', ')}): none of them was checked`,
-      });
-    } else if (absent.length > 0) {
-      lines.push({
-        what: 'servers',
-        status: 'warn',
-        text: `servers: the bot is not in ${absent.join(', ')}, which the database has: their regions are not checked`,
-      });
-    } else {
-      lines.push({
-        what: 'servers',
-        status: 'pass',
-        text: `servers: the bot is in every server of the database (${guildIds.length})${unknown.length > 0 ? `, and in ${unknown.map((one) => one.name).join(', ')}, which it adds at its start` : ''}`,
-      });
-    }
+    lines.push(
+      serversLine({
+        guildIds,
+        records,
+        joined,
+        settings,
+        publicBot: application.bot_public === true,
+      }),
+    );
     const withoutForum: string[] = [];
     const withoutBoard: string[] = [];
     // The channels of each server's settings, by id, which the cleanup never lists.
@@ -1235,12 +1516,14 @@ export async function cutoverCheck(options: CutoverCheckOptions): Promise<CheckL
   let regions: CutoverRegion[] = [];
   let selfRoles: CutoverSelfRole[] = [];
   let stored: StoredServer[] = [];
+  let records: StoredServerRecord[] | undefined;
   let servers: CheckLine | undefined;
   try {
     guildIds = await store.guilds();
     regions = await store.regionRows();
     selfRoles = await store.selfRoles();
     stored = await store.serverSettings();
+    records = await store.serverRecords();
   } catch (err) {
     servers = {
       what: 'servers',
@@ -1248,7 +1531,7 @@ export async function cutoverCheck(options: CutoverCheckOptions): Promise<CheckL
       text: `servers: the servers and regions of the database could not be read: ${failureReason(err)}`,
     };
   }
-  const found = await discordLines(options, regions, guildIds, selfRoles, stored);
+  const found = await discordLines(options, regions, guildIds, selfRoles, stored, records);
   // A copy of production (a legacy or Pine database) without servers or regions is the wrong
   // copy, not a new install: what is a warning for an empty database fails it.
   const copy = !servers && (plan?.kind === 'takeover' || plan?.kind === 'pine');

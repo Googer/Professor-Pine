@@ -183,8 +183,14 @@ export class FakeDiscordApi {
     }
     if (route === '/users/@me') return { ...this.bot };
     if (route === '/users/@me/guilds') {
+      // As Discord pages them: by id, those after `after` (none: from the first), at most
+      // `limit` (200 unless asked for fewer; 200 at most).
+      const after = BigInt(query?.get('after') ?? '0');
+      const limit = Math.min(Number(query?.get('limit') ?? '200'), 200);
       return [...this.guilds.values()]
-        .filter((guild) => guild.members.has(this.bot.id))
+        .filter((guild) => guild.members.has(this.bot.id) && BigInt(guild.id) > after)
+        .sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1))
+        .slice(0, limit)
         .map((guild) => ({ id: guild.id, name: guild.name }));
     }
     let match = /^\/guilds\/(\d+)$/.exec(route);

@@ -86,7 +86,13 @@ type Row = {
   filesLeftAt: string | null;
 };
 
-const time = (value: string | null): number | null => (value === null ? null : Number(value));
+/**
+ * A time column as a number, none as null: also a column the table lacks, as `ServerRecord` lacks
+ * the deletion's before migration 062 when `cutover-check` reads a database not yet migrated
+ * (`selectAll` gives no field; fix round 3, R4).
+ */
+const time = (value: string | null | undefined): number | null =>
+  value == null ? null : Number(value);
 
 const stored = (row: Row): StoredServerRecord => ({
   serverId: row.serverId,

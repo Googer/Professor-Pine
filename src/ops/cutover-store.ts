@@ -5,6 +5,7 @@ import { RoleAuthorizationRepository } from '../db/repositories/role-authorizati
 import type { DB } from '../db/types.js';
 import type { CutoverStore } from './cutover-check.js';
 import { ServerSettingsRepository } from '../db/repositories/server-settings-repository.js';
+import { ServerRecordRepository } from '../db/repositories/server-record-repository.js';
 
 /**
  * What the cutover check reads of the database (`cutover-check-cli.ts`, in a read-only
@@ -24,6 +25,13 @@ export function databaseStore(db: Kysely<any>): CutoverStore {
       (await cutover.hasTables('ServerSettings'))
         ? new ServerSettingsRepository(db as Kysely<DB>).all()
         : [],
+    // The servers' records of 2.1 (plan 19C-1): no table before its first start, whose migration
+    // records every server of `Guild`. A whole read by the primary key, bounded small by nature
+    // (one row per server).
+    serverRecords: async () =>
+      (await cutover.hasTables('ServerRecord'))
+        ? new ServerRecordRepository(db as Kysely<DB>).all()
+        : undefined,
     // The legacy tables are there before the takeover and after it, until the final cleanup
     // drops them; a database without them has no restrictions to carry over.
     legacyRestrictions: async () =>
