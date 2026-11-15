@@ -576,8 +576,11 @@ interface Burst {
  * came; it is remembered (`DM_CONTACTS_KEPT` members), and a message waits until its member is
  * known. A read that fails, or has not answered in `CONTACTS_READ_MS`, takes its members as never
  * written to, and the next read starts. A message that went out records its member as written
- * to (a record that fails is counted, `contactsNotRecorded`, and said once per burst); a member
- * found written to has their messages moved to the first line, in their order.
+ * to (a record that fails is counted, `contactsNotRecorded`, and said once per burst), beside the
+ * sends: no send's place waits for it (final review R1-7); a member found written to has their
+ * messages moved to the first line, in their order. A member a send found closed counts as
+ * written to from then on, in memory alone (their channel is open: their next message is no
+ * first one), and is recorded once a message to them goes out.
  *
  * A burst is the time from the first message in an empty line until the line is empty and
  * nothing is on its way. When it ends, and every minute while it lasts, one line is logged
@@ -627,6 +630,14 @@ export class QueuedDmSender implements DmSender {
   private wake: (() => void) | undefined;
   /** The members a send found closed, with the time until which they are not written to. */
   private readonly closedUntil: BoundedMap<string, number>;
+  /**
+   * Members `contactKnown` holds as written to only because a send found them closed (final
+   * review R1-7: their channel is open, so their next message opens none), never recorded in
+   * `contacts`: their first message that goes out records them.
+   */
+  private readonly closedContacts: BoundedMap<string, true>;
+  /** The records of members written to on their way (`wroteTo`), which hold no send's place. */
+  private readonly recording = new Set<Promise<void>>();
 
   constructor(private readonly options: QueuedDmSenderOptions) {
     this.now = options.now ?? (() => Date.now());
@@ -634,6 +645,7 @@ export class QueuedDmSender implements DmSender {
     this.maxDepth = options.maxDepth ?? DM_MAX_DEPTH;
     this.closedUntil = new BoundedMap(options.maxClosed ?? DM_CLOSED_MEMBERS);
     this.contactKnown = new BoundedMap(options.maxContacts ?? DM_CONTACTS_KEPT);
+    this.closedContacts = new BoundedMap(options.maxContacts ?? DM_CONTACTS_KEPT);
     this.intervalMs = Math.max(
       1,
       Math.round(1_000 / (options.ratePerSecond ?? DM_RATE_PER_SECOND)),
@@ -819,7 +831,7 @@ export class QueuedDmSender implements DmSender {
 
   private finish(): void {
     const burst = this.burst;
-    if (!burst || this.depth > 0 || this.onTheirWay.size > 0) return;
+    if (!burst || this.depth > 0 || this.onTheirWay.size > 0 || this.recording.size > 0) return;
     const { log } = this.options;
     // Whatever fails here, the burst ends: `drain` waits for it, and the timer must stop.
     try {
@@ -1085,14 +1097,43 @@ export class QueuedDmSender implements DmSender {
   }
 
   /**
+   * `wroteTo` beside the sends (final review R1-7): the send's place is free as soon as the
+   * message went out, and the burst lasts until the record is through (`recording`).
+   */
+  private recordContact(burst: Burst, userId: string): void {
+    const recorded: Promise<void> = this.wroteTo(burst, userId).finally(() => {
+      this.recording.delete(recorded);
+      this.finishSafely();
+    });
+    this.recording.add(recorded);
+  }
+
+  /**
+   * A member a send found closed (final review R1-7): Discord opened their channel, so their
+   * messages count as to a member written to from now on (in memory alone: they were never
+   * written to, and `wroteTo` records them once a message goes out), and their next message, an
+   * hour later (`DM_CLOSED_MS`), takes no first contact of their server's cap. Nothing without
+   * `contacts`, nor for one known already.
+   */
+  private openedClosed(userId: string): void {
+    if (!this.options.contacts || this.contactKnown.get(userId) === true) return;
+    this.contactKnown.set(userId, true);
+    this.closedContacts.set(userId, true);
+    this.promote(new Set([userId]));
+  }
+
+  /**
    * Records a member a message went to as written to (plan 19B-5). Never rejects: a record that
    * fails, or has not answered in `CONTACT_RECORD_MS`, is counted in the burst's numbers and said
    * once per burst (the member is remembered as written to all the same, until forgotten or a
-   * restart); the send's place is free again either way.
+   * restart). It runs beside the sends (`recordContact`): no send's place waits for it.
    */
   private async wroteTo(burst: Burst, userId: string): Promise<void> {
     const contacts = this.options.contacts;
-    if (!contacts || this.contactKnown.get(userId) === true) return;
+    if (!contacts) return;
+    // Known as written to from the database, or by a message that went out: nothing to record.
+    if (this.contactKnown.get(userId) === true && !this.closedContacts.has(userId)) return;
+    this.closedContacts.delete(userId);
     this.contactKnown.set(userId, true);
     this.promote(new Set([userId]));
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -1178,6 +1219,7 @@ export class QueuedDmSender implements DmSender {
         if (outcome === 'closed') {
           burst.closed += 1;
           this.rememberClosed(job.userId);
+          this.openedClosed(job.userId);
           log.debug({ user: job.userId }, 'a member takes no direct messages');
           return;
         }
@@ -1200,8 +1242,9 @@ export class QueuedDmSender implements DmSender {
         const took = Math.max(0, this.now() - job.eventAt);
         burst.worstMs = Math.max(burst.worstMs, took);
         if (burst.samples.length < MAX_SAMPLES) burst.samples.push(took);
-        // Before the member's next message is looked at: it is not a first one any more.
-        return this.wroteTo(burst, job.userId);
+        // Before the member's next message is looked at: it is not a first one any more. The
+        // record goes on beside, holding none of the places (final review R1-7).
+        this.recordContact(burst, job.userId);
       })
       .catch((err: unknown) => {
         burst.failed += 1;
@@ -1258,7 +1301,10 @@ export class QueuedDmSender implements DmSender {
     if (abandoned > 0) {
       this.options.log.warn({ abandoned }, 'direct messages were still waiting at shutdown');
     }
-    await Promise.all(this.onTheirWay);
+    // A send that ends starts its record: both waited for, to the last (final review R1-7).
+    while (this.onTheirWay.size + this.recording.size > 0) {
+      await Promise.all([...this.onTheirWay, ...this.recording]);
+    }
     this.finishSafely();
   }
 }
