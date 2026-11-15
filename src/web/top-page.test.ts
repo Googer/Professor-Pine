@@ -236,6 +236,23 @@ describe('the top page', () => {
     expect(none.body).not.toContain('Once you have joined');
   });
 
+  it('names no server to join on an instance open to every server (final review R4-2)', async () => {
+    web = webServerWith({
+      openInstance: true,
+      serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
+      serversWithMap: [PINEWOOD, OAKVALE, ELMHURST],
+      members: new FakeMemberDirectory().add(ASH, 'Ash', PINEWOOD.id).add(ASH, 'Ash', ELMHURST.id),
+    });
+    const { body } = await web.app.inject({
+      url: '/',
+      headers: { cookie: await web.loggedIn(ASH, 'Ash') },
+    });
+    expect(body).toContain('<bdi>Pinewood</bdi>');
+    expect(body).not.toContain('Oakvale');
+    expect(body).not.toContain(OAK_INVITE);
+    expect(body).not.toContain('Servers you can join');
+  });
+
   it('says they are in no server here, with the servers they could join', async () => {
     web = webServerWith({
       serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),

@@ -788,6 +788,8 @@ export interface WebTestOptions {
   /** Changes of `TEST_WEB`. */
   web?: Partial<WebSettings>;
   servers?: WebDeps['servers'];
+  /** Whether the instance is open to every server (`servers: "open"`); not by default. */
+  openInstance?: boolean;
   /**
    * Each server's values (plan 19A-1): the test settings' by default; `withMapRole()` for a map
    * only members with its role count on.
@@ -1125,6 +1127,7 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
       inSetup: () => false,
       openToVisitors: () => true,
     },
+    openInstance: options.openInstance ?? false,
     serverSettings: options.serverSettings ?? new TestServers(),
     // The fakes' server names the map's role of the tests (`withMapRole`) `Verified`.
     roleName: (guildId, roleId) =>

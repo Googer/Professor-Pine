@@ -17,6 +17,7 @@ function facts(change: Partial<TopFacts> = {}): TopFacts {
     memberships: new Map(),
     invites: undefined,
     loginFailed: false,
+    openInstance: false,
     ...change,
   };
 }
@@ -143,6 +144,37 @@ describe('topAnswer', () => {
       notIn: true,
       partial: false,
     });
+  });
+
+  it('offers no server to join on an instance open to every server (final review R4-2)', () => {
+    const invites = { [OAKVALE.id]: OAK_INVITE, [ELMHURST.id]: ELM_INVITE };
+    const servers = [PINEWOOD, OAKVALE, ELMHURST];
+    // The invite stays on the server's own map, for visitors there; the top page names no
+    // server they are not in.
+    expect(
+      topAnswer(
+        ash(
+          { [PINEWOOD.id]: 'not', [OAKVALE.id]: 'not', [ELMHURST.id]: 'not' },
+          { servers, invites, openInstance: true },
+        ),
+      ),
+    ).toEqual({
+      kind: 'servers',
+      visitor: 'Ash',
+      yours: [],
+      toJoin: [],
+      notIn: true,
+      partial: false,
+    });
+    // With nothing to join, their one server's map at once.
+    expect(
+      topAnswer(
+        ash(
+          { [PINEWOOD.id]: 'member', [OAKVALE.id]: 'not', [ELMHURST.id]: 'not' },
+          { servers, invites, openInstance: true },
+        ),
+      ),
+    ).toEqual({ kind: 'redirect', to: `/s/${PINEWOOD.id}/map` });
   });
 
   it('names no server they are not in that has no invite (rule 5)', () => {

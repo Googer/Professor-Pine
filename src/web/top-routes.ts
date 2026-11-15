@@ -77,7 +77,7 @@ export function topRoutes(app: FastifyInstance, deps: WebDeps): void {
         visitor: session && { name: session.userName },
         discordLogin: deps.oauth !== undefined,
         memberships: session ? await memberships(servers, session.userId) : new Map(),
-        // Each server's invite (plan 19A-1: its values).
+        // Each server's invite (plan 19A-1: its values); none offered on an open instance.
         invites: Object.fromEntries(
           servers.flatMap((server) => {
             const invite = deps.serverSettings.of(server.id).invite;
@@ -85,6 +85,7 @@ export function topRoutes(app: FastifyInstance, deps: WebDeps): void {
           }),
         ),
         loginFailed: request.query.login === 'failed',
+        openInstance: deps.openInstance,
       });
       if (answer.kind === 'redirect') return reply.redirect(answer.to, 302);
       return reply

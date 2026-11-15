@@ -64,6 +64,11 @@ export interface WebDeps {
     inSetup(guildId: string): boolean;
     openToVisitors(guildId: string): boolean;
   };
+  /**
+   * Whether the instance is open to every server (`servers: "open"`): the top page then offers
+   * no server to join (final review R4-2).
+   */
+  openInstance: boolean;
   /** Each server's values (plan 19A-1): the map's member role, by id. */
   serverSettings: ServerSettingsLookup;
   /** A role's name as the server has it now, from the client's cache; undefined for one it lacks. */

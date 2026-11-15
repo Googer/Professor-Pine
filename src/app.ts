@@ -2166,6 +2166,7 @@ export async function startApp(
       pictureOrigins: pictureOrigins(webSettings.publicUrl),
       googleKey: config.env.GOOGLE_MAPS_BROWSER_KEY,
       servers: onWeb,
+      openInstance: isOpenInstance(config.settings),
       serverSettings: servers,
       roleName: (guildId, roleId) =>
         client.guilds.cache.get(guildId)?.roles.cache.get(roleId)?.name,

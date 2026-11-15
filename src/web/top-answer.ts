@@ -23,6 +23,11 @@ export interface TopFacts {
   invites: Readonly<Record<string, string>> | undefined;
   /** Whether the address carries `?login=failed`. */
   loginFailed: boolean;
+  /**
+   * Whether the instance is open to every server (`servers: "open"`): then no server is offered
+   * to join here (final review R4-2), its invite staying on its own map for visitors there.
+   */
+  openInstance: boolean;
 }
 
 /** A server the visitor could join, with its admin's invite. */
@@ -49,7 +54,8 @@ const byName = (a: MapServer, b: MapServer): number =>
  * The answer of `/` (plan 8M-14, the design's "Behavior"): with no server with a map, "no map
  * here yet" (a server with one that Discord has not made available counts); logged out, the login page whatever the number of servers, so that nobody logged
  * out learns any server's name or their count; logged in, the servers they are a member of and
- * those they could join by an invite of the settings, a server Discord has not made available
+ * those they could join by an invite of the settings (none on an open instance, final review
+ * R4-2), a server Discord has not made available
  * counting as a lookup that failed (never named). One server of theirs, none to join and
  * every lookup answered leads straight to its map. Pure: the lookups are the caller's.
  */
@@ -61,7 +67,9 @@ export function topAnswer(facts: TopFacts): TopAnswer {
     return { kind: 'login', discord: facts.discordLogin, failed };
   }
   const said = (server: MapServer): Membership => facts.memberships.get(server.id) ?? 'unknown';
-  const invites = facts.invites ?? {};
+  // On an open instance any server may have Pine, and staff who set an invite for their map's
+  // visitors did not ask to be listed to every account (final review R4-2).
+  const invites = facts.openInstance ? {} : (facts.invites ?? {});
   const yours = facts.servers.filter((server) => said(server) === 'member').sort(byName);
   const toJoin = facts.servers
     .filter((server) => said(server) === 'not' && Object.hasOwn(invites, server.id))
