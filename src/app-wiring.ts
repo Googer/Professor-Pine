@@ -295,19 +295,47 @@ export function backAfterDeletion(deps: {
 
 /**
  * Whether the web serves a server the bot's client has (plan 19C-1; fix round 1, 3b): not one
- * Pine left, nor one whose data is being deleted (`pending`): either is answered as a server Pine
- * is not in.
+ * Pine left, nor one whose data is being deleted (`pending`), nor one that may not have this Pine
+ * (final review R4-3: blocked while its leave is tried again, refused in rehearsal mode, a new
+ * install's waiting for the owner's word): each is answered as a server Pine is not in.
  */
 export function servedOnWeb(
-  standings: Pick<ServerStandings, 'isLeft' | 'pending'>,
+  standings: Pick<ServerStandings, 'isLeft' | 'pending' | 'mayHave'>,
 ): (serverId: string) => boolean {
-  return (serverId) => !standings.isLeft(serverId) && !standings.pending(serverId);
+  return (serverId) =>
+    !standings.isLeft(serverId) && !standings.pending(serverId) && standings.mayHave(serverId);
+}
+
+/**
+ * What follows a server that becomes quiet or no more so by its standing (final review R6-4):
+ * one an operator blocked, unblocked or allowed (`whenStandingChanged`; it may have this Pine, or
+ * not, while Pine is still in it: `QuietServers`), as one that leaves or comes back
+ * (`whenLeftChanged`): the posts that show, or would show, its parties in its neighbors' are
+ * drawn anew (`PartyService.neighborsQuietChanged`); and of an operator's change the zones in use
+ * are read again (`ServerSettings.presenceChanged`: they are those of the servers not quiet;
+ * joining and removing read them in `followServers`).
+ */
+export function followStandings(
+  standings: Pick<ServerStandings, 'whenLeftChanged' | 'whenStandingChanged'>,
+  deps: {
+    neighborsQuietChanged: (serverIds: readonly string[]) => void;
+    presenceChanged: () => void;
+  },
+): void {
+  standings.whenLeftChanged(({ left, back }) => {
+    deps.neighborsQuietChanged([...left, ...back]);
+  });
+  standings.whenStandingChanged((serverId) => {
+    deps.neighborsQuietChanged([serverId]);
+    deps.presenceChanged();
+  });
 }
 
 /**
  * The servers of the web pages (`WebDeps.servers`), which `hiddenFrom` reads as one rule: a server
  * the client has (`has`) and the web serves (`servedOnWeb`: not left, plan 19C-1, nor being
- * deleted, plan 19C-3), else answered as a server Pine is not in, to everybody; whether it is in
+ * deleted, plan 19C-3, and it may have this Pine, final review R4-3), else answered as a server
+ * Pine is not in, to everybody; whether it is in
  * setup (plan 19C-2); whether its map is open to visitors who are not logged in (plan 19C-4,
  * `publicMapOn`, by the instance's `servers` being `"open"`). `listed`: served and not in setup,
  * the servers the top page may name (`topPageServers`) and whose regions' outlines another
@@ -315,7 +343,7 @@ export function servedOnWeb(
  */
 export function webServers(deps: {
   has: (serverId: string) => boolean;
-  standings: Pick<ServerStandings, 'isLeft' | 'pending'>;
+  standings: Pick<ServerStandings, 'isLeft' | 'pending' | 'mayHave'>;
   servers: {
     inSetup(serverId: string): boolean;
     of(serverId: string): { publicMap?: boolean };

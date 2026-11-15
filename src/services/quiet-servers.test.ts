@@ -11,6 +11,7 @@ import { TestServers } from '../../test/support/server-values.js';
 import type { MemoryAccessGrants } from '../../test/support/party-service.js';
 import { MODERATOR, SAFETY_SERVER } from '../../test/support/meetup-safety-cases.js';
 import { meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
+import { standingsWith } from '../../test/support/server-standings.js';
 import { quietServers, type QuietServers } from './quiet-servers.js';
 
 const DAY = 24 * 3_600_000;
@@ -216,7 +217,10 @@ describe('a server in setup (plan 19C-2)', () => {
     left.servers.add(LEFT);
     const servers = new TestServers();
     servers.settingUp.add(NEW);
-    const quiet = quietServers({ isLeft: (serverId) => left.isQuiet(serverId) }, servers);
+    const quiet = quietServers(
+      { isLeft: (serverId) => left.isQuiet(serverId), mayHave: () => true },
+      servers,
+    );
     expect(quiet.isQuiet(LEFT)).toBe(true);
     expect(quiet.isQuiet(NEW)).toBe(true);
     expect(quiet.isQuiet(FAKE_GUILD_ID)).toBe(false);
@@ -225,7 +229,7 @@ describe('a server in setup (plan 19C-2)', () => {
   it('has no summary made in its regions until it is set up', async () => {
     const servers = new TestServers();
     const made = await partyServiceWith([], {
-      quiet: quietServers({ isLeft: () => false }, servers),
+      quiet: quietServers({ isLeft: () => false, mayHave: () => true }, servers),
     });
     servers.settingUp.add(made.gateway.guildId);
     const before = made.gateway.calls.length;
@@ -234,5 +238,28 @@ describe('a server in setup (plan 19C-2)', () => {
     servers.settingUp.delete(made.gateway.guildId);
     await made.service.checkSummaries();
     expect(made.gateway.calls.length).toBeGreaterThan(before);
+  });
+});
+
+describe('a server Pine is in that may not have it (final review R4-3)', () => {
+  const BLOCKED_SERVER = '412345678901234597';
+  const NEVER_ALLOWED = '412345678901234596';
+  const OPERATOR = '323456789012345678';
+
+  it('is quiet while Pine is still in it, blocked or never allowed, and no more once allowed', async () => {
+    const { standings } = standingsWith({ recorded: [FAKE_GUILD_ID, BLOCKED_SERVER] });
+    await standings.load();
+    // Blocked: its leave failed, and is tried again meanwhile.
+    await standings.block(BLOCKED_SERVER, OPERATOR);
+    const quiet = quietServers(standings, new TestServers());
+    expect(quiet.isQuiet(FAKE_GUILD_ID)).toBe(false);
+    expect(quiet.isQuiet(BLOCKED_SERVER)).toBe(true);
+    // Neither listed nor recorded nor allowed (a refusal in rehearsal mode, a new install's
+    // server waiting for the owner's word).
+    expect(quiet.isQuiet(NEVER_ALLOWED)).toBe(true);
+    await standings.unblock(BLOCKED_SERVER);
+    await standings.allow(NEVER_ALLOWED, OPERATOR);
+    expect(quiet.isQuiet(BLOCKED_SERVER)).toBe(false);
+    expect(quiet.isQuiet(NEVER_ALLOWED)).toBe(false);
   });
 });

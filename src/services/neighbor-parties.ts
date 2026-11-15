@@ -12,7 +12,10 @@ export interface NeighborParty {
 
 export interface NeighborPartiesOptions {
   neighbors: Pick<ServerNeighbors, 'neighborsOf'>;
-  /** The quiet servers (left or in setup): nothing of theirs is shown, nor shows theirs. */
+  /**
+   * The quiet servers (left, may not have this Pine, or in setup): nothing of theirs is shown,
+   * nor shows theirs.
+   */
   quiet?: QuietServers;
   matches: Pick<NeighborMatches, 'sameGym' | 'sameSpot' | 'changesOf'>;
   /** A server's `Guild` row, and a row's server (every row read at the start). */

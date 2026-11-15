@@ -36,6 +36,7 @@ import {
   eventsFeedStep,
   followLeaving,
   followServers,
+  followStandings,
   followZones,
   liveSources,
   notOfQuietServers,
@@ -1067,6 +1068,40 @@ describe('what the web answers of a server (plan 19C-3, fix round 1)', () => {
     await standings.load();
     const served = servedOnWeb(standings);
     expect([BEING, BACK, LEFT].filter(served)).toEqual([BACK]);
+  });
+
+  it('answers a server Pine is in that may not have it as one Pine is not in (final review R4-3)', async () => {
+    const BLOCKED = '412345678901234567';
+    const KEPT = '412345678901234568';
+    const NEVER_ALLOWED = '412345678901234569';
+    const { standings } = standingsWith({ recorded: [BLOCKED, KEPT] });
+    await standings.load();
+    await standings.block(BLOCKED, '323456789012345678');
+    const served = servedOnWeb(standings);
+    expect([BLOCKED, KEPT, NEVER_ALLOWED].filter(served)).toEqual([KEPT]);
+  });
+});
+
+describe('what follows a server’s standing (final review R6-4)', () => {
+  it('redraws the neighbors’ posts and reads the zones in use again when a server is blocked, unblocked or allowed, as when it leaves or comes back', async () => {
+    const SERVER = '412345678901234567';
+    const OTHER = '412345678901234568';
+    const { standings } = standingsWith({ recorded: [SERVER, OTHER] });
+    await standings.load();
+    const redrawn: string[][] = [];
+    let zonesRead = 0;
+    followStandings(standings, {
+      neighborsQuietChanged: (serverIds) => redrawn.push([...serverIds]),
+      presenceChanged: () => {
+        zonesRead += 1;
+      },
+    });
+    await standings.block(SERVER, '323456789012345678');
+    await standings.unblock(SERVER);
+    await standings.markLeft([OTHER]);
+    await standings.cameBack([OTHER]);
+    expect(redrawn).toEqual([[SERVER], [SERVER], [OTHER], [OTHER]]);
+    expect(zonesRead).toBe(2);
   });
 });
 
