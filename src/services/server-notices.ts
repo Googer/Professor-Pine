@@ -1,10 +1,14 @@
-import { BoundedMap } from '../bounded-map.js';
+import { ServerBoundedMap } from '../bounded-map.js';
 import type { PartyGateway } from '../discord/party-gateway.js';
 import type { Logger } from '../log.js';
 import type { ServerSettingsLookup } from './server-settings.js';
 import type { LeftServers } from './server-standings.js';
 
-/** How many notices (server and key) are remembered as said; the oldest go first. */
+/**
+ * How many notices (server and key) are remembered as said, and as logged: the oldest of the server
+ * holding the most go first (`ServerBoundedMap`, final review R4-6), so that one server's many
+ * notices never push out another's, which would be told again.
+ */
 const REMEMBERED = 10_000;
 
 export interface ServerNoticesOptions {
@@ -20,6 +24,8 @@ export interface ServerNoticesOptions {
    * said, so that a server back hears it at the next occasion.
    */
   left?: LeftServers;
+  /** How many notices are remembered as said, and as logged (`REMEMBERED` unless given: tests). */
+  remembered?: number;
   log: Logger;
 }
 
@@ -27,20 +33,24 @@ export interface ServerNoticesOptions {
  * What is wrong with one server's setup, told to that server's own staff (plan 19B-1; spec "Alerts
  * and logs"): a channel gone, a permission missing. Never the owner's: the owner's alerts are
  * about the instance (`OwnerAlerts`, the stale boss feed). A notice goes into the server's
- * moderators' bot lab, at most once per server and key while the bot runs (a `BoundedMap`: a
+ * moderators' bot lab, at most once per server and key while the bot runs (a `ServerBoundedMap`: a
  * restart says it again, as the logs did), plain text that names no member and pings nobody. It
  * counts as said only once it was sent: where the server has no lab, or the lab refuses it, it is
  * logged with the server's id (once per server, key and reason) and told at the next occasion,
  * so a lab set or fixed later hears of it.
  */
 export class ServerNotices {
-  private readonly said = new BoundedMap<string, true>(REMEMBERED);
+  /** What was said, by server and key. */
+  private readonly said: ServerBoundedMap<string, true>;
   /** What was logged as not said, by server, key and why: logged once. */
-  private readonly logged = new BoundedMap<string, true>(REMEMBERED);
+  private readonly logged: ServerBoundedMap<string, true>;
   /** The notices on their way, by server and key. */
   private readonly sending = new Map<string, Promise<void>>();
 
-  constructor(private readonly options: ServerNoticesOptions) {}
+  constructor(private readonly options: ServerNoticesOptions) {
+    this.said = new ServerBoundedMap(options.remembered ?? REMEMBERED);
+    this.logged = new ServerBoundedMap(options.remembered ?? REMEMBERED);
+  }
 
   /**
    * Tells the server's staff `text` under `key` (what it is about, such as
@@ -50,19 +60,19 @@ export class ServerNotices {
   tell(serverId: string, key: string, text: string): void {
     const { servers, send } = this.options;
     const told = `${serverId}:${key}`;
-    if (this.said.has(told) || this.sending.has(told)) return;
+    if (this.said.has(serverId, key) || this.sending.has(told)) return;
     if (this.options.left?.isLeft(serverId) === true) return;
     const about = { server: serverId, notice: key, text };
     let lab: string | undefined;
     try {
       lab = servers.of(serverId).channels['mod-bot-lab'];
     } catch (err) {
-      this.logOnce(told, 'settings', { err, ...about }, 'could not read a server’s settings');
+      this.logOnce(about, 'settings', { err, ...about }, 'could not read a server’s settings');
       return;
     }
     if (lab === undefined) {
       this.logOnce(
-        told,
+        about,
         'no-lab',
         about,
         'a server has no moderators’ bot lab: a notice for its staff is only logged',
@@ -73,10 +83,10 @@ export class ServerNotices {
     const sent: Promise<void> = (async () => {
       try {
         await send(lab, text);
-        this.said.set(told, true);
+        this.said.set(serverId, key, true);
       } catch (err) {
         this.logOnce(
-          told,
+          about,
           'refused',
           { err, ...about },
           'could not tell a server’s staff in its moderators’ bot lab',
@@ -88,14 +98,11 @@ export class ServerNotices {
 
   /**
    * Forgets what was said and logged of a server whose data was deleted (plan 19C-3,
-   * `forgetServerMemory`): added back, it starts anew, and hears each notice again. A pass over
-   * what is remembered (at most `REMEMBERED` of each), once per deleted server.
+   * `forgetServerMemory`): added back, it starts anew, and hears each notice again.
    */
   forget(serverId: string): void {
-    const of = `${serverId}:`;
-    for (const remembered of [this.said, this.logged]) {
-      for (const key of remembered.keys()) if (key.startsWith(of)) remembered.delete(key);
-    }
+    this.said.forgetServer(serverId);
+    this.logged.forgetServer(serverId);
   }
 
   /** Waits for the notices on their way. For tests and the shutdown, before the client goes. */
@@ -103,10 +110,15 @@ export class ServerNotices {
     while (this.sending.size > 0) await Promise.allSettled([...this.sending.values()]);
   }
 
-  private logOnce(told: string, why: string, fields: object, msg: string): void {
-    const key = `${told}:${why}`;
-    if (this.logged.has(key)) return;
-    this.logged.set(key, true);
+  private logOnce(
+    about: { server: string; notice: string },
+    why: string,
+    fields: object,
+    msg: string,
+  ): void {
+    const key = `${about.notice}:${why}`;
+    if (this.logged.has(about.server, key)) return;
+    this.logged.set(about.server, key, true);
     this.options.log.warn(fields, msg);
   }
 }

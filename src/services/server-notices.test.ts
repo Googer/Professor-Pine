@@ -113,6 +113,41 @@ describe('ServerNotices (plan 19B-1)', () => {
     expect(entries.filter((entry) => entry['server'] === NO_LAB)).toHaveLength(2);
   });
 
+  it('forgets one server’s own notices first when it says many, never another’s (final review R4-6)', async () => {
+    const servers = new TestServers(testServerValues({ channels: { 'mod-bot-lab': LAB } }));
+    servers.changed.set(OTHER, testServerValues({ channels: {} }));
+    const { log, entries } = createTestLogger();
+    const sent: string[] = [];
+    const notices = new ServerNotices({
+      servers,
+      send: (channelId) => {
+        sent.push(channelId);
+        return Promise.resolve();
+      },
+      remembered: 4,
+      log,
+    });
+    // The other server has no lab, so its notice is logged; then it gets one, and it is said.
+    notices.tell(OTHER, 'meetup-safety:gone', 'The moderators’ channel is gone.');
+    await notices.flush();
+    servers.changed.set(OTHER, testServerValues({ channels: { 'mod-bot-lab': OTHER_LAB } }));
+    notices.tell(OTHER, 'bot-updates:gone', 'The bot updates channel is gone.');
+    await notices.flush();
+    // One server's many forums refused, each its own notice.
+    for (let forum = 0; forum < 10; forum++) {
+      notices.tell(SERVER, `forum-posts:${String(forum)}`, 'I may not post in a forum.');
+    }
+    await notices.flush();
+    servers.changed.set(OTHER, testServerValues({ channels: {} }));
+    notices.tell(OTHER, 'meetup-safety:gone', 'The moderators’ channel is gone.');
+    servers.changed.set(OTHER, testServerValues({ channels: { 'mod-bot-lab': OTHER_LAB } }));
+    notices.tell(OTHER, 'bot-updates:gone', 'The bot updates channel is gone.');
+    await notices.flush();
+    // The other server was told once, and its missing lab logged once.
+    expect(sent.filter((lab) => lab === OTHER_LAB)).toHaveLength(1);
+    expect(entries.filter((entry) => entry['server'] === OTHER)).toHaveLength(1);
+  });
+
   it('marks a notice said only once it was sent: a refusal or a lab set later tells it again', async () => {
     let refusing = true;
     const sent: string[] = [];

@@ -94,4 +94,21 @@ describe('ServerBoundedMap (plan 19B-5)', () => {
     expect(map.has('home', 'x')).toBe(false);
     expect(map.size).toBe(2);
   });
+
+  it('forgets every entry of one server, and none of another’s (final review R4-6)', () => {
+    const map = new ServerBoundedMap<string, number>(4);
+    map.set('home', 'x', 1);
+    map.set('home', 'y', 2);
+    map.set('away', 'x', 3);
+    map.forgetServer('home');
+    map.forgetServer('nowhere');
+    expect(map.has('home', 'x')).toBe(false);
+    expect(map.has('home', 'y')).toBe(false);
+    expect(map.get('away', 'x')).toBe(3);
+    expect(map.size).toBe(1);
+    // Its room is free again: three more fit beside Away's.
+    for (const key of ['a', 'b', 'c']) map.set('home', key, 0);
+    expect(map.get('away', 'x')).toBe(3);
+    expect(map.size).toBe(4);
+  });
 });
