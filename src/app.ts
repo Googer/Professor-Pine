@@ -807,6 +807,8 @@ export async function startApp(
       formReader(() => gameData.catalogue),
     ),
     servers,
+    // A quiet server's wants are not counted (final review R2-1).
+    quiet,
     log,
   });
   // The legacy fill-ins members ask for in /settings (plan 8H-10): only where the installation
