@@ -13,8 +13,9 @@ import {
   type NewBossOverride,
   type RaidBoss,
 } from '../../src/domain/pogo/raid-bosses.js';
+import { raidBossCp } from '../../src/domain/pogo/cp.js';
 import type { RaidTier } from '../../src/domain/pogo/raid-tier.js';
-import { sameRaidTier } from '../../src/domain/pogo/raid-tier.js';
+import { bossStamina, sameRaidTier } from '../../src/domain/pogo/raid-tier.js';
 import {
   RaidBossService,
   type FetchFeed,
@@ -191,6 +192,51 @@ export function raidBossesFixture(overrides: readonly BossOverride[] = []): Fixt
     bossesOf: (tier) => bosses().filter((boss) => sameRaidTier(boss.tier, tier)),
     autoset: (tier) => autosetBoss(bosses(), tier),
   };
+}
+
+/** Black and White Kyurem: one raid CP at a tier, and the game names both "Kyurem". */
+export const KYUREM_TWINS = ['kyurem_black', 'kyurem_white'] as const;
+
+const TWINS_TIER: RaidTier = { level: 'T5', shadow: false };
+
+/** A boss of the game-data fixture at a tier, as an add of the moderators makes it. */
+function catalogueBoss(key: string, tier: RaidTier): RaidBoss {
+  const entry = catalogueFixture().byKey(key);
+  if (!entry) throw new Error(`the game-data fixture has no ${key}`);
+  return {
+    pokemonId: key.split('_')[0]?.toUpperCase() ?? key,
+    form: key.toUpperCase(),
+    key,
+    tier,
+    shiny: false,
+    name: entry.name,
+    entry,
+    source: 'override',
+    autoset: false,
+  };
+}
+
+/**
+ * The fixture's boss list with Black and White Kyurem at T5 (2026-11-15): two bosses of one raid
+ * CP (`KYUREM_CP`) whose screen names both "Kyurem", which a screenshot cannot tell apart.
+ */
+export function kyuremBossesFixture(): FixtureRaidBosses {
+  const base = raidBossesFixture();
+  const twins = KYUREM_TWINS.map((key) => catalogueBoss(key, TWINS_TIER));
+  let kept: RaidBoss[] | undefined;
+  const bosses = () => (kept ??= [...base.bosses(), ...twins]);
+  return {
+    bosses,
+    bossesOf: (tier) => bosses().filter((boss) => sameRaidTier(boss.tier, tier)),
+    autoset: (tier) => autosetBoss(bosses(), tier),
+  };
+}
+
+/** The raid CP of Black and White Kyurem at T5: one number for both. */
+export function kyuremCp(): number {
+  const entry = catalogueFixture().byKey(KYUREM_TWINS[0]);
+  if (!entry) throw new Error('the game-data fixture has no Kyurem');
+  return raidBossCp(entry.stats, bossStamina(TWINS_TIER));
 }
 
 /** A response of the feed's address, as `RaidBossService` reads it. */

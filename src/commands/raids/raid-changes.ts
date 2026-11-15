@@ -2,6 +2,7 @@ import type { AppContext } from '../../app-context.js';
 import { UserError } from '../../discord/errors.js';
 import type { RaidParty } from '../../domain/party/party.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
+import type { RaidTier } from '../../domain/pogo/raid-tier.js';
 import { manageWords, type RaidChangeAsked } from '../../domain/web/raid-manage.js';
 import { matchNamed } from '../../domain/search/word-match.js';
 import { postsRefusedMoveWords, problemText } from '../../render/activity.js';
@@ -125,6 +126,8 @@ export async function changeRaidTime(
 /**
  * Sets the boss of a raid, or the tier of its egg, from what a member typed or picked (`/boss`,
  * the map), read as `/raid` reads it. Throws a `UserError` for what names no boss or tier.
+ * `open`: only while the raid is still hatched, of that tier and without a boss (a screenshot's
+ * question which boss it is, 2026-11-15; `RaidChangeService.setBoss`).
  */
 export async function changeRaidBoss(
   ctx: RaidChanging,
@@ -132,6 +135,7 @@ export async function changeRaidBoss(
   member: Member,
   text: string,
   post?: PostNamer,
+  open?: { tier: RaidTier },
 ): Promise<RaidChangeAnswer> {
   const reported = reportedBoss(
     ctx,
@@ -139,7 +143,7 @@ export async function changeRaidBoss(
     text,
     ctx.partyService.zoneOf(party),
   );
-  const outcome = await ctx.raids.setBoss(party.id, member, reported);
+  const outcome = await ctx.raids.setBoss(party.id, member, reported, open);
   return raidChangeAnswer(
     ctx.attendance.limits(),
     outcome,

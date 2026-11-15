@@ -37,8 +37,15 @@ import {
 } from '../../render/screenshot-reading.js';
 import { SCREENSHOT_FEEDBACK } from '../../render/party-controls.js';
 import { gymNamerOf } from './gym-question.js';
-import { cancelShot, chooseShotGym, chooseShotSpot, confirmShot } from './mention.js';
+import {
+  cancelShot,
+  chooseShotBoss,
+  chooseShotGym,
+  chooseShotSpot,
+  confirmShot,
+} from './mention.js';
 import { SHOT_KIND } from './shot-kind.js';
+import { BOSS_ACTION } from './boss-question.js';
 import { passiveIn } from './read-screenshot.js';
 
 /** The ids of the form's two inputs. */
@@ -321,6 +328,9 @@ export const screenshotControls: ComponentHandler = {
         return cancelShot(interaction, id.id);
       case 'yes':
         return confirmShot(interaction, id.id, ctx);
+      // Which boss a raid made from the screenshot is (2026-11-15).
+      case BOSS_ACTION:
+        return chooseShotBoss(interaction, id.id, id.args[0], ctx);
       default:
         throw new UserError(STALE_COMPONENT);
     }

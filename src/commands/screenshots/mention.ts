@@ -65,6 +65,14 @@ import {
   type MaxShotRequest,
 } from '../max/max-shot.js';
 import { passiveIn } from './read-screenshot.js';
+import {
+  bossQuestionOf,
+  bossQuestionText,
+  bossRows,
+  chosenBoss,
+  setChosenBoss,
+  type BossQuestion,
+} from './boss-question.js';
 
 /**
  * A raid screenshot posted in a region channel with a mention of the bot (or, with
@@ -208,6 +216,11 @@ interface Batch {
   /** Called when one more image made or joined a raid: the message goes when all have. */
   finish: () => Promise<void>;
   /**
+   * Asks the message's author which boss a raid a screenshot of it made is, when its CP fitted
+   * several (2026-11-15; `ScreenshotTrigger.askBoss`); nothing from the board.
+   */
+  askBoss: (question: BossQuestion | undefined) => Promise<void>;
+  /**
    * Read because a member asked (plan 7M, `readFor`): a raid or battle made is said in the
    * reply too (it is all the member is answered with; the channel's link line is everybody's),
    * the message may be old, so each screenshot is decided at the time it is read
@@ -257,7 +270,17 @@ type MaxRead = Extract<ScreenshotOutcome, { kind: 'read'; screen: 'max' }>;
  * (`gym`), or which Power Spot of a max battle's (`spot`, plan 8X-S), or whether to report a clear
  * place of another region there (either kind, its one place).
  */
-type PendingShot = PendingGym | PendingSpot;
+type PendingShot = PendingGym | PendingSpot | PendingBoss;
+
+/**
+ * The question which boss a raid the screenshot made is (2026-11-15, `boss-question.ts`): asked
+ * once the raid is made, so it carries no batch, use or `again` of its own.
+ */
+interface PendingBoss extends BossQuestion {
+  kind: 'boss';
+  /** How long the question stays (set once it is sent): `ReplyKeep`. */
+  keep?: ReplyKeep;
+}
 
 interface PendingGym extends PendingCommon {
   kind: 'gym';
@@ -631,6 +654,7 @@ export class ScreenshotTrigger {
       made: 0,
       done: false,
       finish: () => this.finished(batch),
+      askBoss: (question) => this.askBoss(batch, passive, question),
       ...(asker ? { asker } : {}),
     };
     const refusals = new Map<string, number>();
@@ -911,6 +935,8 @@ export class ScreenshotTrigger {
       made: 0,
       done: true,
       finish: nothing,
+      // Nothing is asked in the board (B11).
+      askBoss: nothing,
       board: true,
     };
     let stopped: Exclude<ScreenshotOutcome, { kind: 'read' }> | undefined;
@@ -1089,8 +1115,10 @@ export class ScreenshotTrigger {
       });
       if (reported.kind === 'exists') return { kind: 'made', exists: outcomeWords(reported, gym) };
       // A new raid is said by its link line in the channel; from the board, by DM too, and to
-      // a member who asked in their answer.
+      // a member who asked in their answer. Made without its boss, of several its CP fits, its
+      // author is asked which.
       if (reported.kind === 'created') {
+        await batch.askBoss(bossQuestionOf(decision.raid, reported.party, gymWords(gym), id));
         return batch.board || batch.asker
           ? { kind: 'made', exists: outcomeWords(reported, gym) }
           : { kind: 'made' };
@@ -1463,6 +1491,36 @@ export class ScreenshotTrigger {
     else await message.react(DONE).catch(() => undefined);
   }
 
+  /**
+   * Asks the batch's author which boss the raid a screenshot made is, of the bosses its CP fits
+   * (2026-11-15; `boss-question.ts`), in a reply as the gym question is asked: only they may
+   * answer, it goes at a question's time, and read passively it pings them. A reply that cannot
+   * be sent (the message was deleted meanwhile) asks nothing: the raid stays without its boss,
+   * which Manage… of its post sets.
+   */
+  private async askBoss(
+    batch: Pick<Batch, 'message' | 'asker'>,
+    passive: boolean,
+    question: BossQuestion | undefined,
+  ): Promise<void> {
+    if (!question) return;
+    const { message } = batch;
+    const pending: PendingBoss = { kind: 'boss', ...question };
+    const token = pendingShots.put(authorOf(message), pending);
+    const text = bossQuestionText(question);
+    pending.keep = await this.say(
+      batch,
+      {
+        content: passive ? `<@${message.authorId}> ${text}` : text,
+        components: bossRows(SHOT_KIND, token, question, 'cancel'),
+        ...(passive ? { ping: message.authorId } : {}),
+      },
+      this.options.questionMs ?? QUESTION_MS,
+      () => pendingShots.take(token, authorOf(message)),
+    );
+    if (!pending.keep) pendingShots.take(token, authorOf(message));
+  }
+
   /** Deletes a message whose screenshots were all answered. */
   private async letGo(message: PostedMessage): Promise<void> {
     await message.delete().catch((err: unknown) => {
@@ -1683,9 +1741,14 @@ async function reportShot(
   return outcome;
 }
 
+/** A gym as the answers name it: its nickname, else its name. */
+function gymWords(gym: Gym): string {
+  return plain(gym.nickname || gym.name);
+}
+
 /** What came of a report, in a short sentence. */
 function outcomeWords(outcome: ShotOutcome, gym: Gym): string {
-  const name = plain(gym.nickname || gym.name);
+  const name = gymWords(gym);
   switch (outcome.kind) {
     case 'created':
       return outcome.party.forumPostId === null
@@ -1817,11 +1880,45 @@ export async function confirmShot(
     await interaction.update({ content: expiredWords(interaction), components: [] });
     return;
   }
+  if (request.kind === 'boss') throw new UserError(expiredWords(interaction));
   if (request.kind === 'spot') {
     await answerSpot(interaction, token, ctx, request, request.spotIds[0], false);
     return;
   }
   await answerShot(interaction, token, ctx, request, request.gymIds[0], false);
+}
+
+/**
+ * A boss chosen under the question which boss a raid the screenshot made is (2026-11-15,
+ * `shot:<token>:boss:<n>`, `n` checked against the question's bosses): its boss is set as
+ * Manage… sets it, only while the raid still has none (`setChosenBoss`), and the question says
+ * what came of it.
+ */
+export async function chooseShotBoss(
+  interaction: ButtonInteraction,
+  token: string,
+  arg: string | undefined,
+  ctx: AppContext,
+): Promise<void> {
+  if (await answeredAlready(interaction, token)) return;
+  const request = peeked(interaction, token);
+  if (!request) {
+    await interaction.update({ content: expiredWords(interaction), components: [] });
+    return;
+  }
+  const boss = request.kind === 'boss' ? chosenBoss(request, arg) : undefined;
+  if (request.kind !== 'boss' || !boss) throw new UserError(expiredWords(interaction));
+  if (!(await taken(interaction, token, request))) return;
+  let words: string;
+  try {
+    words = await setChosenBoss(interaction, ctx, request, boss);
+  } catch (err) {
+    await interaction
+      .editReply({ content: 'Nothing was changed.', components: [] })
+      .catch(() => undefined);
+    throw err;
+  }
+  await answerInPlace(interaction, words);
 }
 
 /**
@@ -1857,7 +1954,7 @@ async function taken(
 async function askedAgain(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   token: string,
-  request: PendingShot,
+  request: PendingGym | PendingSpot,
 ): Promise<boolean> {
   if (!request.keep?.askAgain()) return false;
   answeredShots.delete(token);
@@ -1895,7 +1992,7 @@ async function answerInPlace(
 }
 
 /** The author's message has one more image that made or joined a party. */
-async function madeOne(request: PendingShot): Promise<void> {
+async function madeOne(request: PendingGym | PendingSpot): Promise<void> {
   request.batch.made++;
   await request.batch.finish();
 }
@@ -1944,6 +2041,12 @@ async function answerShot(
   if (picked && request.screenshotId !== undefined)
     await ctx.screenshots.picked(request.screenshotId, gym.id);
   await answerInPlace(interaction, outcomeWords(outcome, gym));
+  // Made without its boss, of several its CP fits: its author is asked which.
+  if (outcome.kind === 'created') {
+    await request.batch.askBoss(
+      bossQuestionOf(request.raid, outcome.party, gymWords(gym), request.screenshotId),
+    );
+  }
   if (outcome.kind === 'created' || outcome.kind === 'exists') await madeOne(request);
 }
 

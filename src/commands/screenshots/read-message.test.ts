@@ -19,8 +19,10 @@ import { partyServiceWith } from '../../../test/support/party-service.js';
 import { AUTHOR, OTHER, posted } from '../../../test/support/posted-message.js';
 import { gymsFixture } from '../../../test/support/providers.js';
 import { screenshotsWith } from '../../../test/support/screenshot-service.js';
-import { eggReading, readingOf } from '../../../test/support/screenshots.js';
+import { kyuremBossesFixture } from '../../../test/support/raid-bosses.js';
+import { eggReading, kyuremReading, readingOf } from '../../../test/support/screenshots.js';
 import { createTestContext } from '../../../test/support/test-context.js';
+import type { AppContext } from '../../app-context.js';
 import type { Config } from '../../config/index.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import { enabledMessageCommands } from '../../discord/command.js';
@@ -44,15 +46,19 @@ const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 const NO_PINGS = { parse: [] };
 
-async function setup(options: { gyms?: Gym[] } = {}) {
+async function setup(options: { gyms?: Gym[]; raidBosses?: AppContext['raidBosses'] } = {}) {
   const gyms = gymsFixture(options.gyms ?? []);
+  const bosses = options.raidBosses ? { raidBosses: options.raidBosses } : {};
   const made = await partyServiceWith([], { gyms });
-  const shots = screenshotsWith(createTestContext({ gyms }).ctx);
+  const shots = screenshotsWith(createTestContext({ gyms, ...bosses }).ctx);
   const { ctx: base, entries } = createTestContext({
     gyms,
+    ...bosses,
     partyService: made.service,
     parties: made.store,
     regions: made.regions,
+    raids: made.raids,
+    attendance: made.attendance,
     screenshots: shots.screenshots,
   });
   const ocr = { ...base.config.settings.ocr, passive: false, enabled: true };
@@ -234,6 +240,33 @@ describe('Read screenshot (the Apps menu of a message, plan 7M)', () => {
     expect(interaction.deleteReply.mock.calls).toEqual([[]]);
     vi.advanceTimersByTime(60 * MINUTE);
     expect(interaction.deleteReply.mock.calls).toEqual([[]]);
+  });
+
+  it('asks the member privately which boss a raid it made is, when the CP fits several (2026-11-15)', async () => {
+    const { use, image, router, store } = await setup({ raidBosses: kyuremBossesFixture() });
+    const { interaction } = await use([image('a.png', kyuremReading('Old Stone Fountain', CLOCK))]);
+    const question = sent(interaction.editReply);
+    expect(question).toMatchObject({
+      content: 'Which boss is the raid at Old Stone Fountain?',
+      allowedMentions: NO_PINGS,
+    });
+    const outcome = sent(interaction.followUp);
+    expect(outcome.content).toMatch(/^Reported the raid at Old Stone Fountain: <#\d+>\.$/);
+    expect(outcome.flags).toBe(MessageFlags.Ephemeral);
+    const buttons = (question.components ?? []).flatMap(
+      (row) => (row as { components: { custom_id: string; label: string }[] }).components,
+    );
+    const white = buttons.find((button) => button.label === 'White Kyurem')?.custom_id ?? '';
+    // The author of the message cannot answer it, as no stranger can.
+    const author = fakeButton({ customId: white, userId: AUTHOR, ephemeralMessage: true });
+    await router.handle(author as never);
+    expect(sent(author.reply).content).toBe('That is somebody else’s screenshot.');
+    const pick = fakeButton({ customId: white, userId: OTHER, ephemeralMessage: true });
+    await router.handle(pick as never);
+    expect(sent(pick.editReply).content).toBe(
+      'Set the boss of the raid at Old Stone Fountain to White Kyurem.',
+    );
+    expect(asRaid(store.active()[0]).raid.boss).toEqual({ key: 'kyurem_white' });
   });
 
   it('leaves a raid’s line, and a question’s answer, until the member dismisses them (review F8)', async () => {

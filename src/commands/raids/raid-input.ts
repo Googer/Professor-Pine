@@ -80,7 +80,8 @@ export function allTiers(): RaidTier[] {
 }
 
 /** What picking a boss of the list says (`b:yveltal:T5:0`), which `reportedBoss` reads back. */
-export const bossChoiceValue = (boss: RaidBoss): string => `b:${boss.key}:${tierCode(boss.tier)}`;
+export const bossChoiceValue = (boss: Pick<RaidBoss, 'key' | 'tier'>): string =>
+  `b:${boss.key}:${tierCode(boss.tier)}`;
 
 /** What picking the egg of a tier says (`e:T5:0`), which `reportedBoss` reads back. */
 export const eggChoiceValue = (tier: RaidTier): string => `e:${tierCode(tier)}`;
