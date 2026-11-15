@@ -157,6 +157,149 @@ describe('the env file of ./pine', () => {
   );
 });
 
+// compose.yaml binds BACKUP_DIR (blank: ./backups) into the backup service with the long syntax,
+// whose missing source Docker Engine refuses (Docker Desktop and OrbStack make it): the whole
+// stack would not start.
+describe('the backup folder of ./pine', () => {
+  /** make_backup_dir in a scratch folder (as the checkout), with this env file. */
+  function makeIn(lines: readonly string[], before = '') {
+    const dir = folder();
+    return {
+      dir,
+      run: runPineScript(
+        [
+          'cd "$1"',
+          before,
+          'make_backup_dir 2>&1',
+          'echo "status: $?"',
+          'if [ -d backups ]; then echo "made: backups"; fi',
+          'if [ -d share ]; then echo "made: share"; fi',
+        ].join('\n'),
+        { PINE_ENV_FILE: envFile(lines) },
+        [dir],
+      ),
+    };
+  }
+
+  it('is made as ./backups when BACKUP_DIR is blank and it is missing', (context) => {
+    const { run } = makeIn(['DB_SCHEMA=pine', 'BACKUP_DIR=']);
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain('made: backups');
+    expect(run.stdout).not.toContain('pine:');
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  it('is left as it is when BACKUP_DIR is blank and ./backups is there', (context) => {
+    const { run } = makeIn(['BACKUP_DIR='], 'mkdir backups && echo kept >backups/.pine-backups');
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain('made: backups');
+    expect(run.stdout).not.toContain('pine:');
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  // The folder of real backups is the operator's (a share mounted there, with its .pine-backups
+  // file made by hand): never made here, where a share that is not mounted would pass for it.
+  it('is not made when BACKUP_DIR names a folder that is missing: the operator is told', (context) => {
+    const { run } = makeIn(['BACKUP_DIR=./share']);
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).not.toContain('made:');
+    expect(run.stdout).toMatch(
+      /pine: BACKUP_DIR in .+stack\.env names \.\/share, which does not exist: mount the backup share there, or make the folder with its \.pine-backups file \(operations\.md, "Backups"\); Docker Engine starts no part of the stack without it\./,
+    );
+    // A warning: the command goes on (down, logs, status need no backup folder).
+    expect(run.stdout).toContain('status: 0');
+  });
+});
+
+// The bot runs as the image's user node (uid 1000) and reads pine-settings.json through a
+// read-only bind mount. On Docker Engine a file of mode 600 owned by another uid is unreadable to
+// it (the bot crash-loops with "not valid JSON: EACCES"); on Docker Desktop and OrbStack the same
+// file reads fine, so the host's modes only hint and the bot's own image, user and mount decide.
+describe('the settings file of ./pine', () => {
+  /**
+   * check_settings_readable against a faked find (the host's hint) and a faked Docker: `images`
+   * is what `config --images` lists ('' none), `here` whether they are built, `verdict` what the
+   * run in the bot's container says (`fail` when Docker refuses the run).
+   */
+  function checkWith(options: {
+    hinted: boolean;
+    here?: boolean;
+    verdict?: 'readable' | 'unreadable' | 'fail';
+  }) {
+    const { hinted, here = true, verdict = 'readable' } = options;
+    return runPineScript(
+      [
+        `find() { ${hinted ? 'printf "%s\\n" "$1"' : ':'}; }`,
+        'docker() {',
+        '  case "$*" in',
+        '    *"config --images pine") echo professor-pine:pine ;;',
+        `    "image inspect"*) ${here ? ':' : 'return 1'} ;;`,
+        `    *"run --rm"*) echo "ran in the bot's container" >>"$RAN"; ${verdict === 'fail' ? 'return 125' : `echo ${verdict}`} ;;`,
+        '  esac',
+        '}',
+        // A refusal ends the subshell alone (the script runs under set -e).
+        'status=0',
+        '(check_settings_readable) 2>&1 || status=$?',
+        'cat "$RAN" 2>/dev/null || true',
+        'echo "status: $status"',
+      ].join('\n'),
+      {
+        PINE_ENV_FILE: envFile(['DB_SCHEMA=pine']),
+        PINE_SETTINGS: './pine-settings.json',
+        RAN: path.join(folder(), 'ran'),
+      },
+    );
+  }
+
+  const REFUSAL =
+    /pine: the bot \(user node in its container\) cannot read \.\/pine-settings\.json: let others read it \(chmod 644 \.\/pine-settings\.json; it holds no secrets, those are in .+stack\.env\)\. Nothing was started\./;
+  const NOT_CHECKED =
+    "pine: the bot (user node in its container) may not be able to read ./pine-settings.json; if it cannot, its log says 'not valid JSON: EACCES' (./pine logs pine): chmod 644 ./pine-settings.json mends it.";
+
+  it('refuses to start the bot when the bot’s own container cannot read it', (context) => {
+    const run = checkWith({ hinted: true, verdict: 'unreadable' });
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toMatch(REFUSAL);
+    expect(run.stdout).toContain('status: 1');
+  });
+
+  // Docker Desktop and OrbStack: a 600 file reads fine in the container.
+  it('passes a file the host’s modes hint at when the bot’s container reads it', (context) => {
+    const run = checkWith({ hinted: true, verdict: 'readable' });
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain("ran in the bot's container");
+    expect(run.stdout).not.toContain('pine:');
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  it('asks no container of a file that others or uid 1000 may read', (context) => {
+    const run = checkWith({ hinted: false, verdict: 'unreadable' });
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).not.toContain("ran in the bot's container");
+    expect(run.stdout).not.toContain('pine:');
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  // A check never builds or pulls an image; nor does a refused run stop the command.
+  it('only warns where it cannot check: no image yet, or Docker refused the run', (context) => {
+    for (const run of [
+      checkWith({ hinted: true, here: false, verdict: 'unreadable' }),
+      checkWith({ hinted: true, verdict: 'fail' }),
+    ]) {
+      if (!run) return context.skip('no sh here');
+
+      expect(run.stdout).toContain(NOT_CHECKED);
+      expect(run.stdout).toContain('status: 0');
+    }
+  });
+});
+
 /** A dump as mysqldump writes one of Pine's database, with `statements` before its last line. */
 function dumpText(statements: readonly string[] = []): string {
   const lines = [
