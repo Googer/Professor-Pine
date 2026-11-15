@@ -9,6 +9,7 @@ import {
   type FakeInteraction,
 } from '../../../test/support/fake-interactions.js';
 import { OTHER_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { THEIR_GYM, twoServerGyms, type TestGyms } from '../../../test/support/providers.js';
 import { keptRow, wayspotId } from '../../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../../test/support/wayspots.js';
 import type { WayspotDirectory } from '../../services/wayspot-directory.js';
@@ -33,12 +34,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function setup(wayspots?: WayspotDirectory) {
+async function setup(wayspots?: WayspotDirectory, gyms?: TestGyms) {
   // The kept Wayspots a ruled place is read from (`MeetupSafety.placeNow`, the one path).
-  const made = await reportedMeetup(wayspots === undefined ? {} : { wayspots });
+  const made = await reportedMeetup(
+    wayspots === undefined ? {} : { wayspots },
+    gyms === undefined ? {} : { gyms },
+  );
   const members = new FakeMemberDirectory();
   const { ctx } = createTestContext({
     ...(wayspots === undefined ? {} : { wayspots }),
+    ...(gyms === undefined ? {} : { gyms }),
     members,
     partyService: made.service,
     attendance: made.attendance,
@@ -106,6 +111,19 @@ describe('/places in two servers (plan 19B-3)', () => {
     expect(text).not.toContain('Their Bench');
     // The second server keeps both (positive control).
     expect(wayspots.stored(OTHER_GUILD_ROW, wayspotId(2))?.title).toBe('Their Bench');
+  });
+
+  it('shows no gym of another server for an Undo that undid nothing (final review R5-1)', async () => {
+    const { gyms } = twoServerGyms();
+    const made = await setup(undefined, gyms);
+    // A press naming the second server's Old Stone Fountain: this server has no ruling of it.
+    const theirs = await made.press(`places:gym:undo:${String(THEIR_GYM)}`);
+    const text = textOf(asV2(sent(theirs.editReply)));
+    expect(text).toContain('It had no ruling any more.');
+    expect(text).not.toContain('Fountain');
+    // This server's own gym is shown (positive control).
+    const ours = await made.press('places:gym:undo:1');
+    expect(textOf(asV2(sent(ours.editReply)))).toContain('### The Stacks');
   });
 });
 

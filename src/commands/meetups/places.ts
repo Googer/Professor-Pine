@@ -149,7 +149,11 @@ export const placesControls: ComponentHandler = {
     if (kind === undefined) throw new UserError(STALE_COMPONENT);
     const key = { kind, id: arg };
     const undone = await ctx.meetupSafety.undoRuling(serverId, key, moderator);
-    const place = undone?.place ?? ctx.meetupSafety.placeNow(key, await ctx.guilds.idFor(serverId));
+    // Nothing undone: the place is the custom id's, so a gym is shown only where it is this
+    // server's (final review R5-1: another server's gym is as if it did not exist).
+    const row = await ctx.guilds.idFor(serverId);
+    const ours = kind !== 'gym' || ctx.gyms.of(row).get(Number(arg)) !== undefined;
+    const place = undone?.place ?? (ours ? ctx.meetupSafety.placeNow(key, row) : undefined);
     const said =
       undone === undefined
         ? 'It had no ruling any more.'
