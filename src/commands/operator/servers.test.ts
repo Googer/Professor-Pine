@@ -209,6 +209,28 @@ describe('/operator servers (plan 19C-1)', () => {
     expect(begun).toEqual([WAITING]);
   });
 
+  it('begins what a server that came while blocked begins, once it is unblocked (final review R4-7)', async () => {
+    const made = setup();
+    const begun: string[] = [];
+    made.admission.onAllowed((serverId) => begun.push(serverId));
+    // Recorded at the upgrade, blocked while Pine was not in it, then added back: refused, its
+    // leave failing meanwhile, so present.
+    await made.run('block', { server: GONE });
+    made.present.add(GONE);
+    await made.run('unblock', { server: GONE });
+    expect(made.standings.mayHave(GONE)).toBe(true);
+    expect(begun).toEqual([GONE]);
+    // A server nothing allows stays out after its block is taken back: nothing begins.
+    await made.run('block', { server: STRANGER });
+    made.present.add(STRANGER);
+    await made.run('unblock', { server: STRANGER });
+    // Nor does one that was never blocked, or one not present.
+    await made.run('unblock', { server: HOME });
+    await made.run('block', { server: WAITING });
+    await made.run('unblock', { server: WAITING });
+    expect(begun).toEqual([GONE]);
+  });
+
   it('has Pine leave a server it removes, kept as left and still allowed', async () => {
     const made = setup();
     const removed = await made.run('remove', { server: NEIGHBOR });

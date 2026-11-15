@@ -104,7 +104,14 @@ describe('NeighborParties (plan 19E)', () => {
     const DAY = 24 * 3_600_000;
     const { standings } = standingsWith({
       recorded: ['ours'],
-      rows: [serverRecordRow({ serverId: 'theirs', leftAt: STANDING_NOW - 31 * DAY })],
+      // Recorded at the upgrade, so that it may have this Pine when it is back.
+      rows: [
+        serverRecordRow({
+          serverId: 'theirs',
+          recordedAt: STANDING_NOW - 60 * DAY,
+          leftAt: STANDING_NOW - 31 * DAY,
+        }),
+      ],
       now: () => STANDING_NOW,
     });
     await standings.load();
@@ -132,6 +139,18 @@ describe('NeighborParties (plan 19E)', () => {
     expect(finder.of(testRaid(), PARTY_NOW)).toEqual([]);
     // Set up (in the test its rows are not gone): it shows again.
     servers.settingUp.delete('theirs');
+    expect(finder.of(testRaid(), PARTY_NOW).map(({ serverId }) => serverId)).toEqual(['theirs']);
+  });
+
+  it('finds nothing of a neighbor Pine is still in that may not have it, until it may again (final review R6-4)', async () => {
+    const { standings } = standingsWith({ recorded: ['ours', 'theirs'] });
+    await standings.load();
+    const finder = partiesWith(quietServers(standings, new TestServers()));
+    expect(finder.of(testRaid(), PARTY_NOW).map(({ serverId }) => serverId)).toEqual(['theirs']);
+    // Blocked by an operator, its leave failing and tried again meanwhile.
+    await standings.block('theirs', '323456789012345678');
+    expect(finder.of(testRaid(), PARTY_NOW)).toEqual([]);
+    await standings.unblock('theirs');
     expect(finder.of(testRaid(), PARTY_NOW).map(({ serverId }) => serverId)).toEqual(['theirs']);
   });
 });

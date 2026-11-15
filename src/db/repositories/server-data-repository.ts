@@ -138,7 +138,8 @@ const CHILDREN: ReadonlyMap<string, readonly { table: string; column: string }[]
  * Not one transaction: a server's history may hold hundreds of thousands of rows. Each statement
  * is its own, and each is safe to make again: after a failure, or a stop between statements
  * (`isStopped`: `ServerDeletionStopped`), the next run deletes what is left and finds nothing of
- * what went. The server is gone from Discord's point of view while it runs, and its record
+ * what went; the stop is asked before each statement, and before each gym. The server is gone
+ * from Discord's point of view while it runs, and its record
  * (`ServerRecord.deletingAt`) keeps it from coming back half deleted (`ServerStandings`).
  */
 export class ServerDataRepository implements ServerDataStorage {
@@ -198,6 +199,9 @@ export class ServerDataRepository implements ServerDataStorage {
           .limit(this.batch)
           .execute();
         for (const { gymId } of links) {
+          // Each gym is several statements in a transaction of its own (final review R4-5): the
+          // shutdown is asked before each, never only once per batch of a thousand.
+          if (options.isStopped?.() === true) throw new ServerDeletionStopped(serverId);
           // The server's routes and targets went with its regions and its members' rows above.
           const removed = await this.gymRemoval.remove(gymId, { guildId: guildRow, regionIds: [] });
           (removed.deleted ? gyms.deleted : gyms.unlinked).push(gymId);

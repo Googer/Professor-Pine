@@ -114,6 +114,14 @@ export class ServerBoundedMap<K, V> {
     return true;
   }
 
+  /** Takes out every entry of a server (its data deleted: it starts anew). */
+  forgetServer(server: string): void {
+    const entries = this.servers.get(server);
+    if (!entries) return;
+    this.count -= entries.size;
+    this.servers.delete(server);
+  }
+
   /** Takes out the oldest entry of the server holding the most; whether there was one. */
   private dropOldestOfFullest(): boolean {
     let fullest: Map<K, V> | undefined;

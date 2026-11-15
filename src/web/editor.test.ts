@@ -56,7 +56,11 @@ describe("the region editor's data", () => {
     // leaving.
     const onWeb = webServers({
       has: (guild) => [FAKE_GUILD_ID, OTHER_GUILD_ID, LEFT, PENDING, SETUP].includes(guild),
-      standings: { isLeft: (guild) => left.has(guild), pending: (guild) => guild === PENDING },
+      standings: {
+        isLeft: (guild) => left.has(guild),
+        pending: (guild) => guild === PENDING,
+        mayHave: () => true,
+      },
       servers: { inSetup: (guild) => guild === SETUP, of: () => ({}) },
       open: false,
     });

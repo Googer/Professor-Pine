@@ -13,6 +13,7 @@ import { ServerSettings, SETTINGS_LOADING } from './server-settings.js';
 const fileSettings = loadSettings(TEST_SETTINGS_PATH);
 const SERVER = '412345678901234567';
 const JOINED = '412345678901234568';
+const OTHER_SERVER = '412345678901234569';
 const NOW = Date.parse('2026-11-12T15:00:00Z');
 
 /**
@@ -225,6 +226,23 @@ describe('the fill: rows for servers that have none', () => {
     joined.fill.begin(serverNamed(JOINED, {}), 'joined');
     await joined.fill.whenFilled(JOINED);
     expect(joined.servers.setUpAt(JOINED)).toBeNull();
+  });
+
+  it('tells who listens of a row it wrote in setup, once written, and of no other (final review R2-2)', async () => {
+    const { fill } = await fillWith([filledRow({ serverId: OTHER_SERVER })], fileSettings, {
+      recorded: (serverId) => serverId === SERVER,
+    });
+    const filled: string[] = [];
+    fill.onFilledInSetup((serverId) => filled.push(serverId));
+    // Present and recorded: set up at its fill, nothing to check.
+    await fillPresent(fill, [pittsburgh]);
+    // Joined: in setup, and its required items may all be filled already.
+    fill.begin(serverNamed(JOINED, {}), 'joined');
+    await fill.whenFilled(JOINED);
+    // One with its row already: nothing written.
+    fill.begin(serverNamed(OTHER_SERVER, {}), 'joined');
+    await fill.whenFilled(OTHER_SERVER);
+    expect(filled).toEqual([JOINED]);
   });
 
   it('leaves a server that has its row as it is', async () => {

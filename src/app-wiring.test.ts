@@ -36,6 +36,7 @@ import {
   eventsFeedStep,
   followLeaving,
   followServers,
+  followStandings,
   followZones,
   liveSources,
   notOfQuietServers,
@@ -690,8 +691,9 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
             waiting.push({ what, n, resolve });
           });
     const changeListeners: ((serverId: string) => void)[] = [];
-    const outlineListeners: (() => void)[] = [];
+    const outlineListeners: ((rows: readonly number[]) => void)[] = [];
     const allowedListeners: ((serverId: string) => void)[] = [];
+    const filledListeners: ((serverId: string) => void)[] = [];
     const late: SetupLate = {};
     wireServerSetup({
       setup: {
@@ -700,7 +702,10 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
       },
       servers: { onChange: (listener) => changeListeners.push(listener) },
       regions: { whenOutlinesChanged: (listener) => outlineListeners.push(listener) },
+      // The `Guild` rows 7 and 8 are the server in setup's and the one that waited.
+      serverOfRow: (row) => (row === 7 ? IN_SETUP : row === 8 ? WAITED : undefined),
       admission: { onAllowed: (listener) => allowedListeners.push(listener) },
+      fill: { onFilledInSetup: (listener) => filledListeners.push(listener) },
       late,
       connected: connected.promise,
     });
@@ -712,30 +717,47 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
       changed: (serverId: string) => {
         for (const listener of changeListeners) listener(serverId);
       },
-      outlinesChanged: () => {
-        for (const listener of outlineListeners) listener();
+      outlinesChanged: (rows: readonly number[]) => {
+        for (const listener of outlineListeners) listener(rows);
       },
       allowed: (serverId: string) => {
         for (const listener of allowedListeners) listener(serverId);
       },
-      listeners: () => [changeListeners, outlineListeners, allowedListeners].map((l) => l.length),
+      filled: (serverId: string) => {
+        for (const listener of filledListeners) listener(serverId);
+      },
+      listeners: () =>
+        [changeListeners, outlineListeners, allowedListeners, filledListeners].map((l) => l.length),
     };
   }
 
   it('listens before the login, and checks only once the bot is connected', async () => {
     const made = wired();
     // Registered at once, before the login.
-    expect(made.listeners()).toEqual([1, 1, 1]);
+    expect(made.listeners()).toEqual([1, 1, 1, 1]);
     made.changed(IN_SETUP);
     expect(made.asked).toEqual([]);
     made.connected.resolve();
     // The change asked meanwhile, and every server in setup at the start.
     await made.asking(`check ${IN_SETUP}`);
     await made.asking('checkAll');
-    // A region saved or imported: every server in setup again.
-    made.outlinesChanged();
-    await made.asking('checkAll', 2);
+    // A region saved or imported: the servers whose outlines changed, never every server in
+    // setup (final review R2-3).
+    made.outlinesChanged([7]);
+    await made.asking(`check ${IN_SETUP}`, 2);
     made.changed(WAITED);
+    await made.asking(`check ${WAITED}`);
+    expect(made.asked.filter((what) => what === 'checkAll')).toHaveLength(1);
+    // A row not known yet (a server that just joined): every server in setup, as before.
+    made.outlinesChanged([8, 9]);
+    await made.asking('checkAll', 2);
+  });
+
+  it('checks a server whose fill wrote its row in setup, once the bot is connected (final review R2-2)', async () => {
+    const made = wired();
+    made.filled(WAITED);
+    expect(made.asked).toEqual([]);
+    made.connected.resolve();
     await made.asking(`check ${WAITED}`);
   });
 
@@ -1068,6 +1090,40 @@ describe('what the web answers of a server (plan 19C-3, fix round 1)', () => {
     const served = servedOnWeb(standings);
     expect([BEING, BACK, LEFT].filter(served)).toEqual([BACK]);
   });
+
+  it('answers a server Pine is in that may not have it as one Pine is not in (final review R4-3)', async () => {
+    const BLOCKED = '412345678901234567';
+    const KEPT = '412345678901234568';
+    const NEVER_ALLOWED = '412345678901234569';
+    const { standings } = standingsWith({ recorded: [BLOCKED, KEPT] });
+    await standings.load();
+    await standings.block(BLOCKED, '323456789012345678');
+    const served = servedOnWeb(standings);
+    expect([BLOCKED, KEPT, NEVER_ALLOWED].filter(served)).toEqual([KEPT]);
+  });
+});
+
+describe('what follows a server’s standing (final review R6-4)', () => {
+  it('redraws the neighbors’ posts and reads the zones in use again when a server is blocked, unblocked or allowed, as when it leaves or comes back', async () => {
+    const SERVER = '412345678901234567';
+    const OTHER = '412345678901234568';
+    const { standings } = standingsWith({ recorded: [SERVER, OTHER] });
+    await standings.load();
+    const redrawn: string[][] = [];
+    let zonesRead = 0;
+    followStandings(standings, {
+      neighborsQuietChanged: (serverIds) => redrawn.push([...serverIds]),
+      presenceChanged: () => {
+        zonesRead += 1;
+      },
+    });
+    await standings.block(SERVER, '323456789012345678');
+    await standings.unblock(SERVER);
+    await standings.markLeft([OTHER]);
+    await standings.cameBack([OTHER]);
+    expect(redrawn).toEqual([[SERVER], [SERVER], [OTHER], [OTHER]]);
+    expect(zonesRead).toBe(2);
+  });
 });
 
 describe('a server whose data was deleted, added back (plan 19C-3)', () => {
@@ -1218,6 +1274,8 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
       gyms: {
         forget: (id) => done.push(`gym gone ${String(id)}`),
         unlink: (id, row) => done.push(`gym unlinked ${String(id)} ${String(row)}`),
+        gymsOf: () => [],
+        serversOf: () => [],
       },
       wayspots: {
         load: (row) => {
@@ -1346,6 +1404,71 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
     expect(passes).toHaveBeenCalledTimes(1);
   });
 
+  it('forgets the gyms an earlier run deleted or unlinked before it failed, which this run did not see (final review R4-4)', async () => {
+    const GONE_ROW = OTHER_GUILD_ROW;
+    const { gyms, directory, answers } = await gymDirectoryWith();
+    const geo = new FakeGeoGateway();
+    geo.enabled = false;
+    const upkeep = new GymUpkeep({
+      gyms,
+      directory,
+      geo,
+      parties: { active: () => [] },
+      posts: { changed: () => undefined },
+      log: createTestLogger().log,
+      setTimer: () => () => undefined,
+      answers,
+    });
+    const make = async (lat: number, servers: number[]) => {
+      const gym = await gyms.create({ name: 'Gym', lat, lon: -80.05 }, servers[0]!);
+      for (const row of servers.slice(1)) gyms.link(gym.id, row);
+      return gym.id;
+    };
+    const near = await make(40.5009, [TEST_GUILD_ROW, GONE_ROW]);
+    const gone = await make(40.501, [GONE_ROW]);
+    const far = await make(40.503, [TEST_GUILD_ROW, GONE_ROW]);
+    await gyms.update(10, { nearestGym: near });
+    await gyms.update(near, { nearestGym: gone });
+    await gyms.update(far, { nearestGym: gone });
+    await directory.load();
+    gyms.writes.length = 0;
+    // The first run deleted and unlinked them, then failed before its end: nothing was forgotten.
+    await gyms.delete(gone);
+    gyms.unlink(near, GONE_ROW);
+    gyms.unlink(far, GONE_ROW);
+    const nothing = () => Promise.resolve();
+    const forget = forgetServerMemory({
+      rowIds: { forgetServer: () => undefined },
+      servers: { forget: nothing },
+      notices: { forget: () => undefined },
+      neighbors: { forgetServer: nothing },
+      parties: { forgetServer: () => undefined },
+      access: { forgetServer: () => undefined },
+      regions: { load: nothing },
+      gyms: directory,
+      wayspots: { load: nothing },
+      matches: { forgetRow: () => undefined },
+      pineStops: { load: nothing },
+      nicknames: { load: nothing },
+      line: upkeep,
+      log: createTestLogger().log,
+    });
+    // The run that went on found none of the server's gyms left to remove.
+    await forget('412345678901234567', {
+      counts: {},
+      guildRow: GONE_ROW,
+      gyms: { unlinked: [], deleted: [] },
+    });
+    expect(directory.stored(gone)).toBeUndefined();
+    expect([...directory.gymsOf(GONE_ROW)]).toEqual([]);
+    expect(directory.serversOf(near)).toEqual([TEST_GUILD_ROW]);
+    // And the nearest gyms that pointed at the deleted gym are worked out anew.
+    expect(gyms.written('nearestGym')).toEqual([
+      [near, 10],
+      [far, near],
+    ]);
+  });
+
   it('forgets only what is the server’s by its snowflake where it had no Guild row any more', async () => {
     const { log } = createTestLogger();
     const done: string[] = [];
@@ -1373,7 +1496,12 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
           return nothing();
         },
       },
-      gyms: { forget: () => done.push('gym'), unlink: () => done.push('gym') },
+      gyms: {
+        forget: () => done.push('gym'),
+        unlink: () => done.push('gym'),
+        gymsOf: () => [],
+        serversOf: () => [],
+      },
       wayspots: {
         load: () => {
           done.push('wayspots');

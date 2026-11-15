@@ -199,6 +199,8 @@ export class ServerFill {
   private readonly retries = new Map<string, NodeJS.Timeout>();
   /** Stopped for the shutdown: no fill is tried again. */
   private stopped = false;
+  /** Who is told of a row written in setup (`onFilledInSetup`). */
+  private readonly inSetupListeners: ((serverId: string) => void)[] = [];
 
   constructor(
     private readonly options: {
@@ -232,6 +234,17 @@ export class ServerFill {
     if (this.options.servers.has(serverId) || this.filling.has(serverId)) return;
     if (this.retries.has(serverId)) return;
     this.start(names, how, 1);
+  }
+
+  /**
+   * Tells `listener` of each server whose row a fill wrote in setup, once written (final review
+   * R2-2): the file's names may do every required item of its setup already (a server recorded at
+   * the upgrade added back with its regions, one an operator allowed after it waited), which only
+   * a check takes it out of (`ServerSetup.check`, `wireServerSetup`). A listener that throws is
+   * logged.
+   */
+  onFilledInSetup(listener: (serverId: string) => void): void {
+    this.inSetupListeners.push(listener);
   }
 
   /** Resolves once the server's fill under way is done; at once without one (or in a DM). */
@@ -281,6 +294,7 @@ export class ServerFill {
       const made = await servers.create(names.serverId, values, setUp);
       if (!made) return;
       log.info({ server: names.serverId, setUp }, "server's settings filled");
+      if (!setUp) this.filledInSetup(names.serverId);
       if (unmatched.length === 0 && closed.length === 0 && several.length === 0) return;
       // In the server's moderators' bot lab, or the log without one (plan 19B-1).
       this.options.notices.tell(
@@ -290,6 +304,19 @@ export class ServerFill {
       );
     } catch (err) {
       this.tryAgain(names, how, attempt, err);
+    }
+  }
+
+  private filledInSetup(serverId: string): void {
+    for (const listener of this.inSetupListeners) {
+      try {
+        listener(serverId);
+      } catch (err) {
+        this.options.log.error(
+          { err, server: serverId },
+          'a listener of servers filled in setup failed',
+        );
+      }
     }
   }
 

@@ -295,19 +295,47 @@ export function backAfterDeletion(deps: {
 
 /**
  * Whether the web serves a server the bot's client has (plan 19C-1; fix round 1, 3b): not one
- * Pine left, nor one whose data is being deleted (`pending`): either is answered as a server Pine
- * is not in.
+ * Pine left, nor one whose data is being deleted (`pending`), nor one that may not have this Pine
+ * (final review R4-3: blocked while its leave is tried again, refused in rehearsal mode, a new
+ * install's waiting for the owner's word): each is answered as a server Pine is not in.
  */
 export function servedOnWeb(
-  standings: Pick<ServerStandings, 'isLeft' | 'pending'>,
+  standings: Pick<ServerStandings, 'isLeft' | 'pending' | 'mayHave'>,
 ): (serverId: string) => boolean {
-  return (serverId) => !standings.isLeft(serverId) && !standings.pending(serverId);
+  return (serverId) =>
+    !standings.isLeft(serverId) && !standings.pending(serverId) && standings.mayHave(serverId);
+}
+
+/**
+ * What follows a server that becomes quiet or no more so by its standing (final review R6-4):
+ * one an operator blocked, unblocked or allowed (`whenStandingChanged`; it may have this Pine, or
+ * not, while Pine is still in it: `QuietServers`), as one that leaves or comes back
+ * (`whenLeftChanged`): the posts that show, or would show, its parties in its neighbors' are
+ * drawn anew (`PartyService.neighborsQuietChanged`); and of an operator's change the zones in use
+ * are read again (`ServerSettings.presenceChanged`: they are those of the servers not quiet;
+ * joining and removing read them in `followServers`).
+ */
+export function followStandings(
+  standings: Pick<ServerStandings, 'whenLeftChanged' | 'whenStandingChanged'>,
+  deps: {
+    neighborsQuietChanged: (serverIds: readonly string[]) => void;
+    presenceChanged: () => void;
+  },
+): void {
+  standings.whenLeftChanged(({ left, back }) => {
+    deps.neighborsQuietChanged([...left, ...back]);
+  });
+  standings.whenStandingChanged((serverId) => {
+    deps.neighborsQuietChanged([serverId]);
+    deps.presenceChanged();
+  });
 }
 
 /**
  * The servers of the web pages (`WebDeps.servers`), which `hiddenFrom` reads as one rule: a server
  * the client has (`has`) and the web serves (`servedOnWeb`: not left, plan 19C-1, nor being
- * deleted, plan 19C-3), else answered as a server Pine is not in, to everybody; whether it is in
+ * deleted, plan 19C-3, and it may have this Pine, final review R4-3), else answered as a server
+ * Pine is not in, to everybody; whether it is in
  * setup (plan 19C-2); whether its map is open to visitors who are not logged in (plan 19C-4,
  * `publicMapOn`, by the instance's `servers` being `"open"`). `listed`: served and not in setup,
  * the servers the top page may name (`topPageServers`) and whose regions' outlines another
@@ -315,7 +343,7 @@ export function servedOnWeb(
  */
 export function webServers(deps: {
   has: (serverId: string) => boolean;
-  standings: Pick<ServerStandings, 'isLeft' | 'pending'>;
+  standings: Pick<ServerStandings, 'isLeft' | 'pending' | 'mayHave'>;
   servers: {
     inSetup(serverId: string): boolean;
     of(serverId: string): { publicMap?: boolean };
@@ -363,7 +391,13 @@ export interface ServerMemory {
   parties: { forgetServer(guildRow: number): unknown };
   access: { forgetServer(guildRow: number): unknown };
   regions: { load(): Promise<void> };
-  gyms: { forget(id: number): unknown; unlink(id: number, guildRow: number): unknown };
+  gyms: {
+    forget(id: number): unknown;
+    unlink(id: number, guildRow: number): unknown;
+    /** A server's gyms as held (`GymDirectory.gymsOf`), and a gym's servers (`serversOf`). */
+    gymsOf(guildRow: number): Iterable<{ id: number }>;
+    serversOf(gymId: number): number[];
+  };
   wayspots: { load(guildRow: number): Promise<void> };
   matches: { forgetRow(guildRow: number): void };
   pineStops: { load(): Promise<void> };
@@ -385,7 +419,9 @@ export interface ServerMemory {
  * (`ServerNeighbors.forgetServer`: the deletion took their rows; added back, it has none), and
  * where it still had its `Guild` row its parties and forum grants (`forgetServer`: nothing
  * written, nothing asked of Discord), its regions (read again), its gyms (`GymDirectory.forget`
- * for those deleted, `unlink` for those others keep, as a gym's deletion does), its Wayspots
+ * for those deleted, `unlink` for those others keep, as a gym's deletion does: this run's, and
+ * those the directory still holds of its row, which an earlier run that failed part-way removed
+ * from the database, final review R4-4), its Wayspots
  * (`WayspotDirectory.load` of its row: none left), its neighbors' same gyms
  * (`NeighborMatches.forgetRow`), its stops of Pine's own (read again), its Pokémon nicknames
  * (read again: none), and
@@ -404,6 +440,10 @@ export function forgetServerMemory(
     const row = deleted.guildRow;
     const ofRow = (steps: (row: number) => [string, () => unknown][]): [string, () => unknown][] =>
       row === undefined ? [] : steps(row);
+    // The gyms gone and unlinked: this run's, and those memory still holds of the server, which an
+    // earlier run that failed after them deleted or unlinked (final review R4-4: none is linked to
+    // it once the database's part is done).
+    let gone: { deleted: number[]; unlinked: number[] } = deleted.gyms;
     const steps: [string, () => unknown][] = [
       ['row ids', () => memory.rowIds.forgetServer(serverId)],
       ['settings', () => memory.servers.forget(serverId)],
@@ -418,8 +458,9 @@ export function forgetServerMemory(
         [
           'gyms',
           () => {
-            for (const id of deleted.gyms.deleted) memory.gyms.forget(id);
-            for (const id of deleted.gyms.unlinked) memory.gyms.unlink(id, guildRow);
+            gone = withHeld(deleted.gyms, guildRow, memory.gyms);
+            for (const id of gone.deleted) memory.gyms.forget(id);
+            for (const id of gone.unlinked) memory.gyms.unlink(id, guildRow);
           },
         ],
         ['Wayspots', () => memory.wayspots.load(guildRow)],
@@ -431,7 +472,7 @@ export function forgetServerMemory(
         [
           'Google’s line',
           async () => {
-            await memory.line.serverGone(deleted.gyms.deleted, deleted.gyms.unlinked);
+            await memory.line.serverGone(gone.deleted, gone.unlinked);
             memory.line.servingChanged([guildRow]);
           },
         ],
@@ -448,6 +489,28 @@ export function forgetServerMemory(
       }
     }
   };
+}
+
+/**
+ * The gyms a deletion removed of a server's `Guild` row (final review R4-4): those this run
+ * deleted or unlinked, and each gym the directory still holds of the row, which the database no
+ * longer links to it once the deletion's part there is done: deleted where the row was its only
+ * server, else unlinked (`GymRemoval`'s rule). A gym in both of this run's lists keeps this run's
+ * word.
+ */
+function withHeld(
+  run: { deleted: readonly number[]; unlinked: readonly number[] },
+  guildRow: number,
+  gyms: Pick<ServerMemory['gyms'], 'gymsOf' | 'serversOf'>,
+): { deleted: number[]; unlinked: number[] } {
+  const deleted = new Set(run.deleted);
+  const unlinked = new Set(run.unlinked);
+  for (const { id } of gyms.gymsOf(guildRow)) {
+    if (deleted.has(id) || unlinked.has(id)) continue;
+    const others = gyms.serversOf(id).some((row) => row !== guildRow);
+    (others ? unlinked : deleted).add(id);
+  }
+  return { deleted: [...deleted], unlinked: [...unlinked] };
 }
 
 /**
@@ -569,18 +632,25 @@ export function serverSetUpWork(deps: {
 /**
  * The setup of the servers wired (plan 19C-2; fix round 1, S5), before the login: a server
  * leaves setup once its required items are done, whatever did the last (a change of its values,
- * `ServerSettings.onChange`; a region saved or imported, `whenOutlinesChanged`), and at the start
+ * `ServerSettings.onChange`; a region saved or imported, `whenOutlinesChanged`: the servers whose
+ * outlines changed alone, by their `Guild` rows, final review R2-3, every server in setup only
+ * where a row's server is not known yet), and at the start
  * for one whose items were done meanwhile; every check waits for `connected` (the first load of
  * the regions, the client ready), so that nothing begins for a server before the bot is there.
  * A server an instance operator allows after it waited, present (`ServerAdmission.onAllowed`,
  * S6), is begun on the live client as its joining would be (`late`): its fill, its `Guild` row,
- * its return. Registered once, whatever client the login keeps.
+ * its return. Registered once, whatever client the login keeps. A server whose fill wrote its row in
+ * setup is checked too (`ServerFill.onFilledInSetup`, final review R2-2): the file's names may do
+ * every required item already, and nothing else would ask until its staff open `/admin setup`.
  */
 export function wireServerSetup(deps: {
   setup: Pick<ServerSetup, 'check' | 'checkAll'>;
   servers: Pick<ServerSettings, 'onChange'>;
-  regions: { whenOutlinesChanged(listener: () => void): unknown };
+  regions: { whenOutlinesChanged(listener: (guildRows: readonly number[]) => void): unknown };
+  /** A `Guild` row's server (`RowIds.serverOfRow`: every row read at the start, and since). */
+  serverOfRow: (guildRow: number) => string | undefined;
   admission: Pick<ServerAdmission, 'onAllowed'>;
+  fill: Pick<ServerFill, 'onFilledInSetup'>;
   late: Pick<SetupLate, 'serverStart' | 'joined'>;
   connected: Promise<unknown>;
 }): void {
@@ -588,10 +658,20 @@ export function wireServerSetup(deps: {
   deps.servers.onChange((serverId) => {
     void connected.then(() => setup.check(serverId));
   });
-  deps.regions.whenOutlinesChanged(() => {
-    void connected.then(() => setup.checkAll());
+  deps.regions.whenOutlinesChanged((guildRows) => {
+    const changed = guildRows.map((row) => deps.serverOfRow(row));
+    void connected.then(async () => {
+      if (changed.some((serverId) => serverId === undefined)) {
+        await setup.checkAll();
+        return;
+      }
+      for (const serverId of changed) if (serverId !== undefined) await setup.check(serverId);
+    });
   });
   void connected.then(() => setup.checkAll());
+  deps.fill.onFilledInSetup((serverId) => {
+    void connected.then(() => setup.check(serverId));
+  });
   deps.admission.onAllowed((serverId) => {
     late.serverStart?.admitted(serverId);
     void late.joined?.(serverId);

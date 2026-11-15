@@ -68,7 +68,11 @@ function publicMapWeb(options: Pick<WebTestOptions, 'oauth' | 'members'> = {}): 
     assets: builtAssets(),
     servers: webServers({
       has: (guild) => [OPEN, CLOSED, SETUP, PENDING].includes(guild),
-      standings: { isLeft: () => false, pending: (guild) => guild === PENDING },
+      standings: {
+        isLeft: () => false,
+        pending: (guild) => guild === PENDING,
+        mayHave: () => true,
+      },
       servers: {
         inSetup: (guild) => guild === SETUP,
         of: (guild) => ({ publicMap: guild === OPEN || guild === PENDING }),
@@ -408,7 +412,11 @@ describe('a server’s map for visitors who are not logged in (plan 19C-4)', () 
   it('names to a member on the top page no server being deleted or in setup, by the bot’s own rule (fix round 3, R6)', async () => {
     const onWeb = webServers({
       has: (guild) => [OPEN, CLOSED, SETUP, PENDING].includes(guild),
-      standings: { isLeft: () => false, pending: (guild) => guild === PENDING },
+      standings: {
+        isLeft: () => false,
+        pending: (guild) => guild === PENDING,
+        mayHave: () => true,
+      },
       servers: { inSetup: (guild) => guild === SETUP, of: () => ({ publicMap: true }) },
       open: false,
     });

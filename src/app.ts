@@ -72,7 +72,7 @@ import { DiscordPartyGateway } from './discord/party-gateway.js';
 import { syncGuilds } from './discord/guild-sync.js';
 import { ServerSettings } from './services/server-settings.js';
 import { ServerStandings } from './services/server-standings.js';
-import { quietServers } from './services/quiet-servers.js';
+import { quietServers, unservedServers } from './services/quiet-servers.js';
 import { ServerSetup, setupCounts } from './services/server-setup.js';
 import { ServerDeletion } from './services/server-deletion.js';
 import { ServerDataRepository } from './db/repositories/server-data-repository.js';
@@ -223,6 +223,7 @@ import {
   eventsFeedStep,
   followLeaving,
   followServers,
+  followStandings,
   forgetServerMemory,
   afterDeletions,
   backAfterDeletion,
@@ -478,8 +479,9 @@ export async function startApp(
     // server with a row until then (fix round 1, K5).
     present: () => serversPresent?.(),
   });
-  // The quiet servers (plans 19C-1, 19C-2): those Pine left and those in setup, for which nothing
-  // is posted, sent or swept outside their interactions.
+  // The quiet servers (plans 19C-1, 19C-2): those Pine left or that may not have it (final review
+  // R4-3) and those in setup, for which nothing is posted, sent or swept outside their
+  // interactions.
   const quiet = quietServers(standings, servers);
   // A zone in use came or went (plan 19A-2): the raid bosses are read again for the zones now
   // in use, their own rotations and the soonest change among them; also when a server joins or
@@ -495,8 +497,9 @@ export async function startApp(
   // asked only once a notice is told.
   const serverNotices = new ServerNotices({
     servers,
-    // A server Pine left is told nothing until it is back (plan 19C-1).
-    left: standings,
+    // A server Pine left is told nothing until it is back (plan 19C-1), nor one that may not have
+    // it while Pine is still in it (final review R4-3).
+    left: unservedServers(standings),
     log,
     send: (channelId, text) => noticeSender(partyGateway)(channelId, text),
   });
@@ -1398,13 +1401,19 @@ export async function startApp(
       parties,
     }),
   );
-  // A pair that becomes or stops being neighbors, and a server that leaves or comes back, redraw
-  // the posts that show, or would show, the other's parties.
+  // A pair that becomes or stops being neighbors, and a server that leaves or comes back, or that
+  // an operator blocks, unblocks or allows (final review R6-4), redraw the posts that show, or
+  // would show, the other's parties; an operator's change reads the zones in use again.
   neighbors.whenChanged((pair) => {
     partyService.neighborsChanged(pair);
   });
-  standings.whenLeftChanged(({ left, back }) => {
-    partyService.neighborsQuietChanged([...left, ...back]);
+  followStandings(standings, {
+    neighborsQuietChanged: (serverIds) => {
+      partyService.neighborsQuietChanged(serverIds);
+    },
+    presenceChanged: () => {
+      servers.presenceChanged();
+    },
   });
   // A change of a server's gyms (an import, an edit, a region edit) redraws, gathered, the posts
   // at gyms whose match with a neighbor's changed.
@@ -1745,7 +1754,9 @@ export async function startApp(
     setup: serverSetup,
     servers,
     regions,
+    serverOfRow: (row) => rowIds.serverOfRow(row),
     admission,
+    fill: serverFill,
     late: setupLate,
     connected,
   });
