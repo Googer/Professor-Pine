@@ -164,6 +164,10 @@ export function problemText(
         'An Elite egg needs its hatch time: once staff delete this egg, report it again with ' +
         '`/raid` and its hatch time.'
       );
+    case 'boss-set':
+      return 'The boss of this raid was set meanwhile, so I left it as it is.';
+    case 'raid-ended':
+      return `This ${word} is over.`;
     case 'spot-taken':
       return 'That spot has another max battle by now: this one stays as it is.';
     case 'max-kind-change':

@@ -365,6 +365,51 @@ describe('RaidChangeService: boss and moves', () => {
     expect(await lines(made)).toEqual([]);
   });
 
+  it('sets the boss of a hatched raid without one only while it still has none (a screenshot’s question)', async () => {
+    const yveltal = { tier: T5, boss: { key: 'yveltal' }, label: 'Yveltal (T5)' };
+    const xerneas = { tier: T5, boss: { key: 'xerneas' }, label: 'Xerneas (T5)' };
+    const open = { tier: T5 };
+    const made = await reportedRaid({ hatched: true });
+    expect(await made.raids.setBoss(made.party.id, alice, yveltal, open)).toMatchObject({
+      kind: 'ok',
+      changed: true,
+    });
+    expect(made.current().raid.boss).toEqual({ key: 'yveltal' });
+    // Its boss was set meanwhile: the answer of a later question changes nothing.
+    const set = made.current();
+    expect(await made.raids.setBoss(made.party.id, bob, xerneas, open)).toEqual({
+      kind: 'refused',
+      reason: 'boss-set',
+    });
+    expect(made.current()).toBe(set);
+    // Of another tier by now, or an egg again: the same.
+    const t3 = await reportedRaid({ hatched: true });
+    await t3.raids.setBoss(t3.party.id, alice, {
+      tier: { level: 'T3', shadow: false },
+      boss: null,
+      label: 'T3 raid',
+    });
+    expect(await t3.raids.setBoss(t3.party.id, bob, yveltal, open)).toEqual({
+      kind: 'refused',
+      reason: 'boss-set',
+    });
+    const egg = await reportedRaid({ time: { hatch: HATCH } });
+    expect(await egg.raids.setBoss(egg.party.id, bob, yveltal, open)).toEqual({
+      kind: 'refused',
+      reason: 'not-hatched',
+    });
+    // Over by now.
+    const over = await reportedRaid({ hatched: true });
+    over.clock.now += 4 * 60 * MINUTE;
+    expect(await over.raids.setBoss(over.party.id, bob, yveltal, open)).toEqual({
+      kind: 'refused',
+      reason: 'raid-ended',
+    });
+    expect(over.current().raid.boss).toBeNull();
+    // Without the condition the boss is set as ever.
+    expect(await made.raids.setBoss(made.party.id, bob, xerneas)).toMatchObject({ kind: 'ok' });
+  });
+
   it('sets one move or both, and refuses a raid without a boss', async () => {
     const made = await reportedRaid({ boss: { key: 'yveltal' } });
     const id = made.party.id;

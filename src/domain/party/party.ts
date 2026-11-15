@@ -665,6 +665,13 @@ export type PartyProblem =
   | 'gym-taken'
   /** The change would make an Elite egg without its hatch time (plan 8F-1, 8E-1). */
   | 'elite-egg-time'
+  /**
+   * A boss asked to be set only on a raid still without one (a screenshot's question, 2026-11-15)
+   * whose boss, or tier, somebody set meanwhile.
+   */
+  | 'boss-set'
+  /** The raid is over by its times (a screenshot's question about its boss answered late). */
+  | 'raid-ended'
   /** Another max battle already holds the spot (plan 8X-3: a later end of an ended one). */
   | 'spot-taken'
   /**
