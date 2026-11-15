@@ -101,6 +101,22 @@ export class MapBudget {
     return serverFloor(this.options.perMonth, this.perServer, servers.size);
   }
 
+  /**
+   * Warns where the floors scale to none (final review R1-4): Pine is in more servers than
+   * `googleByHandPerMonth` has lookups for, so no server keeps a floor, and any server's staff
+   * or members may take the whole month of both counts (`withinFloors`). The same cap and floor
+   * serve the lookups by hand (`GymUpkeep`), so one line says it for both. Called once the client
+   * is connected; nothing where no floor was asked for, or the month has none.
+   */
+  warnOfNoFloor(): void {
+    const { perMonth, log } = this.options;
+    if (this.perServer === 0 || perMonth === 0 || this.floorOf() > 0) return;
+    log.warn(
+      { servers: new Set(this.servers()).size, perMonth, perServer: this.perServer },
+      'googleByHandPerMonth keeps no floor for each server: one server may take the month’s lookups by hand and maps of places; raise it with the servers',
+    );
+  }
+
   private get perServer(): number {
     return this.options.perServer ?? DEFAULT_BY_HAND_FLOOR;
   }

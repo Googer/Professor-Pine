@@ -132,6 +132,34 @@ describe('MapBudget (plan 8Z-2)', () => {
     expect(await budget.spend(OTHER, 1)).toBe(false);
   });
 
+  it('warns where the month keeps no floor for each server, which lets any server take it (final review R1-4)', () => {
+    const { log, entries } = createTestLogger();
+    const servers = Array.from({ length: 501 }, (_, n) => n + 1);
+    const budget = new MapBudget({
+      use: new MemoryGoogleUse(),
+      perMonth: 500,
+      perServer: 20,
+      servers: () => servers,
+      log,
+      now: () => OCTOBER,
+    });
+    budget.warnOfNoFloor();
+    expect(entries).toEqual([
+      expect.objectContaining({
+        level: 40,
+        msg: 'googleByHandPerMonth keeps no floor for each server: one server may take the month’s lookups by hand and maps of places; raise it with the servers',
+        servers: 501,
+        perMonth: 500,
+        perServer: 20,
+      }),
+    ]);
+    // Five hundred servers keep one each; a floor of none was asked for: nothing to say.
+    servers.pop();
+    budget.warnOfNoFloor();
+    new MapBudget({ use: new MemoryGoogleUse(), perMonth: 0, perServer: 0, log }).warnOfNoFloor();
+    expect(entries).toHaveLength(1);
+  });
+
   it('gives none where the month has none', async () => {
     const { budget } = budgetOf(0);
     expect(await budget.spend(MEMBER)).toBe(false);

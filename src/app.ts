@@ -2074,6 +2074,11 @@ export async function startApp(
   void connected.then(() => {
     partyService.watchMidnight();
   });
+  // An instance in more servers than its lookups by hand keep floors for says so (final review
+  // R1-4), once the servers are known.
+  void connected.then(() => {
+    ctx.mapBudget.warnOfNoFloor();
+  });
   // The events forum (plan 8V-1): drawn after each read of the feed, at its next change, a second
   // after local midnight, and now.
   void connected.then(() => {
