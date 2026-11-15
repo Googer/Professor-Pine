@@ -9,6 +9,7 @@ import type {
   QueuedGym,
   WaitingGym,
 } from '../../services/gym-lookups.js';
+import { inTransaction } from '../transaction.js';
 import type { DB } from '../types.js';
 
 /**
@@ -26,11 +27,31 @@ import type { DB } from '../types.js';
 export class GymLookupRepository implements GymLookups {
   constructor(private readonly db: Kysely<DB>) {}
 
+  /**
+   * Puts the rows whose gym is still linked to their server (final review R5-3): the caller knows
+   * the links from memory, and a link deleted meanwhile (a server's deletion, a gym's removal,
+   * before the bot's memory followed) would fail the whole statement on the foreign key. The
+   * links are read by the primary key and held (`for share`) until the rows are written.
+   */
   async add(gyms: readonly QueuedGym[], now: number): Promise<void> {
     if (gyms.length === 0) return;
+    await inTransaction(this.db, async (trx) => {
+      const links = await trx
+        .selectFrom('GymServer')
+        .select(['gymId', 'guildId'])
+        .where('gymId', 'in', [...new Set(gyms.map((gym) => gym.gymId))])
+        .forShare()
+        .execute();
+      const linked = new Set(links.map((link) => `${String(link.gymId)}:${String(link.guildId)}`));
+      const kept = gyms.filter((gym) => linked.has(`${String(gym.gymId)}:${String(gym.guildId)}`));
+      if (kept.length > 0) await this.put(trx, kept, now);
+    });
+  }
+
+  private async put(trx: Kysely<DB>, gyms: readonly QueuedGym[], now: number): Promise<void> {
     // A row already in the line keeps its time; it waits for its address when either asks, and
     // takes the rank given.
-    await this.db
+    await trx
       .insertInto('ServerGymLookup')
       .values(
         gyms.map(({ guildId, gymId, address, rank }) => ({
