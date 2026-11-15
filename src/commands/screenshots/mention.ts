@@ -480,7 +480,9 @@ export const MAX_BOARD_MESSAGE_BYTES = 100 * 1024 * 1024;
  * as each holds one place in its queue while its pictures are read one at a time, and
  * messages that come while downloads are on their way all pass it. Two messages as large as one
  * may be; one always fits while no other holds any. Each server holds at most one message's
- * worth of it (`MAX_BOARD_MESSAGE_BYTES`, plan 19B-5): one server's burst leaves room for another.
+ * worth of it (`MAX_BOARD_MESSAGE_BYTES`, plan 19B-5): one server's burst leaves room for another;
+ * and beside other servers less, its share were one more to come (`boardPartOf`, final review
+ * R1-6), so that two servers never hold it all.
  */
 export const MAX_BOARD_BYTES_HELD = 2 * MAX_BOARD_MESSAGE_BYTES;
 
@@ -794,14 +796,14 @@ export class ScreenshotTrigger {
       return true;
     });
     // A reader with no room, or the board's messages holding as much as they may together
-    // (`MAX_BOARD_BYTES_HELD`) or of this server (`MAX_BOARD_MESSAGE_BYTES`, plan 19B-5), refuses
+    // (`MAX_BOARD_BYTES_HELD`) or of this server (`boardPartOf`, plans 19B-5, R1-6), refuses
     // the message's pictures as a full reader refuses a mention's: the first takes its use, the
     // rest take none, and nothing is downloaded.
     const server = posted.guildId;
     const full =
       ctx.screenshots.full(server) ||
       this.boardBytesHeld + wanted > MAX_BOARD_BYTES_HELD ||
-      (this.boardBytesOf.get(server) ?? 0) + wanted > MAX_BOARD_MESSAGE_BYTES;
+      (this.boardBytesOf.get(server) ?? 0) + wanted > this.boardPartOf(server);
     let busy = false;
     /** The bytes of the pictures to download, as Discord gives their sizes. */
     let bytes = 0;
@@ -842,6 +844,17 @@ export class ScreenshotTrigger {
       if (left > 0) this.boardBytesOf.set(server, left);
       else this.boardBytesOf.delete(server);
     }
+  }
+
+  /**
+   * The most bytes of the board's messages a server may hold at once (final review R1-6): its
+   * share were one more server to come, `MAX_BOARD_BYTES_HELD` over the servers holding some
+   * (this one counted) and one more, at most one message's worth (`MAX_BOARD_MESSAGE_BYTES`).
+   * Alone, a full message; beside another, two thirds of one; so two servers never hold it all.
+   */
+  private boardPartOf(server: string): number {
+    const holding = this.boardBytesOf.size + (this.boardBytesOf.has(server) ? 0 : 1);
+    return Math.min(MAX_BOARD_MESSAGE_BYTES, MAX_BOARD_BYTES_HELD / (holding + 1));
   }
 
   /**

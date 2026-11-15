@@ -55,7 +55,7 @@ interface Taken {
 /** The board of the west region, handed to the trigger, which records what it takes. */
 function boardOf(
   west: Region,
-  shots: ReturnType<typeof screenshotsWith>,
+  shots: Pick<ReturnType<typeof screenshotsWith>, 'attachments' | 'reader'>,
 ): {
   taken: Taken[];
   /** What the keeper answers (review F1): deleted unless a test says kept or failed. */
@@ -426,8 +426,13 @@ describe('what a board message’s pictures may cost (plan 8Z-2)', () => {
     return { begun, release: () => release() };
   }
 
-  /** Messages of three members, each as large as a message's pictures may be together. */
-  const MEMBERS = ['700000000000000011', '700000000000000012', '700000000000000013'];
+  /** Messages of four members, each as large as a message's pictures may be together. */
+  const MEMBERS = [
+    '700000000000000011',
+    '700000000000000012',
+    '700000000000000013',
+    '700000000000000014',
+  ];
   const byMember = (
     made: Awaited<ReturnType<typeof setup>>,
     prefix: string,
@@ -441,35 +446,75 @@ describe('what a board message’s pictures may cost (plan 8Z-2)', () => {
       authorId,
       guildId,
     }).message;
+  /** A member's message in a server of pictures of these sizes, as Discord gives them. */
+  const ofSizes = (
+    made: Awaited<ReturnType<typeof setup>>,
+    prefix: string,
+    sizes: readonly number[],
+    authorId: string,
+    guildId = FAKE_GUILD_ID,
+  ) =>
+    posted(
+      sizes.map((size, n) => ({ ...made.screenshot(`${prefix}${String(n)}.png`, cat()), size })),
+      { channelId: BOARD, inThread: true, authorId, guildId },
+    ).message;
+  /** Two of the largest screenshots: less than what a server may hold beside another's message. */
+  const TWO_SHOTS = [MAX_SCREENSHOT_BYTES, MAX_SCREENSHOT_BYTES];
+  const THIRD_GUILD_ID = '412345678901234577';
+  const FOURTH_GUILD_ID = '412345678901234588';
+  /** A trigger over the test's that knows two more servers (the `Guild` rows 3 and 4). */
+  const withFourServers = (made: Awaited<ReturnType<typeof setup>>) => {
+    const idFor = made.ctx.guilds.idFor.bind(made.ctx.guilds);
+    const rows = new Map([
+      [THIRD_GUILD_ID, 3],
+      [FOURTH_GUILD_ID, 4],
+    ]);
+    const ctx: AppContext = {
+      ...made.ctx,
+      guilds: {
+        ...made.ctx.guilds,
+        idFor: (snowflake: string) => {
+          const row = rows.get(snowflake);
+          return row === undefined ? idFor(snowflake) : Promise.resolve(row);
+        },
+      },
+    };
+    return new ScreenshotTrigger({
+      ctx,
+      board: boardOf(made.regions.byChannel(WEST_CHANNEL)!, made).board,
+    });
+  };
   const dmsTo = (made: Awaited<ReturnType<typeof setup>>, member: string) =>
     made.dms.to(member).map((message) => message.content);
 
-  it('holds the bytes of two full messages at once: a third gets the busy words and downloads nothing', async () => {
+  it('holds the bytes of the board’s messages up to their total: one that would pass it gets the busy words and downloads nothing', async () => {
     const made = await setup();
-    const [one, two, three] = MEMBERS as [string, string, string];
-    // The third's downloads are not held: were it downloaded, the test would see it.
-    const third = byMember(made, 'c', three);
+    const trigger = withFourServers(made);
+    const [one, two, three, four] = MEMBERS as [string, string, string, string];
+    // The fourth's downloads are not held: were it downloaded, the test would see it.
+    const fourth = ofSizes(made, 'd', [MAX_SCREENSHOT_BYTES], four, FOURTH_GUILD_ID);
     const held = holdDownloads(
       made,
-      third.attachments.map((picture) => picture.url),
+      fourth.attachments.map((picture) => picture.url),
     );
-    const first = made.trigger.handle(byMember(made, 'a', one));
-    const second = made.trigger.handle(byMember(made, 'b', two, cat, OTHER_GUILD_ID));
-    await held.begun.reached(8);
-    await expect(made.trigger.handle(third)).resolves.toBe(true);
-    // Nothing of the third was downloaded (the first two's are still held).
+    // A full message, two shots beside it, one more beside those: 196 MB of 200.
+    const first = trigger.handle(byMember(made, 'a', one));
+    await held.begun.reached(4);
+    const second = trigger.handle(ofSizes(made, 'b', TWO_SHOTS, two, OTHER_GUILD_ID));
+    await held.begun.reached(6);
+    const third = trigger.handle(ofSizes(made, 'c', [MAX_SCREENSHOT_BYTES], three, THIRD_GUILD_ID));
+    await held.begun.reached(7);
+    await expect(trigger.handle(fourth)).resolves.toBe(true);
+    // Nothing of the fourth was downloaded (the first three's are still held).
     expect(made.attachments.asked).toEqual([]);
-    expect(dmsTo(made, three)).toEqual([
-      `From your screenshots in <#${BOARD}> (the board keeps only my lists, so I took your ` +
-        `message out of it):\n- 1: ${BUSY}\n- 2: ${BUSY}\n- 3: ${BUSY}\n- 4: ${BUSY}`,
-    ]);
+    expect(dmsTo(made, four)).toEqual([expect.stringContaining(BUSY)]);
     held.release();
-    await Promise.all([first, second]);
-    expect(made.attachments.asked).toHaveLength(8);
-    expect(made.reader.reads).toBe(8);
+    await Promise.all([first, second, third]);
+    expect(made.attachments.asked).toHaveLength(7);
+    expect(made.reader.reads).toBe(7);
     // Given back once read: the next message is downloaded again.
-    await made.trigger.handle(byMember(made, 'd', three));
-    expect(made.attachments.asked).toHaveLength(12);
+    await trigger.handle(ofSizes(made, 'e', [MAX_SCREENSHOT_BYTES], four, FOURTH_GUILD_ID));
+    expect(made.attachments.asked).toHaveLength(8);
   });
 
   it('holds one full message of a server at a time: its second gets the busy words, another server’s is downloaded (plan 19B-5)', async () => {
@@ -490,26 +535,57 @@ describe('what a board message’s pictures may cost (plan 8Z-2)', () => {
         `message out of it):\n- 1: ${BUSY}\n- 2: ${BUSY}\n- 3: ${BUSY}\n- 4: ${BUSY}`,
     ]);
     // The other server's message still has room beside the first.
-    const away = made.trigger.handle(byMember(made, 'c', three, cat, OTHER_GUILD_ID));
-    await held.begun.reached(8);
+    const away = made.trigger.handle(ofSizes(made, 'c', TWO_SHOTS, three, OTHER_GUILD_ID));
+    await held.begun.reached(6);
     held.release();
     await Promise.all([first, away]);
-    expect(made.attachments.asked).toHaveLength(8);
+    expect(made.attachments.asked).toHaveLength(6);
+  });
+
+  it('leaves room beside two servers for a third: the second may hold less than a full message (final review R1-6)', async () => {
+    const made = await setup();
+    const trigger = withFourServers(made);
+    const [one, two, three] = MEMBERS as [string, string, string];
+    // The second server's full message is refused; the third's one picture is not held.
+    const second = byMember(made, 'b', two, cat, OTHER_GUILD_ID);
+    const third = ofSizes(made, 'c', [MAX_SCREENSHOT_BYTES], three, THIRD_GUILD_ID);
+    const held = holdDownloads(made, [
+      ...second.attachments.map((picture) => picture.url),
+      ...third.attachments.map((picture) => picture.url),
+    ]);
+    const first = trigger.handle(byMember(made, 'a', one));
+    await held.begun.reached(4);
+    await expect(trigger.handle(second)).resolves.toBe(true);
+    expect(made.attachments.asked).toEqual([]);
+    expect(dmsTo(made, two)).toEqual([
+      `From your screenshots in <#${BOARD}> (the board keeps only my lists, so I took your ` +
+        `message out of it):\n- 1: ${BUSY}\n- 2: ${BUSY}\n- 3: ${BUSY}\n- 4: ${BUSY}`,
+    ]);
+    await trigger.handle(third);
+    expect(made.attachments.asked.map((one) => one.url)).toEqual(
+      third.attachments.map((picture) => picture.url),
+    );
+    held.release();
+    await first;
   });
 
   it('gives the bytes back after downloads that failed and after a reader that threw', async () => {
     const made = await setup();
     const [one, two, three] = MEMBERS as [string, string, string];
-    /** Two full messages, of two servers, are downloaded at once: nothing else holds any bytes. */
+    /**
+     * A full message and two shots beside it, of two servers, are downloaded at once: nothing
+     * else holds any bytes.
+     */
     const twoAtOnce = async (prefix: string) => {
       const held = holdDownloads(made);
-      const both = Promise.all([
-        made.trigger.handle(byMember(made, `${prefix}a`, two)),
-        made.trigger.handle(byMember(made, `${prefix}b`, three, cat, OTHER_GUILD_ID)),
-      ]);
-      await held.begun.reached(8);
+      const full = made.trigger.handle(byMember(made, `${prefix}a`, two));
+      await held.begun.reached(4);
+      const beside = made.trigger.handle(
+        ofSizes(made, `${prefix}b`, TWO_SHOTS, three, OTHER_GUILD_ID),
+      );
+      await held.begun.reached(6);
       held.release();
-      await both;
+      await Promise.all([full, beside]);
     };
     made.attachments.failing = true;
     await made.trigger.handle(byMember(made, 'a', one));
