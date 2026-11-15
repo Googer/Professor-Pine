@@ -76,3 +76,39 @@ A small bug-fix release: screenshots are read better.
 
 Update with `./pine update`; no new commands to deploy.
 ```
+
+## 4. The official post of 2.1.0 and 2.1.1
+
+**Not posted yet.** Drafted on 2026-11-15 (Matt: "We can make release notes as well for 2.1.0 and 2.1.1 since I never actually officially announced 2.1.0 either"). One post for both, its headline striking 2.1.0 through as the 2.0.2 post did, in two messages (about 1,620 and 1,040 characters). Checked against the code and the guides on 2026-11-15. `@Pine Admins`: retype it so that it pings.
+
+```md
+**~~v2.1.0~~, v2.1.1 Released**
+
+One Pine can now serve many Discord servers, each with its own setup. Nothing changes for a single server's members.
+
+- `/admin settings`: a server's channels, roles, features and distance units, set on Discord. The settings file's values are only a new server's defaults
+- A time zone per server, in `/admin settings`: times, the boss list's changes, events and "Today's Stops" follow it
+- Gyms, PokéStops, power spots, nicknames and gym requests belong to each server; one server's import never touches another's
+- `/admin setup`: a server that adds Pine starts in setup, and lists what its staff must set before raids can be reported there
+- `/operator` for what every server shares: the boss list's overrides, the event window, the image cache, and `/operator forget` (was `/admin forget`) to remove a member's data on request. The owner (`OWNER_ID`) and the `operators` of the settings file use it; on a closed instance a server's bot staff may too, in their own server
+- The `servers` setting says which servers this Pine serves: unset, closed to new servers; a list of server ids; or `"open"`. A server not served is told so and left
+- A server that removes Pine is kept 30 days, then its data is deleted
+- Neighbors (`/admin neighbors`): two servers whose staff agree each see the other's party at the same gym or power spot on their posts
+- Servers take turns: DMs, the screenshot reader, post updates and Google lookups are shared fairly
+- 2.1.1: when a screenshot's CP and name fit two bosses (Black and White Kyurem), Pine posts the raid, then asks whoever sent it which one
+```
+
+The second message, right after it:
+
+```md
+To update: `./pine update` (it backs up first and migrates the database), then `./pine deploy-commands` for `/operator` and the new parts of `/admin`.
+
+Notes:
+- Leave `servers` unset to keep your Pine as it was: the servers it already serves keep working, set up from your settings file at the first start; a server added later starts in setup
+- Check that `OWNER_ID` in `.env` is your own Discord user ID: it is who may use `/operator` everywhere and who gets the bot's alerts
+- If you allowed or refused `/admin` for some roles in Server Settings › Integrations, set `/operator` the same way: Discord does not carry it over
+- The web login now also asks which servers you are in, so the map shows only those of your Pine. The Privacy Policy and Terms in `docs/legal/` changed with it: if you publish your own, update them
+- Thinking of offering your Pine to other communities? Read "A public Pine" first: <https://github.com/Googer/Professor-Pine/blob/master/docs/guides/new-instance.md#9-a-public-pine>
+
+@Pine Admins Questions? Ask here.
+```
