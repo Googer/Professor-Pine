@@ -60,6 +60,29 @@ function serverAskRefusal(wait: number): string {
   );
 }
 
+/**
+ * How often one member may use `end` (final review R6-2): each may write the pair's row and post in
+ * both servers' labs.
+ */
+const END_THROTTLE: Throttle = { uses: 10, perSeconds: 600 };
+
+/**
+ * How many servers one server's staff may name by an invite link in `end`, all of them together
+ * (final review R6-2): each is a question to Discord on the bot's token, which every server's asks
+ * share. Counted by the server's id before Discord is asked; an ID asks nothing of Discord.
+ */
+const SERVER_END_INVITE_THROTTLE: Throttle = { uses: 5, perSeconds: 600 };
+const SERVER_END_INVITE_WINDOW = 'admin neighbors end, invite links by server';
+
+/** The refusal of an invite link in `end` past the server's throttle. */
+function serverEndInviteRefusal(wait: number): string {
+  return (
+    `This server’s staff have named ${String(SERVER_END_INVITE_THROTTLE.uses)} servers by ` +
+    'invite link in ten minutes, the most they may. Give the server’s ID instead, or try again ' +
+    `in ${waitText(wait)}.`
+  );
+}
+
 /** How often one member may press Accept or Decline. */
 const ANSWER_THROTTLE: Throttle = { uses: 20, perSeconds: 60 };
 
@@ -327,9 +350,22 @@ export const endNeighbor: SubcommandPart = {
     examples: ['/admin neighbors end server:123456789012345678'],
   },
   defer: 'ephemeral',
+  throttle: END_THROTTLE,
   async execute(interaction, ctx) {
     const serverId = guildIdOf(interaction);
-    const other = await namedServer(ctx, interaction.options.getString('server', true));
+    const ref = typedServer(interaction.options.getString('server', true));
+    if (ref.kind === 'invite') {
+      // Its refusal gives the member's own use back, as `ask`'s does (review RR2).
+      const wait = ctx.throttles.use(
+        SERVER_END_INVITE_WINDOW,
+        serverId,
+        SERVER_END_INVITE_THROTTLE,
+        Date.now(),
+      );
+      if (wait !== undefined)
+        throw new UserError(serverEndInviteRefusal(wait), { givesBack: true });
+    }
+    const other = await namedServer(ctx, ref);
     const name = other === undefined ? undefined : ctx.neighbors.nameOf(other);
     const ended = other === undefined ? 'none' : await ctx.neighbors.end(serverId, other);
     switch (ended) {

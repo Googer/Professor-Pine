@@ -42,9 +42,16 @@ async function neighborCommandsWith(
     ['pewter-gym', BROCK],
     ['pallet', ASH],
   ]);
+  // The invite codes Discord was asked about, in order.
+  const invitesAsked: string[] = [];
   const { ctx } = createTestContext({
     neighbors: made.neighbors,
-    invites: { serverOfInvite: (code) => Promise.resolve(invites.get(code)) },
+    invites: {
+      serverOfInvite: (code) => {
+        invitesAsked.push(code);
+        return Promise.resolve(invites.get(code));
+      },
+    },
     neighborCopy: copying.copy,
     guilds: { idFor: (snowflake) => Promise.resolve(rows.get(snowflake)) },
   });
@@ -71,7 +78,7 @@ async function neighborCommandsWith(
     await router.handle(interaction as never);
     return interaction;
   };
-  return { ...made, ctx, router, use, press, staff, copying };
+  return { ...made, ctx, router, use, press, staff, copying, invitesAsked };
 }
 
 describe('/admin neighbors (plan 19E)', () => {
@@ -292,6 +299,44 @@ describe('/admin neighbors (plan 19E)', () => {
     expect(said(await made.use('end', { server: ASH }, BROCK))).toBe(
       'This server is not neighbors with `412345678901234501` and has no open request to it.',
     );
+  });
+
+  it('holds `end` to ten uses a member, and a server’s invite links in it to five, in ten minutes (final review R6-2)', async () => {
+    const made = await neighborCommandsWith();
+    const other = { userId: MEMBER, roleNames: ['Admin'], guildId: ASH };
+    const none = 'This server is not neighbors with that server and has no open request to it.';
+    for (let n = 0; n < 5; n += 1) {
+      expect(
+        said(await made.use('end', { server: `https://discord.gg/nowhere${String(n)}` })),
+      ).toBe(none);
+    }
+    // The server's five invite links: another of its staff is refused before Discord is asked,
+    // and that use is given back to them.
+    expect(said(await made.use('end', { server: 'discord.gg/pewter-gym' }, ASH, other))).toBe(
+      'This server’s staff have named 5 servers by invite link in ten minutes, the most they ' +
+        'may. Give the server’s ID instead, or try again in 10 minutes.',
+    );
+    expect(made.invitesAsked).toHaveLength(5);
+    // By its ID, a server is named without Discord, up to each member's ten uses.
+    for (let n = 0; n < 5; n += 1) {
+      expect(said(await made.use('end', { server: BROCK }))).toBe(
+        'This server is not neighbors with `412345678901234502` and has no open request to it.',
+      );
+    }
+    expect(said(await made.use('end', { server: BROCK }))).toBe(
+      'You can use /admin neighbors end again in 10 minutes.',
+    );
+    for (let n = 0; n < 10; n += 1) {
+      expect(said(await made.use('end', { server: BROCK }, ASH, other))).not.toContain(
+        'You can use',
+      );
+    }
+    // Another server's staff are not held by it.
+    const theirs = { userId: '200000000000000003', roleNames: ['Admin'], guildId: BROCK };
+    expect(said(await made.use('end', { server: 'discord.gg/pallet' }, BROCK, theirs))).toBe(
+      'This server is not neighbors with `412345678901234501` and has no open request to it.',
+    );
+    expect(made.invitesAsked).toHaveLength(6);
   });
 
   it('copies a neighbor’s curated gym texts onto this server’s same gyms, never over its own', async () => {
