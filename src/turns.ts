@@ -6,8 +6,9 @@
  * waiting already.
  *
  * For short lines (a key's items are taken from the front of an array): the screenshot reader's
- * queue (`OcrService`), the posts shown anew (`PartyService`) and the gateway's requests for
- * members (`BudgetLine`, `member-directory.ts`). The DM queue, whose lines are
+ * queue (`OcrService`), the posts and the summaries shown anew (`PartyService`), a change of the
+ * raid bosses to every server (`RaidBossAnnouncer`) and the gateway's requests for members
+ * (`BudgetLine`, `member-directory.ts`). The DM queue, whose lines are
  * long and ordered by their events, has its own (`QueuedDmSender`).
  */
 export class Turns<K, T> {

@@ -238,6 +238,20 @@ const CHECK_EVERY_MS = 10 * MINUTE;
  * a restart reads the emoji anew, and every post at once would be a burst of edits.
  */
 export const EMOJI_RENDER_GAP_MS = 250;
+/**
+ * Every summary drawn anew at once (`showAllAnew`: the emoji read at a start, the catch-up; a
+ * zone's local midnight) goes on a paced line, the servers in turns (final review R1-1): as many
+ * as this at once, as many boards as a Pine of one server has (Pittsburgh's 28 regions draw at
+ * once, as before), then one every `SUMMARY_GAP_MS`, back to this many after a quiet while.
+ * Every request counts against Discord's 50 a second for the whole bot, the deferred answers
+ * included: an open instance of 300 servers of ten regions would otherwise ask 6,000 at once.
+ */
+export const SUMMARY_BURST = 40;
+/**
+ * The pace of that line beyond its burst: eight summaries a second, each an edit and at times a
+ * pin, about a third of Discord's budget, the posts shown anew beside them.
+ */
+export const SUMMARY_GAP_MS = 125;
 
 /**
  * How long changes of servers' gyms are gathered before their neighbors' matches are compared
@@ -1000,6 +1014,16 @@ export class PartyService {
    */
   private readonly emojiQueue = new Turns<number | null, string>();
   private emojiTimer: (() => void) | undefined;
+  /**
+   * The regions whose summaries wait to be drawn anew all at once (`showAllAnew`, a zone's
+   * midnight), a line per server (its `Guild` row) served in turns at `SUMMARY_GAP_MS` beyond a
+   * burst of `SUMMARY_BURST` (final review R1-1), and the timer of the next.
+   */
+  private readonly summaryLine = new Turns<number | null, number>();
+  private summaryTimer: (() => void) | undefined;
+  /** How many of that line's draws may start now, and when that was counted. */
+  private summaryRoom = SUMMARY_BURST;
+  private summaryRoomAt: number | undefined;
   /** Set by `close` at shutdown: nothing is shown anew from then on. */
   private closed = false;
   /** The copies of a party's message in other channels and at the bottom of its post. */
@@ -3033,8 +3057,8 @@ export class PartyService {
 
   /**
    * Every active post shown anew, paced (`emojiChanged`, `redrawPosts`), and every summary drawn
-   * anew (plan 8R-9, B7: a midnight passed while the network was away); one that reads the same
-   * is not edited.
+   * anew (plan 8R-9, B7: a midnight passed while the network was away), paced on a line of its
+   * own (`queueSummaries`, final review R1-1); one that reads the same is not edited.
    */
   private showAllAnew(): void {
     if (this.closed) return;
@@ -3101,9 +3125,10 @@ export class PartyService {
   /**
    * Draws the summaries of the regions of the servers in a zone anew at each local midnight of
    * that zone from now on (plan 8R-9, B7: what starts tomorrow moves from Coming up to today;
-   * plan 19A-2: one timer per zone in use, `everyLocalMidnightIn`), also in rehearsal mode.
-   * Temporal's midnight, so a day of a change of the clocks is 23 or 25 hours long. A summary
-   * that reads the same is not edited. Nothing after `close`.
+   * plan 19A-2: one timer per zone in use, `everyLocalMidnightIn`), also in rehearsal mode,
+   * paced (`queueSummaries`, final review R1-1). Temporal's midnight, so a day of a change of the
+   * clocks is 23 or 25 hours long. A summary that reads the same is not edited. Nothing after
+   * `close`.
    */
   watchMidnight(): void {
     if (this.closed) return;
@@ -3114,10 +3139,10 @@ export class PartyService {
       setTimer: this.setTimer,
       run: (zone) => {
         if (this.closed) return;
-        for (const region of this.options.regions.all()) {
-          if (region.forumChannelId === null) continue;
-          if (this.zoneOfRow(region.guildId) === zone) this.summaries.request(region.id);
-        }
+        // Paced, the servers in turns (final review R1-1): a zone of many servers at once.
+        this.queueSummaries(
+          this.options.regions.all().filter((region) => this.zoneOfRow(region.guildId) === zone),
+        );
       },
     });
   }
@@ -3167,10 +3192,53 @@ export class PartyService {
     this.midnights?.refresh();
   }
 
-  /** Asks for the summary of every region that has a forum. */
+  /** Asks for the summary of every region that has a forum, paced (`queueSummaries`). */
   private allSummaries(): void {
-    for (const region of this.options.regions.all()) {
-      if (region.forumChannelId !== null) this.summaries.request(region.id);
+    this.queueSummaries(this.options.regions.all());
+  }
+
+  /**
+   * Puts the summaries of these regions on the paced line (final review R1-1), each in its
+   * server's line, and starts what may start now: up to `SUMMARY_BURST` at once, then one every
+   * `SUMMARY_GAP_MS`, the servers in turns. A region without a forum, of a quiet server, or
+   * waiting there already is not put; a summary that reads the same is not edited when its turn
+   * comes. Nothing after `close`; `flush` drops what waits.
+   */
+  private queueSummaries(regions: Iterable<Region>): void {
+    if (this.closed) return;
+    for (const region of regions) {
+      if (region.forumChannelId === null || this.quietRow(region.guildId)) continue;
+      if (this.summaryLine.has(region.guildId, (id) => id === region.id)) continue;
+      this.summaryLine.put(region.guildId, region.id);
+    }
+    if (this.summaryTimer === undefined) this.nextSummaries(false);
+  }
+
+  /**
+   * Starts the summaries of the line that may start now (`summaryRoom`, one more every
+   * `SUMMARY_GAP_MS` up to `SUMMARY_BURST`), and sets the timer of the next while some wait. A
+   * turn of that timer lets one start whatever the clock says (a clock that stands still, as a
+   * test's, would never give room back).
+   */
+  private nextSummaries(byTimer: boolean): void {
+    this.summaryTimer = undefined;
+    const now = this.now();
+    const earned = Math.max(
+      this.summaryRoomAt === undefined ? 0 : (now - this.summaryRoomAt) / SUMMARY_GAP_MS,
+      byTimer ? 1 : 0,
+    );
+    this.summaryRoom = Math.min(SUMMARY_BURST, this.summaryRoom + earned);
+    this.summaryRoomAt = now;
+    while (this.summaryRoom >= 1) {
+      const regionId = this.summaryLine.take();
+      if (regionId === undefined) return;
+      this.summaryRoom -= 1;
+      this.summaries.request(regionId);
+    }
+    if (this.summaryLine.size > 0) {
+      this.summaryTimer = this.setTimer(() => {
+        this.nextSummaries(true);
+      }, SUMMARY_GAP_MS);
     }
   }
 
@@ -3936,7 +4004,8 @@ export class PartyService {
   /**
    * Does everything that is waiting now, and cancels the timers of titles and tags that wait for
    * a rate limit, so what they wait for is not retried, and drops the posts that wait to be shown
-   * with other emoji (`emojiChanged`). For tests; at shutdown `close`: stop whatever calls
+   * with other emoji (`emojiChanged`) and the summaries that wait for their pace (`queueSummaries`).
+   * For tests; at shutdown `close`: stop whatever calls
    * `changed` (the scheduler) before it.
    */
   async flush(): Promise<void> {
@@ -3944,6 +4013,10 @@ export class PartyService {
     this.emojiTimer?.();
     this.emojiTimer = undefined;
     this.emojiQueue.clear();
+    // And the summaries that wait for the pace of their line (final review R1-1).
+    this.summaryTimer?.();
+    this.summaryTimer = undefined;
+    this.summaryLine.clear();
     // So do those that wait for the neighbors' matches to be compared (plan 19E).
     this.gymsChangedTimer?.();
     this.gymsChangedTimer = undefined;

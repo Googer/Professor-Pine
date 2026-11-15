@@ -1,6 +1,7 @@
 import type { Settings } from '../config/settings.js';
 import type { PartyGateway } from '../discord/party-gateway.js';
 import type { Logger } from '../log.js';
+import { Turns } from '../turns.js';
 import { bossChangeAnnouncement, staleWarning } from '../render/boss-changes.js';
 import { BOT_UPDATES_GONE, botUpdatesRefusedWords } from '../render/server-notices.js';
 import { DM_PRIORITY, type DmSender } from './dm-sender.js';
@@ -13,6 +14,13 @@ const MAX_WAITING = 10;
 
 /** How long the owner's DM of a stale list is worth sending: a day, the spell may be over. */
 const STALE_DM_MS = 24 * 3_600_000;
+
+/**
+ * A change of the list goes to one server's channel at a time, one this often (final review
+ * R1-1), the servers in turns: a change in a zone of 600 servers would otherwise be 600 requests
+ * at once against Discord's 50 a second for the whole bot. A Pine of one server sends at once.
+ */
+export const ANNOUNCE_GAP_MS = 250;
 
 export interface RaidBossAnnouncerOptions {
   gateway: Pick<PartyGateway, 'serverChannels' | 'serverAvailable' | 'mayPost' | 'sendMessage'>;
@@ -28,6 +36,8 @@ export interface RaidBossAnnouncerOptions {
   ownerId: string;
   /** What is wrong with a server's bot updates channel, told to its staff (plan 19B-1). */
   notices: Pick<ServerNotices, 'tell'>;
+  /** Runs `run` once after `ms`, cancelled by what it returns; an unref'd `setTimeout` unless set. */
+  setTimer?: (run: () => void, ms: number) => () => void;
 }
 
 type Announcement =
@@ -59,15 +69,34 @@ type Announcement =
  * may not post in, is told to that server's staff (`ServerNotices`). A message pings nobody.
  *
  * What the service reports before the client is ready waits (`ready`). A message is worded when
- * the event comes. Nobody waits for the sending, and a failure is logged.
+ * the event comes; a change's messages go to one server at a time, one every `ANNOUNCE_GAP_MS`,
+ * the servers in turns (final review R1-1), each server's channel looked at when its turn comes.
+ * Nobody waits for the sending, and a failure is logged.
  */
 export class RaidBossAnnouncer {
   private isReady = false;
   private closed = false;
   private waiting: Announcement[] = [];
   private readonly sending = new Set<Promise<void>>();
+  /**
+   * The servers' messages of a change that wait for their turn (final review R1-1), a line per
+   * server served in turns, one every `ANNOUNCE_GAP_MS`, and the timer of the next.
+   */
+  private readonly line = new Turns<string, { guildId: string; content: string }>();
+  private timer: (() => void) | undefined;
+  private readonly setTimer: (run: () => void, ms: number) => () => void;
 
-  constructor(private readonly options: RaidBossAnnouncerOptions) {}
+  constructor(private readonly options: RaidBossAnnouncerOptions) {
+    this.setTimer =
+      options.setTimer ??
+      ((run, ms) => {
+        const timer = setTimeout(run, ms);
+        timer.unref();
+        return () => {
+          clearTimeout(timer);
+        };
+      });
+  }
 
   /**
    * Listens to the service; call it before the service's first sync. Only the raid bosses: the
@@ -111,18 +140,26 @@ export class RaidBossAnnouncer {
     this.announce({ to: 'owner', content: staleWarning(event.lastSyncedAt), at: Date.now() });
   }
 
-  /** Waits for the messages that are on their way. For tests. */
+  /** Sends what waits for its turn at once, and waits for the messages on their way. For tests. */
   async flush(): Promise<void> {
+    this.timer?.();
+    this.timer = undefined;
+    for (let next = this.line.take(); next !== undefined; next = this.line.take()) {
+      this.deliver(next.guildId, next.content);
+    }
     while (this.sending.size > 0) await Promise.allSettled([...this.sending]);
   }
 
   /**
    * For shutdown: waits for the messages on their way, and from then on sends nothing (the
-   * client is about to go), also not what still waits for the client.
+   * client is about to go), also not what still waits for the client or for its turn.
    */
   async close(): Promise<void> {
     this.closed = true;
     this.waiting = [];
+    this.timer?.();
+    this.timer = undefined;
+    this.line.clear();
     await this.flush();
   }
 
@@ -148,39 +185,68 @@ export class RaidBossAnnouncer {
       });
       return;
     }
-    const { gateway, serverIds, servers, log, notices } = this.options;
+    const { serverIds, servers } = this.options;
     for (const guildId of serverIds()) {
       if (announcement.zone !== undefined && servers.zoneOf(guildId) !== announcement.zone)
         continue;
-      const id = servers.of(guildId).channels['bot-updates'];
-      if (id === undefined) continue;
-      // Unavailable (its channels may be out of date), or left: nothing is sent, and nothing is
-      // said to be gone (plan 19B-1).
-      if (!gateway.serverAvailable(guildId)) continue;
-      const channels = gateway.serverChannels(guildId);
-      if (channels === undefined) continue;
-      const channel = channels.find((one) => one.kind === 'text' && one.id === id);
-      if (!channel) {
-        notices.tell(guildId, 'bot-updates:gone', BOT_UPDATES_GONE);
-        continue;
-      }
-      if (!gateway.mayPost(channel.id)) {
-        notices.tell(guildId, 'bot-updates:cannot-post', botUpdatesRefusedWords(channel.id));
-        continue;
-      }
-      const sent: Promise<void> = gateway
-        .sendMessage(channel.id, { content: announcement.content })
-        .then(
-          () => undefined,
-          (err: unknown) => {
-            log.warn(
-              { err, guild: guildId, what: 'change' },
-              'could not announce the raid boss list',
-            );
-          },
-        )
-        .finally(() => this.sending.delete(sent));
-      this.sending.add(sent);
+      this.line.put(guildId, { guildId, content: announcement.content });
     }
+    if (this.timer === undefined) this.next();
+  }
+
+  /**
+   * Sends the next server's message of the line (final review R1-1), the servers in turns,
+   * passing over at once those that ask nothing of Discord, and sets the timer of the one after
+   * it while some wait.
+   */
+  private next(): void {
+    this.timer = undefined;
+    if (this.closed) return;
+    for (let next = this.line.take(); next !== undefined; next = this.line.take()) {
+      if (this.deliver(next.guildId, next.content)) break;
+    }
+    if (this.line.size > 0) {
+      this.timer = this.setTimer(() => {
+        this.next();
+      }, ANNOUNCE_GAP_MS);
+    }
+  }
+
+  /**
+   * A change's message to one server's channel for bot updates, as the server is when its turn
+   * comes; what is wrong with the channel told to its staff. Whether Discord was asked anything.
+   */
+  private deliver(guildId: string, content: string): boolean {
+    const { gateway, servers, log, notices } = this.options;
+    const id = servers.of(guildId).channels['bot-updates'];
+    if (id === undefined) return false;
+    // Unavailable (its channels may be out of date), or left: nothing is sent, and nothing is
+    // said to be gone (plan 19B-1).
+    if (!gateway.serverAvailable(guildId)) return false;
+    const channels = gateway.serverChannels(guildId);
+    if (channels === undefined) return false;
+    const channel = channels.find((one) => one.kind === 'text' && one.id === id);
+    if (!channel) {
+      notices.tell(guildId, 'bot-updates:gone', BOT_UPDATES_GONE);
+      return true;
+    }
+    if (!gateway.mayPost(channel.id)) {
+      notices.tell(guildId, 'bot-updates:cannot-post', botUpdatesRefusedWords(channel.id));
+      return true;
+    }
+    const sent: Promise<void> = gateway
+      .sendMessage(channel.id, { content })
+      .then(
+        () => undefined,
+        (err: unknown) => {
+          log.warn(
+            { err, guild: guildId, what: 'change' },
+            'could not announce the raid boss list',
+          );
+        },
+      )
+      .finally(() => this.sending.delete(sent));
+    this.sending.add(sent);
+    return true;
   }
 }
