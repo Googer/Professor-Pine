@@ -869,9 +869,11 @@ async function answerBoss(
   acknowledging(id.id);
   await interaction.deferUpdate();
   const feedback = question.screenshotId === undefined ? [] : [showRow(question.screenshotId)];
+  // What came of the press may be longer than the question it takes the place of.
   const say = (words?: string) =>
     interaction.editReply({
-      content: words === undefined ? question.said : `${question.said}\n\n${words}`,
+      content:
+        words === undefined ? question.said : truncate(`${question.said}\n\n${words}`, MESSAGE),
       components: feedback,
     });
   if (!boss) {

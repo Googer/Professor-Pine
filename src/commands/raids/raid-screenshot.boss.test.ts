@@ -152,6 +152,22 @@ describe('/raid with a screenshot whose CP and name fit more than one boss', () 
     expect(stored().raid.boss).toBeNull();
   });
 
+  it('keeps the answer within a message’s length when what came of the press is longer than the question', async () => {
+    const long = testGym(14, 'Quiet Meadow Bench', 40.062, -80.062, {
+      nickname: 'Quiet Meadow Bench '.repeat(50).trim(),
+    });
+    const { report, stored, handle } = await setup([long]);
+    const answer = sent((await report({}, 'Quiet Meadow Bench')).editReply);
+    expect(stored()).toMatchObject({ gymId: 14 });
+    expect(answer.content?.length).toBeLessThanOrEqual(2_000);
+    expect(answer.content).toMatch(/\n\nWhich boss is the raid at Quiet Meadow Bench/);
+    const white = await handle(pressOn(answer, 'White Kyurem'));
+    expect(stored().raid.boss).toEqual({ key: 'kyurem_white' });
+    const changed = sent(white.editReply).content ?? '';
+    expect(changed.length).toBeLessThanOrEqual(2_000);
+    expect(changed).toMatch(/^Reported/);
+  });
+
   it('asks nothing when the member typed the boss', async () => {
     const { report, stored } = await setup();
     const answer = sent((await report({ boss: 'b:kyurem_black:T5:0' })).editReply);
