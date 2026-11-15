@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  FAKE_MESSAGE_ID,
   fakeButton,
   fakeChatInput,
+  fakeMessage,
   fakeSelect,
   sent,
   type FakeInteraction,
+  type FakeRow,
 } from '../../../test/support/fake-interactions.js';
 import { testGym, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { PARTY_NOW } from '../../../test/support/parties.js';
@@ -166,6 +169,34 @@ describe('/raid with a screenshot whose CP and name fit more than one boss', () 
     const changed = sent(white.editReply).content ?? '';
     expect(changed.length).toBeLessThanOrEqual(2_000);
     expect(changed).toMatch(/^Reported/);
+  });
+
+  it('drops the bosses’ buttons of a question that expired, keeping what was reported and its feedback', async () => {
+    const { report, stored, handle } = await setup();
+    const answer = sent((await report()).editReply);
+    const lines = answer.content?.split('\n') ?? [];
+    vi.setSystemTime(PARTY_NOW + 11 * 60_000);
+    const white = buttonsOf(answer).find((button) => button.label === 'White Kyurem');
+    const late = await handle(
+      fakeButton({
+        customId: white?.custom_id ?? 'missing',
+        ephemeralMessage: true,
+        message: fakeMessage(
+          (answer.components ?? []) as FakeRow[],
+          FAKE_MESSAGE_ID,
+          answer.content ?? '',
+        ),
+      }),
+    );
+    const after = sent(late.update);
+    expect(after.content).toBe(
+      [
+        ...lines.slice(0, -1),
+        'That question has expired. Set the boss with Manage… on the raid’s post.',
+      ].join('\n'),
+    );
+    expect(buttonsOf(after).map((button) => button.label)).toEqual(['Screenshot feedback']);
+    expect(stored().raid.boss).toBeNull();
   });
 
   it('asks nothing when the member typed the boss', async () => {

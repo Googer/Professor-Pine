@@ -16,7 +16,7 @@ import { BoundedMap } from '../../bounded-map.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { Guard, SimpleCommand } from '../../discord/command.js';
 import type { ComponentHandler } from '../../discord/command.js';
-import { encodeCustomId } from '../../discord/custom-id.js';
+import { decodeCustomId, encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
 import { guildIdOf, regionChannelOf, requireRegion } from '../../discord/guards.js';
 import { whenCounted } from '../../discord/router.js';
@@ -37,6 +37,7 @@ import { gymCandidates, gymMenuOptions, gymNamerOf } from '../screenshots/gym-qu
 import { readAttachedOutcome, sayBeside } from '../screenshots/read-screenshot.js';
 import {
   BOSS_ACTION,
+  BOSS_QUESTION_START,
   bossQuestionOf,
   bossQuestionText,
   bossRows,
@@ -861,7 +862,10 @@ async function answerBoss(
   }
   const asked = pendingBosses.peek(id.id, interaction);
   if (asked === 'not-yours') throw new UserError('That is somebody else’s report.');
-  if (asked === 'expired') throw new UserError(BOSS_EXPIRED);
+  if (asked === 'expired') {
+    await bossExpired(interaction);
+    return;
+  }
   const question = asked.value;
   const boss = id.action === BOSS_ACTION ? chosenBoss(question, id.args[0]) : undefined;
   if (id.action === BOSS_ACTION && !boss) throw new UserError(BOSS_EXPIRED);
@@ -888,6 +892,30 @@ async function answerBoss(
     throw err;
   }
   await say(words);
+}
+
+/**
+ * A press on a question which boss it is that is no longer kept (its time, or a restart): the
+ * answer keeps what it said of the report, the question giving way to a word that it expired, and
+ * every row but the question's (the feedback button stays), as the gym's expired question loses
+ * its controls (`claimed`). Read off the message pressed, which outlives what was kept for it.
+ */
+async function bossExpired(interaction: ButtonInteraction): Promise<void> {
+  const text = interaction.message.content;
+  const at = text.lastIndexOf(`\n\n${BOSS_QUESTION_START}`);
+  const said = at < 0 ? text : text.slice(0, at);
+  const ofQuestion = (component: object): boolean => {
+    const raw = 'custom_id' in component ? component.custom_id : undefined;
+    const id = typeof raw === 'string' ? decodeCustomId(raw) : undefined;
+    return id?.kind === KIND && aboutBoss(id.action);
+  };
+  const rows = interaction.message.components
+    .map((row) => row.toJSON())
+    .filter((row) => !('components' in row) || !row.components.some(ofQuestion));
+  await interaction.update({
+    content: truncate(said === '' ? BOSS_EXPIRED : `${said}\n\n${BOSS_EXPIRED}`, MESSAGE),
+    components: rows,
+  });
 }
 
 /** The gym menu and the confirmation buttons of `/raid`, and its question which boss it is. */

@@ -60,9 +60,12 @@ export function bossQuestionOf(
   };
 }
 
+/** How the question which boss it is starts, by which an answer that asked it is known. */
+export const BOSS_QUESTION_START = 'Which boss is the raid at ';
+
 /** "Which boss is the raid at <gym>?" */
 export function bossQuestionText(question: Pick<BossQuestion, 'gymName'>): string {
-  return `Which boss is the raid at ${question.gymName}?`;
+  return `${BOSS_QUESTION_START}${question.gymName}?`;
 }
 
 /**
