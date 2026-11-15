@@ -117,6 +117,26 @@ describe('periodAt', () => {
     });
   });
 
+  // Final review R3-2's leftover: a day that began at 01:00 (the clocks went forward at
+  // midnight) is followed by one that begins at 00:00; no daily window is skipped.
+  it('gives each day of a big event its hours after a day that began at 01:00 (Santiago)', () => {
+    const SANTIAGO = 'America/Santiago';
+    const inSantiago = (local: string) => zonedAt(local, SANTIAGO);
+    const fest: ResearchEvent = {
+      ...FEST,
+      start: inSantiago('2026-09-06T10:00'),
+      end: inSantiago('2026-09-07T18:00'),
+    };
+    expect(periodAt([fest], inSantiago('2026-09-06T12:00'), SANTIAGO).key).toBe(
+      'event:pokemon-go-fest-2027-global:2026-09-06',
+    );
+    expect(periodAt([fest], inSantiago('2026-09-07T12:00'), SANTIAGO)).toMatchObject({
+      key: 'event:pokemon-go-fest-2027-global:2026-09-07',
+      start: inSantiago('2026-09-07T10:00'),
+      end: inSantiago('2026-09-07T18:00'),
+    });
+  });
+
   it('is an intra-day event’s window, with the day’s reports waiting until it ends', () => {
     expect(periodAt(EVENTS, at('2026-11-21T13:59'), ZONE)).toMatchObject({
       key: 'day:2026-11-21',
