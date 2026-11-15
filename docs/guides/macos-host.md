@@ -297,7 +297,11 @@ The backups in `~/pine-backups` live on the Mac's own disk, which is soldered in
 
    Run it as a NAS user whose home holds the key (an administrator of the NAS rather than root, whose account DSM keeps disabled), with `~/.ssh` at mode 700.
 
-   No `--delete`: the NAS keeps what the Mac already deleted after 90 days (`BACKUP_KEEP_DAYS`), and you prune it there by hand if it grows.
+   No `--delete`: a dump lost or damaged on the Mac must not take the NAS's copy with it. The NAS deletes its own copies after 90 days instead, as the Mac does (`BACKUP_KEEP_DAYS`): the Privacy Policy promises that backups, and what members had removed, are gone after 90 days. A second task, daily at 05:30, as the same user (`rsync -a` keeps the dumps' times):
+
+   ```bash
+   find /volume1/pine-backups -name 'pine-backup-*.sql.gz' -mtime +90 -delete
+   ```
 4. Run the task once by hand (Run) and check that the folder on the NAS has the dumps. If it has none, the task's output says what the NAS asked for ("This key may only fetch…": the folder in step 3's command must read `pine-backups/` exactly). From the NAS, `ssh <you>@pine-host.local` with that key must now be refused with the same sentence.
 
 ## 9. The tunnel (the web pages)
