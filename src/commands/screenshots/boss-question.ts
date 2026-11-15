@@ -7,7 +7,7 @@ import {
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
-import { UserError } from '../../discord/errors.js';
+import { ListChanged } from '../../discord/errors.js';
 import { partyOfServer } from '../../discord/guards.js';
 import type { ScreenshotRaid } from '../../domain/ocr/screenshot-decision.js';
 import type { StoredBoss } from '../../domain/ocr/screenshot-record.js';
@@ -138,7 +138,8 @@ export async function setChosenBoss(
       { tier: boss.tier },
     );
   } catch (err) {
-    if (err instanceof UserError) return NO_LONGER_LISTED;
+    // Only the list rotated since: any other refusal is said in its own words.
+    if (err instanceof ListChanged) return NO_LONGER_LISTED;
     throw err;
   }
   if (answer.kind !== 'ok') return answer.text;

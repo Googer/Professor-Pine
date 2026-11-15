@@ -220,7 +220,10 @@ function catalogueBoss(key: string, tier: RaidTier): RaidBoss {
  * The fixture's boss list with Black and White Kyurem at T5 (2026-11-15): two bosses of one raid
  * CP (`KYUREM_CP`) whose screen names both "Kyurem", which a screenshot cannot tell apart.
  */
-export function kyuremBossesFixture(): FixtureRaidBosses {
+export function kyuremBossesFixture(): FixtureRaidBosses & {
+  /** Takes a boss off the list, as a rotation of the bosses does. */
+  rotateOut: (key: string) => void;
+} {
   const base = raidBossesFixture();
   const twins = KYUREM_TWINS.map((key) => catalogueBoss(key, TWINS_TIER));
   let kept: RaidBoss[] | undefined;
@@ -229,6 +232,9 @@ export function kyuremBossesFixture(): FixtureRaidBosses {
     bosses,
     bossesOf: (tier) => bosses().filter((boss) => sameRaidTier(boss.tier, tier)),
     autoset: (tier) => autosetBoss(bosses(), tier),
+    rotateOut: (key) => {
+      kept = bosses().filter((boss) => boss.key !== key);
+    },
   };
 }
 

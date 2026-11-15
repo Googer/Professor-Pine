@@ -10,6 +10,7 @@ import { screenshotsWith } from '../../../test/support/screenshot-service.js';
 import { eggReading, kyuremReading } from '../../../test/support/screenshots.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
+import { UserError } from '../../discord/errors.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { isRaid, type RaidParty } from '../../domain/party/party.js';
 import type { ScreenReading } from '../../ocr/screen-reader.js';
@@ -59,7 +60,7 @@ async function setup(options: { gyms?: Gym[]; passive?: boolean; questionMs?: nu
     if (!party || !isRaid(party)) throw new Error('no raid');
     return party;
   };
-  return { ...shots, ...made, ctx, trigger, router, image, raid };
+  return { ...shots, ...made, ctx, trigger, router, image, raid, raidBosses };
 }
 
 const kyurem = (gym = 'Old Stone Fountain') => kyuremReading(gym, CLOCK);
@@ -163,6 +164,33 @@ describe('a screenshot whose CP and name fit more than one boss', () => {
     const forged = fakeButton({ customId: black.replace(/:0$/, ':7'), userId: AUTHOR });
     await router.handle(forged as never);
     expect(sent(forged.reply).content).toMatch(/^That question has expired/);
+    expect(raid().raid.boss).toBeNull();
+  });
+
+  it('says so when the boss chosen left the list since the question', async () => {
+    const { trigger, image, raid, router, raidBosses } = await setup();
+    const { message, replies } = posted([image('a.png', kyurem())]);
+    await trigger.handle(message);
+    raidBosses.rotateOut('kyurem_white');
+    const white = press(replies[0], 'White Kyurem');
+    await router.handle(white as never);
+    expect(sent(white.editReply).content).toBe(
+      'That boss is no longer on the list of raid bosses, so I left the raid as it is.',
+    );
+    expect(raid().raid.boss).toBeNull();
+  });
+
+  it('says what refused the change in its own words when it is not the list', async () => {
+    const { trigger, image, raid, router, raids } = await setup();
+    const { message, replies } = posted([image('a.png', kyurem())]);
+    await trigger.handle(message);
+    vi.spyOn(raids, 'setBoss').mockRejectedValueOnce(
+      new UserError('This raid is being moved just now.'),
+    );
+    const white = press(replies[0], 'White Kyurem');
+    await router.handle(white as never);
+    expect(sent(white.editReply).content).toBe('Nothing was changed.');
+    expect(sent(white.followUp).content).toBe('This raid is being moved just now.');
     expect(raid().raid.boss).toBeNull();
   });
 
