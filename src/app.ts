@@ -1750,6 +1750,7 @@ export async function startApp(
     servers,
     regions,
     admission,
+    fill: serverFill,
     late: setupLate,
     connected,
   });

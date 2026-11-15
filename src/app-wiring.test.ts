@@ -693,6 +693,7 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
     const changeListeners: ((serverId: string) => void)[] = [];
     const outlineListeners: (() => void)[] = [];
     const allowedListeners: ((serverId: string) => void)[] = [];
+    const filledListeners: ((serverId: string) => void)[] = [];
     const late: SetupLate = {};
     wireServerSetup({
       setup: {
@@ -702,6 +703,7 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
       servers: { onChange: (listener) => changeListeners.push(listener) },
       regions: { whenOutlinesChanged: (listener) => outlineListeners.push(listener) },
       admission: { onAllowed: (listener) => allowedListeners.push(listener) },
+      fill: { onFilledInSetup: (listener) => filledListeners.push(listener) },
       late,
       connected: connected.promise,
     });
@@ -719,14 +721,18 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
       allowed: (serverId: string) => {
         for (const listener of allowedListeners) listener(serverId);
       },
-      listeners: () => [changeListeners, outlineListeners, allowedListeners].map((l) => l.length),
+      filled: (serverId: string) => {
+        for (const listener of filledListeners) listener(serverId);
+      },
+      listeners: () =>
+        [changeListeners, outlineListeners, allowedListeners, filledListeners].map((l) => l.length),
     };
   }
 
   it('listens before the login, and checks only once the bot is connected', async () => {
     const made = wired();
     // Registered at once, before the login.
-    expect(made.listeners()).toEqual([1, 1, 1]);
+    expect(made.listeners()).toEqual([1, 1, 1, 1]);
     made.changed(IN_SETUP);
     expect(made.asked).toEqual([]);
     made.connected.resolve();
@@ -737,6 +743,14 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
     made.outlinesChanged();
     await made.asking('checkAll', 2);
     made.changed(WAITED);
+    await made.asking(`check ${WAITED}`);
+  });
+
+  it('checks a server whose fill wrote its row in setup, once the bot is connected (final review R2-2)', async () => {
+    const made = wired();
+    made.filled(WAITED);
+    expect(made.asked).toEqual([]);
+    made.connected.resolve();
     await made.asking(`check ${WAITED}`);
   });
 

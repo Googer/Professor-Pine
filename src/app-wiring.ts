@@ -637,13 +637,16 @@ export function serverSetUpWork(deps: {
  * the regions, the client ready), so that nothing begins for a server before the bot is there.
  * A server an instance operator allows after it waited, present (`ServerAdmission.onAllowed`,
  * S6), is begun on the live client as its joining would be (`late`): its fill, its `Guild` row,
- * its return. Registered once, whatever client the login keeps.
+ * its return. Registered once, whatever client the login keeps. A server whose fill wrote its row in
+ * setup is checked too (`ServerFill.onFilledInSetup`, final review R2-2): the file's names may do
+ * every required item already, and nothing else would ask until its staff open `/admin setup`.
  */
 export function wireServerSetup(deps: {
   setup: Pick<ServerSetup, 'check' | 'checkAll'>;
   servers: Pick<ServerSettings, 'onChange'>;
   regions: { whenOutlinesChanged(listener: () => void): unknown };
   admission: Pick<ServerAdmission, 'onAllowed'>;
+  fill: Pick<ServerFill, 'onFilledInSetup'>;
   late: Pick<SetupLate, 'serverStart' | 'joined'>;
   connected: Promise<unknown>;
 }): void {
@@ -655,6 +658,9 @@ export function wireServerSetup(deps: {
     void connected.then(() => setup.checkAll());
   });
   void connected.then(() => setup.checkAll());
+  deps.fill.onFilledInSetup((serverId) => {
+    void connected.then(() => setup.check(serverId));
+  });
   deps.admission.onAllowed((serverId) => {
     late.serverStart?.admitted(serverId);
     void late.joined?.(serverId);
