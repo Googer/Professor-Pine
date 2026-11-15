@@ -97,9 +97,11 @@ export async function neighborGymsWith() {
 /**
  * The gyms of `neighborGymsWith`, the second server's with curated texts of their own, and a copy
  * whose writes go through the storage, filling only what is empty then, and read the gym again
- * (as `GymAdminService.fillEmpty`).
+ * (as `GymAdminService.fillEmpty`). `atPause`: what happens while it waits between two batches.
  */
-export async function neighborCopyWith(options: { batch?: number } = {}) {
+export async function neighborCopyWith(
+  options: { batch?: number; atPause?: () => Promise<void> } = {},
+) {
   const made = await neighborGymsWith();
   const theirs: Record<number, Partial<GymTexts>> = {
     [NEIGHBOR_GYMS.library]: {
@@ -131,7 +133,7 @@ export async function neighborCopyWith(options: { batch?: number } = {}) {
     ...(options.batch === undefined ? {} : { batch: options.batch }),
     pause: () => {
       pauses.count += 1;
-      return Promise.resolve();
+      return options.atPause?.() ?? Promise.resolve();
     },
   });
   return { ...made, copy, edits, pauses };

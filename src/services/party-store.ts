@@ -240,13 +240,14 @@ export class PartyStore implements PartyProvider {
   /**
    * Forgets the parties of a server's `Guild` row whose data was deleted (plan 19C-3): their rows
    * went with it, so nothing is written and nobody is told (as a party whose row is gone leaves
-   * memory). The server was left 30 days and more: nothing changes them meanwhile. How many.
+   * memory), and their gyms and Power Spots leave the index with them (final review R6-1). The
+   * server was left 30 days and more: nothing changes them meanwhile. How many.
    */
   forgetServer(guildId: number): number {
     let forgotten = 0;
-    for (const [id, party] of this.all) {
+    for (const [id, party] of [...this.all]) {
       if (party.guildId !== guildId) continue;
-      this.parties.delete(id);
+      this.dropParty(id);
       forgotten += 1;
     }
     return forgotten;
@@ -323,6 +324,11 @@ export class PartyStore implements PartyProvider {
     const ids = place?.index.get(place.key);
     ids?.delete(id);
     if (place && ids?.size === 0) place.index.delete(place.key);
+  }
+
+  /** How many gyms and Power Spots the index holds parties at: for tests. */
+  get placesIndexed(): number {
+    return this.atGym.size + this.atSpot.size;
   }
 
   private clearParties(): void {

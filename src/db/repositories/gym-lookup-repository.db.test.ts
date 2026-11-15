@@ -4,7 +4,7 @@ import { gymLookupCases, LINE_AWAY, LINE_HOME } from '../../../test/support/gym-
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import type { TestDatabase } from '../../../test/support/mysql.js';
 import { DEPRECATED_SYNTAX, lastWarnings } from '../../../test/support/mysql-warnings.js';
-import { planOf } from '../../../test/support/query-plan.js';
+import { planOf, plansOf } from '../../../test/support/query-plan.js';
 import { OUT_OF_SHARE_RANK } from '../../domain/geo/google-line.js';
 import type { DB } from '../types.js';
 import { GymLookupRepository } from './gym-lookup-repository.js';
@@ -76,6 +76,35 @@ describe('GymLookupRepository', () => {
       .where('guildId', '=', LINE_AWAY)
       .execute();
     expect((await lookups.list()).map((row) => [row.gymId, row.guildId])).toEqual([[3, LINE_HOME]]);
+  });
+
+  it('puts in the line the rows whose link is there, passing over one whose link went meanwhile (final review R5-3)', async () => {
+    const lookups = await fresh();
+    // Away's link to gym 3 went (its server deleted, the gym removed) before the bot's memory knew.
+    await db
+      .deleteFrom('GymServer')
+      .where('gymId', '=', 3)
+      .where('guildId', '=', LINE_AWAY)
+      .execute();
+    await lookups.add(
+      [2, 3].flatMap((gymId) =>
+        [LINE_HOME, LINE_AWAY].map((guildId) => ({ guildId, gymId, address: false, rank: 0 })),
+      ),
+      1_000,
+    );
+    expect((await lookups.list()).map((row) => [row.gymId, row.guildId])).toEqual([
+      [2, LINE_HOME],
+      [2, LINE_AWAY],
+      [3, LINE_HOME],
+    ]);
+    // The links are read by the primary key.
+    const plans = await plansOf(database, (logged) =>
+      new GymLookupRepository(logged).add(
+        [{ guildId: LINE_HOME, gymId: 4, address: false, rank: 0 }],
+        2_000,
+      ),
+    );
+    expect(plans[0]?.[0]).toMatchObject({ table: 'GymServer', key: 'PRIMARY' });
   });
 
   it('reads the line in the order of its index, and a gym’s rows by the primary key', async () => {

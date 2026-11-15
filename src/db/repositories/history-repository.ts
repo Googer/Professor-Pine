@@ -807,9 +807,12 @@ export class HistoryRepository
   }
 
   /**
-   * Along the index `(serverId, source, kind, createdAt)` of migration 040: a server's live raids
-   * and max battles reported within the reach of the train's time, then by place (the bounds of
-   * `alongTheWay`, in SQL).
+   * A range of a server's records by time: its live raids and max battles reported within the
+   * reach of the train's time, then by place (the bounds of `alongTheWay`, in SQL). Along the
+   * index `(serverId, source, kind, createdAt)` of migration 040 or `(serverId, kind, createdAt)`
+   * of 018, whichever MySQL finds cheaper; never a merge of the gym's and the Wayspot's indexes,
+   * which would read every server's years at those places (final review R5-2: the database test
+   * asks the plan on such a spread).
    */
   async raidsAlong(serverId: string, query: RaidsAlongQuery): Promise<RaidAlongRow[]> {
     const { gymIds, wayspotIds, from, to } = query;

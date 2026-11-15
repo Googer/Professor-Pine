@@ -55,10 +55,14 @@ export const REPORT_SERVER = '412345678901234567';
 
 /**
  * `reportsWith`, and a meetup of Alice's at the Little Free Library (a PokéStop) a day ahead,
- * with `report(reporterId?, reason?, name?)`, a member's report of it (Bob's by default).
+ * with `report(reporterId?, reason?, name?)`, a member's report of it (Bob's by default);
+ * `overrides` those of the party services (`gyms`, …).
  */
-export async function reportedMeetup(options: SafetyOptions = {}) {
-  const made = await reportsWith(options);
+export async function reportedMeetup(
+  options: SafetyOptions = {},
+  overrides: ServiceOverrides = {},
+) {
+  const made = await reportsWith(options, [], overrides);
   const outcome = await made.service.createMeetup({
     name: 'Book swap',
     creatorId: ALICE,

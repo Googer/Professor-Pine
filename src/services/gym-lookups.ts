@@ -68,6 +68,8 @@ export interface GymLookups {
   /**
    * Puts gyms in the line, each for its server; a gym already in it for that server keeps its
    * place in time, takes the rank given, and waits for its address too when either asks for it.
+   * A gym no longer linked to its server is passed over, the others put (final review R5-3: the
+   * database's rows go with their links; the twin in memory knows no links and puts every one).
    */
   add(gyms: readonly QueuedGym[], now: number): Promise<void>;
   /**

@@ -30,6 +30,7 @@ import {
   serverNamed,
 } from '../../render/server-neighbors.js';
 import { count, fitMessages, timestamp, truncate } from '../../render/text.js';
+import { quietServers } from '../../services/quiet-servers.js';
 import type { AskOutcome } from '../../services/server-neighbors.js';
 import { COPIED_FIELDS, type CopiedField, type CopyCounts } from '../../services/neighbor-copy.js';
 import { CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
@@ -57,6 +58,42 @@ function serverAskRefusal(wait: number): string {
   return (
     `This server’s staff have sent ${String(SERVER_ASK_THROTTLE.uses)} requests to be ` +
     `neighbors in ten minutes, the most they may. Ask again in ${waitText(wait)}.`
+  );
+}
+
+/**
+ * How often one member may use `end` (final review R6-2): each may write the pair's row and post in
+ * both servers' labs.
+ */
+const END_THROTTLE: Throttle = { uses: 10, perSeconds: 600 };
+
+/**
+ * How many servers one server's staff may name by an invite link in `end` and `copy`, both
+ * commands and all of the staff together (final review R6-2): each is a question to Discord on the
+ * bot's token, which every server's asks share. `ask` counts its own (`SERVER_ASK_WINDOW`).
+ */
+const SERVER_INVITE_THROTTLE: Throttle = { uses: 5, perSeconds: 600 };
+const SERVER_INVITE_WINDOW = 'admin neighbors end and copy, invite links by server';
+
+/**
+ * Counts an invite link of `end` or `copy` against its server's window, before Discord is asked;
+ * an ID asks nothing of Discord and is not counted. Past the window it refuses, giving the member's
+ * own use back, as `ask`'s server refusal does (review RR2).
+ */
+function countInvite(ctx: AppContext, serverId: string, ref: ServerRef): void {
+  if (ref.kind !== 'invite') return;
+  const wait = ctx.throttles.use(
+    SERVER_INVITE_WINDOW,
+    serverId,
+    SERVER_INVITE_THROTTLE,
+    Date.now(),
+  );
+  if (wait === undefined) return;
+  throw new UserError(
+    `This server’s staff have named ${String(SERVER_INVITE_THROTTLE.uses)} servers by invite ` +
+      'link in ten minutes, the most they may. Give the server’s ID instead, or try again in ' +
+      `${waitText(wait)}.`,
+    { givesBack: true },
   );
 }
 
@@ -266,8 +303,9 @@ export const listNeighbors: SubcommandPart = {
 };
 
 /**
- * The choices of `server:` of `end` (and `copy`): this server's neighbors by name, then (for
- * `end`, `withRequests`) its own requests by id, those whose text has what is typed.
+ * The choices of `server:` of `end` (and `copy`): this server's neighbors by name (for `copy`
+ * those it may copy from, `mayCopyFrom`: no quiet one), then (for `end`, `withRequests`) its own
+ * requests by id, those whose text has what is typed.
  */
 export function neighborChoices(
   ctx: AppContext,
@@ -281,7 +319,8 @@ export function neighborChoices(
   for (const row of ctx.neighbors.rowsOf(serverId)) {
     const other = otherOf(row, serverId);
     const standing = neighborStanding(row, now);
-    if (standing === 'neighbors') {
+    // `copy` is offered only what it takes: no quiet neighbor (final review R6-3); `end` takes it.
+    if (standing === 'neighbors' && (withRequests || mayCopyFrom(ctx, serverId, other))) {
       const name = ctx.neighbors.nameOf(other);
       choices.push({
         name: name === undefined ? other : `${serverNameShown(name)} (${other})`,
@@ -327,9 +366,12 @@ export const endNeighbor: SubcommandPart = {
     examples: ['/admin neighbors end server:123456789012345678'],
   },
   defer: 'ephemeral',
+  throttle: END_THROTTLE,
   async execute(interaction, ctx) {
     const serverId = guildIdOf(interaction);
-    const other = await namedServer(ctx, interaction.options.getString('server', true));
+    const ref = typedServer(interaction.options.getString('server', true));
+    countInvite(ctx, serverId, ref);
+    const other = await namedServer(ctx, ref);
     const name = other === undefined ? undefined : ctx.neighbors.nameOf(other);
     const ended = other === undefined ? 'none' : await ctx.neighbors.end(serverId, other);
     switch (ended) {
@@ -398,6 +440,31 @@ export function copySaid(name: string, copied: CopyCounts): string {
   );
 }
 
+/**
+ * What `copy` says of a copy that stopped before its end (final review R6-3): the two servers are
+ * no longer neighbors, or the neighbor went quiet, which is told as the same.
+ */
+export function copyStopped(name: string, copied: CopyCounts): string {
+  const stopped = `This server is no longer neighbors with ${name}, so I stopped copying.`;
+  if (copied.gyms === 0) return stopped;
+  return (
+    `${stopped} Before that, I copied onto ${count(copied.gyms, 'gym')} of this server: ` +
+    `${copiedWords(copied)}.`
+  );
+}
+
+/**
+ * Whether this server may copy from `other` now: neighbors, and the other not quiet (final review
+ * R6-3: nothing is looked up for a server Pine left or one in setup, `servers.md`, "A quiet
+ * neighbor"). A quiet neighbor is refused as no neighbor.
+ */
+function mayCopyFrom(ctx: AppContext, serverId: string, other: string): boolean {
+  return (
+    ctx.neighbors.areNeighbors(serverId, other) &&
+    !quietServers(ctx.standings, ctx.servers).isQuiet(other)
+  );
+}
+
 /** The refusal of `copy` from a server that is not a neighbor. */
 function notANeighbor(other: string | undefined): UserError {
   return new UserError(
@@ -412,7 +479,7 @@ function notANeighbor(other: string | undefined): UserError {
 const requireNeighborNamed: Guard = (interaction, ctx) => {
   if (!interaction.isChatInputCommand() || interaction.guildId === null) return;
   const ref = readServerRef(interaction.options.getString('server') ?? '');
-  if (ref?.kind === 'id' && !ctx.neighbors.areNeighbors(interaction.guildId, ref.id)) {
+  if (ref?.kind === 'id' && !mayCopyFrom(ctx, interaction.guildId, ref.id)) {
     throw notANeighbor(ref.id);
   }
 };
@@ -439,8 +506,10 @@ export const copyFromNeighbor: SubcommandPart = {
   throttle: COPY_THROTTLE,
   async execute(interaction, ctx) {
     const serverId = guildIdOf(interaction);
-    const other = await namedServer(ctx, interaction.options.getString('server', true));
-    if (other === undefined || !ctx.neighbors.areNeighbors(serverId, other)) {
+    const ref = typedServer(interaction.options.getString('server', true));
+    countInvite(ctx, serverId, ref);
+    const other = await namedServer(ctx, ref);
+    if (other === undefined || !mayCopyFrom(ctx, serverId, other)) {
       throw notANeighbor(other);
     }
     const [ourRow, theirRow] = await Promise.all([
@@ -455,13 +524,18 @@ export const copyFromNeighbor: SubcommandPart = {
     if (ctx.neighborCopy.busy(ourRow)) {
       throw new UserError('A copy onto this server is under way: try again once it is done.');
     }
-    const copied = await ctx.neighborCopy.copy(ourRow, theirRow, interaction.user.id);
+    // Asked again before each batch: an end or a leave meanwhile stops it (final review R6-3).
+    const copied = await ctx.neighborCopy.copy(ourRow, theirRow, interaction.user.id, () =>
+      mayCopyFrom(ctx, serverId, other),
+    );
     ctx.log.info(
       { by: interaction.user.id, server: serverId, from: other, ...copied },
       'a neighbor’s gym texts were copied',
     );
     const name = named(ctx, other).replace(/ \(`\d+`\)$/, '');
-    await interaction.editReply({ content: copySaid(name, copied) });
+    await interaction.editReply({
+      content: copied.stopped ? copyStopped(name, copied) : copySaid(name, copied),
+    });
   },
   autocomplete: (interaction, ctx) => respondWithNeighbors(interaction, ctx, false),
 };

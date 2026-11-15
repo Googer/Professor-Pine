@@ -58,6 +58,20 @@ describe('PartyStore', () => {
     expect(store.forgetServer(theirs.guildId)).toBe(0);
   });
 
+  it('forgets a deleted server’s gyms and Power Spots with its parties (final review R6-1)', async () => {
+    const raid = testRaid({ id: ID(1) });
+    const max = testMax({ id: ID(2), now: PARTY_NOW + MINUTE });
+    const ours = { ...testRaid({ id: ID(3), regionId: 2, gymId: 7 }), guildId: 2 };
+    const { store } = await partyStoreWith([raid, max, ours]);
+    expect(store.placesIndexed).toBe(3);
+    expect(store.forgetServer(raid.guildId)).toBe(2);
+    expect(store.raidAt(1, 1, PARTY_NOW)).toBeUndefined();
+    expect(store.maxAt(1, TEST_SPOT, PARTY_NOW)).toBeUndefined();
+    expect(store.raidAt(2, 7, PARTY_NOW)?.id).toBe(ID(3));
+    // Only the other server's gym is left in the index.
+    expect(store.placesIndexed).toBe(1);
+  });
+
   it('loads the active parties and finds them by id, post, region and gym', async () => {
     const posted = { ...testRaid({ id: ID(1) }), forumPostId: '300000000000000001' };
     const east = testRaid({ id: ID(2), regionId: 2, gymId: 7, now: PARTY_NOW + MINUTE });

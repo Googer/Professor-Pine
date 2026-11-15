@@ -436,6 +436,71 @@ describe('HistoryRepository: who is named in the history', () => {
         },
       };
     });
+
+    it('reads the server’s records by time, past every server’s years at the gyms (final review R5-2)', async () => {
+      await db.deleteFrom('PartyHistory').execute();
+      const DAY = 86_400_000;
+      const SPOTS = ['c0ffee00c0ffee00c0ffee00c0ffee00.16', 'c0ffee01c0ffee01c0ffee01c0ffee01.16'];
+      const gymIds = [1, 2, 3, 4, 5, 6, 7, 8];
+      // Two years of raids and max battles at the train's gyms and Power Spots, of this server
+      // and of two others that share them, a few a day; a handful within the train's reach.
+      const old = Array.from({ length: 2_400 }, (_, n) => {
+        const serverId = [HOME, AWAY, NOWHERE][n % 3]!;
+        const createdAt = NOW - 10 * DAY - (n % 730) * DAY - (n % 24) * 3_600_000;
+        return n % 4 === 0
+          ? boardRecord({
+              serverId,
+              kind: 'max',
+              gymId: null,
+              wayspotId: SPOTS[n % 2]!,
+              createdAt,
+              attendees: [],
+            })
+          : boardRecord({ serverId, gymId: gymIds[n % 8]!, createdAt, attendees: [] });
+      });
+      const near = Array.from({ length: 6 }, (_, n) =>
+        boardRecord({
+          serverId: HOME,
+          gymId: gymIds[n]!,
+          createdAt: NOW - n * 600_000,
+          attendees: [],
+        }),
+      );
+      for (let start = 0; start < old.length; start += 400) {
+        await history.insertRecords(old.slice(start, start + 400));
+      }
+      await history.insertRecords(near);
+      await sql`analyze table PartyHistory`.execute(db);
+      const asked: CompiledQuery[] = [];
+      const logged = createDb<DB>(database.config, (event) => {
+        if (event.level === 'query') asked.push(event.query);
+      });
+      try {
+        const read = await new HistoryRepository(logged).raidsAlong(HOME, {
+          gymIds,
+          wayspotIds: SPOTS,
+          from: NOW - 3_600_000,
+          to: NOW + 3_600_000,
+        });
+        expect(read).toHaveLength(6);
+        const [query] = asked;
+        if (query === undefined) throw new Error('the read asked nothing');
+        const plan = await db.executeQuery<{ key: string | null; type: string | null }>(
+          CompiledQuery.raw(`explain format=traditional ${query.sql}`, [...query.parameters]),
+        );
+        // A range of the server's records by time, along migration 040's index or 018's
+        // (serverId, kind, createdAt), whichever MySQL finds cheaper: never a merge of the gym's
+        // and the Wayspot's indexes, which would read every server's years at those places.
+        expect(plan.rows).toHaveLength(1);
+        expect(plan.rows[0]?.type).toBe('range');
+        expect([
+          'partyhistory_server_source_kind_createdat_index',
+          'partyhistory_server_kind_createdat_index',
+        ]).toContain(plan.rows[0]?.key);
+      } finally {
+        await logged.destroy();
+      }
+    });
   });
 
   describe('the ended trains for the web (plan 8H-7B)', () => {
