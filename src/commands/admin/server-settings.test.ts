@@ -712,6 +712,14 @@ describe('/admin settings', () => {
     );
   });
 
+  it('says in the invite dialog that it is offered on the web map alone on an open instance', async () => {
+    const { press } = await setup({ open: true });
+    expect(dialogText(shownDialog(await press('server:invite:ask')))).toBe(
+      'An invite to this server, offered on the web map to visitors who are not in this server: ' +
+        '`https://discord.gg/<code>`. Leave it empty to remove it.',
+    );
+  });
+
   it('offers the map for visitors only on an instance with web pages (fix round 1, R9)', async () => {
     const { press, pick, servers } = await setup({ web: false });
     const roles = textOf(shownAfter(await pick('server:panel:show', ['roles'])));
@@ -882,8 +890,10 @@ describe('/admin settings', () => {
     );
     const invite = shownDialog(await press('server:invite:ask'));
     expect(invite.title).toBe('Invite');
+    // As the panel's line says, on an instance that lists its servers (final review R4-2).
     expect(dialogText(invite)).toBe(
-      'An invite to this server, which the web map offers to visitors who are not in it: ' +
+      'An invite to this server, offered on the web map to visitors who are not in this server, ' +
+        'and on the web site’s front page to people logged in who are not in it: ' +
         '`https://discord.gg/<code>`. Leave it empty to remove it.',
     );
   });

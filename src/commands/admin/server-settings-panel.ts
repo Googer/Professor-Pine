@@ -680,7 +680,7 @@ function wordsLines(values: ServerValues, key: WordListKey): APIComponentInConta
  * that is not open to every server also on the top page to people logged in who are not in it
  * (final review R4-2; `topAnswer`).
  */
-const inviteWhere = (instance: Instance): string =>
+export const inviteWhere = (instance: Instance): string =>
   'offered on the web map to visitors who are not in this server' +
   (instance.open ? '' : ', and on the web site’s front page to people logged in who are not in it');
 

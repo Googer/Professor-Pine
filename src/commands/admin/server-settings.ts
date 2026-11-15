@@ -64,6 +64,7 @@ import {
   switchesOf,
   type DialogKey,
   type Instance,
+  inviteWhere,
   type SectionName,
   type WordListKey,
   wordsTooMany,
@@ -379,6 +380,7 @@ function settingDialog(
   values: ServerValues,
   zone: string,
   now: number,
+  instance: Instance,
   removing = false,
 ) {
   // A list of words too many to show is added to or taken from, never typed anew (review G5).
@@ -512,7 +514,8 @@ function settingDialog(
         customId,
         title: 'Invite',
         text:
-          'An invite to this server, which the web map offers to visitors who are not in it: ' +
+          // Where it is offered, as the panel's line says (final review R4-2).
+          `An invite to this server, ${inviteWhere(instance)}: ` +
           '`https://discord.gg/<code>`. Leave it empty to remove it.',
         field: {
           id: FIELDS.invite,
@@ -644,7 +647,13 @@ export const serverSettingsControls: ComponentHandler = {
     const serverId = guildIdOf(interaction);
     if (id.action === ASK && id.args.length === 0 && isDialogKey(id.id)) {
       await interaction.showModal(
-        settingDialog(id.id, ctx.servers.of(serverId), ctx.servers.zoneOf(serverId), Date.now()),
+        settingDialog(
+          id.id,
+          ctx.servers.of(serverId),
+          ctx.servers.zoneOf(serverId),
+          Date.now(),
+          instanceOf(ctx),
+        ),
       );
       return;
     }
@@ -655,6 +664,7 @@ export const serverSettingsControls: ComponentHandler = {
           ctx.servers.of(serverId),
           ctx.servers.zoneOf(serverId),
           Date.now(),
+          instanceOf(ctx),
           true,
         ),
       );
