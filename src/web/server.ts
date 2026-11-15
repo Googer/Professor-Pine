@@ -79,7 +79,10 @@ export interface WebDeps {
    * available. Never shown to anybody logged out.
    */
   serversWithMap(): Promise<MapServers>;
-  /** Whether somebody is a member of a server: asked per request, never kept in a session. */
+  /**
+   * Whether somebody is a member of a server: asked per request, never what a session keeps of
+   * the servers its login read (final review R4-1), which the top page alone reads.
+   */
   members: PacedDirectory;
   /** How fast the map's own asks may cause fresh look-ups of members (`PacedMembers`). */
   memberPace: MemberPace;

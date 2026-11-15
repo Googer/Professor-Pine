@@ -18,6 +18,7 @@ function facts(change: Partial<TopFacts> = {}): TopFacts {
     invites: undefined,
     loginFailed: false,
     openInstance: false,
+    listed: false,
     ...change,
   };
 }
@@ -220,6 +221,54 @@ describe('topAnswer', () => {
       toJoin: [{ ...OAKVALE, invite: OAK_INVITE }],
       notIn: false,
       partial: true,
+    });
+  });
+
+  it('neither redirects nor says "none" while servers were left unasked, and says how to see them (final review R4-1)', () => {
+    expect(topAnswer(ash({ [PINEWOOD.id]: 'member', [OAKVALE.id]: 'unasked' }))).toEqual({
+      kind: 'servers',
+      visitor: 'Ash',
+      yours: [PINEWOOD],
+      toJoin: [],
+      notIn: false,
+      partial: false,
+      unchecked: 'discord',
+    });
+    // Without the client secret, /maps; a server not asked of is never offered to join.
+    expect(
+      topAnswer(
+        ash(
+          { [PINEWOOD.id]: 'not', [OAKVALE.id]: 'unasked' },
+          { discordLogin: false, invites: { [OAKVALE.id]: OAK_INVITE } },
+        ),
+      ),
+    ).toEqual({
+      kind: 'servers',
+      visitor: 'Ash',
+      yours: [],
+      toJoin: [],
+      notIn: false,
+      partial: false,
+      unchecked: 'maps',
+    });
+  });
+
+  it('says when their servers are those read at their login (final review R4-1)', () => {
+    expect(
+      topAnswer(
+        ash(
+          { [PINEWOOD.id]: 'member', [OAKVALE.id]: 'not' },
+          { listed: true, invites: { [OAKVALE.id]: OAK_INVITE } },
+        ),
+      ),
+    ).toEqual({
+      kind: 'servers',
+      visitor: 'Ash',
+      yours: [PINEWOOD],
+      toJoin: [{ ...OAKVALE, invite: OAK_INVITE }],
+      notIn: false,
+      partial: false,
+      listed: true,
     });
   });
 

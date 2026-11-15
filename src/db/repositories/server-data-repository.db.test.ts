@@ -195,6 +195,8 @@ describe('ServerDataRepository: a server’s data deleted (plan 19C-3)', () => {
       'PRIMARY',
       'serverneighbor_serverb_index',
     ]);
+    // The web logins' rows of the server by migration 065's index (final review R4-1).
+    expect([...(keys.get('WebSessionServer') ?? [])]).toEqual(['websessionserver_serverid_index']);
     // Every table it deletes by the server was read.
     expect([...keys.keys()]).toEqual(expect.arrayContaining(['Guild', 'GymServer', 'Region']));
   });

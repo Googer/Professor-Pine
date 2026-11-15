@@ -1,8 +1,11 @@
 import { localPath } from './local-path.js';
 import type { MapServer } from './map-servers.js';
 
-/** What the member directory said of the visitor in a server: in it, not, or nothing (it failed). */
-export type Membership = 'member' | 'not' | 'unknown';
+/**
+ * Whether the visitor is in a server: in it, not, nothing known (the member directory's question
+ * failed), or not asked (final review R4-1: past the questions a load may ask).
+ */
+export type Membership = 'member' | 'not' | 'unknown' | 'unasked';
 
 /** What the answer of `/` is decided from. */
 export interface TopFacts {
@@ -17,8 +20,17 @@ export interface TopFacts {
   visitor: { name: string } | undefined;
   /** Whether "Log in with Discord" is offered here (`DISCORD_CLIENT_SECRET`). */
   discordLogin: boolean;
-  /** The directory's answer per server with a map; a server without one counts as `unknown`. */
+  /**
+   * Whether they are in each server with a map: from their session's servers where its login
+   * read them (`listed`), else the member directory's answer; a server without one counts as
+   * `unknown`.
+   */
   memberships: ReadonlyMap<string, Membership>;
+  /**
+   * Whether the visitor's session read their servers at its login (final review R4-1): a server
+   * they joined since shows after their next login.
+   */
+  listed: boolean;
   /** Each server's invite (its values' `invite`, plan 19A-1), by its id. */
   invites: Readonly<Record<string, string>> | undefined;
   /** Whether the address carries `?login=failed`. */
@@ -43,7 +55,16 @@ export type TopAnswer =
       yours: MapServer[];
       toJoin: JoinableServer[];
       notIn: boolean;
+      /** Discord did not answer for every server (a question failed, a server unavailable). */
       partial: boolean;
+      /**
+       * Some servers were not asked of (final review R4-1: a session that did not read its servers
+       * at the login, past `TOP_LOOKUPS_PER_LOAD`): how to see the rest, by logging in with
+       * Discord again, or by `/maps` without the client secret.
+       */
+      unchecked?: 'discord' | 'maps';
+      /** Their servers were read at their login (`TopFacts.listed`): a server joined since is not. */
+      listed?: true;
     };
 
 /** Servers by name, as a reader expects whatever the letters' case or accents. */
@@ -78,15 +99,20 @@ export function topAnswer(facts: TopFacts): TopAnswer {
     .sort(byName);
   const partial =
     facts.unavailable.length > 0 || facts.servers.some((server) => said(server) === 'unknown');
+  // Servers the load did not ask of (final review R4-1): not every server is known either.
+  const unchecked = facts.servers.some((server) => said(server) === 'unasked');
+  const complete = !partial && !unchecked;
   // Only ever to a page of a server here (`localPath`): an open redirect is a finding.
   const to = yours.length === 1 ? localPath(`/s/${yours[0]?.id ?? ''}/map`) : undefined;
-  if (to !== undefined && toJoin.length === 0 && !partial) return { kind: 'redirect', to };
+  if (to !== undefined && toJoin.length === 0 && complete) return { kind: 'redirect', to };
   return {
     kind: 'servers',
     visitor: facts.visitor.name,
     yours,
     toJoin,
-    notIn: yours.length === 0 && !partial,
+    notIn: yours.length === 0 && complete,
     partial,
+    ...(unchecked ? { unchecked: facts.discordLogin ? 'discord' : 'maps' } : {}),
+    ...(facts.listed ? { listed: true } : {}),
   };
 }

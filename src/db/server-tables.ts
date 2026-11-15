@@ -74,6 +74,9 @@ export const TABLE_OWNERS: Readonly<Record<string, TableOwner>> = {
   StopReport: server(),
   StopReportHistory: server(),
   WantCountDay: server(),
+  // A web login's servers (final review R4-1): which of this Pine's servers the member was in at
+  // the login; a row also goes with its session (`WebSession`, a member's: its key cascades).
+  WebSessionServer: server(),
   // Two servers', by either's snowflake: a pair of neighbors and its requests (plan 19E), by the
   // primary key `(serverA, serverB)` for the first and `serverneighbor_serverb_index` for the
   // second.
