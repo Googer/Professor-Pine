@@ -106,23 +106,28 @@ warn_env_mode() {
 # DB_SCHEMA goes bare onto the mysql client's command line when a dump is loaded (and, in
 # docker/backup.sh, into SQL text and onto mysqldump's): only letters, digits, _ and inner
 # hyphens, as the bot (src/config/env.ts) and docker/backup.sh hold it. The characters are written
-# out: a range would follow the locale. The value is the shell's before the env file's, as Compose
-# takes it; in the file, as Compose reads it (a comment after it and spaces at its end are not
-# the name). One that is not set is Compose's to refuse, in its own words.
+# out: a range would follow the locale. One that is not set is Compose's to refuse, in its own words.
 check_schema_name() {
-  schema=${DB_SCHEMA:-}
-  schema_from="the shell's environment"
-  if [ -z "$schema" ]; then
-    schema=$(env_value DB_SCHEMA |
-      sed "s/[[:space:]]#.*\$//; s/[[:space:]]*\$//; s/^'\(.*\)'\$/\1/; s/^\"\(.*\)\"\$/\1/")
-    schema_from=$PINE_ENV_FILE
-  fi
-  case $schema in
+  compose_value DB_SCHEMA
+  case $value in
     '') ;;
     -* | *- | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
-      fail "DB_SCHEMA in $schema_from must be letters, digits, _ and - (a hyphen neither first nor last), not '$schema'."
+      fail "DB_SCHEMA in $value_from must be letters, digits, _ and - (a hyphen neither first nor last), not '$value'."
       ;;
   esac
+}
+
+# A variable as Compose takes it, into `value` (and where it came from, for a message, into
+# `value_from`): the shell's before the env file's; in the file, as Compose reads it (a comment
+# after it and spaces at its end are not the value). Only names written here are given: the
+# name goes through eval.
+compose_value() {
+  eval "value=\${$1:-}"
+  value_from="the shell's environment"
+  [ -z "$value" ] || return 0
+  value=$(env_value "$1" |
+    sed "s/[[:space:]]#.*\$//; s/[[:space:]]*\$//; s/^'\(.*\)'\$/\1/; s/^\"\(.*\)\"\$/\1/")
+  value_from=$PINE_ENV_FILE
 }
 
 # LEGACY_INDEX_DIR (blank: none) holds the member index of the legacy history (plan 8H-10): the
@@ -166,21 +171,24 @@ check_index_dir() {
   esac
 }
 
-# Never a build or a pull for a check: every image a run of the bot's container would need
-# (Compose lists the bot's dependencies' too) must be here already. 0 they are, 2 not.
-bot_images_here() {
-  images=$(compose config --images pine 2>/dev/null) || return 2
-  [ -n "$images" ] || return 2
-  for image in $images; do
-    docker image inspect "$image" >/dev/null 2>&1 || return 2
-  done
+# Never a build or a pull for a check: the bot's image, which a run with --no-deps alone needs,
+# must be here already (MySQL's need not: on a first start it is not pulled yet). Its name is
+# the `image:` of the service pine in Compose's own rendering (`config --images pine` would list
+# its dependencies' too, in no order to rely on). 0 it is, 2 not.
+bot_image_here() {
+  image=$(compose config pine 2>/dev/null | tr -d '\r' | awk '
+    /^  [^ ]/ { in_pine = ($0 == "  pine:") }
+    in_pine && /^    image: / { sub(/^    image: /, ""); print; exit }') || return 2
+  image=$(printf '%s' "$image" | tr -d "\"'")
+  [ -n "$image" ] || return 2
+  docker image inspect "$image" >/dev/null 2>&1 || return 2
 }
 
 # Reads every folder and file of the member index (dot-named ones aside: a swap's leftovers) as
 # the bot does: its image, its user and its read-only mount. 0 readable, 1 not, 2 not checked
 # (no image built yet, or Docker refused the run).
 index_readable_in_container() {
-  bot_images_here || return 2
+  bot_image_here || return 2
   # shellcheck disable=SC2016
   verdict=$(compose run --rm --no-deps -T --entrypoint sh pine -c '
     found=$(find /legacy-index -mindepth 1 -maxdepth 2 -path "*/.*" -prune -o \( -type d \( ! -readable -o ! -executable \) -o -type f ! -readable \) -print -quit 2>/dev/null) || found=x
@@ -234,10 +242,11 @@ check_tool_dir() {
 # an unmounted share is never taken for it): never made here, the operator is told; nothing is
 # refused (down, logs and status need no backup folder).
 make_backup_dir() {
-  backup_dir=$(env_value BACKUP_DIR)
+  compose_value BACKUP_DIR
+  backup_dir=$value
   if [ -n "$backup_dir" ]; then
     [ -e "$backup_dir" ] ||
-      printf 'pine: BACKUP_DIR in %s names %s, which does not exist: mount the backup share there, or make the folder with its .pine-backups file (operations.md, "Backups"); Docker Engine starts no part of the stack without it.\n' "$PINE_ENV_FILE" "$backup_dir" >&2
+      printf 'pine: BACKUP_DIR in %s names %s, which does not exist: mount the backup share there, or make the folder with its .pine-backups file (operations.md, "Backups"); Docker Engine starts no part of the stack without it.\n' "$value_from" "$backup_dir" >&2
     return 0
   fi
   [ ! -e ./backups ] || return 0
@@ -267,7 +276,7 @@ check_settings_readable() {
 # Reads the settings file as the bot does: its image, its user and its read-only mount. 0
 # readable, 1 not, 2 not checked (no image built yet, or Docker refused the run).
 settings_readable_in_container() {
-  bot_images_here || return 2
+  bot_image_here || return 2
   verdict=$(compose run --rm --no-deps -T --entrypoint sh pine -c '
     if [ -r /app/data/settings.json ]; then echo readable; else echo unreadable; fi' 2>/dev/null) ||
     return 2
@@ -409,7 +418,7 @@ cmd_up() {
   check_tool_dir
   check_index_dir
   build_image
-  # After the build, so that a first start has the image to check with.
+  # After the build, so that a first start has the bot's image to check with.
   check_settings_readable
   say "Starting Professor Pine and its database."
   run up -d
