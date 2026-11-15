@@ -86,6 +86,11 @@ export interface ScreenshotRecord {
   pickedGymId: number | null;
   /** The Power Spot (its Wayfarer id) the member chose when they were asked (plan 8X-S). */
   pickedSpotId?: string;
+  /**
+   * The boss (its key) the member chose of those the CP fitted (`report.bossChoices`), asked once
+   * the raid was made (2026-11-15); absent when they did not, and in records before it.
+   */
+  pickedBossKey?: string;
   /** The raid bosses in effect at the read, which the boss was decided among (`ocr:check`). */
   bosses: { key: string; name: string; tier: RaidTier }[];
   /** The max bosses in effect at the read of a max battle's screen, its boss decided among. */
@@ -135,6 +140,8 @@ export interface ScreenshotKeeping {
   picked(id: string, gymId: number): Promise<void>;
   /** The Power Spot (its Wayfarer id) the member chose when asked. */
   pickedSpot(id: string, spotId: string): Promise<void>;
+  /** The boss (its key) the member chose of those the CP fitted. */
+  pickedBoss(id: string, bossKey: string): Promise<void>;
   feedback(id: string, memberId: string, feedback: Feedback): Promise<'ok' | 'gone'>;
   sweep(): Promise<void>;
 }
@@ -338,6 +345,10 @@ export class ScreenshotStore implements ScreenshotKeeping {
     return this.change(id, (record) => ({ ...record, pickedSpotId: spotId }), true);
   }
 
+  pickedBoss(id: string, bossKey: string): Promise<void> {
+    return this.change(id, (record) => ({ ...record, pickedBossKey: bossKey }), true);
+  }
+
   /**
    * Records a member's feedback (their earlier one is replaced) and copies the screenshot to
    * review. "All right" makes the reading the screenshot's answer key, for what the reader
@@ -364,7 +375,13 @@ export class ScreenshotStore implements ScreenshotKeeping {
         const label =
           disputed || record.max
             ? undefined
-            : memberLabel(record.report, record.typed, this.options.gymName, record.pickedGymId);
+            : memberLabel(
+                record.report,
+                record.typed,
+                this.options.gymName,
+                record.pickedGymId,
+                record.pickedBossKey ?? null,
+              );
         return { ...rest, feedback: all, ...(label ? { label } : {}) };
       },
       true,

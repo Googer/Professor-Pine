@@ -44,6 +44,7 @@ const report = (doubts: StoredReport['doubts'] = []): StoredReport =>
     bossName: null,
     boss: null,
     bossFrom: null,
+    bossChoices: [],
     eliteBadge: false,
     purple: 0,
     clock: { hour: 13, minute: 39 },
@@ -281,6 +282,26 @@ describe('ScreenshotStore', () => {
     expect(json('review', id)).toMatchObject({
       pickedGymId: 9,
       label: { gym: 'Old Plant Church' },
+    });
+  });
+
+  it('keys the boss its member chose of those the CP fits', async () => {
+    const { store, json } = storeWith();
+    const t5 = { level: 'T5' as const, shadow: false };
+    const open: StoredReport = {
+      ...report(['boss-choice']),
+      stage: 'hatched',
+      bossChoices: [
+        { key: 'kyurem_black', name: 'Black Kyurem', tier: t5 },
+        { key: 'kyurem_white', name: 'White Kyurem', tier: t5 },
+      ],
+    };
+    const id = await kept(store, screenshot({ kind: 'report' }, { report: open }));
+    await store.pickedBoss(id, 'kyurem_white');
+    await store.feedback(id, SENDER, { verdict: 'right' });
+    expect(json('review', id)).toMatchObject({
+      pickedBossKey: 'kyurem_white',
+      label: { egg: false, boss: 'White Kyurem' },
     });
   });
 

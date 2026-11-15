@@ -88,6 +88,36 @@ describe('readingLines', () => {
     );
   });
 
+  it('names the bosses the CP and name fit, and says it plainly for a record without them', () => {
+    const t5 = { level: 'T5' as const, shadow: false };
+    const choices = [
+      { key: 'kyurem_black', name: 'Black Kyurem', tier: t5 },
+      { key: 'kyurem_white', name: 'White *Kyurem*', tier: t5 },
+    ];
+    expect(doubtWords('boss-choice', null, choices)).toBe(
+      'The CP and name fit more than one boss: Black Kyurem or White \\*Kyurem\\*.',
+    );
+    expect(
+      doubtWords('boss-choice', null, [...choices, { key: 'kyurem', name: 'Kyurem', tier: t5 }]),
+    ).toBe('The CP and name fit more than one boss: Black Kyurem, White \\*Kyurem\\* or Kyurem.');
+    expect(doubtWords('boss-choice')).toBe('The CP and name fit more than one boss.');
+    const lines = readingLines(
+      report({ boss: null, bossFrom: null, bossChoices: choices, doubts: ['boss-choice'] }),
+      gymName,
+    );
+    expect(lines.at(-1)).toBe(
+      '- The CP and name fit more than one boss: Black Kyurem or White \\*Kyurem\\*.',
+    );
+    const message = screenshotMessage({
+      report: report({ boss: null, bossChoices: choices, doubts: ['boss-choice'] }),
+      gymName,
+      decision: 'With a screenshot like this, I report the raid as above.',
+    });
+    expect(textDisplays(message).join('\n')).toContain(
+      'Not sure: The CP and name fit more than one boss: Black Kyurem or White \\*Kyurem\\*.',
+    );
+  });
+
   it('says a shadow that does not fit the screen in American spelling', () => {
     expect(doubtWords('shadow-differs')).toBe(
       'The boss I found and the screen’s color disagree on whether this is a shadow raid.',

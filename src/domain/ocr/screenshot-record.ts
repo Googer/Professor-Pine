@@ -14,16 +14,34 @@ import type { ScreenshotReport } from './screenshot-report.js';
  * commit or a printout (`ocr:review` shows them only with `--show-text`).
  */
 
-/** The report as it is kept: the boss by its name and tier, not the catalogue entry. */
-export type StoredReport = Omit<ScreenshotReport, 'boss'> & {
-  boss: { key: string; name: string; tier: RaidTier } | null;
+/** A boss as a record keeps it: by its key, name and tier, not the catalogue entry. */
+export interface StoredBoss {
+  key: string;
+  name: string;
+  tier: RaidTier;
+}
+
+/**
+ * The report as it is kept: the boss, and the bosses the CP fits (`bossChoices`, absent in
+ * records kept before 2026-11-15), by their key, name and tier.
+ */
+export type StoredReport = Omit<ScreenshotReport, 'boss' | 'bossChoices'> & {
+  boss: StoredBoss | null;
+  bossChoices?: StoredBoss[];
 };
+
+const storedBoss = (boss: StoredBoss): StoredBoss => ({
+  key: boss.key,
+  name: boss.name,
+  tier: boss.tier,
+});
 
 export function storedReport(report: ScreenshotReport): StoredReport {
   const { boss } = report;
   return {
     ...report,
-    boss: boss ? { key: boss.key, name: boss.name, tier: boss.tier } : null,
+    boss: boss ? storedBoss(boss) : null,
+    bossChoices: report.bossChoices.map(storedBoss),
   };
 }
 
@@ -155,13 +173,15 @@ export function countdownText(seconds: number | null): string | null {
  * The answer key of a reading a member said was right: what the reader made of it, without what
  * the member typed (`typed`). The gym is the one the member picked when asked, or else the gym
  * read when it was clear; none otherwise. `gymName` gives a gym's own name, as the game shows it
- * (never a nickname). Undefined when nothing is left.
+ * (never a nickname). The boss of a raid whose CP fitted several is the one of them the member
+ * chose (`pickedBossKey`), none before they chose. Undefined when nothing is left.
  */
 export function memberLabel(
   report: StoredReport,
   typed: StoredTyped | null,
   gymName: (gymId: number) => string | undefined,
   pickedGymId: number | null = null,
+  pickedBossKey: string | null = null,
 ): MemberLabel | undefined {
   const label: MemberLabel = { source: 'member' };
   const gymId = pickedGymId ?? (report.gym.clear ? report.gym.gymId : null);
@@ -171,7 +191,10 @@ export function memberLabel(
     label.egg = report.stage === 'egg';
     if (report.heads !== null) label.tier = report.heads;
     if (report.tier) label.shadow = report.tier.shadow;
-    if (report.stage === 'hatched') label.boss = report.boss?.name ?? null;
+    if (report.stage === 'hatched') {
+      const chosen = report.bossChoices?.find((boss) => boss.key === pickedBossKey);
+      label.boss = report.boss?.name ?? chosen?.name ?? null;
+    }
   }
   return Object.keys(label).length > 1 ? label : undefined;
 }
