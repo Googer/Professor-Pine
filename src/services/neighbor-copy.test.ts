@@ -70,4 +70,37 @@ describe('NeighborCopy (plan 19E)', () => {
     // Three gyms matched (the library, the fountain, the shared bridge): a pause after each but the last.
     expect(made.pauses.count).toBe(2);
   });
+
+  it('stops before a batch once it may not go on, saying so (final review R6-3)', async () => {
+    const made = await copyWith({ batch: 1 });
+    // Asked before each batch: yes for the library's, no for the fountain's.
+    const answers = [true, false];
+    let asked = 0;
+    const copied = await made.copy.copy(made.rows.ours, made.rows.theirs, STAFF, () => {
+      asked += 1;
+      return answers.shift() ?? false;
+    });
+    expect(asked).toBe(2);
+    expect(copied).toEqual({
+      gyms: 1,
+      nickname: 0,
+      notice: 1,
+      description: 0,
+      keywords: 1,
+      shared: 0,
+      stopped: true,
+    });
+    expect(made.edits.map(({ id }) => id)).toEqual([1]);
+    expect(made.directory.of(made.rows.ours).get(2)?.nickname).toBeNull();
+    // Refused from the start: nothing written.
+    const refused = await copyWith();
+    const none = await refused.copy.copy(
+      refused.rows.ours,
+      refused.rows.theirs,
+      STAFF,
+      () => false,
+    );
+    expect(none).toMatchObject({ gyms: 0, stopped: true });
+    expect(refused.edits).toEqual([]);
+  });
 });

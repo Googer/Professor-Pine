@@ -15,6 +15,7 @@ import {
   neighborRow,
 } from '../../../test/support/server-neighbor-cases.js';
 import { neighborsWith } from '../../../test/support/server-neighbors.js';
+import { standingsWith } from '../../../test/support/server-standings.js';
 import { neighborCopyWith } from '../../../test/support/neighbor-gyms.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { BOT_STAFF_ONLY } from '../../discord/guards.js';
@@ -28,11 +29,24 @@ const STAFF = '200000000000000001';
 const MEMBER = '200000000000000002';
 
 async function neighborCommandsWith(
-  options: { rows?: readonly NeighborRow[]; reachable?: string[] } = {},
+  options: {
+    rows?: readonly NeighborRow[];
+    reachable?: string[];
+    /** The servers Pine left. */
+    left?: readonly string[];
+    /** The copy's batch, and what happens between two of them. */
+    copyBatch?: number;
+    atPause?: () => Promise<void>;
+  } = {},
 ) {
   const made = await neighborsWith(options);
   // Pallet Town is the gyms' test server (row 1), Pewter City the second (row 2), Cerulean the third.
-  const copying = await neighborCopyWith();
+  const copying = await neighborCopyWith({
+    ...(options.copyBatch === undefined ? {} : { batch: options.copyBatch }),
+    ...(options.atPause === undefined ? {} : { atPause: options.atPause }),
+  });
+  const { standings } = standingsWith({ recorded: [ASH, BROCK, MISTY] });
+  if (options.left) await standings.markLeft(options.left);
   const rows = new Map([
     [ASH, 1],
     [BROCK, 2],
@@ -53,6 +67,7 @@ async function neighborCommandsWith(
       },
     },
     neighborCopy: copying.copy,
+    standings,
     guilds: { idFor: (snowflake) => Promise.resolve(rows.get(snowflake)) },
   });
   const router = new InteractionRouter(ctx, [admin], [neighborControls]);
@@ -357,6 +372,36 @@ describe('/admin neighbors (plan 19E)', () => {
     expect(said(await made.use('copy', { server: MISTY }))).toBe(
       'This server is not neighbors with `412345678901234503`. You can copy only from a neighbor.',
     );
+  });
+
+  it('copies nothing from a neighbor Pine left, as from no neighbor (final review R6-3)', async () => {
+    const made = await neighborCommandsWith({
+      rows: [neighborRow({ acceptedAt: 1 })],
+      left: [BROCK],
+    });
+    const refused =
+      'This server is not neighbors with `412345678901234502`. You can copy only from a neighbor.';
+    expect(said(await made.use('copy', { server: BROCK }))).toBe(refused);
+    expect(said(await made.use('copy', { server: 'discord.gg/pewter-gym' }))).toBe(refused);
+    expect(made.copying.edits).toEqual([]);
+  });
+
+  it('stops a copy under way once the two servers are no longer neighbors (final review R6-3)', async () => {
+    // Pewter City's staff end it once the library's texts are copied.
+    let meanwhile = (): Promise<void> => Promise.resolve();
+    const made = await neighborCommandsWith({
+      rows: [neighborRow({ acceptedAt: 1 })],
+      copyBatch: 1,
+      atPause: () => meanwhile(),
+    });
+    meanwhile = async () => {
+      await made.neighbors.end(BROCK, ASH);
+    };
+    expect(said(await made.use('copy', { server: BROCK }))).toBe(
+      'This server is no longer neighbors with **Pewter City**, so I stopped copying. Before ' +
+        'that, I copied onto 1 gym of this server: 1 notice and 1 list of search words.',
+    );
+    expect(made.copying.edits.map(({ id }) => id)).toEqual([1]);
   });
 
   it('says a copy onto one gym in the singular (staging F2)', () => {

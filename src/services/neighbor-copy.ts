@@ -15,9 +15,14 @@ export type CopiedField = FillableGymText;
 
 /**
  * What a copy did: how many gyms it changed and, by field, how many texts it copied; `shared` the
- * gyms both servers have as one row (one row's texts are both servers' already: nothing to copy).
+ * gyms both servers have as one row (one row's texts are both servers' already: nothing to copy);
+ * `stopped` where it stopped before its end because it might not go on (`copy`'s `goOn`).
  */
-export type CopyCounts = Record<CopiedField, number> & { gyms: number; shared: number };
+export type CopyCounts = Record<CopiedField, number> & {
+  gyms: number;
+  shared: number;
+  stopped?: true;
+};
 
 export interface NeighborCopyOptions {
   gyms: Pick<GymProvider, 'of' | 'stored'>;
@@ -56,17 +61,32 @@ export class NeighborCopy {
     return this.running.has(ourRow);
   }
 
-  async copy(ourRow: number, theirRow: number, staffId: string): Promise<CopyCounts> {
+  /**
+   * Copies from `theirRow` onto `ourRow`. `goOn` is asked before each batch, the first too (final
+   * review R6-3: the two servers still neighbors, the other not quiet); once it says no, the copy
+   * stops there, `stopped`, with what it wrote before.
+   */
+  async copy(
+    ourRow: number,
+    theirRow: number,
+    staffId: string,
+    goOn: () => boolean = () => true,
+  ): Promise<CopyCounts> {
     if (this.running.has(ourRow)) throw new Error('a copy onto this server is under way');
     this.running.add(ourRow);
     try {
-      return await this.copyAll(ourRow, theirRow, staffId);
+      return await this.copyAll(ourRow, theirRow, staffId, goOn);
     } finally {
       this.running.delete(ourRow);
     }
   }
 
-  private async copyAll(ourRow: number, theirRow: number, staffId: string): Promise<CopyCounts> {
+  private async copyAll(
+    ourRow: number,
+    theirRow: number,
+    staffId: string,
+    goOn: () => boolean,
+  ): Promise<CopyCounts> {
     const { gyms, matches, fill } = this.options;
     const batch = this.options.batch ?? COPY_BATCH;
     const pause = this.options.pause ?? (() => new Promise<void>((done) => setImmediate(done)));
@@ -81,6 +101,10 @@ export class NeighborCopy {
     const pairs = [...matches.matchedGyms(ourRow, theirRow)].sort(([a], [b]) => a - b);
     for (let start = 0; start < pairs.length; start += batch) {
       if (start > 0) await pause();
+      if (!goOn()) {
+        counts.stopped = true;
+        break;
+      }
       for (const [ourId, theirId] of pairs.slice(start, start + batch)) {
         if (ourId === theirId) {
           counts.shared += 1;
