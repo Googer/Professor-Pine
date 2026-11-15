@@ -391,7 +391,13 @@ export interface ServerMemory {
   parties: { forgetServer(guildRow: number): unknown };
   access: { forgetServer(guildRow: number): unknown };
   regions: { load(): Promise<void> };
-  gyms: { forget(id: number): unknown; unlink(id: number, guildRow: number): unknown };
+  gyms: {
+    forget(id: number): unknown;
+    unlink(id: number, guildRow: number): unknown;
+    /** A server's gyms as held (`GymDirectory.gymsOf`), and a gym's servers (`serversOf`). */
+    gymsOf(guildRow: number): Iterable<{ id: number }>;
+    serversOf(gymId: number): number[];
+  };
   wayspots: { load(guildRow: number): Promise<void> };
   matches: { forgetRow(guildRow: number): void };
   pineStops: { load(): Promise<void> };
@@ -413,7 +419,9 @@ export interface ServerMemory {
  * (`ServerNeighbors.forgetServer`: the deletion took their rows; added back, it has none), and
  * where it still had its `Guild` row its parties and forum grants (`forgetServer`: nothing
  * written, nothing asked of Discord), its regions (read again), its gyms (`GymDirectory.forget`
- * for those deleted, `unlink` for those others keep, as a gym's deletion does), its Wayspots
+ * for those deleted, `unlink` for those others keep, as a gym's deletion does: this run's, and
+ * those the directory still holds of its row, which an earlier run that failed part-way removed
+ * from the database, final review R4-4), its Wayspots
  * (`WayspotDirectory.load` of its row: none left), its neighbors' same gyms
  * (`NeighborMatches.forgetRow`), its stops of Pine's own (read again), its Pokémon nicknames
  * (read again: none), and
@@ -432,6 +440,10 @@ export function forgetServerMemory(
     const row = deleted.guildRow;
     const ofRow = (steps: (row: number) => [string, () => unknown][]): [string, () => unknown][] =>
       row === undefined ? [] : steps(row);
+    // The gyms gone and unlinked: this run's, and those memory still holds of the server, which an
+    // earlier run that failed after them deleted or unlinked (final review R4-4: none is linked to
+    // it once the database's part is done).
+    let gone: { deleted: number[]; unlinked: number[] } = deleted.gyms;
     const steps: [string, () => unknown][] = [
       ['row ids', () => memory.rowIds.forgetServer(serverId)],
       ['settings', () => memory.servers.forget(serverId)],
@@ -446,8 +458,9 @@ export function forgetServerMemory(
         [
           'gyms',
           () => {
-            for (const id of deleted.gyms.deleted) memory.gyms.forget(id);
-            for (const id of deleted.gyms.unlinked) memory.gyms.unlink(id, guildRow);
+            gone = withHeld(deleted.gyms, guildRow, memory.gyms);
+            for (const id of gone.deleted) memory.gyms.forget(id);
+            for (const id of gone.unlinked) memory.gyms.unlink(id, guildRow);
           },
         ],
         ['Wayspots', () => memory.wayspots.load(guildRow)],
@@ -459,7 +472,7 @@ export function forgetServerMemory(
         [
           'Google’s line',
           async () => {
-            await memory.line.serverGone(deleted.gyms.deleted, deleted.gyms.unlinked);
+            await memory.line.serverGone(gone.deleted, gone.unlinked);
             memory.line.servingChanged([guildRow]);
           },
         ],
@@ -476,6 +489,28 @@ export function forgetServerMemory(
       }
     }
   };
+}
+
+/**
+ * The gyms a deletion removed of a server's `Guild` row (final review R4-4): those this run
+ * deleted or unlinked, and each gym the directory still holds of the row, which the database no
+ * longer links to it once the deletion's part there is done: deleted where the row was its only
+ * server, else unlinked (`GymRemoval`'s rule). A gym in both of this run's lists keeps this run's
+ * word.
+ */
+function withHeld(
+  run: { deleted: readonly number[]; unlinked: readonly number[] },
+  guildRow: number,
+  gyms: Pick<ServerMemory['gyms'], 'gymsOf' | 'serversOf'>,
+): { deleted: number[]; unlinked: number[] } {
+  const deleted = new Set(run.deleted);
+  const unlinked = new Set(run.unlinked);
+  for (const { id } of gyms.gymsOf(guildRow)) {
+    if (deleted.has(id) || unlinked.has(id)) continue;
+    const others = gyms.serversOf(id).some((row) => row !== guildRow);
+    (others ? unlinked : deleted).add(id);
+  }
+  return { deleted: [...deleted], unlinked: [...unlinked] };
 }
 
 /**

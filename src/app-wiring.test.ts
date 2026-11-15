@@ -1253,6 +1253,8 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
       gyms: {
         forget: (id) => done.push(`gym gone ${String(id)}`),
         unlink: (id, row) => done.push(`gym unlinked ${String(id)} ${String(row)}`),
+        gymsOf: () => [],
+        serversOf: () => [],
       },
       wayspots: {
         load: (row) => {
@@ -1381,6 +1383,71 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
     expect(passes).toHaveBeenCalledTimes(1);
   });
 
+  it('forgets the gyms an earlier run deleted or unlinked before it failed, which this run did not see (final review R4-4)', async () => {
+    const GONE_ROW = OTHER_GUILD_ROW;
+    const { gyms, directory, answers } = await gymDirectoryWith();
+    const geo = new FakeGeoGateway();
+    geo.enabled = false;
+    const upkeep = new GymUpkeep({
+      gyms,
+      directory,
+      geo,
+      parties: { active: () => [] },
+      posts: { changed: () => undefined },
+      log: createTestLogger().log,
+      setTimer: () => () => undefined,
+      answers,
+    });
+    const make = async (lat: number, servers: number[]) => {
+      const gym = await gyms.create({ name: 'Gym', lat, lon: -80.05 }, servers[0]!);
+      for (const row of servers.slice(1)) gyms.link(gym.id, row);
+      return gym.id;
+    };
+    const near = await make(40.5009, [TEST_GUILD_ROW, GONE_ROW]);
+    const gone = await make(40.501, [GONE_ROW]);
+    const far = await make(40.503, [TEST_GUILD_ROW, GONE_ROW]);
+    await gyms.update(10, { nearestGym: near });
+    await gyms.update(near, { nearestGym: gone });
+    await gyms.update(far, { nearestGym: gone });
+    await directory.load();
+    gyms.writes.length = 0;
+    // The first run deleted and unlinked them, then failed before its end: nothing was forgotten.
+    await gyms.delete(gone);
+    gyms.unlink(near, GONE_ROW);
+    gyms.unlink(far, GONE_ROW);
+    const nothing = () => Promise.resolve();
+    const forget = forgetServerMemory({
+      rowIds: { forgetServer: () => undefined },
+      servers: { forget: nothing },
+      notices: { forget: () => undefined },
+      neighbors: { forgetServer: nothing },
+      parties: { forgetServer: () => undefined },
+      access: { forgetServer: () => undefined },
+      regions: { load: nothing },
+      gyms: directory,
+      wayspots: { load: nothing },
+      matches: { forgetRow: () => undefined },
+      pineStops: { load: nothing },
+      nicknames: { load: nothing },
+      line: upkeep,
+      log: createTestLogger().log,
+    });
+    // The run that went on found none of the server's gyms left to remove.
+    await forget('412345678901234567', {
+      counts: {},
+      guildRow: GONE_ROW,
+      gyms: { unlinked: [], deleted: [] },
+    });
+    expect(directory.stored(gone)).toBeUndefined();
+    expect([...directory.gymsOf(GONE_ROW)]).toEqual([]);
+    expect(directory.serversOf(near)).toEqual([TEST_GUILD_ROW]);
+    // And the nearest gyms that pointed at the deleted gym are worked out anew.
+    expect(gyms.written('nearestGym')).toEqual([
+      [near, 10],
+      [far, near],
+    ]);
+  });
+
   it('forgets only what is the server’s by its snowflake where it had no Guild row any more', async () => {
     const { log } = createTestLogger();
     const done: string[] = [];
@@ -1408,7 +1475,12 @@ describe('what the bot forgets of a server whose data was deleted (plan 19C-3)',
           return nothing();
         },
       },
-      gyms: { forget: () => done.push('gym'), unlink: () => done.push('gym') },
+      gyms: {
+        forget: () => done.push('gym'),
+        unlink: () => done.push('gym'),
+        gymsOf: () => [],
+        serversOf: () => [],
+      },
       wayspots: {
         load: () => {
           done.push('wayspots');
