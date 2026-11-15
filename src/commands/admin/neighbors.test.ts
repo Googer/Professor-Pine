@@ -354,6 +354,38 @@ describe('/admin neighbors (plan 19E)', () => {
     expect(made.invitesAsked).toHaveLength(6);
   });
 
+  it('counts the invite links of `copy` with those of `end`, five a server in ten minutes (final review R6-2)', async () => {
+    const made = await neighborCommandsWith({ rows: [neighborRow({ acceptedAt: 1 })] });
+    const member = (n: number) => ({
+      userId: String(200000000000000010n + BigInt(n)),
+      roleNames: ['Admin'],
+      guildId: ASH,
+    });
+    for (let n = 0; n < 3; n += 1) {
+      await made.use('end', { server: `https://discord.gg/nowhere${String(n)}` }, ASH, member(n));
+    }
+    expect(
+      said(await made.use('copy', { server: 'discord.gg/pewter-gym' }, ASH, member(3))),
+    ).toMatch(/^Copied from \*\*Pewter City\*\*/);
+    expect(
+      said(await made.use('copy', { server: 'discord.gg/pewter-gym' }, ASH, member(4))),
+    ).toMatch(/^Nothing to copy from \*\*Pewter City\*\*/);
+    const refused =
+      'This server’s staff have named 5 servers by invite link in ten minutes, the most they ' +
+      'may. Give the server’s ID instead, or try again in 10 minutes.';
+    expect(said(await made.use('copy', { server: 'discord.gg/pewter-gym' }, ASH, member(5)))).toBe(
+      refused,
+    );
+    expect(said(await made.use('end', { server: 'discord.gg/pewter-gym' }, ASH, member(6)))).toBe(
+      refused,
+    );
+    expect(made.invitesAsked).toHaveLength(5);
+    // By its ID, a copy asks nothing of Discord and goes on.
+    expect(said(await made.use('copy', { server: BROCK }, ASH, member(5)))).toMatch(
+      /^Nothing to copy from \*\*Pewter City\*\*/,
+    );
+  });
+
   it('copies a neighbor’s curated gym texts onto this server’s same gyms, never over its own', async () => {
     const made = await neighborCommandsWith({ rows: [neighborRow({ acceptedAt: 1 })] });
     expect(said(await made.use('copy', { server: BROCK }))).toBe(

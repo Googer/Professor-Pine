@@ -68,19 +68,32 @@ function serverAskRefusal(wait: number): string {
 const END_THROTTLE: Throttle = { uses: 10, perSeconds: 600 };
 
 /**
- * How many servers one server's staff may name by an invite link in `end`, all of them together
- * (final review R6-2): each is a question to Discord on the bot's token, which every server's asks
- * share. Counted by the server's id before Discord is asked; an ID asks nothing of Discord.
+ * How many servers one server's staff may name by an invite link in `end` and `copy`, both
+ * commands and all of the staff together (final review R6-2): each is a question to Discord on the
+ * bot's token, which every server's asks share. `ask` counts its own (`SERVER_ASK_WINDOW`).
  */
-const SERVER_END_INVITE_THROTTLE: Throttle = { uses: 5, perSeconds: 600 };
-const SERVER_END_INVITE_WINDOW = 'admin neighbors end, invite links by server';
+const SERVER_INVITE_THROTTLE: Throttle = { uses: 5, perSeconds: 600 };
+const SERVER_INVITE_WINDOW = 'admin neighbors end and copy, invite links by server';
 
-/** The refusal of an invite link in `end` past the server's throttle. */
-function serverEndInviteRefusal(wait: number): string {
-  return (
-    `This server’s staff have named ${String(SERVER_END_INVITE_THROTTLE.uses)} servers by ` +
-    'invite link in ten minutes, the most they may. Give the server’s ID instead, or try again ' +
-    `in ${waitText(wait)}.`
+/**
+ * Counts an invite link of `end` or `copy` against its server's window, before Discord is asked;
+ * an ID asks nothing of Discord and is not counted. Past the window it refuses, giving the member's
+ * own use back, as `ask`'s server refusal does (review RR2).
+ */
+function countInvite(ctx: AppContext, serverId: string, ref: ServerRef): void {
+  if (ref.kind !== 'invite') return;
+  const wait = ctx.throttles.use(
+    SERVER_INVITE_WINDOW,
+    serverId,
+    SERVER_INVITE_THROTTLE,
+    Date.now(),
+  );
+  if (wait === undefined) return;
+  throw new UserError(
+    `This server’s staff have named ${String(SERVER_INVITE_THROTTLE.uses)} servers by invite ` +
+      'link in ten minutes, the most they may. Give the server’s ID instead, or try again in ' +
+      `${waitText(wait)}.`,
+    { givesBack: true },
   );
 }
 
@@ -355,17 +368,7 @@ export const endNeighbor: SubcommandPart = {
   async execute(interaction, ctx) {
     const serverId = guildIdOf(interaction);
     const ref = typedServer(interaction.options.getString('server', true));
-    if (ref.kind === 'invite') {
-      // Its refusal gives the member's own use back, as `ask`'s does (review RR2).
-      const wait = ctx.throttles.use(
-        SERVER_END_INVITE_WINDOW,
-        serverId,
-        SERVER_END_INVITE_THROTTLE,
-        Date.now(),
-      );
-      if (wait !== undefined)
-        throw new UserError(serverEndInviteRefusal(wait), { givesBack: true });
-    }
+    countInvite(ctx, serverId, ref);
     const other = await namedServer(ctx, ref);
     const name = other === undefined ? undefined : ctx.neighbors.nameOf(other);
     const ended = other === undefined ? 'none' : await ctx.neighbors.end(serverId, other);
@@ -501,7 +504,9 @@ export const copyFromNeighbor: SubcommandPart = {
   throttle: COPY_THROTTLE,
   async execute(interaction, ctx) {
     const serverId = guildIdOf(interaction);
-    const other = await namedServer(ctx, interaction.options.getString('server', true));
+    const ref = typedServer(interaction.options.getString('server', true));
+    countInvite(ctx, serverId, ref);
+    const other = await namedServer(ctx, ref);
     if (other === undefined || !mayCopyFrom(ctx, serverId, other)) {
       throw notANeighbor(other);
     }
