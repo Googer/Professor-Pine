@@ -1749,6 +1749,7 @@ export async function startApp(
     setup: serverSetup,
     servers,
     regions,
+    serverOfRow: (row) => rowIds.serverOfRow(row),
     admission,
     fill: serverFill,
     late: setupLate,

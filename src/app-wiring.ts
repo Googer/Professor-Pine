@@ -632,7 +632,9 @@ export function serverSetUpWork(deps: {
 /**
  * The setup of the servers wired (plan 19C-2; fix round 1, S5), before the login: a server
  * leaves setup once its required items are done, whatever did the last (a change of its values,
- * `ServerSettings.onChange`; a region saved or imported, `whenOutlinesChanged`), and at the start
+ * `ServerSettings.onChange`; a region saved or imported, `whenOutlinesChanged`: the servers whose
+ * outlines changed alone, by their `Guild` rows, final review R2-3, every server in setup only
+ * where a row's server is not known yet), and at the start
  * for one whose items were done meanwhile; every check waits for `connected` (the first load of
  * the regions, the client ready), so that nothing begins for a server before the bot is there.
  * A server an instance operator allows after it waited, present (`ServerAdmission.onAllowed`,
@@ -644,7 +646,9 @@ export function serverSetUpWork(deps: {
 export function wireServerSetup(deps: {
   setup: Pick<ServerSetup, 'check' | 'checkAll'>;
   servers: Pick<ServerSettings, 'onChange'>;
-  regions: { whenOutlinesChanged(listener: () => void): unknown };
+  regions: { whenOutlinesChanged(listener: (guildRows: readonly number[]) => void): unknown };
+  /** A `Guild` row's server (`RowIds.serverOfRow`: every row read at the start, and since). */
+  serverOfRow: (guildRow: number) => string | undefined;
   admission: Pick<ServerAdmission, 'onAllowed'>;
   fill: Pick<ServerFill, 'onFilledInSetup'>;
   late: Pick<SetupLate, 'serverStart' | 'joined'>;
@@ -654,8 +658,15 @@ export function wireServerSetup(deps: {
   deps.servers.onChange((serverId) => {
     void connected.then(() => setup.check(serverId));
   });
-  deps.regions.whenOutlinesChanged(() => {
-    void connected.then(() => setup.checkAll());
+  deps.regions.whenOutlinesChanged((guildRows) => {
+    const changed = guildRows.map((row) => deps.serverOfRow(row));
+    void connected.then(async () => {
+      if (changed.some((serverId) => serverId === undefined)) {
+        await setup.checkAll();
+        return;
+      }
+      for (const serverId of changed) if (serverId !== undefined) await setup.check(serverId);
+    });
   });
   void connected.then(() => setup.checkAll());
   deps.fill.onFilledInSetup((serverId) => {

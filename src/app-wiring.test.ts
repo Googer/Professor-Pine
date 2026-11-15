@@ -691,7 +691,7 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
             waiting.push({ what, n, resolve });
           });
     const changeListeners: ((serverId: string) => void)[] = [];
-    const outlineListeners: (() => void)[] = [];
+    const outlineListeners: ((rows: readonly number[]) => void)[] = [];
     const allowedListeners: ((serverId: string) => void)[] = [];
     const filledListeners: ((serverId: string) => void)[] = [];
     const late: SetupLate = {};
@@ -702,6 +702,8 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
       },
       servers: { onChange: (listener) => changeListeners.push(listener) },
       regions: { whenOutlinesChanged: (listener) => outlineListeners.push(listener) },
+      // The `Guild` rows 7 and 8 are the server in setup's and the one that waited.
+      serverOfRow: (row) => (row === 7 ? IN_SETUP : row === 8 ? WAITED : undefined),
       admission: { onAllowed: (listener) => allowedListeners.push(listener) },
       fill: { onFilledInSetup: (listener) => filledListeners.push(listener) },
       late,
@@ -715,8 +717,8 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
       changed: (serverId: string) => {
         for (const listener of changeListeners) listener(serverId);
       },
-      outlinesChanged: () => {
-        for (const listener of outlineListeners) listener();
+      outlinesChanged: (rows: readonly number[]) => {
+        for (const listener of outlineListeners) listener(rows);
       },
       allowed: (serverId: string) => {
         for (const listener of allowedListeners) listener(serverId);
@@ -739,11 +741,16 @@ describe('the wiring of a server’s setup (plan 19C-2, S5)', () => {
     // The change asked meanwhile, and every server in setup at the start.
     await made.asking(`check ${IN_SETUP}`);
     await made.asking('checkAll');
-    // A region saved or imported: every server in setup again.
-    made.outlinesChanged();
-    await made.asking('checkAll', 2);
+    // A region saved or imported: the servers whose outlines changed, never every server in
+    // setup (final review R2-3).
+    made.outlinesChanged([7]);
+    await made.asking(`check ${IN_SETUP}`, 2);
     made.changed(WAITED);
     await made.asking(`check ${WAITED}`);
+    expect(made.asked.filter((what) => what === 'checkAll')).toHaveLength(1);
+    // A row not known yet (a server that just joined): every server in setup, as before.
+    made.outlinesChanged([8, 9]);
+    await made.asking('checkAll', 2);
   });
 
   it('checks a server whose fill wrote its row in setup, once the bot is connected (final review R2-2)', async () => {

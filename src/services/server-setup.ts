@@ -103,7 +103,10 @@ export class ServerSetup {
     return true;
   }
 
-  /** `check` of every server in setup, one after the other (a region saved, the start). */
+  /**
+   * `check` of every server in setup, one after the other (the start; a region saved of a server
+   * whose `Guild` row is not known yet: `wireServerSetup`).
+   */
   async checkAll(): Promise<void> {
     for (const serverId of this.options.servers.serversInSetup()) await this.check(serverId);
   }
