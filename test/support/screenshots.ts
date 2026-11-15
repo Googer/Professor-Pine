@@ -2,6 +2,7 @@ import type { MaxText, ScreenText } from '../../src/domain/ocr/raid-screen.js';
 import type { HeadCount } from '../../src/domain/ocr/tier-heads.js';
 import type { ScreenReading } from '../../src/ocr/screen-reader.js';
 import type { OcrOutcome, ReadOptions, ScreenshotReader } from '../../src/services/ocr-service.js';
+import { kyuremCp } from './raid-bosses.js';
 import { Tally } from './tally.js';
 
 /** A reader that cannot run: every screenshot is answered `unavailable` (the test context's). */
@@ -67,6 +68,22 @@ export function eggReading(
   countdown = 30 * 60,
 ): ScreenReading {
   return readingOf({ gym, clock, countdown, countdownPlace: 'centre' }, { heads });
+}
+
+/**
+ * A hatched T5 raid at `gym` whose CP and name fit Black and White Kyurem alike (2026-11-15; the
+ * boss list of `kyuremBossesFixture`): five heads, "Kyurem" read under the CP, the phone's clock
+ * at `clock` and `countdown` seconds left, at the right.
+ */
+export function kyuremReading(
+  gym: string,
+  clock: { hour: number; minute: number } | null,
+  countdown = 30 * 60,
+): ScreenReading {
+  return readingOf(
+    { gym, clock, countdown, countdownPlace: 'right', cp: kyuremCp(), bossName: 'Kyurem' },
+    { heads: 5 },
+  );
 }
 
 /**

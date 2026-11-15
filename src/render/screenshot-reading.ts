@@ -4,6 +4,7 @@ import {
   clockText,
   countdownText,
   type StoredMaxReport,
+  type StoredBoss,
   type StoredReport,
 } from '../domain/ocr/screenshot-record.js';
 import { TYPED_BOSS_REFUSED } from '../domain/ocr/max-decision.js';
@@ -48,6 +49,7 @@ const DOUBT_WORDS: Readonly<Record<ReportDoubt, string>> = {
   'heads-uncertain': 'There may be a tier head I missed.',
   'heads-boss-conflict': 'The boss I found is of another tier than the heads say.',
   'boss-unknown': 'I could not tell the boss.',
+  'boss-choice': 'The CP and name fit more than one boss.',
   'boss-from-name': 'The boss comes from its name alone; its CP fits no current boss.',
   'boss-unlisted':
     'The boss is on no list of current raid bosses: its CP and name fit it at the tier of the heads.',
@@ -59,24 +61,46 @@ const DOUBT_WORDS: Readonly<Record<ReportDoubt, string>> = {
     'The boss I found and the screen’s color disagree on whether this is a shadow raid.',
 };
 
+/** The bosses a CP fits (`bossChoices`) as a record keeps them, which a doubt names. */
+type BossChoices = readonly Pick<StoredBoss, 'name'>[];
+
+/** Names in a sentence: `A`, `A or B`, `A, B or C`. */
+function eitherOf(names: readonly string[]): string {
+  const last = names.at(-1) ?? '';
+  return names.length < 2 ? last : `${names.slice(0, -1).join(', ')} or ${last}`;
+}
+
 /**
  * A doubt in words. A guessed time names the clock that was read, when one was: it was guessed
  * because that clock did not fit the upload (a screenshot taken long before), not for want of one.
+ * Bosses the CP fits name the bosses (`choices`, the report's `bossChoices`; a record kept before
+ * them says it without names).
  */
-export function doubtWords(doubt: string, clock: StoredReport['clock'] = null): string {
+export function doubtWords(
+  doubt: string,
+  clock: StoredReport['clock'] = null,
+  choices: BossChoices = [],
+): string {
   const read = clockText(clock);
   if (doubt === 'time-guessed' && read !== null) {
     return `The time is a guess from when the screenshot was posted: the phone’s clock (${read}) does not fit that time.`;
   }
+  if (doubt === 'boss-choice' && choices.length > 0) {
+    return `The CP and name fit more than one boss: ${eitherOf(choices.map((boss) => plain(boss.name)))}.`;
+  }
   return DOUBT_WORDS[doubt as ReportDoubt] ?? doubt;
 }
 
-/** The doubts as a list, or nothing when there are none; `clock` is the clock read, if any. */
+/**
+ * The doubts as a list, or nothing when there are none; `clock` is the clock read, if any, and
+ * `choices` the bosses the CP fits.
+ */
 export function doubtLines(
   doubts: readonly string[],
   clock: StoredReport['clock'] = null,
+  choices: BossChoices = [],
 ): string[] {
-  return doubts.map((doubt) => `- ${doubtWords(doubt, clock)}`);
+  return doubts.map((doubt) => `- ${doubtWords(doubt, clock, choices)}`);
 }
 
 function gymLine(report: StoredReport, gymName: GymNamer): string {
@@ -139,7 +163,7 @@ export function readingLines(
   if (report.stage !== 'egg') lines.push(bossLine(report));
   lines.push(`**Shadow purple:** ${(report.purple * 100).toFixed(1)}% of the screen`);
   if (report.doubts.length > 0 && options.doubts !== false)
-    lines.push('', 'Not sure:', ...doubtLines(report.doubts, report.clock));
+    lines.push('', 'Not sure:', ...doubtLines(report.doubts, report.clock, report.bossChoices));
   return lines;
 }
 
@@ -197,7 +221,7 @@ export function screenshotMessage(view: ScreenshotView): V2Message {
   return shotMessage(
     view,
     readingLines(report, view.gymName, { doubts: false }),
-    report.doubts.map((doubt) => doubtWords(doubt, report.clock)),
+    report.doubts.map((doubt) => doubtWords(doubt, report.clock, report.bossChoices)),
   );
 }
 

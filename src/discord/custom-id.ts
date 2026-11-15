@@ -93,7 +93,10 @@
  * With the id of a kept screenshot (twelve URL-safe characters): `shot:<id>:right`,
  * `shot:<id>:wrong` (which opens the form `shot:<id>:form`) and `shot:<id>:show`. With the token
  * of a pending question about the gym of a screenshot posted with a mention of the bot:
- * `shot:<token>:gym` (the menu) and `shot:<token>:cancel`. The button "Screenshot feedback" of a
+ * `shot:<token>:gym` (the menu) and `shot:<token>:cancel`; of the question which boss a raid it
+ * made is (2026-11-15), `shot:<token>:boss:<n>` (the n-th boss asked about, from 0) and
+ * `shot:<token>:cancel`, and under `/raid`'s answer `raid:<token>:boss:<n>` and
+ * `raid:<token>:boss-cancel`. The button "Screenshot feedback" of a
  * raid's post is the party's own, `party:<party id>:shot`.
  *
  * The controls of a party have the kind `party` and the party's id (`PARTY_ACTIONS`,

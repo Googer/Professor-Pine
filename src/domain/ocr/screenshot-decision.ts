@@ -35,6 +35,12 @@ export interface ScreenshotRaid {
    * not have is reported as `/raid` reports it with its tier typed.
    */
   boss: ReportBoss | null;
+  /**
+   * A hatched raid without a boss whose CP fits several bosses of its tier that the name could
+   * not tell apart (`ScreenshotReport.bossChoices`): its member is asked which once the raid is
+   * made (Matt, 2026-11-15). Empty otherwise.
+   */
+  bossChoices: RaidBoss[];
   /** Seen hatched: with a boss, or without one when it was not decided. */
   hatched: boolean;
   /**
@@ -89,6 +95,7 @@ const BOSS_DOUBTS: readonly ReportDoubt[] = [
   'heads-uncertain',
   'heads-boss-conflict',
   'boss-unknown',
+  'boss-choice',
   'boss-from-name',
   'boss-unlisted',
   'boss-name-differs',
@@ -126,6 +133,7 @@ export function withTyped(report: ScreenshotReport, typed: TypedValues): Screens
       stage: typed.boss.hatched ? 'hatched' : 'egg',
       tier: typed.boss.tier,
       boss: typed.boss.boss,
+      bossChoices: [],
       doubts: without(BOSS_DOUBTS),
     };
   }
@@ -208,6 +216,8 @@ export function decide(report: ScreenshotReport, context: DecideContext): Screen
       gymId: report.gym.gymId,
       tier: report.tier,
       boss,
+      // Only a hatched raid left without a boss is asked which (an egg past its hatch has none).
+      bossChoices: hatched && boss === null ? report.bossChoices : [],
       hatched,
       time,
       timeUncertain: uncertain,

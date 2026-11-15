@@ -22,7 +22,7 @@ import { searchTokens } from '../../domain/search/text.js';
 import { matchNamed } from '../../domain/search/word-match.js';
 import { resolvePartyTime } from '../../domain/time/party-time.js';
 import { longestRaidDurations, raidDurationRules } from '../../domain/time/raid-durations.js';
-import { UserError } from '../../discord/errors.js';
+import { ListChanged, UserError } from '../../discord/errors.js';
 import { isFarOff, plain, timestamp, truncate } from '../../render/text.js';
 import type { GymView } from '../../services/gym-directory.js';
 import type { PokemonFinder } from '../../services/pokemon-search-service.js';
@@ -80,7 +80,8 @@ export function allTiers(): RaidTier[] {
 }
 
 /** What picking a boss of the list says (`b:yveltal:T5:0`), which `reportedBoss` reads back. */
-export const bossChoiceValue = (boss: RaidBoss): string => `b:${boss.key}:${tierCode(boss.tier)}`;
+export const bossChoiceValue = (boss: Pick<RaidBoss, 'key' | 'tier'>): string =>
+  `b:${boss.key}:${tierCode(boss.tier)}`;
 
 /** What picking the egg of a tier says (`e:T5:0`), which `reportedBoss` reads back. */
 export const eggChoiceValue = (tier: RaidTier): string => `e:${tierCode(tier)}`;
@@ -323,7 +324,8 @@ function reportedWithTier(
  * alone is an egg. A tier followed by a name is a boss of that tier, or any Pokémon in it.
  * Otherwise a partial fit of one boss, or the error that names the several it could be. A
  * Pokémon (nicknames included) that is a current boss is that boss; one that is not is
- * explained. Throws a `UserError` that says what would work. The bosses are those of the server's
+ * explained. Throws a `UserError` that says what would work; a boss picked from the list that is
+ * no longer on it, a `ListChanged`. The bosses are those of the server's
  * `zone` (plan 19A-2; every command and route gives it, a test may leave the instance's default),
  * the nicknames that server's (`serverId`, plan 19B-4).
  */
@@ -345,7 +347,9 @@ export function reportedBoss(
     const tier = tierFromCode(parts[1], parts[2]);
     const boss = tier && bosses.find((b) => b.key === parts[0] && sameRaidTier(b.tier, tier));
     if (boss) return chosenBoss(boss);
-    throw new UserError('That boss is no longer on the list. Pick again from the list.');
+    // A choice of the list that rotated under it, known by its kind (a screenshot's question
+    // which boss it is says it in words of its own).
+    throw new ListChanged('That boss is no longer on the list. Pick again from the list.');
   }
   const exact = exactBosses(bosses, text, bossFullNames);
   const [only] = exact;

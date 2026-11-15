@@ -86,6 +86,11 @@ export interface ScreenshotRecord {
   pickedGymId: number | null;
   /** The Power Spot (its Wayfarer id) the member chose when they were asked (plan 8X-S). */
   pickedSpotId?: string;
+  /**
+   * The boss (its key) the member chose of those the CP fitted (`report.bossChoices`), asked once
+   * the raid was made (2026-11-15); absent when they did not, and in records before it.
+   */
+  pickedBossKey?: string;
   /** The raid bosses in effect at the read, which the boss was decided among (`ocr:check`). */
   bosses: { key: string; name: string; tier: RaidTier }[];
   /** The max bosses in effect at the read of a max battle's screen, its boss decided among. */
@@ -135,6 +140,8 @@ export interface ScreenshotKeeping {
   picked(id: string, gymId: number): Promise<void>;
   /** The Power Spot (its Wayfarer id) the member chose when asked. */
   pickedSpot(id: string, spotId: string): Promise<void>;
+  /** The boss (its key) the member chose of those the CP fitted. */
+  pickedBoss(id: string, bossKey: string): Promise<void>;
   feedback(id: string, memberId: string, feedback: Feedback): Promise<'ok' | 'gone'>;
   sweep(): Promise<void>;
 }
@@ -331,11 +338,39 @@ export class ScreenshotStore implements ScreenshotKeeping {
   }
 
   picked(id: string, gymId: number): Promise<void> {
-    return this.change(id, (record) => ({ ...record, pickedGymId: gymId }), true);
+    return this.change(id, (record) => this.labelled({ ...record, pickedGymId: gymId }), true);
   }
 
   pickedSpot(id: string, spotId: string): Promise<void> {
     return this.change(id, (record) => ({ ...record, pickedSpotId: spotId }), true);
+  }
+
+  /** An "All right" given before the choice now keys the boss chosen (review F5). */
+  pickedBoss(id: string, bossKey: string): Promise<void> {
+    return this.change(id, (record) => this.labelled({ ...record, pickedBossKey: bossKey }), true);
+  }
+
+  /**
+   * The record with its member's answer key as its feedback makes it: none without feedback (a
+   * pick before any keeps it so), none once anybody said "Something is wrong" or for a max
+   * battle's screen (no answer key `ocr:check` scores, plan 8X-S, review R5), else the reading
+   * with what the member picked and typed (`memberLabel`).
+   */
+  private labelled(record: ScreenshotRecord): ScreenshotRecord {
+    if (record.feedback.length === 0) return record;
+    const { label: _old, ...rest } = record;
+    const disputed = record.feedback.some((f) => f.verdict === 'wrong');
+    const label =
+      disputed || record.max
+        ? undefined
+        : memberLabel(
+            record.report,
+            record.typed,
+            this.options.gymName,
+            record.pickedGymId,
+            record.pickedBossKey ?? null,
+          );
+    return { ...rest, ...(label ? { label } : {}) };
   }
 
   /**
@@ -357,15 +392,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
           at: this.now(),
         };
         const others = record.feedback.filter((f) => f.memberId !== memberId);
-        const all = [...others, entry];
-        const { label: _old, ...rest } = record;
-        const disputed = all.some((f) => f.verdict === 'wrong');
-        // A max battle's screen has no answer key `ocr:check` scores (plan 8X-S, review R5).
-        const label =
-          disputed || record.max
-            ? undefined
-            : memberLabel(record.report, record.typed, this.options.gymName, record.pickedGymId);
-        return { ...rest, feedback: all, ...(label ? { label } : {}) };
+        return this.labelled({ ...record, feedback: [...others, entry] });
       },
       true,
     );

@@ -6,6 +6,7 @@ import type { RaidBoss } from '../pogo/raid-bosses.js';
 import {
   bossStamina,
   raidTier,
+  sameRaidTier,
   SHADOW_RAID_LEVELS,
   type RaidLevel,
   type RaidTier,
@@ -94,6 +95,10 @@ export interface ReportContext {
  *   the end of the row may have been missed);
  * - `heads-boss-conflict`: the boss named by the CP has another tier than the heads say;
  * - `boss-unknown`: hatched, and no boss decided; `boss-from-name`: by the name alone;
+ * - `boss-choice`: hatched, and the CP (narrowed by the heads and the purple) fits two to
+ *   `MAX_BOSS_CHOICES` bosses of one tier that the name does not tell apart (Black and White
+ *   Kyurem: one CP, both named "Kyurem"): the boss is left open and the bosses are
+ *   `ScreenshotReport.bossChoices`, for the member to choose from once the raid is made;
  * - `boss-unlisted`: a Pokémon the boss list does not have, by its CP at the heads' tier and its
  *   name, as `/raid` takes it with that tier typed before it (`UnlistedRaidBoss`);
  * - `boss-name-differs`: the boss the CP names is not what the name under it says;
@@ -120,6 +125,7 @@ export type ReportDoubt =
   | 'heads-uncertain'
   | 'heads-boss-conflict'
   | 'boss-unknown'
+  | 'boss-choice'
   | 'boss-from-name'
   | 'boss-unlisted'
   | 'boss-name-differs'
@@ -169,6 +175,12 @@ export interface ScreenshotReport {
   bossName: string | null;
   boss: ReportBoss | null;
   bossFrom: 'cp' | 'cp-and-name' | 'name' | null;
+  /**
+   * The bosses of one tier the CP fits when the name does not tell them apart (`boss-choice`),
+   * two to `MAX_BOSS_CHOICES` of them, in the list's order; empty otherwise (a boss decided, none,
+   * more than that, or of several tiers).
+   */
+  bossChoices: RaidBoss[];
   eliteBadge: boolean;
   purple: number;
   clock: { hour: number; minute: number } | null;
@@ -202,6 +214,8 @@ const NAME_MARGIN = 0.2;
 /** A boss by its name alone: at least this similar, and this much more than the next. */
 const NAME_ALONE = 0.9;
 const NAME_ALONE_MARGIN = 0.15;
+/** At most this many bosses the CP fits are offered to choose from (`boss-choice`). */
+export const MAX_BOSS_CHOICES = 5;
 /**
  * A place just outside a row of heads that matches this well is a head the row may have missed:
  * beside the rows of the research's samples the best was 0.49, a head itself matches 0.67 and
@@ -439,11 +453,23 @@ function sameSpecies(a: RaidBoss, b: RaidBoss): boolean {
 interface BossChoice {
   boss: RaidBoss | null;
   from: ScreenshotReport['bossFrom'];
+  /** The bosses the CP fits that the name could not tell apart (`ScreenshotReport.bossChoices`). */
+  choices: RaidBoss[];
+}
+
+/**
+ * The bosses a CP fits as choices (`boss-choice`): two to `MAX_BOSS_CHOICES` of one tier; none
+ * otherwise (too many to offer, or of tiers the screen would have to tell apart first).
+ */
+function choicesOf(fits: readonly RaidBoss[]): RaidBoss[] {
+  const [first] = fits;
+  if (!first || fits.length < 2 || fits.length > MAX_BOSS_CHOICES) return [];
+  return fits.every((boss) => sameRaidTier(boss.tier, first.tier)) ? [...fits] : [];
 }
 
 /**
  * The boss of a hatched raid: by its CP, narrowed by the heads, the purple and the name; else by
- * name.
+ * name. Bosses of one CP that the name does not tell apart are the choices (`choicesOf`).
  */
 function bossOf(
   cp: number | null,
@@ -467,18 +493,19 @@ function bossOf(
       const ofPurple = fits.filter((boss) => boss.tier.shadow === shadow);
       if (ofPurple.length > 0) fits = ofPurple;
     }
-    if (fits.length === 1 && fits[0]) return { boss: fits[0], from: 'cp' };
+    if (fits.length === 1 && fits[0]) return { boss: fits[0], from: 'cp', choices: [] };
     if (fits.length > 1) {
       const [first, second] = ranked(fits);
       if (first && second && similar(first) - similar(second) >= NAME_MARGIN) {
-        return { boss: first, from: 'cp-and-name' };
+        return { boss: first, from: 'cp-and-name', choices: [] };
       }
-      return { boss: null, from: null };
+      return { boss: null, from: null, choices: choicesOf(fits) };
     }
   }
+  const none: BossChoice = { boss: null, from: null, choices: [] };
   // The CP fits no listed boss (a digit misread, or a boss the feed does not list yet): a name
   // decides only when it is nearly exactly one boss's of the heads' tier and no other's.
-  if (!name || !headsLevel) return { boss: null, from: null };
+  if (!name || !headsLevel) return none;
   let ofLevel = bosses.filter((boss) => boss.tier.level === headsLevel);
   // A digit the boss hides is misread (49803 for 49808): the one boss of the heads' tier whose
   // CP differs in one digit, when the name read is most like its and clearly not another's.
@@ -493,7 +520,7 @@ function bossOf(
       first === near[0] &&
       (!second || similar(first) - similar(second) >= NAME_MARGIN)
     ) {
-      return { boss: first, from: 'cp-and-name' };
+      return { boss: first, from: 'cp-and-name', choices: [] };
     }
   }
   // A shadow and a plain boss of one species have one name: the purple tells them apart, as
@@ -514,9 +541,9 @@ function bossOf(
     similar(first) >= NAME_ALONE &&
     (!second || similar(first) - similar(second) >= NAME_ALONE_MARGIN)
   ) {
-    return { boss: first, from: 'name' };
+    return { boss: first, from: 'name', choices: [] };
   }
-  return { boss: null, from: null };
+  return none;
 }
 
 /** A name read that says a mega or primal form: the game writes "Mega" or "Primal" before it. */
@@ -713,19 +740,23 @@ export function screenshotReport(reading: ReadScreen, context: ReportContext): S
   if (headsLevel === 'T5' && longEgg && text.eliteBadge) headsLevel = 'Elite';
 
   const purpleShadow = reading.purple > SHADOW_SHARE;
-  const listed =
+  const listed: BossChoice =
     stage === 'hatched'
       ? bossOf(text.cp, text.bossName, headsLevel, purpleShadow, context.bosses)
-      : { boss: null, from: null };
+      : { boss: null, from: null, choices: [] };
   let boss: ReportBoss | null = listed.boss;
   let bossFrom = listed.from;
+  const bossChoices = listed.choices;
   let tier: RaidTier | null = null;
   let tierFrom: ScreenshotReport['tierFrom'] = null;
-  if (boss) {
-    tier = boss.tier;
+  // The boss the CP named, or the bosses of one tier it fits (`boss-choice`), give the tier; an
+  // unlisted Pokémon is not looked for beside listed bosses the CP fits.
+  const byCp = boss ?? bossChoices[0];
+  if (byCp) {
+    tier = byCp.tier;
     tierFrom = 'boss';
-    if (headsLevel && headsLevel !== boss.tier.level) doubts.add('heads-boss-conflict');
-    if (SHADOW_RAID_LEVELS.includes(boss.tier.level) && boss.tier.shadow !== purpleShadow) {
+    if (headsLevel && headsLevel !== byCp.tier.level) doubts.add('heads-boss-conflict');
+    if (SHADOW_RAID_LEVELS.includes(byCp.tier.level) && byCp.tier.shadow !== purpleShadow) {
       doubts.add('shadow-differs');
     }
   } else if (headsLevel) {
@@ -766,7 +797,8 @@ export function screenshotReport(reading: ReadScreen, context: ReportContext): S
   }
   if (!tier) doubts.add('tier-unknown');
   if (tier?.level === 'Elite') doubts.add('elite');
-  if (stage === 'hatched' && !boss) doubts.add('boss-unknown');
+  if (stage === 'hatched' && !boss)
+    doubts.add(bossChoices.length > 0 ? 'boss-choice' : 'boss-unknown');
   if (bossFrom === 'name') doubts.add('boss-from-name');
   if (
     boss &&
@@ -810,7 +842,7 @@ export function screenshotReport(reading: ReadScreen, context: ReportContext): S
   const raidScreen =
     !maxScreen &&
     text.countdown !== null &&
-    (heads !== null || bossFrom === 'cp' || bossFrom === 'cp-and-name');
+    (heads !== null || bossFrom === 'cp' || bossFrom === 'cp-and-name' || bossChoices.length > 0);
   if (!raidScreen) doubts.add('not-a-raid-screen');
 
   return {
@@ -823,6 +855,7 @@ export function screenshotReport(reading: ReadScreen, context: ReportContext): S
     bossName: text.bossName,
     boss,
     bossFrom,
+    bossChoices,
     eliteBadge: text.eliteBadge,
     purple: reading.purple,
     clock: text.clock,

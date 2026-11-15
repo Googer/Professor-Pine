@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { memberLabel, memberLabelOfUnit, type StoredReport } from './screenshot-record.js';
+import { raidBossesFixture } from '../../../test/support/raid-bosses.js';
+import {
+  memberLabel,
+  memberLabelOfUnit,
+  storedReport,
+  type StoredReport,
+} from './screenshot-record.js';
 
 const NAMES: Record<number, string> = { 7: 'Heinz Plant' };
 const gymName = (id: number) => NAMES[id];
@@ -78,6 +84,35 @@ describe('memberLabel', () => {
     expect(memberLabel(unclear, null, own)).not.toHaveProperty('gym');
     expect(memberLabel(unclear, null, own, 9)?.gym).toBe('Old Plant Church');
     expect(memberLabel(report(), null, own, 9)?.gym).toBe('Old Plant Church');
+  });
+
+  it('keys the boss the member chose of those the CP fits, and none before they chose', () => {
+    const t5 = { level: 'T5' as const, shadow: false };
+    const open = report({
+      tier: t5,
+      boss: null,
+      bossFrom: null,
+      bossChoices: [
+        { key: 'kyurem_black', name: 'Black Kyurem', tier: t5 },
+        { key: 'kyurem_white', name: 'White Kyurem', tier: t5 },
+      ],
+      doubts: ['boss-choice'],
+    });
+    expect(memberLabel(open, null, gymName)?.boss).toBeNull();
+    expect(memberLabel(open, null, gymName, null, 'kyurem_white')?.boss).toBe('White Kyurem');
+    // A key that is none of the choices is no answer.
+    expect(memberLabel(open, null, gymName, null, 'yveltal')?.boss).toBeNull();
+  });
+});
+
+describe('storedReport', () => {
+  it('keeps the bosses the CP fits by their key, name and tier', () => {
+    const t5 = { level: 'T5' as const, shadow: false };
+    const choice = { key: 'kyurem_black', name: 'Black Kyurem', tier: t5 };
+    const listed = raidBossesFixture().bosses()[0];
+    if (!listed) throw new Error('no boss');
+    const read = { ...report(), boss: null, bossChoices: [{ ...listed, ...choice }] };
+    expect(storedReport(read).bossChoices).toEqual([choice]);
   });
 });
 

@@ -254,6 +254,8 @@ export interface Screenshots {
   picked(id: string, gymId: number): Promise<void>;
   /** The Power Spot (its Wayfarer id) the member chose when they were asked. */
   pickedSpot(id: string, spotId: string): Promise<void>;
+  /** The boss (its key) the member chose of those the CP fitted, once the raid was made. */
+  pickedBoss(id: string, bossKey: string): Promise<void>;
   feedback(id: string, memberId: string, feedback: Feedback): Promise<'ok' | 'gone'>;
 }
 
@@ -645,6 +647,10 @@ export class ScreenshotService implements Screenshots {
 
   pickedSpot(id: string, spotId: string): Promise<void> {
     return this.options.store.pickedSpot(id, spotId);
+  }
+
+  pickedBoss(id: string, bossKey: string): Promise<void> {
+    return this.options.store.pickedBoss(id, bossKey);
   }
 
   inUse(id: string): Promise<void> {

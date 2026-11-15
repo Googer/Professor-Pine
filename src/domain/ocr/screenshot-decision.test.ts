@@ -18,6 +18,7 @@ function report(overrides: Partial<ScreenshotReport> = {}): ScreenshotReport {
     bossName: null,
     boss: null,
     bossFrom: null,
+    bossChoices: [],
     eliteBadge: false,
     purple: 0,
     clock: { hour: 13, minute: 39 },
@@ -52,6 +53,7 @@ describe('decide', () => {
         gymId: 7,
         tier: { level: 'T5', shadow: false },
         boss: null,
+        bossChoices: [],
         hatched: false,
         time: { hatch: 601_000 },
         timeUncertain: false,
@@ -91,6 +93,25 @@ describe('decide', () => {
     });
     const noStage = decide(report({ stage: null, time: null, doubts: ['stage-unknown'] }));
     expect(noStage).toMatchObject({ kind: 'report', raid: { hatched: false, time: undefined } });
+  });
+
+  it('reports a hatched raid whose CP fits several bosses without one, with the bosses to choose from', () => {
+    const twin = YVELTAL && { ...YVELTAL, key: 'xerneas', name: 'Xerneas' };
+    const choices = [YVELTAL, twin].filter((one) => one !== undefined);
+    const decided = decide(
+      report({ stage: 'hatched', time: { end: 5 }, bossChoices: choices, doubts: ['boss-choice'] }),
+    );
+    expect(decided).toMatchObject({
+      kind: 'report',
+      raid: { boss: null, hatched: true, time: { end: 5 } },
+      doubts: ['boss-choice'],
+    });
+    expect(decided.kind === 'report' && decided.raid.bossChoices.map((one) => one.key)).toEqual([
+      'yveltal',
+      'xerneas',
+    ]);
+    // An egg has no boss to choose.
+    expect(decide(report())).toMatchObject({ raid: { bossChoices: [] } });
   });
 
   it('leaves out a countdown too long, and says a guessed, stale or contested time is uncertain', () => {
@@ -297,5 +318,19 @@ describe('withTyped', () => {
     const timed = withTyped(read, { gymId: 7, time: { end: 99 } });
     expect(timed.doubts).toEqual(['boss-unknown', 'heads-only']);
     expect(decide(timed)).toMatchObject({ raid: { time: { end: 99 }, timeUncertain: false } });
+  });
+
+  it('takes a typed boss in the place of the bosses the CP fits, and their doubt', () => {
+    const read = report({
+      stage: 'hatched',
+      time: { end: 5 },
+      bossChoices: YVELTAL ? [YVELTAL, { ...YVELTAL, key: 'xerneas', name: 'Xerneas' }] : [],
+      doubts: ['boss-choice'],
+    });
+    const typed = withTyped(read, {
+      boss: { tier: { level: 'T5', shadow: false }, boss: YVELTAL ?? null, hatched: true },
+    });
+    expect(typed).toMatchObject({ bossChoices: [], doubts: [] });
+    expect(decide(typed)).toMatchObject({ raid: { boss: { key: 'yveltal' }, bossChoices: [] } });
   });
 });

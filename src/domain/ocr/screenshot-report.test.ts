@@ -144,8 +144,62 @@ describe('screenshotReport', () => {
       boss: null,
       bossFrom: null,
       tier: { level: 'T5', shadow: false },
-      tierFrom: 'heads',
-      doubts: ['heads-only', 'boss-unknown'],
+      tierFrom: 'boss',
+      doubts: ['boss-choice'],
+    });
+    expect(report(null).bossChoices.map((one) => one.key)).toEqual(['yveltal', 'xerneas']);
+  });
+
+  describe('two bosses of one CP that the name cannot tell apart (Black and White Kyurem)', () => {
+    /** Two T5 bosses of the same stats: one raid CP, and the game names both "Kyurem". */
+    const kyurem = (key: string) => {
+      const entry = CATALOGUE.byKey(key);
+      if (!entry) throw new Error(key);
+      return { ...boss('yveltal'), key, name: entry.name, entry };
+    };
+    const twins = [kyurem('kyurem_black'), kyurem('kyurem_white')];
+    const bosses = [...BOSSES, ...twins];
+    const [black] = twins;
+    const cp = black?.entry ? raidBossCp(black.entry.stats, bossStamina(black.tier)) : 0;
+    const report = (heads: number | null, bossName = 'Kyurem', list = bosses) =>
+      screenshotReport(read(hatched({ cp, bossName }), heads), context({ bosses: list }));
+
+    it('keeps both as the choices, the boss open, and doubts that, not an unknown boss', () => {
+      const both = report(5);
+      expect(both).toMatchObject({
+        boss: null,
+        bossFrom: null,
+        tier: { level: 'T5', shadow: false },
+        tierFrom: 'boss',
+      });
+      expect(both.bossChoices.map((one) => one.key)).toEqual(['kyurem_black', 'kyurem_white']);
+      expect(both.doubts).toEqual(['boss-choice']);
+      // A name read a letter off is no help either.
+      expect(report(5, 'Kyuren').bossChoices).toHaveLength(2);
+    });
+
+    it('takes the tier from the choices when no heads were read, as a raid screen', () => {
+      const headless = report(null);
+      expect(headless).toMatchObject({ tier: { level: 'T5' }, tierFrom: 'boss' });
+      expect(headless.bossChoices).toHaveLength(2);
+      expect(headless.doubts).toEqual(['boss-choice']);
+    });
+
+    it('still takes the boss the name decides', () => {
+      const white = report(5, 'White Kyurem');
+      expect(white.boss?.key).toBe('kyurem_white');
+      expect(white.bossChoices).toEqual([]);
+    });
+
+    it('keeps no choices of more than five bosses', () => {
+      const many = [1, 2, 3, 4, 5, 6].map((n) => ({
+        ...kyurem('kyurem_black'),
+        key: `kyurem_black_${n}`,
+        name: `Black Kyurem ${n}`,
+      }));
+      const crowded = report(5, 'Kyurem', [...BOSSES, ...many]);
+      expect(crowded.bossChoices).toEqual([]);
+      expect(crowded.doubts).toContain('boss-unknown');
     });
   });
 

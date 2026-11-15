@@ -76,6 +76,7 @@ function shot(senderId: string, refused = false): NewScreenshot {
       bossName: null,
       boss: null,
       bossFrom: null,
+      bossChoices: [],
       eliteBadge: false,
       purple: 0,
       clock: { hour: 13, minute: 39 },

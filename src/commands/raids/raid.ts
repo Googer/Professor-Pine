@@ -16,7 +16,7 @@ import { BoundedMap } from '../../bounded-map.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { Guard, SimpleCommand } from '../../discord/command.js';
 import type { ComponentHandler } from '../../discord/command.js';
-import { encodeCustomId } from '../../discord/custom-id.js';
+import { decodeCustomId, encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
 import { guildIdOf, regionChannelOf, requireRegion } from '../../discord/guards.js';
 import { whenCounted } from '../../discord/router.js';
@@ -35,6 +35,16 @@ import { PendingRequests } from '../../services/pending-requests.js';
 import { feedbackRow, showRow } from '../screenshots/feedback.js';
 import { gymCandidates, gymMenuOptions, gymNamerOf } from '../screenshots/gym-question.js';
 import { readAttachedOutcome, sayBeside } from '../screenshots/read-screenshot.js';
+import {
+  BOSS_ACTION,
+  BOSS_QUESTION_START,
+  bossQuestionOf,
+  bossQuestionText,
+  bossRows,
+  chosenBoss,
+  setChosenBoss,
+  type BossQuestion,
+} from '../screenshots/boss-question.js';
 import { unreadWords } from '../../services/screenshot-service.js';
 import {
   bossChoices,
@@ -78,7 +88,28 @@ interface FromScreenshot {
   doubts: ReportDoubt[];
   /** The phone's clock as read, which the words of a guessed time name. */
   clock: StoredReport['clock'];
+  /**
+   * The bosses its CP fits that the name could not tell apart (`ScreenshotRaid.bossChoices`),
+   * which the doubt names and, once the raid is made, the member is asked to choose from.
+   */
+  bossChoices: ScreenshotRaid['bossChoices'];
 }
+
+/**
+ * The question which boss the raid a screenshot made is (2026-11-15, `boss-question.ts`), kept
+ * apart from the gym's: what the answer said before it (`said`), which stays when it is answered.
+ */
+interface PendingBoss extends BossQuestion {
+  said: string;
+}
+
+const pendingBosses = new PendingRequests<PendingBoss>();
+
+/** Cancel under the question which boss it is (`raid:<token>:boss-cancel`). */
+const BOSS_CANCEL = 'boss-cancel';
+
+/** A press on a question which boss it is that is no longer kept. */
+const BOSS_EXPIRED = 'That question has expired. Set the boss with Manage… on the raid’s post.';
 
 /** A report that waits for the member to choose a gym or to confirm one in another region. */
 interface PendingReport {
@@ -154,16 +185,32 @@ async function finish(
   // What a screenshot left unsure is said, and its feedback is a button away.
   const unsure =
     shot && shot.doubts.length > 0
-      ? ['', 'From the screenshot I was not sure of this:', ...doubtLines(shot.doubts, shot.clock)]
+      ? [
+          '',
+          'From the screenshot I was not sure of this:',
+          ...doubtLines(shot.doubts, shot.clock, shot.bossChoices),
+        ]
       : [];
+  const feedback = shot?.id === undefined ? [] : [showRow(shot.id)];
+  // Made without its boss, of several its CP fits: the member is asked which (2026-11-15).
+  const question =
+    shot && result.outcome.kind === 'created'
+      ? bossQuestionOf(shot, result.outcome.party, gymName(gym), shot.id)
+      : undefined;
+  const ask = question ? bossQuestionText(question) : undefined;
   const said = truncate(
     [...(request.note ? [request.note] : []), content, ...unsure].join('\n'),
-    MESSAGE,
+    MESSAGE - (ask ? ask.length + 2 : 0),
   );
-  await interaction.editReply({
-    content: said,
-    components: shot?.id === undefined ? [] : [showRow(shot.id)],
-  });
+  if (question && ask) {
+    const token = pendingBosses.put(interaction, { ...question, said });
+    await interaction.editReply({
+      content: `${said}\n\n${ask}`,
+      components: [...bossRows(KIND, token, question, BOSS_CANCEL), ...feedback],
+    });
+    return;
+  }
+  await interaction.editReply({ content: said, components: feedback });
   // No post (the bot may not make posts in the forum, or it was lost while it was made): none of
   // the member's doing, so that the router gives the use back, and says nothing more (plan 8S-3).
   if (result.outcome.kind === 'no-post') {
@@ -512,6 +559,8 @@ async function answerScreenshot(
       timeUncertain: assumed.raid.timeUncertain,
       doubts: assumed.doubts.filter((doubt) => doubt !== 'gym-unclear'),
       clock: report.clock,
+      // None beside a boss typed (`withTyped`).
+      bossChoices: assumed.raid.bossChoices,
     },
     countedAt,
   );
@@ -792,11 +841,90 @@ async function afterDeferral(
   }
 }
 
-/** The gym menu and the confirmation buttons of `/raid`. */
+/** Whether a press answers the question which boss it is (2026-11-15). */
+const aboutBoss = (action: string): boolean => action === BOSS_ACTION || action === BOSS_CANCEL;
+
+/**
+ * A press under the question which boss the raid a screenshot made is: a boss (`boss:<n>`, `n`
+ * checked against the question's bosses) is set as Manage… sets it, only while the raid still has
+ * none (`setChosenBoss`); Cancel leaves it without. Either way the answer keeps what it said of
+ * the report, the question giving way to what came of it, and the feedback button. A second
+ * press is only acknowledged.
+ */
+async function answerBoss(
+  interaction: ButtonInteraction,
+  id: { id: string; action: string; args: readonly string[] },
+  ctx: AppContext,
+): Promise<void> {
+  if (answered.has(id.id)) {
+    await interaction.deferUpdate().catch(() => undefined);
+    return;
+  }
+  const asked = pendingBosses.peek(id.id, interaction);
+  if (asked === 'not-yours') throw new UserError('That is somebody else’s report.');
+  if (asked === 'expired') {
+    await bossExpired(interaction);
+    return;
+  }
+  const question = asked.value;
+  const boss = id.action === BOSS_ACTION ? chosenBoss(question, id.args[0]) : undefined;
+  if (id.action === BOSS_ACTION && !boss) throw new UserError(BOSS_EXPIRED);
+  if (pendingBosses.take(id.id, interaction) === 'expired') throw new UserError(BOSS_EXPIRED);
+  acknowledging(id.id);
+  await interaction.deferUpdate();
+  const feedback = question.screenshotId === undefined ? [] : [showRow(question.screenshotId)];
+  // What came of the press may be longer than the question it takes the place of.
+  const say = (words?: string) =>
+    interaction.editReply({
+      content:
+        words === undefined ? question.said : truncate(`${question.said}\n\n${words}`, MESSAGE),
+      components: feedback,
+    });
+  if (!boss) {
+    await say();
+    return;
+  }
+  let words: string;
+  try {
+    words = await setChosenBoss(interaction, ctx, question, boss);
+  } catch (err) {
+    await say('Nothing was changed.').catch(() => undefined);
+    throw err;
+  }
+  await say(words);
+}
+
+/**
+ * A press on a question which boss it is that is no longer kept (its time, or a restart): the
+ * answer keeps what it said of the report, the question giving way to a word that it expired, and
+ * every row but the question's (the feedback button stays), as the gym's expired question loses
+ * its controls (`claimed`). Read off the message pressed, which outlives what was kept for it.
+ */
+async function bossExpired(interaction: ButtonInteraction): Promise<void> {
+  const text = interaction.message.content;
+  const at = text.lastIndexOf(`\n\n${BOSS_QUESTION_START}`);
+  const said = at < 0 ? text : text.slice(0, at);
+  const ofQuestion = (component: object): boolean => {
+    const raw = 'custom_id' in component ? component.custom_id : undefined;
+    const id = typeof raw === 'string' ? decodeCustomId(raw) : undefined;
+    return id?.kind === KIND && aboutBoss(id.action);
+  };
+  const rows = interaction.message.components
+    .map((row) => row.toJSON())
+    .filter((row) => !('components' in row) || !row.components.some(ofQuestion));
+  await interaction.update({
+    content: truncate(said === '' ? BOSS_EXPIRED : `${said}\n\n${BOSS_EXPIRED}`, MESSAGE),
+    components: rows,
+  });
+}
+
+/** The gym menu and the confirmation buttons of `/raid`, and its question which boss it is. */
 export const raidControls: ComponentHandler = {
   kind: KIND,
   // The menu and the buttons go on with a use `/raid` counted: a failure gives it back there.
+  // The question which boss it is comes after the report: a press never gives the use back.
   carriesOn: (interaction, id) => {
+    if (aboutBoss(id.action)) return undefined;
     const asked = pending.peek(id.id, interaction);
     return typeof asked === 'object'
       ? { ...RAID_THROTTLE, as: RAID_COMMAND, countedAt: asked.value.countedAt }
@@ -823,6 +951,7 @@ export const raidControls: ComponentHandler = {
   },
 
   async button(interaction, id, ctx) {
+    if (aboutBoss(id.action)) return answerBoss(interaction, id, ctx);
     const request = await claimed(interaction, id.id);
     if (!request) return;
     if (id.action !== 'yes') {

@@ -12,9 +12,11 @@ import { PARTY_NOW, TEST_SPOT } from '../../../test/support/parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
 import { AUTHOR, OTHER, posted } from '../../../test/support/posted-message.js';
 import { gymsFixture } from '../../../test/support/providers.js';
+import { kyuremBossesFixture } from '../../../test/support/raid-bosses.js';
 import { screenshotsWith } from '../../../test/support/screenshot-service.js';
 import {
   eggReading,
+  kyuremReading,
   maxReading,
   readingOf,
   splitOutcome,
@@ -28,6 +30,7 @@ import type { AppContext } from '../../app-context.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { Region } from '../../db/repositories/region-repository.js';
 import type { BoardMessage } from '../../discord/party-gateway.js';
+import { isRaid } from '../../domain/party/party.js';
 import type { TakeOutcome } from '../../services/board-keeper.js';
 import { MAX_SCREENSHOT_BYTES } from '../../services/ocr-service.js';
 import { boardDmText, MAX_BOARD_MESSAGE_BYTES, ScreenshotTrigger } from './mention.js';
@@ -83,12 +86,16 @@ function boardOf(
   };
 }
 
-async function setup(options: { gyms?: Gym[]; passive?: boolean } = {}) {
+async function setup(
+  options: { gyms?: Gym[]; passive?: boolean; raidBosses?: AppContext['raidBosses'] } = {},
+) {
   const gyms = gymsFixture(options.gyms ?? []);
+  const bosses = options.raidBosses ? { raidBosses: options.raidBosses } : {};
   const made = await partyServiceWith([], { gyms });
-  const shots = screenshotsWith(createTestContext({ gyms }).ctx);
+  const shots = screenshotsWith(createTestContext({ gyms, ...bosses }).ctx);
   const { ctx: base } = createTestContext({
     gyms,
+    ...bosses,
     partyService: made.service,
     parties: made.store,
     regions: made.regions,
@@ -224,6 +231,20 @@ describe('screenshots posted in the region’s board (plan 8R-9F)', () => {
       `Harbor Lighthouse Mural is in <#${EAST_CHANNEL}>: report it with \`/raid screenshot:\`, ` +
         'which asks you whether to report it there.',
     );
+  });
+
+  it('asks nothing in the board of a raid whose CP fits several bosses (2026-11-15)', async () => {
+    const made = await setup({ raidBosses: kyuremBossesFixture() });
+    const { message, replies } = posted(
+      [made.screenshot('a.png', kyuremReading('Old Stone Fountain', CLOCK))],
+      { channelId: BOARD, inThread: true },
+    );
+    await expect(made.trigger.handle(message)).resolves.toBe(true);
+    const [party] = made.store.active();
+    expect(party && isRaid(party) ? party.raid.boss : 'no raid').toBeNull();
+    expect(replies).toEqual([]);
+    expect(made.said()).toHaveLength(1);
+    expect(made.said()[0]).not.toContain('Which boss');
   });
 
   it('says it could not tell the tier where the gym is clear, by the doubts as in the channel (review W4)', async () => {

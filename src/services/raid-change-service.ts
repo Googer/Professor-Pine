@@ -30,7 +30,7 @@ import {
   timeConfirmed,
 } from '../domain/party/raid.js';
 import { PartyStatus } from '../domain/party/status.js';
-import { eggNeedsHatchTime, type RaidTier } from '../domain/pogo/raid-tier.js';
+import { eggNeedsHatchTime, sameRaidTier, type RaidTier } from '../domain/pogo/raid-tier.js';
 import type { RaidDurationRules } from '../domain/time/raid-durations.js';
 import type { Logger } from '../log.js';
 import { doer } from '../render/activity.js';
@@ -238,11 +238,17 @@ export class RaidChangeService {
    * the raid was (plan 8F-1, 8E-1): an Elite tier without a hatch time while `raidStage` says
    * egg, with or without a boss (naming one does not hatch an egg: Matt, 2026-10-29), so a raid
    * reported hatched may still become an Elite raid without a time (review BR-2).
+   *
+   * `open` (2026-11-15, a screenshot's question which boss it is): only while the raid is still
+   * what it was asked about, checked under its lock: hatched, of that tier, and still without a
+   * boss; else refused, `boss-set` (a boss or a tier set meanwhile), `not-hatched` (an egg again)
+   * or `raid-ended` (over by its times).
    */
   setBoss(
     partyId: string,
     member: Member,
     change: { tier: RaidTier; boss: RaidBossRef | null; label: string },
+    open?: { tier: RaidTier },
   ): Promise<RaidChangeOutcome> {
     const entry =
       change.boss && 'key' in change.boss
@@ -252,6 +258,14 @@ export class RaidChangeService {
       partyId,
       member,
       (party, rules, now) => {
+        if (open) {
+          const stage = raidStage(party, now);
+          if (stage === 'ended') return refused('raid-ended');
+          if (party.raid.boss !== null || !sameRaidTier(party.raid.tier, open.tier)) {
+            return refused('boss-set');
+          }
+          if (stage === 'egg') return refused('not-hatched');
+        }
         const next = setBoss(
           party,
           { tier: change.tier, boss: change.boss, ...certainMoves(entry) },
