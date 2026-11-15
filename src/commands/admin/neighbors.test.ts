@@ -418,6 +418,30 @@ describe('/admin neighbors (plan 19E)', () => {
     expect(made.copying.edits).toEqual([]);
   });
 
+  it('offers to copy only from a neighbor that is not quiet, and still to end it (final review R6-3)', async () => {
+    const made = await neighborCommandsWith({
+      rows: [
+        neighborRow({ acceptedAt: 1 }),
+        { ...neighborRow({ acceptedAt: 1 }), serverA: ASH, serverB: MISTY },
+      ],
+      left: [BROCK],
+    });
+    const offered = async (subcommand: string) => {
+      const typing = fakeAutocomplete({
+        commandName: 'admin',
+        subcommandGroup: 'neighbors',
+        subcommand,
+        focused: '',
+        focusedName: 'server',
+        ...made.staff(ASH),
+      });
+      await made.router.handle(typing as never);
+      return (typing.respond.mock.calls[0]?.[0] ?? []).map((choice) => String(choice.value));
+    };
+    expect(await offered('copy')).toEqual([MISTY]);
+    expect((await offered('end')).sort()).toEqual([BROCK, MISTY].sort());
+  });
+
   it('stops a copy under way once the two servers are no longer neighbors (final review R6-3)', async () => {
     // Pewter City's staff end it once the library's texts are copied.
     let meanwhile = (): Promise<void> => Promise.resolve();

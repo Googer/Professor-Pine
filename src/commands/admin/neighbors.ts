@@ -303,8 +303,9 @@ export const listNeighbors: SubcommandPart = {
 };
 
 /**
- * The choices of `server:` of `end` (and `copy`): this server's neighbors by name, then (for
- * `end`, `withRequests`) its own requests by id, those whose text has what is typed.
+ * The choices of `server:` of `end` (and `copy`): this server's neighbors by name (for `copy`
+ * those it may copy from, `mayCopyFrom`: no quiet one), then (for `end`, `withRequests`) its own
+ * requests by id, those whose text has what is typed.
  */
 export function neighborChoices(
   ctx: AppContext,
@@ -318,7 +319,8 @@ export function neighborChoices(
   for (const row of ctx.neighbors.rowsOf(serverId)) {
     const other = otherOf(row, serverId);
     const standing = neighborStanding(row, now);
-    if (standing === 'neighbors') {
+    // `copy` is offered only what it takes: no quiet neighbor (final review R6-3); `end` takes it.
+    if (standing === 'neighbors' && (withRequests || mayCopyFrom(ctx, serverId, other))) {
       const name = ctx.neighbors.nameOf(other);
       choices.push({
         name: name === undefined ? other : `${serverNameShown(name)} (${other})`,
