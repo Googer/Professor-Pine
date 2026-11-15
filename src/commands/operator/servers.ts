@@ -251,7 +251,9 @@ export const unblockServer: SubcommandPart = {
   },
   async execute(interaction, ctx) {
     const serverId = serverOption(interaction);
-    await ctx.standings.unblock(serverId);
+    // Through the admission (final review R4-7): a present server admitted now begins as an
+    // allowed one does.
+    await ctx.admission.unblock(serverId);
     tellOwnerOfServerChange(interaction, ctx, `Unblocked the server \`${serverId}\`.`);
     await say(
       interaction,

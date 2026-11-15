@@ -21,7 +21,7 @@ export interface ServerExits {
 export interface ServerAdmissionOptions {
   standings: Pick<
     ServerStandings,
-    'mayHave' | 'isLeft' | 'markLeft' | 'cameBack' | 'allow' | 'retryDeletions'
+    'mayHave' | 'isLeft' | 'markLeft' | 'cameBack' | 'allow' | 'unblock' | 'retryDeletions'
   >;
   /**
    * Whether a server's shard names it present now (`ShardReadiness.isPresent`; false before the
@@ -103,8 +103,9 @@ export class ServerAdmission {
   private readonly allowedListeners: ((serverId: string) => void)[] = [];
 
   /**
-   * Hears a server an instance operator allowed that may have this Pine now and did not before,
-   * and that is present (plan 19C-2: one a new install waited on, there all along): `app.ts`
+   * Hears a server an instance operator allowed or unblocked that may have this Pine now and did
+   * not before, and that is present (plan 19C-2: one a new install waited on, there all along;
+   * final review R4-7: one that came while blocked and whose leave failed): `app.ts`
    * begins its fill, its `Guild` row and its return as its joining would. A listener that throws
    * is logged.
    */
@@ -122,6 +123,24 @@ export class ServerAdmission {
   async allow(serverId: string, by: string): Promise<void> {
     const before = this.admits(serverId);
     await this.options.standings.allow(serverId, by);
+    this.begunIfAdmitted(serverId, before);
+  }
+
+  /**
+   * An instance operator takes back a server's block (`/operator servers unblock`): written
+   * (`ServerStandings.unblock`), then, as `allow` (final review R4-7), only where it went from not
+   * admitted to admitted (something else allows it) and its shard names it present (one that
+   * came while blocked and whose leave failed), what its joining would have begun begins
+   * (`onAllowed`), and a refusal still trying to leave it stops. A failed write is thrown.
+   */
+  async unblock(serverId: string): Promise<void> {
+    const before = this.admits(serverId);
+    await this.options.standings.unblock(serverId);
+    this.begunIfAdmitted(serverId, before);
+  }
+
+  /** Tells `onAllowed` of a present server admitted now and not before. */
+  private begunIfAdmitted(serverId: string, before: boolean): void {
     if (before || !this.admits(serverId) || !this.options.isPresent(serverId)) return;
     for (const listener of this.allowedListeners) {
       try {
