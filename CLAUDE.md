@@ -24,7 +24,7 @@ Discord bot for organizing Pokémon Go raids, in TypeScript on discord.js v14: o
 | The commits older docs name by hash, and every branch removed on 2026-11-01 (git-ignored; `git fetch <bundle> <branch>`) | `var/archive/local-branches-2026-11-01.bundle` |
 | Conventions of each subsystem (see "Area index") | `docs/architecture/` |
 | Setting up the web pages (settings, OAuth redirect, tunnel, Google key) | `docs/web-setup.md` |
-| Guides for admins: moving a legacy instance, starting a new one, a macOS host | `docs/guides/` |
+| Guides for admins: moving a legacy instance, starting a new one, a macOS host, an Oracle Cloud VM | `docs/guides/` |
 | The cutover: design, runbook | `docs/superpowers/specs/2026-10-16-cutover-docker-history-design.md`, `docs/superpowers/plans/2026-10-16-phase-8c-cutover-runbook.md` |
 | Project subagents: `pine-prototyper` (designs code), `pine-transcriber` (applies briefs), `pine-reviewer` (reviews) | `.claude/agents/` |
 | The bot | `src/`, `test/support/`, `test/fixtures/`, `scripts/` |

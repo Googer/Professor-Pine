@@ -48,6 +48,7 @@ Any machine that stays on, with Docker (with Compose) and git:
 
 - **Linux** (for example Debian): Docker Engine and its Compose plugin from [Docker's own instructions](https://docs.docker.com/engine/install/), and git.
 - **A Mac kept as a server**: [A Mac as Pine's host](macos-host.md) sets it up, up to the stack's first start.
+- **A VM on Oracle Cloud's Always Free tier** (Arm, 4 cores, 24 GB, no charge): [Oracle Cloud as Pine's host](oracle-cloud-host.md), up to the stack's first start, with the snags of a Linux host.
 - **Windows**: [Docker Desktop](https://docs.docker.com/desktop/) and [Git for Windows](https://git-scm.com/download/win); run every command below in Git Bash.
 
 Then the code:
