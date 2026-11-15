@@ -221,6 +221,11 @@ interface Batch {
    */
   askBoss: (question: BossQuestion | undefined) => Promise<void>;
   /**
+   * For a member who asked (`asker`), while the message is read: the questions which boss it is,
+   * asked once what was made is said ("Reported the raid at …" first, review F4); none after.
+   */
+  bossesLater?: BossQuestion[] | undefined;
+  /**
    * Read because a member asked (plan 7M, `readFor`): a raid or battle made is said in the
    * reply too (it is all the member is answered with; the channel's link line is everybody's),
    * the message may be old, so each screenshot is decided at the time it is read
@@ -654,8 +659,11 @@ export class ScreenshotTrigger {
       made: 0,
       done: false,
       finish: () => this.finished(batch),
-      askBoss: (question) => this.askBoss(batch, passive, question),
-      ...(asker ? { asker } : {}),
+      askBoss: async (question) => {
+        if (question && batch.bossesLater) batch.bossesLater.push(question);
+        else await this.askBoss(batch, passive, question);
+      },
+      ...(asker ? { asker, bossesLater: [] } : {}),
     };
     const refusals = new Map<string, number>();
     const existing: string[] = [];
@@ -782,6 +790,10 @@ export class ScreenshotTrigger {
       const content = `<@${message.authorId}> ${[...existing, ...toldAloud].join('\n')}`;
       await this.say(batch, { content: truncate(content, 2_000), ping: message.authorId });
     }
+    // A member who asked hears what was made first, then which boss it is.
+    const later = batch.bossesLater ?? [];
+    batch.bossesLater = undefined;
+    for (const question of later) await this.askBoss(batch, passive, question);
     await this.finished(batch);
     return 'read';
   }

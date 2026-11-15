@@ -245,14 +245,15 @@ describe('Read screenshot (the Apps menu of a message, plan 7M)', () => {
   it('asks the member privately which boss a raid it made is, when the CP fits several (2026-11-15)', async () => {
     const { use, image, router, store } = await setup({ raidBosses: kyuremBossesFixture() });
     const { interaction } = await use([image('a.png', kyuremReading('Old Stone Fountain', CLOCK))]);
-    const question = sent(interaction.editReply);
+    // What was reported is said first, then the question is asked under it.
+    const outcome = sent(interaction.editReply);
+    expect(outcome.content).toMatch(/^Reported the raid at Old Stone Fountain: <#\d+>\.$/);
+    const question = sent(interaction.followUp);
     expect(question).toMatchObject({
       content: 'Which boss is the raid at Old Stone Fountain?',
       allowedMentions: NO_PINGS,
+      flags: MessageFlags.Ephemeral,
     });
-    const outcome = sent(interaction.followUp);
-    expect(outcome.content).toMatch(/^Reported the raid at Old Stone Fountain: <#\d+>\.$/);
-    expect(outcome.flags).toBe(MessageFlags.Ephemeral);
     const buttons = (question.components ?? []).flatMap(
       (row) => (row as { components: { custom_id: string; label: string }[] }).components,
     );
