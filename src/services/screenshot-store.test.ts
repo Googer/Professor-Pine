@@ -305,6 +305,43 @@ describe('ScreenshotStore', () => {
     });
   });
 
+  it('keys the boss chosen after an "All right" given before it', async () => {
+    const { store, json } = storeWith();
+    const t5 = { level: 'T5' as const, shadow: false };
+    const open: StoredReport = {
+      ...report(['boss-choice']),
+      stage: 'hatched',
+      bossChoices: [
+        { key: 'kyurem_black', name: 'Black Kyurem', tier: t5 },
+        { key: 'kyurem_white', name: 'White Kyurem', tier: t5 },
+      ],
+    };
+    const id = await kept(store, screenshot({ kind: 'report' }, { report: open }));
+    await store.feedback(id, SENDER, { verdict: 'right' });
+    expect(json('review', id)).toMatchObject({ label: { egg: false, boss: null } });
+    await store.pickedBoss(id, 'kyurem_white');
+    expect(json('review', id)).toMatchObject({
+      pickedBossKey: 'kyurem_white',
+      label: { egg: false, boss: 'White Kyurem' },
+    });
+  });
+
+  it('keys the gym picked after an "All right" given before it', async () => {
+    const { store, json } = storeWith();
+    const id = await kept(store, screenshot({ kind: 'ask', doubts: ['gym-unclear'] }));
+    await store.feedback(id, SENDER, { verdict: 'right' });
+    await store.picked(id, 9);
+    expect(json('review', id)).toMatchObject({ label: { gym: 'Old Plant Church' } });
+  });
+
+  it('keys nothing on a choice made after a "Something is wrong"', async () => {
+    const { store, json } = storeWith();
+    const id = await kept(store, screenshot({ kind: 'ask', doubts: ['gym-unclear'] }));
+    await store.feedback(id, SENDER, { verdict: 'wrong', elements: ['gym'], correction: 'X' });
+    await store.picked(id, 9);
+    expect(json('review', id)).not.toHaveProperty('label');
+  });
+
   it.each(['EPERM', 'EBUSY', 'EACCES'])(
     'keeps the gym picked when Windows refuses the rename of its record once with %s',
     async (code) => {
