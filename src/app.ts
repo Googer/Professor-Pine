@@ -379,6 +379,9 @@ export async function startApp(
     refreshMs: config.settings.raidEvents.refreshHours * HOUR_MS,
     // Kept in the instance's default zone; each reader asks in its server's (plan 19A-2).
     zone: instanceZone(config.settings),
+    // What is kept while on ends when it has ended in every zone in use (final review R3-1).
+    // Late: the servers' settings are made below, and asked only at a read.
+    zones: () => servers.zonesInUse(),
     fetch: (url, init) => fetch(url, init),
     // The events with field research of their own, kept as seen (plan 8R-1).
     research: new ResearchEventRepository(db, instanceZone(config.settings)),

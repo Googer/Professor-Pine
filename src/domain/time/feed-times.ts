@@ -74,6 +74,19 @@ export function timedIn<T extends FeedTimed>(event: T, zone: string): T {
 }
 
 /**
+ * The last moment the event ends in any of `zones` (final review R3-1): its wall-clock end on
+ * the clock of the zone furthest west, never before its end as kept. A list kept in the default
+ * zone forgets an event only after this, so that a server west of it still has the event until
+ * it ends there.
+ */
+export function lastEnd(event: FeedTimed, zones: readonly string[]): number {
+  if (event.endLocal === undefined) return event.end;
+  let end = event.end;
+  for (const zone of zones) end = Math.max(end, momentIn(feedEnd(event), zone).epochMilliseconds);
+  return end;
+}
+
+/**
  * The events with their times in `zone` (`timedIn`), in order of their new starts (a stable sort:
  * events that start together keep their order); the very same list where none moves.
  */
