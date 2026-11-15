@@ -86,6 +86,7 @@ export const PINE_TABLES: readonly string[] = [
   'WayspotPlaces',
   'WayspotImport',
   'WebSession',
+  'WebSessionServer',
   'kysely_migration',
   'kysely_migration_lock',
 ];

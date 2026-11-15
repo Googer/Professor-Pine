@@ -28,12 +28,30 @@ export async function dumpTables(db: Kysely<DB>, tables: readonly string[]): Pro
   return dump;
 }
 
-/** The members' `User` rows, made once for both servers: what stays of them. */
+/** The id of the web login of the `i`th of `DATA_MEMBERS` (a session id: 64 hex characters). */
+const dataSessionId = (i: number): string => String(i + 1).padStart(64, '0');
+
+/**
+ * The members' `User` rows and a web login each (logged in with Discord), made once for both
+ * servers: what stays of them.
+ */
 export async function seedMembers(db: Kysely<DB>): Promise<number[]> {
   const ids: number[] = [];
-  for (const userSnowflake of DATA_MEMBERS) {
+  for (const [i, userSnowflake] of DATA_MEMBERS.entries()) {
     const result = await db.insertInto('User').values({ userSnowflake }).executeTakeFirstOrThrow();
     ids.push(Number(result.insertId));
+    await db
+      .insertInto('WebSession')
+      .values({
+        id: dataSessionId(i),
+        userId: userSnowflake,
+        userName: `Member ${String(i + 1)}`,
+        createdAt: '1763000000000',
+        lastUsedAt: '1763000000000',
+        expiresAt: '1765592000000',
+        serversListed: 1,
+      })
+      .execute();
   }
   return ids;
 }
@@ -45,7 +63,8 @@ export async function seedMembers(db: Kysely<DB>): Promise<number[]> {
  * `Guild` row, a region with a member's saved route through the gym, a role in a group with an
  * alias and the auto-assigned role, a party with a step, a history record with an attendee, a
  * group and a stop, a report with a reason, a copy of an ended party in its region, an import with
- * a gym review, Google's lines and counts, its Wayspots, and two gyms: its own (with its
+ * a gym review, Google's lines and counts, its Wayspots, both members' web logins naming it,
+ * and two gyms: its own (with its
  * metadata, its Wayfarer row, Google's asked and the old line) and `shared`, which it shares with
  * the other server (only its link is the server's). `n` makes the ids of its rows its own (1, 2).
  */
@@ -374,6 +393,12 @@ export async function seedServer(
   await db
     .insertInto('WantCountDay')
     .values({ serverId, day: '2026-11-14', target: 'research', count: 2 })
+    .execute();
+  // Both members' web logins name it among their servers (final review R4-1): the logins are
+  // theirs and stay, the server's rows of them go.
+  await db
+    .insertInto('WebSessionServer')
+    .values(DATA_MEMBERS.map((_, i) => ({ sessionId: dataSessionId(i), serverId })))
     .execute();
   for (const id of [memberId, otherId]) {
     await db

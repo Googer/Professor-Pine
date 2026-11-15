@@ -47,7 +47,7 @@ import { buildWebServer, type WebDeps, type WebSettings } from '../../src/web/se
 import { maxLook } from '../../src/render/max-post.js';
 import { inThisThread } from '../../src/web/save-check.js';
 import type { RegionEditing } from '../../src/web/editor-save.js';
-import { Sessions, sessionHash } from '../../src/web/sessions.js';
+import { Sessions, sessionHash, type SessionServers } from '../../src/web/sessions.js';
 import { catalogueFixture } from './game-data.js';
 import { FakePartyGateway } from './fake-gateway.js';
 import { FAKE_GUILD_ID } from './fake-interactions.js';
@@ -747,11 +747,15 @@ export const WEB_START = Date.UTC(2026, 9, 16, 12);
 export class FakeOAuth implements OAuthGateway {
   readonly exchanged: Array<{ code: string; redirectUri: string }> = [];
   whoFails = false;
+  /** Discord does not give the member's servers (final review R4-1). */
+  serversFail = false;
   private readonly codes = new Map<string, OAuthUser>();
+  private readonly serverIds = new Map<string, readonly string[]>();
 
-  /** A code Discord would give for this member. */
-  knows(code: string, user: OAuthUser): this {
+  /** A code Discord would give for this member, in these servers (none by default). */
+  knows(code: string, user: OAuthUser, servers: readonly string[] = []): this {
     this.codes.set(code, user);
+    this.serverIds.set(code, servers);
     return this;
   }
 
@@ -766,6 +770,12 @@ export class FakeOAuth implements OAuthGateway {
     const user = this.codes.get(accessToken.replace(/^token:/, ''));
     if (this.whoFails || !user) return Promise.resolve({ failed: 'status 401' });
     return Promise.resolve({ ...user });
+  }
+
+  servers(accessToken: string) {
+    const servers = this.serverIds.get(accessToken.replace(/^token:/, ''));
+    if (this.serversFail || !servers) return Promise.resolve({ failed: 'status 401' });
+    return Promise.resolve([...servers]);
   }
 }
 
@@ -788,6 +798,8 @@ export interface WebTestOptions {
   /** Changes of `TEST_WEB`. */
   web?: Partial<WebSettings>;
   servers?: WebDeps['servers'];
+  /** Whether the instance is open to every server (`servers: "open"`); not by default. */
+  openInstance?: boolean;
   /**
    * Each server's values (plan 19A-1): the test settings' by default; `withMapRole()` for a map
    * only members with its role count on.
@@ -986,8 +998,13 @@ export interface TestWeb {
   sessions: MemoryWebSessions;
   sessionService: Sessions;
   loginLinks: LoginLinks;
-  /** Starts a session for somebody, as a login does; gives the `cookie` header that carries it. */
-  loggedIn(userId: string, name: string): Promise<string>;
+  /**
+   * Starts a session for somebody, as a login does; gives the `cookie` header that carries it.
+   * Its servers (final review R4-1) are none read at the login by default, as a session from
+   * before; a login with Discord's are `{ listed: true, ids }`, a link's `{ listed: false, ids:
+   * [its server] }`.
+   */
+  loggedIn(userId: string, name: string, servers?: SessionServers): Promise<string>;
   /**
    * Starts a session for somebody and gives the headers a POST of Pine's own page carries: the
    * cookie, `Origin` and the session's CSRF token.
@@ -1125,6 +1142,7 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
       inSetup: () => false,
       openToVisitors: () => true,
     },
+    openInstance: options.openInstance ?? false,
     serverSettings: options.serverSettings ?? new TestServers(),
     // The fakes' server names the map's role of the tests (`withMapRole`) `Verified`.
     roleName: (guildId, roleId) =>
@@ -1182,8 +1200,8 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     sessions,
     sessionService,
     loginLinks,
-    async loggedIn(userId, name) {
-      const token = await sessionService.create({ id: userId, name });
+    async loggedIn(userId, name, servers) {
+      const token = await sessionService.create({ id: userId, name }, servers);
       return `${sessionService.cookieName}=${token}`;
     },
     async posting(userId, name) {

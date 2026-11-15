@@ -224,8 +224,15 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
       .execute();
     // Two web logins and a row of access to the export tool.
     const sessions = new WebSessionRepository(db);
-    await sessions.create({ ...storedSession(sessionId(n * 16 + 1), NOW, member), userName: name });
-    await sessions.create({ ...storedSession(sessionId(n * 16 + 2), NOW, member), userName: name });
+    // The first by Discord, with the servers it read (final review R4-1); the second by a link.
+    await sessions.create(
+      { ...storedSession(sessionId(n * 16 + 1), NOW, member), userName: name, serversListed: true },
+      [HOME, AWAY],
+    );
+    await sessions.create(
+      { ...storedSession(sessionId(n * 16 + 2), NOW, member), userName: name },
+      [HOME],
+    );
     await new ScriptAccessRepository(db).ask({
       userId: member,
       name,
@@ -568,6 +575,10 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
       LeaderboardOptIn: without('LeaderboardOptIn', hersBy('memberId')),
       LegacyFillIn: without('LegacyFillIn', hersBy('memberId')),
       WebSession: without('WebSession', hersBy('userId')),
+      // Her logins' servers go with her logins (the key cascades; final review R4-1).
+      WebSessionServer: without('WebSessionServer', (row) =>
+        [sessionId(17), sessionId(18)].includes(String(row.sessionId)),
+      ),
       ScriptAccess: without('ScriptAccess', hersBy('userId')),
       DmContact: without('DmContact', hersBy('userId')),
       // What she wrote of the parties she made goes with her id; Bob's train keeps his words.
@@ -608,6 +619,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/operator f
       'TargetWant',
       'HistoryOptIn',
       'WebSession',
+      'WebSessionServer',
       'ScriptAccess',
       'DmContact',
     ]) {

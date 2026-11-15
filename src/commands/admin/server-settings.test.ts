@@ -701,6 +701,17 @@ describe('/admin settings', () => {
     expect(servers.of(FAKE_GUILD_ID).publicMap).toBe(true);
   });
 
+  it('says the invite is offered on the web map alone on an open instance (final review R4-2)', async () => {
+    const { pick } = await setup({
+      open: true,
+      values: testServerValues({ invite: 'https://discord.gg/pine' }),
+    });
+    expect(textOf(shownAfter(await pick('server:panel:show', ['text'])))).toContain(
+      '**Invite** · offered on the web map to visitors who are not in this server: ' +
+        '`https://discord.gg/pine`',
+    );
+  });
+
   it('offers the map for visitors only on an instance with web pages (fix round 1, R9)', async () => {
     const { press, pick, servers } = await setup({ web: false });
     const roles = textOf(shownAfter(await pick('server:panel:show', ['roles'])));
@@ -836,9 +847,11 @@ describe('/admin settings', () => {
       '**Region map link** · a map of all regions, which `/maps` gives members: ' +
         '`https://maps.example.test/pgh`',
     );
+    // On an instance that lists its servers, the invite also names the server on the top page
+    // to people logged in who are not in it (final review R4-2).
     expect(text).toContain(
-      '**Invite** · offered on the web map to visitors who are not in this server: ' +
-        '`https://discord.gg/pine`',
+      '**Invite** · offered on the web map to visitors who are not in this server, and on the ' +
+        'web site’s front page to people logged in who are not in it: `https://discord.gg/pine`',
     );
     const forum = shownDialog(await press('server:eventsForum:ask'));
     expect(forum.title).toBe('Events forum');

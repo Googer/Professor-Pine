@@ -675,10 +675,20 @@ function wordsLines(values: ServerValues, key: WordListKey): APIComponentInConta
   ];
 }
 
+/**
+ * Where the invite is offered: on the server's web map to visitors not in it, and on an instance
+ * that is not open to every server also on the top page to people logged in who are not in it
+ * (final review R4-2; `topAnswer`).
+ */
+const inviteWhere = (instance: Instance): string =>
+  'offered on the web map to visitors who are not in this server' +
+  (instance.open ? '' : ', and on the web site’s front page to people logged in who are not in it');
+
 function textSection(
   values: ServerValues,
   timezone: string,
   now: number,
+  instance: Instance,
 ): APIComponentInContainer[] {
   const forum = values.eventsForum;
   return [
@@ -719,8 +729,7 @@ function textSection(
       changeButton('regionMapLink'),
     ),
     section(
-      '**Invite** · offered on the web map to visitors who are not in this server: ' +
-        code(values.invite),
+      `**Invite** · ${inviteWhere(instance)}: ` + code(values.invite),
       changeButton('invite'),
     ),
   ];
@@ -780,7 +789,7 @@ export function serverPanel(state: ServerPanelState, said?: string): V2Message {
         : chosen === 'features'
           ? featuresSection(values, state.instance)
           : chosen === 'text'
-            ? textSection(values, state.timezone, state.now)
+            ? textSection(values, state.timezone, state.now, state.instance)
             : changesSection(state.changes, PANEL_TEXT_ROOM - title.length);
   return {
     v2: true,

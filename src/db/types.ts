@@ -980,8 +980,14 @@ export interface WebSession {
   expiresAt: string;
   id: string;
   lastUsedAt: string;
+  serversListed: Generated<number>;
   userId: string;
   userName: string;
+}
+
+export interface WebSessionServer {
+  serverId: string;
+  sessionId: string;
 }
 
 export interface DB {
@@ -1072,4 +1078,5 @@ export interface DB {
   WayspotLookup: WayspotLookup;
   WayspotPlaces: WayspotPlaces;
   WebSession: WebSession;
+  WebSessionServer: WebSessionServer;
 }

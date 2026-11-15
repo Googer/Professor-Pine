@@ -64,6 +64,11 @@ export interface WebDeps {
     inSetup(guildId: string): boolean;
     openToVisitors(guildId: string): boolean;
   };
+  /**
+   * Whether the instance is open to every server (`servers: "open"`): the top page then offers
+   * no server to join (final review R4-2).
+   */
+  openInstance: boolean;
   /** Each server's values (plan 19A-1): the map's member role, by id. */
   serverSettings: ServerSettingsLookup;
   /** A role's name as the server has it now, from the client's cache; undefined for one it lacks. */
@@ -74,7 +79,10 @@ export interface WebDeps {
    * available. Never shown to anybody logged out.
    */
   serversWithMap(): Promise<MapServers>;
-  /** Whether somebody is a member of a server: asked per request, never kept in a session. */
+  /**
+   * Whether somebody is a member of a server: asked per request, never what a session keeps of
+   * the servers its login read (final review R4-1), which the top page alone reads.
+   */
   members: PacedDirectory;
   /** How fast the map's own asks may cause fresh look-ups of members (`PacedMembers`). */
   memberPace: MemberPace;

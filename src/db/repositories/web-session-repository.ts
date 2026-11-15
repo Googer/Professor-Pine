@@ -10,7 +10,9 @@ import type { DB } from '../types.js';
 
 /**
  * The sessions of the web pages, in the table `WebSession` (migration 015), by the SHA-256 of
- * their cookie. Its twin in memory is `MemoryWebSessions`; both run `webSessionCases`
+ * their cookie, and their servers in `WebSessionServer` (migration 065, final review R4-1), which
+ * go with their session by the table's cascading key (a logout, an expiry, one pushed out,
+ * `removeOf`). Its twin in memory is `MemoryWebSessions`; both run `webSessionCases`
  * (`test/support/web-session-cases.ts`).
  */
 export class WebSessionRepository implements WebSessionStore {
@@ -20,8 +22,10 @@ export class WebSessionRepository implements WebSessionStore {
    * Stores the session and deletes what it pushes out of its account's ten (plan 8Z-2;
    * `sessionsPushedOut`, read through `websession_userid_index`), in one transaction: a login
    * that fails leaves the account's sessions as they were. The ids of those it deleted (F-B5).
+   * Its servers (final review R4-1) in `WebSessionServer`, in the same transaction; the rows of
+   * the sessions it pushes out go with them (the table's key cascades).
    */
-  create(session: WebSession): Promise<string[]> {
+  create(session: WebSession, servers: readonly string[] = []): Promise<string[]> {
     return inTransaction(this.db, async (trx) => {
       await trx
         .insertInto('WebSession')
@@ -32,8 +36,16 @@ export class WebSessionRepository implements WebSessionStore {
           createdAt: String(session.createdAt),
           lastUsedAt: String(session.lastUsedAt),
           expiresAt: String(session.expiresAt),
+          serversListed: session.serversListed ? 1 : 0,
         })
         .execute();
+      const serverIds = [...new Set(servers)];
+      if (serverIds.length > 0) {
+        await trx
+          .insertInto('WebSessionServer')
+          .values(serverIds.map((serverId) => ({ sessionId: session.id, serverId })))
+          .execute();
+      }
       const others = await trx
         .selectFrom('WebSession')
         .select(['id', 'createdAt', 'lastUsedAt'])
@@ -69,8 +81,19 @@ export class WebSessionRepository implements WebSessionStore {
         createdAt: Number(row.createdAt),
         lastUsedAt: Number(row.lastUsedAt),
         expiresAt: Number(row.expiresAt),
+        serversListed: Number(row.serversListed) === 1,
       }
     );
+  }
+
+  /** A session's servers (final review R4-1), by the primary key's first column. */
+  async serversOf(id: string): Promise<string[]> {
+    const rows = await this.db
+      .selectFrom('WebSessionServer')
+      .select('serverId')
+      .where('sessionId', '=', id)
+      .execute();
+    return rows.map((row) => row.serverId);
   }
 
   async touch(id: string, now: number): Promise<void> {

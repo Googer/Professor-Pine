@@ -41,6 +41,7 @@ export const DELETION_ORDER: readonly string[] = [
   'StopReport',
   'StopReportHistory',
   'WantCountDay',
+  'WebSessionServer',
   'ServerNeighbor',
   'ServerSettings',
   'Party',

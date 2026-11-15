@@ -41,7 +41,7 @@ Build the page once: `npm run build` (or `npm run web:build` alone) writes it to
 Members can always log in with the button `/maps` gives them (it works once, within five minutes). For a "Log in with Discord" button on the page as well:
 
 1. In the Discord developer portal, open the application, **OAuth2**, and add the redirect `<publicUrl>/auth/callback` (for example `https://map.example.org/auth/callback`). Once per application (the dev application and production each have their own).
-2. Copy the **Client Secret** from the same page into `.env` as `DISCORD_CLIENT_SECRET`. It is a secret: never in `data/`, never in the repository. Pine asks Discord only for the member's identity (the scope `identify`).
+2. Copy the **Client Secret** from the same page into `.env` as `DISCORD_CLIENT_SECRET`. It is a secret: never in `data/`, never in the repository. Pine asks Discord for the member's identity and the list of their servers (the scopes `identify` and `guilds`; it sends them with each login, so nothing is to be set for them in the portal), and keeps only which of its own servers the member is in, with their login, for the top page.
 
 Without the secret the start says so in the log, and the page tells members to use `/maps`.
 

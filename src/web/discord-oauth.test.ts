@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { authorizeUrl, DiscordOAuth, EXCHANGE_SPACING_MS } from './discord-oauth.js';
+import {
+  authorizeUrl,
+  DiscordOAuth,
+  EXCHANGE_SPACING_MS,
+  SERVER_PAGES,
+  SERVERS_PER_PAGE,
+} from './discord-oauth.js';
 
 const APP = '123456789012345678';
 
@@ -19,13 +25,13 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 describe('authorizeUrl', () => {
-  it("asks Discord for the member's identity alone, back to Pine's callback", () => {
+  it("asks Discord for the member's identity and servers, back to Pine's callback (final review R4-1)", () => {
     const url = new URL(authorizeUrl(APP, 'https://map.example.test/auth/callback', 'st4te'));
     expect(url.origin + url.pathname).toBe('https://discord.com/oauth2/authorize');
     expect(Object.fromEntries(url.searchParams)).toEqual({
       response_type: 'code',
       client_id: APP,
-      scope: 'identify',
+      scope: 'identify guilds',
       state: 'st4te',
       redirect_uri: 'https://map.example.test/auth/callback',
     });
@@ -238,6 +244,95 @@ describe('DiscordOAuth', () => {
     expect(await oauth.who('tok')).toEqual({ id: '700000000000000002', name: 'misty' });
     expect(asked[0]?.url).toBe('https://discord.com/api/v10/users/@me');
     expect(new Headers(asked[0]?.init?.headers).get('authorization')).toBe('Bearer tok');
+  });
+
+  /** A server as `/users/@me/guilds` gives it: a partial guild with its name, icon and features. */
+  const partialGuild = (n: number) => ({
+    id: String(410000000000000000n + BigInt(n)),
+    name: `Server ${String(n)}`,
+    icon: 'a_0123456789abcdef0123456789abcdef',
+    banner: null,
+    owner: false,
+    permissions: '2248473465835073',
+    features: [
+      'COMMUNITY',
+      'NEWS',
+      'INVITE_SPLASH',
+      'ANIMATED_ICON',
+      'WELCOME_SCREEN_ENABLED',
+      'MEMBER_VERIFICATION_GATE_ENABLED',
+      'PREVIEW_ENABLED',
+      'ROLE_ICONS',
+      'AUTO_MODERATION',
+      'SOUNDBOARD',
+    ],
+  });
+
+  it("reads the ids of the member's servers with their token, and nothing else of them (final review R4-1)", async () => {
+    const { fetch, asked } = fakeFetch(
+      json([partialGuild(1), partialGuild(2), { id: 'not a snowflake' }, { name: 'no id' }]),
+    );
+    const oauth = new DiscordOAuth({ appId: APP, secret: 's3cret', fetch });
+    expect(await oauth.servers('tok')).toEqual(['410000000000000001', '410000000000000002']);
+    expect(asked[0]?.url).toBe('https://discord.com/api/v10/users/@me/guilds?limit=200');
+    expect(new Headers(asked[0]?.init?.headers).get('authorization')).toBe('Bearer tok');
+    expect(asked[0]?.init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('reads a full list of 200 servers, more than 64 KB, and asks for the next page only after a full one', async () => {
+    const full = Array.from({ length: SERVERS_PER_PAGE }, (_, i) => partialGuild(i + 1));
+    expect(JSON.stringify(full).length).toBeGreaterThan(64 * 1024);
+    const { fetch, asked } = fakeFetch(json(full), json([partialGuild(500)]));
+    const oauth = new DiscordOAuth({ appId: APP, secret: 's3cret', fetch });
+    const ids = await oauth.servers('tok');
+    expect(ids).toHaveLength(SERVERS_PER_PAGE + 1);
+    expect(asked.map((one) => one.url)).toEqual([
+      'https://discord.com/api/v10/users/@me/guilds?limit=200',
+      'https://discord.com/api/v10/users/@me/guilds?limit=200&after=410000000000000200',
+    ]);
+    // A page short of full is the last: nothing more is asked.
+    const one = fakeFetch(json([partialGuild(1)]));
+    await new DiscordOAuth({ appId: APP, secret: 's3cret', fetch: one.fetch }).servers('tok');
+    expect(one.asked).toHaveLength(1);
+  });
+
+  it(`asks for at most ${String(SERVER_PAGES)} pages`, async () => {
+    const pages = Array.from({ length: SERVER_PAGES + 1 }, (_, page) =>
+      json(
+        Array.from({ length: SERVERS_PER_PAGE }, (_, i) =>
+          partialGuild(page * SERVERS_PER_PAGE + i + 1),
+        ),
+      ),
+    );
+    const { fetch, asked } = fakeFetch(...pages);
+    const oauth = new DiscordOAuth({ appId: APP, secret: 's3cret', fetch });
+    expect(await oauth.servers('tok')).toHaveLength(SERVER_PAGES * SERVERS_PER_PAGE);
+    expect(asked).toHaveLength(SERVER_PAGES);
+  });
+
+  it('says why the servers could not be read, and a 429 stops the logins', async () => {
+    for (const answer of [
+      json({ message: '401: Unauthorized' }, 401),
+      json({ not: 'a list' }),
+      new Error('network down'),
+    ]) {
+      const oauth = new DiscordOAuth({
+        appId: APP,
+        secret: 's3cret',
+        fetch: fakeFetch(answer).fetch,
+      });
+      expect(await oauth.servers('tok')).toEqual({ failed: expect.any(String) as string });
+    }
+    const { fetch, asked } = fakeFetch(
+      new Response('{}', { status: 429, headers: { 'retry-after': '5' } }),
+    );
+    const oauth = new DiscordOAuth({ appId: APP, secret: 's3cret', fetch, now: () => 1_000 });
+    expect(await oauth.servers('tok')).toEqual({ failed: 'status 429' });
+    expect(await oauth.exchange('code', 'https://map.example.test/auth/callback')).toEqual({
+      failed: 'busy',
+    });
+    expect(await oauth.servers('tok')).toEqual({ failed: 'busy' });
+    expect(asked).toHaveLength(1);
   });
 
   it('refuses an answer about somebody that is no member', async () => {

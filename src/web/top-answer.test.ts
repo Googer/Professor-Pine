@@ -17,6 +17,8 @@ function facts(change: Partial<TopFacts> = {}): TopFacts {
     memberships: new Map(),
     invites: undefined,
     loginFailed: false,
+    openInstance: false,
+    listed: false,
     ...change,
   };
 }
@@ -145,6 +147,37 @@ describe('topAnswer', () => {
     });
   });
 
+  it('offers no server to join on an instance open to every server (final review R4-2)', () => {
+    const invites = { [OAKVALE.id]: OAK_INVITE, [ELMHURST.id]: ELM_INVITE };
+    const servers = [PINEWOOD, OAKVALE, ELMHURST];
+    // The invite stays on the server's own map, for visitors there; the top page names no
+    // server they are not in.
+    expect(
+      topAnswer(
+        ash(
+          { [PINEWOOD.id]: 'not', [OAKVALE.id]: 'not', [ELMHURST.id]: 'not' },
+          { servers, invites, openInstance: true },
+        ),
+      ),
+    ).toEqual({
+      kind: 'servers',
+      visitor: 'Ash',
+      yours: [],
+      toJoin: [],
+      notIn: true,
+      partial: false,
+    });
+    // With nothing to join, their one server's map at once.
+    expect(
+      topAnswer(
+        ash(
+          { [PINEWOOD.id]: 'member', [OAKVALE.id]: 'not', [ELMHURST.id]: 'not' },
+          { servers, invites, openInstance: true },
+        ),
+      ),
+    ).toEqual({ kind: 'redirect', to: `/s/${PINEWOOD.id}/map` });
+  });
+
   it('names no server they are not in that has no invite (rule 5)', () => {
     const answer = topAnswer(
       ash(
@@ -188,6 +221,54 @@ describe('topAnswer', () => {
       toJoin: [{ ...OAKVALE, invite: OAK_INVITE }],
       notIn: false,
       partial: true,
+    });
+  });
+
+  it('neither redirects nor says "none" while servers were left unasked, and says how to see them (final review R4-1)', () => {
+    expect(topAnswer(ash({ [PINEWOOD.id]: 'member', [OAKVALE.id]: 'unasked' }))).toEqual({
+      kind: 'servers',
+      visitor: 'Ash',
+      yours: [PINEWOOD],
+      toJoin: [],
+      notIn: false,
+      partial: false,
+      unchecked: 'discord',
+    });
+    // Without the client secret, /maps; a server not asked of is never offered to join.
+    expect(
+      topAnswer(
+        ash(
+          { [PINEWOOD.id]: 'not', [OAKVALE.id]: 'unasked' },
+          { discordLogin: false, invites: { [OAKVALE.id]: OAK_INVITE } },
+        ),
+      ),
+    ).toEqual({
+      kind: 'servers',
+      visitor: 'Ash',
+      yours: [],
+      toJoin: [],
+      notIn: false,
+      partial: false,
+      unchecked: 'maps',
+    });
+  });
+
+  it('says when their servers are those read at their login (final review R4-1)', () => {
+    expect(
+      topAnswer(
+        ash(
+          { [PINEWOOD.id]: 'member', [OAKVALE.id]: 'not' },
+          { listed: true, invites: { [OAKVALE.id]: OAK_INVITE } },
+        ),
+      ),
+    ).toEqual({
+      kind: 'servers',
+      visitor: 'Ash',
+      yours: [PINEWOOD],
+      toJoin: [{ ...OAKVALE, invite: OAK_INVITE }],
+      notIn: false,
+      partial: false,
+      listed: true,
     });
   });
 

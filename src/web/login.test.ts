@@ -67,7 +67,7 @@ describe('logging in with Discord', () => {
     web = webServerWith({ members: new FakeMemberDirectory().add(ASH, 'Ash') });
     const { state, location, answer } = await started(web);
     expect(location.origin + location.pathname).toBe('https://discord.com/oauth2/authorize');
-    expect(location.searchParams.get('scope')).toBe('identify');
+    expect(location.searchParams.get('scope')).toBe('identify guilds');
     expect(location.searchParams.get('client_id')).toBe('123456789012345678');
     expect(location.searchParams.get('redirect_uri')).toBe(
       'https://map.example.test/auth/callback',
@@ -100,6 +100,58 @@ describe('logging in with Discord', () => {
     ]);
     // Never the code in the log.
     expect(JSON.stringify(web.entries)).not.toContain('good-code');
+  });
+
+  it('keeps in the session only the servers of this Pine the member is in (final review R4-1)', async () => {
+    const LEFT = '410000000000000008';
+    const ELSEWHERE = '410000000000000009';
+    const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' }, [
+      ELSEWHERE,
+      FAKE_GUILD_ID,
+      LEFT,
+    ]);
+    web = webServerWith({
+      oauth,
+      // The bot is in the fakes' server; one it left is answered as one it is not in.
+      servers: {
+        has: (guildId) => guildId === FAKE_GUILD_ID,
+        inSetup: () => false,
+        openToVisitors: () => true,
+      },
+    });
+    const { state, cookie } = await started(web);
+    const back = await web.app.inject({
+      url: `/auth/callback?code=good-code&state=${state}`,
+      headers: { cookie },
+    });
+    expect(back.headers.location).toBe(MAP);
+    const [session] = [...web.sessions.rows.values()];
+    expect(session).toMatchObject({ userId: ASH, serversListed: true });
+    expect(await web.sessions.serversOf(session?.id ?? '')).toEqual([FAKE_GUILD_ID]);
+    // Never another server's id in the log either.
+    expect(JSON.stringify(web.entries)).not.toMatch(/410000000000000008|410000000000000009/u);
+  });
+
+  it('logs the member in when Discord does not give their servers, the session unlisted', async () => {
+    const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' }, [FAKE_GUILD_ID]);
+    oauth.serversFail = true;
+    web = webServerWith({ oauth });
+    const { state, cookie } = await started(web);
+    const back = await web.app.inject({
+      url: `/auth/callback?code=good-code&state=${state}`,
+      headers: { cookie },
+    });
+    expect(back.headers.location).toBe(MAP);
+    const [session] = [...web.sessions.rows.values()];
+    expect(session).toMatchObject({ userId: ASH, serversListed: false });
+    expect(await web.sessions.serversOf(session?.id ?? '')).toEqual([]);
+    expect(web.entries).toContainEqual(
+      expect.objectContaining({
+        level: 40,
+        user: ASH,
+        msg: 'could not read the servers of somebody logging in with Discord',
+      }),
+    );
   });
 
   it('returns to the map at an ended train, and says a failure there too (plan 8H-7B)', async () => {
@@ -608,6 +660,10 @@ describe('login links', () => {
     expect(again.headers.location).toBe(`${MAP}?login=expired`);
     expect(setCookies(again)).toEqual([]);
     expect(JSON.stringify(web.entries)).not.toContain(token);
+    // The session knows the link's server alone, not every server of theirs (final review R4-1).
+    const [stored] = [...web.sessions.rows.values()];
+    expect(stored).toMatchObject({ serversListed: false });
+    expect(await web.sessions.serversOf(stored?.id ?? '')).toEqual([FAKE_GUILD_ID]);
   });
 
   it('are used only from a page of Pine', async () => {
