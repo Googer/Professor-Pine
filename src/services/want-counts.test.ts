@@ -123,7 +123,7 @@ describe('WantCountService (plan 8H-3)', () => {
     made.timers[0]?.run();
     await made.service.idle();
     expect(await made.storage.countsOf(HERE, '2026-11-04')).toEqual(new Map([['trains', 1]]));
-    expect(await made.storage.serversCounted('2026-11-03')).toEqual(new Set());
+    expect(await made.storage.serversCounted('2026-11-03', [HERE])).toEqual(new Set());
   });
 
   it('writes the servers after one whose write fails, and names the one that failed (review 8H3-3)', async () => {
@@ -138,7 +138,9 @@ describe('WantCountService (plan 8H-3)', () => {
     made.storage.failingWrites.set(THERE, err);
     made.service.start();
     await made.service.idle();
-    expect(await made.storage.serversCounted('2026-11-03')).toEqual(new Set([HERE, YONDER]));
+    expect(await made.storage.serversCounted('2026-11-03', [HERE, THERE, YONDER])).toEqual(
+      new Set([HERE, YONDER]),
+    );
     expect(await made.storage.countsOf(YONDER, '2026-11-03')).toEqual(new Map([['trains', 3]]));
     expect(made.entries.filter((entry) => Number(entry.level) >= 40)).toEqual([
       expect.objectContaining({

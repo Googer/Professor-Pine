@@ -106,12 +106,14 @@ export class WantCountService {
   private async countDay(day: string, zone: string): Promise<void> {
     const { storage, log } = this.options;
     try {
-      const counted = await storage.serversCounted(day);
-      // The servers in the zone (as they are now) whose day it is not counted yet; only their
-      // wants are read (the index audit of 2026-11-13, X12).
-      const due = (await storage.servers()).filter(
-        (serverId) => !counted.has(serverId) && this.options.servers.zoneOf(serverId) === zone,
+      // The servers in the zone (as they are now) whose day it is not counted yet; only theirs
+      // are asked (final review R3-4) and only their wants read (the index audit of 2026-11-13,
+      // X12).
+      const inZone = (await storage.servers()).filter(
+        (serverId) => this.options.servers.zoneOf(serverId) === zone,
       );
+      const counted = await storage.serversCounted(day, inZone);
+      const due = inZone.filter((serverId) => !counted.has(serverId));
       const servers = due.length === 0 ? [] : [...(await storage.countNow(due))];
       let written = 0;
       let targets = 0;

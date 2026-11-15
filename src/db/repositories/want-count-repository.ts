@@ -32,8 +32,11 @@ export interface WantCountStorage {
    * zone's midnight reads its own servers' wants, not every server's).
    */
   countNow(serverIds: readonly string[]): Promise<Map<string, Map<string, number>>>;
-  /** The servers that have counts of a day already. */
-  serversCounted(day: string): Promise<Set<string>>;
+  /**
+   * Those of `serverIds` that have counts of a day already (final review R3-4: a zone's midnight
+   * asks of its own servers alone).
+   */
+  serversCounted(day: string, serverIds: readonly string[]): Promise<Set<string>>;
   /**
    * Writes a server's counts of a day, in one transaction (all or none); a key of that day there
    * already keeps its count.
@@ -149,11 +152,14 @@ export class WantCountRepository implements WantCountStorage {
     return new Map([...found.pairs].map(([serverId, pairs]) => [serverId, countWants(pairs)]));
   }
 
-  async serversCounted(day: string): Promise<Set<string>> {
+  async serversCounted(day: string, serverIds: readonly string[]): Promise<Set<string>> {
+    if (serverIds.length === 0) return new Set();
+    // By the primary key (`serverId`, `day`, `target`), over the servers asked alone.
     const rows = await this.db
       .selectFrom('WantCountDay')
       .select('serverId')
       .distinct()
+      .where('serverId', 'in', [...serverIds])
       .where('day', '=', day)
       .execute();
     return new Set(rows.map((row) => row.serverId));

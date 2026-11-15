@@ -12,6 +12,8 @@ export interface PlanRow {
   /** How its rows are found: `ALL` is a scan of the whole table. */
   type: string | null;
   key: string | null;
+  /** How many rows MySQL reckons it reads there (an estimate from the statistics: `analyze`). */
+  rows: string | number | null;
   /** What else MySQL says of it: `Using filesort` where the rows are sorted after they are read. */
   Extra: string | null;
 }

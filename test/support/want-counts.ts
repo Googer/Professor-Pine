@@ -44,12 +44,13 @@ export class MemoryWantCounts implements WantCountStorage {
     });
   }
 
-  serversCounted(day: string): Promise<Set<string>> {
+  serversCounted(day: string, serverIds: readonly string[]): Promise<Set<string>> {
     return Promise.resolve(
       new Set(
         [...this.days.keys()]
           .filter((at) => at.endsWith(` ${day}`))
-          .map((at) => at.slice(0, -day.length - 1)),
+          .map((at) => at.slice(0, -day.length - 1))
+          .filter((serverId) => serverIds.includes(serverId)),
       ),
     );
   }
