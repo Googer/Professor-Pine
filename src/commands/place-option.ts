@@ -17,6 +17,7 @@ import {
   type PlaceChoice,
 } from '../services/place-finder.js';
 import { byName, CHOICE_NAME, MAX_CHOICES, type Choice } from './choices.js';
+import { serverValuesOf } from '../discord/server-values.js';
 
 /**
  * As much as an option that names a place takes: a maps link with all its data (a Google Maps
@@ -82,10 +83,18 @@ export function orList(names: readonly string[]): string {
   return rest.length === 0 ? last : `${rest.join(', ')} or ${last}`;
 }
 
-/** Whether the place a choice's value names is still known, as that kind and by a title. */
-function stillKnown(ctx: PlaceContext, kind: PlaceKind, id: string): boolean {
-  if (kind === 'gym') return /^\d+$/u.test(id) && ctx.gyms.get(Number(id)) !== undefined;
-  const wayspot = ctx.wayspots.byId(id);
+/**
+ * Whether the place a choice's value names is still known, as that kind and by a title: a gym as
+ * one of the server's (`row`; plan 19B-2: another server's is as gone).
+ */
+function stillKnown(
+  ctx: PlaceContext,
+  row: number | undefined,
+  kind: PlaceKind,
+  id: string,
+): boolean {
+  if (kind === 'gym') return /^\d+$/u.test(id) && ctx.gyms.of(row).get(Number(id)) !== undefined;
+  const wayspot = ctx.wayspots.of(row).byId(id);
   return wayspot?.kind === kind && wayspot.title.trim() !== '';
 }
 
@@ -111,14 +120,16 @@ export function placeLabel(
 /**
  * The power spots of a region by name, as choices (`powerspot:<Wayfarer id>`, named by their
  * kind): what `/max spot:` and a max train's `/route add stop:` offer before anything is typed
- * (plans 8X-4, 8X-F). None outside a region's channel.
+ * (plans 8X-4, 8X-F): the server's (its row, plan 19B-3). None outside a region's channel.
  */
 export function regionSpotChoices(
   ctx: Pick<AppContext, 'wayspots'>,
+  row: number | undefined,
   region: string | undefined,
 ): Choice[] {
   if (region === undefined) return [];
   return ctx.wayspots
+    .of(row)
     .inRegion(region)
     .filter((spot) => spot.kind === 'powerspot' && spot.title.trim() !== '')
     .sort((a, b) => byName(a.title, b.title))
@@ -181,7 +192,7 @@ export async function nearChoices(
   });
   const anchors = [...named.map((choice) => choice.point), ...((await before?.points?.()) ?? [])];
   if (empty) {
-    const { distanceUnits } = ctx.config.settings;
+    const { distanceUnits } = serverValuesOf(interaction, ctx);
     return ctx.placeFinder
       .nearest(row, kinds, anchors, {
         ...(before?.within === undefined ? {} : { within: before.within }),
@@ -203,9 +214,9 @@ export async function nearChoices(
  * A choice as the place a member named: what it was when they named it (a snapshot), a gym by
  * the name its post shows (`gymName`: the nickname first).
  */
-function knownPlace(ctx: PlaceContext, choice: PlaceChoice): KnownPlace {
+function knownPlace(ctx: PlaceContext, row: number | undefined, choice: PlaceChoice): KnownPlace {
   // A gym is named as its post names it: by its nickname, when it has one.
-  const gym = choice.kind === 'gym' ? ctx.gyms.get(Number(choice.id)) : undefined;
+  const gym = choice.kind === 'gym' ? ctx.gyms.of(row).get(Number(choice.id)) : undefined;
   return {
     kind: choice.kind,
     id: choice.id,
@@ -230,9 +241,9 @@ type PlaceContext = Pick<AppContext, 'gyms' | 'wayspots' | 'placeFinder'>;
  */
 export function pickedPlace(ctx: PlaceContext, row: number, value: string): KnownPlace | undefined {
   const read = readPlaceValue(value);
-  if (!read || !stillKnown(ctx, read.kind, read.id)) return undefined;
+  if (!read || !stillKnown(ctx, row, read.kind, read.id)) return undefined;
   const chosen = ctx.placeFinder.chosen(row, value);
-  return chosen && knownPlace(ctx, chosen);
+  return chosen && knownPlace(ctx, row, chosen);
 }
 
 /**
@@ -249,10 +260,10 @@ export function chosenPlace(
   only?: PlaceKindsOnly,
 ): KnownPlace {
   if (only && !only.kinds.includes(read.kind)) throw new UserError(only.refusal);
-  if (!stillKnown(ctx, read.kind, read.id)) throw new UserError(PLACE_GONE);
+  if (!stillKnown(ctx, row, read.kind, read.id)) throw new UserError(PLACE_GONE);
   const chosen = row === undefined ? undefined : ctx.placeFinder.chosen(row, placeValue(read));
   if (!chosen) throw new UserError(NOT_HERE);
-  return knownPlace(ctx, chosen);
+  return knownPlace(ctx, row, chosen);
 }
 
 /**
@@ -327,7 +338,7 @@ async function resolvePlace(
   const regionChannelId = regionChannelOf(interaction, ctx);
   const found = row === undefined ? [] : ctx.placeFinder.find(row, regionChannelId, text, kinds);
   const clear = clearOf(found);
-  if (clear) return knownPlace(ctx, clear);
+  if (clear) return knownPlace(ctx, row, clear);
   const shown = plain(truncate(text, 80));
   if (found.length === 0) {
     throw new UserError(

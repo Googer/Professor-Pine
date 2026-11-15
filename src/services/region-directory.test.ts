@@ -2,13 +2,22 @@ import { describe, expect, it } from 'vitest';
 import {
   EAST_CHANNEL,
   EAST_FORUM,
+  northRegion,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
+  testGyms,
+  testLinks,
   testRegions,
   UNBOUNDED_CHANNEL,
   WEST_CHANNEL,
   WEST_FORUM,
+  wideRegion,
 } from '../../test/support/gyms.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import type { Region } from '../db/repositories/region-repository.js';
+import { NO_REGION_RANK } from '../domain/geo/google-line.js';
+import { GoogleRanks } from './google-ranks.js';
+import { ServerGyms } from './server-gyms.js';
 import {
   gymInGuild,
   gymRegionsInGuild,
@@ -35,8 +44,71 @@ describe('gymRegionsInGuild', () => {
     1: [FOREIGN, EAST_CHANNEL, 'gone-channel', UNOWNED, WEST_CHANNEL],
     2: [UNOWNED],
     3: [],
+    4: [FOREIGN, WEST_CHANNEL],
   };
-  const gyms = { regionsOf: (gymId: number) => lying[gymId] ?? [] };
+  /** The servers of the gyms (plan 19B-2): gym 4, in regions of both, is the first's alone. */
+  const servers: Record<number, number[]> = { 1: [1, 2], 2: [1, 2], 3: [1, 2], 4: [1] };
+  const gyms = {
+    of: (guildId: number | undefined) => ({
+      regionsOf: (gymId: number) =>
+        guildId !== undefined && (servers[gymId] ?? []).includes(guildId)
+          ? (lying[gymId] ?? [])
+          : [],
+    }),
+  };
+
+  it('ranks each server’s row of a gym in the line by that server’s regions alone (plans 19B-2, 19B-3)', async () => {
+    // Two servers whose regions overlap: Wide, the second's, lies over West and East. Gym 2 is
+    // the second server's alone, gym 7 both servers', every other gym the first's. At most one
+    // view is kept: what the upkeep asks of every gym must build none.
+    const overlapping = new ServerGyms(
+      testGyms(),
+      [
+        ...testLinks().filter((link) => link.gymId !== 2),
+        { gymId: 2, guildId: OTHER_GUILD_ROW },
+        { gymId: 7, guildId: OTHER_GUILD_ROW },
+      ],
+      [...testRegions(), wideRegion()],
+      () => [],
+      { maxViews: 1 },
+    );
+    // East has half of West's raids, Wide none at all (its server has no raids, so its regions
+    // rank 1).
+    const ranks = new GoogleRanks({
+      regions: { all: () => [...testRegions(), wideRegion()] },
+      gymRegions: (guildId, id) => overlapping.regionsIn(guildId, id),
+      wayspotRegions: () => [],
+      servers: () => Promise.resolve([]),
+      activity: {
+        raidsByRegion: () =>
+          Promise.resolve(
+            new Map([
+              [1, 10],
+              [2, 5],
+            ]),
+          ),
+      },
+    });
+    await ranks.refresh();
+    // Gym 8 lies in East and in Wide, but is the first server's alone: East only.
+    expect(ranks.ofGym(TEST_GUILD_ROW, 8)).toBe(0.5);
+    expect(ranks.ofGym(OTHER_GUILD_ROW, 8)).toBe(NO_REGION_RANK);
+    expect(ranks.ofGym(OTHER_GUILD_ROW, 2)).toBe(1);
+    // Shared: each server's row by its own region.
+    expect(ranks.ofGym(TEST_GUILD_ROW, 7)).toBe(0.5);
+    expect(ranks.ofGym(OTHER_GUILD_ROW, 7)).toBe(1);
+    // In no region of its server; no gym at all.
+    expect(ranks.ofGym(TEST_GUILD_ROW, 10)).toBe(NO_REGION_RANK);
+    expect(ranks.ofGym(TEST_GUILD_ROW, 99)).toBe(NO_REGION_RANK);
+    for (const gym of testGyms()) ranks.ofGym(TEST_GUILD_ROW, gym.id);
+    expect(overlapping.built).toBe(0);
+  });
+
+  it('gives a gym of another server no region of this one, though one holds it', () => {
+    expect(gymRegionsInGuild(gyms, regions, 4, 1).map((region) => region.id)).toEqual([1]);
+    expect(gymRegionsInGuild(gyms, regions, 4, 2)).toEqual([]);
+    expect(gymInGuild(gyms, regions, 4, 2)).toBe(false);
+  });
 
   it('gives the regions of that server the gym lies in, in the order of their channels', () => {
     expect(gymRegionsInGuild(gyms, regions, 1, 1).map((region) => region.id)).toEqual([2, 1]);
@@ -219,6 +291,35 @@ describe('RegionDirectory', () => {
       await regions.load();
     }
     expect(told).toBe(5);
+  });
+
+  it('tells which servers’ outlines changed, each server once (plan 19B-3)', async () => {
+    let answer: Region[] = testRegions();
+    const { regions } = directory(() => Promise.resolve(answer));
+    const told: number[][] = [];
+    regions.whenOutlinesChanged((servers) => told.push([...servers]));
+    // The first load: every server with a region.
+    answer = [...testRegions(), northRegion()];
+    await regions.load();
+    // One server's outline saved: that server alone.
+    answer = [
+      ...testRegions(),
+      { ...northRegion(), bounds: northRegion().bounds?.slice().reverse() ?? null },
+    ];
+    await regions.load();
+    // A region given to the other server: both; one removed: its server.
+    answer = answer.map((region) =>
+      region.id === 2 ? { ...region, guildId: OTHER_GUILD_ROW } : region,
+    );
+    await regions.load();
+    answer = answer.filter((region) => region.id !== 2);
+    await regions.load();
+    expect(told).toEqual([
+      [TEST_GUILD_ROW, OTHER_GUILD_ROW],
+      [OTHER_GUILD_ROW],
+      [TEST_GUILD_ROW, OTHER_GUILD_ROW],
+      [OTHER_GUILD_ROW],
+    ]);
   });
 
   it('logs a listener that throws, and still tells the others', async () => {

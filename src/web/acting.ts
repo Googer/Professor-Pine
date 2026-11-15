@@ -6,6 +6,7 @@ import { controlThrottleKey, variedThrottleKey } from '../discord/router.js';
 import { waitText, type Throttle } from '../discord/throttle.js';
 import type { Member } from '../services/attendance-service.js';
 import { sendFailure } from './answers.js';
+import { mapMemberRole } from '../config/server-settings.js';
 import { countsOnTheMap } from './map-members.js';
 import type { WebDeps } from './server.js';
 
@@ -87,7 +88,8 @@ export async function actingOnTheMap(
     return { sent: reply.code(503).send({ error: UNREACHABLE }) };
   }
   if (acting.kind === 'not-member') return { sent: sendFailure(request, reply, 403) };
-  if (acting.kind === 'member' && !countsOnTheMap(acting.standing, deps.settings.memberRole)) {
+  const memberRole = mapMemberRole(deps.serverSettings.of(guild));
+  if (acting.kind === 'member' && !countsOnTheMap(acting.standing, memberRole)) {
     return { sent: sendFailure(request, reply, 403) };
   }
   if (acting.kind !== 'member') {

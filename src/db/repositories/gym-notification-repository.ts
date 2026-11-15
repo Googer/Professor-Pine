@@ -44,10 +44,17 @@ export interface GymTargetStorage {
  * A gym id is compared as text, spelled as both bots write it (see `targeting`).
  */
 export interface GymTargetUpkeep {
-  /** How many members have this gym as a target. */
-  membersTargeting(gymId: number): Promise<number>;
-  /** Removes every target of this gym, in every server; gives how many rows went. */
-  removeGym(gymId: number): Promise<number>;
+  /**
+   * How many members have this gym as a target: in the server of this `Guild` row (plan
+   * 19B-2), or in every server (`'every'`: only the deletion of a gym's row asks so). Always
+   * named, never every server by default.
+   */
+  membersTargeting(gymId: number, guildId: number | 'every'): Promise<number>;
+  /**
+   * Removes every target of this gym in the server of this `Guild` row, or in every server
+   * (`'every'`); gives how many rows went.
+   */
+  removeGym(gymId: number, guildId: number | 'every'): Promise<number>;
 }
 
 /** A row of `GymNotification` as far as targets need it. */
@@ -201,21 +208,21 @@ export class GymNotificationRepository implements GymTargetStorage, GymTargetUpk
     });
   }
 
-  async membersTargeting(gymId: number): Promise<number> {
-    const row = await this.db
+  async membersTargeting(gymId: number, guildId: number | 'every'): Promise<number> {
+    let query = this.db
       .selectFrom('GymNotification')
       .select((eb) => eb.fn.count<string>('userId').distinct().as('members'))
-      .where('gym', '=', String(gymId))
-      .executeTakeFirst();
+      .where('gym', '=', String(gymId));
+    if (guildId !== 'every') query = query.where('guildId', '=', guildId);
+    const row = await query.executeTakeFirst();
     return Number(row?.members ?? 0);
   }
 
   /** One statement: nothing about a member is decided here, so no member's row is locked. */
-  async removeGym(gymId: number): Promise<number> {
-    const result = await this.db
-      .deleteFrom('GymNotification')
-      .where('gym', '=', String(gymId))
-      .executeTakeFirst();
+  async removeGym(gymId: number, guildId: number | 'every'): Promise<number> {
+    let query = this.db.deleteFrom('GymNotification').where('gym', '=', String(gymId));
+    if (guildId !== 'every') query = query.where('guildId', '=', guildId);
+    const result = await query.executeTakeFirst();
     return Number(result.numDeletedRows);
   }
 }

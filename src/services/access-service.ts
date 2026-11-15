@@ -11,6 +11,7 @@ import { attendeeOf, type Party } from '../domain/party/party.js';
 import type { Logger } from '../log.js';
 import { KeyedLock } from './keyed-lock.js';
 import type { PartyListener } from './party-store.js';
+import type { QuietServers } from './quiet-servers.js';
 
 /** A forum that refused the bot for lack of a permission is left alone for this long. */
 const REFUSED_FOR_MS = 10 * 60_000;
@@ -24,6 +25,12 @@ export interface AccessServiceOptions {
   storage: AccessGrantStorage;
   log: Logger;
   now?: () => number;
+  /**
+   * The quiet servers (`QuietServers`, plans 19C-1 and 19C-2), by the server of a grant's row
+   * (`serverOfRow`): their grants are not swept, kept as they are until the server is back.
+   */
+  quiet?: QuietServers;
+  serverOfRow?: (row: number) => string | undefined;
 }
 
 /**
@@ -84,6 +91,20 @@ export class AccessService {
       this.grants.set(AccessService.key(grant.forumChannelId, grant.memberId), grant);
     }
     this.options.log.info({ grants: this.grants.size }, 'access grants loaded');
+  }
+
+  /**
+   * Forgets the grants of a server's `Guild` row whose data was deleted (plan 19C-3): their rows
+   * went with it, and Pine is no longer in the server, so nothing is asked of Discord. How many.
+   */
+  forgetServer(guildId: number): number {
+    let forgotten = 0;
+    for (const [key, grant] of this.grants) {
+      if (grant.guildId !== guildId) continue;
+      this.grants.delete(key);
+      forgotten += 1;
+    }
+    return forgotten;
   }
 
   /** Whether the member was let into the forum by this service. */
@@ -277,15 +298,24 @@ export class AccessService {
    * a failure or a stop of the process left behind, and the grants of a forum that no party is
    * in), and a member who should be in a forum and cannot see it (a record without its
    * overwrite) is let in again. It never lets anybody in who has no record. At start and hourly
-   * (spec 5.4 asks for daily). Gives how many grants are gone. Never rejects.
+   * (spec 5.4 asks for daily). Gives how many grants are gone. Never rejects. The grants of a
+   * quiet server are passed over (plans 19C-1, 19C-2): kept for its return, or its deletion.
    */
   async sweep(): Promise<number> {
     const before = new Set(this.grants.keys());
     for (const grant of [...this.grants.values()]) {
+      if (this.ofQuietServer(grant.guildId)) continue;
       this.settle(grant.forumChannelId, grant.memberId, grant.guildId, true);
     }
     await this.flush();
     return [...before].filter((key) => !this.grants.has(key)).length;
+  }
+
+  /** Whether the server of a `Guild` row is quiet. */
+  private ofQuietServer(row: number): boolean {
+    const { quiet, serverOfRow } = this.options;
+    const server = serverOfRow?.(row);
+    return server !== undefined && quiet?.isQuiet(server) === true;
   }
 
   /** Waits for everything that is under way. For shutdown and for tests. */

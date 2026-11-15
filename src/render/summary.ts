@@ -188,7 +188,7 @@ export interface SummaryMore {
    */
   stopsBelow?: boolean;
   /**
-   * `settings.timezone` (plan 8R-9, B8): what starts after the next local midnight is listed
+   * The server's zone (plan 8R-9, B8): what starts after the next local midnight is listed
    * under Coming up (`isToday`). Without it everything is today's.
    */
   zone?: string;

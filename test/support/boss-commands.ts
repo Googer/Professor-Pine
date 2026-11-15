@@ -1,5 +1,7 @@
 import { admin } from '../../src/commands/admin/index.js';
+import { operator } from '../../src/commands/operator/index.js';
 import type { AppContext } from '../../src/app-context.js';
+import { subcommandPath } from '../../src/discord/command.js';
 import { InteractionRouter } from '../../src/discord/router.js';
 import type { NewBossOverride } from '../../src/domain/pogo/raid-bosses.js';
 import {
@@ -21,7 +23,7 @@ export { MEMBER, MODERATOR };
 type OptionValue = string | number | boolean;
 
 /**
- * `/admin` over a real `RaidBossService` (`raidBossServiceWith`) and a real Pokémon search with
+ * `/operator` and `/admin` (its nicknames) over a real `RaidBossService` (`raidBossServiceWith`) and a real Pokémon search with
  * stored nicknames (`nicknameSearchWith`), routed like in the bot, used by a moderator in the
  * channel of West unless a call says otherwise. `use(group, subcommand, options)` runs a
  * subcommand (`group` null for one outside a group); `typing` asks for the list of an option.
@@ -57,7 +59,10 @@ export async function bossCommandsWith(
     maxBossAdmin: max.service,
     ...options.context,
   });
-  const router = new InteractionRouter(ctx, [admin], []);
+  const router = new InteractionRouter(ctx, [admin, operator], []);
+  // `/operator` where it has the subcommand (plan 19B-1), else `/admin` (the nicknames).
+  const commandOf = (group: string | null, subcommand: string): string =>
+    operator.subcommands.has(subcommandPath(group, subcommand)) ? 'operator' : 'admin';
   const staff: FakeOptions = {
     userId: MODERATOR,
     roleNames: ['Moderator'],
@@ -83,7 +88,7 @@ export async function bossCommandsWith(
     ) =>
       handled(
         fakeChatInput({
-          commandName: 'admin',
+          commandName: commandOf(group, subcommand),
           ...(group === null ? {} : { subcommandGroup: group }),
           subcommand,
           options: values,
@@ -101,7 +106,7 @@ export async function bossCommandsWith(
     ) =>
       handled(
         fakeAutocomplete({
-          commandName: 'admin',
+          commandName: commandOf(group, subcommand),
           ...(group === null ? {} : { subcommandGroup: group }),
           subcommand,
           focusedName,

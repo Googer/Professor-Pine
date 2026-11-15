@@ -67,7 +67,6 @@ async function setup(days: readonly ActivityDay[]) {
       gyms: gymsFixture(),
       regions: regionsFixture(),
       wayspots,
-      zone: ZONE,
     }),
   });
   web.clock.now = NOW;
@@ -183,7 +182,7 @@ describe('the history page’s raids by day', () => {
     // What the post counts: every region (none is barred to a member of no roles).
     const post = new HistoryDays({
       reader: made.activity,
-      zone: ZONE,
+      zoneOf: () => ZONE,
       bossName: (key) => catalogueFixture().byKey(key)?.name,
     });
     const posted = await post.everyYear(FAKE_GUILD_ID, new Set(), NOW);

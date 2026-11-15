@@ -47,6 +47,7 @@ import {
   type ListName,
 } from './panel.js';
 import { AUTO_STATUS, FLAGS, PRIVACY, autoStatusName, type FlagSetting } from './settings-lines.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** The Submit of the question before the history goes off: `settings:history:forget`. */
 const FORGET = 'forget';
@@ -73,7 +74,7 @@ const NEW_TRAIN_OFF = 'No more DMs for new trains in this server.';
 
 /** The history opt-in turned on (S4: two sentences; `/help settings` says the rest). */
 const HISTORY_ON =
-  'Your history is on: from now on I keep your Discord id with the raids, max battles, ' +
+  'Your history is on: from now on I keep your Discord ID with the raids, max battles, ' +
   'trains and meetups you join, including those going on now, and with the reports you make ' +
   'at stops. `/stats me` shows your numbers.';
 const HISTORY_OFF = 'Your history is off.';
@@ -95,8 +96,8 @@ function legacyAsked(state: Exclude<FillInState, { state: 'failed' }>): string {
 /** What turning the history off took the member's name off, where it did. */
 export function forgottenIn(records: number): string {
   return records === 1
-    ? ' I took your Discord id off the one entry of your history; the server still counts it.'
-    : ` I took your Discord id off ${String(records)} entries of your history; the server still counts them.`;
+    ? ' I took your Discord ID off the one entry of your history; the server still counts it.'
+    : ` I took your Discord ID off ${String(records)} entries of your history; the server still counts them.`;
 }
 
 /** Added where turning the history off took the member off the boards too. */
@@ -157,7 +158,7 @@ function setFlag(
     await ctx.users.update(memberId, { [setting.flag]: on });
     let said = on ? setting.on : setting.off;
     if (on && setting.underMentions && !before.mentions) said += MENTIONS_OFF;
-    if (on && setting.dm && !ctx.config.settings.features.notifications) {
+    if (on && setting.dm && !serverValuesOf(interaction, ctx).features.notifications) {
       said += NOTIFICATIONS_OFF;
     }
     return said;
@@ -172,7 +173,7 @@ function setNewTrain(interaction: ButtonInteraction, ctx: AppContext, on: boolea
       return already(on);
     }
     if (!on) return NEW_TRAIN_OFF;
-    return ctx.config.settings.features.notifications
+    return ctx.servers.of(guildId).features.notifications
       ? NEW_TRAIN_ON
       : NEW_TRAIN_ON + NOTIFICATIONS_OFF;
   });
@@ -228,7 +229,7 @@ function recordsWords(records: number): string {
 /** The question before the history goes off: what it takes away, and what Submit does. */
 function historyDialog(records: number, boards: boolean) {
   const takes = [
-    ...(records > 0 ? [`take your Discord id off ${recordsWords(records)}`] : []),
+    ...(records > 0 ? [`take your Discord ID off ${recordsWords(records)}`] : []),
     ...(boards ? ['take you off the boards'] : []),
   ].join(' and ');
   return dialog({
@@ -448,7 +449,7 @@ const requirePanelServer: Guard = async (interaction, ctx) => {
   }
   if (id === undefined || !PER_SERVER.has(id.id)) return;
   await requireGuild(interaction, ctx);
-  if (id.action === SHOW && !ctx.config.settings.features.notifications) {
+  if (id.action === SHOW && !serverValuesOf(interaction, ctx).features.notifications) {
     throw new UserError(STALE_COMPONENT);
   }
 };
@@ -561,17 +562,17 @@ export const settings: SimpleCommand = {
     details: (config, facts) =>
       'Shows your settings, only to you, with buttons and menus to change them: which pings ' +
       'and DMs you get, how you are signed up for what you report, and whether posts name you.' +
-      (config.features.notifications
+      ((facts?.server?.features.notifications ?? true)
         ? '\n\nIn a server it also has what is set per server: DMs for new trains, your ' +
           'history, the boards, and how many wants and gyms you have there.'
         : '\n\nIn a server it also has what is set per server: DMs for new trains, your ' +
           'history and the boards.') +
       '\n\n**Your history.** I keep a history of every raid, max battle, train and meetup that ' +
       'ends: what it was, where and when, and how many signed up, came and completed it. You ' +
-      'always count in it, without your Discord id.' +
+      'always count in it, without your Discord ID.' +
       '\n\nI keep every field research and Team GO Rocket report that ends too: what was ' +
       'reported, when, how it ended and how many others reported the same.' +
-      '\n\nWith your history on, I also keep your Discord id with what you do from then on: ' +
+      '\n\nWith your history on, I also keep your Discord ID with what you do from then on: ' +
       'what you sign up for and when, how far you get, and what you report. `/stats me` shows ' +
       'your numbers. Turning it off takes your id out of everything kept so far; it all still ' +
       'counts.' +

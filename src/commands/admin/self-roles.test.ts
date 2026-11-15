@@ -12,6 +12,9 @@ import { createTestContext } from '../../../test/support/test-context.js';
 import { declaredSubcommands, enabledCommands } from '../../discord/command.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { admin } from './index.js';
+import { testServerValues } from '../../../test/support/server-values.js';
+import { commandsIn } from '../../discord/set-up.js';
+import type { ServerValues } from '../../config/server-settings.js';
 
 type Options = Record<string, string | number | boolean>;
 
@@ -70,36 +73,36 @@ function setup() {
 }
 
 describe('/admin self-roles', () => {
-  it('is a group of subcommands of /admin, and is not there when the feature is off', () => {
+  it('is a group of subcommands of /admin, and not in a server whose members give themselves no roles', () => {
     const { ctx } = createTestContext();
-    // The parts of plan 5C (boss list, nicknames, member settings), of 8C (the cleanup of
-    // legacy channels) and of 8G (the owner's forget), and the event window are not looked at
-    // here.
-    const paths = (config: typeof ctx.config) =>
-      declaredSubcommands(enabledCommands([admin], config)[0]?.data.toJSON().options).filter(
+    // The parts of plan 5C (nicknames, member settings), of 8C (the cleanup of legacy
+    // channels) and the tutorial are not looked at here; the shared data is `/operator`'s.
+    const paths = (values: ServerValues) =>
+      declaredSubcommands(
+        commandsIn(
+          enabledCommands([admin], ctx.config),
+          values,
+          ctx,
+          FAKE_GUILD_ID,
+        )[0]?.data.toJSON().options,
+      ).filter(
         (path) =>
-          !/^(boss|nickname) |^member-settings$|^forget$|^cleanup-legacy$|^tutorial$|^event-window /.test(
-            path,
-          ),
+          !/^nickname |^neighbors |^member-settings$|^cleanup-legacy$|^tutorial$/.test(path),
       );
-    expect(paths(ctx.config)).toEqual([
+    const values = testServerValues();
+    expect(paths(values)).toEqual([
+      'setup',
+      'settings',
       'setup-forums',
       'save-party',
-      'clear-image-cache',
       'self-roles add',
       'self-roles remove',
       'self-roles list',
       'self-roles group',
       'self-roles ungroup',
     ]);
-    const off = {
-      ...ctx.config,
-      settings: {
-        ...ctx.config.settings,
-        features: { ...ctx.config.settings.features, roles: false },
-      },
-    };
-    expect(paths(off)).toEqual(['setup-forums', 'save-party', 'clear-image-cache']);
+    const off = { ...values, features: { ...values.features, roles: false } };
+    expect(paths(off)).toEqual(['setup', 'settings', 'setup-forums', 'save-party']);
   });
 
   it('is for staff, and answers privately', async () => {

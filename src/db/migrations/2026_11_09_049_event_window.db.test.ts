@@ -21,12 +21,15 @@ describe('migration 049: the event window staff set', () => {
         column_key as \`key\`
       from information_schema.columns
       where table_schema = database() and table_name = 'EventWindow'
+        and column_name not in ('startsLocal', 'endsLocal')
       order by ordinal_position`.execute(db);
+    // Migration 054 adds the wall-clock columns (startsLocal, endsLocal): its own test checks them.
+    // Migration 057 indexes who set it (`MUL`), for the look of `/operator forget`.
     expect(columns.rows).toEqual([
       { name: 'id', type: 'tinyint unsigned', nullable: 'NO', key: 'PRI' },
       { name: 'startsAt', type: 'bigint', nullable: 'NO', key: '' },
       { name: 'endsAt', type: 'bigint', nullable: 'NO', key: '' },
-      { name: 'setBy', type: 'varchar(30)', nullable: 'NO', key: '' },
+      { name: 'setBy', type: 'varchar(30)', nullable: 'NO', key: 'MUL' },
       { name: 'setAt', type: 'bigint', nullable: 'NO', key: '' },
     ]);
   });

@@ -16,10 +16,16 @@ import {
   MODERATOR,
   said,
 } from '../../../test/support/gym-commands.js';
-import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../../test/support/gyms.js';
 import { REPORTER } from '../../../test/support/parties.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { ANSWERED_BELOW } from '../../discord/late-reply.js';
+import { testServerValues } from '../../../test/support/server-values.js';
 
 type Made = Awaited<ReturnType<typeof gymCommandsWith>>;
 
@@ -130,10 +136,11 @@ describe('/gym edit', () => {
 
   it('shows a changed notice in the post of a raid at the gym', async () => {
     const made = await gymCommandsWith();
-    const gym = made.directory.get(1);
+    const gym = made.directory.stored(1);
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,
@@ -576,10 +583,11 @@ describe('/gym move', () => {
 
   it('is never refused for a raid or a train, and says what stays when the regions change', async () => {
     const made = await gymCommandsWith();
-    const gym = made.directory.get(6);
+    const gym = made.directory.stored(6);
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,
@@ -617,7 +625,7 @@ describe('/gym move', () => {
     expect(await lines('41.0, -80')).toEqual([
       `The raid at it stays in <#${raid.party.forumPostId ?? ''}>.`,
       'It stays a stop of 2 trains.',
-      'It now lies in no region: raids cannot be reported there.',
+      'It now lies in no region of this server: raids cannot be reported there.',
     ]);
     // Further out, still in none: that is not news.
     expect(await lines('41.001, -80')).toEqual([]);
@@ -628,16 +636,17 @@ describe('/gym move', () => {
     const question = answerOf(await made.use('move', { gym: 'id:6', location: '41.0, -80' }));
     const answer = answerOf(await made.press(buttonId(question, 'Move anyway')));
     expect(said(answer).split('\n').slice(2)).toEqual([
-      'It now lies in no region: raids cannot be reported there.',
+      'It now lies in no region of this server: raids cannot be reported there.',
     ]);
   });
 
   it('points to /location when it is used in the post of a raid', async () => {
     const made = await gymCommandsWith();
-    const gym = made.directory.get(1);
+    const gym = made.directory.stored(1);
     if (!gym) throw new Error('no gym');
     const raid = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,
@@ -663,7 +672,9 @@ describe('/gym move', () => {
     const details = gym.subcommands.get('move')?.help?.details;
     const settings = loadSettings(TEST_SETTINGS_PATH);
     const text = (distanceUnits: 'imperial' | 'metric'): string =>
-      typeof details === 'function' ? details({ ...settings, distanceUnits }) : '';
+      typeof details === 'function'
+        ? details(settings, { server: testServerValues({ distanceUnits }) })
+        : '';
     // The far move in the settings' units (round 2).
     expect(text('metric')).toContain('than 500 m away or right beside another gym.');
     expect(text('imperial')).toContain('than 0.3 mi away or right beside another gym.');

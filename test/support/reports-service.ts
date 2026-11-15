@@ -1,6 +1,9 @@
 import type { ModerationReport } from '../../src/domain/moderation/reports.js';
 import type { Party } from '../../src/domain/party/party.js';
-import { ModerationReports } from '../../src/services/moderation-reports.js';
+import {
+  ModerationReports,
+  type ModerationReportsOptions,
+} from '../../src/services/moderation-reports.js';
 import { meetupSafetyWith, MOD_CHANNEL, type SafetyOptions } from './meetup-safety-service.js';
 import type { ServiceOverrides } from './party-service.js';
 import { MemoryReports } from './reports.js';
@@ -18,6 +21,11 @@ export async function reportsWith(
   options: SafetyOptions = {},
   parties: readonly Party[] = [],
   overrides: ServiceOverrides = {},
+  /**
+   * The owner and whether a server's staff change the boss list (plan 19B-1); DMs in `dms`; the
+   * kept Wayspots a train's Power Spot is read from (`wayspotsWith`; none without).
+   */
+  shared: Pick<ModerationReportsOptions, 'ownerId' | 'staffChangeShared' | 'wayspots'> = {},
 ) {
   const made = await meetupSafetyWith(options, parties, overrides);
   const reportStore = new MemoryReports();
@@ -30,8 +38,11 @@ export async function reportsWith(
     regions: made.regions,
     gyms: made.gyms,
     settings: made.settings,
+    servers: made.servers,
     log: made.log,
     now: () => made.clock.now,
+    dms: made.dms,
+    ...shared,
   });
   reports.watch(made.store);
   const reportPostOf = (report: Pick<ModerationReport, 'messageId'>) =>
@@ -44,10 +55,14 @@ export const REPORT_SERVER = '412345678901234567';
 
 /**
  * `reportsWith`, and a meetup of Alice's at the Little Free Library (a PokéStop) a day ahead,
- * with `report(reporterId?, reason?, name?)`, a member's report of it (Bob's by default).
+ * with `report(reporterId?, reason?, name?)`, a member's report of it (Bob's by default);
+ * `overrides` those of the party services (`gyms`, …).
  */
-export async function reportedMeetup(options: SafetyOptions = {}) {
-  const made = await reportsWith(options);
+export async function reportedMeetup(
+  options: SafetyOptions = {},
+  overrides: ServiceOverrides = {},
+) {
+  const made = await reportsWith(options, [], overrides);
   const outcome = await made.service.createMeetup({
     name: 'Book swap',
     creatorId: ALICE,
@@ -66,7 +81,6 @@ export async function reportedMeetup(options: SafetyOptions = {}) {
       partyId: party.id,
       reporter: { id: reporterId, name },
       reason,
-      roleIds: ['300000000000000001'],
     });
   return { ...made, party, postId, report };
 }

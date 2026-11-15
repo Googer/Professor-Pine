@@ -367,7 +367,7 @@ export interface PartyFrame {
    * anew, since their own `input` listener read it before Find took the keystroke.
    */
   boxChanged?: () => void;
-  /** The units distances are said in (`settings.distanceUnits`, task 7). */
+  /** The units distances are said in (the server's `distanceUnits`, plan 19A-1). */
   units: DistanceUnits;
   /** Route mode began or ended: the dots to add as stops are Tab stops only meanwhile (N1). */
   routeMode?: (on: boolean) => void;

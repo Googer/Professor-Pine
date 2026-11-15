@@ -46,6 +46,7 @@ describe('seeding the sponsored gyms from a file', () => {
       .insertInto('Gym')
       .values({ id: 1001, name: 'Old Coffee', lat: 40.05, lon: -80.05, pogoId: '49000737' })
       .execute();
+    await db.insertInto('GymServer').values({ gymId: 1001, guildId: 1 }).execute();
   });
 
   const run = async (file: string, ...args: string[]) => {
@@ -151,6 +152,45 @@ describe('seeding the sponsored gyms from a file', () => {
       '0 added, 0 marked, 0 skipped, 2 wrong.',
     ]);
     expect((await gyms())[0]?.notInWayfarer).toBeNull();
+  });
+
+  it('adds gyms of the server named, beside and by the ids of another server’s (plan 19B-2)', async () => {
+    // The second server has the gym of line 3's Wayfarer id, at its place, and gym 1001 is not
+    // its: the first server's run neither marks nor stands beside the other's gym.
+    await new RegionRepository(db).saveBounds(
+      2,
+      '300000000000000002',
+      square(40.0, -80.1, 40.1, -80.0),
+    );
+    await db
+      .insertInto('Gym')
+      .values({
+        id: 2001,
+        name: 'Their Coffee',
+        lat: 40.06,
+        lon: -80.06,
+        pogoId: 'f00000000000000000000000000000011.16',
+      })
+      .execute();
+    await db.insertInto('GymServer').values({ gymId: 2001, guildId: 2 }).execute();
+    const first = await run(FIXTURE, '--server', HOME, '--apply');
+    expect(first.said.at(-1)).toBe('1 added, 1 marked, 3 skipped, 1 unreadable.');
+    const links = await db
+      .selectFrom('GymServer')
+      .innerJoin('Gym', 'Gym.id', 'GymServer.gymId')
+      .select(['Gym.name', 'GymServer.guildId'])
+      .orderBy('Gym.id')
+      .execute();
+    expect(links).toEqual([
+      { name: 'Old Coffee', guildId: 1 },
+      { name: 'Their Coffee', guildId: 2 },
+      { name: 'New Coffee', guildId: 1 },
+    ]);
+    // The second server's run: gym 1001 is no gym of its own.
+    const away = await run(FIXTURE, '--server', AWAY);
+    expect(away.said).toContain(
+      'wrong       line 2  Old Coffee (40.05, -80.05): there is no gym 1001',
+    );
   });
 
   it('refuses arguments it does not take, a server it does not know, a file it cannot read', async () => {

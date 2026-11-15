@@ -128,7 +128,7 @@ function ignoredTokens(ignoredWords: Iterable<string>): Set<string> {
 
 /**
  * The words of a text the gym search goes by: its words as they are indexed, without those the
- * search ignores (the common English words and `ignoredWords`, settings.blacklistWords). A gym
+ * search ignores (the common English words and `ignoredWords`, a server's `blacklistWords`). A gym
  * whose name has none can be found by its name no more than a gym without one.
  */
 export function searchedWords(text: string, ignoredWords: Iterable<string>): string[] {
@@ -144,7 +144,7 @@ export function searchedWords(text: string, ignoredWords: Iterable<string>): str
  * most, exact words more than beginnings and misspellings, so the best fit comes first and the
  * member picks. Every word must match something; only when no gym has every word, gyms with some
  * of them are returned as guesses (`allWords` false). Words in `ignoredWords`
- * (settings.blacklistWords: "gym", "raid", …) and common English words are ignored, both in the
+ * (a server's `blacklistWords`: "gym", "raid", …) and common English words are ignored, both in the
  * gyms' texts and in what is typed.
  */
 export class GymIndex<G extends SearchableGym> {

@@ -5,6 +5,7 @@ import { gymWithId } from '../../render/gym-view.js';
 import { isEliteGym } from '../../domain/party/raid.js';
 import { chosenGym, respondWithGyms, withGymOption } from './gym-option.js';
 import { answerGym, GYM_GONE, gymViewMessage, staffPlace } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** What a change of the elite mark says: what it is now, or that it was so already. */
 export function eliteLine(
@@ -50,7 +51,9 @@ export const eliteGym: SubcommandPart = {
     if (!gym) throw new UserError(GYM_GONE);
     await answerGym(
       interaction,
-      await gymViewMessage(ctx, place, gym, [eliteLine(isEliteGym(before), eligible, gym)]),
+      await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, place, gym, [
+        eliteLine(isEliteGym(before), eligible, gym),
+      ]),
     );
   },
   autocomplete: respondWithGyms,

@@ -1,5 +1,6 @@
 import { sql, type Kysely } from 'kysely';
 import type { ResearchTask } from '../../domain/research/task.js';
+import { localAgrees } from '../../domain/time/feed-times.js';
 import type { Logger } from '../../log.js';
 import { inTransaction } from '../transaction.js';
 import type { DB } from '../types.js';
@@ -34,6 +35,11 @@ export class ResearchTaskRepository implements ResearchTaskStorage {
   constructor(
     private readonly db: Kysely<DB>,
     private readonly log?: Logger,
+    /**
+     * The instance's default, in which `endsAt` is written: a wall-clock end that no longer agrees
+     * with it there is left out on read (fix round 1, L8).
+     */
+    private readonly zone?: string,
   ) {}
 
   async kept(): Promise<KeptTaskList> {
@@ -61,6 +67,13 @@ export class ResearchTaskRepository implements ResearchTaskStorage {
         category: row.category,
         rewards: rewards.data,
         ...(row.endsAt === null ? {} : { endsAt: Number(row.endsAt) }),
+        // A wall-clock end that no longer agrees with its moment in the default zone is left
+        // out (fix round 1, L8): a write of 2.0 rewrote the moment.
+        ...(row.endsAt === null ||
+        row.endsLocal === null ||
+        (this.zone !== undefined && !localAgrees(row.endsLocal, Number(row.endsAt), this.zone))
+          ? {}
+          : { endsLocal: row.endsLocal }),
       });
     }
     return { tasks, readAt };
@@ -75,16 +88,17 @@ export class ResearchTaskRepository implements ResearchTaskStorage {
           (task, position) =>
             sql`(${task.key}, ${task.text}, ${task.category}, ${JSON.stringify(task.rewards)},
               ${String(at)}, ${String(at)}, 1, ${position},
-              ${task.endsAt === undefined ? null : String(task.endsAt)})`,
+              ${task.endsAt === undefined ? null : String(task.endsAt)},
+              ${task.endsAt === undefined ? null : (task.endsLocal ?? null)})`,
         ),
       );
       await sql`
         insert into ResearchTask
-          (taskKey, text, category, rewards, firstSeen, lastSeen, active, position, endsAt)
+          (taskKey, text, category, rewards, firstSeen, lastSeen, active, position, endsAt, endsLocal)
         values ${values} as new
         on duplicate key update text = new.text, category = new.category,
           rewards = new.rewards, lastSeen = new.lastSeen, active = 1,
-          position = new.position, endsAt = new.endsAt`.execute(trx);
+          position = new.position, endsAt = new.endsAt, endsLocal = new.endsLocal`.execute(trx);
     });
   }
 }

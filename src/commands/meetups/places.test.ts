@@ -8,7 +8,11 @@ import {
   sent,
   type FakeInteraction,
 } from '../../../test/support/fake-interactions.js';
-import { WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { OTHER_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { THEIR_GYM, twoServerGyms, type TestGyms } from '../../../test/support/providers.js';
+import { keptRow, wayspotId } from '../../../test/support/wayspot-cases.js';
+import { wayspotsWith } from '../../../test/support/wayspots.js';
+import type { WayspotDirectory } from '../../services/wayspot-directory.js';
 import { MOD, MODERATOR, newAppeal } from '../../../test/support/meetup-safety-cases.js';
 import { MOD_CHANNEL } from '../../../test/support/meetup-safety-service.js';
 import { buttonsOf, textOf } from '../../../test/support/messages.js';
@@ -30,10 +34,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function setup() {
-  const made = await reportedMeetup();
+async function setup(wayspots?: WayspotDirectory, gyms?: TestGyms) {
+  // The kept Wayspots a ruled place is read from (`MeetupSafety.placeNow`, the one path).
+  const made = await reportedMeetup(
+    wayspots === undefined ? {} : { wayspots },
+    gyms === undefined ? {} : { gyms },
+  );
   const members = new FakeMemberDirectory();
   const { ctx } = createTestContext({
+    ...(wayspots === undefined ? {} : { wayspots }),
+    ...(gyms === undefined ? {} : { gyms }),
     members,
     partyService: made.service,
     attendance: made.attendance,
@@ -72,6 +82,50 @@ async function setup() {
     );
   return { ...made, members, run, shown, press };
 }
+
+describe('/places in two servers (plan 19B-3)', () => {
+  it('names a ruled PokéStop by the server’s own copy, never by another server’s', async () => {
+    // The test server's Fountain; the second server's copy of it (another title) and a stop of
+    // its own the test server does not keep.
+    const { wayspots } = await wayspotsWith(
+      [keptRow(1, { title: 'Fountain', lat: 40.0601, lon: -80.0601 })],
+      undefined,
+      undefined,
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            keptRow(1, { title: 'Their Fountain', lat: 40.0601, lon: -80.0601 }),
+            keptRow(2, { title: 'Their Bench', lat: 40.0602, lon: -80.0602 }),
+          ],
+        },
+      ],
+    );
+    const made = await setup(wayspots);
+    const server = made.gateway.guildId;
+    await made.storage.rule(server, { kind: 'stop', id: wayspotId(1) }, 'refuse', MOD);
+    await made.storage.rule(server, { kind: 'stop', id: wayspotId(2) }, 'allow', MOD);
+    const text = textOf(made.shown(await made.run()));
+    expect(text).toContain('**Fountain** (PokéStop)');
+    expect(text).not.toContain('Their Fountain');
+    expect(text).not.toContain('Their Bench');
+    // The second server keeps both (positive control).
+    expect(wayspots.stored(OTHER_GUILD_ROW, wayspotId(2))?.title).toBe('Their Bench');
+  });
+
+  it('shows no gym of another server for an Undo that undid nothing (final review R5-1)', async () => {
+    const { gyms } = twoServerGyms();
+    const made = await setup(undefined, gyms);
+    // A press naming the second server's Old Stone Fountain: this server has no ruling of it.
+    const theirs = await made.press(`places:gym:undo:${String(THEIR_GYM)}`);
+    const text = textOf(asV2(sent(theirs.editReply)));
+    expect(text).toContain('It had no ruling any more.');
+    expect(text).not.toContain('Fountain');
+    // This server's own gym is shown (positive control).
+    const ours = await made.press('places:gym:undo:1');
+    expect(textOf(asV2(sent(ours.editReply)))).toContain('### The Stacks');
+  });
+});
 
 describe('/places', () => {
   it('is for staff alone, hidden from the others by Manage Messages', async () => {

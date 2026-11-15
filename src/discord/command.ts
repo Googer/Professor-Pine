@@ -17,6 +17,7 @@ import type { Config } from '../config/index.js';
 import type { Settings } from '../config/settings.js';
 import type { CustomId } from './custom-id.js';
 import type { Throttle } from './throttle.js';
+import type { ServerValues } from '../config/server-settings.js';
 
 export type GuardableInteraction =
   ChatInputCommandInteraction | MessageComponentInteraction | ModalSubmitInteraction;
@@ -25,8 +26,15 @@ export type GuardableInteraction =
 export type LocatedInteraction =
   GuardableInteraction | AutocompleteInteraction | MessageContextMenuCommandInteraction;
 
-/** A precondition. Throw a UserError to refuse; return normally to allow. */
-export type Guard = (interaction: LocatedInteraction, ctx: AppContext) => void | Promise<void>;
+/**
+ * A precondition. Throw a UserError to refuse; return normally to allow. A guard that decides by
+ * who the member is says whom it lets through in `admits` (plan 19C-2, `guards.ts`'s
+ * `admittedBy`): `/help` lists a staff command, and each part of one, only to whoever they admit.
+ */
+export type Guard = ((interaction: LocatedInteraction, ctx: AppContext) => void | Promise<void>) & {
+  /** Whether it lets this member through where they ask, decided by who they are alone. */
+  readonly admits?: (asker: LocatedInteraction, ctx: AppContext) => boolean;
+};
 
 export interface CommandHelp {
   /** Where `/help` files the command. Categories outside settings.helpGroups are staff-only. */
@@ -49,6 +57,16 @@ export interface CommandHelp {
 
 /** What a command's help may depend on beyond the settings (`/help` reads them from the context). */
 export interface HelpFacts {
+  /**
+   * The values of the server `/help` was asked in (plan 19A-1: its units, its features); in a DM
+   * the file's defaults. Unsaid (a test of a page alone): the code's defaults.
+   */
+  server?: ServerValues;
+  /**
+   * The zone of the server `/help` was asked in (plan 19A-2: the dates of its examples); in a DM
+   * the instance's default. Unsaid (a test of a page alone): the instance's default.
+   */
+  zone?: string;
   /**
    * The installation is set up for the member index of the legacy history (`LEGACY_INDEX_DIR`;
    * plan 8H-10, B6), whether or not the import has written one yet.
@@ -123,6 +141,25 @@ export interface CommandHandler {
    * nothing (plan 8S-3).
    */
   checks?: ControlThrottle;
+  /**
+   * For a command that depends on a server's values (plan 19A-1, `set-up.ts`): undefined where
+   * the server has what it needs; else what its staff set and where, in words. It is registered
+   * for everyone (any server could use it), answers `This is not set up in this server.` with
+   * those words where it is not on, and is left out of that server's `/help`. A command that
+   * depends on the instance alone has `enabled(config)` instead.
+   */
+  setUpIn?: (
+    values: ServerValues,
+    ctx: Pick<AppContext, 'config' | 'standings'>,
+    serverId: string,
+  ) => string | undefined;
+  /**
+   * Whether it works in a server in setup (plan 19C-2, `servers.md`): `/help`, `/admin setup`,
+   * `/admin settings`, and what the setup's checklist sends staff to for the first region
+   * (`/region import`, `/region edit`). Anything else is answered there "Pine is not set up in this
+   * server yet." by the router, before its guards and uncounted.
+   */
+  worksInSetup?: true;
   execute(interaction: ChatInputCommandInteraction, ctx: AppContext): Promise<void>;
   autocomplete?(interaction: AutocompleteInteraction, ctx: AppContext): Promise<void>;
 }
@@ -151,6 +188,12 @@ interface CommandBase {
    * `/help` lists it on that command's line.
    */
   formOf?: string;
+  /**
+   * For a command `/help` shows by a rule of its own rather than by being a staff command
+   * (`/operator`, plan 19B-1): whether the member who asks, where they ask, may read about it.
+   * Undefined: shown to everybody, or to staff only for a staff command.
+   */
+  seenBy?: (asker: LocatedInteraction, ctx: AppContext) => boolean;
 }
 
 /** A command without subcommands: `/join`, `/raid`. */
@@ -172,10 +215,16 @@ export interface SimpleCommand extends CommandBase, CommandHandler {
 export interface SubcommandHandler extends CommandHandler {
   /** Shown by `/help` for this subcommand, in addition to its description. */
   help?: Pick<CommandHelp, 'details' | 'examples'>;
+  /**
+   * Whether `/help` names this subcommand to the member who asks, where they ask (plan 19B-1:
+   * `/operator forget` to the instance operators alone); undefined, to whoever sees the command.
+   * Its guards keep it all the same.
+   */
+  seenBy?: (asker: LocatedInteraction, ctx: AppContext) => boolean;
 }
 
 /**
- * A command made of subcommands: `/gym create`, `/admin boss add`. Build one with
+ * A command made of subcommands: `/gym create`, `/operator boss add`. Build one with
  * `commandGroup` (command-group.ts), which keeps the definition and the handlers together.
  */
 export interface GroupedCommand extends CommandBase {
@@ -339,6 +388,13 @@ export type ControlThrottle = Throttle & { as?: string };
 export interface ComponentHandler {
   kind: string;
   guards?: readonly Guard[];
+  /**
+   * Whether a control or dialog of this kind works in a server in setup (plan 19C-2), by its
+   * custom id (fix round 1, S8): those of the commands that do (`CommandHandler.worksInSetup`),
+   * and only those (`/region`'s import questions, not `/region remove`'s dialog). Without it,
+   * none does.
+   */
+  worksInSetup?: (id: CustomId) => boolean;
   /**
    * How often one member may use the controls of this kind, all of them together. A use counts
    * once the guards have let it through. A function, asked after the guards, for a kind some of

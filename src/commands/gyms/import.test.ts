@@ -22,6 +22,7 @@ import { allComponents, buttonsOf, textDisplays, textOf } from '../../../test/su
 import {
   EAST_CHANNEL,
   northRegion,
+  TEST_GUILD_ROW,
   testOutlines,
   WEST_CHANNEL,
 } from '../../../test/support/gyms.js';
@@ -45,6 +46,7 @@ import {
   MAX_PENDING_IMPORTS,
   outsideOutcomeLines,
   pendingImports,
+  queuedAlreadyWords,
   REPORT_FILE,
   sentencesText,
   unpackExport,
@@ -82,7 +84,7 @@ function wayspot(
 }
 
 function gymOf(made: Made, id: number): Gym {
-  const gym = made.directory.get(id);
+  const gym = made.directory.stored(id);
   if (!gym) throw new Error(`no gym ${id}`);
   return gym;
 }
@@ -466,7 +468,7 @@ describe('/gym import: the preview', () => {
     expect(linesOf(sentLast(pressed))).toContain(
       'PokéStops and Power Spots for `/wild` and the map: 2 new, 1 changed.',
     );
-    expect((await made.wayspotStore.all()).map((row) => row.title)).toEqual([
+    expect((await made.wayspotStore.all(TEST_GUILD_ROW)).map((row) => row.title)).toEqual([
       'Bench by the Mosaic',
       'Mosaic Wall',
       'Little Free Library',
@@ -487,7 +489,9 @@ describe('/gym import: the preview', () => {
     const { answer } = await importing(made, packed(file));
     await pressV2(made, buttonId(answer, 'Import'));
     await made.settle();
-    const kept = (await made.wayspotStore.all()).find((row) => row.title === 'Rammummy');
+    const kept = (await made.wayspotStore.all(TEST_GUILD_ROW)).find(
+      (row) => row.title === 'Rammummy',
+    );
     expect(kept?.kind).toBe('powerspot');
   });
 
@@ -519,7 +523,7 @@ describe('/gym import: the preview', () => {
     made.wayspotStore.all = all;
     await pressing(made, buttonId(answer, 'Import'), answer);
     await made.settle();
-    expect((await made.wayspotStore.all()).map((row) => row.title)).toContain(
+    expect((await made.wayspotStore.all(TEST_GUILD_ROW)).map((row) => row.title)).toContain(
       'Bench by the Mosaic',
     );
   });
@@ -589,7 +593,7 @@ describe('/gym import: an export in parts', () => {
     const pressed = await pressing(made, buttonId(answer, 'Import'), answer);
     await made.settle();
     expect(linesOf(sentLast(pressed))[0]).toBe('Imported.');
-    expect(made.directory.get(1)?.pogoId).toBe(idOf(1));
+    expect(made.directory.stored(1)?.pogoId).toBe(idOf(1));
   });
 
   it('refuses parts of different exports, a part twice, or a missing part', async () => {
@@ -813,7 +817,7 @@ describe('/gym import: the buttons', () => {
       margin: 500,
       bareCells: missingCells(outlines, new Set(city.cells), 500),
     };
-    const beyond = made.directory.all().filter((gym) => !made.admin.inAnyRegion(gym.id));
+    const beyond = made.directory.all().filter((gym) => !made.admin.inRegionOf(gym.id, 1));
     expect(beyond.length).toBeGreaterThan(0);
     const { answer } = await importing(made, packed(file));
     const imported = await pressing(made, buttonId(answer, 'Import'), answer);
@@ -836,14 +840,14 @@ describe('/gym import: the buttons', () => {
       'Keep them',
     ]);
     // Nothing is deleted by the question.
-    for (const gym of beyond) expect(made.directory.get(gym.id)).toBeDefined();
+    for (const gym of beyond) expect(made.directory.of(TEST_GUILD_ROW).get(gym.id)).toBeDefined();
 
     const deleting = await made.press(buttonId(question, labelsOf(question)[0]!));
     await made.settle();
     expect(linesOf(answerOf(deleting))).toEqual([
       `Deleted ${beyond.length} ${beyond.length === 1 ? 'gym' : 'gyms'} outside the scanned area.`,
     ]);
-    for (const gym of beyond) expect(made.directory.get(gym.id)).toBeUndefined();
+    for (const gym of beyond) expect(made.directory.stored(gym.id)).toBeUndefined();
     const posts = made.gateway
       .messagesIn(UPDATES_CHANNEL)
       .map((message) => textOf(message.message));
@@ -991,8 +995,8 @@ describe('/gym import: the buttons', () => {
     expect((await pressed.fetchReply()).attachments).toEqual([]);
     expect(made.wayfarerStore.imports).toHaveLength(1);
     expect(made.wayfarerStore.imports[0]).toMatchObject({ staffId: MODERATOR });
-    expect(made.directory.get(1)?.pogoId).toBe(idOf(1));
-    expect(made.directory.get(1)?.name).toBe('The Pinewood Public Library');
+    expect(made.directory.stored(1)?.pogoId).toBe(idOf(1));
+    expect(made.directory.stored(1)?.name).toBe('The Pinewood Public Library');
   });
 
   it('answers once: a second press is only acknowledged', async () => {
@@ -1108,7 +1112,7 @@ describe('/gym import: the buttons', () => {
     };
     const { used, answer } = await importing(made, packed(described));
     const token = buttonId(answer, 'Import').split(':')[1]!;
-    const waiting = pendingImports.peek(token, used.user.id);
+    const waiting = pendingImports.peek(token, used);
     if (typeof waiting === 'string') throw new Error(`no waiting export: ${waiting}`);
     expect(waiting.value.file.wayspots.map((one) => one.description)).toEqual(
       file.wayspots.map(() => ''),
@@ -1160,3 +1164,10 @@ describe('/gym import: the buttons', () => {
 function sentLast(pressed: Awaited<ReturnType<Made['press']>>): SentPayload {
   return answerOf(pressed);
 }
+
+describe('/gym import: the review queue', () => {
+  it('says how many of the gyms to review are queued already, never “of thems”', () => {
+    expect(queuedAlreadyWords(1)).toBe(' 1 of them is there already.');
+    expect(queuedAlreadyWords(12)).toBe(' 12 of them are there already.');
+  });
+});

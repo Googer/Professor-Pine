@@ -24,6 +24,7 @@ import {
 } from 'discord.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { QuietServers } from '../services/quiet-servers.js';
 import type { Logger } from '../log.js';
 import type { ServerChannel } from '../domain/regions/region-import.js';
 import {
@@ -379,11 +380,11 @@ export interface PartyGateway {
   ): Promise<'allowed' | 'was-allowed' | 'not-allowed' | undefined>;
   /**
    * Who cannot write in a forum's posts (branch review BR-7: the events forum): `@everyone` and
-   * those of `roleNames` the server has, by name, where the forum lets them see it but not Send
+   * those of `roleIds` the server has, by name, where the forum lets them see it but not Send
    * Messages in Posts (re-review RR-4: one that cannot see it is left out). Undefined when the
    * forum is gone.
    */
-  rolesWithoutReplies(forumId: string, roleNames: readonly string[]): Promise<string[] | undefined>;
+  rolesWithoutReplies(forumId: string, roleIds: readonly string[]): Promise<string[] | undefined>;
   /** Deletes a post (its thread); one that is already gone is fine. */
   deletePost(postId: string): Promise<void>;
   /**
@@ -485,8 +486,9 @@ export interface PartyGateway {
   /**
    * Whether a member of the server can see a forum (and with it the posts in it), by their
    * roles and the forum's permission overwrites; the same of a text channel, which decides who
-   * sees a region without a forum (`regionGate`, plan 8H-5). Undefined when the channel is gone
-   * (or neither a forum nor a text channel) or the member is not in its server. `fresh`: the
+   * sees a region without a forum (`regionGate`, plan 8H-5). `barred` for somebody who is not in
+   * its server (plan 19B-4: kept out, as by a denial, never taken for unknown). Undefined when
+   * the channel is gone (or neither a forum nor a text channel). `fresh`: the
    * member fetched afresh from Discord (plan 8M-20, W2: their roles just changed), else as the
    * cache has them.
    */
@@ -534,11 +536,13 @@ export interface PartyGateway {
   /** The name of a server the bot is in, from the cache (for a DM that names it). */
   guildName(guildId: string): string | undefined;
   /**
-   * The text channel with this name in the server that `nearChannelId` is in, in which the bot
-   * may send messages with embeds, from the cache: its id, or undefined when that server has
-   * none (of several, the oldest).
+   * The text channel of this id (a channel of a server's settings, plan 19A-1), when it is in the
+   * server that `nearChannelId` is in and the bot may send messages with embeds there, from the
+   * cache: its id; undefined otherwise (deleted, moved out of reach, of another server).
    */
-  findChannel(nearChannelId: string, name: string): string | undefined;
+  findChannel(nearChannelId: string, channelId: string): string | undefined;
+  /** The server a channel is in, from the cache; undefined for one it lacks (and a DM). */
+  serverOf(channelId: string): string | undefined;
   /**
    * Whether the bot may send messages with embeds in a text channel, from the cache: what
    * `findChannel` asks of the channels it finds. It is for text channels (the channels of
@@ -588,6 +592,13 @@ export interface PartyGateway {
    * are no channels here. Undefined when the bot is not in that server.
    */
   serverChannels(guildId: string): ServerChannel[] | undefined;
+  /**
+   * Whether Discord says a server is available, from the cache: false during an outage of its
+   * (when its channels may be out of date, so none can be said to be gone) and for a server the
+   * bot is not in (plan 19B-1), a quiet one among them (plans 19C-1, 19C-2). What tells a server's staff
+   * that a channel is gone asks it first.
+   */
+  serverAvailable(guildId: string): boolean;
   /**
    * What kind of channel an id is, from the cache (which follows every channel of the bot's
    * servers with the Guilds intent); undefined for one the bot does not know (gone, or never
@@ -1282,7 +1293,15 @@ export class DiscordPartyGateway implements PartyGateway {
    * `log` hears of every conversion tried after Discord refused a plain edit, and of the
    * reactions on a board's message it could not remove.
    */
-  constructor(private readonly log?: Logger) {}
+  /**
+   * `quiet`: the quiet servers (plans 19C-1, 19C-2): one Pine left, which discord.js may keep in its
+   * cache (one that removed the bot while its shard was away): none of the bot's servers for
+   * `serverAvailable`.
+   */
+  constructor(
+    private readonly log?: Logger,
+    private readonly quiet?: QuietServers,
+  ) {}
 
   /**
    * What `editAs` is told: the caller's options, whether the message is known to be v2, and the
@@ -1815,13 +1834,13 @@ export class DiscordPartyGateway implements PartyGateway {
 
   async rolesWithoutReplies(
     forumId: string,
-    roleNames: readonly string[],
+    roleIds: readonly string[],
   ): Promise<string[] | undefined> {
     const forum = await this.forum(forumId);
     if (!forum) return undefined;
     const everyone = forum.guild.roles.everyone;
-    const named = roleNames.flatMap((name) => {
-      const role = [...forum.guild.roles.cache.values()].find((one) => one.name === name);
+    const named = roleIds.flatMap((id) => {
+      const role = forum.guild.roles.cache.get(id);
       return role ? [role] : [];
     });
     // Only a role that sees the forum and cannot write in its posts (re-review RR-4): a server
@@ -2122,7 +2141,8 @@ export class DiscordPartyGateway implements PartyGateway {
     // so a grant may be made that was not needed, or one for somebody a new role keeps out;
     // either ends with the party. Whose roles just changed is fetched afresh (`fresh`).
     const member = await fetchGuildMember(forum.guild, memberId, fresh);
-    if (!member) return undefined;
+    // Not in the forum's server: kept out of it, whatever its overwrites (plan 19B-4).
+    if (!member) return 'barred';
     return DiscordPartyGateway.accessOf(forum, member);
   }
 
@@ -2310,21 +2330,21 @@ export class DiscordPartyGateway implements PartyGateway {
       : undefined;
   }
 
-  findChannel(nearChannelId: string, name: string): string | undefined {
+  findChannel(nearChannelId: string, channelId: string): string | undefined {
     const near = this.client.channels.cache.get(nearChannelId);
     if (!near || near.isDMBased()) return undefined;
     const me = near.guild.members.me;
-    const found = near.guild.channels.cache
-      .filter(
-        (channel) =>
-          channel.type === ChannelType.GuildText &&
-          channel.name === name &&
-          // Unknown (the bot's own member is not cached) counts as allowed: Discord will say.
-          (me === null || (channel.permissionsFor(me)?.has(CAN_POST) ?? false)),
-      )
-      .sort((a, b) => (a.createdTimestamp ?? 0) - (b.createdTimestamp ?? 0))
-      .first();
-    return found?.id;
+    const channel = near.guild.channels.cache.get(channelId);
+    if (channel?.type !== ChannelType.GuildText) return undefined;
+    // Unknown (the bot's own member is not cached) counts as allowed: Discord will say.
+    return me === null || (channel.permissionsFor(me)?.has(CAN_POST) ?? false)
+      ? channel.id
+      : undefined;
+  }
+
+  serverOf(channelId: string): string | undefined {
+    const channel = this.client.channels.cache.get(channelId);
+    return channel && !channel.isDMBased() ? channel.guildId : undefined;
   }
 
   async channelUnknown(channelId: string): Promise<boolean> {
@@ -2444,6 +2464,11 @@ export class DiscordPartyGateway implements PartyGateway {
         kind: DiscordPartyGateway.kindOf(channel.type),
         categoryId: channel.type === ChannelType.GuildCategory ? null : channel.parentId,
       }));
+  }
+
+  serverAvailable(guildId: string): boolean {
+    if (this.quiet?.isQuiet(guildId) === true) return false;
+    return this.client.guilds.cache.get(guildId)?.available === true;
   }
 
   channelKind(channelId: string): ServerChannel['kind'] | undefined {

@@ -386,7 +386,7 @@ describe('the button "Split group…" of a train post', () => {
       return sent(pressed.reply).content;
     };
     expect(await refused({ userId: DAVE, displayName: 'Dave' })).toBe(
-      "Only a group's members, the conductor and the moderators can split a group off.",
+      'Only a group’s members, the conductor and the moderators can split a group off.',
     );
     // With the conductor in group B, Bob may not split it.
     await made.trains.setConductor(made.party.id, { id: ALICE, name: 'Alice' });
@@ -601,7 +601,7 @@ describe('a Submit of the dialog', () => {
     await made.attendance.leave(made.party.id, { id: ALICE, name: 'Alice' });
     const submitted = await made.submit(before);
     expect(answerOf(submitted)).toBe(
-      "Only a group's members, the conductor and the moderators can split a group off.",
+      'Only a group’s members, the conductor and the moderators can split a group off.',
     );
     expect(made.store.active()).toHaveLength(1);
   });
@@ -655,7 +655,7 @@ describe('a Submit of the dialog', () => {
       const submitted = await made.submit(made.drawn());
       expect(answerOf(submitted)).toBe(
         `I am not allowed to make posts in <#${WEST_FORUM}>: I lack the permission Manage Posts ` +
-          "there. Nothing was made. The server's staff must give it to me.",
+          'there. Nothing was made. The server’s staff must give it to me.',
       );
       // Said there, once.
       expect(submitted.followUp).not.toHaveBeenCalled();
@@ -746,7 +746,7 @@ describe('/group split', () => {
     const made = await setup();
     const refusedCarol = await made.split({ userId: CAROL, displayName: 'Carol' });
     expect(sent(refusedCarol.reply).content).toBe(
-      "Only a group's members, the conductor and the moderators can split a group off.",
+      'Only a group’s members, the conductor and the moderators can split a group off.',
     );
     expect(refusedCarol.showModal).not.toHaveBeenCalled();
     expect(sent((await made.split({ options: { letter: 'Q' } })).reply).content).toBe(

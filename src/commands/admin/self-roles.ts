@@ -36,7 +36,7 @@ import {
 import { groupRule } from '../../render/role-menus.js';
 import { count, fitMessages, plain, truncate } from '../../render/text.js';
 import { beginningFirst, CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
-import { ROLES_UNAVAILABLE, rolesEnabled, roleText, typedText } from '../roles/shared.js';
+import { ROLES_UNAVAILABLE, rolesSetUp, roleText, typedText } from '../roles/shared.js';
 import { calledAlike, whyModeration, whyNot } from '../roles/words.js';
 
 /** The subcommand group of `/admin` all of this lives under. */
@@ -232,7 +232,7 @@ const add: SubcommandPart = {
       '/admin self-roles add role:@North aliases:none',
     ],
   },
-  enabled: rolesEnabled,
+  setUpIn: rolesSetUp,
   defer: 'ephemeral',
 
   async execute(interaction, ctx) {
@@ -369,7 +369,7 @@ const remove: SubcommandPart = {
       'exists.',
     examples: ['/admin self-roles remove role:North'],
   },
-  enabled: rolesEnabled,
+  setUpIn: rolesSetUp,
   defer: 'ephemeral',
 
   async execute(interaction, ctx) {
@@ -461,7 +461,7 @@ const list: SubcommandPart = {
       'name makes its holder staff), or I lack Manage Roles.',
     examples: ['/admin self-roles list'],
   },
-  enabled: rolesEnabled,
+  setUpIn: rolesSetUp,
   defer: 'ephemeral',
 
   async execute(interaction, ctx) {
@@ -580,7 +580,7 @@ const group: SubcommandPart = {
       '/admin self-roles group name:Teams pick-one:True position:1',
     ],
   },
-  enabled: rolesEnabled,
+  setUpIn: rolesSetUp,
   defer: 'ephemeral',
 
   async execute(interaction, ctx) {
@@ -633,7 +633,7 @@ const ungroup: SubcommandPart = {
       'they are put into another group.',
     examples: ['/admin self-roles ungroup name:Hobbies'],
   },
-  enabled: rolesEnabled,
+  setUpIn: rolesSetUp,
   defer: 'ephemeral',
 
   async execute(interaction, ctx) {

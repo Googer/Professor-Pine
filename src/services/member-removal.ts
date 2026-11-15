@@ -75,8 +75,9 @@ export interface MemberRemovalOutcome {
 /**
  * Whether a removal would take anything of what a look found (the one rule of the look's
  * button, of "there is nothing to remove" and of the service's tests): a row of settings, a
- * notice, anything of the history, a web login, access to the export tool, their id on a reason
- * of a report or on a meetup record that is over, a kept screenshot or feedback on one.
+ * notice, anything of the history, a web login, access to the export tool, the record of DMs
+ * sent to them, their id on a reason of a report or on a meetup record that is over, a kept
+ * screenshot or feedback on one.
  */
 export function removable(look: MemberLook): boolean {
   const { held, screenshots } = look;
@@ -90,6 +91,7 @@ export function removable(look: MemberLook): boolean {
     held.history.named > 0 ||
     held.sessions > 0 ||
     held.toolAccess ||
+    held.dmContact ||
     held.reports.reasons > 0 ||
     held.meetups.over > 0 ||
     screenshots.sent > 0 ||
@@ -110,7 +112,7 @@ function meetupsGoingOn(active: readonly Party[], memberId: string): string[] {
 }
 
 /**
- * Removing a member's data on request (plan 8G; the owner's `/admin forget member:`), across
+ * Removing a member's data on request (plan 8G; the operators' `/operator forget member:`), across
  * every server: the policy's promise that what Pine holds of somebody goes when they ask.
  *
  * `look` counts what Pine holds and changes nothing. `remove` is the one way it goes: the
@@ -152,7 +154,7 @@ export class MemberRemoval {
     };
   }
 
-  /** `by`: the owner who asked. Rejects, with nothing changed, when the database refuses. */
+  /** `by`: the operator who asked. Rejects, with nothing changed, when the database refuses. */
   async remove(memberId: string, by: string): Promise<MemberRemovalOutcome> {
     const { data, screenshots, parties, endSession, heldReports, log } = this.options;
     let removed: MemberRemoved;

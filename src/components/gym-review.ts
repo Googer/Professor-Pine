@@ -8,7 +8,7 @@ import { staffPlace } from '../commands/gyms/shared.js';
 import { actingMember } from '../commands/parties/reply.js';
 import type { ComponentHandler } from '../discord/command.js';
 import { UserError } from '../discord/errors.js';
-import { requireBotManagement } from '../discord/guards.js';
+import { guildIdOf, requireBotManagement } from '../discord/guards.js';
 import { STALE_COMPONENT } from '../discord/router.js';
 import { isReviewAction } from '../services/wayfarer-review-service.js';
 
@@ -33,12 +33,13 @@ export const gymReviewControls: ComponentHandler = {
     // An answer may move or delete a gym, which takes longer than Discord waits for a reply.
     await interaction.deferUpdate();
     const place = await staffPlace(interaction, ctx);
+    // The units of the server whose queue it is (review F7): the server the press came from,
+    // which the guard asks for, never the file's defaults.
+    const units = ctx.servers.of(guildIdOf(interaction)).distanceUnits;
     if (place.guildId === undefined) {
       // The message is components v2, and stays so.
       await interaction.editReply(
-        reviewPayload(undefined, ctx.config.settings.distanceUnits, [
-          'I do not know this server yet. Try again in a moment.',
-        ]),
+        reviewPayload(undefined, units, ['I do not know this server yet. Try again in a moment.']),
       );
       return;
     }
@@ -58,12 +59,6 @@ export const gymReviewControls: ComponentHandler = {
     const again =
       outcome.kind === 'back' ? await ctx.wayfarerReview.shown(place.guildId, reviewId) : undefined;
     const next = again ?? (await ctx.wayfarerReview.next(place.guildId));
-    await interaction.editReply(
-      reviewPayload(
-        next,
-        ctx.config.settings.distanceUnits,
-        outcomeLines(outcome, ctx.config.settings.distanceUnits),
-      ),
-    );
+    await interaction.editReply(reviewPayload(next, units, outcomeLines(outcome, units)));
   },
 };

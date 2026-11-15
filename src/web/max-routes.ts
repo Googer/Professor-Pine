@@ -64,6 +64,7 @@ import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { maxOptions } from './max-options.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import { placesFor, placesQuerySchema } from './wayspot-box.js';
@@ -78,7 +79,7 @@ import { placesFor, placesQuerySchema } from './wayspot-box.js';
 export type MaxWebContext = MaxReading &
   MaxReporting &
   SpotReading &
-  Pick<AppContext, 'meetupSafety' | 'regions' | 'parties' | 'wayspotAddresses'>;
+  Pick<AppContext, 'meetupSafety' | 'regions' | 'parties' | 'wayspotAddresses' | 'servers'>;
 
 /** What the max battles of the live map need beyond the parties' own (`PartyWebDeps`). */
 export interface MaxWebDeps {
@@ -185,8 +186,9 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
   const { sessions, parties, maxes } = deps;
   const { ctx } = maxes;
 
-  /** The words of a command as text of the page, in the posts' zone. */
-  const words = (text: string): string => pageWords(text, parties.zone, deps.now());
+  /** The words of a command as text of the page, in the zone of the request's server. */
+  const words = (text: string, request: FastifyRequest): string =>
+    pageWords(text, requestZone(request), deps.now());
 
   /** A region as an answer names it: its channel's name, or its number where the bot sees none. */
   const regionName = (region: Pick<Region, 'id' | 'channelId'>): string =>
@@ -228,6 +230,8 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
     party: MaxParty,
     userId: string,
     standing: MemberStanding,
+    /** The request whose server's zone the view is in (`requestZone`). */
+    request: FastifyRequest,
   ): MapMax | undefined => {
     const shown = mapParty(party, {
       guildId,
@@ -236,7 +240,7 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
       memberId: userId,
       barred: new Set(),
       now: deps.now(),
-      zone: parties.zone,
+      zone: requestZone(request),
       readOnly: false,
       staff: isMapStaff(standing, userId, parties.ownerId),
       botStaff: isMapBotStaff(standing, userId, parties.ownerId),
@@ -260,6 +264,8 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
     userId: string,
     standing: MemberStanding,
     forum: string | null | undefined,
+    /** The request whose server's zone the view is in (`requestZone`). */
+    request: FastifyRequest,
   ): Promise<MapMax | undefined> => {
     let shown = party.forumChannelId === forum;
     if (!shown && party.forumChannelId !== null) {
@@ -269,7 +275,7 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
         shown = false;
       }
     }
-    return shown ? viewOf(guildId, guildRow, party, userId, standing) : undefined;
+    return shown ? viewOf(guildId, guildRow, party, userId, standing, request) : undefined;
   };
 
   /**
@@ -284,7 +290,7 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
   ) => {
     const answer: MaxAnswer = {
       ok: false,
-      text: words(text),
+      text: words(text, reply.request),
       ...(more.max ? { max: more.max } : {}),
       ...(more.needs ? { needs: more.needs } : {}),
     };
@@ -330,12 +336,14 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const refused = await memberOrFailure(deps, request, reply, guild, session.userId);
       if (refused) return refused;
       const row = await parties.guilds.idFor(guild);
-      const spot = id.length > MAX_SPOT_ID ? undefined : ctx.wayspots.byId(id);
+      // The server's own Power Spot (plan 19B-3): another server's is as none.
+      const wayspots = ctx.wayspots.of(row);
+      const spot = id.length > MAX_SPOT_ID ? undefined : wayspots.byId(id);
       const ours =
         row !== undefined &&
         spot?.kind === 'powerspot' &&
         spot.title.trim() !== '' &&
-        ctx.wayspots.regionsOf(spot.id).some((channel) => {
+        wayspots.regionsOf(spot.id).some((channel) => {
           return ctx.regions.byChannel(channel)?.guildId === row;
         });
       if (!spot || !ours) return sendFailure(request, reply, 404);
@@ -365,20 +373,22 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
       );
       if (refused) return refused;
       const { catalogue, icons } = ctx.gameData;
+      const zone = requestZone(request);
       const choices = currentMaxBossChoices(
         {
           maxBosses: ctx.maxBosses,
           maxEvents: ctx.raidEvents,
-          pokemon: ctx.pokemon,
+          // An event's featured bosses by the instance's names alone, as on Discord (`maxDeps`).
+          pokemon: ctx.pokemon.of(null),
           gameData: ctx.gameData,
-          zone: parties.zone,
+          zone,
         },
         deps.now(),
       );
       // The picture a post of the boss would show (`shownMaxBoss`): the game's icon, else the list's.
       const picture = (boss: (typeof choices)[number]['boss']) =>
         maxBossPicture(boss.entry, boss.tier, { catalogue, icons }) ?? boss.image;
-      const body = JSON.stringify(maxOptions(choices, parties.zone, picture, deps.pictureOrigins));
+      const body = JSON.stringify(maxOptions(choices, zone, picture, deps.pictureOrigins));
       const etag = etagOf(body);
       void reply.header('etag', etag);
       if (etagMatches(request.headers['if-none-match'], etag)) return reply.code(304).send();
@@ -461,8 +471,15 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
     let end: number;
     const typed = (body.data.end ?? '').trim();
     try {
-      boss = readMaxBoss(ctx, body.data.boss, body.data.tier ?? null, now);
-      end = reportedEnd(ctx, boss.tier, typed === '' ? null : typed, now);
+      boss = readMaxBoss(
+        ctx,
+        guild,
+        body.data.boss,
+        body.data.tier ?? null,
+        now,
+        requestZone(request),
+      );
+      end = reportedEnd(ctx, boss.tier, typed === '' ? null : typed, now, requestZone(request));
     } catch (err) {
       if (!(err instanceof UserError)) throw err;
       // `/max`'s `tier:` option is no part of the map: its words, and what the page asks for.
@@ -484,7 +501,7 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
     if (there && otherBoss(there, boss)) {
       // Before the forums are asked (`maxBarred`): the forum the report would go to is asked as
       // well (final review F1), so a member kept out of it is not shown its battle.
-      const shown = await shownTo(guild, row, there, userId, standing, undefined);
+      const shown = await shownTo(guild, row, there, userId, standing, undefined, request);
       const text = takenWords(ctx, there, boss.tier, names);
       return noted('taken', refuse(reply, 409, text, { max: shown }));
     }
@@ -509,15 +526,15 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
       // Discord refuses `/max` for a full window before its dialog opens (final review F2).
       const full = throttledOnTheMap(deps, reply, counted, userId, MAX_THROTTLE, { count: false });
       if (full) return noted('throttled', full);
-      const next = nextRotationEnd(end, maxEndInput(ctx, boss.tier, now));
-      const question = endingSoonQuestion({ end, next, now, zone: parties.zone });
+      const next = nextRotationEnd(end, maxEndInput(ctx, boss.tier, now, requestZone(request)));
+      const question = endingSoonQuestion({ end, next, now, zone: requestZone(request) });
       const chosen = question.choices.find(
         (choice) => choice.value === soon?.value && choice.end === soon.end,
       );
       if (chosen === undefined) {
         const ask: MaxAnswer = {
           ok: false,
-          text: words(question.text),
+          text: words(question.text, request),
           soon: { choices: question.choices },
         };
         return noted('ends-soon', reply.code(422).send(ask));
@@ -561,7 +578,8 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
         ? outcome.party
         : undefined;
     const max =
-      battle && (await shownTo(guild, row, battle, userId, standing, picked.forumChannelId));
+      battle &&
+      (await shownTo(guild, row, battle, userId, standing, picked.forumChannelId, request));
     // The region picked has no forum: the battle went to another region of the spot, by name.
     const postedIn =
       outcome.kind === 'created' &&
@@ -572,7 +590,7 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
     const answer: MaxAnswer = {
       ok: outcome.kind === 'created',
       text:
-        words(maxReportWords(ctx, outcome, ask, result.autoStatus, names)) +
+        words(maxReportWords(ctx, outcome, ask, result.autoStatus, names), request) +
         (postedIn ? ` It was posted in ${regionInWords(postedIn)}.` : ''),
       ...(max ? { max } : {}),
     };

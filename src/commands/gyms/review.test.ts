@@ -1,14 +1,14 @@
 import { MessageFlags } from 'discord.js';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { watchImmediates } from '../../../test/support/timers.js';
-import { STAFF_PLACE, UPDATES_CHANNEL } from '../../../test/support/gym-admin.js';
+import { STAFF_PLACE, UPDATES_CHANNEL, withOtherServer } from '../../../test/support/gym-admin.js';
 import {
   answerOf,
   gymCommandsWith,
   MEMBER,
   MODERATOR,
 } from '../../../test/support/gym-commands.js';
-import { WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { REPORTER } from '../../../test/support/parties.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
@@ -33,7 +33,7 @@ const at = (from: LatLon, north: number): LatLon => ({
 const idOf = (n: number): string => `${n.toString(16).padStart(32, '0')}.16`;
 
 function gymOf(made: Made, id: number): Gym {
-  const gym = made.directory.get(id);
+  const gym = made.directory.stored(id);
   if (!gym) throw new Error(`no gym ${id}`);
   return gym;
 }
@@ -110,6 +110,7 @@ const labels = (interaction: Awaited<ReturnType<Made['use']>>): string[] =>
 async function raidAt(made: Made, gymId: number) {
   const raid = await made.service.reportRaid({
     gym: gymOf(made, gymId),
+    guildRow: TEST_GUILD_ROW,
     reporterId: REPORTER,
     anonymous: false,
     autoStatus: PartyStatus.Interested,
@@ -592,11 +593,31 @@ describe('/gym review: the answers to an item to match', () => {
     });
   });
 
+  it('New gym takes a Wayspot that a gym of another server is too (plan 19B-2)', async () => {
+    const made = await gymCommandsWith();
+    await usualQueue(made);
+    const theirs = await withOtherServer(made);
+    await made.gymStore.update(theirs.id, { pogoId: idOf(4) });
+    await made.directory.refreshGym(theirs.id);
+    const review = reviewOf(made, 6);
+    const pressed = await made.press(`gymreview:${review}:new:${idOf(4)}`);
+    await made.settle();
+
+    const added = made.directory
+      .of(TEST_GUILD_ROW)
+      .all()
+      .find((gym) => gym.pogoId === idOf(4));
+    expect(added).toMatchObject({ name: 'Mosaic of Maple Leaves' });
+    expect(lines(made, pressed)[0]).not.toContain('Northgate');
+    // The other server's gym is as it was, and still that Wayspot.
+    expect(made.directory.stored(theirs.id)?.pogoId).toBe(idOf(4));
+  });
+
   it('New gym that could not be saved keeps the question open and says to try again', async () => {
     const made = await gymCommandsWith();
     await usualQueue(made);
     const review = reviewOf(made, 6);
-    vi.spyOn(made.wayspots, 'byId').mockImplementation(() => {
+    vi.spyOn(made.wayspots, 'of').mockImplementation(() => {
       throw new Error('the kept Wayspots cannot be read');
     });
     const pressed = await made.press(`gymreview:${review}:new:${idOf(4)}`);
@@ -612,6 +633,7 @@ describe('/gym review: the answers to an item to match', () => {
     await usualQueue(made);
     const promoted = candidate(made, 4, 'Mosaic of Maple Leaves', 6, 40);
     await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
       {
         upsert: [
           {
@@ -629,6 +651,18 @@ describe('/gym review: the answers to an item to match', () => {
       },
       1,
     );
+    // The second server keeps a copy of its own (plan 19B-3), which this server's answer leaves.
+    const theirs = {
+      id: promoted.id,
+      kind: 'stop' as const,
+      formerKind: null,
+      lat: promoted.lat,
+      lon: promoted.lon,
+      title: 'Their Mosaic',
+      address: null,
+      image: null,
+    };
+    await made.wayspotStore.saveFromImport(OTHER_GUILD_ROW, { upsert: [theirs], remove: [] }, 1);
     await made.wayspots.load();
 
     await made.press(`gymreview:${reviewOf(made, 6)}:new:${idOf(4)}`);
@@ -638,8 +672,12 @@ describe('/gym review: the answers to an item to match', () => {
     expect(made.gateway.messagesIn(UPDATES_CHANNEL).map((sent) => textOf(sent.message))).toEqual([
       '### The gym list changed\nProfessor Pine has added 1 gym (it was a PokéStop).',
     ]);
-    expect(await made.wayspotStore.all()).toEqual([]);
-    expect(made.wayspots.byId(idOf(4))).toBeUndefined();
+    expect(await made.wayspotStore.all(TEST_GUILD_ROW)).toEqual([]);
+    expect(made.wayspots.of(TEST_GUILD_ROW).byId(idOf(4))).toBeUndefined();
+    expect(await made.wayspotStore.all(OTHER_GUILD_ROW)).toEqual([
+      expect.objectContaining({ id: promoted.id, title: 'Their Mosaic' }),
+    ]);
+    expect(made.wayspots.of(OTHER_GUILD_ROW).byId(idOf(4))?.title).toBe('Their Mosaic');
   });
 
   it('New gym gives the gym the picture of the Wayspot it was kept with', async () => {
@@ -648,6 +686,7 @@ describe('/gym review: the answers to an item to match', () => {
     const wall = candidate(made, 4, 'Mosaic of Maple Leaves', 6, 40);
     const picture = 'https://lh3.googleusercontent.com/mosaic';
     await made.wayspotStore.saveFromImport(
+      TEST_GUILD_ROW,
       {
         upsert: [
           {
@@ -675,7 +714,7 @@ describe('/gym review: the answers to an item to match', () => {
 
   it('New gym is refused where another gym lies within ten metres of the Wayspot', async () => {
     const made = await gymCommandsWith();
-    await made.gymStore.create({ name: 'Leaf Bench', ...at(gymOf(made, 6), 45) });
+    await made.gymStore.create({ name: 'Leaf Bench', ...at(gymOf(made, 6), 45) }, 1);
     await made.directory.load();
     await queue(made, [
       {
@@ -776,7 +815,7 @@ describe('/gym review: the answers to a missing gym', () => {
       ['Delete', `gymreview:${review}:confirm`],
       ['Back', `gymreview:${review}:back`],
     ]);
-    expect(made.directory.get(2)).toBeDefined();
+    expect(made.directory.of(TEST_GUILD_ROW).get(2)).toBeDefined();
     const back = await made.press(`gymreview:${review}:back`);
     expect(lines(made, back)[0]).toBe(
       '**Old Stone Fountain** (#2) is no gym in Wayfarer any more: its Wayspot is a PokéStop now.',
@@ -790,7 +829,7 @@ describe('/gym review: the answers to a missing gym', () => {
     const pressed = await made.press(`gymreview:${review}:confirm`);
     await made.settle();
     expect(lines(made, pressed)[0]).toBe('Deleted **Old Stone Fountain** (#2).');
-    expect(made.directory.get(2)).toBeUndefined();
+    expect(made.directory.stored(2)).toBeUndefined();
     expect(made.wayfarerStore.reviews.some((row) => row.id === review)).toBe(false);
     expect(made.gateway.messagesIn(UPDATES_CHANNEL)).toHaveLength(1);
     expect(lines(made, pressed)).toContain(
@@ -809,7 +848,7 @@ describe('/gym review: the answers to a missing gym', () => {
         'deleted while a raid is there: wait until the raid is over, or close it with ' +
         '`/delete` in its post.',
     );
-    expect(made.directory.get(2)).toBeDefined();
+    expect(made.directory.of(TEST_GUILD_ROW).get(2)).toBeDefined();
     expect(made.wayfarerStore.reviews.find((row) => row.id === review)?.openGymId).toBe(2);
   });
 });
@@ -840,7 +879,7 @@ describe('/gym review: the answers to a gym never found', () => {
     const pressed = await made.press(`gymreview:${reviewOf(made, 12)}:confirm`);
     await made.settle();
     expect(lines(made, pressed)[0]).toBe('Deleted **Pinewood Post Office Gym** (#12).');
-    expect(made.directory.get(12)).toBeUndefined();
+    expect(made.directory.stored(12)).toBeUndefined();
   });
 });
 
@@ -893,7 +932,7 @@ describe('/gym review: an import meanwhile', () => {
       expect(lines(made, pressed)[0]).toBe(
         'That one changed since it was shown (a newer import), so nothing was done.',
       );
-      expect(made.directory.get(2)).toBeDefined();
+      expect(made.directory.of(TEST_GUILD_ROW).get(2)).toBeDefined();
       expect(made.wayfarerStore.reviews.find((row) => row.id === review)).toMatchObject({
         openGymId: 2,
         decision: null,

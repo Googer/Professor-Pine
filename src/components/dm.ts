@@ -18,9 +18,9 @@ import {
   type ControlRows,
 } from '../render/notify-dm.js';
 import { gymName } from '../render/raid-post.js';
+import { serverGyms } from '../commands/util/server-gym.js';
 import { plain } from '../render/text.js';
 import { dialogName, scopeOf } from '../commands/notifications/want-boxes.js';
-import { notificationsEnabled } from '../commands/notifications/shared.js';
 import {
   NOT_A_MEMBER,
   WANTS_OFF,
@@ -60,7 +60,8 @@ async function stop(
         : `**${name}** was already removed from your list for that server.`;
     }
     case 'gym': {
-      const name = plain(gymName(ctx.gyms.get(reason.gymId)));
+      // The id came with the press: named only as a gym of that server (plan 19B-2).
+      const name = plain(gymName((await serverGyms({ guildId }, ctx)).get(reason.gymId)));
       const removed = await ctx.gymTargets.remove(memberId, guildId, reason.gymId);
       return removed
         ? `Removed **${name}** from your gyms for that server. \`/target\` there adds it again.`
@@ -151,7 +152,10 @@ async function openChange(
     );
   }
   const server = { id: guildId, name: serverNameOf(interaction, guildId) };
-  await interaction.showModal(wantDialogFor(ctx, subject, held, { server, openedAt: Date.now() }));
+  const zone = ctx.servers.zoneOf(guildId);
+  await interaction.showModal(
+    wantDialogFor(ctx, subject, held, { server, openedAt: Date.now(), zone }),
+  );
 }
 
 /**
@@ -165,7 +169,7 @@ async function readForChange<T>(
   guildId: string,
   read: () => Promise<T>,
 ): Promise<T> {
-  if (!notificationsEnabled(ctx.config)) throw new UserError(WANTS_OFF);
+  if (!ctx.servers.of(guildId).features.notifications) throw new UserError(WANTS_OFF);
   const [member, value] = await readInTime(ctx.log, interaction, () =>
     Promise.all([ctx.members.find(guildId, interaction.user.id), read()]),
   );

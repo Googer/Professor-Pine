@@ -73,9 +73,10 @@ describe('SpawnReportRepository', () => {
       expect(await store.all()).toEqual([]);
       await store.add({ channelId: CHANNEL, messageId: SECOND, deleteAt: NOW + 2 });
       await store.add({ channelId: CHANNEL, messageId: FIRST, deleteAt: NOW + 1 });
+      // Recorded without what the map shows: no server known.
       expect(await store.all()).toEqual([
-        { channelId: CHANNEL, messageId: FIRST, deleteAt: NOW + 1 },
-        { channelId: CHANNEL, messageId: SECOND, deleteAt: NOW + 2 },
+        { channelId: CHANNEL, messageId: FIRST, deleteAt: NOW + 1, guildId: null },
+        { channelId: CHANNEL, messageId: SECOND, deleteAt: NOW + 2, guildId: null },
       ]);
     });
 
@@ -83,7 +84,9 @@ describe('SpawnReportRepository', () => {
       const store = make();
       await store.add({ channelId: CHANNEL, messageId: FIRST, deleteAt: NOW });
       await store.add({ channelId: SECOND, messageId: FIRST, deleteAt: NOW + 9 });
-      expect(await store.all()).toEqual([{ channelId: CHANNEL, messageId: FIRST, deleteAt: NOW }]);
+      expect(await store.all()).toEqual([
+        { channelId: CHANNEL, messageId: FIRST, deleteAt: NOW, guildId: null },
+      ]);
     });
 
     it('forgets a report, and copes with one it does not know', async () => {
@@ -128,13 +131,14 @@ describe('SpawnReportRepository', () => {
           near: PIN,
         },
       ]);
-      // `all` is what the sweep reads: every row, as before.
-      expect((await store.all()).map((row) => row.messageId)).toEqual([
-        '7',
-        THIRD,
-        '8',
-        FIRST,
-        SECOND,
+      // `all` is what the sweep reads: every row, as before, with its server where it is known
+      // (plan 19C-1).
+      expect((await store.all()).map((row) => [row.messageId, row.guildId])).toEqual([
+        ['7', GUILD],
+        [THIRD, OTHER_GUILD],
+        ['8', null],
+        [FIRST, GUILD],
+        [SECOND, GUILD],
       ]);
     });
 

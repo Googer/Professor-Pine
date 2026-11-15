@@ -16,6 +16,8 @@ export function listedEvent(overrides: Partial<ListedEvent> = {}): ListedEvent {
     image: 'https://cdn.leekduck.com/assets/img/events/cd/pawniard.jpg',
     start: Date.UTC(2026, 10, 21, 19),
     end: Date.UTC(2026, 10, 21, 22),
+    startLocal: '2026-11-21T14:00:00',
+    endLocal: '2026-11-21T17:00:00',
     formerIds: [],
     ...overrides,
   };
@@ -30,7 +32,12 @@ export function listedEventCases(made: () => Promise<ListedEventStorage>): void 
   it('keeps the events as given, every field, in order of their start', async () => {
     const store = await made();
     const day = listedEvent();
-    const hour = listedEvent({
+    // A time the feed gave as a moment keeps no wall-clock time (plan 19A-2).
+    const {
+      startLocal: _start,
+      endLocal: _end,
+      ...hour
+    } = listedEvent({
       id: 'raidhour20261118',
       name: 'Cresselia and Darkrai Raid Hour',
       eventType: 'raid-hour',
@@ -42,6 +49,7 @@ export function listedEventCases(made: () => Promise<ListedEventStorage>): void 
     });
     await store.replace([day, hour]);
     expect(await store.all()).toEqual([hour, day]);
+    expect((await store.all())[0]).not.toHaveProperty('startLocal');
   });
 
   it('keeps what the last replace gave in the place of all it kept before', async () => {

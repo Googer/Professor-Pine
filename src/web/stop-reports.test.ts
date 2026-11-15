@@ -9,7 +9,7 @@ import {
 } from '../../test/support/gyms.js';
 import { regionsFixture } from '../../test/support/providers.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
-import { ALICE, BOB } from '../../test/support/parties.js';
+import { ALICE, BOB, PARTY_ZONE } from '../../test/support/parties.js';
 import { pageTask } from '../../test/support/research.js';
 import { MemoryStopPosts } from '../../test/support/research-store.js';
 import { feedChoice } from '../../test/support/rocket.js';
@@ -63,7 +63,7 @@ async function setup(
   const research = async (keys: string[], reporter = ALICE_AS) =>
     reportResearchAs(made.ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(made.ctx, FAKE_GUILD_ID, keys),
-      subject: readTask(made.ctx, DRAGON.key, null),
+      subject: readTask(made.ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter,
     });
   const rocket = async (who: string, key: string, reporter = ALICE_AS) => {
@@ -312,7 +312,7 @@ describe('the reports at stops on the map', () => {
     await made.ctx.stopReports.reportResearch({
       serverId: OTHER_GUILD_ID,
       stops: await stopsByKey(made.ctx, FAKE_GUILD_ID, [wayspotId(2)]),
-      subject: readTask(made.ctx, DRAGON.key, null),
+      subject: readTask(made.ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ALICE_AS,
     });
     expect(made.store.rows.size).toBe(2);
@@ -357,7 +357,7 @@ describe('the reports at stops on the map', () => {
           snowflakeOf: (row) => Promise.resolve(row === 1 ? FAKE_GUILD_ID : undefined),
         },
         gateway: reporting.made.gateway,
-        zone: reporting.ctx.config.settings.timezone,
+        servers: reporting.ctx.servers,
         log: reporting.ctx.log,
         now: () => STOP_NOON,
         // Long enough that only `flush` draws while the test runs.

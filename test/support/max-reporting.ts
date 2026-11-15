@@ -34,12 +34,14 @@ export const SPOT_ROW = keptRow(1, {
  * (and `rows` beside it), the members' settings of `made.userSettings`, in a context
  * (`createTestContext`) whose place search is built. The services read `Date.now()`: fake `Date`
  * to the day of the test (`MAX_THURSDAY`) before calling it. `addresses`: the Power Spots' addresses
- * the map asks for (`wayspotAddressesWith`), read by the kept Wayspots; none by default.
+ * the map asks for (`wayspotAddressesWith`), read by the kept Wayspots; none by default. `others`:
+ * other servers' Wayspots (plan 19B-3), which the test server never sees.
  */
 export async function maxReportingWith(
   safety: SafetyOptions = { moderation: null },
   rows: readonly WayspotRow[] = [],
   addresses?: WayspotAddresses,
+  others: readonly { guildId: number; rows: readonly WayspotRow[] }[] = [],
 ) {
   const made = await reportsWith(safety);
   // The services read the faked Date, as the bot's read the clock (a battle is made when reported).
@@ -48,7 +50,7 @@ export async function maxReportingWith(
   await bosses.service.sync();
   // The service's clock is the test's (Date is faked to the day of each test).
   bosses.state.now = Date.now();
-  const { wayspots } = await wayspotsWith([SPOT_ROW, ...rows], undefined, addresses);
+  const { wayspots } = await wayspotsWith([SPOT_ROW, ...rows], undefined, addresses, others);
   const feed = readMaxEventFeed();
   const { ctx, entries } = createTestContext({
     partyService: made.service,

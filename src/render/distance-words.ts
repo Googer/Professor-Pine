@@ -1,11 +1,16 @@
 /**
  * A distance in words, one wording for the live map and every Discord text that says a distance
- * (Matt, 2026-10-25: one setting shared by both, `settings.distanceUnits`, per instance as
- * `timezone` is). No import, so that the page's bundle takes it as the renderer does.
+ * (Matt, 2026-10-25: one setting shared by both; since plan 19A-1 a server's, its values'
+ * `distanceUnits`, read through `ServerSettings.of`). No import, so that the page's bundle takes it as the renderer does.
  */
 
-/** The units distances are said in (`settings.distanceUnits`). */
+/** The units distances are said in (a server's `distanceUnits`, plan 19A-1). */
 export type DistanceUnits = 'imperial' | 'metric';
+
+/** The units themselves in words (`/admin setup`'s checklist), beside the distances said in them. */
+export function unitsWords(units: DistanceUnits): string {
+  return units === 'metric' ? 'meters and kilometers' : 'feet and miles';
+}
 
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.280_839_9;

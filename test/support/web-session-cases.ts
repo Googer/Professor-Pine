@@ -17,6 +17,7 @@ export function storedSession(id: string, at: number, userId = '7000000000000000
     createdAt: at,
     lastUsedAt: at,
     expiresAt: at + SESSION_MS,
+    serversListed: false,
   };
 }
 
@@ -94,6 +95,39 @@ export function webSessionCases(made: () => Promise<WebSessionStore>): void {
     expect(await store.create(storedSession(sessionId(91), 23_000, OTHER))).toEqual([]);
     // Somebody else's session is theirs: older than all of these, and kept.
     expect(await found(90)).toEqual([true]);
+  });
+
+  it('keeps the servers a login read with its session, and forgets them with it (final review R4-1)', async () => {
+    const store = await made();
+    const PINEWOOD = '410000000000000001';
+    const OAKVALE = '410000000000000002';
+    const OTHER = '700000000000000002';
+    // A login with Discord, the servers it read; a link's login, its server alone; one from before.
+    await store.create({ ...storedSession(sessionId(1), 1_000), serversListed: true }, [
+      OAKVALE,
+      PINEWOOD,
+    ]);
+    await store.create(storedSession(sessionId(2), 1_000, OTHER), [PINEWOOD]);
+    await store.create(storedSession(sessionId(3), 50_000));
+    expect(await store.find(sessionId(1), 2_000)).toMatchObject({ serversListed: true });
+    expect(await store.find(sessionId(2), 2_000)).toMatchObject({ serversListed: false });
+    expect((await store.serversOf(sessionId(1))).sort()).toEqual([PINEWOOD, OAKVALE]);
+    expect(await store.serversOf(sessionId(2))).toEqual([PINEWOOD]);
+    expect(await store.serversOf(sessionId(3))).toEqual([]);
+    expect(await store.serversOf(sessionId(4))).toEqual([]);
+    // A logout, an expired session: their servers go with them, nobody else's.
+    await store.remove(sessionId(1));
+    expect(await store.serversOf(sessionId(1))).toEqual([]);
+    expect(await store.serversOf(sessionId(2))).toEqual([PINEWOOD]);
+    expect(await store.removeExpired(1_000 + SESSION_MS)).toBe(1);
+    expect(await store.serversOf(sessionId(2))).toEqual([]);
+    // One pushed out of the account's ten.
+    await store.create(storedSession(sessionId(10), 60_000), [OAKVALE]);
+    for (let n = 11; n < 11 + MAX_SESSIONS_PER_ACCOUNT; n += 1) {
+      await store.create(storedSession(sessionId(n), n * 10_000));
+    }
+    expect(await store.find(sessionId(10), 70_000)).toBeUndefined();
+    expect(await store.serversOf(sessionId(10))).toEqual([]);
   });
 
   it('never drops the session it makes, though others were used at the same moment or later', async () => {

@@ -32,7 +32,7 @@ export interface TutorialFacts {
   liveMap: boolean;
   /** The server has PokéStops to report at (`PlaceFinder.hasStops`). */
   hasStops: boolean;
-  /** Meetups may wait for a moderator (`settings.channels.moderation`). */
+  /** Meetups may wait for a moderator (the server's moderators' channel). */
   meetupsChecked: boolean;
   /** Members may add their old bot's history (the member index is there, plan 8H-10). */
   oldHistory?: boolean;

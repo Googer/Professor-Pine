@@ -1,6 +1,8 @@
 import type { MeetupRequestRecord } from '../../src/domain/meetups/records.js';
 import type { Party } from '../../src/domain/party/party.js';
 import { MeetupSafety, type RequestAsk } from '../../src/services/meetup-safety.js';
+import type { WayspotProvider } from '../../src/services/wayspot-directory.js';
+import type { QuietServers } from '../../src/services/quiet-servers.js';
 import { WEST_CHANNEL } from './gyms.js';
 import { LIBRARY, MAKER, SAFETY_SERVER } from './meetup-safety-cases.js';
 import { MemoryMeetupSafety } from './meetup-safety.js';
@@ -12,12 +14,19 @@ export const MODERATION = 'meetup-review';
 export const MOD_CHANNEL = '600000000000000777';
 
 export interface SafetyOptions {
-  /** The name the settings give the moderators' channel; null for none (the safety off). */
+  /**
+   * The name of the server's moderators' channel (`MOD_CHANNEL` in its values); null for none
+   * set (the safety off).
+   */
   moderation?: string | null;
   /** Whether the server has that channel. Default yes. */
   channel?: boolean;
-  /** `settings.meetupSafety.flaggedWords`. */
+  /** The server's `flaggedWords` (plan 19A-1: its own; `meetupSafety.flaggedWords` of the file). */
   flaggedWords?: string[];
+  /** The kept Wayspots a ruled place of none kept is read from (`wayspotsWith`); none without. */
+  wayspots?: Pick<WayspotProvider, 'stored'>;
+  /** The quiet servers (plans 19C-1, 19C-2): their records are not expired. Default none. */
+  quiet?: QuietServers;
 }
 
 /**
@@ -33,12 +42,14 @@ export async function meetupSafetyWith(
   overrides: ServiceOverrides = {},
 ) {
   const made = await partyServiceWith(parties, overrides);
-  const { moderation = MODERATION, channel = true, flaggedWords } = options;
-  const { moderation: _none, ...channels } = made.settings.channels;
-  const settings = {
-    ...made.settings,
-    channels: moderation === null ? channels : { ...channels, moderation },
-    ...(flaggedWords === undefined ? {} : { meetupSafety: { flaggedWords } }),
+  const { moderation = MODERATION, channel = true, flaggedWords, wayspots } = options;
+  const { settings } = made;
+  // The server's moderators' channel (plan 19A-1: by id), for every service of `made`.
+  const { moderation: _none, ...channels } = made.servers.values.channels;
+  made.servers.values = {
+    ...made.servers.values,
+    channels: moderation === null ? channels : { ...channels, moderation: MOD_CHANNEL },
+    ...(flaggedWords === undefined ? {} : { flaggedWords }),
   };
   if (channel && moderation !== null) made.gateway.addChannel(MOD_CHANNEL, moderation);
   const storage = new MemoryMeetupSafety();
@@ -49,13 +60,18 @@ export async function meetupSafetyWith(
     regions: made.regions,
     dms: made.dms,
     gyms: made.gyms,
+    ...(wayspots === undefined ? {} : { wayspots }),
     store: made.store,
     guilds: {
       idFor: (snowflake) => Promise.resolve(snowflake === made.gateway.guildId ? 1 : undefined),
     },
     settings,
+    servers: made.servers,
+    // The notices of the party services' world (plan 19B-1): `made.notices`.
+    notices: made.notices,
     log: made.log,
     now: () => made.clock.now,
+    ...(options.quiet === undefined ? {} : { quiet: options.quiet }),
   });
   const held = async (ask: Partial<RequestAsk> = {}): Promise<MeetupRequestRecord> => {
     const outcome = await safety.submit(bookSwap(made.clock.now, ask));

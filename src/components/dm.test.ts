@@ -33,9 +33,9 @@ import { components } from './index.js';
 import { dialogField, dialogFields, dialogText, shownDialog } from '../../test/support/dialogs.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { fakeModal } from '../../test/support/fake-interactions.js';
-import { loadSettings } from '../config/settings.js';
-import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
 import type { AppContext } from '../app-context.js';
+import { withFeatures } from '../../test/support/server-values.js';
+import { THEIR_GYM, twoServerGyms } from '../../test/support/providers.js';
 
 const HOME = '412345678901234567';
 const AWAY = '412345678901234568';
@@ -52,12 +52,12 @@ function activeStops(components: readonly unknown[]): string[] {
     .map((button) => button.customId ?? '');
 }
 
-function setup() {
+function setup(options: { gyms?: AppContext['gyms'] } = {}) {
   const wants = new MemoryWants();
   const gymTargets = new MemoryGymTargets();
   const users = new MemoryUsers();
   const newTrains = new MemoryNewTrains();
-  const { ctx, entries } = createTestContext({ wants, gymTargets, users, newTrains });
+  const { ctx, entries } = createTestContext({ wants, gymTargets, users, newTrains, ...options });
   const router = new InteractionRouter(ctx, [], [dmControls]);
   /**
    * The components of a direct message with a button for each of these reasons, as the fake
@@ -316,6 +316,17 @@ describe('the "Stop" buttons under a direct message', () => {
     expect(made.said(await made.press(ALICE, { kind: 'gym', gymId: 1 }))).toBe(
       '**The Stacks** was already removed from your gyms for that server.',
     );
+  });
+
+  it('names a gym target only as a gym of that server (plan 19B-2)', async () => {
+    // Gym 2 is the second server's alone, though it lies in a region of this one.
+    const made = setup({ gyms: twoServerGyms().gyms });
+    await made.gymTargets.add(ALICE, HOME, THEIR_GYM);
+    const pressed = await made.press(ALICE, { kind: 'gym', gymId: THEIR_GYM });
+    expect(made.said(pressed)).toBe(
+      'Removed **Unknown gym** from your gyms for that server. `/target` there adds it again.',
+    );
+    expect(made.said(pressed)).not.toContain('Fountain');
   });
 
   it('switches the settings for the boss of an egg and for new trains off', async () => {
@@ -602,13 +613,8 @@ describe('Manage… under a direct message (plan 8R-4)', () => {
       content: 'You are no longer a member of that server: there is nothing to change there.',
       flags: MessageFlags.Ephemeral,
     });
-    const settings = loadSettings(TEST_SETTINGS_PATH);
-    const off = changing({
-      config: {
-        ...createTestContext().ctx.config,
-        settings: { ...settings, features: { ...settings.features, notifications: false } },
-      },
-    });
+    // A server that notifies nobody (plan 19A-1).
+    const off = changing({ servers: withFeatures({ notifications: false }) });
     const refused = await off.press();
     expect(sent(refused.reply).content).toBe(
       'Wants are switched off in that server: there is nothing to change.',
@@ -678,15 +684,8 @@ describe('Manage… under a direct message (plan 8R-4)', () => {
     expect((await made.wants.list(ALICE, HOME)).wants).toEqual([
       { target: pokemonTarget(25), scope: 'raid' },
     ]);
-    const settings = loadSettings(TEST_SETTINGS_PATH);
     const off = new InteractionRouter(
-      {
-        ...made.ctx,
-        config: {
-          ...made.ctx.config,
-          settings: { ...settings, features: { ...settings.features, notifications: false } },
-        },
-      },
+      { ...made.ctx, servers: withFeatures({ notifications: false }) },
       [],
       components,
     );
@@ -874,13 +873,7 @@ describe('Manage… of Team GO Rocket under a direct message (plan 8R-4)', () =>
       content: 'You are no longer a member of that server: there is nothing to change there.',
       flags: MessageFlags.Ephemeral,
     });
-    const settings = loadSettings(TEST_SETTINGS_PATH);
-    const off = rocketDm({
-      config: {
-        ...createTestContext().ctx.config,
-        settings: { ...settings, features: { ...settings.features, notifications: false } },
-      },
-    });
+    const off = rocketDm({ servers: withFeatures({ notifications: false }) });
     expect(sent((await off.press()).reply)).toEqual({
       content: 'Wants are switched off in that server: there is nothing to change.',
       flags: MessageFlags.Ephemeral,

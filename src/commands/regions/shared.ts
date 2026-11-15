@@ -11,7 +11,12 @@ import { channelContext } from '../../discord/channel-context.js';
 import type { GuardableInteraction, LocatedInteraction } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf, managesChannels } from '../../discord/guards.js';
+import {
+  guildIdOf,
+  isBotManagement,
+  managesChannels,
+  memberRoleNames,
+} from '../../discord/guards.js';
 import { answerApart, sayInPlace, showInPlace, type Press } from '../../discord/late-reply.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import type { PlannedImport, ServerChannel } from '../../domain/regions/region-import.js';
@@ -138,7 +143,13 @@ export async function regionStaff(
   }
   // Read from the server, never from the channel of the command (`managesChannels`).
   const mayManageChannels = managesChannels(interaction);
-  return { staffId: interaction.user.id, guildId, server, mayManageChannels };
+  // As `/region remove`'s guard (plan 19C-2): staff by role.
+  const mayRemoveRegions = isBotManagement(
+    memberRoleNames(interaction),
+    interaction.user.id,
+    ctx.config.env.OWNER_ID,
+  );
+  return { staffId: interaction.user.id, guildId, server, mayManageChannels, mayRemoveRegions };
 }
 
 /**
@@ -189,11 +200,15 @@ export function content(lines: readonly (string | undefined)[]): string {
  * What staff are reminded of after a region was made or removed, where members give themselves
  * roles: a region usually has a role of its own. Undefined where that feature is off.
  */
-export function selfRoleReminder(ctx: AppContext, what: 'new' | 'removed'): string | undefined {
-  return roleReminder(ctx.config.settings.features.roles, what);
+export function selfRoleReminder(
+  ctx: AppContext,
+  serverId: string,
+  what: 'new' | 'removed',
+): string | undefined {
+  return roleReminder(ctx.servers.of(serverId).features.roles, what);
 }
 
-/** `selfRoleReminder` by whether members give themselves roles (`settings.features.roles`). */
+/** `selfRoleReminder` by whether members give themselves roles (the server's `features.roles`). */
 export function roleReminder(roles: boolean, what: 'new' | 'removed'): string | undefined {
   if (!roles) return undefined;
   return what === 'new'

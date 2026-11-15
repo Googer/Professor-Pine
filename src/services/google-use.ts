@@ -33,33 +33,101 @@ export interface DayUse {
 }
 
 export interface GoogleUse {
-  /** Counts one question, or one lookup by hand, on a day (`YYYY-MM-DD`, Pacific time). */
-  use(day: string, counted: GoogleCount): Promise<void>;
+  /**
+   * Counts one question, or one lookup by hand, on a day (`YYYY-MM-DD`, Pacific time); with
+   * `guildId` (a server's `Guild` row, plan 19B-5) as that server's too, in the same write: the
+   * line's question of a server's row, a server's lookup by hand or map. A lookup by hand's own
+   * questions are the instance's alone (its `hand` is the server's).
+   */
+  use(day: string, counted: GoogleCount, guildId?: number): Promise<void>;
   /**
    * What these days used; a day without questions is left out. The gyms the line before plan
    * 8W-6 counted on a day (`GymLookupDay`) count as places questions of that day.
    */
   usedOn(days: readonly string[]): Promise<Map<string, DayUse>>;
+  /**
+   * What each server used over these days, summed (plan 19B-5), by its `Guild` row; with
+   * `guildId`, that server's alone. A server without questions on them is left out.
+   */
+  serversUsedOn(days: readonly string[], guildId?: number): Promise<Map<number, DayUse>>;
+  /**
+   * How many of one kind each server counted over these days (fix round 4, R4: the floors of
+   * lookups by hand and of maps read their kind alone), by its `Guild` row; a server without any
+   * is left out.
+   */
+  serversCountedOn(days: readonly string[], kind: GoogleCount): Promise<Map<number, number>>;
+}
+
+/** No question yet. */
+const NOTHING: DayUse = { places: 0, geocodes: 0, byHand: 0, maps: 0 };
+
+/** A count with one more of a kind. */
+export function plusOne(kept: DayUse, counted: GoogleCount): DayUse {
+  return counted === 'places'
+    ? { ...kept, places: kept.places + 1 }
+    : counted === 'geocode'
+      ? { ...kept, geocodes: kept.geocodes + 1 }
+      : counted === 'map'
+        ? { ...kept, maps: kept.maps + 1 }
+        : { ...kept, byHand: kept.byHand + 1 };
+}
+
+/** What a count holds of one kind. */
+export function countOf(used: DayUse, kind: GoogleCount): number {
+  return kind === 'places'
+    ? used.places
+    : kind === 'geocode'
+      ? used.geocodes
+      : kind === 'map'
+        ? used.maps
+        : used.byHand;
+}
+
+/** Two counts added. */
+export function added(a: DayUse, b: DayUse): DayUse {
+  return {
+    places: a.places + b.places,
+    geocodes: a.geocodes + b.geocodes,
+    byHand: a.byHand + b.byHand,
+    maps: a.maps + b.maps,
+  };
 }
 
 /** The counts in memory: the database's twin. `legacy` is the old count of gyms per day. */
 export class MemoryGoogleUse implements GoogleUse {
   readonly days = new Map<string, DayUse>();
   readonly legacy = new Map<string, number>();
+  /** Each server's counts per day, by `<guildId>:<day>`. */
+  readonly servers = new Map<string, DayUse>();
 
-  use(day: string, counted: GoogleCount): Promise<void> {
-    const kept = this.days.get(day) ?? { places: 0, geocodes: 0, byHand: 0, maps: 0 };
-    this.days.set(
-      day,
-      counted === 'places'
-        ? { ...kept, places: kept.places + 1 }
-        : counted === 'geocode'
-          ? { ...kept, geocodes: kept.geocodes + 1 }
-          : counted === 'map'
-            ? { ...kept, maps: kept.maps + 1 }
-            : { ...kept, byHand: kept.byHand + 1 },
-    );
+  use(day: string, counted: GoogleCount, guildId?: number): Promise<void> {
+    this.days.set(day, plusOne(this.days.get(day) ?? NOTHING, counted));
+    if (guildId !== undefined) {
+      const key = `${String(guildId)}:${day}`;
+      this.servers.set(key, plusOne(this.servers.get(key) ?? NOTHING, counted));
+    }
     return Promise.resolve();
+  }
+
+  serversUsedOn(days: readonly string[], guildId?: number): Promise<Map<number, DayUse>> {
+    const asked = new Set(days);
+    const used = new Map<number, DayUse>();
+    for (const [key, counts] of this.servers) {
+      const [server = '', day = ''] = key.split(':');
+      const id = Number(server);
+      if (!asked.has(day) || (guildId !== undefined && id !== guildId)) continue;
+      used.set(id, added(used.get(id) ?? NOTHING, counts));
+    }
+    return Promise.resolve(used);
+  }
+
+  async serversCountedOn(days: readonly string[], kind: GoogleCount): Promise<Map<number, number>> {
+    const counted = new Map<number, number>();
+    for (const [guildId, used] of await this.serversUsedOn(days)) {
+      const n = countOf(used, kind);
+      if (n > 0) counted.set(guildId, n);
+    }
+    return counted;
   }
 
   usedOn(days: readonly string[]): Promise<Map<string, DayUse>> {

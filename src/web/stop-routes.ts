@@ -45,6 +45,7 @@ import type { Region } from '../db/repositories/region-repository.js';
 import { ListChanged, UserError } from '../discord/errors.js';
 import { MEMBER_WRITE_THROTTLE } from '../discord/throttle.js';
 import { isHideout, parseRocketKey, type RocketChoice } from '../domain/rocket/lineups.js';
+import { inPeriod } from '../domain/time/research-periods.js';
 import {
   isRocketReport,
   type ReportedStop,
@@ -77,6 +78,7 @@ import {
 import { sendFailure } from './answers.js';
 import { postGuard } from './csrf.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { UNCONFIRMED } from './party-routes.js';
@@ -181,6 +183,8 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     reports: readonly StopReport[],
     viewer: Extract<PartyViewer, { kind: 'member' }>,
     userId: string,
+    /** The request whose server's zone the view is in (`requestZone`). */
+    request: FastifyRequest,
   ): Promise<StopReportsView> => {
     const seen = new Map(
       reports.map((report) => [report.id, seenIn(places.get(report.id) ?? [], viewer)]),
@@ -210,9 +214,9 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     const now = deps.now();
     return stopReportView({
       reports,
-      period: ctx.stopReports.period(now),
+      period: ctx.stopReports.period(guild, now),
       now,
-      zone: ctx.config.settings.timezone,
+      zone: requestZone(request),
       shown: (report) => (seen.get(report.id) ?? []).length > 0,
       memberId: userId,
       staff: isMapStaff(viewer.standing, userId, deps.parties.ownerId),
@@ -241,6 +245,8 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     guild: string,
     userId: string,
     reports: readonly StopReport[],
+    /** The request whose server's zone the view is in (`requestZone`). */
+    request: FastifyRequest,
   ): Promise<StopReportsView | undefined> => {
     try {
       const row = await ctx.guilds.idFor(guild);
@@ -248,7 +254,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
       const places = placesOf(row, reports);
       const viewer = await viewers.viewer(guild, userId, forumsOf(places));
       return viewer.kind === 'member'
-        ? await viewFor(guild, places, reports, viewer, userId)
+        ? await viewFor(guild, places, reports, viewer, userId, request)
         : undefined;
     } catch (err) {
       deps.log.warn(
@@ -281,7 +287,9 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
       const places: Places = row === undefined ? new Map() : placesOf(row, reports);
       const viewer = await viewers.viewer(guild, session.userId, forumsOf(places), member);
       if (viewer.kind !== 'member') return sendFailure(request, reply, 403);
-      const body = JSON.stringify(await viewFor(guild, places, reports, viewer, session.userId));
+      const body = JSON.stringify(
+        await viewFor(guild, places, reports, viewer, session.userId, request),
+      );
       const etag = etagOf(body);
       void reply.header('etag', etag);
       if (etagMatches(request.headers['if-none-match'], etag)) return reply.code(304).send();
@@ -290,7 +298,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
   );
 
   /** A pick list's JSON for members: an ETag of it, `private, no-cache`, 304 when the page has it. */
-  const optionsRoute = (url: string, body: () => unknown) => {
+  const optionsRoute = (url: string, body: (request: GuildRequest) => unknown) => {
     scope.get(
       url,
       { onRequest: limitedRead(OPTIONS_PER_MINUTE, deps) },
@@ -306,7 +314,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
           session.userId,
         );
         if (refused) return refused;
-        const json = JSON.stringify(body());
+        const json = JSON.stringify(body(request));
         const etag = etagOf(json);
         void reply.header('etag', etag);
         if (etagMatches(request.headers['if-none-match'], etag)) return reply.code(304).send();
@@ -317,9 +325,10 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
 
   // The pick lists of a research report (plan 8R-3): `/research`'s task list whole, whether it is
   // out of date, and the rewards a typed task may name.
-  optionsRoute('/api/research-options', () =>
+  optionsRoute('/api/research-options', (request) =>
     researchOptions({
-      tasks: ctx.researchTasks.tasks(),
+      // Offered as on the server's clock (fix round 1, M7).
+      tasks: ctx.researchTasks.tasks(requestZone(request)),
       versions: (task) => ctx.researchTasks.versions(task),
       readAt: ctx.researchTasks.readAt(),
       stale: ctx.researchTasks.stale(deps.now()),
@@ -341,15 +350,19 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     }),
   );
 
-  /** The words of a command as text of the page, in the posts' zone. */
-  const words = (text: string): string => pageWords(text, deps.parties.zone, deps.now());
+  /** The words of a command as text of the page, in the zone of the request's server. */
+  const words = (text: string, request: FastifyRequest): string =>
+    pageWords(text, requestZone(request), deps.now());
 
   /**
    * An answer's words on the map: the command's, without the heading of its answer
    * ("### Field research reported": the page says what was done its own way), as page text.
    */
-  const answerWords = ({ head, where }: { head: string; where: string }): string =>
-    words(`${head.replace(/^### [^\n]*\n/u, '')}${where === '' ? '' : `\n${where}`}`);
+  const answerWords = (
+    { head, where }: { head: string; where: string },
+    request: FastifyRequest,
+  ): string =>
+    words(`${head.replace(/^### [^\n]*\n/u, '')}${where === '' ? '' : `\n${where}`}`, request);
 
   /** A region channel as the map's answers name it: `#west`, else `Region 5`. */
   const channel: ChannelNamer = (channelId) => {
@@ -366,7 +379,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     text: string,
     more: Omit<StopReportAnswer, 'ok' | 'text'> = {},
   ) => {
-    const answer: StopReportAnswer = { ok: false, text: words(text), ...more };
+    const answer: StopReportAnswer = { ok: false, text: words(text, reply.request), ...more };
     return reply.code(status).send(answer);
   };
 
@@ -490,7 +503,8 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
       // server and of the period on now, as it was reported (a typed one with its reward, a
       // listed one gone from the list since).
       const base = await ctx.stopReports.get(guild, body.data.sameAs);
-      if (base?.kind !== 'research' || base.periodKey !== ctx.stopReports.period(deps.now()).key) {
+      // Of the period by the one rule (fix round 2, P4: `inPeriod`).
+      if (base?.kind !== 'research' || !inPeriod(base, ctx.stopReports.period(guild, deps.now()))) {
         return noted('ended', refuse(reply, 409, REPORT_ENDED, { reason: 'ended' }));
       }
       subject = { subjectKey: base.subjectKey, research: base.research };
@@ -500,7 +514,13 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
         return noted('refused', refuse(reply, 422, TYPED_TASK_KEY));
       }
       try {
-        subject = readTask(ctx, body.data.task, body.data.reward ?? null);
+        subject = readTask(
+          ctx,
+          guild,
+          body.data.task,
+          body.data.reward ?? null,
+          requestZone(request),
+        );
       } catch (err) {
         if (!(err instanceof UserError)) throw err;
         return noted('refused', refuse(reply, 422, err.message, listChanged(err)));
@@ -518,7 +538,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
         // Discord refuses `/research report` for a full window before its dialog opens.
         const full = throttledOnTheMap(deps, reply, key, userId, throttle, { count: false });
         if (full) return noted('throttled', full);
-        const shown = await shownTo(guild, userId, contested);
+        const shown = await shownTo(guild, userId, contested, request);
         const reports = shown?.research ?? [];
         // Those the map does not show the member by their ids and stops, so that the page can
         // still overrule them (review R5): since plan 8Z-2 only where the view could not be read,
@@ -560,7 +580,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     const made = outcome.saved.map(({ report }) => report);
     // Standing already (R8), or contradicted since and not to be replaced: kept, said as such.
     const standing = [...outcome.already, ...outcome.asks];
-    const shown = await shownTo(guild, userId, [...made, ...standing]);
+    const shown = await shownTo(guild, userId, [...made, ...standing], request);
     const among = (reports: readonly StopReport[]) =>
       (shown?.research ?? []).filter((one) => reports.some((report) => report.id === one.id));
     // The reporters by name, never an id; no link to Discord in the page's words.
@@ -573,7 +593,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     };
     const answer: StopReportAnswer = {
       ok: made.length > 0,
-      text: answerWords(researchWords(view, channel)),
+      text: answerWords(researchWords(view, channel), request),
       research: among(made),
       already: among(standing),
       ...(made.length === 0 ? { reason: 'already' as const } : {}),
@@ -592,8 +612,9 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     guild: string,
     userId: string,
     report: RocketReport,
+    request: FastifyRequest,
   ): Promise<Pick<StopReportAnswer, 'grunt' | 'hideout'>> => {
-    const shown = await shownTo(guild, userId, [report]);
+    const shown = await shownTo(guild, userId, [report], request);
     const [grunt] = shown?.grunts ?? [];
     const [hideout] = shown?.hideouts ?? [];
     return { ...(grunt ? { grunt } : {}), ...(hideout ? { hideout } : {}) };
@@ -609,7 +630,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
   ) =>
     refuse(reply, 422, hideoutQuestion(hideout.rocket.name, rocketLabel(grunt)), {
       asks: { replacing: hideout.id },
-      ...(await rocketShown(guild, userId, hideout)),
+      ...(await rocketShown(guild, userId, hideout, reply.request)),
     });
 
   // A Rocket report (plan 8R-3), as `/rocket report` makes it: before the body is read, the
@@ -697,8 +718,8 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
       case 'reported': {
         const answer: StopReportAnswer = {
           ok: true,
-          text: answerWords(rocketWords(outcome.view, channel)),
-          ...(await rocketShown(guild, userId, outcome.report)),
+          text: answerWords(rocketWords(outcome.view, channel), request),
+          ...(await rocketShown(guild, userId, outcome.report, request)),
         };
         return noted('reported', reply.send(answer));
       }
@@ -711,7 +732,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
           undefined,
           by === '' ? 'a member' : `**${plain(by)}**`,
         );
-        const shown = await rocketShown(guild, userId, outcome.standing);
+        const shown = await rocketShown(guild, userId, outcome.standing, request);
         return noted('already', refuse(reply, 409, text, { ...shown, reason: 'already' }));
       }
       case 'asks':
@@ -779,7 +800,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
       );
       switch (taken.kind) {
         case 'removed': {
-          const answer: StopReportAnswer = { ok: true, text: words(taken.text) };
+          const answer: StopReportAnswer = { ok: true, text: words(taken.text, request) };
           return noted('removed', reply.send(answer));
         }
         case 'not-yours':

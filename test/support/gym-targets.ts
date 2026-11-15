@@ -7,6 +7,8 @@ import {
   type GymTargetStorage,
   type GymTargetUpkeep,
 } from '../../src/db/repositories/gym-notification-repository.js';
+import { FAKE_GUILD_ID } from './fake-interactions.js';
+import { OTHER_GUILD_ID, OTHER_GUILD_ROW, TEST_GUILD_ROW } from './gyms.js';
 
 interface Row extends GymTargetRow {
   memberId: string;
@@ -29,7 +31,13 @@ export class MemoryGymTargets implements GymTargetStorage, GymTargetUpkeep {
       // Like a real query, the answer never comes in the same turn of the event loop.
       setImmediate(() => {
         if (this.failing) reject(this.failing);
-        else resolve(work());
+        else {
+          try {
+            resolve(work());
+          } catch (err) {
+            reject(err instanceof Error ? err : new Error(String(err)));
+          }
+        }
       });
     });
   }
@@ -99,17 +107,36 @@ export class MemoryGymTargets implements GymTargetStorage, GymTargetUpkeep {
     });
   }
 
-  membersTargeting(gymId: number): Promise<number> {
-    return this.attempt(
-      () =>
-        new Set(this.rows.filter((row) => row.gym === String(gymId)).map((row) => row.memberId))
-          .size,
+  /**
+   * The server of a `Guild` row, as the repository joins it: the rows of the test servers
+   * (`TEST_GUILD_ROW`, `OTHER_GUILD_ROW`) unless a test sets others.
+   */
+  readonly serverOfRow = new Map<number, string>([
+    [TEST_GUILD_ROW, FAKE_GUILD_ID],
+    [OTHER_GUILD_ROW, OTHER_GUILD_ID],
+  ]);
+
+  /**
+   * The rows of a gym, of the server of this row, or of every server. A row it does not know is
+   * refused (it throws): read as every server or as none, a test would pass for the wrong reason.
+   */
+  private ofGym(gymId: number, guildRow: number | 'every'): Row[] {
+    const server = guildRow === 'every' ? undefined : this.serverOfRow.get(guildRow);
+    if (guildRow !== 'every' && server === undefined) {
+      throw new Error(`MemoryGymTargets knows no server of row ${String(guildRow)}`);
+    }
+    return this.rows.filter(
+      (row) => row.gym === String(gymId) && (server === undefined || row.guildId === server),
     );
   }
 
-  removeGym(gymId: number): Promise<number> {
+  membersTargeting(gymId: number, guildRow: number | 'every'): Promise<number> {
+    return this.attempt(() => new Set(this.ofGym(gymId, guildRow).map((row) => row.memberId)).size);
+  }
+
+  removeGym(gymId: number, guildRow: number | 'every'): Promise<number> {
     return this.attempt(() => {
-      const ids = this.rows.filter((row) => row.gym === String(gymId)).map((row) => row.id);
+      const ids = this.ofGym(gymId, guildRow).map((row) => row.id);
       this.drop(ids);
       return ids.length;
     });

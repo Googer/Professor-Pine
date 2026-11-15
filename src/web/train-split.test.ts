@@ -255,7 +255,7 @@ describe('Split… of a train on the map (plan 8M-8C)', () => {
     expect(dave).toMatchObject({
       status: 422,
       json: {
-        error: "Only a group's members, the conductor and the moderators can split a group off.",
+        error: 'Only a group’s members, the conductor and the moderators can split a group off.',
       },
     });
     expect(
@@ -349,7 +349,7 @@ describe('Split… of a train on the map (plan 8M-8C)', () => {
       status: 403,
       json: {
         ok: false,
-        text: "Only a group's members, the conductor and the moderators can split a group off.",
+        text: 'Only a group’s members, the conductor and the moderators can split a group off.',
         train: { id: map.made.party.id },
       },
     });

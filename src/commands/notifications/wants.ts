@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   ButtonStyle,
   MessageFlags,
@@ -55,7 +56,7 @@ import {
   type Choice,
 } from '../choices.js';
 import { removeAllQuestion } from './remove-all.js';
-import { NOTIFICATION_THROTTLE, notificationsEnabled } from './shared.js';
+import { NOTIFICATION_THROTTLE, notificationsSetUp } from './shared.js';
 import {
   boxWords,
   costumesShown,
@@ -230,11 +231,13 @@ export function wantDialogFor(
     postBox?: WantBox;
     server?: { id: string; name: string };
     page?: number;
+    /** The zone of the server the dialog is for (plan 19A-2): which bosses are on its lists. */
+    zone: string;
   },
 ): APIModalInteractionResponseCallbackData {
   const which = whichEntries(ctx, subject);
   const keys = which.map((entry) => entry.key);
-  const shown = dialogBoxes(ctx, subject, held);
+  const shown = dialogBoxes(ctx, subject, held, options.zone);
   const isMega = isMegaForm(ctx);
   const post =
     options.postBox !== undefined && shown.includes(options.postBox) ? [options.postBox] : [];
@@ -273,7 +276,7 @@ export function wantDialogFor(
     shown,
     which: which.map((entry) => ({ key: entry.key, name: entry.name })),
     whichHash: whichHash(keys),
-    costumes: costumesShown(ctx, subject) || held.some((row) => row.costumed),
+    costumes: costumesShown(ctx, subject, options.zone) || held.some((row) => row.costumed),
     remove: held.length > 0,
     ticks,
     differ,
@@ -402,7 +405,7 @@ function useOf(interaction: ChatInputCommandInteraction, ctx: AppContext): WantU
     const subject = postSubject(ctx, party);
     wanted = { kind: 'subject', subject, target: baseTarget(subject) };
   } else {
-    wanted = readWanted(ctx, typed);
+    wanted = readWanted(ctx, interaction.guildId, typed);
   }
   let use: WantUse = { wanted, asks: wanted.kind === 'rocket' };
   if (wanted.kind === 'subject') {
@@ -413,7 +416,7 @@ function useOf(interaction: ChatInputCommandInteraction, ctx: AppContext): WantU
       subject,
       ...(picked === undefined ? {} : { picked }),
       ...(postBox === undefined ? {} : { postBox }),
-      asks: asksAbout(ctx, subject),
+      asks: asksAbout(ctx, subject, zoneOf(interaction, ctx)),
     };
   }
   usesRead.set(interaction, use);
@@ -424,11 +427,11 @@ function useOf(interaction: ChatInputCommandInteraction, ctx: AppContext): WantU
  * Whether a subject's dialog opens (S1), from the game data and the lists alone: when it would
  * show Tell me about (two boxes or more), Which or Costumes. Else it writes at once (Mew).
  */
-function asksAbout(ctx: AppContext, subject: BoxSubject): boolean {
+function asksAbout(ctx: AppContext, subject: BoxSubject, zone: string): boolean {
   return (
-    shownBoxes(ctx, subject).length > 1 ||
+    shownBoxes(ctx, subject, zone).length > 1 ||
     whichEntries(ctx, subject).length > 0 ||
-    costumesShown(ctx, subject)
+    costumesShown(ctx, subject, zone)
   );
 }
 
@@ -510,7 +513,7 @@ export const want: SimpleCommand = {
       '/want target:Dragon-type grunt',
     ],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild, readsUse],
   // The dialog is the first answer where one opens: nothing is deferred before it; every other
   // use writes under the member's lock first, so it is acknowledged when that takes long (B2).
@@ -552,7 +555,7 @@ export const want: SimpleCommand = {
     const scope = scopeOf(ctx, subject);
     if (!use.asks) {
       // One box and nothing else to ask (S1: Mew, a tier without shadow raids): written at once.
-      const shown = shownBoxes(ctx, subject);
+      const shown = shownBoxes(ctx, subject, zoneOf(interaction, ctx));
       const given: BoxAnswer = {
         scope,
         forms: [undefined],
@@ -576,6 +579,7 @@ export const want: SimpleCommand = {
     await interaction.showModal(
       wantDialogFor(ctx, subject, held, {
         openedAt: Date.now(),
+        zone: zoneOf(interaction, ctx),
         ...(picked === undefined ? {} : { picked }),
         ...(postBox === undefined ? {} : { postBox }),
       }),
@@ -588,7 +592,7 @@ export const want: SimpleCommand = {
     // and Mega Energy of the task list fill what is left, at most `REWARD_ROOM` places where the
     // Pokémon would fill the list (B5).
     const rewards = [...rocketWantChoices(typed), ...rewardWantChoices(ctx, typed)];
-    const others = wantChoices(ctx, typed).slice(
+    const others = wantChoices(ctx, interaction.guildId, typed, zoneOf(interaction, ctx)).slice(
       0,
       MAX_CHOICES - Math.min(rewards.length, REWARD_ROOM),
     );
@@ -626,7 +630,7 @@ export async function changeRefusal(
   guildId: string,
   memberId: string,
 ): Promise<string | undefined> {
-  if (!notificationsEnabled(ctx.config)) return WANTS_OFF;
+  if (!ctx.servers.of(guildId).features.notifications) return WANTS_OFF;
   return (await ctx.members.find(guildId, memberId)) ? undefined : NOT_A_MEMBER;
 }
 
@@ -1021,7 +1025,7 @@ export const unwant: SimpleCommand = {
       '`/want`. To keep some of what you ticked, use `/want` again instead.',
     examples: ['/unwant target:Mewtwo', '/unwant target:t5'],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild],
   defer: 'late',
   throttle: NOTIFICATION_THROTTLE,
@@ -1038,7 +1042,8 @@ export const unwant: SimpleCommand = {
       (entry) => searchText(entry.label) === folded || searchText(entryText(entry)) === folded,
     );
     const [only] = named;
-    const wanted = only && named.length === 1 ? undefined : readWanted(ctx, typed, true);
+    const wanted =
+      only && named.length === 1 ? undefined : readWanted(ctx, interaction.guildId, typed, true);
     const covered = wanted && (await coveringSpecies(ctx, memberId, guildId, wanted));
     if (covered !== undefined) {
       await answer(interaction, { content: covered });
@@ -1047,7 +1052,7 @@ export const unwant: SimpleCommand = {
     const { what, name } =
       only && named.length === 1
         ? { what: only.remove, name: only.label }
-        : removalOf(ctx, wanted ?? readWanted(ctx, typed, true));
+        : removalOf(ctx, wanted ?? readWanted(ctx, interaction.guildId, typed, true));
     const removed = await removeEntry(ctx, memberId, guildId, what);
     await answer(interaction, {
       content: removed
@@ -1224,7 +1229,10 @@ async function changeLine(
       `**${plain(dialogName(ctx, subject))}** is not on your list; \`/want\` adds it.`,
     );
   }
-  await interaction.showModal(wantDialogFor(ctx, subject, held, { page, openedAt: Date.now() }));
+  const zone = zoneOf(interaction, ctx);
+  await interaction.showModal(
+    wantDialogFor(ctx, subject, held, { page, openedAt: Date.now(), zone }),
+  );
 }
 
 /** `/wants` (spec 4.2): the member's list in this server, for the member alone. */
@@ -1240,7 +1248,7 @@ export const wants: SimpleCommand = {
       'everything else has a Remove button. "Remove all…" asks before it empties the list.',
     examples: ['/wants'],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild],
   defer: 'late',
 
@@ -1277,7 +1285,7 @@ export const unwantAll: SimpleCommand = {
       'other servers and your gyms (`/targets`) stay as they are.',
     examples: ['/unwant-all'],
   },
-  enabled: notificationsEnabled,
+  setUpIn: notificationsSetUp,
   guards: [requireGuild],
   // The dialog is the first answer: nothing is deferred before it.
   throttle: NOTIFICATION_THROTTLE,

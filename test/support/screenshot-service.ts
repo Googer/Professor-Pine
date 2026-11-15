@@ -60,7 +60,7 @@ export function screenshotsWith(
     keepMegabytes: 2048,
     reviewPerDay: 200,
     shown: () => shown,
-    gymName: (id) => context.gyms.get(id)?.name,
+    gymName: (id) => context.gyms.stored(id)?.name,
     log,
     ...(now ? { now } : {}),
   });

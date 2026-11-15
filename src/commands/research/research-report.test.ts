@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PARTY_ZONE } from '../../../test/support/parties.js';
 import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
 import {
   boardedRegions,
   OTHER_GUILD_ID,
   OTHER_GUILD_ROW,
+  testRegions,
   WEST_CHANNEL,
+  wideRegion,
 } from '../../../test/support/gyms.js';
-import { regionsFixture } from '../../../test/support/providers.js';
+import { regionsFixture, twoServerGyms } from '../../../test/support/providers.js';
 import { pageTask } from '../../../test/support/research.js';
 import { MemoryStopReports, fixtureRewardHash } from '../../../test/support/stop-reports.js';
 import { createTestContext } from '../../../test/support/test-context.js';
@@ -75,7 +78,7 @@ async function setup() {
       rewardHash: fixtureRewardHash,
       store,
       events: ctx.raidEvents,
-      zone: ctx.config.settings.timezone,
+      zoneOf: (serverId) => ctx.servers.zoneOf(serverId),
       log: ctx.log,
     }),
   });
@@ -103,6 +106,32 @@ describe('stopsByKey', () => {
   });
 });
 
+describe('stopsByKey in two servers whose regions overlap (plan 19B-3)', () => {
+  it('gives neither server the other’s kept PokéStop, and each its own copy', async () => {
+    const regions = [...testRegions(), wideRegion()];
+    const { wayspots } = await wayspotsWith(STOPS, regionsFixture(regions), undefined, [
+      {
+        guildId: OTHER_GUILD_ROW,
+        rows: [
+          keptRow(1, { title: 'Yellow Mural (theirs)', lat: 40.06, lon: -80.06, address: null }),
+          keptRow(7, { title: 'Swing Set', lat: 40.063, lon: -80.06, address: null }),
+        ],
+      },
+    ]);
+    const { ctx } = createTestContext({ wayspots, regions: regionsFixture(regions) });
+    Object.assign(ctx, { guilds: twoServerGyms().guilds });
+    // Swing Set lies in West: it is the second server's alone.
+    expect(await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(7), wayspotId(1)])).toEqual([
+      expect.objectContaining({ key: wayspotId(1), name: 'Yellow Mural' }),
+    ]);
+    expect(
+      (await stopsByKey(ctx, OTHER_GUILD_ID, [wayspotId(7), wayspotId(1), wayspotId(2)])).map(
+        (stop) => stop.name,
+      ),
+    ).toEqual(['Swing Set', 'Yellow Mural (theirs)']);
+  });
+});
+
 describe('reportResearchAs', () => {
   it('reports the task at the stops and gives the words’ view: the posts of its regions', async () => {
     const { ctx, store } = await setup();
@@ -110,7 +139,7 @@ describe('reportResearchAs', () => {
     const stops = await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1), 'pine-1']);
     const reported = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops,
-      subject: readTask(ctx, DRAGON.key, null),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     expect(reported.outcome.saved.map(({ report }) => report.stop.name)).toEqual([
@@ -132,7 +161,7 @@ describe('reportResearchAs', () => {
     const { ctx } = await setup();
     const reported = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1)]),
-      subject: readTask(ctx, DRAGON.key, null),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     expect(reported.view).toMatchObject({ channels: [WEST_CHANNEL], boards: [] });
@@ -146,7 +175,7 @@ describe('reportResearchAs', () => {
     });
     const reported = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1)]),
-      subject: readTask(ctx, DRAGON.key, null),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     expect(researchWords(reported.view, () => '#west').where).toBe('It lasts until midnight.');
@@ -158,7 +187,7 @@ describe('takeBackAs', () => {
     const { ctx, store } = await setup();
     const { outcome } = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1)]),
-      subject: readTask(ctx, DRAGON.key, null),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     const id = outcome.saved[0]?.report.id ?? 0;
@@ -179,7 +208,7 @@ describe('takeBackAs', () => {
     const { ctx, store } = await setup();
     const { outcome } = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1), wayspotId(2)]),
-      subject: readTask(ctx, DRAGON.key, null),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     const [mural, inti] = outcome.saved.map(({ report }) => report.id);
@@ -196,7 +225,7 @@ describe('takeBackAs', () => {
     const { ctx } = await setup();
     const { outcome } = await reportResearchAs(ctx, FAKE_GUILD_ID, {
       stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(6)]),
-      subject: readTask(ctx, DRAGON.key, null),
+      subject: readTask(ctx, null, DRAGON.key, null, PARTY_ZONE),
       reporter: ASH,
     });
     const id = outcome.saved[0]?.report.id ?? 0;

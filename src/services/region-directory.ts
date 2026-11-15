@@ -9,44 +9,57 @@ export interface RegionListing {
   listAll(): Promise<Region[]>;
 }
 
+/** The gyms per server, as far as where a gym lies is concerned (`GymDirectory.of`). */
+export interface ServerGymRegions {
+  of(guildId: number | undefined): { regionsOf(gymId: number): string[] };
+}
+
 /**
- * The regions of a server that a gym lies in, in the order `regionsOf` gives their channels:
- * the one rule for "a gym of this server" and for "where in this server". The server is named
- * by its row (`Guild.id`), and a region belongs to the server its own row says
- * (`Region.guildId`), whether or not its text channel still exists or is in any cache; a
- * region without a `guildId` belongs to no server.
+ * The regions of a server that a gym of that server lies in, in the order `regionsOf` gives
+ * their channels: the one rule for "a gym of this server here" and for "where in this server".
+ * The server is named by its row (`Guild.id`); a gym is the server's by its link (plan 19B-2,
+ * the server's view of the gyms: another server's gym lies in none of its regions, whatever
+ * region holds it), and a region belongs to the server its own row says (`Region.guildId`),
+ * whether or not its text channel still exists or is in any cache; a region without a
+ * `guildId` belongs to no server.
  */
 export function gymRegionsInGuild<R extends { guildId: number | null }>(
-  gyms: { regionsOf(gymId: number): string[] },
+  gyms: ServerGymRegions,
   regions: { byChannel(channelId: string): R | undefined },
   gymId: number,
   guildId: number,
 ): R[] {
-  return gyms.regionsOf(gymId).flatMap((channelId) => {
-    const region = regions.byChannel(channelId);
-    return region?.guildId === guildId ? [region] : [];
-  });
+  return gyms
+    .of(guildId)
+    .regionsOf(gymId)
+    .flatMap((channelId) => {
+      const region = regions.byChannel(channelId);
+      return region?.guildId === guildId ? [region] : [];
+    });
+}
+
+/** The Wayspots per server, as far as where one lies is concerned (`WayspotDirectory.of`). */
+export interface ServerWayspotRegions {
+  of(guildId: number | undefined): {
+    byId(id: string): { kind: string } | undefined;
+    regionsOf(id: string): string[];
+  };
 }
 
 /**
  * The regions of a server a stop of a route lies in (plan 8X-4; design 6.2): a gym's
- * (`gymRegionsInGuild`), a power spot's while it is kept as one (`WayspotProvider.regionsOf`);
- * none for a power spot without Wayspots, or one gone or of another kind now.
+ * (`gymRegionsInGuild`), a power spot's while the server keeps it as one (its view of the
+ * Wayspots, plan 19B-3: another server's copy lies in none of its regions); none for a power
+ * spot without Wayspots, or one gone or of another kind now.
  */
 export function stopRegionsInGuild<R extends { guildId: number | null }>(
-  places: {
-    gyms: { regionsOf(gymId: number): string[] };
-    wayspots?: {
-      byId(id: string): { kind: string } | undefined;
-      regionsOf(id: string): string[];
-    };
-  },
+  places: { gyms: ServerGymRegions; wayspots?: ServerWayspotRegions },
   regions: { byChannel(channelId: string): R | undefined },
   ref: StopRef,
   guildId: number,
 ): R[] {
   if (ref.kind === 'gym') return gymRegionsInGuild(places.gyms, regions, ref.id, guildId);
-  const { wayspots } = places;
+  const wayspots = places.wayspots?.of(guildId);
   if (wayspots?.byId(ref.id)?.kind !== 'powerspot') return [];
   return wayspots.regionsOf(ref.id).flatMap((channelId) => {
     const region = regions.byChannel(channelId);
@@ -56,7 +69,7 @@ export function stopRegionsInGuild<R extends { guildId: number | null }>(
 
 /** Whether a gym lies in a region of a server (`gymRegionsInGuild`). */
 export function gymInGuild(
-  gyms: { regionsOf(gymId: number): string[] },
+  gyms: ServerGymRegions,
   regions: { byChannel(channelId: string): { guildId: number | null } | undefined },
   gymId: number,
   guildId: number,
@@ -98,14 +111,25 @@ export function regionsAtPoints<
 }
 
 /**
- * Where the regions are, as one text: each region's id, server, channel and outline, by id.
- * Two loads with the same text put every place in the same regions.
+ * Where each server's regions are, as one text per server (its `Guild` row): each region's id,
+ * channel and outline, by id. Two loads that give a server the same text put every place in the
+ * same regions of that server; a region without a server is no server's.
  */
-export function outlineSignature(regions: readonly Region[]): string {
-  return JSON.stringify(
-    [...regions]
-      .sort((a, b) => a.id - b.id)
-      .map((region) => [region.id, region.guildId, region.channelId, region.bounds]),
+export function outlineSignatures(regions: readonly Region[]): Map<number, string> {
+  const byServer = new Map<number, Region[]>();
+  for (const region of regions) {
+    if (region.guildId === null) continue;
+    byServer.set(region.guildId, [...(byServer.get(region.guildId) ?? []), region]);
+  }
+  return new Map(
+    [...byServer].map(([guildId, ofServer]) => [
+      guildId,
+      JSON.stringify(
+        [...ofServer]
+          .sort((a, b) => a.id - b.id)
+          .map((region) => [region.id, region.channelId, region.bounds]),
+      ),
+    ]),
   );
 }
 
@@ -132,20 +156,22 @@ export class RegionDirectory implements RegionProvider {
   private regions: readonly Region[] | undefined;
   private queue: Promise<unknown> = Promise.resolve();
   private loads = 0;
-  private readonly listeners: (() => void)[] = [];
-  /** The outlines of the last load (`outlineSignature`); undefined before the first. */
-  private outlines: string | undefined;
+  private readonly listeners: ((servers: readonly number[]) => void)[] = [];
+  /** Each server's outlines at the last load (`outlineSignatures`); none before the first. */
+  private outlines = new Map<number, string>();
 
   constructor(private readonly options: { regions: RegionListing; log: Logger }) {}
 
   /**
-   * Calls `listener` after a load that changed where the regions are (a region added or removed,
-   * an outline saved, a region of another server or channel; the first load too), not after one
-   * that changed only a forum, a board or a description (`/admin setup-forums` loads many
-   * times): what follows the regions' outlines without asking (the line for Google's PokéStops
-   * and Power Spots, plan 8W-6). A listener that throws is logged; the others are still called.
+   * Calls `listener` after a load that changed where a server's regions are (a region added or
+   * removed, an outline saved, a region of another server or channel; the first load too), with
+   * those servers (their `Guild` rows, in order), not after one that changed only a forum, a
+   * board or a description (`/admin setup-forums` loads many times): what follows the regions'
+   * outlines without asking (the line for Google's PokéStops and Power Spots, plan 8W-6), for
+   * those servers alone (plan 19B-3). A listener that throws is logged; the others are still
+   * called.
    */
-  whenOutlinesChanged(listener: () => void): void {
+  whenOutlinesChanged(listener: (servers: readonly number[]) => void): void {
     this.listeners.push(listener);
   }
 
@@ -169,12 +195,15 @@ export class RegionDirectory implements RegionProvider {
       this.loads += 1;
       const forums = this.regions.filter((region) => region.forumChannelId !== null).length;
       this.options.log.info({ regions: this.regions.length, forums }, 'regions loaded');
-      const outlines = outlineSignature(this.regions);
-      if (outlines === this.outlines) return;
+      const outlines = outlineSignatures(this.regions);
+      const changed = [...new Set([...this.outlines.keys(), ...outlines.keys()])]
+        .filter((guildId) => outlines.get(guildId) !== this.outlines.get(guildId))
+        .sort((a, b) => a - b);
       this.outlines = outlines;
+      if (changed.length === 0) return;
       for (const listener of this.listeners) {
         try {
-          listener();
+          listener(changed);
         } catch (err) {
           this.options.log.warn({ err }, 'could not follow a change of the regions');
         }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ALICE, at, BOB, MINUTE, REPORTER, testRaid } from '../../test/support/parties.js';
-import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { endParty, isTrain } from '../domain/party/party.js';
 import { splitOffGroup } from '../domain/party/train.js';
 import { HISTORY_SERVER } from '../../test/support/history.js';
@@ -133,11 +133,12 @@ describe('the party history of live parties', () => {
   it('records nothing of a raid that never got its post', async () => {
     const made = await reportedRaid();
     made.gateway.failing.set('createPost', new Error('no post today'));
-    const gym = gymsFixture().get(2);
+    const gym = gymsFixture().stored(2);
     if (!gym) throw new Error('no gym 2');
     await expect(
       made.service.reportRaid({
         gym,
+        guildRow: TEST_GUILD_ROW,
         reporterId: ALICE,
         anonymous: false,
         autoStatus: PartyStatus.Interested,
@@ -153,7 +154,7 @@ describe('the party history of live parties', () => {
     const made = await reportedRaid({ boss: { key: 'yveltal' } });
     made.clock.now += MINUTE;
     await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);
-    const cafe = gymsFixture().get(8);
+    const cafe = gymsFixture().stored(8);
     const east = made.regions.byId(2);
     if (!cafe || !east) throw new Error('no café in East');
     made.clock.now += MINUTE;
@@ -489,7 +490,7 @@ describe('the party history of live parties', () => {
 
   it('leaves a raid that moved in a hiccup to the party it goes on as', async () => {
     const made = await reportedRaid();
-    const cafe = gymsFixture().get(8);
+    const cafe = gymsFixture().stored(8);
     const east = made.regions.byId(2);
     if (!cafe || !east) throw new Error('no café in East');
     made.history.failing = new Error('the history is down');
@@ -558,10 +559,11 @@ describe('the party history of live parties', () => {
 
   it('records the parties of a region that is removed as cancelled', async () => {
     const made = await regionAdminWith();
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     const reported = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

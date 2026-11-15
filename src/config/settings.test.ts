@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { ConfigError } from './errors.js';
 import {
   channelNamesOf,
+  isOpenInstance,
+  listedServers,
   loadSettings,
   RETIRED_SETTINGS,
   withoutRetiredSettings,
@@ -74,6 +76,74 @@ describe('loadSettings', () => {
     }
   });
 
+  it('has no operators and no list of servers unless the file names them (plan 19B-1)', () => {
+    const plain = loadSettings(REPO_SETTINGS);
+    expect(plain.operators).toEqual([]);
+    expect(plain.servers).toBeUndefined();
+    expect(isOpenInstance(plain)).toBe(false);
+    const listed = loadSettings(
+      writeSettings((s) => {
+        s.operators = ['412345678901234567'];
+        s.servers = ['512345678901234567', '612345678901234567'];
+      }),
+    );
+    expect(listed.operators).toEqual(['412345678901234567']);
+    expect(listed.servers).toEqual(['512345678901234567', '612345678901234567']);
+    expect(isOpenInstance(listed)).toBe(false);
+    expect(listedServers(listed)).toEqual(['512345678901234567', '612345678901234567']);
+    expect(listedServers(plain)).toBeUndefined();
+    // An empty list is as none.
+    expect(listedServers({ servers: [] })).toBeUndefined();
+    expect(listedServers({ servers: 'open' })).toBeUndefined();
+    const open = loadSettings(
+      writeSettings((s) => {
+        s.servers = 'open';
+      }),
+    );
+    expect(open.servers).toBe('open');
+    expect(isOpenInstance(open)).toBe(true);
+    for (const [key, wrong] of [
+      ['operators', ['matt']],
+      ['operators', '412345678901234567'],
+      ['servers', ['512345678901234567', 'pittsburgh']],
+      ['servers', 'closed'],
+      ['servers', 'OPEN'],
+    ] as const) {
+      expect(
+        () =>
+          loadSettings(
+            writeSettings((s) => {
+              s[key] = wrong;
+            }),
+          ),
+        `${key}: ${JSON.stringify(wrong)}`,
+      ).toThrow(ConfigError);
+    }
+  });
+
+  it('caps first direct messages per server only beyond what the queue sends at all, unless set (plan 19B-5)', () => {
+    expect(loadSettings(REPO_SETTINGS).dms).toEqual({
+      firstContactsPerWindow: 6_000,
+      firstContactWindowMinutes: 10,
+    });
+    const dms = (more: Record<string, unknown>) =>
+      writeSettings((s) => {
+        s.dms = more;
+      });
+    expect(loadSettings(dms({ firstContactsPerWindow: 200 })).dms).toEqual({
+      firstContactsPerWindow: 200,
+      firstContactWindowMinutes: 10,
+    });
+    for (const wrong of [
+      { firstContactsPerWindow: 0 },
+      { firstContactWindowMinutes: 0 },
+      { firstContactWindowMinutes: 1.5 },
+      { perServer: 3 },
+    ]) {
+      expect(() => loadSettings(dms(wrong))).toThrow(ConfigError);
+    }
+  });
+
   it('takes the reader settings it knows and refuses others', () => {
     const ocr = (more: Record<string, unknown>) =>
       writeSettings((s) => {
@@ -81,6 +151,10 @@ describe('loadSettings', () => {
       });
     const read = loadSettings(ocr({ device: 'directml', threads: 2, priority: 'normal' })).ocr;
     expect(read).toMatchObject({ device: 'directml', threads: 2, priority: 'normal' });
+    // A server's share of the queue is the whole queue unless set (plan 19B-5): a Pine of one
+    // server notices nothing; a public instance sets it.
+    expect(read.queuePerServer).toBeUndefined();
+    expect(loadSettings(ocr({ queuePerServer: 3 })).ocr.queuePerServer).toBe(3);
     for (const wrong of [
       { device: 'gpu' },
       { threads: -1 },
@@ -92,6 +166,7 @@ describe('loadSettings', () => {
       { reviewDays: 0 },
       { keepMegabytes: 1 },
       { reviewPerDay: -1 },
+      { queuePerServer: -1 },
       { enabled: 'yes' },
     ]) {
       expect(() => loadSettings(ocr(wrong))).toThrow(ConfigError);
@@ -139,6 +214,31 @@ describe('loadSettings', () => {
         s.wayspotTool = wrong;
       });
       expect(() => loadSettings(file)).toThrow(/wayspotTool/);
+    }
+  });
+
+  it('takes no most of one server’s share of Google and a floor of 20 lookups by hand for each server, unless set (plan 19B-5)', () => {
+    const settings = loadSettings(REPO_SETTINGS);
+    expect(settings.googleServerShareMax).toBeUndefined();
+    expect(settings.googleByHandPerServer).toBe(20);
+    const own = writeSettings((s) => {
+      s.googleServerShareMax = 1_500;
+      s.googleByHandPerServer = 50;
+    });
+    expect(loadSettings(own)).toMatchObject({
+      googleServerShareMax: 1_500,
+      googleByHandPerServer: 50,
+    });
+    for (const [key, value] of [
+      ['googleServerShareMax', -1],
+      // A most of nothing would hold every server out of the month (fix round 3, T8).
+      ['googleServerShareMax', 0],
+      ['googleByHandPerServer', 1.5],
+    ] as const) {
+      const refused = writeSettings((s) => {
+        s[key] = value;
+      });
+      expect(() => loadSettings(refused)).toThrow(new RegExp(key));
     }
   });
 
@@ -250,6 +350,22 @@ describe('loadSettings', () => {
       trustProxy: true,
       tiles: 'google',
     });
+  });
+
+  it('loads a file whose words gym search ignores hold a blank one, which is none (plan 19B-2)', () => {
+    const loaded = loadSettings(
+      writeSettings((s) => {
+        s.blacklistWords = ['gym', '', ' raid '];
+      }),
+    );
+    expect(loaded.blacklistWords).toEqual(['gym', 'raid']);
+    expect(() =>
+      loadSettings(
+        writeSettings((s) => {
+          s.blacklistWords = ['x'.repeat(101)];
+        }),
+      ),
+    ).toThrow(/blacklistWords/);
   });
 
   it('has no moderators’ channel and no flagged words unless the file names them', () => {

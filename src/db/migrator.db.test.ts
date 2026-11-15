@@ -37,6 +37,12 @@ const ADDED_TABLES = [
   'GymWayfarer',
   'WayspotImport',
   'GymReview',
+  'GymServer',
+  'SavedRouteGym',
+  'ServerWayspot',
+  'GoogleAnswer',
+  'ServerGymLookup',
+  'ServerWayspotLookup',
   'GymLookup',
   'GymLookupDay',
   'WebSession',
@@ -84,6 +90,15 @@ const ADDED_TABLES = [
   'PartyAudit',
   'EndedPartyCopy',
   'EventWindow',
+  'ServerSettings',
+  'ServerSettingsAudit',
+  'PokemonNickname',
+  'DmContact',
+  'GoogleUseServerDay',
+  'GoogleShareRaise',
+  'ServerRecord',
+  'ServerNeighbor',
+  'WebSessionServer',
 ];
 /** The columns it adds to tables of the legacy bot, as `Table.column`. */
 const ADDED_COLUMNS = [
@@ -95,6 +110,7 @@ const ADDED_COLUMNS = [
   'Role.roleSnowflake',
   'Role.groupId',
   'SavedRoutes.atEnd',
+  'GymMeta.wayfarerAddress',
 ];
 /** The indexes it adds to tables of the legacy bot, as `Table.index`. */
 const ADDED_INDEXES = [
@@ -232,6 +248,20 @@ describe('runMigrations', () => {
       '2026_11_09_049_event_window',
       '2026_11_10_050_sweep_indexes',
       '2026_11_10_051_forgettable_members',
+      '2026_11_12_052_server_settings',
+      '2026_11_12_053_server_settings_audit',
+      '2026_11_13_054_feed_local_times',
+      '2026_11_13_055_max_boss_start',
+      '2026_11_13_056_gym_servers',
+      '2026_11_13_057_member_indexes',
+      '2026_11_13_058_pokemon_nicknames',
+      '2026_11_13_059_server_wayspots',
+      '2026_11_13_060_dm_contacts',
+      '2026_11_13_061_server_record',
+      '2026_11_14_062_server_deletion',
+      '2026_11_14_063_server_neighbors',
+      '2026_11_14_064_activity_zone',
+      '2026_11_14_065_web_session_servers',
     ]);
     expect(
       await describeSchema(

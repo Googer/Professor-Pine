@@ -202,6 +202,18 @@ describe('ScreenshotService', () => {
     expect(attachments.asked).toEqual([]);
   });
 
+  it('asks the reader for room and reads in the screenshot’s own server (plan 19B-5)', async () => {
+    const { screenshots, screenshot, reader, attachments } = screenshotsWith();
+    reader.fullServers.add(FAKE_GUILD_ID);
+    const source = screenshot('q.png', eggReading('Old Stone Fountain', 1, null));
+    expect(screenshots.full(FAKE_GUILD_ID)).toBe(true);
+    expect(await readOne(screenshots, source, where())).toEqual({ kind: 'busy' });
+    expect(attachments.asked).toEqual([]);
+    reader.fullServers.clear();
+    expect(await readOne(screenshots, source, where())).toMatchObject({ kind: 'read' });
+    expect(reader.servers).toEqual([FAKE_GUILD_ID]);
+  });
+
   it('downloads a screenshot ahead and reads it later without downloading again (plan 8R-9F, B2)', async () => {
     const { screenshots, screenshot, attachments, reader } = screenshotsWith();
     const source = screenshot('egg.png', eggReading('Old Stone Fountain', 5, null, 600));

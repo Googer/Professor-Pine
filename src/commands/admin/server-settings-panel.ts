@@ -1,0 +1,798 @@
+import {
+  ButtonStyle,
+  ChannelType,
+  ComponentType,
+  SelectMenuDefaultValueType,
+  type APIActionRowComponent,
+  type APIButtonComponentWithCustomId,
+  type APIChannelSelectComponent,
+  type APIComponentInContainer,
+  type APIRoleSelectComponent,
+  type APIStringSelectComponent,
+} from 'discord.js';
+import {
+  publicMapOn,
+  SERVER_CHANNEL_ROLES,
+  type ServerChannelRole,
+  type ServerValues,
+  type UnmatchedKey,
+} from '../../config/server-settings.js';
+import type { SettingsAuditRecord } from '../../db/repositories/server-settings-audit-repository.js';
+import { isSnowflake } from '../../db/snowflake.js';
+import { encodeCustomId } from '../../discord/custom-id.js';
+import { TEXT_ROOM } from '../../discord/dialog.js';
+import type { V2Message } from '../../discord/party-gateway.js';
+import { clockWords, dayWords, zoned } from '../../domain/time/zoned.js';
+import { distanceWords } from '../../render/distance-words.js';
+import { settingsChangeLine } from '../../render/server-settings.js';
+import { earlierLine, fitted } from '../../render/audit.js';
+import { count, fitItems, plain, truncate } from '../../render/text.js';
+import {
+  actionRow,
+  container,
+  LIST_COLOUR,
+  menuRow,
+  section,
+  textDisplay,
+} from '../../render/v2.js';
+
+/**
+ * The custom ids of `/admin settings`' panel (plan 19A-1): `server:<key>:<action>[:<arg>]`, the
+ * key a setting's (`channels.moderation`, `features.roles`, `distanceUnits`, `flaggedWords`).
+ * `server:panel:show` is the menu of the sections; `server:<key>:set` a channel, category, role
+ * or units menu (the value picked; none clears it); `server:<key>:set:on|off` a feature's button
+ * (what it sets, never a toggle); `server:<key>:ask` opens a dialog, whose Submit is
+ * `server:<key>:set:~<token>`. A list of words (`WORD_LISTS`: `flaggedWords`, `blacklistWords`)
+ * too many to show in a dialog (`wordsTooMany`): `server:<key>:ask` opens the words to add
+ * (`server:<key>:add:~<token>`), `server:<key>:ask:remove` those to remove
+ * (`server:<key>:remove:~<token>`).
+ * `server:<key>:unset` (Leave unset, of a setting the settings file named and the fill did not
+ * find: `channels.moderation`, `roles.mapMember`; fix round 3, H9) asks whether to, in that
+ * setting's place; `server:<key>:unset:confirm` leaves it unset, `server:<key>:keep`
+ * (Cancel) leaves it as it was (fix round 4, I2). The server is the interaction's, never in the id.
+ */
+export const SERVER_KIND = 'server';
+export const SET = 'set';
+export const ASK = 'ask';
+export const SHOW = 'show';
+export const ON = 'on';
+export const OFF = 'off';
+/** The flagged words' dialogs where they are too many to show (review G5): add, remove. */
+export const ADD = 'add';
+export const REMOVE = 'remove';
+/** Leaves a setting the settings file named and the fill did not find unset (fix round 3, H9). */
+export const UNSET = 'unset';
+/** Leave unset's second press, which writes; Cancel (fix round 4, I2). */
+export const CONFIRM = 'confirm';
+export const KEEP = 'keep';
+
+/**
+ * Whether a list of words is too many to show in a dialog's line of text (Discord's 4,000
+ * characters), so that a dialog adds or removes words rather than replacing them (review G5).
+ */
+export function wordsTooMany(words: readonly string[]): boolean {
+  return words.join('\n').length > TEXT_ROOM;
+}
+
+/**
+ * The lists of words, each changed in a dialog of one a line and added to or taken from where
+ * too many to show (`wordsTooMany`): meetup safety's flagged words and the words the server's gym
+ * search ignores (plan 19B-2).
+ */
+export const WORD_LISTS = ['flaggedWords', 'blacklistWords'] as const;
+export type WordListKey = (typeof WORD_LISTS)[number];
+export const isWordList = (key: string): key is WordListKey =>
+  (WORD_LISTS as readonly string[]).includes(key);
+/** The id of the sections' menu. */
+export const PANEL = 'panel';
+
+/** The sections of the panel (Discord's 40 components a message hold no more than one). */
+export const SECTIONS = [
+  { value: 'channels', name: 'Channels', description: 'Where Pine posts and reads' },
+  {
+    value: 'roles',
+    name: 'Category and roles',
+    description: 'The PvP category, the Unown role, who sees the web map',
+  },
+  { value: 'features', name: 'Features', description: 'Turn Pine’s features on or off' },
+  {
+    value: 'text',
+    name: 'Text and numbers',
+    description: 'Time zone, units, the events forum, word lists, links',
+  },
+  { value: 'changes', name: 'Recent changes', description: 'Who changed what in the last 30 days' },
+] as const;
+export type SectionName = (typeof SECTIONS)[number]['value'];
+
+export const isSection = (value: string | undefined): value is SectionName =>
+  SECTIONS.some((one) => one.value === value);
+
+/** Each channel role on the panel: its name and what it is for. */
+const CHANNELS: Readonly<Record<ServerChannelRole, { name: string; about: string }>> = {
+  'bot-lab': { name: 'Bot lab', about: 'where members use most of Pine’s commands' },
+  'mod-bot-lab': {
+    name: 'Moderators’ bot lab',
+    about: 'where Pine tells staff what needs their attention',
+  },
+  unown: { name: 'Unown channel', about: 'a copy of every Unown that members report' },
+  'elite-gym-raids': {
+    name: 'Elite gym raids channel',
+    about: 'copies of raids at elite raid gyms, when turned on under Features',
+  },
+  'remote-raids': {
+    name: 'Remote raids channel',
+    about: 'copies of remote raids, when turned on under Features',
+  },
+  pvp: { name: 'PvP channel', about: 'PvP chat' },
+  'bot-updates': {
+    name: 'Bot updates channel',
+    about: 'Pine’s news, such as raid boss changes and new gyms',
+  },
+  moderation: {
+    name: 'Moderators’ channel',
+    // What clearing its select does, as Leave unset says it (fix round 4, I2).
+    about:
+      'where reports to the moderators and meetups that need approval go (use a channel only ' +
+      'for this). Clearing it turns meetup safety off: meetups no longer wait for approval, ' +
+      'members blocked from meetups can make them again, and reports are refused',
+  },
+  events: {
+    name: 'Events forum',
+    about: 'where Pine lists in-game events; `/admin setup-forums` can make one',
+  },
+};
+
+/** The kinds of channel each role takes: a text channel, the events forum a forum. */
+export const channelTypes = (role: ServerChannelRole): ChannelType[] =>
+  role === 'events' ? [ChannelType.GuildForum] : [ChannelType.GuildText];
+
+/** A feature's button and words: the setting's key and its name on the panel. */
+export interface Switch {
+  key: string;
+  name: string;
+  /** Whether the instance allows it (passive reading, the auto-assigned role); always else. */
+  allowed?: (instance: Instance) => boolean;
+  /** The section it is shown in, beside what it goes with: Features unless said. */
+  section?: SectionName;
+  /** What being on and off means, after its state: who sees what. None for a feature's. */
+  means?: { on: string; off: string };
+  /** Whether it is on, as Pine applies it: a value its staff never set is the instance's default. */
+  on(values: ServerValues, instance: Instance): boolean;
+  /**
+   * Whether its staff set it (fix round 1, R4): one never set follows the instance's default,
+   * which a change of the instance moves, so the panel says so and offers to keep it as it is.
+   * Always set unless said.
+   */
+  chosen?: (values: ServerValues) => boolean;
+}
+
+/**
+ * What the instance allows a server, of what decides the intents Pine logs in with; whether it
+ * is open (`servers: "open"`), which decides the defaults a server's staff did not set; and
+ * whether it has web pages (`settings.web`), without which a server has no map to open.
+ */
+export interface Instance {
+  passiveReading: boolean;
+  autoAssignRole: boolean;
+  open: boolean;
+  web: boolean;
+}
+
+export const SWITCHES: readonly Switch[] = [
+  {
+    key: 'features.exGymChannel',
+    name: 'Copies of raids at elite raid gyms',
+    on: (v) => v.features.exGymChannel,
+  },
+  {
+    key: 'features.remoteRaidChannel',
+    name: 'Copies of remote raids',
+    on: (v) => v.features.remoteRaidChannel,
+  },
+  {
+    key: 'features.notifications',
+    name: 'Notifications (wants and DMs)',
+    on: (v) => v.features.notifications,
+  },
+  { key: 'features.roles', name: 'Self-assigned roles (`/iam`)', on: (v) => v.features.roles },
+  { key: 'postNewGyms', name: 'Posting new gyms in bot updates', on: (v) => v.postNewGyms },
+  {
+    key: 'passiveReading',
+    name: 'Reading every screenshot in region channels',
+    allowed: (instance) => instance.passiveReading,
+    on: (v) => v.passiveReading,
+  },
+  {
+    key: 'autoAssignRole',
+    name: 'The auto-assigned role',
+    allowed: (instance) => instance.autoAssignRole,
+    on: (v) => v.autoAssignRole,
+  },
+  {
+    // Beside the map's member role (plan 19C-4): on by default where the instance lists its
+    // servers, off on an open one (`publicMapOn`); only where there are web pages (R9).
+    key: 'publicMap',
+    name: 'Map for visitors who are not logged in',
+    allowed: (instance) => instance.web,
+    section: 'roles',
+    means: {
+      on:
+        'anyone can open the web map and see its regions and gyms; only members see raids, max ' +
+        'battles, meetups and trains',
+      off: 'only people logged in with Discord can open the web map; to anyone else it does not exist',
+    },
+    on: (v, instance) => publicMapOn(v, instance),
+    chosen: (v) => v.publicMap !== undefined,
+  },
+];
+
+/** The switches the panel shows on this instance. */
+export const switchesOf = (instance: Instance): Switch[] =>
+  SWITCHES.filter((one) => one.allowed?.(instance) ?? true);
+
+/** What a switch its staff never set says after its state (fix round 1, R4). */
+const INSTANCE_DEFAULT = ' (by default)';
+
+/**
+ * A switch's line: its name and state, what that means where it says, and its button. One its
+ * staff never set (`chosen`) says it is the instance's default, and offers Keep on (or off),
+ * which writes it as it is, beside the button that turns it the other way (fix round 1, R4).
+ */
+function switchLine(
+  one: Switch,
+  values: ServerValues,
+  instance: Instance,
+): APIComponentInContainer[] {
+  const on = one.on(values, instance);
+  const state = on ? ON : OFF;
+  const means = one.means === undefined ? '' : ` · ${one.means[state]}`;
+  const name = one.means === undefined ? one.name : `**${one.name}**`;
+  if (one.chosen?.(values) ?? true) {
+    return [section(`${name}: **${state}**${means}`, switchButton(one.key, on))];
+  }
+  return [
+    textDisplay(`${name}: **${state}**${INSTANCE_DEFAULT}${means}`),
+    actionRow([keepButton(one.key, on), switchButton(one.key, on)]),
+  ];
+}
+
+/** The switches of one section that the panel shows on this instance. */
+const switchesIn = (sectionName: SectionName, instance: Instance): Switch[] =>
+  switchesOf(instance).filter((one) => (one.section ?? 'features') === sectionName);
+
+/** The settings changed in a dialog: `server:<key>:ask`. */
+export const DIALOGS = [
+  'timezone',
+  'eventsForum',
+  'flaggedWords',
+  'blacklistWords',
+  'regionForumSuffix',
+  'regionMapLink',
+  'invite',
+] as const;
+export type DialogKey = (typeof DIALOGS)[number];
+
+/** The section a setting is shown in, and a press on it shows again. */
+export function sectionOf(key: string): SectionName {
+  if (key.startsWith('channels.')) return 'channels';
+  if (key.startsWith('categories.') || key.startsWith('roles.')) return 'roles';
+  const one = SWITCHES.find((each) => each.key === key);
+  if (one !== undefined) return one.section ?? 'features';
+  return 'text';
+}
+
+/** What the panel shows. */
+export interface ServerPanelState {
+  values: ServerValues;
+  section: SectionName;
+  instance: Instance;
+  /** The server's zone (`ServerSettings.zoneOf`: its own, else the instance's default). */
+  timezone: string;
+  /** The moment the panel is drawn at: the time in the zone it shows (plan 19A-2). */
+  now: number;
+  /**
+   * Recent changes, oldest first (shown newest first), with the moment they are worded at: up to
+   * one more than `RECENT_CHANGES`, the oldest of which says there are earlier ones.
+   */
+  changes?: { records: readonly SettingsAuditRecord[]; now: number };
+  /**
+   * The channels and roles the server has now (the client's cache), by id: a set one it no
+   * longer has is not offered as a select's default but said not found (review G2). Not said:
+   * every id is taken as there.
+   */
+  known?: {
+    channels: ReadonlySet<string>;
+    roles: ReadonlySet<string>;
+    /**
+     * The set channels the bot may not post in (View Channel, Send Messages, Embed Links; staging
+     * F1): said under each. None said: it may post in every one.
+     */
+    cannotPost?: ReadonlySet<string>;
+  };
+  /**
+   * The setting whose Leave unset was pressed once: its line asks whether to (fix round 4, I2),
+   * while the settings file's name of it is still not found.
+   */
+  confirming?: UnmatchedKey;
+}
+
+const id = (key: string, action: string, args: string[] = []) =>
+  encodeCustomId({ kind: SERVER_KIND, id: key, action, args });
+
+function sectionsMenu(chosen: SectionName): APIActionRowComponent<APIStringSelectComponent> {
+  return menuRow({
+    type: ComponentType.StringSelect,
+    custom_id: id(PANEL, SHOW),
+    placeholder: 'Section',
+    min_values: 1,
+    max_values: 1,
+    options: SECTIONS.map((one) => ({
+      label: one.name,
+      value: one.value,
+      description: one.description,
+      ...(one.value === chosen ? { default: true } : {}),
+    })),
+  });
+}
+
+/** A select of one channel of `types`, the one set marked; empty clears it. */
+function channelSelect(
+  key: string,
+  types: ChannelType[],
+  set: string | undefined,
+): APIActionRowComponent<APIChannelSelectComponent> {
+  return {
+    type: ComponentType.ActionRow,
+    components: [
+      {
+        type: ComponentType.ChannelSelect,
+        custom_id: id(key, SET),
+        channel_types: types,
+        placeholder: 'Not set',
+        min_values: 0,
+        max_values: 1,
+        // Only an id: Discord refuses anything else (50035), and the panel would not open.
+        default_values:
+          set === undefined || !isSnowflake(set)
+            ? []
+            : [{ id: set, type: SelectMenuDefaultValueType.Channel }],
+      },
+    ],
+  };
+}
+
+function roleSelect(
+  key: string,
+  set: string | undefined,
+): APIActionRowComponent<APIRoleSelectComponent> {
+  return {
+    type: ComponentType.ActionRow,
+    components: [
+      {
+        type: ComponentType.RoleSelect,
+        custom_id: id(key, SET),
+        placeholder: 'Not set',
+        min_values: 0,
+        max_values: 1,
+        default_values:
+          set === undefined || !isSnowflake(set)
+            ? []
+            : [{ id: set, type: SelectMenuDefaultValueType.Role }],
+      },
+    ],
+  };
+}
+
+/** The button beside a feature: what pressing it sets (blue `Turn on`, gray `Turn off`). */
+function switchButton(key: string, on: boolean): APIButtonComponentWithCustomId {
+  return on
+    ? {
+        type: ComponentType.Button,
+        style: ButtonStyle.Secondary,
+        label: 'Turn off',
+        custom_id: id(key, SET, [OFF]),
+      }
+    : {
+        type: ComponentType.Button,
+        style: ButtonStyle.Primary,
+        label: 'Turn on',
+        custom_id: id(key, SET, [ON]),
+      };
+}
+
+/** Keep on (or off): writes a switch's state as it is, the instance's default (R4). */
+function keepButton(key: string, on: boolean): APIButtonComponentWithCustomId {
+  return {
+    type: ComponentType.Button,
+    style: ButtonStyle.Secondary,
+    label: on ? 'Keep on' : 'Keep off',
+    custom_id: id(key, SET, [on ? ON : OFF]),
+  };
+}
+
+function changeButton(
+  key: DialogKey,
+  label = 'Change…',
+  args: string[] = [],
+): APIButtonComponentWithCustomId {
+  return {
+    type: ComponentType.Button,
+    style: ButtonStyle.Secondary,
+    label,
+    custom_id: id(key, ASK, args),
+  };
+}
+
+/** A text or a link as the panel shows it: in code, or `not set`. */
+const code = (value: string | undefined): string =>
+  value === undefined ? 'not set' : `\`${value.replaceAll('`', '')}\``;
+
+/** How many characters the flagged words take on the panel. */
+const WORDS_ROOM = 300;
+
+/** A set id as a select may offer it: an id the server still has; undefined otherwise. */
+function offered(
+  set: string | undefined,
+  known: ReadonlySet<string> | undefined,
+): string | undefined {
+  return set !== undefined && isSnowflake(set) && (known === undefined || known.has(set))
+    ? set
+    : undefined;
+}
+
+/**
+ * What stays closed while the settings file's name of a setting is not found in the server
+ * (`unmatched`, review F1, F2), and what leaving it unset does (fix round 4, I2), said under its
+ * name (fix round 3, H9).
+ */
+const STILL_CLOSED: Readonly<Record<UnmatchedKey, string>> = {
+  'channels.moderation':
+    // "As above": the channel's line says what turning meetup safety off does (review T4).
+    'Not found: pick a channel. Until you do, meetups that need approval and reports to the ' +
+    'moderators are refused. Or press Leave unset to turn meetup safety off, as above.',
+  // "The rest": max battles, meetups and trains, which the role's line above names.
+  'roles.mapMember':
+    'Not found: pick a role. Until you do, only administrators can see and join raids and the ' +
+    'rest on the web map. Or press Leave unset to let every member do so.',
+};
+
+/** What the first press of Leave unset asks, in that setting's place (fix round 4, I2). */
+const LEAVE_UNSET_ASKED: Readonly<Record<UnmatchedKey, string>> = {
+  'channels.moderation':
+    'Leave the moderators’ channel unset? That turns meetup safety off: meetups no longer wait ' +
+    'for approval, members blocked from meetups can make them again, and reports stay refused.',
+  'roles.mapMember':
+    'Leave the map’s member role unset? Then every member can see and join raids, max battles, ' +
+    'meetups and trains on the web map.',
+};
+
+/** What the panel says once a setting was left unset: what it did (fix round 4, I2). */
+export const LEFT_UNSET: Readonly<Record<UnmatchedKey, string>> = {
+  'channels.moderation':
+    'Left the moderators’ channel unset: meetup safety is off, and reports to the moderators ' +
+    'are refused.',
+  'roles.mapMember':
+    'Left the map’s member role unset: every member can see and join raids, max battles, ' +
+    'meetups and trains on the web map.',
+};
+
+/**
+ * The setting's name and what it is for, and under them: where the settings file named it and
+ * the fill did not find it (`unmatched`), what stays closed until staff pick one and what leaving
+ * it unset does, with Leave unset beside it (fix round 3, H9); once that was pressed
+ * (`confirming`), the question and its two buttons, Leave unset (which writes) and Cancel
+ * (fix round 4, I2); `Not found: … Pick another channel.` (or role) where the one set is no
+ * longer in the server (review G2).
+ */
+function settingText(
+  words: string,
+  set: string | undefined,
+  shown: string | undefined,
+  unmatched: UnmatchedKey | undefined,
+  what: 'channel' | 'role',
+  confirming: UnmatchedKey | undefined,
+): APIComponentInContainer[] {
+  if (unmatched !== undefined && confirming === unmatched) {
+    return [
+      textDisplay(`${words}\n${LEAVE_UNSET_ASKED[unmatched]}`),
+      actionRow([
+        {
+          type: ComponentType.Button,
+          style: ButtonStyle.Danger,
+          label: 'Leave unset',
+          custom_id: id(unmatched, UNSET, [CONFIRM]),
+        },
+        {
+          type: ComponentType.Button,
+          style: ButtonStyle.Secondary,
+          label: 'Cancel',
+          custom_id: id(unmatched, KEEP),
+        },
+      ]),
+    ];
+  }
+  if (unmatched !== undefined) {
+    return [
+      section(`${words}\n-# ${STILL_CLOSED[unmatched]}`, {
+        type: ComponentType.Button,
+        style: ButtonStyle.Secondary,
+        label: 'Leave unset',
+        custom_id: id(unmatched, UNSET),
+      }),
+    ];
+  }
+  const lost = set !== undefined && shown === undefined;
+  return [
+    textDisplay(
+      lost ? `${words}\n-# Not found: it may have been deleted. Pick another ${what}.` : words,
+    ),
+  ];
+}
+
+/** The key's marker where the settings file named it and the fill did not find it. */
+const unmatchedOf = (values: ServerValues, key: UnmatchedKey): UnmatchedKey | undefined =>
+  values.unmatched?.includes(key) === true ? key : undefined;
+
+/** What the panel says under a channel the bot may not post in (staging F1). */
+export const CANNOT_POST =
+  'Pine is missing permissions there: give it View Channel, Send Messages and Embed Links in ' +
+  'that channel.';
+
+function channelsSection(
+  values: ServerValues,
+  known: ServerPanelState['known'],
+  confirming: UnmatchedKey | undefined,
+): APIComponentInContainer[] {
+  return SERVER_CHANNEL_ROLES.flatMap((role) => {
+    const set = values.channels[role];
+    const shown = offered(set, known?.channels);
+    const unmatched =
+      role === 'moderation' ? unmatchedOf(values, 'channels.moderation') : undefined;
+    const shutOut = shown !== undefined && known?.cannotPost?.has(shown) === true;
+    return [
+      ...settingText(
+        `**${CHANNELS[role].name}** · ${CHANNELS[role].about}${
+          shutOut
+            ? `
+-# ${CANNOT_POST}`
+            : ''
+        }`,
+        set,
+        shown,
+        unmatched,
+        'channel',
+        confirming,
+      ),
+      channelSelect(`channels.${role}`, channelTypes(role), shown),
+    ];
+  });
+}
+
+function rolesSection(
+  values: ServerValues,
+  instance: Instance,
+  known: ServerPanelState['known'],
+  confirming: UnmatchedKey | undefined,
+): APIComponentInContainer[] {
+  const category = offered(values.categories.pvp, known?.channels);
+  const unown = offered(values.roles.unown, known?.roles);
+  const member = offered(values.roles.mapMember, known?.roles);
+  return [
+    ...settingText(
+      '**PvP category** · PvP commands work only in its channels and in DMs',
+      values.categories.pvp,
+      category,
+      undefined,
+      'channel',
+      undefined,
+    ),
+    channelSelect('categories.pvp', [ChannelType.GuildCategory], category),
+    ...settingText(
+      '**Unown role** · the old bot’s role for Unown sightings; Pine gives members who have it ' +
+        'a want for Unown',
+      values.roles.unown,
+      unown,
+      undefined,
+      'role',
+      undefined,
+    ),
+    roleSelect('roles.unown', unown),
+    ...settingText(
+      '**Map’s member role** · only members with this role (and administrators) can see and ' +
+        'join raids, max battles, meetups and trains on the web map. If it is not set, every ' +
+        'member can.',
+      values.roles.mapMember,
+      member,
+      unmatchedOf(values, 'roles.mapMember'),
+      'role',
+      confirming,
+    ),
+    roleSelect('roles.mapMember', member),
+    // The map for visitors who are not logged in (plan 19C-4).
+    ...switchesIn('roles', instance).flatMap((one) => switchLine(one, values, instance)),
+  ];
+}
+
+function featuresSection(values: ServerValues, instance: Instance): APIComponentInContainer[] {
+  return switchesIn('features', instance).flatMap((one) => switchLine(one, values, instance));
+}
+
+/**
+ * The time zone's line (plan 19A-2): the zone, and the time there now, so that staff can see it
+ * is right.
+ */
+function zoneLine(timezone: string, chosen: boolean, now: number): string {
+  const there = zoned(now, timezone);
+  // Not chosen yet (plan 19C-2, S9: a new server's): the instance's zone stands in meanwhile.
+  const zone = chosen ? code(timezone) : `not chosen yet, so Pine uses ${code(timezone)}`;
+  return (
+    `**Time zone** · ${zone}, where it is now ${clockWords(there)}, ${dayWords(there)} · ` +
+    'every time and date members type and Pine shows is in it'
+  );
+}
+
+/** A list of words on the panel: its name, what it does, what it holds when empty. */
+const WORDS_SHOWN: Readonly<Record<WordListKey, { name: string; about: string; none: string }>> = {
+  flaggedWords: {
+    name: 'Flagged words',
+    about: 'a meetup at a place whose name has one waits for the moderators’ approval',
+    none: 'none besides Pine’s own',
+  },
+  blacklistWords: {
+    name: 'Words gym search ignores',
+    about: 'skipped in gym names and searches, as common English words are',
+    none: 'none',
+  },
+};
+
+/**
+ * A list of words with its Change… (Add… where too many to show in a dialog, and a line of its
+ * own with Remove…: added and removed, never typed anew; review G5).
+ */
+function wordsLines(values: ServerValues, key: WordListKey): APIComponentInContainer[] {
+  const words = values[key];
+  const shown = WORDS_SHOWN[key];
+  const many = wordsTooMany(words);
+  return [
+    section(
+      `**${shown.name}** · ${shown.about}: ` +
+        (words.length === 0
+          ? shown.none
+          : `${count(words.length, 'word')} (${fitItems(
+              words.map((word) => `“${plain(word)}”`),
+              WORDS_ROOM,
+            )})`),
+      many ? changeButton(key, 'Add…') : changeButton(key),
+    ),
+    ...(many
+      ? [
+          section(
+            `Take some of the ${shown.name.toLowerCase()} off the list`,
+            changeButton(key, 'Remove…', [REMOVE]),
+          ),
+        ]
+      : []),
+  ];
+}
+
+/**
+ * Where the invite is offered: on the server's web map to visitors not in it, and on an instance
+ * that is not open to every server also on the top page to people logged in who are not in it
+ * (final review R4-2; `topAnswer`).
+ */
+export const inviteWhere = (instance: Instance): string =>
+  'offered on the web map to visitors who are not in this server' +
+  (instance.open ? '' : ', and on the web site’s front page to people logged in who are not in it');
+
+function textSection(
+  values: ServerValues,
+  timezone: string,
+  now: number,
+  instance: Instance,
+): APIComponentInContainer[] {
+  const forum = values.eventsForum;
+  return [
+    section(zoneLine(timezone, values.timezone !== undefined, now), changeButton('timezone')),
+    textDisplay('**Distance units** · how Pine says distances'),
+    menuRow({
+      type: ComponentType.StringSelect,
+      custom_id: id('distanceUnits', SET),
+      min_values: 1,
+      max_values: 1,
+      // Each by how it says two distances (`distanceWords`, the one wording of a distance).
+      options: (['imperial', 'metric'] as const).map((units) => ({
+        label: units === 'imperial' ? 'Imperial' : 'Metric',
+        value: units,
+        description: `${distanceWords(1_500, units)}, ${distanceWords(60, units)}`,
+        ...(units === values.distanceUnits ? { default: true } : {}),
+      })),
+    }),
+    section(
+      `**Events forum** · lists events **${String(forum.horizonDays)}** days ahead, opens ` +
+        `each event’s post **${String(forum.postDaysAhead)}** days before it, and ` +
+        (forum.onThisDay === 0
+          ? 'posts no “On this day”'
+          : 'posts “On this day” on the anniversaries of each year’s ' +
+            `**${String(forum.onThisDay)}** busiest raid days`),
+      changeButton('eventsForum'),
+    ),
+    ...wordsLines(values, 'flaggedWords'),
+    ...wordsLines(values, 'blacklistWords'),
+    section(
+      '**Ending of region forums** · added to a region channel’s name to name its forum: ' +
+        code(values.regionForumSuffix),
+      changeButton('regionForumSuffix'),
+    ),
+    section(
+      '**Region map link** · a map of all regions, which `/maps` gives members: ' +
+        code(values.regionMapLink),
+      changeButton('regionMapLink'),
+    ),
+    section(
+      `**Invite** · ${inviteWhere(instance)}: ` + code(values.invite),
+      changeButton('invite'),
+    ),
+  ];
+}
+
+/** How many changes Recent changes shows (the newest). */
+export const RECENT_CHANGES = 15;
+
+/**
+ * How many characters the panel's text may take in all: Discord's 4,000 for a message's text
+ * displays, less what the menus' and buttons' words may add, as `/audit` keeps (review G1).
+ */
+const PANEL_TEXT_ROOM = 3_500;
+/** How many characters the line of what the last press changed takes at most. */
+export const SAID_ROOM = 500;
+
+/**
+ * The newest changes, newest first, as many as fit `room` (`fitted`, as `/audit` fits its lines),
+ * and a line of how many earlier ones are not shown. Given one more than `RECENT_CHANGES` (the
+ * read asks one more, as `/audit` does), there are earlier ones than were read (fix round 3, H8).
+ */
+function changesSection(
+  changes: ServerPanelState['changes'],
+  room: number,
+): APIComponentInContainer[] {
+  const read = changes?.records ?? [];
+  if (read.length === 0) return [textDisplay('No changes in the last 30 days.')];
+  const more = read.length > RECENT_CHANGES;
+  const records = read.slice(-RECENT_CHANGES);
+  const now = changes?.now ?? Date.now();
+  const lines = records.map((record) => settingsChangeLine(record, now));
+  const { kept, dropped } = fitted(lines, room - EARLIER_ROOM);
+  const earlier = earlierLine(dropped, more);
+  return [textDisplay([...kept.reverse(), ...(earlier === undefined ? [] : [earlier])].join('\n'))];
+}
+
+/** What the line of earlier changes takes. */
+const EARLIER_ROOM = 40;
+
+/**
+ * `/admin settings`' panel (plan 19A-1): one private container of `LIST_COLOUR`, its title with
+ * what the last press changed (`said`), the menu of the sections, and the section chosen, each
+ * within Discord's 40 components (the fullest is Channels, its moderators' channel asking whether
+ * to leave it unset; the tests count every section).
+ */
+export function serverPanel(state: ServerPanelState, said?: string): V2Message {
+  const { values, section: chosen, confirming } = state;
+  const title =
+    said === undefined
+      ? '### This server’s settings'
+      : `### This server’s settings\n${truncate(said, SAID_ROOM)}`;
+  const body =
+    chosen === 'channels'
+      ? channelsSection(values, state.known, confirming)
+      : chosen === 'roles'
+        ? rolesSection(values, state.instance, state.known, confirming)
+        : chosen === 'features'
+          ? featuresSection(values, state.instance)
+          : chosen === 'text'
+            ? textSection(values, state.timezone, state.now, state.instance)
+            : changesSection(state.changes, PANEL_TEXT_ROOM - title.length);
+  return {
+    v2: true,
+    components: [container(LIST_COLOUR, [textDisplay(title), sectionsMenu(chosen), ...body])],
+  };
+}

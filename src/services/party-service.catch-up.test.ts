@@ -1,7 +1,7 @@
 import { RateLimitError } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import { missingPermissions, networkAway } from '../../test/support/fake-gateway.js';
-import { WEST_FORUM } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_FORUM } from '../../test/support/gyms.js';
 import { buttonsOf, textOf } from '../../test/support/messages.js';
 import { BOB, PARTY_NOW, REPORTER } from '../../test/support/parties.js';
 import { reportedRaid } from '../../test/support/party-service.js';
@@ -182,10 +182,11 @@ describe('PartyService on a catch-up (plan 8X-H)', () => {
 
   it('tries one closing a run while the network is away, the rest kept (review r1 C2)', async () => {
     const made = await reportedRaid();
-    const gym = gymsFixture().get(2);
+    const gym = gymsFixture().stored(2);
     if (!gym) throw new Error('the invented gyms have no gym 2');
     const other = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

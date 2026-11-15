@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
-import { WEST_CHANNEL } from '../../../test/support/gyms.js';
+import {
+  northRegion,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+} from '../../../test/support/gyms.js';
 import { maxReportingWith, MAX_THURSDAY } from '../../../test/support/max-reporting.js';
 import { ALICE, asMax, at, TEST_SPOT } from '../../../test/support/parties.js';
 import { MOD_CHANNEL } from '../../../test/support/meetup-safety-service.js';
@@ -222,6 +227,20 @@ describe('a spot named without an interaction (spotAt)', () => {
       linkName: null,
     });
     expect(() => spotAt(made.ctx, 1, { lat: 10, lon: 10 })).toThrow(PIN_NOT_HERE);
+  });
+
+  it('names a Power Spot for the server whose region holds it, and for no other (plan 19B-2)', async () => {
+    const made = await maxReportingWith();
+    // A second server, with its own region North: the Gazebo lies in West, the first's.
+    made.regions.rows.push(northRegion());
+    const near = { lat: TEST_SPOT.lat, lon: TEST_SPOT.lon + 0.0002 };
+    expect(spotAt(made.ctx, TEST_GUILD_ROW, { spot: TEST_SPOT.id })).toMatchObject({
+      kind: 'powerspot',
+      id: TEST_SPOT.id,
+    });
+    expect(spotAt(made.ctx, TEST_GUILD_ROW, near)).toMatchObject({ id: TEST_SPOT.id });
+    expect(() => spotAt(made.ctx, OTHER_GUILD_ROW, { spot: TEST_SPOT.id })).toThrow(PLACE_GONE);
+    expect(() => spotAt(made.ctx, OTHER_GUILD_ROW, near)).toThrow(PIN_NOT_HERE);
   });
 });
 

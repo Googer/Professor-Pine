@@ -36,12 +36,17 @@ export interface EditorData {
   readOnly: boolean;
   /** Whether the member may create channels (Manage Channels): new names need it. */
   mayManageChannels: boolean;
+  /**
+   * Whether the member may remove regions (plan 19C-2: staff by role, as `/region remove`): the
+   * page offers no removal of a saved region otherwise. Absent (a page of before): no.
+   */
+  mayRemoveRegions?: boolean;
   /** The server's regions, by id. */
   regions: EditorRegion[];
   /** Other servers' regions near these (grey, not selectable): their outlines alone. */
   others: Array<{ id: number; outline: Point[] }>;
   /**
-   * The gyms in the server's regions, and those in no region of any server near them: by id,
+   * The server's gyms in its regions, and those in none of them near them (plan 19B-2): by id,
    * as `[id, lat, lon, name]`.
    */
   gyms: Array<[number, number, number, string]>;

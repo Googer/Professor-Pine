@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { WEST_CHANNEL } from '../../../test/support/gyms.js';
-import { ALICE, PARTY_NOW } from '../../../test/support/parties.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { ALICE, PARTY_NOW, PARTY_ZONE } from '../../../test/support/parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
 import { gymsFixture } from '../../../test/support/providers.js';
 import { createTestContext } from '../../../test/support/test-context.js';
@@ -20,7 +20,7 @@ import {
 const ALICE_MEMBER = { id: ALICE, name: 'Alice', team: 'valor' } as const;
 
 function libraryGym(): Gym {
-  const gym = gymsFixture().get(1);
+  const gym = gymsFixture().stored(1);
   if (!gym) throw new Error('no gym 1');
   return gym;
 }
@@ -48,11 +48,12 @@ describe('reporting a raid, as /raid and the map share it', () => {
     const made = await setup(
       new Map([[ALICE, { raidPrivacy: RaidPrivacy.Anonymous, autoStatus: PartyStatus.Coming }]]),
     );
-    const reported = reportedBoss(made.ctx, 'e:T5:0');
+    const reported = reportedBoss(made.ctx, null, 'e:T5:0', PARTY_ZONE);
     const result = await reportRaidAs(made.ctx, ALICE_MEMBER, libraryGym(), {
       reported,
-      time: reportedTime(made.ctx, reported, '30', PARTY_NOW),
+      time: reportedTime(made.ctx, reported, '30', PARTY_NOW, PARTY_ZONE),
       regionChannelId: WEST_CHANNEL,
+      guildRow: TEST_GUILD_ROW,
     });
     expect(result.outcome.kind).toBe('created');
     expect(result.autoStatus).toBe(PartyStatus.Coming);
@@ -68,8 +69,13 @@ describe('reporting a raid, as /raid and the map share it', () => {
   it('words each outcome as /raid does, naming the post and the region as the surface can', async () => {
     const made = await setup();
     const gym = libraryGym();
-    const reported = reportedBoss(made.ctx, 'e:T5:0');
-    const request = { reported, time: undefined, regionChannelId: WEST_CHANNEL };
+    const reported = reportedBoss(made.ctx, null, 'e:T5:0', PARTY_ZONE);
+    const request = {
+      reported,
+      time: undefined,
+      regionChannelId: WEST_CHANNEL,
+      guildRow: TEST_GUILD_ROW,
+    };
     const first = await reportRaidAs(made.ctx, ALICE_MEMBER, gym, request);
     const post = first.outcome.kind === 'created' ? first.outcome.party.forumPostId : null;
     expect(reportWords(first, gym, reported.label, DISCORD_NAMES)).toBe(

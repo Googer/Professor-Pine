@@ -1,5 +1,6 @@
 import { wornBy } from '../pogo/raid-boss-feed.js';
 import { foldText } from '../search/text.js';
+import { momentIn } from '../time/zoned.js';
 
 /*
  * Field research tasks (plan 8R-1; design `2026-10-21-stop-reports-design.md`, 4.1): what a
@@ -51,7 +52,9 @@ export type TaskReward =
  * page's heading without "Tasks": Catching, Throwing, Battling, Exploring, Training, Buddy &
  * Friendship, Team GO Rocket, Sponsored, AR Scanning, or an event's own, `isEventCategory`)
  * and its rewards in the page's order. `endsAt`: where the page gives its section an end (an
- * event's, `data-event-end`), when it stops being offered (`taskOffered`), epoch milliseconds.
+ * event's, `data-event-end`), when it stops being offered (`taskOffered`), epoch milliseconds;
+ * `endsLocal` the same end as wall-clock time where the page gave it so (plan 19A-2: the truth,
+ * `endsAt` its moment in the instance's default zone).
  */
 export interface ResearchTask {
   key: string;
@@ -59,11 +62,24 @@ export interface ResearchTask {
   category: string;
   rewards: TaskReward[];
   endsAt?: number;
+  endsLocal?: string;
 }
 
-/** Whether a task is offered at `now`: not past its event's end. */
-export function taskOffered(task: Pick<ResearchTask, 'endsAt'>, now: number): boolean {
-  return task.endsAt === undefined || now < task.endsAt;
+/**
+ * Whether a task is offered at `now`: not past its event's end, in `zone` (plan 19A-2: a server's;
+ * an end the page gave as local time is on its clock there).
+ */
+export function taskOffered(
+  task: Pick<ResearchTask, 'endsAt' | 'endsLocal'>,
+  now: number,
+  zone: string,
+): boolean {
+  if (task.endsAt === undefined) return true;
+  const end =
+    task.endsLocal === undefined
+      ? task.endsAt
+      : momentIn({ local: task.endsLocal }, zone).epochMilliseconds;
+  return now < end;
 }
 
 /**

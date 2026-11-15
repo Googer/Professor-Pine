@@ -4,17 +4,22 @@ import { regionChannelOf } from '../../discord/guards.js';
 import { answer, v2Answer } from '../../discord/late-reply.js';
 import { MEMBER_WRITE_THROTTLE } from '../../discord/throttle.js';
 import { actionRow, LIST_COLOUR, linkButton, textMessage } from '../../render/v2.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /**
  * `/maps` (the legacy `!maps`), for the member alone. With the web pages (`settings.web`, plan
  * 8M-1): the address of the server's map and a button that opens it logged in (a login link of
  * five minutes, once; issuing one is a write, hence `MEMBER_WRITE_THROTTLE`), on the region of
  * the channel it was used in (plan 8M-7: `?region=<id>` in the address and the link); in a DM, which
- * names no server, the map of all regions where `settings.regionMapLink` is set, else where to
- * ask. Without them: the address of the map of all regions, anywhere. Offered where either is
- * set; also in a DM with the bot and the post of a party: the legacy bot sent it by DM to keep
+ * names no server, the map of all regions where the file's `regionMapLink` is set (the defaults,
+ * plan 19A-1), else where to ask. Without them: the address of the map of all regions (the
+ * server's `regionMapLink`), anywhere. Set up where either is set (`setUpIn`); also in a DM with the bot and the post of a party: the legacy bot sent it by DM to keep
  * raid channels quiet, and a private answer is as quiet.
  */
+/** What staff are told to set where a server has no map (plan 19A-1). */
+export const MAPS_NOT_SET_UP =
+  'Staff set the address of the map of all regions in /admin settings.';
+
 export const maps: SimpleCommand = {
   data: new SlashCommandBuilder()
     .setName('maps')
@@ -29,12 +34,18 @@ export const maps: SimpleCommand = {
         : 'Gives you the address of a map that shows every region. Only you see the answer.',
     examples: ['/maps'],
   },
-  enabled: (config) =>
-    config.settings.regionMapLink !== undefined || config.settings.web !== undefined,
+  // Registered everywhere (plan 19A-1): any server could set its link; set up where the instance
+  // serves the web pages or the server has its link.
+  setUpIn: (values, { config }) =>
+    config.settings.web !== undefined || values.regionMapLink !== undefined
+      ? undefined
+      : MAPS_NOT_SET_UP,
   throttle: MEMBER_WRITE_THROTTLE,
   defer: 'late',
   async execute(interaction, ctx) {
-    const { web, regionMapLink } = ctx.config.settings;
+    const { web } = ctx.config.settings;
+    // The server's link (plan 19A-1); in a DM the file's.
+    const { regionMapLink } = serverValuesOf(interaction, ctx);
     if (web && interaction.inGuild()) {
       const guild = interaction.guildId;
       // One login serves every server: the session is named as the account is, not as the

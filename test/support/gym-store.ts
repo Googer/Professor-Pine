@@ -1,15 +1,20 @@
-import type {
-  Gym,
-  GymPatch,
-  GymStorage,
-  NearestWrite,
-  NewGym,
+import {
+  fillingOf,
+  type FillableTexts,
+  type FilledTexts,
+  type Gym,
+  type GymPatch,
+  type GymStorage,
+  type NearestWrite,
+  type NewGym,
 } from '../../src/db/repositories/gym-repository.js';
 import { loadSettings } from '../../src/config/settings.js';
+import { GoogleAnswers, MemoryGoogleAnswerStorage } from '../../src/services/google-answers.js';
 import { GymDirectory } from '../../src/services/gym-directory.js';
 import type { Region } from '../../src/db/repositories/region-repository.js';
 import { nearestTo } from '@pine/wayspot-core/distance';
-import { testGyms, testRegions } from './gyms.js';
+import type { GymLink } from '../../src/domain/gyms/gym-server.js';
+import { testGyms, testLinks, testRegions } from './gyms.js';
 import { createTestLogger } from './test-logger.js';
 import { TEST_SETTINGS_PATH } from './test-settings.js';
 
@@ -23,7 +28,16 @@ export function settledTestGyms(): Gym[] {
 }
 
 /** The methods of the storage, for a test that holds or fails one of them. */
-export type GymMethod = 'get' | 'listAll' | 'create' | 'createBlock' | 'update' | 'delete';
+export type GymMethod =
+  | 'get'
+  | 'listAll'
+  | 'links'
+  | 'linksOf'
+  | 'create'
+  | 'createBlock'
+  | 'update'
+  | 'fillEmpty'
+  | 'delete';
 
 /**
  * The gyms kept in memory as `GymRepository` keeps them, whose behaviour
@@ -48,11 +62,45 @@ export class MemoryGyms implements GymStorage {
     | { what: 'delete'; id: number }
   > = [];
   private readonly rows = new Map<number, Gym>();
+  /** The servers of each gym (`GymServer`), by gym: a link goes with its gym. */
+  readonly servers = new Map<number, Set<number>>();
   private nextId: number;
 
-  constructor(gyms: readonly Gym[] = settledTestGyms()) {
+  /** `links`: the servers of the gyms; every gym given is the test server's unless told. */
+  constructor(
+    gyms: readonly Gym[] = settledTestGyms(),
+    links: readonly GymLink[] = testLinks(gyms),
+  ) {
     for (const gym of gyms) this.rows.set(gym.id, { ...gym });
+    for (const link of links) this.link(link.gymId, link.guildId);
     this.nextId = Math.max(0, ...gyms.map((gym) => gym.id)) + 1;
+  }
+
+  /** Links a gym to a server at once, as a test sets the tables up. */
+  link(gymId: number, guildId: number): void {
+    const servers = this.servers.get(gymId) ?? new Set<number>();
+    servers.add(guildId);
+    this.servers.set(gymId, servers);
+  }
+
+  /** Takes a gym's link to a server away at once (`MemoryGymRemoval` does, as its transaction). */
+  unlink(gymId: number, guildId: number): void {
+    this.servers.get(gymId)?.delete(guildId);
+  }
+
+  links(): Promise<GymLink[]> {
+    return this.attempt('links', () =>
+      [...this.servers]
+        .filter(([gymId]) => this.rows.has(gymId))
+        .flatMap(([gymId, servers]) => [...servers].map((guildId) => ({ gymId, guildId })))
+        .sort((a, b) => a.gymId - b.gymId || a.guildId - b.guildId),
+    );
+  }
+
+  linksOf(gymId: number): Promise<number[]> {
+    return this.attempt('linksOf', () =>
+      this.rows.has(gymId) ? [...(this.servers.get(gymId) ?? [])].sort((a, b) => a - b) : [],
+    );
   }
 
   private async attempt<T>(method: GymMethod, work: () => T): Promise<T> {
@@ -110,6 +158,7 @@ export class MemoryGyms implements GymStorage {
 
   createBlock(
     gyms: readonly NewGym[],
+    guildId: number,
     nearest: (created: readonly Gym[]) => readonly NearestWrite[],
   ): Promise<Gym[]> {
     return this.attempt('createBlock', () => {
@@ -122,6 +171,7 @@ export class MemoryGyms implements GymStorage {
       this.nextId += made.length;
       for (const gym of made) {
         this.rows.set(gym.id, { ...gym, nearestGym: writes.get(gym.id) ?? null });
+        this.link(gym.id, guildId);
         this.writes.push({ what: 'create', id: gym.id });
       }
       for (const [id, nearestGym] of writes) {
@@ -156,13 +206,14 @@ export class MemoryGyms implements GymStorage {
       confirmedEx: false,
       imageUrl: gym.imageUrl ?? null,
       sponsor: null,
-      geodata: gym.geodata ?? null,
+      geodata: null,
       places: null,
+      wayfarerAddress: gym.wayfarerAddress ?? null,
       nearestGym: null,
     };
   }
 
-  create(gym: NewGym): Promise<Gym> {
+  create(gym: NewGym, guildId: number): Promise<Gym> {
     return this.attempt('create', () => {
       if (this.refuseNames.has(gym.name)) throw new Error('the gym was refused');
       const id = this.nextId++;
@@ -182,11 +233,13 @@ export class MemoryGyms implements GymStorage {
         confirmedEx: false,
         imageUrl: gym.imageUrl ?? null,
         sponsor: null,
-        geodata: gym.geodata ?? null,
+        geodata: null,
         places: null,
+        wayfarerAddress: gym.wayfarerAddress ?? null,
         nearestGym: null,
       };
       this.rows.set(id, created);
+      this.link(id, guildId);
       this.writes.push({ what: 'create', id });
       return { ...created };
     });
@@ -208,9 +261,25 @@ export class MemoryGyms implements GymStorage {
     });
   }
 
+  /** As the repository's: what is empty when it writes is filled, in the same step. */
+  fillEmpty(id: number, texts: FillableTexts): Promise<FilledTexts | undefined> {
+    return this.attempt('fillEmpty', () => {
+      const gym = this.row(id);
+      if (!gym) return undefined;
+      const { patch, filled } = fillingOf(gym, texts);
+      if (filled.length === 0) return { gym, filled };
+      const keywords = patch.keywords?.map((keyword) => keyword.trim().toLowerCase());
+      this.rows.set(id, { ...gym, ...patch, ...(keywords ? { keywords } : {}) });
+      this.writes.push({ what: 'update', id, patch });
+      const written = this.row(id);
+      return written && { gym: written, filled };
+    });
+  }
+
   delete(id: number): Promise<boolean> {
     return this.attempt('delete', () => {
       const existed = this.rows.delete(id);
+      this.servers.delete(id);
       if (existed) this.writes.push({ what: 'delete', id });
       return existed;
     });
@@ -218,21 +287,59 @@ export class MemoryGyms implements GymStorage {
 }
 
 /**
+ * Google's answers by the point (plan 19B-3) over memory, loaded, holding the address and places
+ * the gyms given have (the invented gyms', as a database upgraded by migration 059 holds them).
+ */
+export async function answersOf(
+  gyms: readonly Gym[] = [],
+  storage: MemoryGoogleAnswerStorage = new MemoryGoogleAnswerStorage(),
+): Promise<GoogleAnswers> {
+  await storage.save(
+    gyms.flatMap((gym) => [
+      ...(gym.geodata === null
+        ? []
+        : [
+            {
+              kind: 'address' as const,
+              lat: gym.lat,
+              lon: gym.lon,
+              answer: gym.geodata,
+              askedAt: 0,
+            },
+          ]),
+      ...(gym.places === null
+        ? []
+        : [
+            { kind: 'places' as const, lat: gym.lat, lon: gym.lon, answer: gym.places, askedAt: 0 },
+          ]),
+    ]),
+  );
+  const answers = new GoogleAnswers({ storage, log: createTestLogger().log });
+  await answers.load();
+  return answers;
+}
+
+/**
  * A real `GymDirectory` over gyms in memory and the invented regions, loaded: what gym
  * administration changes shows in it after `refreshGym`, as in the bot. `regions` are the rows
- * the directory sorts the gyms by (a test that changes them calls `directory.load()`).
+ * the directory sorts the gyms by (a test that changes them calls `directory.load()`). Each gym's
+ * address and places are its point's (`answers`, plan 19B-3), at first those the gyms given have;
+ * `answerStorage` is where they are kept (set `failing` for a write that fails).
  */
 export async function gymDirectoryWith(
   gyms: MemoryGyms = new MemoryGyms(),
   regions: { rows: Region[] } = { rows: testRegions() },
 ) {
   const { log } = createTestLogger();
+  const answerStorage = new MemoryGoogleAnswerStorage();
+  const answers = await answersOf(await gyms.listAll(), answerStorage);
   const directory = new GymDirectory({
     gyms,
     regions: { listAll: () => Promise.resolve(regions.rows) },
-    ignoredWords: loadSettings(TEST_SETTINGS_PATH).blacklistWords,
+    wordsOf: () => loadSettings(TEST_SETTINGS_PATH).blacklistWords,
+    answers,
     log,
   });
   await directory.load();
-  return { gyms, directory, regions };
+  return { gyms, directory, regions, answers, answerStorage };
 }

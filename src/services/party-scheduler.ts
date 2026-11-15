@@ -42,19 +42,26 @@ export interface PartySchedulerOptions {
     PartyService,
     | 'changed'
     | 'end'
-    | 'rules'
+    | 'rulesIn'
+    | 'zoneOf'
     | 'view'
     | 'redoClosings'
     | 'sweepCopies'
     | 'sweepPosts'
     | 'checkSummaries'
     | 'whileOpen'
+    | 'ofQuietServer'
   >;
   attendance: Pick<AttendanceService, 'ask' | 'removeQuestions'>;
   /** The access of members of other regions, whose leftovers are swept with the forums. */
   access?: { sweep(): Promise<unknown> };
   /** The staff audit log, whose entries older than 30 days go with the upkeep (`PartyAudit`). */
   audit?: { sweep(): Promise<unknown> };
+  /**
+   * The staff's log of the servers' settings (plan 19A-1, `ServerSettings.sweepLog`), whose
+   * entries older than 30 days go with the upkeep, right after the parties' log.
+   */
+  settingsAudit?: { sweep(): Promise<unknown> };
   /**
    * The party history, whose parties left without a record (a record that gave up its tries,
    * a stop before them) are recorded with the forums' upkeep: at start and hourly. The sweep is
@@ -89,6 +96,17 @@ export interface PartySchedulerOptions {
   pictures?: { prunePlaces(): Promise<unknown> };
   /** The pictures of places beside a post's Where: those nobody asked for in a month go too. */
   placePictures?: { prune(): Promise<unknown> };
+  /**
+   * Google's answers by the point (plan 19B-3, `GoogleAnswers.sweep`): those no gym or Wayspot of
+   * any server shows go with the upkeep, at most once a day (the sweep keeps its own day).
+   */
+  googleAnswers?: { sweep(): Promise<unknown> };
+  /**
+   * The neighbors' rows no longer kept (plan 19E, review R8, `ServerNeighbors.sweep`): requests
+   * expired or taken back and declines a week old, deleted by their keys with the upkeep (a look
+   * at memory, which writes only when one is due).
+   */
+  neighbors?: { sweep(): Promise<unknown> };
   /** The screenshots kept on disk, of which those that are due go with the upkeep. */
   screenshots?: { sweep(): Promise<unknown> };
   /** The emoji of the bot's application, read anew with the upkeep (`ApplicationEmoji`). */
@@ -100,6 +118,13 @@ export interface PartySchedulerOptions {
    * event's end is archived then, and a listing a missed timer left stale is drawn anew.
    */
   eventForum?: { upkeep(): Promise<unknown> };
+  /**
+   * The servers Pine left more than 30 days ago, whose data goes (plan 19C-3,
+   * `ServerDeletion.sweep`): last in the upkeep, at most once a day (the sweep keeps its own day;
+   * the first at the start's upkeep). Told of the clock's stop, it ends between two statements
+   * and the next start goes on.
+   */
+  deletions?: { sweep(options: { isStopped: () => boolean }): Promise<unknown> };
   /**
    * The new trains of splits left pending in the process (plan 8T: a split whose write failed,
    * and whose new train could not be ended then), taken back with the upkeep once they are a
@@ -282,17 +307,26 @@ export class PartyScheduler {
   private async run(): Promise<void> {
     const { store, posts, raidBosses, settings, log } = this.options;
     const now = this.now();
-    const input: TickInput = {
-      now,
-      previous: this.previous,
-      settings,
-      rules: posts.rules(),
-      autoset: tickAutoset(raidBosses),
+    // One input per zone in use, not per party (plan 19A-2): each party ticks by the rules of
+    // its server's zone, whose days it is shown anew at.
+    const inputs = new Map<string, TickInput>();
+    const inputOf = (party: Party): TickInput => {
+      const zone = posts.zoneOf(party);
+      let input = inputs.get(zone);
+      if (input === undefined) {
+        const autoset = tickAutoset({ autoset: (tier) => raidBosses.autoset(tier, zone) });
+        input = { now, previous: this.previous, settings, rules: posts.rulesIn(zone), autoset };
+        inputs.set(zone, input);
+      }
+      return input;
     };
-    for (const { id } of store.active()) {
+    for (const party of store.active()) {
       if (this.stopped) return;
+      // A quiet server (plans 19C-1, 19C-2): its parties wait as they are, until it is back.
+      if (posts.ofQuietServer(party)) continue;
+      const { id } = party;
       try {
-        await this.tickParty(id, input);
+        await this.tickParty(id, inputOf);
       } catch (err) {
         // A change of the party is stuck past its lock's limit, which the store logged once: the
         // next tick tries again (2026-11-07).
@@ -333,17 +367,20 @@ export class PartyScheduler {
    * forums that nothing calls for any more, takes stops off the routes of trains whose gym is
    * gone, has the spawn reports and grunts' messages deleted that no process deleted at their
    * time, forgets the reports at stops that ended, and the kept
-   * screenshots that are due, and the expired sessions of the web pages, settles the new trains
+   * screenshots that are due, Google's answers no place uses (once a day), the neighbors' rows
+   * no longer kept, and the expired
+   * sessions of the web pages, settles the new trains
    * of splits left pending, records the parties the party history was left without and adds the
    * history's new records to the activity heatmap, and reads the application's emoji anew: at
-   * start and hourly.
+   * start and hourly; last, the data of the servers Pine left more than 30 days ago (once a day).
    */
   private upkeep(): void {
     const { posts, access, routes, spawns, pictures, screenshots, emoji, webSessions, log } =
       this.options;
     const { history, activity, splits, stops, grunts, eventForum, legacyFillIns, audit } =
       this.options;
-    const { placePictures } = this.options;
+    const { settingsAudit } = this.options;
+    const { placePictures, googleAnswers, deletions, neighbors } = this.options;
     this.lastUpkeep = this.now();
     // Each by itself: one that fails does not keep the others from running. Once the clock has
     // stopped none starts: the shutdown waits for the upkeep (review r1 C3).
@@ -365,12 +402,15 @@ export class PartyScheduler {
       await step(() => posts.checkSummaries());
       if (access) await step(() => access.sweep());
       if (audit) await step(() => audit.sweep());
+      if (settingsAudit) await step(() => settingsAudit.sweep());
       if (routes) await step(() => routes.removeUnknownStops());
       if (spawns) await step(() => spawns.sweep());
       if (stops) await step(() => stops.sweep());
       if (grunts) await step(() => grunts.sweep());
       if (pictures) await step(() => pictures.prunePlaces());
       if (placePictures) await step(() => placePictures.prune());
+      if (googleAnswers) await step(() => googleAnswers.sweep());
+      if (neighbors) await step(() => neighbors.sweep());
       if (screenshots) await step(() => screenshots.sweep());
       if (emoji) await step(() => emoji.refresh());
       if (webSessions) await step(() => webSessions.sweep());
@@ -389,6 +429,8 @@ export class PartyScheduler {
       // Last, after the days have the history's new records: "On this day" waits for them
       // (plan 8H-8, A1).
       if (eventForum) await step(() => eventForum.upkeep());
+      // After the rest: a server's deletion may take a while, once a day.
+      if (deletions) await step(() => deletions.sweep({ isStopped: () => this.stopped }));
     })()
       .catch((err: unknown) => {
         log.error({ err }, 'the upkeep of the forums failed');
@@ -398,12 +440,12 @@ export class PartyScheduler {
       });
   }
 
-  private async tickParty(id: string, input: TickInput): Promise<void> {
+  private async tickParty(id: string, inputOf: (party: Party) => TickInput): Promise<void> {
     const { store, posts, notify, log } = this.options;
     const seen: { before?: Party } = {};
     const result = await store.update(id, (party) => {
       seen.before = party;
-      return partyTick(party, input);
+      return partyTick(party, inputOf(party));
     });
     if (!result) return;
     if (result.render) posts.changed(id);

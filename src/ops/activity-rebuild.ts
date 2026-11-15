@@ -3,6 +3,22 @@ import type { ActivityRepository, RebuiltServer } from '../db/repositories/activ
 
 export const USAGE = 'Usage: npm run activity:rebuild [-- --server <server id>]';
 
+/**
+ * Each server's zone for the command (plan 19A-2; fix round 1, N8): its row's, as the bot reads
+ * it (`ServerSettings.zoneOf`, `servers()` loads them), the instance's default for a server
+ * without one; on a database without the table of the servers' settings (one 2.1 has not
+ * started on yet), the default for every server, and nothing is read.
+ */
+export async function serverZonesFor(deps: {
+  hasServerSettings: () => Promise<boolean>;
+  servers: () => Promise<{ zoneOf(serverId: string): string }>;
+  defaultZone: string;
+}): Promise<(serverId: string) => string> {
+  if (!(await deps.hasServerSettings())) return () => deps.defaultZone;
+  const servers = await deps.servers();
+  return (serverId) => servers.zoneOf(serverId);
+}
+
 export interface RebuildStepDeps {
   activity: Pick<ActivityRepository, 'rebuild'>;
   say: (line: string) => void;

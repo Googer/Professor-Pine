@@ -20,17 +20,36 @@ describe('MaxBossService', () => {
     const { service, state } = await maxBossServiceWith();
     expect(await service.sync()).toMatchObject({ status: 'updated' });
     expect(service.feedBosses()).toHaveLength(60);
-    const names = () => service.bosses().map((boss) => boss.name);
+    const names = () => service.bosses(MAX_ZONE).map((boss) => boss.name);
     expect(names()).toHaveLength(57);
     expect(names()).not.toContain('Uxie');
     state.now = at('2026-10-24T00:00');
     expect(names()).toHaveLength(60);
     expect(
       service
-        .bosses()
+        .bosses(MAX_ZONE)
         .filter((boss) => boss.tier === 'D5')
         .map((boss) => boss.name),
     ).toEqual(['Azelf', 'Mesprit', 'Uxie']);
+  });
+
+  it('offers an upcoming boss from the start of its day in each server’s zone (fix round 1, L9)', async () => {
+    const TOKYO = 'Asia/Tokyo';
+    const { service, state } = await maxBossServiceWith();
+    await service.sync();
+    // Uxie from 2026-10-24T21:00Z: the 24th from 04:00Z in New York, the 25th from 15:00Z in
+    // Tokyo. At 10:00Z it is a boss in New York and still coming in Tokyo.
+    state.now = Date.UTC(2026, 9, 24, 10);
+    const named = (bosses: readonly { name: string }[]) => bosses.map((boss) => boss.name);
+    expect(named(service.bosses(MAX_ZONE))).toContain('Uxie');
+    expect(named(service.bosses(TOKYO))).not.toContain('Uxie');
+    expect(named(service.coming(MAX_ZONE))).not.toContain('Uxie');
+    expect(named(service.coming(TOKYO))).toContain('Uxie');
+    const uxie = (zone: string) => service.feedBosses(zone).find((boss) => boss.name === 'Uxie');
+    expect(uxie(MAX_ZONE)?.firstSeen).toBe(Date.UTC(2026, 9, 24, 4));
+    expect(uxie(TOKYO)?.firstSeen).toBe(Date.UTC(2026, 9, 24, 15));
+    state.now = Date.UTC(2026, 9, 24, 15);
+    expect(named(service.bosses(TOKYO))).toContain('Uxie');
   });
 
   it('keeps an upcoming boss back after a restart too: its start is stored', async () => {
@@ -38,7 +57,7 @@ describe('MaxBossService', () => {
     await service.sync();
     const again = await restarted();
     expect(again.feedBosses()).toEqual(service.feedBosses());
-    expect(again.bosses().some((boss) => boss.name === 'Uxie')).toBe(false);
+    expect(again.bosses(MAX_ZONE).some((boss) => boss.name === 'Uxie')).toBe(false);
     expect(await store.lastSyncedAt()).toBe(MAX_FEED_READ_AT);
   });
 
@@ -55,7 +74,7 @@ describe('MaxBossService', () => {
       (entry) => entry['msg'] === 'the max boss feed names a Pokémon the game data does not know',
     );
     expect(told.map((entry) => entry['id'])).toEqual(['NEWMON_GIGANTAMAX']);
-    expect(service.bosses().map((boss) => [boss.name, boss.tier, boss.entry])).toEqual([
+    expect(service.bosses(MAX_ZONE).map((boss) => [boss.name, boss.tier, boss.entry])).toEqual([
       ['Newmon', 'G', undefined],
     ]);
   });
@@ -77,7 +96,7 @@ describe('MaxBossService', () => {
     await service.addOverride({ ...ids, action: 'add', tier: 'G', shiny: true, expiresAt: null });
     expect(
       service
-        .bosses()
+        .bosses(MAX_ZONE)
         .filter((boss) => boss.tier === 'G')
         .map((boss) => boss.key),
     ).toEqual(['machamp']);

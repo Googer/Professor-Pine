@@ -2,18 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
 import { BoardKeeper } from './board-keeper.js';
+import { at } from '../../test/support/parties.js';
+import { TestServers, withZones } from '../../test/support/server-values.js';
+import type { QuietServers } from './quiet-servers.js';
 
 const MEMBER = '300000000000000001';
 const OTHER = '300000000000000002';
 const MODERATOR = '300000000000000003';
 const DAY = 24 * 60 * 60 * 1000;
+/** The fakes' server (`FakePartyGateway.guildId`), the guild of row 1. */
+const SERVER = '412345678901234567';
 
 /**
  * A board on the fake gateway (the west region's, made by the party service) and its keeper,
  * which tells the regions whose board it deleted in (`changed`).
  */
-async function keeping() {
-  const made = await partyServiceWith();
+async function keeping(servers?: TestServers, quiet?: QuietServers) {
+  const made = await partyServiceWith([], {
+    ...(servers === undefined ? {} : { servers }),
+    ...(quiet === undefined ? {} : { quiet }),
+  });
   const west = made.regions.rows[0]!;
   await made.service.ensureSummary(west);
   const board = west.summaryMessageId ?? '';
@@ -22,7 +30,10 @@ async function keeping() {
     regions: made.regions,
     gateway: made.gateway,
     dms: made.dms,
-    zone: 'America/New_York',
+    zoneOfRow: (row) => made.service.zoneOfRow(row),
+    serverOfRow: (row) => (row === 1 ? made.gateway.guildId : undefined),
+    // As `app.ts` asks it (plan 19C-1).
+    ofQuietServer: (region) => made.service.ofQuietServer(region),
     log: made.log,
     changed: (regionId) => changed.push(regionId),
     now: () => made.clock.now,
@@ -62,6 +73,7 @@ describe('BoardKeeper: what members write in the board (plan 8R-9F)', () => {
     // The pin check, for a member's message reopens an archived board unpinned (B7).
     expect(changed).toEqual([west.id]);
     expect(dms.recipients).toEqual([MEMBER]);
+    expect(dms.serversOf(MEMBER)).toEqual([SERVER]);
     expect(dms.to(MEMBER)[0]?.content).toBe(
       `I deleted your message in <#${board}>: the board keeps only my lists of what is on. ` +
         `Chat in <#${WEST_CHANNEL}>, or report with a command such as \`/raid\`, \`/research\` ` +
@@ -73,6 +85,20 @@ describe('BoardKeeper: what members write in the board (plan 8R-9F)', () => {
     expect(deletedIn(board)).toEqual([first.id, second.id]);
     expect(dms.to(MEMBER)).toHaveLength(1);
     clock.now += DAY;
+    posted(board, MEMBER);
+    await keeper.flush();
+    expect(dms.to(MEMBER)).toHaveLength(2);
+  });
+
+  it('tells a member once a day on their server’s clock (plan 19A-2)', async () => {
+    // The fakes' server in Berlin: 14:00 in New York is 20:00 there.
+    const made = await keeping(withZones({ [SERVER]: 'Europe/Berlin' }));
+    const { keeper, board, posted, dms, clock } = made;
+    posted(board, MEMBER);
+    await keeper.flush();
+    expect(dms.to(MEMBER)).toHaveLength(1);
+    // 18:30 in New York, the same day here, is 00:30 the next day in Berlin: told again.
+    clock.now = at('2026-10-13T18:30');
     posted(board, MEMBER);
     await keeper.flush();
     expect(dms.to(MEMBER)).toHaveLength(2);
@@ -187,7 +213,8 @@ describe('BoardKeeper in rehearsal mode (review W2)', () => {
       regions: made.regions,
       gateway,
       dms,
-      zone: 'America/New_York',
+      zoneOfRow: (row) => made.service.zoneOfRow(row),
+      serverOfRow: (row) => (row === 1 ? made.gateway.guildId : undefined),
       log: made.log,
       changed: (regionId) => changed.push(regionId),
       now: () => clock.now,
@@ -225,6 +252,21 @@ describe('BoardKeeper in rehearsal mode (review W2)', () => {
 });
 
 describe('BoardKeeper: the catch-up (plan 8R-9F, B6)', () => {
+  it('passes over the boards of a server Pine left, and sweeps them once it is back (plan 19C-1)', async () => {
+    const left = new Set<string>();
+    const { keeper, board, gateway, deletedIn, clock } = await keeping(undefined, {
+      isQuiet: (serverId) => left.has(serverId),
+    });
+    const written = gateway.write(board, MEMBER, { createdAt: clock.now - 60_000 });
+    left.add(SERVER);
+    await keeper.sweep();
+    expect(gateway.calls.filter((call) => call.startsWith('boardMessages'))).toEqual([]);
+    expect(deletedIn(board)).toEqual([]);
+    left.delete(SERVER);
+    await keeper.sweep();
+    expect(deletedIn(board)).toEqual([written]);
+  });
+
   it('deletes what members wrote while it was away in one request, each author asked once afresh', async () => {
     const { keeper, board, gateway, deletedIn, dms, changed, west, clock } = await keeping();
     gateway.managers.add(MODERATOR);

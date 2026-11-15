@@ -3,6 +3,8 @@ import type { MessageFile, V2Message } from '../discord/party-gateway.js';
 import {
   headCount,
   lobbyCount,
+  listedStatus,
+  type ListedStatus,
   membersWhere,
   type Attendee,
   type GroupId,
@@ -13,7 +15,8 @@ import {
 import { DEFAULT_LOBBIES } from '../domain/party/lobby.js';
 import { PartyStatus } from '../domain/party/status.js';
 import { meetIcon, statusIcon, type ShownStatus } from './party-controls.js';
-import { count, memberName, plain, timestamp } from './text.js';
+import { serverNameShown } from './server-admission.js';
+import { count, fitItems, memberName, plain, timestamp } from './text.js';
 import {
   actionRow,
   container,
@@ -642,21 +645,9 @@ export const STATUS_WORDS: Readonly<Record<ShownStatus, string>> = {
   complete: 'Done',
 };
 
-/** Under which status a post lists an attendee: one asked whether they completed is present. */
-function shownStatus(attendee: Attendee): ShownStatus | undefined {
-  switch (attendee.status) {
-    case PartyStatus.Interested:
-      return 'interested';
-    case PartyStatus.Coming:
-      return 'coming';
-    case PartyStatus.Present:
-    case PartyStatus.CompletePending:
-      return 'present';
-    case PartyStatus.Complete:
-      return 'complete';
-    default:
-      return undefined;
-  }
+/** Under which status a post lists an attendee (the domain's `listedStatus`). */
+function shownStatus(attendee: Attendee): ShownStatus {
+  return listedStatus(attendee.status);
 }
 
 /** The members of a status, of one group or of all, as texts in shown order, and their heads. */
@@ -856,4 +847,82 @@ export function trainerBlocks(view: TrainersView, options: TrainerOptions, fit: 
 /** How many trainers are expected in all, for lists of parties. */
 export function trainerCount(party: Party): string {
   return count(headCount(party), 'trainer');
+}
+
+/**
+ * The lines a raid's or max battle's post shows for its neighbors' parties at the same gym or
+ * Power Spot (plan 19E), each made by `neighborLine`; none shows nothing.
+ */
+export interface NeighborsShown {
+  at: 'gym' | 'spot';
+  lines: readonly string[];
+}
+
+/** The order the heads of a neighbor's party are said in: the post's own (`STATUS_WORDS`). */
+const NEIGHBOR_STATUSES: readonly ListedStatus[] = ['interested', 'coming', 'present', 'complete'];
+
+/**
+ * How many come to a neighbor's party, by status in the post's own words (`Interested (2), Coming
+ * (3), Here (1)`), the statuses nobody is in left out; `nobody yet`. Nobody is named.
+ */
+export function neighborHeads(heads: Readonly<Record<ListedStatus, number>>): string {
+  const said = NEIGHBOR_STATUSES.filter((status) => heads[status] > 0).map(
+    (status) => `${STATUS_WORDS[status]} (${String(heads[status])})`,
+  );
+  return said.length === 0 ? 'nobody yet' : said.join(', ');
+}
+
+/**
+ * A neighbor's party in a line (plan 19E): the server by its name as Discord has it
+ * (`serverNameShown`: cut, plain, no links; "A neighboring server" where the bot has none), what
+ * the party is and when, as its own post says them (the renderer of its kind gives `what` and
+ * `when`), the heads by status, and a jump link to its post. No member, no mention.
+ */
+export function neighborLine(shown: {
+  server: string | undefined;
+  what: string;
+  when: string | undefined;
+  heads: Readonly<Record<ListedStatus, number>>;
+  link: string;
+}): string {
+  const server =
+    shown.server === undefined ? 'A neighboring server' : serverNameShown(shown.server);
+  return [
+    `- **${server}**`,
+    shown.what,
+    ...(shown.when === undefined ? [] : [shown.when]),
+    neighborHeads(shown.heads),
+    `[Its post](<${shown.link}>)`,
+  ].join(' · ');
+}
+
+/** The lines of the neighbors under their heading. */
+export function neighborsBlock(at: NeighborsShown['at'], lines: readonly string[]): string {
+  const heading = at === 'gym' ? '**Neighbors at this gym**' : '**Neighbors at this Power Spot**';
+  return [heading, ...lines].join('\n');
+}
+
+/**
+ * The blocks of the neighbors in a post, below who comes (a separator and one text); where the
+ * post has no room for all of it, as many whole lines as fit and how many more (`fitItems`, review
+ * R6: a line is never cut inside its markup), cut as a last resort (`fit.part`). None without
+ * lines, and none in the last showing of a party.
+ */
+export function neighborBlocks(
+  neighbors: NeighborsShown | undefined,
+  fit: Fit,
+  last: boolean,
+): PostBlock[] {
+  if (neighbors === undefined || neighbors.lines.length === 0 || last) return [];
+  const { at, lines } = neighbors;
+  const heading = neighborsBlock(at, []);
+  return [
+    { type: 'separator' },
+    {
+      type: 'text',
+      content: fit.part(
+        (room) => `${heading}\n${fitItems(lines, room - heading.length - 1, '\n')}`,
+      ),
+    },
+  ];
 }

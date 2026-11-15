@@ -137,7 +137,13 @@ export interface CleanupListOptions {
   regionChannelIds: readonly string[];
   /** The forums of its regions: never listed. */
   regionForumIds: readonly string[];
-  /** The names of the channels the settings name (`settings.channels`): never listed. */
+  /** The channels of the server's settings (plan 19A-1: by id): never listed. */
+  settingsChannelIds: readonly string[];
+  /**
+   * The names the settings file gives its channels (`channelNamesOf`): never listed either, as
+   * before 2.1, so that a second channel of such a name, or one the fill did not match, stays
+   * (review F6).
+   */
   settingsChannelNames: readonly string[];
   /**
    * The parties of the legacy `active/` files; undefined when they could not be read, so that a
@@ -175,9 +181,9 @@ export async function cleanupList(
   const channels = (await discord.get(Routes.guildChannels(guildId))) as ApiChannel[];
   const byId = new Map(channels.map((channel) => [channel.id, channel]));
   const named = new Set(legacyChannelIds);
-  // Never listed, whatever a file says: the region channels, their forums, the channels the
-  // settings name.
-  const kept = new Set([...regionChannelIds, ...regionForumIds]);
+  // Never listed, whatever a file says: the region channels, their forums, the channels of the
+  // server's settings.
+  const kept = new Set([...regionChannelIds, ...regionForumIds, ...options.settingsChannelIds]);
   const settingsNames = new Set(options.settingsChannelNames);
   // Orphans are looked for only in categories: a region channel without one sits among the
   // server's own channels, which are never scanned.

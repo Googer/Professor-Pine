@@ -427,8 +427,8 @@ describe('the pictures of a post on the map (plan 8M-8A)', () => {
   it('puts the gym’s picture beside Where by Pine’s address, for members who see the post', async () => {
     const base = gymsFixture();
     const gyms = Object.assign(Object.create(base) as GymProvider, {
-      get: (id: number) => {
-        const gym = base.get(id);
+      stored: (id: number) => {
+        const gym = base.stored(id);
         return gym && id === 1 ? { ...gym, imageUrl: LIBRARY_PICTURE } : gym;
       },
     });

@@ -33,7 +33,8 @@ export const audit: SimpleCommand = {
       'For admins and moderators. In the post of a raid, max battle, train or meetup, also one ' +
       'that has ended: who reported or made it (also when it is anonymous in the post) and who ' +
       'changed what since, with the time. Changes Pine made by itself show as Pine.\n\nWith ' +
-      '`member`: that member’s latest changes in this server, each with its post.\n\nThe log ' +
+      '`member`: that member’s latest changes in this server, each with its post, and their ' +
+      'changes of the server’s settings (`/admin settings`).\n\nThe log ' +
       'keeps 30 days. Server Settings › Integrations decide who sees it (Manage Messages by ' +
       'default). Only you see the answer.',
     examples: ['/audit', '/audit member:@Ash'],
@@ -49,10 +50,14 @@ export const audit: SimpleCommand = {
       const inServer =
         member === null ? null : 'displayName' in member ? member.displayName : member.nick;
       const name = inServer ?? user.globalName ?? user.username;
-      const records = await ctx.partyAudit.ofMember(serverId, user.id, AUDIT_LINES + 1);
-      const more = records.length > AUDIT_LINES;
+      // Their changes of parties and of the server's settings (plan 19A-1), the newest of both.
+      const [records, settings] = await Promise.all([
+        ctx.partyAudit.ofMember(serverId, user.id, AUDIT_LINES + 1),
+        ctx.serverSettingsAudit.ofMember(serverId, user.id, AUDIT_LINES + 1),
+      ]);
+      const more = records.length + settings.length > AUDIT_LINES;
       await interaction.editReply(
-        v2Answer(memberAuditMessage({ id: user.id, name }, records.slice(-AUDIT_LINES), now, more)),
+        v2Answer(memberAuditMessage({ id: user.id, name }, records, now, more, settings)),
       );
       return;
     }

@@ -7,6 +7,19 @@ const API = 'https://discord.com/api/v10';
 const TIMEOUT_MS = 10_000;
 /** How much of an answer is read: a token's or a user's JSON is well under a kilobyte. */
 const MAX_ANSWER_BYTES = 64 * 1024;
+/**
+ * How much of a page of the member's servers is read: 200 partial servers, each with its name,
+ * icon, banner, permissions and a list of features, some 400 bytes on average and a few
+ * kilobytes at most.
+ */
+const MAX_SERVERS_BYTES = 1024 * 1024;
+/**
+ * The servers a page of `/users/@me/guilds` holds at most: Discord's largest page, and the most
+ * servers a member who is no bot can be in, so that one page is all (final review R4-1).
+ */
+export const SERVERS_PER_PAGE = 200;
+/** The pages of the member's servers asked for at most, should Discord ever give more. */
+export const SERVER_PAGES = 5;
 
 /** Who logged in: a member's id and the name the page's header shows. */
 export interface OAuthUser {
@@ -23,18 +36,24 @@ export interface OAuthGateway {
   ): Promise<{ accessToken: string } | { failed: string }>;
   /** Whose an access token is: their id, and `global_name ?? username`. */
   who(accessToken: string): Promise<OAuthUser | { failed: string }>;
+  /**
+   * The ids of the servers an access token's member is in (final review R4-1, the scope
+   * `guilds`): their ids alone, never their names or icons.
+   */
+  servers(accessToken: string): Promise<string[] | { failed: string }>;
 }
 
 /**
- * The address Discord's consent page is at, for the scope `identify` alone (spec 2.4): Pine
- * learns the member's id and name, nothing else. `prompt` is left to Discord (it skips the
- * page for a member who agreed before).
+ * The address Discord's consent page is at, for the scopes `identify` and `guilds` (spec 2.4;
+ * final review R4-1): Pine learns the member's id and name, and which servers they are in, of
+ * which it keeps only its own (`/auth/callback`). `prompt` is left to Discord (it skips the page
+ * for a member who agreed to the same scopes before).
  */
 export function authorizeUrl(appId: string, redirectUri: string, state: string): string {
   const query = new URLSearchParams({
     response_type: 'code',
     client_id: appId,
-    scope: 'identify',
+    scope: 'identify guilds',
     state,
     redirect_uri: redirectUri,
   });
@@ -60,18 +79,19 @@ function retryAfterMs(header: string | null): number {
 
 /**
  * The real exchange (OAuth2 authorization code flow) with `fetch`: the code for a token
- * (form-encoded, the application's id and secret in the body), the token for `/users/@me`.
- * Each answer is read up to `MAX_ANSWER_BYTES` (`readLimitedJson`); a larger one fails. Every
- * failure is an answer saying why in a few words, never with the code, the token or the
- * secret; the token is used once and not kept.
+ * (form-encoded, the application's id and secret in the body), the token for `/users/@me` and
+ * for the member's servers (`/users/@me/guilds`, final review R4-1). Each answer is read up to
+ * `MAX_ANSWER_BYTES` (`readLimitedJson`; a page of servers up to `MAX_SERVERS_BYTES`); a larger
+ * one fails. Every failure is an answer saying why in a few words, never with the code, the
+ * token or the secret; the token is used for the login alone and not kept.
  *
  * Discord limits this application's token asks, and a flood of logins must not get it stopped
  * (plan 8Z): at most one `exchange` in `EXCHANGE_SPACING_MS` across the process. An `exchange`
  * takes the next free slot as it arrives (plan 8Z-2: now, or `EXCHANGE_SPACING_MS` after the
  * slot taken last) and waits for it, so that two logins a moment apart both go through; one
  * whose slot is more than `EXCHANGE_WAIT_MS` away takes none and fails at once
- * (`{ failed: 'busy' }`, without asking), so at most five wait at a time. A 429 on either ask
- * stops both for as long as its `Retry-After` says (`NO_RETRY_AFTER_MS` when it says nothing
+ * (`{ failed: 'busy' }`, without asking), so at most five wait at a time. A 429 on any ask
+ * stops them all for as long as its `Retry-After` says (`NO_RETRY_AFTER_MS` when it says nothing
  * readable), also an `exchange` that was waiting for its slot meanwhile. The clock and the wait
  * are the caller's (`now`, `wait`; a timer by default).
  */
@@ -152,6 +172,39 @@ export class DiscordOAuth implements OAuthGateway {
     return { id: user.id, name };
   }
 
+  /**
+   * The member's servers (final review R4-1): a page of `SERVERS_PER_PAGE`, the next one asked
+   * only after a full page (`after` its last id), at most `SERVER_PAGES`. Only each server's id
+   * is read, a snowflake; anything else in the answer is left. A failed page fails the whole.
+   */
+  async servers(accessToken: string): Promise<string[] | { failed: string }> {
+    const ids: string[] = [];
+    let after: string | undefined;
+    for (let page = 0; page < SERVER_PAGES; page += 1) {
+      if (this.stopped(this.now())) return BUSY;
+      const query = new URLSearchParams({ limit: String(SERVERS_PER_PAGE) });
+      if (after !== undefined) query.set('after', after);
+      const answer = await this.ask(
+        `${API}/users/@me/guilds?${query.toString()}`,
+        { headers: { authorization: `Bearer ${accessToken}` } },
+        MAX_SERVERS_BYTES,
+      );
+      if ('failed' in answer) return answer;
+      if (!Array.isArray(answer.json)) return { failed: 'no list' };
+      const servers: unknown[] = answer.json;
+      for (const server of servers) {
+        const id = (server as { id?: unknown } | null)?.id;
+        if (typeof id === 'string' && isSnowflake(id)) ids.push(id);
+      }
+      const last = (servers.at(-1) as { id?: unknown } | null | undefined)?.id;
+      if (servers.length < SERVERS_PER_PAGE || typeof last !== 'string' || !isSnowflake(last)) {
+        break;
+      }
+      after = last;
+    }
+    return ids;
+  }
+
   private stopped(now: number): boolean {
     return this.stoppedUntil !== undefined && now < this.stoppedUntil;
   }
@@ -159,6 +212,7 @@ export class DiscordOAuth implements OAuthGateway {
   private async ask(
     url: string,
     init: RequestInit,
+    maxBytes = MAX_ANSWER_BYTES,
   ): Promise<{ json: object } | { failed: string }> {
     try {
       const response = await this.options.fetch(url, {
@@ -172,7 +226,7 @@ export class DiscordOAuth implements OAuthGateway {
         discardBody(response);
         return { failed: `status ${response.status}` };
       }
-      const read = await readLimitedJson(response, MAX_ANSWER_BYTES);
+      const read = await readLimitedJson(response, maxBytes);
       if (!read.ok) return { failed: read.reason };
       const json = read.value;
       return typeof json === 'object' && json !== null ? { json } : { failed: 'no object' };

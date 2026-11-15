@@ -17,7 +17,7 @@ import type {
   ResearchReport,
   StopReport,
 } from '../domain/stops/report.js';
-import { addDays, zoned } from '../domain/time/zoned.js';
+import { nextLocalMidnight } from '../domain/time/local-day.js';
 import { cutText } from './party-post.js';
 import { linkTextOf, stopMapsUrl } from './raid-post.js';
 import {
@@ -103,7 +103,7 @@ export function stopMapLink(stop: Pick<ReportedStop, 'name' | 'lat' | 'lon'>): s
  * event's last day ends at its hour, a day under a coming event at the event's start.
  */
 export function periodEndWords(end: number, now: number, zone: string): string {
-  const midnight = addDays(zoned(now, zone).startOfDay(), 1).epochMilliseconds;
+  const midnight = nextLocalMidnight(now, zone);
   return end === midnight ? 'until midnight' : `until ${clockOrDay(end, now, zone)}`;
 }
 
@@ -180,7 +180,7 @@ export interface ResearchWordsView {
 export interface ResearchAnswerView extends ResearchWordsView {
   /** The stops near the first that have no report of this task in the period (25 at most). */
   more: readonly MoreStop[];
-  /** The units distances are said in (`settings.distanceUnits`, task 7). */
+  /** The units distances are said in (the server's `distanceUnits`, plan 19A-1). */
   units: DistanceUnits;
 }
 

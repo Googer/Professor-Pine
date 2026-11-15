@@ -5,6 +5,7 @@ import {
   GuildMessageManager,
   LimitedCollection,
   MessageManager,
+  Routes,
   type Client,
 } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
@@ -12,6 +13,7 @@ import { createTestLogger } from '../../test/support/test-logger.js';
 import {
   cacheFactory,
   createClient,
+  identifyConcurrency,
   loginWithFallback,
   MEMBER_CACHE_SIZE,
   rejectsLongChannelPatchWait,
@@ -112,6 +114,53 @@ describe('createClient', () => {
     const filter = client.options.rest?.rejectOnRateLimit;
     expect(typeof filter).toBe('function');
   });
+
+  it('connects as many shards as Discord asks for (plan 19D)', async () => {
+    const { client, get, spawned } = await loggedIn(3, 1);
+    expect(get).toHaveBeenCalledWith(Routes.gatewayBot());
+    expect(spawned.at(-1)).toEqual([0, 1, 2]);
+    expect([...client.ws.shards.keys()]).toEqual([0, 1, 2]);
+    await client.destroy();
+  });
+
+  it('knows how many shards discord.js identifies at once once logged in, else 1 (fix round 1, F4)', async () => {
+    expect(identifyConcurrency(createClient([]))).toBe(1);
+    const { client } = await loggedIn(40, 16);
+    expect(identifyConcurrency(client)).toBe(16);
+    await client.destroy();
+  });
+
+  /** A client logged in to nothing: Discord's answer to `GET /gateway/bot` faked. */
+  async function loggedIn(shards: number, maxConcurrency: number) {
+    const client = createClient([GatewayIntentBits.Guilds]);
+    // No connection: a strategy of the test's own takes the shards discord.js would connect.
+    const spawned: number[][] = [];
+    const ws = client.options.ws ?? {};
+    ws.buildStrategy = () => ({
+      spawn: (ids: number[]) => {
+        spawned.push([...ids]);
+        return Promise.resolve();
+      },
+      connect: () => Promise.resolve(),
+      destroy: () => Promise.resolve(),
+      send: () => Promise.resolve(),
+      fetchStatus: () => Promise.reject(new Error('not asked')),
+    });
+    client.options.ws = ws;
+    // What `GET /gateway/bot` answers a bot in some 2,500 servers per shard.
+    const get = vi.spyOn(client.rest, 'get').mockResolvedValue({
+      url: 'wss://gateway.discord.gg',
+      shards,
+      session_start_limit: {
+        total: 1000,
+        remaining: 999,
+        reset_after: 60_000,
+        max_concurrency: maxConcurrency,
+      },
+    });
+    await client.login('a.b.c');
+    return { client, get, spawned };
+  }
 });
 
 describe('rejectsLongChannelPatchWait', () => {

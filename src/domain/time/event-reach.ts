@@ -3,7 +3,7 @@
  * rule for the readers of research events, big events, spawn events and max events. The feed has
  * no field that says "in-person": the rule goes by the type and the times' zone. Pure.
  */
-import { feedTime } from './zoned.js';
+import { momentIn, readFeedTime, type FeedTime } from './zoned.js';
 
 /**
  * The types of which every edition is in a city (Matt, 2026-10-22): a City Safari, and the
@@ -96,10 +96,16 @@ export interface TimedItem {
  * - `none`: the feed left a time out (`null`, or no field): an event on now or just past, which
  *   each reader decides on (assumed hours, "not seen");
  * - `unreadable`: a time the feed wrote in a shape `feedTime` does not read;
- * - `times`: its start and end, wall-clock times read in `zone`.
+ * - `times`: its start and end as the feed gave them (`feed`, plan 19A-2: wall-clock times), and
+ *   seen in `zone`.
  */
 export type ItemTimes =
-  | { kind: 'times'; start: Temporal.ZonedDateTime; end: Temporal.ZonedDateTime }
+  | {
+      kind: 'times';
+      start: Temporal.ZonedDateTime;
+      end: Temporal.ZonedDateTime;
+      feed: { start: FeedTime; end: FeedTime };
+    }
   | { kind: 'none' }
   | { kind: 'elsewhere' }
   | { kind: 'unreadable' };
@@ -107,9 +113,16 @@ export type ItemTimes =
 export function everyonesTimes(item: TimedItem, zone: string): ItemTimes {
   if (!isForEveryone(item)) return { kind: 'elsewhere' };
   if (typeof item.start !== 'string' || typeof item.end !== 'string') return { kind: 'none' };
-  const start = feedTime(item.start, zone);
-  const end = feedTime(item.end, zone);
-  return start && end ? { kind: 'times', start, end } : { kind: 'unreadable' };
+  const start = readFeedTime(item.start);
+  const end = readFeedTime(item.end);
+  return start && end
+    ? {
+        kind: 'times',
+        start: momentIn(start, zone),
+        end: momentIn(end, zone),
+        feed: { start, end },
+      }
+    : { kind: 'unreadable' };
 }
 
 /** A Wild Area, GO Tour or GO Fest of the feed whose id and name say no "global". */

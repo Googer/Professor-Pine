@@ -33,6 +33,12 @@ export interface ListTierWatchOptions {
   maxBossAdmin: Pick<BossAdmin<MaxTier>, 'feedBosses' | 'overrides'>;
   gameData: GameDataProvider;
   reports: Pick<ModerationReports, 'listTier'>;
+  /**
+   * A server's zone (`ServerSettings.zoneOf`): the list is read as its members see it, its
+   * rotations in force and an upcoming max boss's day there (fix round 1, L6). Without it the
+   * stored list.
+   */
+  zoneOf?: (serverId: string) => string;
   now?: () => number;
 }
 
@@ -84,9 +90,18 @@ export class ListTierWatch {
   ): ListTierNotice | undefined {
     const { options } = this;
     const { catalogue } = options.gameData;
+    const zone = options.zoneOf?.(serverId);
     const listed =
       doubt.family === 'max'
-        ? listedWithAdd(MAX_OPS, maxBossesAt, options.maxBossAdmin, catalogue, doubt, this.now())
+        ? listedWithAdd(
+            MAX_OPS,
+            maxBossesAt,
+            options.maxBossAdmin,
+            catalogue,
+            doubt,
+            this.now(),
+            zone,
+          )
         : listedWithAdd(
             RAID_OPS,
             effectiveBosses,
@@ -94,6 +109,7 @@ export class ListTierWatch {
             catalogue,
             doubt,
             this.now(),
+            zone,
           );
     if (!listed) return undefined;
     const { boss: found, overrideId } = listed;
@@ -118,21 +134,22 @@ export class ListTierWatch {
 /**
  * The boss of a family's list in effect with the sighting's key at its list tier (a tier of the
  * family's own: the sighting's family says which), and the `add` or `autoset` in force that acts
- * on it there (review M7), both as `familyReport` gives them to `/admin boss list` (review J8).
+ * on it there (review M7), both as `familyReport` gives them to `/operator boss list` (review J8).
  */
 function listedWithAdd<T, R extends StoredBoss<T>>(
   ops: BossFamilyOps<T>,
   effective: Parameters<typeof familyReport<T, R>>[1],
-  admin: { feedBosses(): R[]; overrides(): BossOverride<T>[] },
+  admin: { feedBosses(zone?: string): R[]; overrides(): BossOverride<T>[] },
   catalogue: GameDataProvider['catalogue'],
   sighting: ListTierSighting,
   now: number,
+  zone: string | undefined,
 ): { boss: Boss<T>; overrideId?: number } | undefined {
   const tier = sighting.listTier as T;
   const report = familyReport(
     ops,
     effective,
-    admin.feedBosses(),
+    admin.feedBosses(zone),
     admin.overrides(),
     catalogue,
     now,

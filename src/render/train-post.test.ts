@@ -91,7 +91,7 @@ const maps = (id: number): string => {
 };
 
 /** The stops of trains as these gyms show them. */
-const lookup = (find: (id: number) => PostGym | undefined) => stopsFrom({ get: find });
+const lookup = (find: (id: number) => PostGym | undefined) => stopsFrom({ stored: find });
 
 /** A gym as a stop shows it, for a movement. */
 const shown = (id: number) => ({ kind: 'gym' as const, gym: gym(id) });

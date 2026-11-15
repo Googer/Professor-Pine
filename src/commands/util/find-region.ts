@@ -3,7 +3,7 @@ import type { AppContext } from '../../app-context.js';
 import type { Region } from '../../db/repositories/region-repository.js';
 import type { Guard, SimpleCommand } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
-import { requireGuild } from '../../discord/guards.js';
+import { guildIdOf, requireGuild } from '../../discord/guards.js';
 import { v2Answer } from '../../discord/late-reply.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import type { Throttle } from '../../discord/throttle.js';
@@ -284,13 +284,14 @@ export const findRegion: SimpleCommand = {
     const regions = await serverRegions(interaction, ctx);
     const place = await placeOf(interaction, ctx, text, regions);
     const found = regionsTouching(place.shape, regions);
-    // A map that is downloaded takes one of the month's and of the member's day (plan 8Z-2);
-    // without one, no map.
+    // A map that is downloaded takes one of the month's and of the member's day (plan 8Z-2), and
+    // of the server's month (plan 19B-5); without one, no map.
+    const guildRow = await ctx.guilds.idFor(guildIdOf(interaction));
     const map = await mapOrNothing(
       ctx.maps.place(
         place.shape,
         found.flatMap((region) => (region.bounds ? [region.bounds] : [])),
-        () => ctx.mapBudget.spend(interaction.user.id),
+        () => ctx.mapBudget.spend(interaction.user.id, guildRow),
       ),
       ctx.log,
       'a place',

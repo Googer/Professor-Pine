@@ -313,7 +313,7 @@ export const cleanupLegacy: SubcommandPart = {
         : (() => {
             const entries = list.remove.slice(0, CLEANUP_PER_RUN);
             const left = list.remove.length - entries.length;
-            const token = pending.put(interaction.user.id, { guildId, entries, left });
+            const token = pending.put(interaction, { guildId, entries, left });
             return [
               button(
                 token,
@@ -341,10 +341,10 @@ async function pressed(
   // Asked again at the press (the permission may have gone since the list), before the question
   // is taken: it stands for its time, should the permission come back.
   if (id.action === 'delete' && !managesChannels(interaction)) {
-    if (pending.peek(id.id, interaction.user.id) === 'not-yours') throw new UserError(NOT_YOURS);
+    if (pending.peek(id.id, interaction) === 'not-yours') throw new UserError(NOT_YOURS);
     throw new UserError(CLEANUP_NOT_ALLOWED);
   }
-  const found = pending.take(id.id, interaction.user.id);
+  const found = pending.take(id.id, interaction);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   if (found === 'expired') {
     if (answered.has(id.id)) await interaction.deferUpdate();

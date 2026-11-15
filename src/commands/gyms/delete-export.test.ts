@@ -2,7 +2,9 @@ import { gymStop } from '../../domain/party/stops.js';
 import { MessageFlags } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import { dialogChoices, dialogText, shownDialog } from '../../../test/support/dialogs.js';
-import { fakeChatInput, sent } from '../../../test/support/fake-interactions.js';
+import type { RecordingDms } from '../../../test/support/dms.js';
+import { FAKE_GUILD_ID, fakeChatInput, sent } from '../../../test/support/fake-interactions.js';
+import { textDisplays } from '../../../test/support/messages.js';
 import { STAFF_PLACE, UPDATES_CHANNEL } from '../../../test/support/gym-admin.js';
 import {
   answerOf,
@@ -14,7 +16,7 @@ import {
   OTHER_SERVER,
   said,
 } from '../../../test/support/gym-commands.js';
-import { WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { ALICE, asTrain, BOB, REPORTER, inGyms, stops } from '../../../test/support/parties.js';
 import { googleMonth } from '../../domain/geo/google-line.js';
 import { PartyStatus } from '../../domain/party/status.js';
@@ -25,10 +27,11 @@ import { EXPIRED } from './shared.js';
 type Made = Awaited<ReturnType<typeof gymCommandsWith>>;
 
 async function raidAt(made: Made, gymId: number) {
-  const gym = made.directory.get(gymId);
+  const gym = made.directory.stored(gymId);
   if (!gym) throw new Error('no gym');
   const raid = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: REPORTER,
     anonymous: false,
     autoStatus: PartyStatus.Interested,
@@ -141,7 +144,7 @@ describe('/gym delete', () => {
     );
     expect(buttonsOf(answerOf(submitted))).toEqual([]);
     expect(made.gymStore.row(6)).toBeUndefined();
-    expect(made.directory.get(6)).toBeUndefined();
+    expect(made.directory.stored(6)).toBeUndefined();
     expect(inGyms(asTrain(made.store.get(train.id)).train.route)).toEqual(inGyms([1]));
     // The post of the train says why, and names nobody as a mention.
     const lines = made.gateway
@@ -230,8 +233,8 @@ describe('/gym delete', () => {
     expect(dialogText(dialog)).toContain('- the gym target of 1 member');
     // The gym goes; the train cannot be stored afterwards.
     const remove = made.removal.remove.bind(made.removal);
-    made.removal.remove = async (id) => {
-      const counts = await remove(id);
+    made.removal.remove = async (id, server) => {
+      const counts = await remove(id, server);
       made.storage.failing = new Error('party table is locked');
       return counts;
     };
@@ -246,7 +249,7 @@ describe('/gym delete', () => {
       '- the gym target of 1 member',
       `I could not take it off the route of <#${broken.forumPostId ?? ''}>: use \`/route remove\` in its post.`,
     ]);
-    expect(made.directory.get(6)).toBeUndefined();
+    expect(made.directory.stored(6)).toBeUndefined();
   });
 
   it('lets only staff submit, and takes no gym of another server', async () => {
@@ -281,10 +284,20 @@ describe('/gym refresh', () => {
     const answer = answerOf(await made.use('refresh', { gym: 'id:2' }));
     expect(said(answer).split('\n')).toEqual([
       '**Old Stone Fountain** (#2):',
-      `I did not ask Google: this instance has used its ${cap} lookups by hand for this month. ` +
-        `They start again <t:${Math.floor(month.nextReset / 1000)}:f>. The gym keeps what it has.`,
+      'I did not ask Google: the lookups by hand this server may make this month are used ' +
+        `(each server may always make a few of this instance’s ${cap}, and more of what the ` +
+        `others leave). They start again <t:${Math.floor(month.nextReset / 1000)}:f>. The gym ` +
+        'keeps what it has.',
     ]);
     expect(made.geo.asked).toEqual([]);
+  });
+
+  it('counts a lookup by hand against the server whose staff asked (plan 19B-5)', async () => {
+    const made = await gymCommandsWith();
+    const month = googleMonth(Date.now());
+    await made.use('refresh', { gym: 'id:2' });
+    const used = await made.googleUse.serversUsedOn(month.days);
+    expect([...used.values()].map((counts) => counts.byHand)).toEqual([1]);
   });
 
   it('says it could not read the count, not that the lookups are used, when that read fails', async () => {
@@ -350,7 +363,7 @@ describe('/gym refresh', () => {
         .split('\n')
         .slice(1),
     ).toEqual(['No Google API key is configured, so there is nothing to fetch.']);
-    expect(made.gymStore.row(2)?.places).toBe('Riverside Plaza, Cafe Luna');
+    expect(made.directory.stored(2)?.places).toBe('Riverside Plaza, Cafe Luna');
   });
 });
 
@@ -389,7 +402,7 @@ describe('/gym export', () => {
   });
 });
 
-describe('/admin clear-image-cache', () => {
+describe('/operator clear-image-cache', () => {
   it('deletes the cached map pictures and says how many', async () => {
     const made = await gymCommandsWith();
     let left = 7;
@@ -405,10 +418,11 @@ describe('/admin clear-image-cache', () => {
     });
     const run = async () => {
       const interaction = fakeChatInput({
-        commandName: 'admin',
+        commandName: 'operator',
         subcommand: 'clear-image-cache',
         userId: MODERATOR,
         roleNames: ['Bot Developer'],
+        displayName: 'Brock',
       });
       await made.router.handle(interaction as never);
       return interaction;
@@ -419,12 +433,20 @@ describe('/admin clear-image-cache', () => {
     expect((await run()).editReply).toHaveBeenCalledWith({
       content: 'There were no cached map pictures to delete.',
     });
+    // Plan 19B-1: the pictures are every server's; the owner is told of a clear that deleted any.
+    const told = (made.ctx.dms as RecordingDms).jobs;
+    expect(told.map((job) => textDisplays(job.message).slice(1))).toEqual([
+      [
+        `**Brock** · ${MODERATOR}\nfrom **Test Server** · ${FAKE_GUILD_ID}`,
+        'Cleared the image cache, for every server: deleted 7 cached map pictures.',
+      ],
+    ]);
   });
 
   it('is for staff', async () => {
     const made = await gymCommandsWith();
     const interaction = fakeChatInput({
-      commandName: 'admin',
+      commandName: 'operator',
       subcommand: 'clear-image-cache',
       userId: MEMBER,
     });
@@ -443,7 +465,7 @@ describe('/gym: what it says fits one message', () => {
     const nasty = '*_~`|'.repeat(51);
     const spot = { lat: 40.015, lon: -80.015 };
     for (let n = 0; n < 5; n++) {
-      const gym = await made.gymStore.create({ name: nasty, ...spot, nickname: nasty });
+      const gym = await made.gymStore.create({ name: nasty, ...spot, nickname: nasty }, 1);
       await made.directory.refreshGym(gym.id);
     }
     const square = made.regions.rows[0]?.bounds ?? null;

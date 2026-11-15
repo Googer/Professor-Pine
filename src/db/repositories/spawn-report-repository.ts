@@ -40,6 +40,13 @@ export interface ShownSpawn {
 export type StandingSpawn = StoredSpawnReport & ShownSpawn;
 
 /**
+ * A report as the sweep reads it: with its server's snowflake where it was recorded with what the
+ * map shows of it (`ShownSpawn.guildId`), null for one recorded without (plan 19C-1: the sweep
+ * passes over the reports of a server Pine left).
+ */
+export type SweptSpawnReport = StoredSpawnReport & { guildId: string | null };
+
+/**
  * The spawn reports that still stand (see `SpawnService`), kept so that a restart does not
  * leave them standing, and what the map shows of each; lets tests keep them in memory.
  */
@@ -51,8 +58,8 @@ export interface SpawnReportStorage {
   add(report: StoredSpawnReport & { shown?: ShownSpawn }): Promise<void>;
   /** Forgets a report; nothing happens for one that is not recorded. */
   remove(messageId: string): Promise<void>;
-  /** Every recorded report, the one due first at the head. */
-  all(): Promise<StoredSpawnReport[]>;
+  /** Every recorded report, the one due first at the head, with its server where known. */
+  all(): Promise<SweptSpawnReport[]>;
   /**
    * The reports of a server that stand at `now` (due later) with what the map shows of them, the
    * one due first at the head; those recorded without it are left out.
@@ -99,10 +106,10 @@ export class SpawnReportRepository implements SpawnReportStorage {
     await this.db.deleteFrom('SpawnReport').where('messageId', '=', messageId).execute();
   }
 
-  async all(): Promise<StoredSpawnReport[]> {
+  async all(): Promise<SweptSpawnReport[]> {
     const rows = await this.db
       .selectFrom('SpawnReport')
-      .select(['channelId', 'messageId', 'deleteAt'])
+      .select(['channelId', 'messageId', 'deleteAt', 'guildId'])
       .orderBy('deleteAt')
       .orderBy('messageId')
       .execute();

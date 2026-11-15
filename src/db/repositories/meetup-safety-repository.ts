@@ -821,13 +821,14 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
   }
 
   /**
-   * What meetup safety holds of a member in every server (plan 8G: the look of `/admin forget`):
+   * What meetup safety holds of a member in every server (plan 8G: the look of `/operator forget`):
    * their blocks, lifted or not, and their own requests, appeals and asks about places that
    * carry their id: those still with the moderators, approvals whose meetup is still to be made
    * (`REQUEST_UNMADE`), approvals whose meetup is still going on (`requestLive`: its party's id
    * is one of `going`, the ids of the parties going on), and those decided and over
-   * (`REQUEST_OVER` but those, `APPEAL_OVER`, `ASK_OVER`). The tables are read whole: their
-   * indexes begin with the server, they are small, and only the owner asks.
+   * (`REQUEST_OVER` but those, `APPEAL_OVER`, `ASK_OVER`). Each table is read along its index
+   * that begins with the member (migration 057: `meetupblock_memberid_index`,
+   * `meetuprequest_makerid_index`, `meetupappeal_memberid_index`, `meetupplaceask_memberid_index`).
    */
   async heldOf(memberId: string, going: readonly string[] = []): Promise<MeetupRecordsHeld> {
     const live = requestLive(going);
@@ -865,7 +866,7 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
 
   /**
    * Takes a member's id and name (and a request's team) off their own requests, appeals and asks
-   * about places that are decided and over, in every server (plan 8G, `/admin forget`; migration
+   * about places that are decided and over, in every server (plan 8G, `/operator forget`; migration
    * 051 lets the ids be null); from how many. Their words stay, for the moderators, without who
    * wrote them. What is still open keeps both: a request the moderators have not decided, an
    * approval whose meetup is not made yet (it is made by that member, with that name and team),
@@ -873,9 +874,9 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
    * one of `going`, the ids of the parties going on): the moderators are told of that meetup's
    * changes by the request's maker (`MeetupSafety.tellChange`), and it is over once the meetup
    * has ended. Their blocks and the rulings stay as they are: the moderators' record. The rows
-   * are read first, without a lock, and changed by their ids, each only while it is still theirs
-   * and over: a change by the member alone would lock every row of the tables. One transaction,
-   * the caller's when `db` is one.
+   * are read first, without a lock, along the indexes that begin with the member (migration 057),
+   * and changed by their ids, each only while it is still theirs and over, so that the change
+   * locks those rows alone. One transaction, the caller's when `db` is one.
    */
   forgetMember(memberId: string, going: readonly string[] = []): Promise<number> {
     const over = sql<boolean>`(${REQUEST_OVER} and not ${requestLive(going)})`;

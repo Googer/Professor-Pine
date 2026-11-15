@@ -333,13 +333,17 @@ describe('FakePartyGateway', () => {
     expect(gateway.posts.get(postId)).toMatchObject({ archived: false, reopened: 1 });
   });
 
-  it('finds a channel of the server by its name', () => {
+  it('finds a channel of the server by its id, not one of another server', () => {
     const gateway = new FakePartyGateway();
     gateway.channelNames.set('500000000000000001', 'remote-raids');
-    expect(gateway.findChannel('100000000000000001', 'remote-raids')).toBe('500000000000000001');
-    expect(gateway.findChannel('100000000000000001', 'elite-gym-raids')).toBeUndefined();
+    gateway.addChannel('500000000000000002', 'remote-raids', { guildId: '412345678901234568' });
+    expect(gateway.findChannel('100000000000000001', '500000000000000001')).toBe(
+      '500000000000000001',
+    );
+    expect(gateway.findChannel('100000000000000001', '500000000000000003')).toBeUndefined();
+    expect(gateway.findChannel('100000000000000001', '500000000000000002')).toBeUndefined();
     gateway.gone.add('500000000000000001');
-    expect(gateway.findChannel('100000000000000001', 'remote-raids')).toBeUndefined();
+    expect(gateway.findChannel('100000000000000001', '500000000000000001')).toBeUndefined();
   });
 
   it('says who sees a forum of overwrites from the everyone role’s permissions as its shares do (8H5-3)', async () => {
@@ -1738,6 +1742,48 @@ describe('DiscordPartyGateway: a post where the bot may not make one', () => {
   });
 });
 
+describe('DiscordPartyGateway: whether a server is available (plan 19B-1)', () => {
+  it('says a server Discord says is unavailable, or one the bot is not in, is not; its channels stay listed', () => {
+    const channel = { id: 'c1', name: 'bot-updates', type: ChannelType.GuildText, parentId: null };
+    const guildOf = (available: boolean) => ({
+      available,
+      channels: {
+        cache: new Map([['c1', { ...channel, isThread: () => false, createdTimestamp: 1 }]]),
+      },
+    });
+    const gateway = new DiscordPartyGateway(createTestLogger().log);
+    gateway.use({
+      guilds: {
+        cache: new Map([
+          ['up', guildOf(true)],
+          ['down', guildOf(false)],
+        ]),
+      },
+    } as unknown as Client);
+    expect(gateway.serverAvailable('up')).toBe(true);
+    expect(gateway.serverAvailable('down')).toBe(false);
+    expect(gateway.serverAvailable('gone')).toBe(false);
+    // The web map, the editor and the regions' removal read the channels during an outage too.
+    const listed = [{ id: 'c1', name: 'bot-updates', kind: 'text', categoryId: null }];
+    expect(gateway.serverChannels('up')).toEqual(listed);
+    expect(gateway.serverChannels('down')).toEqual(listed);
+    expect(gateway.serverChannels('gone')).toBeUndefined();
+    // A server Pine left while it was away, which discord.js keeps in its cache, is none of the
+    // bot's (plan 19C-1); the other servers still are.
+    const left = new DiscordPartyGateway(createTestLogger().log, { isQuiet: (id) => id === 'up' });
+    left.use({
+      guilds: {
+        cache: new Map([
+          ['up', guildOf(true)],
+          ['other', guildOf(true)],
+        ]),
+      },
+    } as unknown as Client);
+    expect(left.serverAvailable('up')).toBe(false);
+    expect(left.serverAvailable('other')).toBe(true);
+  });
+});
+
 describe('DiscordPartyGateway: a category that continues another (plan 8S-4)', () => {
   /**
    * A server whose category `k1` (at position 4) keeps everyone out; what `channels.create` was
@@ -2103,7 +2149,7 @@ describe('the events forum’s posts (plan 8V-1)', () => {
         channels: { fetch: () => Promise.resolve(forum) },
         user: { id: 'bot' },
       } as unknown as Client);
-      await expect(gateway.rolesWithoutReplies('f', ['Member', 'Nobody'])).resolves.toEqual([
+      await expect(gateway.rolesWithoutReplies('f', ['m', 'nobody'])).resolves.toEqual([
         '@everyone',
       ]);
     });
@@ -2163,6 +2209,8 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       expect(await gateway.memberAccess('text', 'misty')).toBe('hidden');
       expect(await gateway.memberAccess('news', 'misty')).toBe('hidden');
       expect(await gateway.memberAccess('nowhere', 'ash')).toBeUndefined();
+      // Somebody who is not in the channel's server is kept out of it (plan 19B-4).
+      expect(await gateway.memberAccess('text', 'brock')).toBe('barred');
     });
 
     it('says which gates everybody in a server can view, from the cache, and nothing of one it lacks (plan 8Z-2)', () => {
@@ -2545,7 +2593,7 @@ describe('the events forum’s posts (plan 8V-1)', () => {
         channels: { fetch: () => Promise.resolve(forum) },
         user: { id: 'bot' },
       } as unknown as Client);
-      await expect(gateway.rolesWithoutReplies('f', ['Member'])).resolves.toEqual(['Member']);
+      await expect(gateway.rolesWithoutReplies('f', ['m'])).resolves.toEqual(['Member']);
     });
 
     it('lists the bot’s archived posts of a forum page by page, newest first', async () => {

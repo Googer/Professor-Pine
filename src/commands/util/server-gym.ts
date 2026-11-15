@@ -6,7 +6,7 @@ import { UserError } from '../../discord/errors.js';
 import { regionChannelOf } from '../../discord/guards.js';
 import { gymWithId } from '../../render/gym-view.js';
 import { plain, truncate } from '../../render/text.js';
-import { gymRegionsInGuild } from '../../services/region-directory.js';
+import type { GymView } from '../../services/gym-directory.js';
 import { calledBy } from '../gyms/gym-option.js';
 import { gymChoices, reportedGym } from '../raids/raid-input.js';
 
@@ -35,10 +35,23 @@ export async function serverOf(
   return interaction.guildId === null ? undefined : ctx.guilds.idFor(interaction.guildId);
 }
 
-/** Whether a gym lies in a region of the server: no other server's gym is shown or taken. */
-export function inServer(ctx: AppContext, guildRow: number | undefined): (gym: Gym) => boolean {
-  return (gym) =>
-    guildRow !== undefined && gymRegionsInGuild(ctx.gyms, ctx.regions, gym.id, guildRow).length > 0;
+/**
+ * The gyms of the server an interaction came from (plan 19B-2, `ctx.gyms.of`): every gym id or
+ * name a member gives is read through it, so that no other server's gym is shown or taken. In a
+ * DM, or a server without a row, none.
+ */
+export async function serverGyms(
+  interaction: { guildId: string | null },
+  ctx: AppContext,
+): Promise<GymView> {
+  return ctx.gyms.of(
+    interaction.guildId === null ? undefined : await ctx.guilds.idFor(interaction.guildId),
+  );
+}
+
+/** Whether a gym of the server lies in one of its regions: only those are shown or taken here. */
+export function inRegions(gyms: GymView): (gym: Gym) => boolean {
+  return (gym) => gyms.regionsOf(gym.id).length > 0;
 }
 
 /** Digits alone: the number of a gym of this server, unless another gym is called so. */
@@ -57,20 +70,21 @@ export async function serverGym(
   interaction: LocatedInteraction,
   typed: string,
 ): Promise<Gym> {
-  const accepts = inServer(ctx, await serverOf(interaction, ctx));
+  const gyms = await serverGyms(interaction, ctx);
+  const accepts = inRegions(gyms);
   const text = typed.trim();
   const quoted = `"${plain(truncate(text, 80))}"`;
   const number = BY_NUMBER.exec(text)?.[1];
   if (number !== undefined) {
-    const gym = ctx.gyms.get(Number(number));
+    const gym = gyms.get(Number(number));
     if (gym && accepts(gym)) return gym;
     throw new UserError(`This server has no gym #${number}.`);
   }
   const digits = BARE_NUMBER.exec(text)?.[1];
-  const numbered = digits === undefined ? undefined : ctx.gyms.get(Number(digits));
+  const numbered = digits === undefined ? undefined : gyms.get(Number(digits));
   if (digits !== undefined && numbered && accepts(numbered)) {
     // Another gym that is called so: the digits are a word of its name, nickname or keywords.
-    const named = ctx.gyms
+    const named = gyms
       .search(null, digits)
       .map((hit) => hit.gym)
       .filter((gym) => gym.id !== numbered.id && accepts(gym) && calledBy(gym, digits));
@@ -85,7 +99,7 @@ export async function serverGym(
   // search also finds a gym by the beginning of its number (`105` finds gym 1050), which is not
   // a gym called so (as for `/gym`).
   const found = reportedGym(
-    ctx,
+    gyms,
     regionChannelOf(interaction, ctx),
     text,
     digits === undefined ? accepts : (gym) => accepts(gym) && calledBy(gym, digits),
@@ -125,13 +139,14 @@ export async function respondWithServerGyms(
   }
   const regionName = (channelId: string): string | undefined =>
     interaction.guild?.channels.cache.get(channelId)?.name;
+  const gyms = await serverGyms(interaction, ctx);
   await interaction.respond(
     gymChoices(
-      ctx,
+      gyms,
       regionChannelOf(interaction, ctx),
       String(focused.value),
       regionName,
-      inServer(ctx, await serverOf(interaction, ctx)),
+      inRegions(gyms),
     ),
   );
 }

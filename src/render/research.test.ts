@@ -228,6 +228,16 @@ describe('periodEndWords', () => {
       `until <t:${seconds(at('2026-11-13T20:00'))}:f>`,
     );
   });
+
+  // Final review R3-2: a day that began at 01:00 (the clocks went forward at midnight) still
+  // ends at midnight.
+  it('says midnight after a day that began at 01:00 (Santiago, 2026-09-06)', () => {
+    const SANTIAGO = 'America/Santiago';
+    const now = zonedAt('2026-09-06T10:00', SANTIAGO);
+    expect(periodEndWords(zonedAt('2026-09-07T00:00', SANTIAGO), now, SANTIAGO)).toBe(
+      'until midnight',
+    );
+  });
 });
 
 describe('the stops of a research DM (plan 8R-7: Matt, "maybe same for the DMs")', () => {

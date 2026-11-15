@@ -10,7 +10,7 @@ import type { AppContext } from '../../app-context.js';
 import type { ComponentHandler, Guard, SimpleCommand } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf, managementRoleIds, requireGuild, requireParty } from '../../discord/guards.js';
+import { guildIdOf, partyOfServer, requireGuild, requireParty } from '../../discord/guards.js';
 import { memberInfo } from '../../discord/member-info.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import { REPORT_COMMAND, REPORT_WINDOW } from './report-limit.js';
@@ -19,6 +19,7 @@ import { partyWord, type Party } from '../../domain/party/party.js';
 import type { ReportOutcome } from '../../services/moderation-reports.js';
 import { submitMessageReport } from './report-message.js';
 import { commandParty, partyOver } from './reply.js';
+import { NO_MODERATORS_CHANNEL, reportRefusal } from '../../domain/moderation/reports.js';
 
 export { REPORT_COMMAND, REPORT_THROTTLE } from './report-limit.js';
 
@@ -37,8 +38,15 @@ export const REPORT_SENT = 'Sent to the moderators.';
 /** What a member is told who reported the same party or message before (the design's words). */
 export const REPORT_ALREADY = 'You already reported this.';
 /** Said of a message reported where the server has no moderators' channel (the design's words). */
-export const NO_MODERATORS = "This server has no moderators' channel.";
-const REPORT_NOT_SENT = 'I could not send your report to the moderators. Try again later.';
+/** Where the server has set no moderators' channel (plan 19A-1, `reportRefusal`). */
+export const NO_MODERATORS = NO_MODERATORS_CHANNEL;
+/**
+ * What a member is told whose report could not reach the moderators: Discord refused or was away,
+ * or the moderators' channel the settings file named is not in the server (O5 of phase 19's
+ * staging: none of the member's doing, so they are pointed to a moderator).
+ */
+const REPORT_NOT_SENT =
+  'Your report could not reach the moderators right now. You can tell a moderator directly.';
 /** What a reason of white space alone is told (by the forms' guard, and on the map). */
 export const NO_REASON = 'Say what is wrong, so that the moderators know what to look at.';
 
@@ -108,16 +116,12 @@ export function messageReportForm(token: string): APIModalInteractionResponseCal
  * The answer to a report, or the refusal it is (`UserError`). `word` names the party for an
  * answer of the old way, without a moderators' channel.
  */
-export function reportAnswer(outcome: ReportOutcome, word: string): string {
+export function reportAnswer(outcome: ReportOutcome): string {
   switch (outcome.kind) {
     case 'sent':
       return REPORT_SENT;
     case 'already':
       return REPORT_ALREADY;
-    case 'asked':
-      return 'I have put your report into the post, for the moderators.';
-    case 'asked-before':
-      return `You have already asked the moderators about this ${word}.`;
     case 'gone':
       throw new UserError(partyOver());
     case 'no-reason':
@@ -126,7 +130,7 @@ export function reportAnswer(outcome: ReportOutcome, word: string): string {
       // None of the member's doing: the use goes back (plan 8S-3).
       throw new UserError(REPORT_NOT_SENT, { givesBack: true });
     case 'no-channel':
-      throw new UserError(NO_MODERATORS);
+      throw new UserError(NO_MODERATORS_CHANNEL);
   }
 }
 
@@ -148,11 +152,10 @@ export async function submitPartyReport(
   ctx: AppContext,
   partyId: string,
 ): Promise<void> {
-  const party = ctx.parties.get(partyId);
   const serverId = guildIdOf(interaction);
-  if (!party) throw new UserError(partyOver());
   // A custom id can be sent from anywhere: a party of another server is none here.
-  if ((await ctx.guilds.idFor(serverId)) !== party.guildId) throw new UserError(STALE_COMPONENT);
+  const party = partyOfServer(interaction, ctx, partyId);
+  if (!party) throw new UserError(partyOver());
   const reason = interaction.fields.getTextInputValue(REPORT_REASON_INPUT);
   // Acknowledged first: the report is a message to Discord, which can take its time.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -161,9 +164,8 @@ export async function submitPartyReport(
     partyId,
     reporter: { id: interaction.user.id, name: memberInfo(interaction).name },
     reason,
-    roleIds: managementRoleIds(interaction),
   });
-  await interaction.editReply({ content: reportAnswer(outcome, partyWord(party)) });
+  await interaction.editReply({ content: reportAnswer(outcome) });
 }
 
 /**
@@ -196,10 +198,25 @@ export const report: SimpleCommand = {
   checks: REPORT_WINDOW,
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
-    await refuseReportedBefore(ctx, { kind: 'party', partyId: party.id }, interaction.user.id);
+    refuseWithoutModerators(ctx, guildIdOf(interaction));
+    await refuseReportedBefore(
+      ctx,
+      guildIdOf(interaction),
+      { kind: 'party', partyId: party.id },
+      interaction.user.id,
+    );
     await interaction.showModal(partyReportForm(party));
   },
 };
+
+/**
+ * Refuses, before its form opens, a report where the server's staff set no moderators' channel
+ * (plan 19A-1, `reportRefusal`: the one rule of `/report`, the Apps menu and the map).
+ */
+export function refuseWithoutModerators(ctx: Pick<AppContext, 'servers'>, serverId: string): void {
+  const refusal = reportRefusal(ctx.servers.of(serverId));
+  if (refusal !== undefined) throw new UserError(refusal);
+}
 
 /**
  * Refuses, before its form opens, a report by a member whose reason is on the open report of the
@@ -208,10 +225,13 @@ export const report: SimpleCommand = {
  */
 export async function refuseReportedBefore(
   ctx: Pick<AppContext, 'reports'>,
-  subject: Parameters<AppContext['reports']['reportedBefore']>[0],
+  serverId: string,
+  subject: Parameters<AppContext['reports']['reportedBefore']>[1],
   reporterId: string,
 ): Promise<void> {
-  if (await ctx.reports.reportedBefore(subject, reporterId)) throw new UserError(REPORT_ALREADY);
+  if (await ctx.reports.reportedBefore(serverId, subject, reporterId)) {
+    throw new UserError(REPORT_ALREADY);
+  }
 }
 
 /**

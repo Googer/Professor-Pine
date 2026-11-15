@@ -847,6 +847,39 @@ export function headCount(party: PartyCore, groupId?: GroupId): number {
   return total;
 }
 
+/**
+ * The statuses a post lists its members under (`STATUS_WORDS` of `src/render/party-post.ts`:
+ * Interested, Coming, Here, Done).
+ */
+export type ListedStatus = 'interested' | 'coming' | 'present' | 'complete';
+
+/** Under which status a post lists an attendee: one asked whether they completed is present. */
+export function listedStatus(status: AttendeeStatus): ListedStatus {
+  switch (status) {
+    case PartyStatus.Interested:
+      return 'interested';
+    case PartyStatus.Coming:
+      return 'coming';
+    case PartyStatus.Present:
+    case PartyStatus.CompletePending:
+      return 'present';
+    case PartyStatus.Complete:
+      return 'complete';
+  }
+}
+
+/**
+ * The heads of each status as a post lists them (`listedStatus`; plan 19E: a neighbor's line,
+ * which names nobody, says these of the other server's party).
+ */
+export function headsByStatus(party: PartyCore): Record<ListedStatus, number> {
+  const heads: Record<ListedStatus, number> = { interested: 0, coming: 0, present: 0, complete: 0 };
+  for (const attendee of Object.values(party.attendees)) {
+    heads[listedStatus(attendee.status)] += attendee.number;
+  }
+  return heads;
+}
+
 /** The statuses that hold a place in a lobby: coming, here, and asked whether they are done. */
 export function isCommitted(status: AttendeeStatus): boolean {
   return (

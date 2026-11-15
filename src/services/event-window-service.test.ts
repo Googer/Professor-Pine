@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { INTO_THE_WILD_WINDOW } from '../../test/support/event-window-store-cases.js';
+import {
+  INTO_THE_WILD_LOCAL,
+  INTO_THE_WILD_WINDOW,
+} from '../../test/support/event-window-store-cases.js';
+import { zonedAt } from '../../test/support/time.js';
 import { MemoryEventWindows } from '../../test/support/event-window-store.js';
 import { Tally } from '../../test/support/tally.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
@@ -8,10 +12,11 @@ import { EventWindowService } from './event-window-service.js';
 
 const MINUTE = 60_000;
 const window = INTO_THE_WILD_WINDOW;
+const ZONE = 'America/New_York';
 
-function service(store = new MemoryEventWindows()) {
+function service(store = new MemoryEventWindows(), zones: readonly string[] = [ZONE]) {
   const { log, entries } = createTestLogger();
-  return { windows: new EventWindowService({ store, log }), store, entries };
+  return { windows: new EventWindowService({ store, log, zones: () => zones }), store, entries };
 }
 
 describe('EventWindowService', () => {
@@ -53,25 +58,118 @@ describe('EventWindowService', () => {
 
   it('ends a window on now: what came before stays, nothing after; none to end is said', async () => {
     const { windows, store } = service();
-    expect(await windows.end(window.start)).toBeUndefined();
+    expect(await windows.end(window.start, ZONE)).toBeUndefined();
     await windows.set(() => window);
     const now = window.start + 90 * MINUTE;
-    expect(await windows.end(now)).toEqual({ ...window, end: now });
+    expect(await windows.end(now, ZONE)).toEqual({
+      before: window,
+      window: { ...window, end: now },
+      here: 'on',
+      ran: true,
+    });
     expect(windows.current()).toEqual({ ...window, end: now });
     expect(await store.current()).toEqual({ ...window, end: now });
     // Over already: nothing to end.
-    expect(await windows.end(now + MINUTE)).toBeUndefined();
-    expect(windows.ongoing(now + MINUTE)).toBeUndefined();
+    expect(await windows.end(now + MINUTE, ZONE)).toBeUndefined();
+    expect(windows.ongoing(now + MINUTE, ZONE)).toBeUndefined();
   });
 
   it('ends a window that has not begun as none at all', async () => {
     const { windows } = service();
     await windows.set(() => window);
     const before = window.start - 60 * MINUTE;
-    expect(windows.ongoing(before)).toEqual(window);
-    expect(await windows.end(before)).toEqual({ ...window, end: window.start });
+    expect(windows.ongoing(before, ZONE)).toEqual(window);
+    expect(await windows.end(before, ZONE)).toMatchObject({ here: 'to-come', ran: false });
     // An empty window is none: no event of it reaches a reader (no start to cut a battle at).
     expect(windows.current()).toBeUndefined();
+  });
+
+  // Plan 19A-2: a window typed as local time is on at those hours on each server's clock.
+  describe('in each server’s zone (plan 19A-2)', () => {
+    const BERLIN = 'Europe/Berlin';
+    const NEW_YORK = 'America/New_York';
+    const local = INTO_THE_WILD_LOCAL;
+
+    it('gives a window typed as local time on each zone’s clock, its stored moments without one', async () => {
+      const { windows } = service();
+      await windows.set(() => local);
+      expect(windows.current()).toEqual(local);
+      expect(windows.current(NEW_YORK)).toEqual(local);
+      expect(windows.current(BERLIN)).toMatchObject({
+        start: zonedAt('2026-11-09T10:00', BERLIN),
+        end: zonedAt('2026-11-13T20:00', BERLIN),
+      });
+      // At 09:00 in New York the window is on in Berlin (15:00) and to come in New York.
+      const nine = zonedAt('2026-11-09T09:00', NEW_YORK);
+      expect(windows.ongoing(nine, BERLIN)?.start).toBeLessThan(nine);
+      expect(windows.ongoing(nine, NEW_YORK)?.start).toBeGreaterThan(nine);
+    });
+
+    it('ends a window begun in the zone of whoever ends it now, everywhere', async () => {
+      const { windows, store } = service();
+      await windows.set(() => local);
+      const now = zonedAt('2026-11-09T09:00', NEW_YORK);
+      const ended = await windows.end(now, BERLIN);
+      expect(ended).toMatchObject({
+        here: 'on',
+        window: { start: zonedAt('2026-11-09T10:00', BERLIN), end: now },
+      });
+      // The end is a moment now: New York, where it had not begun, has none left.
+      expect(await store.current()).toEqual({
+        ...INTO_THE_WILD_WINDOW,
+        startLocal: local.startLocal,
+        end: now,
+      });
+      expect(windows.current(NEW_YORK)).toBeUndefined();
+      expect(windows.current(BERLIN)?.end).toBe(now);
+    });
+
+    it('never erases what ran where it had begun, ended where it had not (fix round 1, M1)', async () => {
+      const { windows } = service(undefined, [NEW_YORK, BERLIN]);
+      await windows.set(() => local);
+      // 09:00 in New York, 15:00 in Berlin: begun there, not here.
+      const now = zonedAt('2026-11-09T09:00', NEW_YORK);
+      const ended = await windows.end(now, NEW_YORK);
+      expect(ended).toMatchObject({ here: 'to-come', ran: true });
+      expect(windows.current(BERLIN)).toMatchObject({
+        start: zonedAt('2026-11-09T10:00', BERLIN),
+        end: now,
+      });
+      expect(windows.current(NEW_YORK)).toBeUndefined();
+    });
+
+    it('calls off a window begun in no zone in use, in every zone', async () => {
+      const { windows } = service(undefined, [NEW_YORK]);
+      await windows.set(() => local);
+      const now = zonedAt('2026-11-09T09:00', NEW_YORK);
+      expect(await windows.end(now, NEW_YORK)).toMatchObject({ here: 'to-come', ran: false });
+      expect(windows.current(NEW_YORK)).toBeUndefined();
+    });
+
+    it('ends a window over in the ender’s zone that is still on in another (fix round 1, M4)', async () => {
+      const { windows } = service(undefined, [NEW_YORK, BERLIN]);
+      await windows.set(() => local);
+      // 21:00 on Friday in Berlin, over there; 15:00 in New York, on.
+      const now = zonedAt('2026-11-13T21:00', BERLIN);
+      expect(await windows.end(now, BERLIN)).toMatchObject({ here: 'over', ran: true });
+      expect(windows.current(NEW_YORK)?.end).toBe(now);
+      expect(windows.ongoing(now, NEW_YORK)).toBeUndefined();
+      // Over everywhere: nothing more to end.
+      expect(await windows.end(now + MINUTE, BERLIN)).toBeUndefined();
+    });
+
+    it('gives a set the window as kept, also one empty in the default zone (fix round 1, M3)', async () => {
+      const { windows } = service(undefined, [NEW_YORK, BERLIN]);
+      await windows.set(() => local);
+      const now = zonedAt('2026-11-09T15:00', BERLIN);
+      await windows.end(now, BERLIN);
+      const seen: (EventWindow | undefined)[] = [];
+      await windows.set((kept) => {
+        seen.push(kept);
+        return local;
+      });
+      expect(seen).toEqual([{ ...INTO_THE_WILD_WINDOW, startLocal: local.startLocal, end: now }]);
+    });
   });
 
   describe('one change at a time (review LW-2)', () => {
@@ -96,13 +194,13 @@ describe('EventWindowService', () => {
       const { windows } = service(store);
       const setting = windows.set(() => window);
       const now = window.start + 90 * MINUTE;
-      const ending = windows.end(now);
+      const ending = windows.end(now, ZONE);
       await store.asked.reached(1);
       store.release();
       await setting;
       await store.asked.reached(2);
       store.release();
-      expect(await ending).toEqual({ ...window, end: now });
+      expect(await ending).toMatchObject({ window: { ...window, end: now } });
       expect(await store.current()).toEqual({ ...window, end: now });
     });
 

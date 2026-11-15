@@ -9,12 +9,14 @@ import {
   testRaid,
   testTrain,
 } from '../../../test/support/parties.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW } from '../../../test/support/gyms.js';
 import { auditEntries, auditEntryOf, type AuditNames } from './audit.js';
 import { endParty, setSaved, type RaidBossRef } from './party.js';
 
 const NAMES: AuditNames = {
   gym: (id) => ({ 1: 'Big Fountain', 2: 'Old Gym' })[id],
-  spot: (id) => (id === TEST_SPOT.id ? TEST_SPOT.title : undefined),
+  spot: (id, guildId) =>
+    id === TEST_SPOT.id && guildId === TEST_GUILD_ROW ? TEST_SPOT.title : undefined,
   boss: (ref: RaidBossRef) =>
     'name' in ref ? ref.name : ref.key === 'yveltal' ? 'Yveltal' : 'Machamp',
   move: (id) => ({ SNARL_FAST: 'Snarl', HURRICANE: 'Hurricane' })[id],
@@ -176,6 +178,15 @@ describe('auditEntries', () => {
     ]);
   });
 
+  it('names a Power Spot of a route as the train’s own server keeps it (plan 19B-3)', () => {
+    const train = { ...testTrain(), guildId: OTHER_GUILD_ROW };
+    const routed = { ...train, train: { ...train.train, route: stops(TEST_SPOT.id) } };
+    // The test server's spot: the second server has none of that id, and names none.
+    expect(auditEntries(train, routed, NAMES)).toEqual([
+      { action: 'route', added: [null], removed: [] },
+    ]);
+  });
+
   it("records a train's boss and its kind", () => {
     const train = testTrain();
     const after = { ...train, train: { ...train.train, boss: { key: 'yveltal' } } };
@@ -244,5 +255,17 @@ describe('auditEntryOf', () => {
     expect(auditEntryOf('info', null)).toEqual({ action: 'info' });
     expect(auditEntryOf('boss', { from: 3 })).toBeUndefined();
     expect(auditEntryOf('dance', {})).toBeUndefined();
+  });
+
+  it('reads a conductor by an id of at most 30 characters, as the log’s index holds it', () => {
+    const conductor = (id: string) => ({ from: null, to: { id, name: 'Alice' } });
+    expect(auditEntryOf('conductor', conductor('1'.repeat(30)))).toEqual({
+      action: 'conductor',
+      ...conductor('1'.repeat(30)),
+    });
+    expect(auditEntryOf('conductor', conductor('1'.repeat(31)))).toBeUndefined();
+    expect(
+      auditEntryOf('conductor', { from: { id: '1'.repeat(31) }, to: { id: ALICE } }),
+    ).toBeUndefined();
   });
 });

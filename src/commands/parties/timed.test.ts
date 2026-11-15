@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PARTY_ZONE } from '../../../test/support/parties.js';
 import { TEST_SETTINGS_PATH } from '../../../test/support/test-settings.js';
 import { zonedAt } from '../../../test/support/time.js';
 import { loadSettings } from '../../config/settings.js';
@@ -13,7 +14,7 @@ const MINUTE = 60_000;
 /** What a refusal of `text` says to type instead, or undefined when it says nothing so. */
 function hintFor(text: string, party: TimedTimes, now: number): string | undefined {
   try {
-    typedTimedTime(ctx, party, 'meet', text, now);
+    typedTimedTime(ctx, party, 'meet', text, now, PARTY_ZONE);
   } catch (err) {
     if (!(err instanceof UserError)) throw err;
     return /give the date first, month-day: `([^`]+)`/.exec(err.message)?.[1];
@@ -25,7 +26,7 @@ describe('typedTimedTime: the refusal of a time without a date (review of 2026-1
   it('suggests a date and the time as typed, in a form that is read back as that date', () => {
     // Made 93 days ago to the minute: every start but this very minute lies past the lead-up
     // limit, so each time without a date is refused with the day it was read on.
-    const now = zonedAt('2027-01-14T14:59', settings.timezone);
+    const now = zonedAt('2027-01-14T14:59', PARTY_ZONE);
     const party: TimedTimes = {
       type: 'meetup',
       createdAt: now - settings.maxMeetupLeadupDuration * MINUTE,

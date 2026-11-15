@@ -82,6 +82,20 @@ export function boardedRegions(): Region[] {
 
 export const OTHER_GUILD_ID = '412345678901234568';
 export const OTHER_GUILD_ROW = 2;
+/** The row of the test server (`FAKE_GUILD_ID`), whose regions `testRegions()` are. */
+export const TEST_GUILD_ROW = 1;
+
+/**
+ * The servers of the gyms (plan 19B-2): every gym given (the invented ones unless told
+ * otherwise) belongs to the test server, as an installation of one server has them after the
+ * upgrade (gym 10, in no region, too: nobody else's).
+ */
+export function testLinks(
+  gyms: readonly { id: number }[] = testGyms(),
+  guildId = TEST_GUILD_ROW,
+): { gymId: number; guildId: number }[] {
+  return gyms.map((gym) => ({ gymId: gym.id, guildId }));
+}
 export const NORTH_CHANNEL = '100000000000000004';
 /** A place in North, far from every invented gym. */
 export const NORTH_PLACE: LatLon = { lat: 40.25, lon: -80.05 };
@@ -98,6 +112,25 @@ export function northRegion(): Region {
     channelId: NORTH_CHANNEL,
     description: null,
     bounds: square(40.2, -80.1, 40.3, -80.0),
+    forumChannelId: null,
+    summaryMessageId: null,
+  };
+}
+
+/** The channel of Wide, the second server's region over West and East (`wideRegion`). */
+export const WIDE_CHANNEL = '100000000000000006';
+
+/**
+ * Wide, a region of the second server over West and East together (plan 19B-2: regions of two
+ * servers overlap freely). Not among `testRegions()`: a test of two servers adds it.
+ */
+export function wideRegion(): Region {
+  return {
+    id: 6,
+    guildId: OTHER_GUILD_ROW,
+    channelId: WIDE_CHANNEL,
+    description: null,
+    bounds: square(40.0, -80.1, 40.1, -79.9),
     forumChannelId: null,
     summaryMessageId: null,
   };
@@ -134,6 +167,7 @@ function gym(id: number, name: string, lat: number, lon: number, more: Partial<G
     sponsor: null,
     geodata: null,
     places: null,
+    wayfarerAddress: null,
     nearestGym: null,
     ...more,
   };

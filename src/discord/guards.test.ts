@@ -1,37 +1,73 @@
+import { PermissionFlagsBits } from 'discord.js';
 import { describe, expect, it } from 'vitest';
-import { fakeAutocomplete, fakeChatInput } from '../../test/support/fake-interactions.js';
-import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  FAKE_CHANNEL_ID,
+  FAKE_GUILD_ID,
+  FAKE_PARENT_ID,
+  fakeAutocomplete,
+  fakeChatInput,
+} from '../../test/support/fake-interactions.js';
+import {
+  OTHER_GUILD_ID,
+  UNBOUNDED_CHANNEL,
+  WEST_CHANNEL,
+  WEST_FORUM,
+  WIDE_CHANNEL,
+} from '../../test/support/gyms.js';
 import { partyStoreWith, testMeetup, testRaid, testTrain } from '../../test/support/parties.js';
-import { TestRegions } from '../../test/support/party-service.js';
+import { regionsFixture, twoServerGyms } from '../../test/support/providers.js';
+import { reportedRaid, TestRegions } from '../../test/support/party-service.js';
+import {
+  TEST_PVP_CATEGORY,
+  TEST_SERVER_CHANNELS,
+  TestServers,
+  testServerValues,
+} from '../../test/support/server-values.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import type { GuardableInteraction, LocatedInteraction } from './command.js';
 import { UserError } from './errors.js';
 import {
   guildIdOf,
-  isBotChannelName,
+  isBotChannel,
   isBotManagement,
+  isInstanceOperatorOf,
   isManagement,
+  isSharedDataOperatorAt,
+  ONLY_OPERATORS,
+  ONLY_OPERATORS_IN_A_DM,
   isPvpContext,
+  isServerAdmin,
   isStaffRoleName,
+  mayManageServer,
   partyOf,
+  partyOfServer,
   raidOf,
   regionChannelOf,
   requireBotChannel,
   requireBotManagement,
   requireGuild,
+  requireInstanceOperator,
   requireManagement,
   requireMeetup,
   requireParty,
   requirePvpContext,
   requireRaid,
   requireRegion,
+  requireServerAdmin,
+  requireSharedDataOperator,
   requireTimed,
+  SERVER_ADMIN_ONLY,
+  serverStaffShareData,
 } from './guards.js';
+import { instanceConfig, OPERATOR_ID } from '../../test/support/operators.js';
+import { serverRecordRow } from '../../test/support/server-record-cases.js';
+import { standingsWith } from '../../test/support/server-standings.js';
 
 const OWNER = '223456789012345678'; // TEST_ENV.OWNER_ID
 const USER = '700000000000000001';
 const { ctx } = createTestContext();
-const { settings } = ctx.config;
+const values = testServerValues();
+const BOT_LAB = TEST_SERVER_CHANNELS['bot-lab'];
 const as = (fake: unknown) => fake as GuardableInteraction;
 
 describe('role checks', () => {
@@ -63,20 +99,164 @@ describe('role checks', () => {
   });
 });
 
-describe('channel checks', () => {
-  it('recognises both bot channels by configured name', () => {
-    expect(isBotChannelName('the-bot-lab', settings)).toBe(true);
-    expect(isBotChannelName('mod-bot-only', settings)).toBe(true);
-    expect(isBotChannelName('general', settings)).toBe(false);
-    expect(isBotChannelName(undefined, settings)).toBe(false);
+describe('the operators’ tiers (plan 19B-1)', () => {
+  const STAFF = '423456789012345678';
+  const listed = createTestContext({
+    config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: [FAKE_GUILD_ID] }),
+  }).ctx;
+  const open = createTestContext({
+    config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: 'open' }),
+  }).ctx;
+  const admin = { userId: STAFF, roleNames: ['Admin'] };
+
+  it('lets the staff of a server of a listed instance change the shared data there', () => {
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), listed)).not.toThrow();
+    // The test settings name no servers: not open either.
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), ctx)).not.toThrow();
+    expect(() =>
+      requireSharedDataOperator(
+        as(fakeChatInput({ userId: STAFF, roleNames: ['member'] })),
+        listed,
+      ),
+    ).toThrow('Only admins, moderators and bot developers can do that.');
   });
 
-  it('allows PvP commands in DMs and under the PvP category', () => {
-    expect(isPvpContext({ isDm: true, parentName: undefined }, settings)).toBe(true);
-    expect(isPvpContext({ isDm: false, parentName: 'PVP CHAT AND TOURNAMENTS' }, settings)).toBe(
-      true,
+  it('lets the staff of a server that the instance does not list change nothing shared', () => {
+    // Nor recorded at the upgrade (plan 19C-1).
+    const elsewhere = createTestContext({
+      config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: ['512345678901234567'] }),
+      standings: standingsWith({ recorded: [] }).standings,
+    }).ctx;
+    // Their roles would never pass there: the operators' words.
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), elsewhere)).toThrow(
+      ONLY_OPERATORS,
     );
-    expect(isPvpContext({ isDm: false, parentName: 'RAIDS' }, settings)).toBe(false);
+    expect(isSharedDataOperatorAt(fakeChatInput(admin) as never, elsewhere)).toBe(false);
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ userId: OPERATOR_ID })), elsewhere),
+    ).not.toThrow();
+    // An empty list is no list, as unset: a recorded server's staff (plan 19C-1).
+    const empty = createTestContext({
+      config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: [] }),
+    }).ctx;
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), empty)).not.toThrow();
+    const emptyUnrecorded = createTestContext({
+      config: instanceConfig(ctx, { operators: [OPERATOR_ID], servers: [] }),
+      standings: standingsWith({ recorded: [] }).standings,
+    }).ctx;
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), emptyUnrecorded)).toThrow(
+      ONLY_OPERATORS,
+    );
+  });
+
+  it('lets, without a list of servers, the staff of an allowed server alone (plan 19C-1)', () => {
+    // FAKE_GUILD_ID was recorded at the upgrade (the context's standings); OTHER_GUILD_ID not.
+    const newcomer = createTestContext({
+      standings: standingsWith({ recorded: [FAKE_GUILD_ID] }).standings,
+    }).ctx;
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), newcomer)).not.toThrow();
+    const there = fakeChatInput({ ...admin, guildId: OTHER_GUILD_ID });
+    expect(() => requireSharedDataOperator(as(there), newcomer)).toThrow(ONLY_OPERATORS);
+    expect(serverStaffShareData(OTHER_GUILD_ID, newcomer)).toBe(false);
+    // Allowed by an operator: its staff too.
+    const allowed = createTestContext({
+      standings: standingsWith({
+        recorded: [FAKE_GUILD_ID],
+        rows: [
+          {
+            ...serverRecordRow({ serverId: OTHER_GUILD_ID }),
+            allowedAt: 1,
+            allowedBy: OPERATOR_ID,
+          },
+        ],
+      }).standings,
+    }).ctx;
+    expect(() => requireSharedDataOperator(as(there), allowed)).not.toThrow();
+    // Blocked: never, though recorded.
+    const blocked = createTestContext({
+      standings: standingsWith({
+        recorded: [OTHER_GUILD_ID],
+        rows: [{ ...serverRecordRow(), blockedAt: 1, blockedBy: OPERATOR_ID }],
+      }).standings,
+    }).ctx;
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), blocked)).toThrow(
+      ONLY_OPERATORS,
+    );
+    expect(() => requireSharedDataOperator(as(there), blocked)).not.toThrow();
+  });
+
+  it('lets on an open instance only its operators change the shared data', () => {
+    expect(() => requireSharedDataOperator(as(fakeChatInput(admin)), open)).toThrow(ONLY_OPERATORS);
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ userId: OPERATOR_ID })), open),
+    ).not.toThrow();
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ userId: OWNER })), open),
+    ).not.toThrow();
+  });
+
+  it('lets in a direct message only the operators change the shared data', () => {
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ userId: OPERATOR_ID, isDm: true })), listed),
+    ).not.toThrow();
+    // A moderator's roles are of a server: none is read in a DM.
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ ...admin, isDm: true })), listed),
+    ).toThrow(ONLY_OPERATORS_IN_A_DM);
+    // One refusal in a DM, whatever the instance.
+    expect(() =>
+      requireSharedDataOperator(as(fakeChatInput({ ...admin, isDm: true })), open),
+    ).toThrow(ONLY_OPERATORS_IN_A_DM);
+    expect(ONLY_OPERATORS_IN_A_DM).toBe(
+      'In a direct message, only the operators of this Pine can do that.',
+    );
+  });
+
+  it('refuses the shared data to an autocomplete of somebody else, in a DM too', () => {
+    const typing = fakeAutocomplete({ userId: STAFF, isDm: true }) as unknown as LocatedInteraction;
+    expect(() => requireSharedDataOperator(typing, listed)).toThrow(UserError);
+  });
+
+  it('keeps what only the instance operators do from server staff, anywhere', () => {
+    expect(() =>
+      requireInstanceOperator(as(fakeChatInput({ userId: OPERATOR_ID, isDm: true })), listed),
+    ).not.toThrow();
+    expect(() =>
+      requireInstanceOperator(as(fakeChatInput({ userId: OWNER })), listed),
+    ).not.toThrow();
+    expect(() => requireInstanceOperator(as(fakeChatInput(admin)), listed)).toThrow(ONLY_OPERATORS);
+    expect(() => requireInstanceOperator(as(fakeChatInput({ userId: OPERATOR_ID })), ctx)).toThrow(
+      ONLY_OPERATORS,
+    );
+    expect(() =>
+      requireInstanceOperator(as(fakeChatInput({ ...admin, isDm: true })), listed),
+    ).toThrow(ONLY_OPERATORS_IN_A_DM);
+  });
+
+  it('answers who passes each tier where they ask, for /help', () => {
+    expect(isSharedDataOperatorAt(fakeChatInput(admin) as never, listed)).toBe(true);
+    expect(isSharedDataOperatorAt(fakeChatInput({ ...admin, isDm: true }) as never, listed)).toBe(
+      false,
+    );
+    expect(isInstanceOperatorOf(OPERATOR_ID, listed)).toBe(true);
+    expect(isInstanceOperatorOf(STAFF, listed)).toBe(false);
+  });
+});
+
+describe('channel checks', () => {
+  it("recognises both bot channels by the server's ids, whatever their names", () => {
+    expect(isBotChannel(BOT_LAB, values)).toBe(true);
+    expect(isBotChannel(TEST_SERVER_CHANNELS['mod-bot-lab'], values)).toBe(true);
+    expect(isBotChannel(FAKE_CHANNEL_ID, values)).toBe(false);
+    expect(isBotChannel(undefined, values)).toBe(false);
+    expect(isBotChannel(BOT_LAB, testServerValues({ channels: {} }))).toBe(false);
+  });
+
+  it("allows PvP commands in DMs and under the server's PvP category", () => {
+    expect(isPvpContext({ isDm: true, categoryId: undefined }, undefined)).toBe(true);
+    expect(isPvpContext({ isDm: false, categoryId: TEST_PVP_CATEGORY }, values)).toBe(true);
+    expect(isPvpContext({ isDm: false, categoryId: FAKE_PARENT_ID }, values)).toBe(false);
+    expect(isPvpContext({ isDm: false, categoryId: undefined }, values)).toBe(false);
   });
 });
 
@@ -101,41 +281,99 @@ describe('guards', () => {
     ).not.toThrow();
   });
 
-  it('requireBotChannel names the channel to use', () => {
-    expect(() => requireBotChannel(as(fakeChatInput({ channelName: 'general' })), ctx)).toThrow(
-      /#the-bot-lab/,
+  it('requireServerAdmin accepts the server’s owner and who may manage it without a staff role (plan 19C-2)', () => {
+    const owner = fakeChatInput({ userId: USER, guildOwnerId: USER });
+    expect(() => requireServerAdmin(as(owner), ctx)).not.toThrow();
+    expect(isServerAdmin(as(owner), ctx)).toBe(true);
+    const manager = fakeChatInput({ userId: USER, permissions: PermissionFlagsBits.ManageGuild });
+    expect(() => requireServerAdmin(as(manager), ctx)).not.toThrow();
+    // Staff by role, and the bot's owner, as `/admin` had them.
+    for (const staff of [
+      fakeChatInput({ userId: USER, roleNames: ['Bot Developer'] }),
+      fakeChatInput({ userId: OWNER }),
+    ]) {
+      expect(() => requireServerAdmin(as(staff), ctx)).not.toThrow();
+    }
+    // Anybody else, the owner of another server too.
+    for (const member of [
+      fakeChatInput({ userId: USER, roleNames: ['Raider'] }),
+      fakeChatInput({ userId: USER, guildOwnerId: '700000000000000002' }),
+      fakeChatInput({ userId: USER, permissions: PermissionFlagsBits.ManageChannels }),
+    ]) {
+      expect(() => requireServerAdmin(as(member), ctx)).toThrow(SERVER_ADMIN_ONLY);
+      expect(isServerAdmin(as(member), ctx)).toBe(false);
+    }
+    expect(SERVER_ADMIN_ONLY).toBe(
+      'Only the server’s owner, members who may manage the server, and its admins, moderators ' +
+        'and bot developers can do that.',
     );
-    expect(() =>
-      requireBotChannel(as(fakeChatInput({ channelName: 'the-bot-lab' })), ctx),
-    ).not.toThrow();
+    expect(() => requireServerAdmin(as(fakeChatInput({ isDm: true, userId: OWNER })), ctx)).toThrow(
+      UserError,
+    );
+  });
+
+  it('decides who may manage a server by one rule, for the web pages too (plan 19C-2)', () => {
+    const facts = { roleNames: [] as string[], manageGuild: false, guildOwner: false };
+    expect(mayManageServer(facts, USER, OWNER)).toBe(false);
+    expect(mayManageServer({ ...facts, guildOwner: true }, USER, OWNER)).toBe(true);
+    expect(mayManageServer({ ...facts, manageGuild: true }, USER, OWNER)).toBe(true);
+    expect(mayManageServer({ ...facts, roleNames: ['moderator'] }, USER, OWNER)).toBe(true);
+    expect(mayManageServer(facts, OWNER, OWNER)).toBe(true);
+  });
+
+  it('requireBotChannel names the channel to use', () => {
+    expect(() => requireBotChannel(as(fakeChatInput({ channelName: 'the-bot-lab' })), ctx)).toThrow(
+      `Use this in <#${BOT_LAB}>.`,
+    );
+    expect(() => requireBotChannel(as(fakeChatInput({ channelId: BOT_LAB })), ctx)).not.toThrow();
+  });
+
+  it('requireBotChannel says that staff have set no bot lab in a server without one', () => {
+    const { ctx: unset } = createTestContext({
+      servers: new TestServers(testServerValues({ channels: {} })),
+    });
+    // `/admin settings` named only to staff (review F11).
+    expect(() => requireBotChannel(as(fakeChatInput({ channelId: BOT_LAB })), unset)).toThrow(
+      /^This server has no bot lab yet\.$/u,
+    );
+    const staff = fakeChatInput({ channelId: BOT_LAB, roleNames: ['Moderator'] });
+    expect(() => requireBotChannel(as(staff), unset)).toThrow(
+      'This server has no bot lab yet: staff set one with /admin settings.',
+    );
   });
 
   it('requireBotChannel also holds in a thread of the bot channel', () => {
     const inThread = fakeChatInput({
       channelName: 'How do I add a gym?',
-      thread: { parentName: 'the-bot-lab' },
+      thread: { parentId: BOT_LAB, parentName: 'renamed-lab' },
     });
     expect(() => requireBotChannel(as(inThread), ctx)).not.toThrow();
     const elsewhere = fakeChatInput({
       channelName: 'the-bot-lab',
-      thread: { parentName: 'general' },
+      thread: { parentName: 'the-bot-lab' },
     });
     expect(() => requireBotChannel(as(elsewhere), ctx)).toThrow(UserError);
   });
 
-  it('requirePvpContext uses the parent category', () => {
-    expect(() => requirePvpContext(as(fakeChatInput({ parentName: 'RAIDS' })), ctx)).toThrow(
-      UserError,
-    );
-    expect(() => requirePvpContext(as(fakeChatInput({ isDm: true })), ctx)).not.toThrow();
+  it("requirePvpContext uses the parent category, named in the server's words", () => {
     expect(() =>
       requirePvpContext(as(fakeChatInput({ parentName: 'PVP CHAT AND TOURNAMENTS' })), ctx),
+    ).toThrow(`Use this in a DM with me or under <#${TEST_PVP_CATEGORY}>.`);
+    expect(() => requirePvpContext(as(fakeChatInput({ isDm: true })), ctx)).not.toThrow();
+    expect(() =>
+      requirePvpContext(as(fakeChatInput({ parentId: TEST_PVP_CATEGORY })), ctx),
     ).not.toThrow();
+    const { ctx: unset } = createTestContext({
+      servers: new TestServers(testServerValues({ categories: {} })),
+    });
+    expect(() =>
+      requirePvpContext(as(fakeChatInput({ parentId: TEST_PVP_CATEGORY })), unset),
+    ).toThrow('Use this in a DM with me.');
   });
 
   it('requirePvpContext holds in a thread under the PvP category and in an uncached DM', () => {
     const thread = fakeChatInput({
-      thread: { parentName: 'rank-checker', categoryName: 'PVP CHAT AND TOURNAMENTS' },
+      thread: { parentName: 'rank-checker', categoryId: TEST_PVP_CATEGORY },
     });
     expect(() => requirePvpContext(as(thread), ctx)).not.toThrow();
     expect(() =>
@@ -178,6 +416,21 @@ describe('guards', () => {
     expect(
       regionChannelOf(as(fakeChatInput({ channelId: '100000000000000041' })), withForum),
     ).toBeUndefined();
+  });
+
+  it('reads a region channel from the regions of each server, an outline making it one (plan 19B-2)', () => {
+    // Two servers: Wide, the second's region, lies over West and East.
+    const { gyms, regions, guilds } = twoServerGyms();
+    const { ctx: two } = createTestContext({ gyms, regions: regionsFixture(regions), guilds });
+    expect(regionChannelOf(as(fakeChatInput({ channelId: WEST_CHANNEL })), two)).toBe(WEST_CHANNEL);
+    const wide = fakeChatInput({ guildId: OTHER_GUILD_ID, channelId: WIDE_CHANNEL });
+    expect(regionChannelOf(as(wide), two)).toBe(WIDE_CHANNEL);
+    // A region row without an outline is no region channel.
+    expect(
+      regionChannelOf(as(fakeChatInput({ channelId: UNBOUNDED_CHANNEL })), two),
+    ).toBeUndefined();
+    const inUnbounded = fakeChatInput({ thread: { parentId: UNBOUNDED_CHANNEL } });
+    expect(regionChannelOf(as(inUnbounded), two)).toBeUndefined();
   });
 
   it('guildIdOf gives the server of an interaction, and refuses like the guards without one', () => {
@@ -269,6 +522,21 @@ describe('party posts', () => {
     expect(raidOf(as(fakeChatInput({ channelId: POST, thread: {} })), both)).toBe(raid);
     expect(raidOf(as(fakeChatInput({ channelId: MEETUP_POST, thread: {} })), both)).toBeUndefined();
     expect(raidOf(as(fakeChatInput({ channelId: WEST_CHANNEL })), both)).toBeUndefined();
+  });
+
+  it('partyOfServer takes a party only in its own server, reading its server in memory', async () => {
+    const made = await reportedRaid();
+    const { ctx: here } = createTestContext({
+      parties: made.store,
+      partyService: made.service,
+      // Never asked: the party's server is known in memory, so a guard can ask at once.
+      guilds: { idFor: () => Promise.reject(new Error('a row was asked of the database')) },
+    });
+    const id = made.party.id;
+    expect(partyOfServer({ guildId: FAKE_GUILD_ID }, here, id)).toBe(made.current());
+    expect(partyOfServer({ guildId: OTHER_GUILD_ID }, here, id)).toBeUndefined();
+    expect(partyOfServer({ guildId: null }, here, id)).toBeUndefined();
+    expect(partyOfServer({ guildId: FAKE_GUILD_ID }, here, 'gone')).toBeUndefined();
   });
 
   it('takes a train for a party and a timed party, and for neither a raid nor a meetup', async () => {

@@ -1,4 +1,5 @@
 import { sql, type Kysely } from 'kysely';
+import { trustedLocals } from '../../domain/time/feed-times.js';
 import type { ResearchEvent } from '../../domain/time/research-events.js';
 import type { DB } from '../types.js';
 
@@ -27,7 +28,14 @@ export interface ResearchEventStorage {
 
 /** The `ResearchEvent` table. */
 export class ResearchEventRepository implements ResearchEventStorage {
-  constructor(private readonly db: Kysely<DB>) {}
+  /**
+   * `zone`: the instance's default, in which the moments are written; a wall-clock time that no
+   * longer agrees with its moment there is left out on read (`trustedLocals`; fix round 1, L8).
+   */
+  constructor(
+    private readonly db: Kysely<DB>,
+    private readonly zone?: string,
+  ) {}
 
   async all(): Promise<ResearchEvent[]> {
     const rows = await this.db
@@ -36,13 +44,18 @@ export class ResearchEventRepository implements ResearchEventStorage {
       .orderBy('startsAt')
       .orderBy('eventId')
       .execute();
-    return rows.map((row) => ({
-      id: row.eventId,
-      name: row.name,
-      eventType: row.eventType,
-      start: Number(row.startsAt),
-      end: Number(row.endsAt),
-    }));
+    return rows.map((row) => {
+      const event: ResearchEvent = {
+        id: row.eventId,
+        name: row.name,
+        eventType: row.eventType,
+        start: Number(row.startsAt),
+        end: Number(row.endsAt),
+        ...(row.startsLocal === null ? {} : { startLocal: row.startsLocal }),
+        ...(row.endsLocal === null ? {} : { endLocal: row.endsLocal }),
+      };
+      return this.zone === undefined ? event : trustedLocals(event, this.zone);
+    });
   }
 
   async saveSeen(events: readonly ResearchEvent[], at: number): Promise<void> {
@@ -51,15 +64,18 @@ export class ResearchEventRepository implements ResearchEventStorage {
       events.map(
         (event) =>
           sql`(${event.id}, ${event.name}, ${event.eventType}, ${String(event.start)},
-            ${String(event.end)}, ${String(at)}, ${String(at)})`,
+            ${String(event.end)}, ${event.startLocal ?? null}, ${event.endLocal ?? null},
+            ${String(at)}, ${String(at)})`,
       ),
     );
     // MySQL's row alias (`AS new`), never `VALUES()`, deprecated since 8.0.20.
     await sql`
-      insert into ResearchEvent (eventId, name, eventType, startsAt, endsAt, firstSeen, lastSeen)
+      insert into ResearchEvent
+        (eventId, name, eventType, startsAt, endsAt, startsLocal, endsLocal, firstSeen, lastSeen)
       values ${values} as new
       on duplicate key update name = new.name, eventType = new.eventType,
-        startsAt = new.startsAt, endsAt = new.endsAt, lastSeen = new.lastSeen`.execute(this.db);
+        startsAt = new.startsAt, endsAt = new.endsAt, startsLocal = new.startsLocal,
+        endsLocal = new.endsLocal, lastSeen = new.lastSeen`.execute(this.db);
   }
 
   async removeEnded(before: number): Promise<number> {

@@ -16,6 +16,7 @@ import {
   isBotManagement,
   isStaff,
   memberRoleNames,
+  partyOfServer,
   regionChannelOf,
   requireTrain,
   trainOf,
@@ -57,6 +58,8 @@ import {
   trainPlaces,
   type TrainAnswer,
 } from './train-changes.js';
+import { serverValuesOf } from '../../discord/server-values.js';
+import type { DistanceUnits } from '../../render/distance-words.js';
 
 /**
  * The text of a change to a train, when it worked; a refusal and a train that has ended are
@@ -159,7 +162,7 @@ export async function showWholeRoute(
   ctx: AppContext,
   partyId: string,
 ): Promise<void> {
-  const party = ctx.parties.get(partyId);
+  const party = partyOfServer(interaction, ctx, partyId);
   if (!party) throw new UserError(partyOver({ type: 'train' }));
   if (!isTrain(party)) throw new UserError(STALE_COMPONENT);
   await showRoute(interaction, ctx, party);
@@ -212,7 +215,7 @@ function typedStop(
   // A gym by the rule `/raid` and `/route add` always had (`reportedGym`; one of no region of the
   // train's server is none, as before 8X-4), a power spot by the rule of `near` options
   // (`clearOf`), of those the train reaches.
-  const reported = reportedGym(ctx, region, typed);
+  const reported = reportedGym(ctx.gyms.of(party.guildId), region, typed);
   const found = ctx.placeFinder.find(party.guildId, region, typed, STOP_KINDS);
   const spots = found.filter(
     (choice) => choice.kind === 'powerspot' && reached(spotStop(choice.id)),
@@ -337,11 +340,11 @@ function firstStops(
   const region = regionChannelOf(interaction, ctx);
   const regionName = (channelId: string): string | undefined =>
     interaction.guild?.channels.cache.get(channelId)?.name;
-  const gyms = gymChoices(ctx, region, '', regionName);
+  const gyms = gymChoices(ctx.gyms.of(party?.guildId), region, '', regionName);
   if (kindsFirst(party)[0] !== 'powerspot' || region === undefined) {
     return gyms.map((choice) => ({ ...choice, value: `gym:${choice.value.slice(2)}` }));
   }
-  const spots = regionSpotChoices(ctx, region);
+  const spots = regionSpotChoices(ctx, party?.guildId, region);
   const named = gyms.map((choice) => ({
     name: placeLabel({ kind: 'gym', title: choice.name, where: undefined }),
     value: `gym:${choice.value.slice(2)}`,
@@ -373,8 +376,12 @@ function lastStopPoint(ctx: AppContext, party: TrainParty): LatLon | undefined {
  * nearest first whatever the train's kind, without a radius, those on the route left out, each
  * with its distance.
  */
-function nearestStops(ctx: AppContext, party: TrainParty, last: LatLon): Choice[] {
-  const { distanceUnits } = ctx.config.settings;
+function nearestStops(
+  ctx: AppContext,
+  distanceUnits: DistanceUnits,
+  party: TrainParty,
+  last: LatLon,
+): Choice[] {
   return ctx.placeFinder
     .nearest(party.guildId, STOP_KINDS, [last], {
       count: MAX_CHOICES,
@@ -459,7 +466,7 @@ const add: SubcommandPart = {
     if (typed.trim() === '') {
       await interaction.respond(
         party && last
-          ? nearestStops(ctx, party, last)
+          ? nearestStops(ctx, serverValuesOf(interaction, ctx).distanceUnits, party, last)
           : firstStops(interaction, ctx, party).filter((c) => unrouted(c.value)),
       );
       return;
@@ -496,7 +503,7 @@ function stopChoices(
   const party = trainOf(interaction, ctx);
   if (!party) return [];
   const typed = String(interaction.options.getFocused()).trim().toLowerCase();
-  const stops = stopsFrom(ctx.gyms, ctx.wayspots);
+  const stops = stopsFrom(ctx.gyms, ctx.wayspots, party.guildId);
   // `/route move`'s `to`, its `from` given: where the stop would stand (Matt, 2026-10-24).
   const from =
     interaction.options.getFocused(true).name === 'to'

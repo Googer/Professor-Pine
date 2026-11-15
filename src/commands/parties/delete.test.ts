@@ -21,6 +21,7 @@ import {
 import {
   OTHER_GUILD_ID,
   REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
   WEST_CHANNEL,
   WEST_FORUM,
 } from '../../../test/support/gyms.js';
@@ -254,10 +255,10 @@ describe('/delete', () => {
     expect(made.gateway.posts.get(made.postId)).toMatchObject({ archived: true, locked: true });
   });
 
-  it('takes no Submit for a party of another server', async () => {
+  it('takes no Submit for a party of another server: it has ended there', async () => {
     const made = await setup();
     const submitted = await made.submit('delete', ['Moderator'], { guildId: OTHER_GUILD_ID });
-    expect(sent(submitted.followUp).content).toBe('This no longer works.');
+    expect(made.shown(submitted)).toBe('This has ended.');
     expect(made.store.get(made.party.id)).toBeDefined();
     expect(made.gateway.deletedPosts).toEqual([]);
   });
@@ -379,10 +380,11 @@ describe('/delete', () => {
   it('closes as many raids as there are, one after the other', async () => {
     const made = await setup();
     for (const gymId of [2, 3]) {
-      const gym = made.ctx.gyms.get(gymId);
+      const gym = made.ctx.gyms.stored(gymId);
       if (!gym) throw new Error('an invented gym is missing');
       const outcome = await made.service.reportRaid({
         gym,
+        guildRow: TEST_GUILD_ROW,
         reporterId: BOB,
         anonymous: false,
         autoStatus: PartyStatus.Interested,
@@ -402,10 +404,11 @@ describe('/delete', () => {
   it('frees the gym for a new report', async () => {
     const made = await setup();
     await made.submit('archive', ['Admin']);
-    const gym = made.ctx.gyms.get(1);
+    const gym = made.ctx.gyms.stored(1);
     if (!gym) throw new Error('no gym 1');
     const again = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: BOB,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

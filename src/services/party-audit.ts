@@ -33,18 +33,18 @@ export interface PartyAuditOptions {
  * Power Spot by its Wayfarer title, a boss and a move by the catalogue, a region by its channel.
  */
 export function auditNamesOf(deps: {
-  gyms: { get(id: number): { name: string; nickname: string | null } | undefined };
-  wayspots?: { byId(id: string): { title: string } | undefined };
+  gyms: { stored(id: number): { name: string; nickname: string | null } | undefined };
+  wayspots?: { stored(guildId: number, id: string): { title: string } | undefined };
   regions: { byId(id: number): { channelId: string } | undefined };
   gameData: { readonly catalogue: Pick<PokemonCatalogue, 'byKey' | 'move'> };
 }): AuditNames {
   return {
     gym: (id) => {
-      const gym = deps.gyms.get(id);
+      const gym = deps.gyms.stored(id);
       // `||`: a nickname cleared to an empty text names nothing.
       return gym === undefined ? undefined : gym.nickname || gym.name;
     },
-    spot: (id) => deps.wayspots?.byId(id)?.title,
+    spot: (id, guildId) => deps.wayspots?.stored(guildId, id)?.title,
     boss: (ref) =>
       'name' in ref
         ? ref.name

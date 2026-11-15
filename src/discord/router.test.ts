@@ -849,11 +849,13 @@ describe('InteractionRouter', () => {
       expect(i.respond).toHaveBeenCalledWith([{ name: 'Big Fountain', value: 'id:1' }]);
     });
 
-    it('does not run the guards of the subcommand', async () => {
+    it('runs the guards of the subcommand too (plan 19C-2: a part has its own)', async () => {
       const { ctx } = createTestContext();
       const { grouped, choices } = staffGym({ guards: [], partGuards: [refuse] });
-      await new InteractionRouter(ctx, [grouped], []).handle(asInteraction(typing()));
-      expect(choices).toHaveBeenCalledTimes(1);
+      const i = typing();
+      await new InteractionRouter(ctx, [grouped], []).handle(asInteraction(i));
+      expect(choices).not.toHaveBeenCalled();
+      expect(i.respond).toHaveBeenCalledWith([]);
     });
 
     it('does not run the guards of a command that is for everybody', async () => {

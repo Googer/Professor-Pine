@@ -1,3 +1,4 @@
+import { asTestServerGyms } from '../../test/support/providers.js';
 import path from 'node:path';
 import { endParty } from '../domain/party/party.js';
 import { OverwriteType, PermissionFlagsBits, RateLimitError } from 'discord.js';
@@ -13,6 +14,7 @@ import {
 import {
   EAST_CHANNEL,
   EAST_FORUM,
+  TEST_GUILD_ROW,
   testGym,
   testGyms,
   testRegions,
@@ -31,6 +33,7 @@ import {
   BOB,
   CAROL,
   MINUTE,
+  PARTY_ZONE,
   REPORTER,
   testRaid,
 } from '../../test/support/parties.js';
@@ -94,6 +97,7 @@ function report(extra: Partial<RaidReport> = {}): RaidReport {
     autoStatus: PartyStatus.Interested,
     tier: T5,
     boss: null,
+    guildRow: TEST_GUILD_ROW,
     ...extra,
   };
 }
@@ -410,7 +414,12 @@ describe('PartyService: keeping posts up to date', () => {
     const { service, store, gateway, party, postId, tags, clock } = await withRaid();
     clock.now = at('2026-10-13T14:31');
     await store.update(party.id, (p) =>
-      setBoss(asRaid(p), { tier: T5, boss: { key: 'yveltal' } }, service.rules(), clock.now),
+      setBoss(
+        asRaid(p),
+        { tier: T5, boss: { key: 'yveltal' } },
+        service.rulesIn(PARTY_ZONE),
+        clock.now,
+      ),
     );
     service.changed(party.id);
     await service.flush();
@@ -426,7 +435,7 @@ describe('PartyService: keeping posts up to date', () => {
     const { service, store, gateway, party, postId, clock } = await withRaid();
     const name = async (key: string) => {
       await store.update(party.id, (p) =>
-        setBoss(asRaid(p), { tier: T5, boss: { key } }, service.rules(), clock.now),
+        setBoss(asRaid(p), { tier: T5, boss: { key } }, service.rulesIn(PARTY_ZONE), clock.now),
       );
       service.changed(party.id);
       await service.flush();
@@ -1458,7 +1467,7 @@ describe('PartyService.reportRaid: a report never leaves a raid without a post',
       setBoss(
         asRaid(p),
         { tier: T5, boss: { key: 'yveltal' } },
-        service.rules(),
+        service.rulesIn(PARTY_ZONE),
         at('2026-10-13T14:31'),
       ),
     );
@@ -1520,11 +1529,13 @@ describe('PartyService.reportRaid: the region a raid goes to', () => {
   async function overlapping() {
     const real = gymsFixture();
     const made = await partyServiceWith([], {
-      gyms: {
-        get: (id) => real.get(id),
+      gyms: asTestServerGyms({
+        get: (id) => real.stored(id),
         regionsOf: (id) =>
-          id === library!.id ? [WEST_CHANNEL, OVERLAP_CHANNEL, OTHER_CHANNEL] : real.regionsOf(id),
-      },
+          id === library!.id
+            ? [WEST_CHANNEL, OVERLAP_CHANNEL, OTHER_CHANNEL]
+            : real.of(TEST_GUILD_ROW).regionsOf(id),
+      }),
     });
     made.gateway.addForum(OVERLAP_FORUM, FORUM_TAGS);
     made.gateway.addForum(OTHER_FORUM, FORUM_TAGS);
@@ -1560,6 +1571,15 @@ describe('PartyService.reportRaid: the region a raid goes to', () => {
     });
   });
 
+  it('is a region of the server it was reported in, though the channel is a region of another (plan 19B-2)', async () => {
+    const { service } = await overlapping();
+    // The library lies in a region of the second server too: its channel is no region here.
+    expect(service.regionFor(library!, TEST_GUILD_ROW, OTHER_CHANNEL).region?.id).toBe(1);
+    await expect(
+      service.reportRaid(report({ regionChannelId: OTHER_CHANNEL })),
+    ).resolves.toMatchObject({ kind: 'created', party: { regionId: 1, guildId: TEST_GUILD_ROW } });
+  });
+
   it('is no region of another server than the one the report came from', async () => {
     const { service, regions } = await overlapping();
     regions.rows = regions.rows.filter((region) => region.id === 5 || region.id === 2);
@@ -1568,11 +1588,10 @@ describe('PartyService.reportRaid: the region a raid goes to', () => {
     });
   });
 
-  it('says no region, and logs it, when the chosen region belongs to no server', async () => {
-    const { service, regions, entries, storage } = await partyServiceWith();
+  it('says no region when the gym’s region belongs to no server: no server has it (plan 19B-2)', async () => {
+    const { service, regions, storage } = await partyServiceWith();
     regions.rows[0]!.guildId = null;
     await expect(service.reportRaid(report())).resolves.toEqual({ kind: 'no-region' });
-    expect(entries.some((entry) => entry.level === 40)).toBe(true);
     expect(storage.writes).toEqual([]);
   });
 });
@@ -1608,7 +1627,7 @@ describe('PartyService: renders, tags and the summary', () => {
     now = made.clock.now,
   ) {
     await made.store.update(made.party.id, (p) =>
-      setBoss(asRaid(p), { tier: T5, boss: { key } }, made.service.rules(), now),
+      setBoss(asRaid(p), { tier: T5, boss: { key } }, made.service.rulesIn(PARTY_ZONE), now),
     );
     made.service.changed(made.party.id);
     await made.service.flush();
@@ -1966,7 +1985,12 @@ describe('PartyService: rate limits and unchanged posts', () => {
 
   async function nameBoss(made: Awaited<ReturnType<typeof raid>>, key: string) {
     await made.store.update(made.party.id, (p) =>
-      setBoss(asRaid(p), { tier: T5, boss: { key } }, made.service.rules(), made.clock.now),
+      setBoss(
+        asRaid(p),
+        { tier: T5, boss: { key } },
+        made.service.rulesIn(PARTY_ZONE),
+        made.clock.now,
+      ),
     );
     made.service.changed(made.party.id);
     await made.service.flush();
@@ -2057,7 +2081,7 @@ describe('PartyService: rate limits and unchanged posts', () => {
       setBoss(
         asRaid(p),
         { tier: T5, boss: { key: 'yveltal' } },
-        made.service.rules(),
+        made.service.rulesIn(PARTY_ZONE),
         made.clock.now,
       ),
     );
@@ -2083,7 +2107,7 @@ describe('PartyService: rate limits and unchanged posts', () => {
       setBoss(
         asRaid(p),
         { tier: T5, boss: { key: 'yveltal' } },
-        made.service.rules(),
+        made.service.rulesIn(PARTY_ZONE),
         made.clock.now,
       ),
     );
@@ -2217,15 +2241,15 @@ describe('PartyService: rate limits and unchanged posts', () => {
   it('does not rename on every render for a gym name with extra white space', async () => {
     const real = gymsFixture();
     const made = await partyServiceWith([], {
-      gyms: {
+      gyms: asTestServerGyms({
         get: (id) => {
-          const gym = real.get(id);
+          const gym = real.stored(id);
           return gym && id === library!.id
             ? { ...gym, name: ' The  Stacks ', nickname: null }
             : gym;
         },
-        regionsOf: (id) => real.regionsOf(id),
-      },
+        regionsOf: (id) => real.of(TEST_GUILD_ROW).regionsOf(id),
+      }),
     });
     const outcome = await made.service.reportRaid(
       report({ time: { hatch: at('2026-10-13T14:30') } }),

@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-10T21:42",
+  "updated": "2026-11-14T05:23",
   "items": [
     {
       "id": "0",
@@ -11975,6 +11975,1047 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-09T22:20",
       "end": "2026-11-09T22:41"
+    },
+    {
+      "id": "19",
+      "kind": "phase",
+      "name": "2.1: one instance for many servers",
+      "dependsOn": [
+        "16"
+      ],
+      "scope": "Spec 2026-11-12-multi-server-instance-design: per-server settings and zones, separation and fairness, sharding in one process, onboarding and leaving, neighbors"
+    },
+    {
+      "id": "19A-1",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19A-1 A server’s settings",
+      "size": 3,
+      "dependsOn": [],
+      "scope": "ServerSettings table and lookup, the fill at ready, channels by id, /admin settings panel, commands per server, /report needs a moderators’ channel",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-12T14:14",
+        "end": "2026-11-12T22:46",
+        "review": {
+          "start": "2026-11-12T19:07",
+          "end": "2026-11-12T22:46"
+        }
+      },
+      "review": {
+        "start": "2026-11-12T22:46",
+        "end": "2026-11-12T22:46"
+      },
+      "status": "done"
+    },
+    {
+      "id": "19A-1.1",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "The store and the lookup",
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
+    },
+    {
+      "id": "19A-1.2",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "The fill: rows for servers that have none",
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
+    },
+    {
+      "id": "19A-1.3",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "Channels, the category and roles by id",
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
+    },
+    {
+      "id": "19A-1.4",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "The other server keys",
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
+    },
+    {
+      "id": "19A-1.5",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "Commands per server",
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
+    },
+    {
+      "id": "19A-1.6",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "/report and the map’s Report never post in the open",
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
+    },
+    {
+      "id": "19A-1.7",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "/admin settings: the server’s settings panel",
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
+    },
+    {
+      "id": "19A-1.8",
+      "kind": "task",
+      "parent": "19A-1",
+      "name": "Docs",
+      "status": "done",
+      "start": "2026-11-12T22:46",
+      "end": "2026-11-12T22:46"
+    },
+    {
+      "id": "19A-2",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19A-2 A time zone per server",
+      "size": 4,
+      "dependsOn": [
+        "19A-1"
+      ],
+      "scope": "Feeds as wall-clock times, the boss list per zone, event windows, midnights per zone, the activity store, the web",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-12T22:52",
+        "end": "2026-11-13T04:42",
+        "review": {
+          "start": "2026-11-12T23:36",
+          "end": "2026-11-13T04:42"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T04:42",
+        "end": "2026-11-13T04:42"
+      }
+    },
+    {
+      "id": "19A-2.1",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "A server’s zone, the zones in use, the panel",
+      "status": "done",
+      "start": "2026-11-13T04:24",
+      "end": "2026-11-13T04:24"
+    },
+    {
+      "id": "19A-2.2",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Times members type and read",
+      "status": "done",
+      "start": "2026-11-13T04:24",
+      "end": "2026-11-13T04:24"
+    },
+    {
+      "id": "19A-2.3",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Feed times kept as wall-clock time",
+      "status": "done",
+      "start": "2026-11-13T04:24",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.4",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "The boss list per zone",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.5",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Events, event pages, research sections, the event window",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.6",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Local midnights and day keys per zone",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.7",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Activity and history in the server’s zone",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.8",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "The web in the server’s zone",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19A-2.9",
+      "kind": "task",
+      "parent": "19A-2",
+      "name": "Docs, and no zone read from the file",
+      "status": "done",
+      "start": "2026-11-13T04:42",
+      "end": "2026-11-13T04:42"
+    },
+    {
+      "id": "19B-1",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19B-1 Operators and alerts",
+      "size": 1,
+      "dependsOn": [
+        "19A-1"
+      ],
+      "scope": "operators and servers settings, two tiers, /operator (boss overrides and sync, event window, image cache, forget), owner told of shared changes, alerts to the owner and to a server’s staff",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T04:43",
+        "end": "2026-11-13T10:49",
+        "review": {
+          "start": "2026-11-13T09:07",
+          "end": "2026-11-13T10:46"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T10:46",
+        "end": "2026-11-13T10:46"
+      }
+    },
+    {
+      "id": "19B-1.1",
+      "kind": "task",
+      "parent": "19B-1",
+      "name": "The operators and servers settings, and the two tiers",
+      "status": "done",
+      "start": "2026-11-13T09:51",
+      "end": "2026-11-13T09:51"
+    },
+    {
+      "id": "19B-1.2",
+      "kind": "task",
+      "parent": "19B-1",
+      "name": "/operator, with what every server shares moved out of /admin",
+      "status": "done",
+      "start": "2026-11-13T09:51",
+      "end": "2026-11-13T09:51"
+    },
+    {
+      "id": "19B-1.3",
+      "kind": "task",
+      "parent": "19B-1",
+      "name": "The owner told of every change of shared data",
+      "status": "done",
+      "start": "2026-11-13T09:51",
+      "end": "2026-11-13T09:52"
+    },
+    {
+      "id": "19B-1.4",
+      "kind": "task",
+      "parent": "19B-1",
+      "name": "Alerts: the instance’s to the owner, a server’s to its staff",
+      "status": "done",
+      "start": "2026-11-13T09:52",
+      "end": "2026-11-13T10:46"
+    },
+    {
+      "id": "19B-1.5",
+      "kind": "task",
+      "parent": "19B-1",
+      "name": "Docs",
+      "status": "done",
+      "start": "2026-11-13T10:46",
+      "end": "2026-11-13T10:46"
+    },
+    {
+      "id": "19B-2",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19B-2 Gyms per server",
+      "size": 2,
+      "dependsOn": [
+        "19B-1"
+      ],
+      "scope": "gym–server link table and the upgrade’s links, a view and search index per server, staff change only their gyms, members see only their server’s",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T04:43",
+        "end": "2026-11-13T14:19",
+        "review": {
+          "start": "2026-11-13T10:04",
+          "end": "2026-11-13T14:14"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T14:14",
+        "end": "2026-11-13T14:14"
+      }
+    },
+    {
+      "id": "19B-2.1",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "The link table and the upgrade's links",
+      "status": "done",
+      "start": "2026-11-13T13:38",
+      "end": "2026-11-13T13:38"
+    },
+    {
+      "id": "19B-2.2",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "The gyms per server, with a server's own search",
+      "status": "done",
+      "start": "2026-11-13T13:38",
+      "end": "2026-11-13T13:38"
+    },
+    {
+      "id": "19B-2.3",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "Each server administers exactly its own gyms",
+      "status": "done",
+      "start": "2026-11-13T13:38",
+      "end": "2026-11-13T14:14"
+    },
+    {
+      "id": "19B-2.4",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "Members find, pick and name only their server's gyms",
+      "status": "done",
+      "start": "2026-11-13T14:14",
+      "end": "2026-11-13T14:14"
+    },
+    {
+      "id": "19B-2.5",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "Every other reader of gyms takes its server",
+      "status": "done",
+      "start": "2026-11-13T14:14",
+      "end": "2026-11-13T14:14"
+    },
+    {
+      "id": "19B-2.6",
+      "kind": "task",
+      "parent": "19B-2",
+      "name": "Docs",
+      "status": "done",
+      "start": "2026-11-13T14:14",
+      "end": "2026-11-13T14:14"
+    },
+    {
+      "id": "19I",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19I Index fixes of the queries since 2.0.0",
+      "size": 1,
+      "dependsOn": [
+        "19B-2"
+      ],
+      "scope": "Matt's rule that every query is served by an index: member-leading and staff-act indexes for /operator forget and its look (migration 057), a zone's want count by its servers, explain tests",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T12:04",
+        "end": "2026-11-13T15:02",
+        "review": {
+          "start": "2026-11-13T14:02",
+          "end": "2026-11-13T15:02"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T15:02",
+        "end": "2026-11-13T15:02"
+      }
+    },
+    {
+      "id": "19I.1",
+      "kind": "task",
+      "parent": "19I",
+      "name": "Indexes that begin with the member for the removal and its look",
+      "status": "done",
+      "start": "2026-11-13T14:47",
+      "end": "2026-11-13T15:02"
+    },
+    {
+      "id": "19I.2",
+      "kind": "task",
+      "parent": "19I",
+      "name": "A zone's want count reads only its servers' wants",
+      "status": "done",
+      "start": "2026-11-13T15:02",
+      "end": "2026-11-13T15:02"
+    },
+    {
+      "id": "19I.3",
+      "kind": "task",
+      "parent": "19I",
+      "name": "The settings log's reads checked by explain",
+      "status": "done",
+      "start": "2026-11-13T15:02",
+      "end": "2026-11-13T15:02"
+    },
+    {
+      "id": "19B-3",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19B-3 Wayspots, the import and Google per server",
+      "size": 1,
+      "dependsOn": [
+        "19B-2"
+      ],
+      "scope": "Wayspots keyed by server, the import and review per server, Google’s answers by point, lookup lines by server",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T14:19",
+        "end": "2026-11-13T19:51",
+        "review": {
+          "start": "2026-11-13T15:43",
+          "end": "2026-11-13T19:48"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T19:48",
+        "end": "2026-11-13T19:48"
+      }
+    },
+    {
+      "id": "19B-3.1",
+      "kind": "task",
+      "parent": "19B-3",
+      "name": "Wayspots per server: the table and the upgrade's copies",
+      "status": "done",
+      "start": "2026-11-13T18:12",
+      "end": "2026-11-13T18:12"
+    },
+    {
+      "id": "19B-3.2",
+      "kind": "task",
+      "parent": "19B-3",
+      "name": "Every reader of Wayspots takes its server",
+      "status": "done",
+      "start": "2026-11-13T18:12",
+      "end": "2026-11-13T19:27"
+    },
+    {
+      "id": "19B-3.3",
+      "kind": "task",
+      "parent": "19B-3",
+      "name": "The import and review keep the server's Wayspots alone",
+      "status": "done",
+      "start": "2026-11-13T19:27",
+      "end": "2026-11-13T19:27"
+    },
+    {
+      "id": "19B-3.4",
+      "kind": "task",
+      "parent": "19B-3",
+      "name": "Google's answers by the place, the lines per server",
+      "status": "done",
+      "start": "2026-11-13T19:27",
+      "end": "2026-11-13T19:48"
+    },
+    {
+      "id": "19B-3.5",
+      "kind": "task",
+      "parent": "19B-3",
+      "name": "Docs",
+      "status": "done",
+      "start": "2026-11-13T19:48",
+      "end": "2026-11-13T19:48"
+    },
+    {
+      "id": "19B-4",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19B-4 Ids checked against their server",
+      "size": 1,
+      "dependsOn": [
+        "19B-2"
+      ],
+      "scope": "party ids in controls and dialogs, tokens, DM controls, Pokémon nicknames per server, gym requests per server",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T12:04",
+        "end": "2026-11-13T16:45",
+        "review": {
+          "start": "2026-11-13T14:52",
+          "end": "2026-11-13T16:45"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T16:45",
+        "end": "2026-11-13T16:45"
+      }
+    },
+    {
+      "id": "19B-4.1",
+      "kind": "task",
+      "parent": "19B-4",
+      "name": "Parties named by a custom id checked against their server",
+      "status": "done",
+      "start": "2026-11-13T16:20",
+      "end": "2026-11-13T16:20"
+    },
+    {
+      "id": "19B-4.2",
+      "kind": "task",
+      "parent": "19B-4",
+      "name": "Pending questions bound to their server",
+      "status": "done",
+      "start": "2026-11-13T16:20",
+      "end": "2026-11-13T16:20"
+    },
+    {
+      "id": "19B-4.3",
+      "kind": "task",
+      "parent": "19B-4",
+      "name": "Pokémon nicknames are a server's own",
+      "status": "done",
+      "start": "2026-11-13T16:20",
+      "end": "2026-11-13T16:45"
+    },
+    {
+      "id": "19B-4.4",
+      "kind": "task",
+      "parent": "19B-4",
+      "name": "Gym requests go where a server's go",
+      "status": "done",
+      "start": "2026-11-13T16:45",
+      "end": "2026-11-13T16:45"
+    },
+    {
+      "id": "19B-4.5",
+      "kind": "task",
+      "parent": "19B-4",
+      "name": "Docs",
+      "status": "done",
+      "start": "2026-11-13T16:45",
+      "end": "2026-11-13T16:45"
+    },
+    {
+      "id": "19B-5",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19B-5 Fairness",
+      "size": 1,
+      "dependsOn": [
+        "19B-1"
+      ],
+      "scope": "DMs in turns by server and the first-contact cap, the reader’s queue and kept space, Google’s shares by need, redraws in turns",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T15:03",
+        "end": "2026-11-13T22:17",
+        "review": {
+          "start": "2026-11-13T16:54",
+          "end": "2026-11-13T22:10"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T22:10",
+        "end": "2026-11-13T22:10"
+      }
+    },
+    {
+      "id": "19B-5.1",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "Direct messages in turns by server, and the first-contact cap",
+      "status": "done",
+      "start": "2026-11-13T20:15",
+      "end": "2026-11-13T20:15"
+    },
+    {
+      "id": "19B-5.2",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "The screenshot reader's queue in turns, the kept space fair",
+      "status": "done",
+      "start": "2026-11-13T20:15",
+      "end": "2026-11-13T20:15"
+    },
+    {
+      "id": "19B-5.3",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "Post redraws in turns, the caches by server first",
+      "status": "done",
+      "start": "2026-11-13T20:15",
+      "end": "2026-11-13T20:15"
+    },
+    {
+      "id": "19B-5.4",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "Docs of fairness",
+      "status": "done",
+      "start": "2026-11-13T20:15",
+      "end": "2026-11-13T20:15"
+    },
+    {
+      "id": "19B-5.5",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "Google's monthly shares by need",
+      "status": "done",
+      "start": "2026-11-13T20:15",
+      "end": "2026-11-13T22:10"
+    },
+    {
+      "id": "19B-5.6",
+      "kind": "task",
+      "parent": "19B-5",
+      "name": "Docs of Google's shares",
+      "status": "done",
+      "start": "2026-11-13T22:10",
+      "end": "2026-11-13T22:10"
+    },
+    {
+      "id": "19D",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19D Sharding in one process",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "shards: auto, health with several shards, the gateway watch per shard, start-up work per shard",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-12T14:14",
+        "end": "2026-11-12T15:38",
+        "review": {
+          "start": "2026-11-12T14:39",
+          "end": "2026-11-12T15:22"
+        }
+      },
+      "review": {
+        "start": "2026-11-12T15:22",
+        "end": "2026-11-12T15:22"
+      },
+      "status": "done"
+    },
+    {
+      "id": "19D.1",
+      "kind": "task",
+      "parent": "19D",
+      "name": "Shards on demand",
+      "status": "done",
+      "start": "2026-11-12T14:26",
+      "end": "2026-11-12T14:26"
+    },
+    {
+      "id": "19D.2",
+      "kind": "task",
+      "parent": "19D",
+      "name": "Health with several shards",
+      "status": "done",
+      "start": "2026-11-12T14:26",
+      "end": "2026-11-12T15:04"
+    },
+    {
+      "id": "19D.3",
+      "kind": "task",
+      "parent": "19D",
+      "name": "The gateway watch per shard",
+      "status": "done",
+      "start": "2026-11-12T15:04",
+      "end": "2026-11-12T15:20"
+    },
+    {
+      "id": "19D.4",
+      "kind": "task",
+      "parent": "19D",
+      "name": "Start-up work per shard",
+      "status": "done",
+      "start": "2026-11-12T15:20",
+      "end": "2026-11-12T15:20"
+    },
+    {
+      "id": "19D.5",
+      "kind": "task",
+      "parent": "19D",
+      "name": "Docs of the shards",
+      "status": "done",
+      "start": "2026-11-12T15:20",
+      "end": "2026-11-12T15:22"
+    },
+    {
+      "id": "19C-1",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19C-1 Joining and leaving",
+      "size": 1,
+      "dependsOn": [
+        "19B-5",
+        "19D"
+      ],
+      "scope": "the record of each server and who may join, the check on joining and at every ready, a server that removes Pine marked left and kept, /operator servers",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T16:45",
+        "end": "2026-11-13T23:52",
+        "review": {
+          "start": "2026-11-13T18:20",
+          "end": "2026-11-13T23:47"
+        }
+      },
+      "review": {
+        "start": "2026-11-13T23:47",
+        "end": "2026-11-13T23:47"
+      }
+    },
+    {
+      "id": "19C-1.1",
+      "kind": "task",
+      "parent": "19C-1",
+      "name": "The record of each server and the rule of who may join",
+      "status": "done",
+      "start": "2026-11-13T22:20",
+      "end": "2026-11-13T22:20"
+    },
+    {
+      "id": "19C-1.2",
+      "kind": "task",
+      "parent": "19C-1",
+      "name": "Who is in, checked on joining and once every shard is ready",
+      "status": "done",
+      "start": "2026-11-13T22:20",
+      "end": "2026-11-13T22:27"
+    },
+    {
+      "id": "19C-1.3",
+      "kind": "task",
+      "parent": "19C-1",
+      "name": "A server that removes Pine is marked left, and nothing is done for it",
+      "status": "done",
+      "start": "2026-11-13T22:27",
+      "end": "2026-11-13T23:47"
+    },
+    {
+      "id": "19C-1.4",
+      "kind": "task",
+      "parent": "19C-1",
+      "name": "Operator servers: see, allow, remove and block servers",
+      "status": "done",
+      "start": "2026-11-13T23:47",
+      "end": "2026-11-13T23:47"
+    },
+    {
+      "id": "19C-1.5",
+      "kind": "task",
+      "parent": "19C-1",
+      "name": "Docs of joining and leaving",
+      "status": "done",
+      "start": "2026-11-13T23:47",
+      "end": "2026-11-13T23:47"
+    },
+    {
+      "id": "19C-2",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19C-2 The setup state",
+      "size": 1,
+      "dependsOn": [
+        "19C-1"
+      ],
+      "scope": "a new server in setup answers only its setup, the /admin setup checklist, leaving setup, an open instance from the code’s defaults",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T20:22",
+        "end": "2026-11-14T01:04",
+        "review": {
+          "start": "2026-11-13T21:09",
+          "end": "2026-11-14T00:40"
+        }
+      },
+      "review": {
+        "start": "2026-11-14T01:04",
+        "end": "2026-11-14T01:04"
+      }
+    },
+    {
+      "id": "19C-2.1",
+      "kind": "task",
+      "parent": "19C-2",
+      "name": "A server in setup answers only what its setup needs",
+      "status": "done",
+      "start": "2026-11-14T00:39",
+      "end": "2026-11-14T00:39"
+    },
+    {
+      "id": "19C-2.2",
+      "kind": "task",
+      "parent": "19C-2",
+      "name": "Nothing posts, sends or sweeps for a server in setup",
+      "status": "done",
+      "start": "2026-11-14T00:39",
+      "end": "2026-11-14T00:39"
+    },
+    {
+      "id": "19C-2.3",
+      "kind": "task",
+      "parent": "19C-2",
+      "name": "The setup checklist, and leaving setup once its required items are done",
+      "status": "done",
+      "start": "2026-11-14T00:39",
+      "end": "2026-11-14T01:04"
+    },
+    {
+      "id": "19C-2.4",
+      "kind": "task",
+      "parent": "19C-2",
+      "name": "An open instance starts a server from the code's defaults",
+      "status": "done",
+      "start": "2026-11-14T01:04",
+      "end": "2026-11-14T01:04"
+    },
+    {
+      "id": "19C-2.5",
+      "kind": "task",
+      "parent": "19C-2",
+      "name": "Docs of the setup state",
+      "status": "done",
+      "start": "2026-11-14T01:04",
+      "end": "2026-11-14T01:04"
+    },
+    {
+      "id": "19C-3",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19C-3 Deletion after 30 days",
+      "size": 1,
+      "dependsOn": [
+        "19C-1"
+      ],
+      "scope": "a left server’s data deleted after 30 days over every per-server table, with the indexes it needs",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-13T23:53",
+        "end": "2026-11-14T03:22",
+        "review": {
+          "start": "2026-11-14T01:09",
+          "end": "2026-11-14T03:04"
+        }
+      },
+      "review": {
+        "start": "2026-11-14T03:22",
+        "end": "2026-11-14T03:22"
+      }
+    },
+    {
+      "id": "19C-3.1",
+      "kind": "task",
+      "parent": "19C-3",
+      "name": "The record of a server's deletion, and the indexes it reads",
+      "status": "done",
+      "start": "2026-11-14T02:37",
+      "end": "2026-11-14T02:37"
+    },
+    {
+      "id": "19C-3.2",
+      "kind": "task",
+      "parent": "19C-3",
+      "name": "The deletion of one server's data, table by table in batches",
+      "status": "done",
+      "start": "2026-11-14T02:37",
+      "end": "2026-11-14T02:37"
+    },
+    {
+      "id": "19C-3.3",
+      "kind": "task",
+      "parent": "19C-3",
+      "name": "The daily sweep of servers left 30 days, and a server added back meanwhile",
+      "status": "done",
+      "start": "2026-11-14T02:37",
+      "end": "2026-11-14T03:04"
+    },
+    {
+      "id": "19C-3.4",
+      "kind": "task",
+      "parent": "19C-3",
+      "name": "The list of servers says which were deleted and which are being deleted",
+      "status": "done",
+      "start": "2026-11-14T03:04",
+      "end": "2026-11-14T03:22"
+    },
+    {
+      "id": "19C-3.5",
+      "kind": "task",
+      "parent": "19C-3",
+      "name": "Docs of the deletion of a server left 30 days",
+      "status": "done",
+      "start": "2026-11-14T03:22",
+      "end": "2026-11-14T03:22"
+    },
+    {
+      "id": "19C-4",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19C-4 Visitors, texts and checks",
+      "size": 1,
+      "dependsOn": [
+        "19C-2",
+        "19C-3"
+      ],
+      "scope": "the map’s visitors, the Privacy Policy and Terms, guides, cutover-check",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-14T01:05",
+        "end": "2026-11-14T04:15",
+        "review": {
+          "start": "2026-11-14T01:45",
+          "end": "2026-11-14T04:09"
+        }
+      },
+      "review": {
+        "start": "2026-11-14T04:09",
+        "end": "2026-11-14T04:09"
+      }
+    },
+    {
+      "id": "19C-4.1",
+      "kind": "task",
+      "parent": "19C-4",
+      "name": "A server's map closed to visitors unless its staff open it",
+      "status": "done",
+      "start": "2026-11-14T04:09",
+      "end": "2026-11-14T04:09"
+    },
+    {
+      "id": "19C-4.2",
+      "kind": "task",
+      "parent": "19C-4",
+      "name": "cutover-check compares Public Bot with servers, and pages through the servers",
+      "status": "done",
+      "start": "2026-11-14T04:09",
+      "end": "2026-11-14T04:09"
+    },
+    {
+      "id": "19C-4.3",
+      "kind": "task",
+      "parent": "19C-4",
+      "name": "The Privacy Policy and the Terms of Service for 2.1",
+      "status": "done",
+      "start": "2026-11-14T04:09",
+      "end": "2026-11-14T04:09"
+    },
+    {
+      "id": "19C-4.4",
+      "kind": "task",
+      "parent": "19C-4",
+      "name": "The guides and the docs of the visitors' view and the checks",
+      "status": "done",
+      "start": "2026-11-14T04:09",
+      "end": "2026-11-14T04:09"
+    },
+    {
+      "id": "19E",
+      "kind": "plan",
+      "parent": "19",
+      "name": "19E Neighbors",
+      "size": 2,
+      "dependsOn": [
+        "19B-5"
+      ],
+      "scope": "Consent of both servers, the line in a post, copying the curated text",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-14T01:05",
+        "end": "2026-11-14T05:23",
+        "review": {
+          "start": "2026-11-14T03:39",
+          "end": "2026-11-14T05:20"
+        }
+      },
+      "review": {
+        "start": "2026-11-14T05:20",
+        "end": "2026-11-14T05:20"
+      }
+    },
+    {
+      "id": "19E.1",
+      "kind": "task",
+      "parent": "19E",
+      "name": "The record of neighbors, asking and accepting",
+      "status": "done",
+      "start": "2026-11-14T05:20",
+      "end": "2026-11-14T05:20"
+    },
+    {
+      "id": "19E.2",
+      "kind": "task",
+      "parent": "19E",
+      "name": "The same gym or Power Spot in two servers",
+      "status": "done",
+      "start": "2026-11-14T05:20",
+      "end": "2026-11-14T05:20"
+    },
+    {
+      "id": "19E.3",
+      "kind": "task",
+      "parent": "19E",
+      "name": "The line in a post, following the neighbor's party",
+      "status": "done",
+      "start": "2026-11-14T05:20",
+      "end": "2026-11-14T05:20"
+    },
+    {
+      "id": "19E.4",
+      "kind": "task",
+      "parent": "19E",
+      "name": "Copy from a neighbor",
+      "status": "done",
+      "start": "2026-11-14T05:20",
+      "end": "2026-11-14T05:20"
+    },
+    {
+      "id": "19E.5",
+      "kind": "task",
+      "parent": "19E",
+      "name": "Docs of neighbors",
+      "status": "done",
+      "start": "2026-11-14T05:20",
+      "end": "2026-11-14T05:20"
     }
   ]
 };

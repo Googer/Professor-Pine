@@ -27,6 +27,33 @@ async function setup() {
   return made;
 }
 
+describe('Boards in each server’s zone (plan 19A-2)', () => {
+  it('starts this month on each server’s own clock', async () => {
+    const other = '412345678901234599';
+    // The fakes' server in Tokyo, the other in New York.
+    const made = boardsWith((serverId) => (serverId === other ? ZONE : 'Asia/Tokyo'));
+    // 20:00 on October 31 in New York, 09:00 on November 1 in Tokyo.
+    const halloween = zonedAt('2026-10-31T20:00', ZONE);
+    for (const serverId of [FAKE_GUILD_ID, other]) {
+      made.reader.records.push(
+        boardRecord({
+          serverId,
+          createdById: ASH,
+          createdAt: halloween,
+          endedAt: halloween + 3_600_000,
+          attendees: [boardAttendee(ASH, 'done'), boardAttendee(null, 'done')],
+        }),
+      );
+      await made.optIns.joinBoards(ASH, serverId, 1);
+    }
+    made.members.add(ASH, 'Ash');
+    const there = await made.boards.board(FAKE_GUILD_ID, 'raids', 'month', NOW);
+    const here = await made.boards.board(other, 'raids', 'month', NOW);
+    expect(there.rows.map((row) => row.name)).toEqual(['Ash']);
+    expect(here.rows).toEqual([]);
+  });
+});
+
 describe('Boards: what a board reads, and how often (W1, W2)', () => {
   it('reads a board of a server and period once a minute, its names asked each time', async () => {
     const made = await setup();

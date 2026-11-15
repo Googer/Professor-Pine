@@ -50,8 +50,8 @@ export interface BoardsOptions {
   tasks: { byKey(key: string): { text: string } | undefined };
   /** Whether the bot may post a shared board in a channel, and the post (`PartyGateway`). */
   gateway: Pick<PartyGateway, 'mayShare' | 'sendMessage'>;
-  /** `settings.timezone`: a period's months. */
-  zone: string;
+  /** A server's zone (`ServerSettings.zoneOf`, plan 19A-2): a period's months there. */
+  zoneOf: (serverId: string) => string;
 }
 
 /** A member's line of a board: their rank among those shown, their name and their counts. */
@@ -185,7 +185,7 @@ export class Boards {
     now: number,
     viewer?: { id: string; name?: string },
   ): Promise<ShownBoard[]> {
-    const since = periodStart(period, now, this.options.zone);
+    const since = periodStart(period, now, this.options.zoneOf(serverId));
     const people = asked.filter(isPeopleBoard);
     const onBoards =
       people.length === 0 ? new Set<string>() : await this.options.reader.onBoards(serverId);
@@ -288,7 +288,7 @@ export class Boards {
     now: number,
   ): Promise<ShownBoard> {
     const { reader, catalogue, tasks } = this.options;
-    const since = periodStart(period, now, this.options.zone);
+    const since = periodStart(period, now, this.options.zoneOf(serverId));
     const ranked = (rows: ThingRow[]) => rows.map((row, index) => ({ ...row, rank: index + 1 }));
     switch (board) {
       case 'wanted': {

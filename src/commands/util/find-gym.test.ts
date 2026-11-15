@@ -90,7 +90,7 @@ describe('/find-gym', () => {
 
   it('shows the notice, and no elite mark: members are not told any more', async () => {
     const made = setup();
-    const gym = made.ctx.gyms.get(11);
+    const gym = made.ctx.gyms.stored(11);
     if (!gym) throw new Error('no gym 11');
     Object.assign(gym, { taggedEx: true });
     const view = shown(await made.run('#11'));

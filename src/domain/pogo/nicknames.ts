@@ -1,7 +1,8 @@
 /**
  * Extra names people search Pokémon by, keyed by catalogue key. Copied once from the legacy
  * data/pokemon.json; maintained here by hand since.
- * Nicknames added by moderators live in the Pokemon table (PokemonRepository).
+ * Nicknames a server's staff add live in the PokemonNickname table, one list per server
+ * (PokemonNicknameRepository, plan 19B-4); these are every server's.
  */
 export const CURATED_NICKNAMES: Readonly<Record<string, readonly string[]>> = {
   abomasnow_mega: ['mega'],

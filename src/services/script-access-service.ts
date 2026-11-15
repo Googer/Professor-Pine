@@ -128,6 +128,7 @@ export class ScriptAccessService {
     const at = this.now();
     this.dms.send({
       userId: this.ownerId,
+      serverId: null,
       message: accessRequestDm(access),
       priority: DM_PRIORITY.normal,
       eventAt: at,

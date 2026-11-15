@@ -27,6 +27,7 @@ import {
   type LeftOutReason,
   type PlannedImport,
 } from '../../domain/regions/region-import.js';
+import { oldBoardsWords } from '../../render/old-boards.js';
 import { count, fitItems, plain, truncate, unplain } from '../../render/text.js';
 import { actionRow, container, fileComponent, separator, textDisplay } from '../../render/v2.js';
 import {
@@ -650,6 +651,9 @@ function importedLine(region: ImportedRegion): string {
     ...(region.channelCreated ? ['channel created'] : []),
     count(region.gyms, 'gym'),
     ...(region.forum === 'created' ? ['forum created'] : []),
+    ...(region.forum === 'created' && region.alsoNamed !== undefined
+      ? [oldBoardsWords(region.alsoNamed)]
+      : []),
     ...(region.forum === 'adopted' && region.adoptedForum !== undefined
       ? [`forum <#${region.adoptedForum}> taken back`]
       : []),
@@ -681,10 +685,11 @@ export const OUTCOME_FILE = 'outcome.txt';
  */
 export function renderOutcome(
   ctx: AppContext,
+  serverId: string,
   outcome: ImportOutcome,
   channelNames: ReadonlyMap<string, string> = new Map(),
 ): V2Message {
-  const { lines, lists } = outcomeWords(outcome, selfRoleReminder(ctx, 'new'));
+  const { lines, lists } = outcomeWords(outcome, selfRoleReminder(ctx, serverId, 'new'));
   return importMessage(lines, lists, OUTCOME_FILE, channelNames);
 }
 
@@ -752,6 +757,9 @@ export function outcomeWords(
  * done and pressed Import.
  */
 export const importRegions: SubcommandPart = {
+  // One of the two ways to the first region of a server in setup (plan 19C-2), for whoever may
+  // set the server up: its guard is `/region`'s list's (`staffParts`).
+  worksInSetup: true,
   data: new SlashCommandSubcommandBuilder()
     .setName('import')
     .setDescription('Give channels their outlines from a KML file')
@@ -853,7 +861,7 @@ export const importRegions: SubcommandPart = {
       await answerRegion(interaction, render([]));
       return;
     }
-    const token = pendingRegions.put(interaction.user.id, {
+    const token = pendingRegions.put(interaction, {
       what: 'import',
       imports: preview.imports,
     });
@@ -887,7 +895,7 @@ export const importAnswers: Readonly<Record<string, ButtonAnswer>> = {
       const channelNames = new Map(
         ctx.regionAdmin.channelsOf(staff).map((channel) => [channel.id, channel.name]),
       );
-      await answerRegion(interaction, renderOutcome(ctx, outcome, channelNames));
+      await answerRegion(interaction, renderOutcome(ctx, staff.server, outcome, channelNames));
     } catch (err) {
       // An import of many areas may outlast the interaction (a quarter of an hour): what it did
       // is in the log, the only place left to say it.

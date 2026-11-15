@@ -39,6 +39,7 @@ import { SCREENSHOT_FEEDBACK } from '../../render/party-controls.js';
 import { gymNamerOf } from './gym-question.js';
 import { cancelShot, chooseShotGym, chooseShotSpot, confirmShot } from './mention.js';
 import { SHOT_KIND } from './shot-kind.js';
+import { passiveIn } from './read-screenshot.js';
 
 /** The ids of the form's two inputs. */
 const ELEMENTS_INPUT = 'elements';
@@ -257,7 +258,7 @@ export async function showScreenshot(
           record.decision,
           record.max,
           ctx.config.settings.maxBattles,
-          ctx.config.settings.ocr.passive && ctx.features.ocrPassive,
+          passiveIn(ctx, interaction),
         ),
         buttons: feedbackButtons(screenshotId, true),
       })
@@ -265,10 +266,7 @@ export async function showScreenshot(
         ...shot,
         report: record.report,
         gymName: gymNamerOf(ctx),
-        decision: decisionWords(
-          record.decision,
-          ctx.config.settings.ocr.passive && ctx.features.ocrPassive,
-        ),
+        decision: decisionWords(record.decision, passiveIn(ctx, interaction)),
         buttons: feedbackButtons(screenshotId),
       });
   await interaction.editReply({

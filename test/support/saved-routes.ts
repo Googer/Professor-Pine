@@ -111,8 +111,17 @@ export class MemorySavedRoutes implements SavedRouteStorage, SavedRouteUpkeep {
     });
   }
 
-  countWithGym(gymId: number): Promise<number> {
-    return this.attempt(() => this.rows.filter((row) => hasStop(row.stops, gymStop(gymId))).length);
+  /** The rows of these regions, or every row. */
+  private inRegions(regionIds: readonly number[] | 'every'): Row[] {
+    return regionIds === 'every'
+      ? this.rows
+      : this.rows.filter((row) => regionIds.includes(row.regionId));
+  }
+
+  countWithGym(gymId: number, regionIds: readonly number[] | 'every'): Promise<number> {
+    return this.attempt(
+      () => this.inRegions(regionIds).filter((row) => hasStop(row.stops, gymStop(gymId))).length,
+    );
   }
 
   countInRegion(regionId: number): Promise<number> {
@@ -129,11 +138,14 @@ export class MemorySavedRoutes implements SavedRouteStorage, SavedRouteUpkeep {
     return mine.length;
   }
 
-  removeGym(gymId: number): Promise<{ changed: number; removed: number }> {
+  removeGym(
+    gymId: number,
+    regionIds: readonly number[] | 'every',
+  ): Promise<{ changed: number; removed: number }> {
     return this.attempt(() => {
       let changed = 0;
       let removed = 0;
-      for (const row of [...this.rows]) {
+      for (const row of [...this.inRegions(regionIds)]) {
         if (!hasStop(row.stops, gymStop(gymId))) continue;
         // Its power spots stay, as `SavedRouteRepository.removeGym` keeps them.
         row.stops = row.stops.filter((stop) => stop.kind !== 'gym' || stop.id !== gymId);

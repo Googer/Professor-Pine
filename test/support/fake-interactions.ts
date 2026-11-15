@@ -80,7 +80,7 @@ interface FakeOptionData {
 
 export interface FakeOptions {
   commandName?: string;
-  /** `/gym create` has subcommand `create`; `/admin boss add` has group `boss`, subcommand `add`. */
+  /** `/gym create` has subcommand `create`; `/operator boss add` has group `boss`, subcommand `add`. */
   subcommand?: string;
   subcommandGroup?: string;
   customId?: string;
@@ -89,19 +89,28 @@ export interface FakeOptions {
   guildId?: string | null;
   /** The name of the server: `interaction.guild.name` ("Test Server" unless given). */
   guildName?: string;
+  /** The server's Discord owner: `interaction.guild.ownerId` (nobody the fakes name unless given). */
+  guildOwnerId?: string;
   channelId?: string;
   channelName?: string;
   /** The names of channels of the server by id: `interaction.guild.channels.cache`. */
   guildChannelNames?: Record<string, string>;
   /** The names of roles of the server by id: `interaction.guild.roles.cache`. */
   guildRoleNames?: Record<string, string>;
+  /**
+   * Channels of `guildChannelNames` the bot may do nothing in: their `permissionsFor` the bot
+   * (`interaction.guild.members.me`) is empty; every other channel's is everything.
+   */
+  botShutOutOf?: string[];
   /** Name of the category the channel is under. */
   parentName?: string | null;
+  /** Id of the category the channel is under (plan 19A-1: the PvP category is one by id). */
+  parentId?: string;
   /**
-   * Makes the channel a thread (a forum post is one). `parentName` is then ignored: the
-   * category is that of the channel the thread belongs to.
+   * Makes the channel a thread (a forum post is one). `parentName` and `parentId` are then
+   * ignored: the category is that of the channel the thread belongs to.
    */
-  thread?: { parentId?: string; parentName?: string; categoryName?: string };
+  thread?: { parentId?: string; parentName?: string; categoryName?: string; categoryId?: string };
   /** Added to `interaction.channel`: its `type`, and its `messages` and `send` for a test that posts. */
   channelMore?: object;
   /** What the bot may do here: `interaction.appPermissions` (everything unless given). */
@@ -157,6 +166,13 @@ export interface FakeOptions {
   focusedName?: string;
   /** Select menu: the chosen values. */
   values?: string[];
+  /**
+   * Select menu: a channel select (`isChannelSelectMenu`), with the channels picked as Discord
+   * resolves them (`interaction.channels`: id, type, and the server they are in), or a role
+   * select (`isRoleSelectMenu`, `interaction.roles` by id). Neither: a string select.
+   */
+  pickedChannels?: Array<{ id: string; type: number; guildId: string }>;
+  pickedRoles?: Array<{ id: string; name: string }>;
   /** Modal: the text typed into each input, by the input's custom id. */
   fields?: Record<string, string>;
   /** Modal: what was chosen in each select menu of the form, by the menu's custom id. */
@@ -204,6 +220,10 @@ export interface FakeOptions {
    * Change… names its server (plan 8R-4).
    */
   serverNames?: Record<string, string>;
+  /** The member counts of those servers (`Guild.memberCount`, plan 19C-1); none unless given. */
+  serverMembers?: Record<string, number>;
+  /** Those of them Discord says are unavailable (`Guild.available` false, plan 19C-1). */
+  unavailableServers?: readonly string[];
   /** A control: the message it is on is private (`interaction.message.flags` has Ephemeral). */
   ephemeralMessage?: boolean;
   /**
@@ -398,7 +418,8 @@ export const FAKE_USER_ID = '700000000000000001';
 
 function fakeChannel(o: FakeOptions, id: string) {
   if (o.uncachedChannel) return null;
-  const category = (name: string | null | undefined) => (name ? { name } : null);
+  const category = (name: string | null | undefined, id: string | undefined) =>
+    name || id ? { id: id ?? '600000000000000003', name: name ?? 'category' } : null;
   if (o.thread) {
     const parentId = o.thread.parentId ?? FAKE_PARENT_ID;
     return {
@@ -408,7 +429,8 @@ function fakeChannel(o: FakeOptions, id: string) {
       parent: {
         id: parentId,
         name: o.thread.parentName ?? 'forum',
-        parent: category(o.thread.categoryName),
+        parentId: o.thread.categoryId ?? null,
+        parent: category(o.thread.categoryName, o.thread.categoryId),
       },
       isThread: () => true,
       isDMBased: () => false,
@@ -429,8 +451,8 @@ function fakeChannel(o: FakeOptions, id: string) {
     ...o.channelMore,
     id,
     name: o.channelName ?? 'general',
-    parentId: null,
-    parent: category(o.parentName),
+    parentId: o.parentId ?? null,
+    parent: category(o.parentName, o.parentId),
     isThread: () => false,
     isDMBased: () => false,
   };
@@ -939,7 +961,20 @@ function base(kind: Kind, o: FakeOptions) {
       // DM reads a server's name from.
       guilds: {
         cache: new Map(
-          Object.entries(o.serverNames ?? {}).map(([id, name]) => [id, { id, name }] as const),
+          Object.entries(o.serverNames ?? {}).map(
+            ([id, name]) =>
+              [
+                id,
+                {
+                  id,
+                  name,
+                  available: !(o.unavailableServers ?? []).includes(id),
+                  ...(o.serverMembers?.[id] === undefined
+                    ? {}
+                    : { memberCount: o.serverMembers[id] }),
+                },
+              ] as const,
+          ),
         ),
       },
     },
@@ -969,11 +1004,23 @@ function base(kind: Kind, o: FakeOptions) {
         ? null
         : {
             name: o.guildName ?? 'Test Server',
+            ...(o.guildOwnerId === undefined ? {} : { ownerId: o.guildOwnerId }),
             channels: {
               cache: new Map(
-                Object.entries(o.guildChannelNames ?? {}).map(([id, name]) => [id, { id, name }]),
+                Object.entries(o.guildChannelNames ?? {}).map(([id, name]) => [
+                  id,
+                  {
+                    id,
+                    name,
+                    permissionsFor: () =>
+                      new PermissionsBitField(
+                        (o.botShutOutOf ?? []).includes(id) ? 0n : PermissionsBitField.All,
+                      ).freeze(),
+                  },
+                ]),
               ),
             },
+            members: { me: { id: FAKE_BOT_ID } },
             roles: {
               cache: new Collection(
                 Object.entries(o.guildRoleNames ?? {}).map(([id, name]) => [id, { id, name }]),
@@ -999,7 +1046,12 @@ function base(kind: Kind, o: FakeOptions) {
     isMessageComponent: () => kind === 'button' || kind === 'select',
     isButton: () => kind === 'button',
     isAnySelectMenu: () => kind === 'select',
-    isStringSelectMenu: () => kind === 'select',
+    isStringSelectMenu: () =>
+      kind === 'select' && o.pickedChannels === undefined && o.pickedRoles === undefined,
+    isChannelSelectMenu: () => kind === 'select' && o.pickedChannels !== undefined,
+    isRoleSelectMenu: () => kind === 'select' && o.pickedRoles !== undefined,
+    channels: new Collection((o.pickedChannels ?? []).map((one) => [one.id, one])),
+    roles: new Collection((o.pickedRoles ?? []).map((one) => [one.id, one])),
     isModalSubmit: () => kind === 'modal',
     /** A form that a control of a message opened; `modalFromCommand` says a command did. */
     isFromMessage: () => kind === 'modal' && o.modalFromCommand !== true,

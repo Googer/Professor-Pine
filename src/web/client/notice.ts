@@ -15,7 +15,7 @@ export type Me =
       member: boolean;
       readOnly: boolean;
       /**
-       * For one in the server who lacks the map's member role (`settings.web.memberRole`): the
+       * For one in the server who lacks the map's member role (the server's `roles.mapMember`, plan 19A-1): the
        * role's name, which they need to join and report on the map.
        */
       missingRole?: string;
@@ -26,9 +26,14 @@ export type Me =
       mayEditRegions?: boolean;
       /**
        * For one logged in who is not in the server (plan 8M-11B): the server's invite, as its
-       * admin set it in `settings.web.invites`; absent where it has none.
+       * staff set it in `/admin settings` (its `invite`, plan 19A-1); absent where it has none.
        */
       invite?: string;
+      /**
+       * The server is in setup (plan 19C-2, S11): only its region editor and the map it draws on
+       * are there, for its staff, and the page starts no live layer (`startsLiveLayers`).
+       */
+      inSetup?: boolean;
     };
 
 /** How long the notice band shows a line (plan 8M-11A): a new line starts the time again. */
@@ -210,9 +215,21 @@ export function meItemNode(guild: string): PageNode {
   };
 }
 
-/** Whether the map's account menu offers "History": to a member of the server. */
+/**
+ * Whether the map's account menu offers "History": to a member of the server, but in a server in
+ * setup, which has none yet (plan 19C-2).
+ */
 export function historyOffered(me: Me): boolean {
-  return me.loggedIn && me.member;
+  return me.loggedIn && me.member && me.inSetup !== true;
+}
+
+/**
+ * Whether the map starts its live layers (the parties and their stream, the stops and Power
+ * Spots, the activity): not in a server in setup (plan 19C-2, S11), whose answers are not there;
+ * the regions and gyms the region editor draws on are.
+ */
+export function startsLiveLayers(me: Me): boolean {
+  return !(me.loggedIn && me.inSetup === true);
 }
 
 /**

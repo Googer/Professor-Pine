@@ -11,6 +11,7 @@ describe('MemoryGoogleUse', () => {
         use.legacy.set(day, gyms);
         return Promise.resolve();
       },
+      servers: [1, 2],
     });
   });
 });

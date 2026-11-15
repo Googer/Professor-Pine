@@ -15,6 +15,8 @@ import {
   type StaleFeed,
 } from './raid-boss-service.js';
 
+/** The zone of the test settings, every server's here. */
+const ZONE = 'America/New_York';
 const URL = 'https://example.test/raids.min.json';
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -119,31 +121,31 @@ describe('RaidBossService', () => {
       const { raidBosses } = service();
       await raidBosses.load();
       await raidBosses.sync();
-      const first = raidBosses.bosses();
+      const first = raidBosses.bosses(ZONE);
       now += HOUR;
-      expect(raidBosses.bosses()).toBe(first);
+      expect(raidBosses.bosses(ZONE)).toBe(first);
 
       const lasting = HOUR;
       await raidBosses.addOverride(
         override({ action: 'add', pokemonId: 'ZEKROM', expiresAt: now + lasting }),
       );
-      const withZekrom = raidBosses.bosses();
+      const withZekrom = raidBosses.bosses(ZONE);
       expect(withZekrom).not.toBe(first);
       expect(withZekrom.some((boss) => boss.pokemonId === 'ZEKROM')).toBe(true);
-      expect(raidBosses.bosses()).toBe(withZekrom);
+      expect(raidBosses.bosses(ZONE)).toBe(withZekrom);
 
       now += lasting - 1;
-      expect(raidBosses.bosses()).toBe(withZekrom);
+      expect(raidBosses.bosses(ZONE)).toBe(withZekrom);
       now += 1;
-      const after = raidBosses.bosses();
+      const after = raidBosses.bosses(ZONE);
       expect(after).not.toBe(withZekrom);
       expect(after.some((boss) => boss.pokemonId === 'ZEKROM')).toBe(false);
 
       respond = () => Promise.resolve(reply(200, feedOf(['lvl5', 'YVELTAL'])));
       now += HOUR;
       await raidBosses.sync();
-      expect(raidBosses.bosses()).not.toBe(after);
-      expect(raidBosses.bosses().some((boss) => boss.pokemonId === 'STARMIE')).toBe(false);
+      expect(raidBosses.bosses(ZONE)).not.toBe(after);
+      expect(raidBosses.bosses(ZONE).some((boss) => boss.pokemonId === 'STARMIE')).toBe(false);
     });
   });
 
@@ -160,14 +162,14 @@ describe('RaidBossService', () => {
   describe('loading', () => {
     it('has no list before it is loaded', () => {
       const { raidBosses } = service();
-      expect(() => raidBosses.bosses()).toThrow(/not been loaded/);
-      expect(() => raidBosses.autoset(T5)).toThrow(/not been loaded/);
+      expect(() => raidBosses.bosses(ZONE)).toThrow(/not been loaded/);
+      expect(() => raidBosses.autoset(T5, ZONE)).toThrow(/not been loaded/);
     });
 
     it('loads an empty list from a new database without downloading', async () => {
       const { raidBosses } = service();
       await raidBosses.load();
-      expect(raidBosses.bosses()).toEqual([]);
+      expect(raidBosses.bosses(ZONE)).toEqual([]);
       expect(raidBosses.lastSyncedAt).toBeUndefined();
       expect(requests).toEqual([]);
     });
@@ -181,8 +183,8 @@ describe('RaidBossService', () => {
 
       const { raidBosses } = service();
       await raidBosses.load();
-      expect(raidBosses.bosses()).toHaveLength(15);
-      expect(raidBosses.bossesOf(T5).map((b) => b.key)).toEqual(['yveltal', 'zekrom']);
+      expect(raidBosses.bosses(ZONE)).toHaveLength(15);
+      expect(raidBosses.bossesOf(T5, ZONE).map((b) => b.key)).toEqual(['yveltal', 'zekrom']);
       expect(raidBosses.lastSyncedAt).toBe(now - 10 * MINUTE);
       expect(requests).toHaveLength(1);
     });
@@ -209,12 +211,12 @@ describe('RaidBossService', () => {
       const result = await raidBosses.sync();
       expect(result.status).toBe('updated');
       expect(raidBosses.lastSyncedAt).toBe(now);
-      expect(raidBosses.bosses()).toHaveLength(14);
-      expect(raidBosses.bossesOf(T5)).toMatchObject([
+      expect(raidBosses.bosses(ZONE)).toHaveLength(14);
+      expect(raidBosses.bossesOf(T5, ZONE)).toMatchObject([
         { key: 'yveltal', name: 'Yveltal', shiny: true, source: 'feed' },
       ]);
-      expect(raidBosses.autoset(T5)?.key).toBe('yveltal');
-      expect(raidBosses.autoset(T3)).toBeUndefined();
+      expect(raidBosses.autoset(T5, ZONE)?.key).toBe('yveltal');
+      expect(raidBosses.autoset(T3, ZONE)).toBeUndefined();
       expect(await store.listActive()).toHaveLength(14);
       expect(requests).toEqual([{ url: URL, headers: { Accept: 'application/json' } }]);
       expect(entries.some((e) => e['msg'] === 'raid bosses updated')).toBe(true);
@@ -285,7 +287,7 @@ describe('RaidBossService', () => {
       expect(changes).toHaveLength(1);
       expect(changes[0]?.added.map((b) => b.name)).toEqual(['Yveltal']);
       expect(changes[0]?.removed.map((b) => b.name)).toEqual(['Zekrom']);
-      expect(raidBosses.bossesOf(T5).map((b) => b.key)).toEqual(['yveltal']);
+      expect(raidBosses.bossesOf(T5, ZONE).map((b) => b.key)).toEqual(['yveltal']);
     });
 
     it('says what members see change, with the overrides in force', async () => {
@@ -352,12 +354,12 @@ describe('RaidBossService', () => {
       const { raidBosses, changes } = service();
       await raidBosses.load();
       await raidBosses.sync();
-      expect(raidBosses.bosses()[0]?.shiny).toBe(false);
+      expect(raidBosses.bosses(ZONE)[0]?.shiny).toBe(false);
       const shiny = JSON.parse(feedOf(['lvl5', 'ZEKROM'])) as { canBeShiny: boolean }[];
       (shiny[0] as { canBeShiny: boolean }).canBeShiny = true;
       respond = () => Promise.resolve(reply(200, JSON.stringify(shiny)));
       expect((await raidBosses.sync()).status).toBe('unchanged');
-      expect(raidBosses.bosses()[0]?.shiny).toBe(true);
+      expect(raidBosses.bosses(ZONE)[0]?.shiny).toBe(true);
       expect(changes).toEqual([]);
     });
 
@@ -368,10 +370,10 @@ describe('RaidBossService', () => {
       const { raidBosses, changes } = service();
       await raidBosses.load();
       await raidBosses.sync();
-      expect(raidBosses.bosses()[0]?.image).toBe('https://example.test/old.png');
+      expect(raidBosses.bosses(ZONE)[0]?.image).toBe('https://example.test/old.png');
       respond = () => Promise.resolve(reply(200, withImage('https://example.test/new.png')));
       expect(await raidBosses.sync()).toEqual({ status: 'unchanged' });
-      expect(raidBosses.bosses()[0]?.image).toBe('https://example.test/new.png');
+      expect(raidBosses.bosses(ZONE)[0]?.image).toBe('https://example.test/new.png');
       expect(changes).toEqual([]);
     });
 
@@ -428,7 +430,7 @@ describe('RaidBossService', () => {
       await raidBosses.load();
       await raidBosses.sync();
       await raidBosses.sync();
-      expect(raidBosses.bosses().map((b) => b.key)).toEqual(['zekrom']);
+      expect(raidBosses.bosses(ZONE).map((b) => b.key)).toEqual(['zekrom']);
       expect(entries.filter((e) => e['level'] === 'Mythical Raids')).toHaveLength(1);
       expect(entries.filter((e) => e['level'] === 'Shadow Raids')).toHaveLength(1);
     });
@@ -438,7 +440,7 @@ describe('RaidBossService', () => {
       const { raidBosses } = service();
       await raidBosses.load();
       await raidBosses.sync();
-      expect(raidBosses.bosses()).toMatchObject([
+      expect(raidBosses.bosses(ZONE)).toMatchObject([
         { key: '~newmon', name: 'Newmon', entry: undefined },
       ]);
     });
@@ -472,7 +474,7 @@ describe('RaidBossService', () => {
       });
       await raidBosses.load();
       expect((await raidBosses.sync()).status).toBe('updated');
-      expect(raidBosses.bosses()).toMatchObject([
+      expect(raidBosses.bosses(ZONE)).toMatchObject([
         { key: '~zekrom', name: 'Zekrom', shiny: true, entry: undefined },
       ]);
     });
@@ -507,12 +509,12 @@ describe('RaidBossService', () => {
       });
       await raidBosses.load();
       await raidBosses.sync();
-      expect(raidBosses.bosses()).toMatchObject([
+      expect(raidBosses.bosses(ZONE)).toMatchObject([
         { key: '~zekrom', name: 'Zekrom', entry: undefined },
       ]);
       gameData.catalogue = catalogueFixture();
       await raidBosses.sync();
-      const [zekrom] = raidBosses.bosses();
+      const [zekrom] = raidBosses.bosses(ZONE);
       expect(zekrom).toMatchObject({ key: 'zekrom', name: 'Zekrom' });
       expect(zekrom?.entry).toBeDefined();
     });
@@ -533,13 +535,13 @@ describe('RaidBossService', () => {
       });
       await raidBosses.load();
       await raidBosses.sync();
-      expect(raidBosses.bossesOf(T5)[0]?.entry?.key).toBe('yveltal');
+      expect(raidBosses.bossesOf(T5, ZONE)[0]?.entry?.key).toBe('yveltal');
       // A refresh of the game data swaps the catalogue; here, for one that lacks Yveltal.
       gameData.catalogue = new PokemonCatalogue({
         ...data,
         pokemon: data.pokemon.filter((entry) => entry.key !== 'yveltal'),
       });
-      expect(raidBosses.bossesOf(T5)).toMatchObject([
+      expect(raidBosses.bossesOf(T5, ZONE)).toMatchObject([
         { key: '~yveltal', name: 'Yveltal', entry: undefined },
       ]);
     });
@@ -567,7 +569,7 @@ describe('RaidBossService', () => {
       });
       expect(raidBosses.lastSyncedAt).toBe(now);
       expect(await store.lastSyncedAt()).toBe(now);
-      expect(raidBosses.bosses()).toHaveLength(14);
+      expect(raidBosses.bosses(ZONE)).toHaveLength(14);
       expect(changes).toEqual([]);
     });
 
@@ -590,22 +592,22 @@ describe('RaidBossService', () => {
       await raidBosses.load();
       await raidBosses.sync();
       const shadowT5 = { level: 'T5', shadow: true } as const;
-      expect(raidBosses.bossesOf(shadowT5).map((b) => [b.key, b.entry === undefined])).toEqual([
-        ['~landorus_incarnate', true],
-      ]);
-      expect(raidBosses.bossesOf(shadowT5)[0]?.pokemonId).toBe('LANDORUS_INCARNATE');
+      expect(
+        raidBosses.bossesOf(shadowT5, ZONE).map((b) => [b.key, b.entry === undefined]),
+      ).toEqual([['~landorus_incarnate', true]]);
+      expect(raidBosses.bossesOf(shadowT5, ZONE)[0]?.pokemonId).toBe('LANDORUS_INCARNATE');
 
       now += HOUR;
       await raidBosses.sync();
       expect(requests[1]?.headers['If-None-Match']).toBe('"abc"');
-      expect(raidBosses.bossesOf(shadowT5)[0]?.entry).toBeUndefined();
+      expect(raidBosses.bossesOf(shadowT5, ZONE)[0]?.entry).toBeUndefined();
 
       gameData.catalogue = catalogueFixture();
       now += HOUR;
       expect((await raidBosses.sync()).status).toBe('updated');
       expect(requests[2]?.headers['If-None-Match']).toBeUndefined();
-      expect(raidBosses.bossesOf(shadowT5).map((b) => b.key)).toEqual(['landorus_incarnate']);
-      expect(raidBosses.bossesOf(shadowT5)[0]?.entry).toBeDefined();
+      expect(raidBosses.bossesOf(shadowT5, ZONE).map((b) => b.key)).toEqual(['landorus_incarnate']);
+      expect(raidBosses.bossesOf(shadowT5, ZONE)[0]?.entry).toBeDefined();
 
       now += HOUR;
       await raidBosses.sync();
@@ -616,7 +618,7 @@ describe('RaidBossService', () => {
       const { raidBosses, entries } = service();
       await raidBosses.load();
       await raidBosses.sync();
-      const before = raidBosses.bosses();
+      const before = raidBosses.bosses(ZONE);
       now += HOUR;
       const old = {
         currentList: {
@@ -627,7 +629,7 @@ describe('RaidBossService', () => {
       const result = await raidBosses.sync();
       expect(result).toMatchObject({ status: 'failed' });
       expect(result.status === 'failed' && result.reason).toMatch(/expected format/);
-      expect(raidBosses.bosses()).toEqual(before);
+      expect(raidBosses.bosses(ZONE)).toEqual(before);
       expect(await store.listActive()).toHaveLength(14);
       expect(entries.some((e) => e['level'] === 'currentList')).toBe(false);
     });
@@ -722,7 +724,7 @@ describe('RaidBossService', () => {
       const result = await raidBosses.sync();
       expect(result.status).toBe('failed');
       expect(result).toMatchObject({ reason: expect.stringMatching(reason) as unknown, ...kind });
-      expect(raidBosses.bosses()).toHaveLength(14);
+      expect(raidBosses.bosses(ZONE)).toHaveLength(14);
       expect(raidBosses.lastSyncedAt).toBe(synced);
       expect(await store.lastSyncedAt()).toBe(synced);
       expect(changes).toEqual([]);
@@ -826,13 +828,13 @@ describe('RaidBossService', () => {
         kind: 'storing',
         reason: 'connection lost',
       });
-      expect(raidBosses.bosses()).toHaveLength(14);
+      expect(raidBosses.bosses(ZONE)).toHaveLength(14);
       store.failing = undefined;
       expect((await raidBosses.sync()).status).toBe('updated');
       expect(requests[0]?.headers['If-None-Match']).toBeUndefined();
       expect(requests[1]?.headers['If-None-Match']).toBe('"old"');
       expect(requests[2]?.headers['If-None-Match']).toBeUndefined();
-      expect(raidBosses.bosses().map((b) => b.key)).toEqual(['zekrom']);
+      expect(raidBosses.bosses(ZONE).map((b) => b.key)).toEqual(['zekrom']);
     });
 
     it('never rejects, even when the logger is broken', async () => {
@@ -882,7 +884,7 @@ describe('RaidBossService', () => {
       const { raidBosses, entries } = service();
       await raidBosses.load();
       expect((await raidBosses.sync()).status).toBe('updated');
-      expect(raidBosses.bosses()).toHaveLength(14);
+      expect(raidBosses.bosses(ZONE)).toHaveLength(14);
       expect(raidBosses.lastSyncedAt).toBe(now);
       expect(entries.some((e) => e['level'] === 40)).toBe(true);
     });
@@ -905,7 +907,7 @@ describe('RaidBossService', () => {
       expect((await raidBosses.sync()).status).toBe('updated');
       expect(requests[1]?.headers['If-None-Match']).toBe('"one"');
       expect(requests[2]?.headers['If-None-Match']).toBeUndefined();
-      expect(raidBosses.bosses().map((b) => b.key)).toEqual(['zekrom']);
+      expect(raidBosses.bosses(ZONE).map((b) => b.key)).toEqual(['zekrom']);
     });
 
     it('does not take a 304 to an unconditional request as a sync', async () => {
@@ -1241,11 +1243,11 @@ describe('RaidBossService', () => {
       await raidBosses.sync();
       const saved = await raidBosses.addOverride(override({ shiny: true }));
       expect(saved).toMatchObject({ pokemonId: 'ZEKROM', createdAt: now });
-      expect(raidBosses.bossesOf(T5).map((b) => [b.key, b.source, b.shiny])).toEqual([
+      expect(raidBosses.bossesOf(T5, ZONE).map((b) => [b.key, b.source, b.shiny])).toEqual([
         ['yveltal', 'feed', true],
         ['zekrom', 'override', true],
       ]);
-      expect(raidBosses.autoset(T5)).toBeUndefined();
+      expect(raidBosses.autoset(T5, ZONE)).toBeUndefined();
       expect(raidBosses.overrides()).toEqual([saved]);
       expect(await store.listOverrides()).toEqual([saved]);
     });
@@ -1255,7 +1257,7 @@ describe('RaidBossService', () => {
       await raidBosses.load();
       await raidBosses.sync();
       await raidBosses.addOverride(override({ action: 'autoset', pokemonId: 'UMBREON', tier: T3 }));
-      expect(raidBosses.autoset(T3)?.key).toBe('umbreon');
+      expect(raidBosses.autoset(T3, ZONE)?.key).toBe('umbreon');
     });
 
     it('lets a new autoset of a tier replace the earlier one, whatever its Pokémon', async () => {
@@ -1274,9 +1276,9 @@ describe('RaidBossService', () => {
         ['autoset', 'STARMIE'],
       ]);
       expect(kept(await store.listOverrides())).toEqual(kept(raidBosses.overrides()));
-      expect(raidBosses.autoset(T3)?.key).toBe('starmie');
+      expect(raidBosses.autoset(T3, ZONE)?.key).toBe('starmie');
       // Umbreon stays a boss of T3 only while the feed lists it there.
-      expect(raidBosses.bossesOf(T3).find((b) => b.key === 'umbreon')?.source).toBe('feed');
+      expect(raidBosses.bossesOf(T3, ZONE).find((b) => b.key === 'umbreon')?.source).toBe('feed');
     });
 
     it('replaces the earlier autoset of the tier also when only the re-read after saving fails', async () => {
@@ -1295,7 +1297,7 @@ describe('RaidBossService', () => {
       const saved = await raidBosses.addOverride(override());
       expect(await raidBosses.removeOverride(saved.id)).toBe(true);
       expect(await raidBosses.removeOverride(saved.id)).toBe(false);
-      expect(raidBosses.bosses()).toEqual([]);
+      expect(raidBosses.bosses(ZONE)).toEqual([]);
       expect(raidBosses.overrides()).toEqual([]);
     });
 
@@ -1306,7 +1308,7 @@ describe('RaidBossService', () => {
       store.failingMethods.add('listOverrides');
       const saved = await raidBosses.addOverride(override());
       expect(raidBosses.overrides()).toEqual([saved]);
-      expect(raidBosses.bossesOf(T5).map((b) => b.key)).toEqual(['yveltal', 'zekrom']);
+      expect(raidBosses.bossesOf(T5, ZONE).map((b) => b.key)).toEqual(['yveltal', 'zekrom']);
       expect(entries.some((e) => e['level'] === 40)).toBe(true);
     });
 
@@ -1318,7 +1320,7 @@ describe('RaidBossService', () => {
       store.failingMethods.add('listOverrides');
       expect(await raidBosses.removeOverride(saved.id)).toBe(true);
       expect(raidBosses.overrides()).toEqual([]);
-      expect(raidBosses.bossesOf(T5).map((b) => b.key)).toEqual(['yveltal']);
+      expect(raidBosses.bossesOf(T5, ZONE).map((b) => b.key)).toEqual(['yveltal']);
       expect(entries.some((e) => e['level'] === 40)).toBe(true);
     });
 
@@ -1338,9 +1340,9 @@ describe('RaidBossService', () => {
       await raidBosses.sync();
       await raidBosses.addOverride(override({ expiresAt: now + 30 * MINUTE }));
       now += 30 * MINUTE - 1;
-      expect(raidBosses.bossesOf(T5)).toHaveLength(2);
+      expect(raidBosses.bossesOf(T5, ZONE)).toHaveLength(2);
       now += 1;
-      expect(raidBosses.bossesOf(T5)).toHaveLength(1);
+      expect(raidBosses.bossesOf(T5, ZONE)).toHaveLength(1);
       expect(raidBosses.overrides()).toEqual([]);
       expect(await store.listOverrides()).toHaveLength(1);
       await raidBosses.sync();
@@ -1426,7 +1428,7 @@ describe('RaidBossService', () => {
       respond = () => Promise.resolve(reply(200, downloaded));
       await vi.advanceTimersByTimeAsync(1);
       expect(requests).toHaveLength(2);
-      expect(raidBosses.bosses()).toHaveLength(14);
+      expect(raidBosses.bosses(ZONE)).toHaveLength(14);
       await vi.advanceTimersByTimeAsync(HOUR - 1);
       expect(requests).toHaveLength(2);
       await vi.advanceTimersByTimeAsync(1);

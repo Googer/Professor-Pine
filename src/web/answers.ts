@@ -148,7 +148,47 @@ export function sendButtonPage(reply: FastifyReply, options: LinkPageOptions): F
   return reply.type('text/html; charset=utf-8').send(buttonPage(options));
 }
 
-/** Answers a failure: JSON `{ error }` for the pages' data, a short page otherwise. */
+/** Where "Log in with Discord" leads from a short page: Discord's login, back to the top page. */
+export const TOP_LOGIN = '/auth/login?next=/';
+
+/** The answers of an instance that offers "Log in with Discord" (its client secret). */
+const loginOffered = new WeakSet<FastifyReply>();
+
+/**
+ * Marks an answer as one of an instance that offers "Log in with Discord" (`buildWebServer`, on
+ * every request where it has the client secret): its server's address not found says so.
+ */
+export function offerLogin(reply: FastifyReply): void {
+  loginOffered.add(reply);
+}
+
+/** What a server's address not found says after "Not found.": how a link of /maps ends. */
+export const LINK_LASTS = 'A link from /maps lasts five minutes: use /maps on Discord again';
+
+/** Whether an address is a server's or one of its login links: `/s/<guild>/…`, `/auth/link/…`. */
+function isServerAddress(url: string): boolean {
+  return url.startsWith('/s/') || url.startsWith('/auth/link/');
+}
+
+/**
+ * The page of a server's address not found (fix round 1, R8): the one answer of a server Pine is
+ * not in, of one whose map is closed to the visitor, of one in setup and of every other address
+ * of a server not found, so that none tells them apart. A visitor who followed a link of `/maps`
+ * that lapsed learns how to come in: `/maps` again, or "Log in with Discord" (where the instance
+ * offers it), back to the top page, which names their servers. The page names no server.
+ */
+function serverNotFound(login: boolean): string {
+  return shortDocument(
+    `<p>${escapeHtml(FAILURE_WORDS[404] ?? FAILED)}</p>` +
+      `<p>${escapeHtml(`${LINK_LASTS}${login ? ', or log in with Discord.' : '.'}`)}</p>` +
+      (login ? `<p><a href="${escapeHtml(TOP_LOGIN)}">Log in with Discord</a></p>` : ''),
+  );
+}
+
+/**
+ * Answers a failure: JSON `{ error }` for the pages' data, a short page otherwise; a server's
+ * address not found, the page that says how a link of /maps ends (`serverNotFound`).
+ */
 export function sendFailure(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -157,5 +197,9 @@ export function sendFailure(
   const words = FAILURE_WORDS[status] ?? FAILED;
   void reply.code(status).header('cache-control', 'no-store');
   if (isApi(request.url)) return reply.send({ error: words });
-  return reply.type('text/html; charset=utf-8').send(shortPage(words));
+  const page =
+    status === 404 && isServerAddress(request.url)
+      ? serverNotFound(loginOffered.has(reply))
+      : shortPage(words);
+  return reply.type('text/html; charset=utf-8').send(page);
 }

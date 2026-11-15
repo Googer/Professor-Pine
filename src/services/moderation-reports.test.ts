@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { WEST_CHANNEL } from '../../test/support/gyms.js';
+import { OTHER_GUILD_ROW, TEST_GUILD_ROW, WEST_CHANNEL } from '../../test/support/gyms.js';
+import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
+import { wayspotsWith } from '../../test/support/wayspots.js';
 import { MOD_CHANNEL } from '../../test/support/meetup-safety-service.js';
 import { buttonsOf, textOf } from '../../test/support/messages.js';
 import {
@@ -9,8 +11,10 @@ import {
   CAROL,
   PARTY_NOW,
   REPORTER,
+  stops,
   TEST_PIN,
   TEST_SPOT,
+  testTrain,
 } from '../../test/support/parties.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import {
@@ -21,6 +25,39 @@ import {
 import { MAX_REPORT_REASON } from '../domain/moderation/reports.js';
 import type { MaxSpot } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
+
+describe('ModerationReports: a train at a Power Spot, in two servers (plan 19B-3)', () => {
+  it('places it by its server’s own copy, never by a Power Spot only another server keeps', async () => {
+    const { wayspots } = await wayspotsWith(
+      [keptRow(5, { title: 'Library Garden', kind: 'powerspot', lat: 40.0502, lon: -80.0502 })],
+      undefined,
+      undefined,
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            keptRow(5, { title: 'Their Garden', kind: 'powerspot', lat: 40.0502, lon: -80.0502 }),
+            keptRow(9, { title: 'Their Spot', kind: 'powerspot', lat: 40.0602, lon: -80.0602 }),
+          ],
+        },
+      ],
+    );
+    const made = await reportsWith({}, [], {}, { wayspots });
+    const at = (guildId: number, id: string) => {
+      const train = testTrain({ guildId });
+      return { ...train, train: { ...train.train, route: stops(id), stop: 0 } };
+    };
+    expect(made.reports.subjectOf(at(TEST_GUILD_ROW, wayspotId(5))).place).toMatchObject({
+      kind: 'powerspot',
+      title: 'Library Garden',
+    });
+    expect(made.reports.subjectOf(at(TEST_GUILD_ROW, wayspotId(9))).place).toBeNull();
+    // A train of the second server at its own (positive control).
+    expect(made.reports.subjectOf(at(OTHER_GUILD_ROW, wayspotId(9))).place).toMatchObject({
+      title: 'Their Spot',
+    });
+  });
+});
 
 describe('ModerationReports: a party reported', () => {
   it('sends it privately to the moderators’ channel, and says nothing in the post', async () => {
@@ -86,16 +123,20 @@ describe('ModerationReports: a party reported', () => {
     expect(made.reportStore.reports.size).toBe(0);
   });
 
-  it('puts the report into the post and pings the staff once without a moderators’ channel', async () => {
+  it('keeps nothing, and says nothing in the post, where the file named a moderators’ channel the server lacks (review F2)', async () => {
     const made = await reportedMeetup({ moderation: null });
-    expect((await made.report()).kind).toBe('asked');
-    expect((await made.report()).kind).toBe('asked-before');
-    expect((await made.report(CAROL, 'Private.', 'Carol')).kind).toBe('asked');
-    const said = made.gateway.messagesIn(made.postId).map((one) => one.message.content);
-    expect(said).toEqual([
-      `<@&300000000000000001>: **Bob** (<@${BOB}>) asks for this meetup to be deleted.\n> It is somebody’s front yard.`,
-      `**Carol** (<@${CAROL}>) asks for this meetup to be deleted.\n> Private.`,
-    ]);
+    made.servers.values = { ...made.servers.values, unmatched: ['channels.moderation'] };
+    expect((await made.report()).kind).toBe('not-sent');
+    expect(made.reportStore.reports.size).toBe(0);
+    expect(made.gateway.messagesIn(made.postId)).toEqual([]);
+  });
+
+  // Plan 19A-1: a report is never posted in the open.
+  it('refuses a report without a moderators’ channel, and puts nothing into the post', async () => {
+    const made = await reportedMeetup({ moderation: null });
+    const before = made.gateway.messagesIn(made.postId).length;
+    expect((await made.report()).kind).toBe('no-channel');
+    expect(made.gateway.messagesIn(made.postId)).toHaveLength(before);
     expect(made.reportStore.reports.size).toBe(0);
   });
 
@@ -115,7 +156,7 @@ describe('ModerationReports: a party reported', () => {
 
   it('names a raid’s gym by the name its post shows, and its official name beside it', async () => {
     const made = await reportsWith();
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     const raid = await made.service.reportRaid({
       gym,
@@ -124,6 +165,7 @@ describe('ModerationReports: a party reported', () => {
       autoStatus: PartyStatus.Interested,
       tier: { level: 'T5', shadow: false },
       boss: null,
+      guildRow: TEST_GUILD_ROW,
     });
     if (raid.kind !== 'created') throw new Error(raid.kind);
     await made.reports.reportParty({
@@ -131,7 +173,6 @@ describe('ModerationReports: a party reported', () => {
       partyId: raid.party.id,
       reporter: { id: BOB, name: 'Bob' },
       reason: 'Duplicate.',
-      roleIds: [],
     });
     const post = made.gateway.messagesIn(MOD_CHANNEL)[0]?.message;
     expect(textOf(post)).toContain('### Reported raid');
@@ -168,7 +209,6 @@ describe('ModerationReports: a party reported', () => {
         partyId: battle.party.id,
         reporter: { id: BOB, name: 'Bob' },
         reason: 'Nobody is there.',
-        roleIds: [],
       });
       expect(outcome.kind).toBe('sent');
       const post = made.gateway.messagesIn(MOD_CHANNEL)[n]?.message;

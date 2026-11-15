@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   ButtonStyle,
   ComponentType,
@@ -39,7 +40,7 @@ import {
   STAFF_TOLD,
 } from '../../render/screenshot-reading.js';
 import { plain, truncate } from '../../render/text.js';
-import { PendingRequests } from '../../services/pending-requests.js';
+import { PendingRequests, type Asker } from '../../services/pending-requests.js';
 import { unreadWords, type MaxTypedUse } from '../../services/screenshot-service.js';
 import { feedbackRow, showRow } from '../screenshots/feedback.js';
 import { readAttachedOutcome, sayBeside } from '../screenshots/read-screenshot.js';
@@ -153,7 +154,9 @@ export function requireReadableEnd(
   ctx: AppContext,
 ): void {
   const text = interaction.options.getString('end');
-  if (text !== null && text.trim() !== '') typedMaxTime(ctx, 'end', text, Date.now());
+  if (text !== null && text.trim() !== '') {
+    typedMaxTime(ctx, 'end', text, Date.now(), zoneOf(interaction, ctx));
+  }
 }
 
 /** The tier the screenshot gives a boss typed without one: its heads, or its form's. */
@@ -206,7 +209,14 @@ async function answerMaxScreenshot(
   let bossWithoutTier = false;
   if (bossText !== '') {
     try {
-      typed.boss = readMaxBoss(ctx, bossText, tierText, now);
+      typed.boss = readMaxBoss(
+        ctx,
+        interaction.guildId,
+        bossText,
+        tierText,
+        now,
+        zoneOf(interaction, ctx),
+      );
     } catch (err) {
       if (!(err instanceof UserError && err.message === WHICH_TIER)) throw err;
       bossWithoutTier = true;
@@ -214,7 +224,7 @@ async function answerMaxScreenshot(
   }
   if (spotText !== '') typed.spot = await readSpot(interaction, ctx, spotText);
   if (endText !== '') {
-    const end = typedMaxTime(ctx, 'end', endText, now);
+    const end = typedMaxTime(ctx, 'end', endText, now, zoneOf(interaction, ctx));
     if (end !== 'unset') typed.end = end.at;
   }
   // What was typed, in the place of what is read, decided and kept by the service (review S-5);
@@ -226,7 +236,14 @@ async function answerMaxScreenshot(
     const tier = bossWithoutTier && read ? tierOfScreen(read) : undefined;
     if (tier !== undefined) {
       try {
-        typed.boss = readMaxBoss(ctx, bossText, tier, now);
+        typed.boss = readMaxBoss(
+          ctx,
+          interaction.guildId,
+          bossText,
+          tier,
+          now,
+          zoneOf(interaction, ctx),
+        );
       } catch (err) {
         if (!(err instanceof Error)) throw err;
         bossRefused = err;
@@ -375,12 +392,12 @@ async function askSpot(
   ctx: AppContext,
   shot: PendingShot,
 ): Promise<void> {
-  const token = pending.put(interaction.user.id, shot);
+  const token = pending.put(interaction, shot);
   const { report } = shot;
   const read = report.spot.read ? ` I read "${plain(truncate(report.spot.read, 80))}".` : '';
   const regionName = (channelId: string) => interaction.guild?.channels.cache.get(channelId)?.name;
   const options = shot.spots.map((spot) => {
-    const [elsewhere] = spot.local ? [] : ctx.wayspots.regionsOf(spot.id);
+    const [elsewhere] = spot.local ? [] : ctx.wayspots.of(shot.guildRow).regionsOf(spot.id);
     const region = elsewhere === undefined ? undefined : regionName(elsewhere);
     return {
       label: truncate(spot.title, 100),
@@ -461,9 +478,9 @@ async function goOn(
     target &&
     target.channelId !== here
   ) {
-    const token = pending.put(interaction.user.id, { ...shot, request });
+    const token = pending.put(interaction, { ...shot, request });
     const name = plain(maxSpotName(request.spot));
-    const content = ctx.wayspots.regionsOf(request.spot.id).includes(here)
+    const content = ctx.wayspots.of(shot.guildRow).regionsOf(request.spot.id).includes(here)
       ? `${name} will be posted in <#${target.channelId}> (this region has no raid forum). Report it there?`
       : `${name} is in <#${target.channelId}>, not in this region. Report the max battle there?`;
     await interaction.editReply({
@@ -534,7 +551,7 @@ async function reportTyped(
   const ask = {
     boss: typed.boss,
     spot: typed.spot,
-    end: typed.end ?? reportedEnd(ctx, typed.boss.tier, null, now),
+    end: typed.end ?? reportedEnd(ctx, typed.boss.tier, null, now, zoneOf(interaction, ctx)),
     regionChannelId,
   };
   const guild = await ctx.guilds.idFor(guildIdOf(interaction));
@@ -571,10 +588,10 @@ async function reportTyped(
 
 /** The use `/max` counted, for a waiting report's controls (`carriesOn`). */
 export function shotCarriesOn(
-  userId: string,
+  asker: Asker,
   token: string,
 ): (ControlThrottle & { countedAt: number }) | undefined {
-  const waiting = pending.peek(token, userId);
+  const waiting = pending.peek(token, asker);
   return typeof waiting === 'object'
     ? { ...MAX_THROTTLE, as: MAX_COMMAND, countedAt: waiting.value.countedAt }
     : undefined;
@@ -585,7 +602,7 @@ async function claimed(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   token: string,
 ): Promise<PendingShot | undefined> {
-  const taken = pending.take(token, interaction.user.id);
+  const taken = pending.take(token, interaction);
   if (taken === 'not-yours') throw new UserError(NOT_YOURS);
   if (taken === 'expired') {
     if (answered.has(token)) await interaction.deferUpdate().catch(() => undefined);

@@ -57,6 +57,7 @@ export interface ActivityProgress {
   lastDayHistoryId: Generated<number>;
   lastHistoryId: Generated<number>;
   serverId: string;
+  zone: string | null;
 }
 
 export interface Alias {
@@ -90,6 +91,11 @@ export interface CommandRoles {
   guildId: number | null;
   id: Generated<number>;
   roleSnowflakeId: string | null;
+}
+
+export interface DmContact {
+  firstAt: string;
+  userId: string;
 }
 
 export interface EndedPartyCopy {
@@ -129,14 +135,38 @@ export interface EventPost {
 
 export interface EventWindow {
   endsAt: string;
+  endsLocal: string | null;
   id: number;
   setAt: string;
   setBy: string;
   startsAt: string;
+  startsLocal: string | null;
+}
+
+export interface GoogleAnswer {
+  answer: string | null;
+  askedAt: string;
+  kind: string;
+  lat: number;
+  lon: number;
+}
+
+export interface GoogleShareRaise {
+  extra: number;
+  guildId: number;
+  month: string;
+  raisedAt: string;
 }
 
 export interface GoogleUseDay {
   day: string;
+  kind: string;
+  questions: Generated<number>;
+}
+
+export interface GoogleUseServerDay {
+  day: string;
+  guildId: number;
   kind: string;
   questions: Generated<number>;
 }
@@ -192,6 +222,7 @@ export interface GymMeta {
   places: string | null;
   sponsor: number | null;
   taggedEx: number | null;
+  wayfarerAddress: string | null;
 }
 
 export interface GymNotification {
@@ -215,6 +246,11 @@ export interface GymReview {
   kind: string;
   openGymId: number | null;
   queuedAt: string;
+}
+
+export interface GymServer {
+  guildId: number;
+  gymId: number;
 }
 
 export interface GymWayfarer {
@@ -250,6 +286,7 @@ export interface LegacyFillIn {
 
 export interface ListedEvent {
   endsAt: string;
+  endsLocal: string | null;
   eventId: string;
   eventType: string;
   formerIds: Json | null;
@@ -258,10 +295,12 @@ export interface ListedEvent {
   link: string | null;
   name: string;
   startsAt: string;
+  startsLocal: string | null;
 }
 
 export interface MaxEvent {
   endsAt: string;
+  endsLocal: string | null;
   eventId: string | null;
   featured: Json | null;
   hoursAssumed: Generated<number>;
@@ -270,6 +309,7 @@ export interface MaxEvent {
   name: string;
   short: Generated<number>;
   startsAt: string;
+  startsLocal: string | null;
 }
 
 export interface MeetupAppeal {
@@ -563,6 +603,12 @@ export interface Pokemon {
   tier: Generated<number | null>;
 }
 
+export interface PokemonNickname {
+  nickname: string;
+  pokemonKey: string;
+  serverId: string;
+}
+
 export interface PokemonNotification {
   costumed: Generated<number>;
   form: string | null;
@@ -586,6 +632,7 @@ export interface RaidBoss {
   pokemonId: string;
   shadow: Generated<number>;
   shiny: Generated<number>;
+  startsFrom: string | null;
 }
 
 export interface RaidBossOverride {
@@ -613,18 +660,21 @@ export interface Region {
 
 export interface ResearchEvent {
   endsAt: string;
+  endsLocal: string | null;
   eventId: string;
   eventType: string;
   firstSeen: string;
   lastSeen: string;
   name: string;
   startsAt: string;
+  startsLocal: string | null;
 }
 
 export interface ResearchTask {
   active: Generated<number>;
   category: string;
   endsAt: string | null;
+  endsLocal: string | null;
   firstSeen: string;
   lastSeen: string;
   position: Generated<number>;
@@ -660,6 +710,11 @@ export interface RoleGroup {
   position: number;
 }
 
+export interface SavedRouteGym {
+  gymId: number;
+  routeId: number;
+}
+
 export interface SavedRoutes {
   atEnd: Generated<string>;
   gyms: string | null;
@@ -680,6 +735,79 @@ export interface ScriptAccess {
   name: string;
   state: string;
   userId: string;
+}
+
+export interface ServerGymLookup {
+  address: Generated<number>;
+  guildId: number;
+  gymId: number;
+  queuedAt: string;
+  regionRank: Generated<number>;
+}
+
+export interface ServerNeighbor {
+  acceptedAt: string | null;
+  askedAt: string;
+  askedBy: string;
+  declinedAt: string | null;
+  serverA: string;
+  serverB: string;
+  toldAt: string | null;
+  withdrawnAt: string | null;
+}
+
+export interface ServerRecord {
+  allowedAt: string | null;
+  allowedBy: string | null;
+  blockedAt: string | null;
+  blockedBy: string | null;
+  deletedAt: string | null;
+  deletingAt: string | null;
+  filesLeftAt: string | null;
+  leftAt: string | null;
+  recordedAt: string | null;
+  serverId: string;
+}
+
+export interface ServerSettings {
+  serverId: string;
+  settings: Json;
+  setUpAt: string | null;
+  updatedAt: string;
+  updatedBy: string | null;
+}
+
+export interface ServerSettingsAudit {
+  actorId: string;
+  actorName: string | null;
+  after: Json | null;
+  at: string;
+  before: Json | null;
+  id: Generated<string>;
+  key: string;
+  serverId: string;
+}
+
+export interface ServerWayspot {
+  address: string | null;
+  firstSeen: string;
+  formerKind: string | null;
+  guildId: number;
+  id: string;
+  image: string | null;
+  kind: string;
+  lastSeen: string;
+  lat: number;
+  lon: number;
+  title: string;
+}
+
+export interface ServerWayspotLookup {
+  guildId: number;
+  kind: string;
+  queuedAt: string;
+  regionRank: Generated<number>;
+  wayspotId: string;
 }
 
 export interface SpawnReport {
@@ -852,8 +980,14 @@ export interface WebSession {
   expiresAt: string;
   id: string;
   lastUsedAt: string;
+  serversListed: Generated<number>;
   userId: string;
   userName: string;
+}
+
+export interface WebSessionServer {
+  serverId: string;
+  sessionId: string;
 }
 
 export interface DB {
@@ -865,12 +999,16 @@ export interface DB {
   AutosetPokemon: AutosetPokemon;
   CommandRoleAuthorization: CommandRoleAuthorization;
   CommandRoles: CommandRoles;
+  DmContact: DmContact;
   EndedPartyCopy: EndedPartyCopy;
   EndedPartyPost: EndedPartyPost;
   EventForum: EventForum;
   EventPost: EventPost;
   EventWindow: EventWindow;
+  GoogleAnswer: GoogleAnswer;
+  GoogleShareRaise: GoogleShareRaise;
   GoogleUseDay: GoogleUseDay;
+  GoogleUseServerDay: GoogleUseServerDay;
   GruntMessage: GruntMessage;
   Guild: Guild;
   Gym: Gym;
@@ -880,6 +1018,7 @@ export interface DB {
   GymMeta: GymMeta;
   GymNotification: GymNotification;
   GymReview: GymReview;
+  GymServer: GymServer;
   GymWayfarer: GymWayfarer;
   HistoryOptIn: HistoryOptIn;
   LeaderboardOptIn: LeaderboardOptIn;
@@ -904,6 +1043,7 @@ export interface DB {
   PartyHistoryStop: PartyHistoryStop;
   PineStop: PineStop;
   Pokemon: Pokemon;
+  PokemonNickname: PokemonNickname;
   PokemonNotification: PokemonNotification;
   RaidBoss: RaidBoss;
   RaidBossOverride: RaidBossOverride;
@@ -913,8 +1053,16 @@ export interface DB {
   RocketLineup: RocketLineup;
   Role: Role;
   RoleGroup: RoleGroup;
+  SavedRouteGym: SavedRouteGym;
   SavedRoutes: SavedRoutes;
   ScriptAccess: ScriptAccess;
+  ServerGymLookup: ServerGymLookup;
+  ServerNeighbor: ServerNeighbor;
+  ServerRecord: ServerRecord;
+  ServerSettings: ServerSettings;
+  ServerSettingsAudit: ServerSettingsAudit;
+  ServerWayspot: ServerWayspot;
+  ServerWayspotLookup: ServerWayspotLookup;
   SpawnReport: SpawnReport;
   StopLine: StopLine;
   StopPost: StopPost;
@@ -930,4 +1078,5 @@ export interface DB {
   WayspotLookup: WayspotLookup;
   WayspotPlaces: WayspotPlaces;
   WebSession: WebSession;
+  WebSessionServer: WebSessionServer;
 }

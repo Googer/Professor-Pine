@@ -11,7 +11,7 @@ import {
 } from '../../../test/support/gyms.js';
 import { PARTY_NOW } from '../../../test/support/parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
-import { gymsFixture } from '../../../test/support/providers.js';
+import { gymsFixture, gymsLyingIn } from '../../../test/support/providers.js';
 import { screenshotsWith } from '../../../test/support/screenshot-service.js';
 import { eggReading, readingOf, splitOutcome } from '../../../test/support/screenshots.js';
 import { TWO_SCREENS } from '../../render/screenshot-reading.js';
@@ -27,6 +27,7 @@ import { REPORT_BARRED } from '../raids/report.js';
 import { screenshotControls } from './feedback.js';
 import { AUTHOR, OTHER, posted } from '../../../test/support/posted-message.js';
 import { DONE, READING, ScreenshotTrigger, type ReplyPayload } from './mention.js';
+import type { TestServers } from '../../../test/support/server-values.js';
 
 const CLOCK = { hour: 13, minute: 59 };
 
@@ -47,10 +48,10 @@ async function setup(
   const gyms: GymProvider =
     alsoInEast.length === 0
       ? fixture
-      : Object.assign(Object.create(fixture) as GymProvider, {
-          regionsOf: (gymId: number) =>
-            alsoInEast.includes(gymId) ? [WEST_CHANNEL, EAST_CHANNEL] : fixture.regionsOf(gymId),
-        });
+      : gymsLyingIn(
+          Object.fromEntries(alsoInEast.map((gymId) => [gymId, [WEST_CHANNEL, EAST_CHANNEL]])),
+          fixture,
+        );
   const made = await partyServiceWith([], { gyms });
   const shots = screenshotsWith(createTestContext({ gyms }).ctx);
   const { ctx: base, entries } = createTestContext({
@@ -612,6 +613,20 @@ describe('screenshots posted with a mention of the bot', () => {
     await trigger.handle(message);
     expect(did).toEqual([]);
     expect(store.active()).toEqual([]);
+  });
+
+  it('reads nothing passively in a server whose staff turned it off, though the instance allows it', async () => {
+    const made = await setup({ passive: true });
+    const servers = made.ctx.servers as TestServers;
+    servers.values = { ...servers.values, passiveReading: false };
+    const raid = posted([made.image('a.png', egg())], { mentionsBot: false });
+    await made.trigger.handle(raid.message);
+    expect(raid.did).toEqual([]);
+    expect(made.store.active()).toEqual([]);
+    // A mention is read all the same.
+    const asked = posted([made.image('b.png', egg())]);
+    await made.trigger.handle(asked.message);
+    expect(made.store.active()).toHaveLength(1);
   });
 
   it('reads passively only with the setting, answers only what exists, keeps no refused picture', async () => {

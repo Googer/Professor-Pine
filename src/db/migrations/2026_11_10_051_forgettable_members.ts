@@ -3,7 +3,7 @@ import type { Migration } from 'kysely/migration';
 
 /**
  * The member's id on the moderators' records takes a null (plan 8G, fix round 1): the owner's
- * `/admin forget member:` clears it, with the name, on the records that are decided and over.
+ * `/operator forget member:` clears it, with the name, on the records that are decided and over.
  *
  * - `MeetupRequest.makerId`, `MeetupAppeal.memberId` and `MeetupPlaceAsk.memberId` become
  *   nullable (`varchar(30) default null`).

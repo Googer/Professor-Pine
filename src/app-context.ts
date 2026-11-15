@@ -6,6 +6,7 @@ import type { Config } from './config/index.js';
 import type { GymTargetStorage } from './db/repositories/gym-notification-repository.js';
 import type { HistoryOptIns } from './db/repositories/history-repository.js';
 import type { PartyAuditReader } from './db/repositories/party-audit-repository.js';
+import type { ServerSettingsAuditReader } from './db/repositories/server-settings-audit-repository.js';
 import type { LegacyFillIns } from './db/repositories/legacy-fill-in-repository.js';
 import type { LegacyIndex } from './services/legacy-fill-in.js';
 import type { NewTrainStorage } from './db/repositories/new-train-repository.js';
@@ -27,6 +28,9 @@ import type { GameDataProvider } from './services/game-data-service.js';
 import type { GymAdminService } from './services/gym-admin-service.js';
 import type { GymProvider } from './services/gym-directory.js';
 import type { IssueGateway } from './services/issue-gateway.js';
+import type { ModeratorsLabPoster } from './services/moderators-lab.js';
+import type { ServerInvites, ServerNeighbors } from './services/server-neighbors.js';
+import type { NeighborCopy } from './services/neighbor-copy.js';
 import type { PartyService } from './services/party-service.js';
 import type { PineStopService } from './services/pine-stops.js';
 import type { ResearchTaskProvider } from './services/research-task-service.js';
@@ -38,7 +42,7 @@ import type { PlaceFinder } from './services/place-finder.js';
 import type { PlaceSearch } from './services/place-search.js';
 import type { PokebattlerGateway } from './services/pokebattler-gateway.js';
 import type { PartyProvider } from './services/party-store.js';
-import type { PokemonFinder, PokemonNicknames } from './services/pokemon-search-service.js';
+import type { PokemonFinders, PokemonNicknames } from './services/pokemon-search-service.js';
 import type { MaxBossAdmin, MaxBossProvider } from './services/max-boss-service.js';
 import type { RaidBossAdmin, RaidBossProvider } from './services/raid-boss-service.js';
 import type { RaidChangeService } from './services/raid-change-service.js';
@@ -76,10 +80,38 @@ import type { RegionTallies } from './services/region-tallies.js';
 import type { Boards } from './services/boards.js';
 import type { MemberStatsService } from './services/member-stats.js';
 import type { EventWindows } from './services/event-window-service.js';
+import type { ServerSettingsService } from './services/server-settings.js';
+import type { ServerStandings } from './services/server-standings.js';
+import type { ServerAdmission } from './services/server-admission.js';
+import type { ServerSetup } from './services/server-setup.js';
+import type { LastPartyReader } from './db/repositories/last-party-repository.js';
 
 /** Everything a handler may use. Later phases add services here. */
 export interface AppContext {
   readonly config: Config;
+  /**
+   * Each server's values (plan 19A-1, `servers.md`): what the settings file held that is a
+   * server's, read through `servers.of(serverId)`, never from `config.settings`.
+   */
+  readonly servers: ServerSettingsService;
+  /**
+   * Each server's standing with the instance (plan 19C-1, `servers.md`, "Who may have this
+   * Pine"): recorded at the upgrade, allowed or blocked by an operator, left.
+   */
+  readonly standings: ServerStandings;
+  /**
+   * Pine leaving a server an instance operator removes or blocks (`/operator servers`, plan
+   * 19C-1; `ServerAdmission.remove`), and a server an operator allows (`allow`, plan 19C-2) or
+   * unblocks (`unblock`, final review R4-7).
+   */
+  readonly admission: Pick<ServerAdmission, 'remove' | 'allow' | 'unblock'>;
+  /**
+   * A server's setup (plan 19C-2, `servers.md`): what `/admin setup`'s checklist reads, and the
+   * leaving of setup once its required items are done.
+   */
+  readonly setup: Pick<ServerSetup, 'facts' | 'check'>;
+  /** When each server's last party was made, from the history (`/operator servers list`). */
+  readonly lastParties: LastPartyReader;
   readonly log: Logger;
   readonly db: Kysely<DB>;
   readonly commands: readonly CommandModule[];
@@ -89,11 +121,11 @@ export interface AppContext {
   readonly gameData: GameDataProvider;
   /** The raid bosses in effect: the feed's list with the moderators' overrides. */
   readonly raidBosses: RaidBossProvider;
-  /** The boss list for staff (`/admin boss`): the feed as stored, the overrides, a sync now. */
+  /** The boss list for staff (`/operator boss`): the feed as stored, the overrides, a sync now. */
   readonly raidBossAdmin: RaidBossAdmin;
   /** The max bosses in effect (plan 8X-2). */
   readonly maxBosses: MaxBossProvider;
-  /** The max boss list for staff (`/admin boss`). */
+  /** The max boss list for staff (`/operator boss`). */
   readonly maxBossAdmin: MaxBossAdmin;
   /**
    * Raid Hours and Raid Days from the events feed (see `raidDurationRules`), and its max events
@@ -101,7 +133,7 @@ export interface AppContext {
    */
   readonly raidEvents: RaidEventProvider & MaxEventProvider & ResearchEventProvider;
   /**
-   * The event window staff set (`/admin event-window`, 2026-11-09), which `raidEvents` gives as a
+   * The event window staff set (`/operator event-window`, 2026-11-09), which `raidEvents` gives as a
    * Raid Hour and a Max Battle Day.
    */
   readonly eventWindows: EventWindows;
@@ -171,11 +203,11 @@ export interface AppContext {
   readonly raids: RaidChangeService;
   /** What members change about a max battle itself (plan 8X-3): its end and its boss. */
   readonly maxBattles: MaxChangeService;
-  /** The running battles moved with an add that moved their boss (plan 8X-J, `/admin boss add`). */
+  /** The running battles moved with an add that moved their boss (plan 8X-J, `/operator boss add`). */
   readonly bossMoves: Pick<BossTierMoves, 'move'>;
   /**
    * Meetup safety (plan 8S-1): the check of a meetup's place, the requests held for the
-   * moderators and their decisions, blocks and appeals. Off without `settings.channels.moderation`.
+   * moderators and their decisions, blocks and appeals. Off without the server's moderators' channel.
    */
   readonly meetupSafety: MeetupSafety;
   /**
@@ -210,6 +242,11 @@ export interface AppContext {
   readonly historyOptIns: HistoryOptIns;
   /** The staff audit log of parties (`/audit`), kept 30 days. */
   readonly partyAudit: PartyAuditReader;
+  /**
+   * The staff's log of each server's settings (plan 19A-1): the Recent changes of
+   * `/admin settings` and the settings lines of `/audit member:`; kept 30 days.
+   */
+  readonly serverSettingsAudit: ServerSettingsAuditReader;
   /** The requests of members' legacy fill-ins (plan 8H-10, `/settings`), per server. */
   readonly legacyFillIns: LegacyFillIns;
   /**
@@ -236,16 +273,33 @@ export interface AppContext {
   readonly spawns: SpawnService;
   /** Direct messages: put in line, and sent at a fixed rate. */
   readonly dms: DmSender;
-  /** Pokémon by what members type: names, nicknames, forms. */
-  readonly pokemon: PokemonFinder;
-  /** The nicknames staff add for searching (`/admin nickname`); `pokemon` finds by them. */
+  /**
+   * Pokémon by what members type: names, nicknames, forms; a server's search (`of(serverId)`)
+   * with that server's nicknames, `of(null)` the instance's names alone (plan 19B-4).
+   */
+  readonly pokemon: PokemonFinders;
+  /** The nicknames a server's staff add (`/admin nickname`); `pokemon.of` that server finds by them. */
   readonly nicknames: PokemonNicknames;
   /** Map pictures of gyms and regions, as files to attach. */
   readonly maps: MapProvider;
   /** The month's maps of places, which `/find-region` takes one of for each it downloads. */
   readonly mapBudget: MapBudget;
-  /** The issues of the GitHub repository that `/request` sends gym requests to. */
+  /**
+   * The issues of the instance's GitHub repository, which `/request` sends a server's gym requests
+   * to where the instance serves that server with it (plan 19B-4).
+   */
   readonly issues: IssueGateway;
+  /** A server's moderators' bot lab: where `/request` posts the gym requests of the others. */
+  readonly moderatorsLab: ModeratorsLabPoster;
+  /**
+   * Each server's neighbors and their requests (plan 19E, `servers.md`, "Neighbors"):
+   * `/admin neighbors` and the buttons of a request.
+   */
+  readonly neighbors: ServerNeighbors;
+  /** The server an invite link leads to, by Discord's invite endpoint (`/admin neighbors`). */
+  readonly invites: ServerInvites;
+  /** Copying a neighbor's curated gym text onto the same gyms (`/admin neighbors copy`, plan 19E). */
+  readonly neighborCopy: Pick<NeighborCopy, 'copy' | 'busy'>;
   /** Pokebattler's raid simulations, which `/counters` shows. */
   readonly pokebattler: PokebattlerGateway;
   /** Places by name (OpenStreetMap's Nominatim), which `/find-region` looks up. */
@@ -268,7 +322,7 @@ export interface AppContext {
   readonly scriptAccess: ScriptAccessService;
   /**
    * A member's data across every server, counted and removed on request (plan 8G: the owner's
-   * `/admin forget`).
+   * `/operator forget`).
    */
   readonly memberRemoval: MemberRemoval;
   /** Privileged-intent features actually granted at login (may be fewer than configured). */
@@ -280,8 +334,8 @@ export interface AppContext {
    */
   readonly rehearsal?: Rehearsal;
   /**
-   * The events forum (plan 8V-1): only where `settings.channels.events` names one and rehearsal
-   * mode is off; `/admin setup-forums` makes it.
+   * The events forums (plan 8V-1): only while rehearsal mode is off; each server's is its own
+   * (plan 19A-1), and `/admin setup-forums` makes it.
    */
   readonly eventForum?: EventForumService;
 }

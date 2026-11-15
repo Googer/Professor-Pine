@@ -57,7 +57,8 @@ describe('migration 042: raids per day', () => {
   });
 
   it('gives the days a mark of their own, at 0 for every server the buckets counted', async () => {
-    expect(await columnsOf('ActivityProgress')).toEqual([
+    // Migration 064 adds `zone` after them.
+    expect((await columnsOf('ActivityProgress')).slice(0, 3)).toEqual([
       { name: 'serverId', type: 'varchar(30)', nullable: 'NO', dflt: null },
       { name: 'lastHistoryId', type: 'int unsigned', nullable: 'NO', dflt: '0' },
       { name: 'lastDayHistoryId', type: 'int unsigned', nullable: 'NO', dflt: '0' },

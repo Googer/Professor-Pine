@@ -126,7 +126,7 @@ describe('problemText', () => {
         'The raid stays here; try again.',
     );
     expect(problemText('posts-refused', { maxNumber: 21 }, 'raid')).toBe(
-      "I am not allowed to make posts in the other region's forum: the server's staff must " +
+      'I am not allowed to make posts in the other region’s forum: the server’s staff must ' +
         'give me Manage Posts there (and View Channel, Create Posts and Send Messages in Posts). ' +
         'The raid stays here.',
     );
@@ -173,7 +173,7 @@ describe('noPostWords', () => {
     expect(noPostWords(undefined, channel)).toBe(NO_POST_MADE);
     expect(noPostWords({ forumId: '5', missing: ['Manage Posts'] }, channel)).toBe(
       'I am not allowed to make posts in <#5>: I lack the permission Manage Posts there. ' +
-        "Nothing was made. The server's staff must give it to me.",
+        'Nothing was made. The server’s staff must give it to me.',
     );
     expect(
       noPostWords(
@@ -182,14 +182,14 @@ describe('noPostWords', () => {
       ),
     ).toBe(
       'I am not allowed to make posts in #west-raids: I lack the permissions View Channel, ' +
-        "Create Posts and Manage Posts there. Nothing was made. The server's staff must give " +
+        'Create Posts and Manage Posts there. Nothing was made. The server’s staff must give ' +
         'them to me.',
     );
   });
 
   it('names every permission a post needs where Discord refused without the bot seeing why', () => {
     expect(noPostWords({ forumId: '5', missing: [] }, channel)).toBe(
-      "Discord does not let me make posts in <#5>. Nothing was made. The server's staff must " +
+      'Discord does not let me make posts in <#5>. Nothing was made. The server’s staff must ' +
         'check that I have View Channel, Create Posts, Send Messages in Posts and Manage Posts there.',
     );
   });

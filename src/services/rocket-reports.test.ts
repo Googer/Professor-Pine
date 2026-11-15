@@ -31,7 +31,7 @@ function rocketWith(options: { rehearsal?: boolean; overlap?: boolean } = {}) {
     rewardHash: fixtureRewardHash,
     store,
     events: { researchEvents: () => [] },
-    zone: 'America/New_York',
+    zoneOf: () => 'America/New_York',
     log,
     now: () => clock.now,
   });

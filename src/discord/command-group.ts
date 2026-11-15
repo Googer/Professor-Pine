@@ -9,6 +9,7 @@ import type { Config } from '../config/index.js';
 import {
   subcommandPath,
   type CommandHelp,
+  type CommandModule,
   type GroupedCommand,
   type Guard,
   type SubcommandHandler,
@@ -16,7 +17,7 @@ import {
 
 /** One subcommand: its definition and what runs for it, kept in one place. */
 export interface SubcommandPart extends SubcommandHandler {
-  /** The subcommand group it belongs to: `boss` for `/admin boss add`. */
+  /** The subcommand group it belongs to: `boss` for `/operator boss add`. */
   group?: string;
   data: SlashCommandSubcommandBuilder;
   /**
@@ -30,6 +31,8 @@ export interface CommandGroupDefinition {
   /** Name, description, permissions and contexts of the command; the subcommands are added. */
   data: SlashCommandBuilder;
   help: CommandHelp;
+  /** Whom `/help` shows it to, by a rule of its own (`CommandModule.seenBy`). */
+  seenBy?: CommandModule['seenBy'];
   /** Guards for every subcommand; they run before a subcommand's own. */
   guards?: readonly Guard[];
   /** Whether this installation offers the command at all; see `CommandModule.enabled`. */
@@ -47,7 +50,7 @@ export interface CommandGroupDefinition {
  * shared between two calls.
  */
 export function commandGroup(definition: CommandGroupDefinition): GroupedCommand {
-  const { data, help, guards, enabled, parts } = definition;
+  const { data, help, seenBy, guards, enabled, parts } = definition;
   const groups = new Map(
     Object.entries(definition.groups ?? {}).map(([name, description]) => [
       name,
@@ -78,6 +81,7 @@ export function commandGroup(definition: CommandGroupDefinition): GroupedCommand
   const command: GroupedCommand = {
     data,
     help,
+    ...(seenBy ? { seenBy } : {}),
     ...(guards ? { guards } : {}),
     ...(enabled ? { enabled } : {}),
     subcommands,

@@ -33,7 +33,7 @@ export interface MapProvider {
     spend?: () => Promise<boolean>,
   ): Promise<string | undefined>;
   /**
-   * Deletes every picture that is kept (`/admin clear-image-cache`) and gives how many there
+   * Deletes every picture that is kept (`/operator clear-image-cache`) and gives how many there
    * were. Those still in use are downloaded again when they are next asked for.
    */
   clear(): Promise<number>;
@@ -94,7 +94,7 @@ export class StaticMaps implements MapProvider {
   /**
    * A place has no id of its own: its picture is named by what it shows, so the same search
    * finds the same file, and pictures of different places never replace each other (they go
-   * with `/admin clear-image-cache`).
+   * with `/operator clear-image-cache`).
    */
   place(
     shape: Shape,

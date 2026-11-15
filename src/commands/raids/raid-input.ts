@@ -24,7 +24,8 @@ import { resolvePartyTime } from '../../domain/time/party-time.js';
 import { longestRaidDurations, raidDurationRules } from '../../domain/time/raid-durations.js';
 import { UserError } from '../../discord/errors.js';
 import { isFarOff, plain, timestamp, truncate } from '../../render/text.js';
-import { gymInGuild } from '../../services/region-directory.js';
+import type { GymView } from '../../services/gym-directory.js';
+import type { PokemonFinder } from '../../services/pokemon-search-service.js';
 import { byName, CHOICE_NAME, MAX_CHOICES, showsGuessed, type Choice } from '../choices.js';
 
 const MINUTE = 60_000;
@@ -88,15 +89,20 @@ export const eggChoiceValue = (tier: RaidTier): string => `e:${tierCode(tier)}`;
  * The choices for the `boss` option: the current bosses first, then an egg for every tier,
  * narrowed to what was typed, a tier spelled as a report reads it (`tier 1`, `level 5` are `t1`,
  * `t5`: `spellTiers`). A choice's value says exactly what was picked, so that the report does not
- * depend on the name being typed back.
+ * depend on the name being typed back. A nickname is the server's (`serverId`, plan 19B-4).
  */
-export function bossChoices(ctx: AppContext, typed: string): Choice[] {
+export function bossChoices(
+  ctx: AppContext,
+  serverId: string | null,
+  typed: string,
+  zone: string,
+): Choice[] {
   const words = spellTiers(typed).trim().split(/\s+/).filter(Boolean);
   const fits = (name: string): boolean => {
     const lower = name.toLowerCase();
     return words.every((word) => lower.includes(word));
   };
-  const current = ctx.raidBosses.bosses();
+  const current = ctx.raidBosses.bosses(zone);
   const asChoice = (boss: RaidBoss): Choice => ({
     name: choiceName(boss),
     value: bossChoiceValue(boss),
@@ -113,6 +119,7 @@ export function bossChoices(ctx: AppContext, typed: string): Choice[] {
     const keys = new Set(current.flatMap((boss) => (boss.entry ? [boss.entry.key] : [])));
     const named = new Set(
       ctx.pokemon
+        .of(serverId)
         .find(typed, { filter: (entry) => keys.has(entry.key) })
         .filter((hit) => hit.named || hit.match === 'exact')
         .map((hit) => hit.entry.key),
@@ -199,8 +206,8 @@ function couldBeEntries(text: string, entries: readonly PokemonEntry[]): UserErr
 }
 
 /** The mega forms of the Pokémon a text names (`mega charizard` or `charizard`). */
-function megaForms(ctx: RaidReading, text: string): PokemonEntry[] {
-  const species = ctx.pokemon.exact(text.replace(/^mega\b\s*/i, ''));
+function megaForms(ctx: RaidReading, pokemon: PokemonFinder, text: string): PokemonEntry[] {
+  const species = pokemon.exact(text.replace(/^mega\b\s*/i, ''));
   if (!species) return [];
   return ctx.gameData.catalogue.byDex(species.dex).filter((entry) => entry.kind === 'mega');
 }
@@ -239,12 +246,11 @@ function partialBosses(
  * never the plain Pokémon. Throws a `UserError` that names the forms when there are several, or
  * says there is no such Mega Pokémon. A raid's boss and a train's boss read it alike.
  */
-function megaEntry(ctx: RaidReading, rest: string): PokemonEntry {
+function megaEntry(ctx: RaidReading, pokemon: PokemonFinder, rest: string): PokemonEntry {
   const entry =
-    ctx.pokemon.exact(`mega ${rest}`) ??
-    (/^mega\b/i.test(rest) ? ctx.pokemon.exact(rest) : undefined);
+    pokemon.exact(`mega ${rest}`) ?? (/^mega\b/i.test(rest) ? pokemon.exact(rest) : undefined);
   if (entry) return entry;
-  const megas = megaForms(ctx, rest);
+  const megas = megaForms(ctx, pokemon, rest);
   if (megas.length > 1) {
     throw couldBeEntries(/^mega\b/i.test(rest) ? rest : `mega ${rest}`, megas);
   }
@@ -256,6 +262,7 @@ function megaEntry(ctx: RaidReading, rest: string): PokemonEntry {
 /** A tier typed in front of a name: the boss of that tier, or any Pokémon in that tier. */
 function reportedWithTier(
   ctx: RaidReading,
+  pokemon: PokemonFinder,
   bosses: readonly RaidBoss[],
   typedTier: { tier: RaidTier; rest: string },
 ): ReportedBoss {
@@ -270,9 +277,9 @@ function reportedWithTier(
 
   let entry;
   if (MEGA_LEVELS.includes(tier.level)) {
-    entry = megaEntry(ctx, rest);
+    entry = megaEntry(ctx, pokemon, rest);
   } else {
-    entry = compact(rest).length > 1 ? ctx.pokemon.exact(rest) : undefined;
+    entry = compact(rest).length > 1 ? pokemon.exact(rest) : undefined;
   }
   if (!entry) throw unknownText(rest);
   // The rule the screenshot reader decides by too (`bossAtTier`).
@@ -316,11 +323,19 @@ function reportedWithTier(
  * alone is an egg. A tier followed by a name is a boss of that tier, or any Pokémon in it.
  * Otherwise a partial fit of one boss, or the error that names the several it could be. A
  * Pokémon (nicknames included) that is a current boss is that boss; one that is not is
- * explained. Throws a `UserError` that says what would work.
+ * explained. Throws a `UserError` that says what would work. The bosses are those of the server's
+ * `zone` (plan 19A-2; every command and route gives it, a test may leave the instance's default),
+ * the nicknames that server's (`serverId`, plan 19B-4).
  */
-export function reportedBoss(ctx: RaidReading, value: string): ReportedBoss {
+export function reportedBoss(
+  ctx: RaidReading,
+  serverId: string | null,
+  value: string,
+  zone: string,
+): ReportedBoss {
   const text = value.trim();
-  const bosses = ctx.raidBosses.bosses();
+  const pokemon = ctx.pokemon.of(serverId);
+  const bosses = ctx.raidBosses.bosses(zone);
   const [kind, ...parts] = text.split(':');
   if (kind === 'e' && parts.length === 2) {
     const tier = tierFromCode(parts[0], parts[1]);
@@ -342,14 +357,14 @@ export function reportedBoss(ctx: RaidReading, value: string): ReportedBoss {
   // One letter names an Unown form: too little to act on. Judged on the letters, not the text.
   if (compact(text).length < 2) throw unknownText(text);
   if (exact.length > 1) throw couldBe(text, exact);
-  if (typedTier) return reportedWithTier(ctx, bosses, typedTier);
+  if (typedTier) return reportedWithTier(ctx, pokemon, bosses, typedTier);
 
   const fits = partialBosses(bosses, text, bossNames);
   const [first] = fits;
   if (first && fits.length === 1) return chosenBoss(first);
   if (fits.length > 1) throw couldBe(text, fits);
 
-  const entry = ctx.pokemon.exact(text);
+  const entry = pokemon.exact(text);
   if (!entry) throw unknownText(text);
   const named = bosses.filter((boss) => boss.key === entry.key);
   const [one] = named;
@@ -396,11 +411,17 @@ function onePerPokemon(bosses: readonly RaidBoss[]): RaidBoss[] {
  * has them; asked for by themselves, so that a boss far down among everything `s` finds is
  * still first), and then any Pokémon the search finds, in its order (a train may be planned
  * for a boss that is coming); a guess only when its name shows the word that was guessed, as
- * in the list of `/want` (`showsGuessed`). No eggs: a train has no tier.
+ * in the list of `/want` (`showsGuessed`). No eggs: a train has no tier. The search is the
+ * server's (`serverId`, plan 19B-4).
  */
-export function trainBossChoices(ctx: AppContext, typed: string): Choice[] {
+export function trainBossChoices(
+  ctx: AppContext,
+  serverId: string | null,
+  typed: string,
+  zone: string,
+): Choice[] {
   const words = searchTokens(typed);
-  const bosses = onePerPokemon(ctx.raidBosses.bosses());
+  const bosses = onePerPokemon(ctx.raidBosses.bosses(zone));
   const choice = (boss: RaidBoss): Choice => ({
     name: boss.entry?.name ?? boss.name,
     // A boss the game master does not know is found on the list again by its own key.
@@ -410,10 +431,11 @@ export function trainBossChoices(ctx: AppContext, typed: string): Choice[] {
   if (words.length === 0) {
     choices = bosses.map(choice);
   } else {
-    const hits = ctx.pokemon.find(typed, { limit: MAX_CHOICES * 4 });
+    const pokemon = ctx.pokemon.of(serverId);
+    const hits = pokemon.find(typed, { limit: MAX_CHOICES * 4 });
     const byKey = new Map(bosses.flatMap((boss) => (boss.entry ? [[boss.entry.key, boss]] : [])));
     // By its name: not by a word of its form, a key or a number, and not as a guess.
-    const named = ctx.pokemon
+    const named = pokemon
       .find(typed, { filter: (entry) => byKey.has(entry.key) })
       .filter(namedFirst(hits));
     // What the text names in full, boss or not: `mew` is Mew, also while Mewtwo is a boss.
@@ -453,12 +475,20 @@ export function trainBossChoices(ctx: AppContext, typed: string): Choice[] {
  * tier typed before a name is ignored, and a tier alone is refused with `noTier`; only a mega
  * tier word still names the Mega form, as in a raid (`megaEntry`). A current
  * boss is found by its name as in a raid; any other Pokémon is taken when the text names it
- * outright (`ctx.pokemon.exact`), also when it is no boss right now. Throws a `UserError` that
- * says what would work, and never speaks of a raid, a tier to put first or a report.
+ * outright (the server's search, `serverId`: plan 19B-4), also when it is no boss right now.
+ * Throws a `UserError` that says what would work, and never speaks of a raid, a tier to put first
+ * or a report.
  */
-export function trainBoss(ctx: AppContext, value: string, noTier: string): TrainBoss {
+export function trainBoss(
+  ctx: AppContext,
+  serverId: string | null,
+  value: string,
+  noTier: string,
+  zone: string,
+): TrainBoss {
   const text = value.trim();
-  const bosses = ctx.raidBosses.bosses();
+  const pokemon = ctx.pokemon.of(serverId);
+  const bosses = ctx.raidBosses.bosses(zone);
   const [kind, ...parts] = text.split(':');
   if (kind === 'e' && parts.length === 2 && tierFromCode(parts[0], parts[1])) {
     throw new UserError(noTier);
@@ -478,7 +508,7 @@ export function trainBoss(ctx: AppContext, value: string, noTier: string): Train
   const named = (name: string): TrainBoss | undefined => {
     const [boss, ...more] = onePerPokemon(exactBosses(bosses, name, bossFullNames));
     if (boss && more.length === 0) return afterBoss(boss);
-    const entry = compact(name).length > 1 ? ctx.pokemon.exact(name) : undefined;
+    const entry = compact(name).length > 1 ? pokemon.exact(name) : undefined;
     return entry && afterEntry(entry);
   };
   const whole = named(text);
@@ -488,7 +518,7 @@ export function trainBoss(ctx: AppContext, value: string, noTier: string): Train
   // A mega tier word names the Mega form, as in a raid: `mega pikachu` is no Pikachu, and
   // `mega charizard` asks which of two (follow-ups, From Phase 3B).
   if (typedTier && MEGA_LEVELS.includes(typedTier.tier.level)) {
-    return afterEntry(megaEntry(ctx, typedTier.rest));
+    return afterEntry(megaEntry(ctx, pokemon, typedTier.rest));
   }
   // What is left once the words of a tier are gone, also a lone `shadow`.
   const rest = (typedTier ? typedTier.rest : text).replace(/^shadow\s+/i, '');
@@ -513,17 +543,18 @@ export function trainBoss(ctx: AppContext, value: string, noTier: string): Train
 }
 
 /**
- * The gyms a text names, seen from a region channel: the region's own and those just outside it,
- * as `ctx.gyms.search` orders them. When none of them has every word, the search goes on to the
- * other regions of the same server (Matt, 2026-10-11), and what it finds there with every word
- * comes before the guesses from here. Without a region channel all gyms are searched.
+ * The gyms of the server (`gyms`, its view: plan 19B-2) a text names, seen from a region
+ * channel: the region's own and those just outside it, as the search orders them. When none of
+ * them has every word, the search goes on to the server's other gyms (Matt, 2026-10-11), and
+ * what it finds there with every word comes before the guesses from here. Without a region
+ * channel all the server's gyms are searched. Another server's gym is never among them.
  *
- * With `accepts`, only the gyms it accepts count (the gyms of one server, a member's targets):
- * the others are left out before anything is decided, and the step to other regions looks at
- * every gym that is accepted, wherever it lies.
+ * With `accepts`, only the gyms it accepts count (a member's targets): the others are left out
+ * before anything is decided, and the step beyond the region looks at every gym that is
+ * accepted.
  */
 function gymHits(
-  ctx: AppContext,
+  gyms: GymView,
   regionChannelId: string | undefined,
   text: string,
   limit: number,
@@ -532,18 +563,16 @@ function gymHits(
   // With `accepts` every hit is asked for and then narrowed: a limit would be used up by the
   // gyms that do not count.
   const near = accepts
-    ? ctx.gyms
+    ? gyms
         .search(regionChannelId ?? null, text)
         .filter((hit) => accepts(hit.gym))
         .slice(0, limit)
-    : ctx.gyms.search(regionChannelId ?? null, text, { limit });
-  const region = regionChannelId === undefined ? undefined : ctx.regions.byChannel(regionChannelId);
-  if (!region || near.some((hit) => hit.allWords)) return near;
-  const { guildId } = region;
-  const sameServer = (gym: Gym): boolean =>
-    guildId !== null && gymInGuild(ctx.gyms, ctx.regions, gym.id, guildId);
-  const elsewhere = accepts ?? sameServer;
-  const far = ctx.gyms
+    : gyms.search(regionChannelId ?? null, text, { limit });
+  if (regionChannelId === undefined || !gyms.isRegion(regionChannelId)) return near;
+  if (near.some((hit) => hit.allWords)) return near;
+  // Beyond the region: the gyms `accepts` takes, else the server's gyms in its regions.
+  const elsewhere = accepts ?? ((gym: Gym) => gyms.regionsOf(gym.id).length > 0);
+  const far = gyms
     .search(null, text, accepts ? {} : { limit: limit * 4 })
     .filter((hit) => hit.allWords && elsewhere(hit.gym));
   return [...far, ...near].slice(0, limit);
@@ -564,13 +593,13 @@ export function between(first: number, last: number, now: number): string {
 }
 
 /**
- * The choices for the `gym` option: the gyms matching what was typed, the region's own first;
- * while nothing is typed, the region's own gyms by name.
+ * The choices for the `gym` option: the server's gyms (`gyms`, its view) matching what was
+ * typed, the region's own first; while nothing is typed, the region's own gyms by name.
  * `regionName` gives the name of a region channel, to say where a gym of another region lies.
  * `accepts` narrows the list to the gyms it accepts.
  */
 export function gymChoices(
-  ctx: AppContext,
+  gyms: GymView,
   regionChannelId: string | undefined,
   typed: string,
   regionName: (channelId: string) => string | undefined,
@@ -579,15 +608,15 @@ export function gymChoices(
   if (typed.trim() === '') {
     // Nothing typed yet: the region's own gyms by name, as many as a list holds.
     if (regionChannelId === undefined) return [];
-    return ctx.gyms
+    return gyms
       .inRegion(regionChannelId)
       .filter((gym) => accepts?.(gym) ?? true)
       .sort((a, b) => byName(a.name, b.name))
       .slice(0, MAX_CHOICES)
       .map((gym) => ({ name: gymLabel(gym, undefined), value: `g:${String(gym.id)}` }));
   }
-  return gymHits(ctx, regionChannelId, typed, MAX_CHOICES, accepts).map(({ gym, place }) => {
-    const elsewhere = place === 'local' ? undefined : ctx.gyms.regionsOf(gym.id)[0];
+  return gymHits(gyms, regionChannelId, typed, MAX_CHOICES, accepts).map(({ gym, place }) => {
+    const elsewhere = place === 'local' ? undefined : gyms.regionsOf(gym.id)[0];
     const region = elsewhere === undefined ? undefined : regionName(elsewhere);
     return { name: gymLabel(gym, region), value: `g:${String(gym.id)}` };
   });
@@ -615,12 +644,13 @@ export type GymAnswer =
   | { kind: 'none' };
 
 /**
- * The gym the `gym` option names: a choice of the list, or typed text. Typed text is acted on
- * only when exactly one gym has every word as typed; otherwise the best few are offered.
- * With `accepts`, a gym it does not accept is never the answer, picked or typed.
+ * The gym of the server (`gyms`, its view) the `gym` option names: a choice of the list, or
+ * typed text. Typed text is acted on only when exactly one gym has every word as typed;
+ * otherwise the best few are offered. Another server's gym is never the answer, picked or typed
+ * (plan 19B-2), nor is a gym `accepts` does not accept.
  */
 export function reportedGym(
-  ctx: AppContext,
+  gyms: GymView,
   regionChannelId: string | undefined,
   value: string,
   accepts?: (gym: Gym) => boolean,
@@ -628,10 +658,10 @@ export function reportedGym(
   const text = value.trim();
   const picked = /^g:(\d{1,10})$/.exec(text);
   if (picked) {
-    const gym = ctx.gyms.get(Number(picked[1]));
+    const gym = gyms.get(Number(picked[1]));
     return gym && (accepts?.(gym) ?? true) ? { kind: 'gym', gym } : { kind: 'none' };
   }
-  const hits = gymHits(ctx, regionChannelId, text, 5, accepts);
+  const hits = gymHits(gyms, regionChannelId, text, 5, accepts);
   if (hits.length === 0) return { kind: 'none' };
   const clear = clearGymHit(hits);
   if (clear) return { kind: 'gym', gym: clear };
@@ -663,6 +693,7 @@ export function reportedTime(
   reported: ReportedBoss,
   text: string | null,
   now: number,
+  zone: string,
 ): { hatch: number } | { end: number } | undefined {
   const kind = raidDurationKind(reported.tier);
   if (text === null || text.trim() === '') {
@@ -672,7 +703,7 @@ export function reportedTime(
     return undefined;
   }
   const { settings } = ctx.config;
-  const rules = raidDurationRules(settings, ctx.raidEvents.events());
+  const rules = raidDurationRules(settings, ctx.raidEvents.events(zone), zone);
   // A raid reported now hatched at most its own length ago and hatches within the egg time.
   const usual = longestRaidDurations(kind, now, now, rules);
   const durations = longestRaidDurations(
@@ -685,7 +716,7 @@ export function reportedTime(
   const result = resolvePartyTime({
     text,
     now,
-    zone: settings.timezone,
+    zone,
     parameter,
     partyType: 'raid',
     raidKind: kind,
@@ -710,14 +741,14 @@ export function reportedTime(
  * the end of a raid of any tier, it is something other than unreadable (whether it fits the raid
  * is known only once the screenshot was read).
  */
-export function readableTime(ctx: RaidReading, text: string, now: number): boolean {
+export function readableTime(ctx: RaidReading, text: string, now: number, zone: string): boolean {
   const { settings } = ctx.config;
-  const rules = raidDurationRules(settings, ctx.raidEvents.events());
+  const rules = raidDurationRules(settings, ctx.raidEvents.events(zone), zone);
   return (['hatch', 'end'] as const).some((parameter) => {
     const result = resolvePartyTime({
       text,
       now,
-      zone: settings.timezone,
+      zone,
       parameter,
       partyType: 'raid',
       raidKind: 'standard',
@@ -749,10 +780,11 @@ export function typedPartyTime(
   parameter: 'hatch' | 'end' | 'meet',
   text: string,
   now: number,
+  zone: string,
 ): { at: number } | 'unset' {
   const { settings } = ctx.config;
   const kind = raidKindOf(party);
-  const rules = raidDurationRules(settings, ctx.raidEvents.events());
+  const rules = raidDurationRules(settings, ctx.raidEvents.events(zone), zone);
   // Every moment the egg can hatch or have hatched: from a raid's length before the report (or
   // before now) to the end of the egg time after it.
   const usual = longestRaidDurations(kind, party.createdAt, party.createdAt, rules);
@@ -765,7 +797,7 @@ export function typedPartyTime(
   const result = resolvePartyTime({
     text,
     now,
-    zone: settings.timezone,
+    zone,
     parameter,
     partyType: 'raid',
     raidKind: kind,

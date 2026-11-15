@@ -34,6 +34,7 @@ import { EXPIRED, NOT_YOURS, PendingRequests } from '../../services/pending-requ
 import { PINE_STOP_NEAR_METRES } from '../../services/pine-stops.js';
 import { beginningFirst, CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import { LOCATION_OPTION, placeOrRefuse, pointLink } from '../gyms/shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** The custom-id kind of the question of `/pokestop add`: `pokestop:<token>:add|cancel`. */
 export const POKESTOP_KIND = 'pokestop';
@@ -169,11 +170,11 @@ const addStop: SubcommandPart = {
         .setMaxLength(MAX_PINE_STOP_ADDRESS),
     ),
   help: {
-    details: (settings) =>
+    details: (_settings, facts) =>
       'Adds a PokéStop that the Wayfarer export does not have (sponsored stops are missing there) ' +
       'to this server. `at` is the link Pokémon GO shares for the stop, a maps link or ' +
       'coordinates; it must lie in a region of this server.\n\nMembers then find it wherever a ' +
-      `PokéStop is asked for. Within ${distanceWords(PINE_STOP_NEAR_METRES, settings.distanceUnits)} of another ` +
+      `PokéStop is asked for. Within ${distanceWords(PINE_STOP_NEAR_METRES, facts?.server?.distanceUnits ?? 'imperial')} of another ` +
       'PokéStop I ask before adding it: it may be listed already.',
     examples: ['/pokestop add name:Coffee Corner at:40.4406, -79.9959 address:12 Market Street'],
   },
@@ -188,7 +189,7 @@ const addStop: SubcommandPart = {
       interaction.options.getString('at', true),
     );
     const serverId = guildIdOf(interaction);
-    const near = ctx.pineStops.nearStops(point, serverId);
+    const near = await ctx.pineStops.nearStops(point, serverId);
     if (near.length === 0) {
       const stop = await ctx.pineStops.add({
         serverId,
@@ -202,12 +203,12 @@ const addStop: SubcommandPart = {
       await answerApart(interaction, addedMessage(stop, regions));
       return;
     }
-    const token = pendingStops.put(interaction.user.id, { serverId, name, point, address });
+    const token = pendingStops.put(interaction, { serverId, name, point, address });
     const listed = near
       .slice(0, NEAR_SHOWN)
       .map(
         ({ wayspot, metres }) =>
-          `- **${plain(truncate(wayspot.title, 80))}**, ${distanceWords(metres, ctx.config.settings.distanceUnits)} away`,
+          `- **${plain(truncate(wayspot.title, 80))}**, ${distanceWords(metres, serverValuesOf(interaction, ctx).distanceUnits)} away`,
       );
     await answerApart(
       interaction,
@@ -217,9 +218,9 @@ const addStop: SubcommandPart = {
           `Add the PokéStop **${plain(name)}** at ${pointLink(point)}?`,
           [
             near.length === 1
-              ? `A PokéStop lies within ${distanceWords(PINE_STOP_NEAR_METRES, ctx.config.settings.distanceUnits)} of that place:`
+              ? `A PokéStop lies within ${distanceWords(PINE_STOP_NEAR_METRES, serverValuesOf(interaction, ctx).distanceUnits)} of that place:`
               : `${count(near.length, 'PokéStop')} lie within ` +
-                `${distanceWords(PINE_STOP_NEAR_METRES, ctx.config.settings.distanceUnits)} of that place:`,
+                `${distanceWords(PINE_STOP_NEAR_METRES, serverValuesOf(interaction, ctx).distanceUnits)} of that place:`,
             ...listed,
             ...(near.length > NEAR_SHOWN ? [`- …and ${near.length - NEAR_SHOWN} more`] : []),
           ].join('\n'),
@@ -397,7 +398,7 @@ export const pokestopControls: ComponentHandler = {
   guards: [requireBotManagement],
   async button(interaction, id, ctx) {
     if (id.action !== 'add' && id.action !== 'cancel') throw new UserError(STALE_COMPONENT);
-    const taken = pendingStops.take(id.id, interaction.user.id);
+    const taken = pendingStops.take(id.id, interaction);
     if (taken === 'expired') throw new UserError(EXPIRED);
     if (taken === 'not-yours') throw new UserError(NOT_YOURS);
     const request = taken.value;

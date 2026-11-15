@@ -1,3 +1,6 @@
+import { RecordingNotices } from './server-notices.js';
+import { standingsWith } from './server-standings.js';
+import type { ServerAdmission } from '../../src/services/server-admission.js';
 import type { Kysely } from 'kysely';
 import type { AppContext } from '../../src/app-context.js';
 import { Throttles } from '../../src/discord/throttle.js';
@@ -8,6 +11,9 @@ import type { DB } from '../../src/db/types.js';
 import type { AttendanceService } from '../../src/services/attendance-service.js';
 import type { GymAdminService } from '../../src/services/gym-admin-service.js';
 import type { PokemonNicknames } from '../../src/services/pokemon-search-service.js';
+import type { ModeratorsLabPoster } from '../../src/services/moderators-lab.js';
+import type { ServerInvites, ServerNeighbors } from '../../src/services/server-neighbors.js';
+import type { NeighborCopy } from '../../src/services/neighbor-copy.js';
 import type { RaidBossAdmin } from '../../src/services/raid-boss-service.js';
 import type { PartyService } from '../../src/services/party-service.js';
 import { PlaceFinder } from '../../src/services/place-finder.js';
@@ -31,7 +37,6 @@ import type { TrainService } from '../../src/services/train-service.js';
 import type { WayfarerImportService } from '../../src/services/wayfarer-import-service.js';
 import type { WayfarerReviewService } from '../../src/services/wayfarer-review-service.js';
 import { FakeAttachments } from './attachments.js';
-import { FAKE_GUILD_ID } from './fake-interactions.js';
 import { catalogueFixture } from './game-data.js';
 import { FakeMemberDirectory } from './members.js';
 import { RecordingDms } from './dms.js';
@@ -42,7 +47,13 @@ import { noParties } from './parties.js';
 import { FakeIssues } from './issues.js';
 import { FakePokebattler } from './pokebattler.js';
 import { FakePlaces } from './places.js';
-import { gymsFixture, mapsFixture, pokemonFixture, regionsFixture } from './providers.js';
+import {
+  gymsFixture,
+  mapsFixture,
+  pokemonFindersFixture,
+  regionsFixture,
+  testGuildRowOf,
+} from './providers.js';
 import { MemoryGoogleUse } from '../../src/services/google-use.js';
 import { MapBudget } from '../../src/services/map-budget.js';
 import type { MaxBossAdmin, MaxBossProvider } from '../../src/services/max-boss-service.js';
@@ -56,6 +67,7 @@ import { rocketLineupsFixture } from './rocket.js';
 import { selfRolesWith } from './roles.js';
 import { createTestLogger } from './test-logger.js';
 import { TEST_SETTINGS_PATH } from './test-settings.js';
+import { TestServers } from './server-values.js';
 import { MemoryGymTargets } from './gym-targets.js';
 import { TEST_ENV } from './test-env.js';
 import { unavailableReader } from './screenshots.js';
@@ -73,10 +85,13 @@ import { MemoryMeetupSafety } from './meetup-safety.js';
 import { ModerationReports } from '../../src/services/moderation-reports.js';
 import { MemoryReports } from './reports.js';
 import { MemoryPartyAudit } from './party-audit.js';
+import { MemoryServerSettingsAudit } from './server-settings-audit.js';
+import type { ServerSettingsAuditReader } from '../../src/db/repositories/server-settings-audit-repository.js';
 import { MemoryScriptAccess } from './script-access.js';
 import { ScriptAccessService } from '../../src/services/script-access-service.js';
 import type { MemberRemoval } from '../../src/services/member-removal.js';
 import { MemberNames } from '../../src/services/member-names.js';
+import { ServerSetup, setupCounts } from '../../src/services/server-setup.js';
 
 export { TEST_SETTINGS_PATH };
 
@@ -107,6 +122,18 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
   const gameData = overrides.gameData ?? { catalogue: catalogueFixture() };
   const ctx: AppContext = {
     config: { settings: loadSettings(TEST_SETTINGS_PATH), env: loadEnv(TEST_ENV) },
+    // Every server has the test settings' values (`testServerValues`), unless a test passes its own.
+    servers: new TestServers(),
+    // The test server and the second were recorded at the upgrade (plan 19C-1), unless a test
+    // passes its own (`standingsWith`).
+    standings: standingsWith({ log }).standings,
+    // No server can be left; a test of `/operator servers` passes its own (`admissionWith`).
+    admission: unavailable<Pick<ServerAdmission, 'remove' | 'allow' | 'unblock'>>(
+      'admission',
+      'pass { admission } from admissionWith() (test/support/server-admission.ts)',
+    ),
+    // No party was recorded in any server.
+    lastParties: { lastPartyAt: () => Promise.resolve(new Map()) },
     log,
     db: {} as Kysely<DB>,
     commands: [],
@@ -169,8 +196,9 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     ),
     // No attachment can be downloaded; a test passes its own with files.
     attachments: new FakeAttachments(),
-    // The invented regions belong to the guild of row 1, the server of the fake interactions.
-    guilds: { idFor: (snowflake) => Promise.resolve(snowflake === FAKE_GUILD_ID ? 1 : undefined) },
+    // The invented regions belong to the guild of row 1, the server of the fake interactions; the
+    // second server of the tests (`OTHER_GUILD_ID`) is row 2, so that both have rows.
+    guilds: { idFor: (snowflake) => Promise.resolve(testGuildRowOf(snowflake)) },
     // What a router over this context counts in, unless a test gives it its own.
     throttles: new Throttles(),
     parties: noParties(),
@@ -187,6 +215,9 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     historyOptIns: new MemoryHistoryOptIns(),
     // Nothing is logged; a test passes the log of partyServiceWith() (`auditStore`) or its own.
     partyAudit: new MemoryPartyAudit(),
+    // The log of the servers' settings: that of the context's servers (`TestServers.audit`)
+    // unless a test passes its own (below).
+    serverSettingsAudit: new MemoryServerSettingsAudit(),
     // Nobody asked for their legacy history, and there is no member index (plan 8H-10); a test
     // passes its own (`MemoryLegacyFillIns` over its opt-ins, `MemoryLegacyIndex`).
     legacyFillIns: new MemoryLegacyFillIns(),
@@ -238,12 +269,14 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     // Off, as the test settings have no moderators' channel; a test of meetup safety passes its
     // own from meetupSafetyWith().
     meetupSafety: undefined as unknown as MeetupSafety,
+    // Over the context's servers, regions and gyms (below), unless a test passes its own.
+    setup: undefined as unknown as ServerSetup,
     // Over the context's own party service (below), unless a test passes its own.
     reports: undefined as unknown as ModerationReports,
     // Every click is answered by itself; a test of bursts passes its own with a window.
     clickAnswers: new ClickAnswers({ log, windowMs: 0 }),
     // Searches the catalogue of the context's own game data, built when first used.
-    pokemon: pokemonFixture(gameData),
+    pokemon: pokemonFindersFixture(gameData),
     nicknames: unavailable<PokemonNicknames>(
       'nicknames',
       'pass { pokemon: search, nicknames: search } from nicknameSearchWith()',
@@ -255,6 +288,20 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     loginLinks: new LoginLinks(),
     // Every issue is recorded and opened; a test passes its own to read or fail them.
     issues: new FakeIssues(),
+    moderatorsLab: unavailable<ModeratorsLabPoster>(
+      'moderatorsLab',
+      'pass a ModeratorsLab over a FakePartyGateway with the lab channel',
+    ),
+    neighbors: unavailable<ServerNeighbors>(
+      'neighbors',
+      'pass { neighbors } from neighborsWith() (test/support/server-neighbors.ts)',
+    ),
+    // No invite leads anywhere; a test passes its own (`invitesTo`).
+    invites: { serverOfInvite: () => Promise.resolve(undefined) } satisfies ServerInvites,
+    neighborCopy: unavailable<Pick<NeighborCopy, 'copy' | 'busy'>>(
+      'neighborCopy',
+      'pass { neighborCopy: made.copy } from neighborCopyWith() (test/support/neighbor-gyms.ts)',
+    ),
     // Every simulation is asked of a fake that answers the sample for Mewtwo; a test passes its own.
     pokebattler: new FakePokebattler(),
     // No place is found by name; a test passes its own with places.
@@ -299,6 +346,8 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       store: ctx.parties,
       guilds: ctx.guilds,
       settings: ctx.config.settings,
+      servers: ctx.servers,
+      notices: new RecordingNotices(),
       log,
     });
   }
@@ -317,6 +366,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       regions: ctx.regions,
       gyms: ctx.gyms,
       settings: ctx.config.settings,
+      servers: ctx.servers,
       log,
     });
   }
@@ -330,6 +380,20 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       log,
     });
   }
+  if (overrides.setup === undefined) {
+    // A server's setup over the context's servers, regions and gyms (plan 19C-2); its bot lab
+    // takes no message (a test of the leaving passes its own `ServerSetup`).
+    (ctx as { setup: AppContext['setup'] }).setup = new ServerSetup({
+      servers: ctx.servers,
+      counts: setupCounts(ctx),
+      send: () => Promise.reject(new Error('this test context posts in no bot lab')),
+      log,
+    });
+  }
+  if (overrides.serverSettingsAudit === undefined && ctx.servers instanceof TestServers) {
+    (ctx as { serverSettingsAudit: ServerSettingsAuditReader }).serverSettingsAudit =
+      ctx.servers.audit;
+  }
   if (overrides.wantBoxes === undefined) {
     (ctx as { wantBoxes: WantBoxStorage }).wantBoxes = new MemoryWantBoxes(
       ctx.wants,
@@ -340,7 +404,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     (ctx as { stopReports: StopReportService }).stopReports = new StopReportService({
       store: new MemoryStopReports(),
       events: ctx.raidEvents,
-      zone: ctx.config.settings.timezone,
+      zoneOf: (serverId) => ctx.servers.zoneOf(serverId),
       log,
       rewardHash: (reward) => rewardHash(reward, ctx.gameData.catalogue),
     });
@@ -364,7 +428,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       wayspots:
         wayspots instanceof WayspotDirectory
           ? wayspots
-          : { near: (...args) => wayspots.near(...args), setPineStops: () => undefined },
+          : { of: (guildId) => wayspots.of(guildId), setPineStops: () => undefined },
       guilds: ctx.guilds,
       log,
     });

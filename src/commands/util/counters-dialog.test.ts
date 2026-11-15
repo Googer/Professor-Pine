@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   asV2,
   checkModal,
+  FAKE_GUILD_ID,
   fakeButton,
   fakeChatInput,
   fakeModal,
@@ -10,7 +11,8 @@ import {
   type FakeInteraction,
   type FakeOptions,
 } from '../../../test/support/fake-interactions.js';
-import { WEST_FORUM } from '../../../test/support/gyms.js';
+import { OTHER_GUILD_ID, WEST_FORUM } from '../../../test/support/gyms.js';
+import { NOT_YOURS } from '../../services/pending-requests.js';
 import { buttonsOf, textDisplays } from '../../../test/support/messages.js';
 import { ALICE, BOB } from '../../../test/support/parties.js';
 import { reportedMax, reportedRaid } from '../../../test/support/party-service.js';
@@ -86,9 +88,10 @@ async function setup(options: { inPost?: boolean; bossNamed?: string } = {}) {
   ) => {
     // The form the bot shows this member, so that the submit is checked against its real inputs
     // (none where the options are no longer kept: the submit then names its inputs itself).
-    const shown = (await open(token, userId)).showModal.mock.calls[0]?.[0];
+    const shown = (await open(token, userId)).showModal.mock.calls[0]?.[0] as
+      { custom_id: string } | undefined;
     const form = fakeModal({
-      customId: `counters:${token}:dialog`,
+      customId: shown?.custom_id ?? `counters:${token}:dialog:${userId}`,
       userId,
       askedBy: ALICE,
       ...(shown === undefined ? {} : { form: shown }),
@@ -128,14 +131,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/** The options kept under a token, asked from the test server, where the answers are given. */
+const keptHere = (token: string) => keptCounters.of(token, { guildId: FAKE_GUILD_ID });
+
 describe('/counters: Change options…', () => {
   it('takes a kept mega from the game data once the game data has it, with its moves', async () => {
     const made = await setup();
-    const token = keptCounters.keep({
-      ...keptCountersValue(),
-      bossKey: 'blastoise_mega',
-      bossName: 'Mega Blastoise',
-    });
+    const token = keptCounters.keep(
+      { ...keptCountersValue(), bossKey: 'blastoise_mega', bossName: 'Mega Blastoise' },
+      FAKE_GUILD_ID,
+    );
     const form = formOf(await made.open(token, ALICE));
     expect(form.title).toBe('Counters for Mega Blastoise');
     expect(valuesIn(form, 'Boss moves').length).toBeGreaterThan(1);
@@ -160,7 +165,7 @@ describe('/counters: Change options…', () => {
     const second = await made.ask();
     expect(first.optionsId).toMatch(/^counters:[0-9a-f]{16}:options$/);
     expect(second.token).not.toBe(first.token);
-    expect(keptCounters.get(first.token)).toMatchObject({
+    expect(keptHere(first.token)).toMatchObject({
       kind: 'raid',
       bossKey: 'mewtwo',
       tier: { level: 'T5', shadow: false },
@@ -182,7 +187,8 @@ describe('/counters: Change options…', () => {
     const press = await made.open(token, BOB);
     expect(press.deferReply).not.toHaveBeenCalled();
     const form = formOf(press);
-    expect(form.custom_id).toBe(`counters:${token}:dialog`);
+    // The answer's options, in a dialog that names the member who opened it (plan 19B-4).
+    expect(form.custom_id).toBe(`counters:${token}:dialog:${BOB}`);
     expect(form.title).toBe('Counters for Mewtwo');
     expect(form.components.map((component) => component.label)).toEqual([
       'Attackers',
@@ -276,14 +282,14 @@ describe('/counters: Change options…', () => {
       ?.customId?.split(':')[1];
     expect(newToken).toBeDefined();
     expect(newToken).not.toBe(token);
-    expect(keptCounters.get(newToken ?? '')).toMatchObject({
+    expect(keptHere(newToken ?? '')).toMatchObject({
       askerId: ALICE,
       partyId: made.raid?.party.id,
       shadow: true,
       weather: 'WINDY',
     });
     // The old token stays good for its own message.
-    expect(keptCounters.get(token)).toMatchObject({ weather: 'NO_WEATHER' });
+    expect(keptHere(token)).toMatchObject({ weather: 'NO_WEATHER' });
   });
 
   it('gives anybody else a private copy and leaves the public answer alone', async () => {
@@ -297,7 +303,7 @@ describe('/counters: Change options…', () => {
     const copyToken = buttonsOf(copy)
       .find((b) => b.label === 'Change options…')
       ?.customId?.split(':')[1];
-    expect(keptCounters.get(copyToken ?? '')).toMatchObject({ askerId: BOB, partyId: null });
+    expect(keptHere(copyToken ?? '')).toMatchObject({ askerId: BOB, partyId: null });
   });
 
   it('shows a Pokébox privately only, also to the asker of a public answer', async () => {
@@ -370,7 +376,7 @@ describe('/counters: Change options…', () => {
     const made = await setup();
     const { token } = await made.ask();
     const form = fakeModal({
-      customId: `counters:${token}:dialog`,
+      customId: `counters:${token}:dialog:${BOB}`,
       userId: BOB,
       askedBy: ALICE,
       selected: {
@@ -451,7 +457,7 @@ describe('/counters: Change options…', () => {
   it('selects the average for a kept moveset the boss no longer has', async () => {
     const made = await setup();
     const { token } = await made.ask();
-    const kept = keptCounters.get(token);
+    const kept = keptHere(token);
     const entry = made.ctx.gameData.catalogue.byKey('mewtwo');
     if (!kept || isKeptMax(kept) || !entry) throw new Error('nothing kept');
     const form = countersDialog(
@@ -463,6 +469,72 @@ describe('/counters: Change options…', () => {
     ) as unknown as Form;
     checkModal(form);
     expect(selectedIn(form, 'Boss moves')).toEqual(['average']);
+  });
+
+  // Plan 19B-4: the options of an answer are of the server it was given in; the dialog of
+  // Change options… is of the member who opened it.
+  it('takes no options of an answer of another server: they are no longer kept there', async () => {
+    const made = await setup();
+    const { token } = await made.ask();
+    const abroad = await made.open(token, ALICE, { guildId: OTHER_GUILD_ID });
+    expect(abroad.showModal).not.toHaveBeenCalled();
+    expect(sent(abroad.reply).content).toBe(NOT_KEPT);
+    const dialog = formOf(await made.open(token, ALICE));
+    const submitted = fakeModal({
+      customId: dialog.custom_id,
+      userId: ALICE,
+      askedBy: ALICE,
+      form: dialog,
+      selected: {
+        attackers: ['40'],
+        weather: ['NO_WEATHER'],
+        friendship: ['4'],
+        moveset: ['average'],
+      },
+      checked: { also: [] },
+      guildId: OTHER_GUILD_ID,
+    });
+    await made.router.handle(submitted as never);
+    expect(sent(submitted.reply).content).toBe(NOT_KEPT);
+    expect(made.pokebattler.asked).toHaveLength(1);
+  });
+
+  it('keeps nothing for a press of Change options…, however often it is pressed', async () => {
+    const made = await setup({ inPost: true });
+    const { token } = await made.ask();
+    const kept = keptCounters.size;
+    for (const userId of [ALICE, BOB, ALICE, BOB, BOB]) await made.open(token, userId);
+    expect(keptCounters.size).toBe(kept);
+  });
+
+  it('takes the Submit of a dialog only from the member who opened it', async () => {
+    const made = await setup({ inPost: true });
+    const { token } = await made.ask();
+    // Bob may open the dialog of Alice's answer; what he opened is his.
+    const dialog = formOf(await made.open(token, BOB));
+    const submitted = (userId: string) =>
+      fakeModal({
+        customId: dialog.custom_id,
+        userId,
+        askedBy: ALICE,
+        form: dialog,
+        selected: {
+          attackers: ['40'],
+          weather: ['NO_WEATHER'],
+          friendship: ['0'],
+          moveset: ['average'],
+        },
+        checked: { also: [] },
+        channelId: made.raid?.postId ?? '',
+        thread: { parentId: WEST_FORUM },
+      });
+    const byAlice = submitted(ALICE);
+    await made.router.handle(byAlice as never);
+    expect(sent(byAlice.reply).content).toBe(NOT_YOURS);
+    expect(made.pokebattler.asked).toHaveLength(1);
+    const byBob = submitted(BOB);
+    await made.router.handle(byBob as never);
+    expect(settingsOf(asV2(sent(byBob.editReply)))).toContain('not friends');
   });
 
   it('says the options are no longer kept after a day, or after a restart', async () => {
@@ -481,12 +553,14 @@ describe('KeptCounterOptions', () => {
     let now = 0;
     const kept = new KeptCounterOptions({ max: 2, ttlMs: 1_000, now: () => now });
     const value = keptCountersValue();
-    const a = kept.keep(value);
-    const b = kept.keep(value);
-    const c = kept.keep(value);
-    expect([kept.get(a), kept.get(b), kept.get(c)].map(Boolean)).toEqual([false, true, true]);
+    const a = kept.keep(value, FAKE_GUILD_ID);
+    const b = kept.keep(value, FAKE_GUILD_ID);
+    const c = kept.keep(value, FAKE_GUILD_ID);
+    const here = (token: string) => kept.of(token, { guildId: FAKE_GUILD_ID });
+    expect([here(a), here(b), here(c)].map(Boolean)).toEqual([false, true, true]);
+    expect(kept.of(c, { guildId: OTHER_GUILD_ID })).toBeUndefined();
     now = 1_000;
-    expect(kept.get(c)).toBeUndefined();
+    expect(here(c)).toBeUndefined();
   });
 });
 
@@ -564,7 +638,7 @@ describe('/counters: Change options… under a max battle team', () => {
     const made = await maxSetup();
     const shown = (await made.open(ALICE)).showModal.mock.calls[0]?.[0];
     const form = fakeModal({
-      customId: `counters:${made.token}:dialog`,
+      customId: `counters:${made.token}:dialog:${ALICE}`,
       userId: ALICE,
       askedBy: ALICE,
       form: shown,
@@ -586,7 +660,7 @@ describe('/counters: Change options… under a max battle team', () => {
     const newToken = buttonsOf(changed)
       .find((b) => b.label === 'Change options…')
       ?.customId?.split(':')[1];
-    expect(keptCounters.get(newToken ?? '')).toMatchObject({
+    expect(keptHere(newToken ?? '')).toMatchObject({
       kind: 'max',
       role: 'shielder',
       level: '30',
@@ -600,7 +674,7 @@ describe('/counters: Change options… under a max battle team', () => {
     const made = await maxSetup();
     const shown = (await made.open(BOB)).showModal.mock.calls[0]?.[0];
     const form = fakeModal({
-      customId: `counters:${made.token}:dialog`,
+      customId: `counters:${made.token}:dialog:${BOB}`,
       userId: BOB,
       askedBy: ALICE,
       form: shown,
@@ -616,7 +690,7 @@ describe('/counters: Change options… under a max battle team', () => {
     const copyToken = buttonsOf(copy)
       .find((b) => b.label === 'Change options…')
       ?.customId?.split(':')[1];
-    expect(keptCounters.get(copyToken ?? '')).toMatchObject({
+    expect(keptHere(copyToken ?? '')).toMatchObject({
       kind: 'max',
       askerId: BOB,
       partyId: null,
@@ -627,7 +701,7 @@ describe('/counters: Change options… under a max battle team', () => {
     const made = await maxSetup();
     const forged = async (selected: Record<string, string[]>) => {
       const form = fakeModal({
-        customId: `counters:${made.token}:dialog`,
+        customId: `counters:${made.token}:dialog:${ALICE}`,
         userId: ALICE,
         askedBy: ALICE,
         selected: {
@@ -652,7 +726,7 @@ describe('/counters: Change options… under a max battle team', () => {
     const shown = (await made.open(ALICE)).showModal.mock.calls[0]?.[0];
     for (let i = 0; i < 2; i += 1) {
       const form = fakeModal({
-        customId: `counters:${made.token}:dialog`,
+        customId: `counters:${made.token}:dialog:${ALICE}`,
         userId: ALICE,
         askedBy: ALICE,
         form: shown,

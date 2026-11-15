@@ -1,5 +1,7 @@
 import type { V2Message } from '../discord/party-gateway.js';
 import type { AuditRecord } from '../db/repositories/party-audit-repository.js';
+import type { SettingsAuditRecord } from '../db/repositories/server-settings-audit-repository.js';
+import { changeWords } from './server-settings.js';
 import type { AuditEntry } from '../domain/party/audit.js';
 import { partyWord, type PartyType } from '../domain/party/party.js';
 import { TRAIN_KIND_WORDS } from '../domain/web/party-data.js';
@@ -166,8 +168,14 @@ export function auditLine(record: AuditRecord, now: number): string {
   return `${clockOrDate(record.at, now)} ${actorOf(record)} ${auditWords(entry, now)}.`;
 }
 
-/** The newest of `lines` that fit `room` and `AUDIT_LINES`, oldest first, and how many did not. */
-function fitted(lines: readonly string[], room: number): { kept: string[]; dropped: number } {
+/**
+ * The newest of `lines` that fit `room` and `AUDIT_LINES`, oldest first, and how many did not
+ * (also `/admin settings`' Recent changes, plan 19A-1).
+ */
+export function fitted(
+  lines: readonly string[],
+  room: number,
+): { kept: string[]; dropped: number } {
   const kept: string[] = [];
   let left = room;
   for (const line of [...lines].reverse()) {
@@ -182,7 +190,7 @@ function fitted(lines: readonly string[], room: number): { kept: string[]; dropp
  * The one line that says what is not shown: `-# …and 3 earlier changes`; with `more` (there are
  * older ones than were read) `-# …and more than 3 earlier changes`, or `-# …and earlier changes`.
  */
-function earlierLine(dropped: number, more = false): string | undefined {
+export function earlierLine(dropped: number, more = false): string | undefined {
   if (more) {
     return dropped === 0
       ? '-# …and earlier changes'
@@ -220,21 +228,40 @@ export function postAuditMessage(records: readonly AuditRecord[], now: number): 
   return textMessage(LIST_COLOUR, [heading, shown.join('\n')]);
 }
 
-/** `/audit member:`: the member's newest entries in this server, each with its post. */
+/**
+ * `/audit member:`: the member's newest entries in this server, each with its post, and their
+ * changes of the server's settings among them (plan 19A-1), all by time (oldest first, the
+ * newest `AUDIT_LINES`); `more`: there are older ones than were read.
+ */
 export function memberAuditMessage(
   member: NamedMember,
   records: readonly AuditRecord[],
   now: number,
   more: boolean,
+  settings: readonly SettingsAuditRecord[] = [],
 ): V2Message {
   const heading = `### Changes by ${memberText(member)}`;
-  if (records.length === 0) {
+  if (records.length === 0 && settings.length === 0) {
     return textMessage(LIST_COLOUR, [heading, 'Nothing is logged for this member.']);
   }
-  const lines = records.map((record) => {
-    const where = record.postId === null ? '' : ` in <#${record.postId}>`;
-    return `${clockOrDate(record.at, now)}${where}: ${auditWords(record.entry, now)}.`;
-  });
+  const timed = [
+    ...records.map((record) => {
+      const where = record.postId === null ? '' : ` in <#${record.postId}>`;
+      return {
+        at: record.at,
+        line: `${clockOrDate(record.at, now)}${where}: ${auditWords(record.entry, now)}.`,
+      };
+    }),
+    ...settings.map((record) => ({
+      at: record.at,
+      line: `${clockOrDate(record.at, now)} in the server’s settings: ${changeWords(record)}.`,
+    })),
+  ];
+  // By time, a party's entry before a setting's of the same moment (a stable sort).
+  const lines = timed
+    .sort((a, b) => a.at - b.at)
+    .slice(-AUDIT_LINES)
+    .map((entry) => entry.line);
   const { kept, dropped } = fitted(lines, LINES_ROOM);
   const shown = [earlierLine(dropped, more), ...kept].filter((line) => line !== undefined);
   return textMessage(LIST_COLOUR, [heading, shown.join('\n')]);

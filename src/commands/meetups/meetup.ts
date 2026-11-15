@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   MessageFlags,
   SlashCommandBuilder,
@@ -180,19 +181,27 @@ async function readAsked(
     MEETUP_PLACES,
   );
   if (place === undefined) throw new UserError('Say where it is with `near`.');
+  // The server's zone (plan 19A-2): the start and the end are its member's clock.
+  const zone = zoneOf(interaction, ctx);
   const typed = typedTimedTime(
     ctx,
     newPartyTimes('meetup', now),
     'meet',
     interaction.options.getString('start') ?? '',
     now,
+    zone,
   );
   if (typed === 'unset') {
-    throw new UserError(
-      `Give the time the meetup starts. ${timedTimeHint(now, ctx.config.settings.timezone)}`,
-    );
+    throw new UserError(`Give the time the meetup starts. ${timedTimeHint(now, zone)}`);
   }
-  const endTime = typedNewEnd(ctx, 'meetup', typed.at, interaction.options.getString('end'), now);
+  const endTime = typedNewEnd(
+    ctx,
+    'meetup',
+    typed.at,
+    interaction.options.getString('end'),
+    now,
+    zone,
+  );
   // The block is read above: not again.
   const verdict = await ctx.meetupSafety.verdict({
     serverId,
@@ -315,7 +324,7 @@ export const meetup: SimpleCommand = {
     if (regionChannelId === undefined) throw new UserError(FROM_A_REGION);
     const asked = readings.get(interaction) ?? (await readAsked(interaction, ctx, Date.now()));
     readings.delete(interaction);
-    const token = pending.put(interaction.user.id, {
+    const token = pending.put(interaction, {
       serverId: guildIdOf(interaction),
       regionChannelId,
       name: interaction.options.getString('name', true),
@@ -346,7 +355,7 @@ export const meetupFormControls: ComponentHandler = {
   kind: MEETUP_KIND,
   guards: [requireGuild],
   carriesOn: (interaction, id) => {
-    const asked = pending.peek(id.id, interaction.user.id);
+    const asked = pending.peek(id.id, interaction);
     return typeof asked === 'object'
       ? { ...MEETUP_THROTTLE, as: MEETUP_NAME, countedAt: asked.value.openedAt }
       : undefined;
@@ -355,7 +364,7 @@ export const meetupFormControls: ComponentHandler = {
   async modal(interaction, id, ctx) {
     if (id.action !== 'form') throw new UserError(STALE_COMPONENT);
     const text = interaction.fields.getTextInputValue(INFO_INPUT);
-    const taken = pending.take(id.id, interaction.user.id);
+    const taken = pending.take(id.id, interaction);
     if (taken === 'expired' || taken === 'not-yours') {
       throw new UserError(refusedWithText(EXPIRED, text));
     }

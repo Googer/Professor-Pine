@@ -120,7 +120,8 @@ export async function seedStep(args: readonly string[], deps: SeedStepDeps): Pro
           region.bounds !== null && ringContains(region.bounds, point) ? [region.channelId] : [],
         ),
       nearestStop: (point) => {
-        const [nearest] = pineStops.nearStops(point, server);
+        // The server's own stops alone (plan 19B-3): its kept ones and its stops of Pine's own.
+        const [nearest] = wayspots.of(guildRow).near(point, PINE_STOP_NEAR_METRES, ['stop']);
         return nearest && { name: nearest.wayspot.title, metres: nearest.metres };
       },
     },

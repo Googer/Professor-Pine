@@ -18,6 +18,8 @@ import { messageSubject, newReport, partySubject } from '../../test/support/repo
 import { eggReading } from '../../test/support/screenshots.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { sessionId, storedSession } from '../../test/support/web-session-cases.js';
+import { indexRouteGyms } from '../db/migrations/2026_11_13_056_gym_servers.js';
+import { DmContactRepository } from '../db/repositories/dm-contact-repository.js';
 import { HistoryRepository } from '../db/repositories/history-repository.js';
 import { MeetupSafetyRepository } from '../db/repositories/meetup-safety-repository.js';
 import {
@@ -89,7 +91,7 @@ function shot(senderId: string, refused = false): NewScreenshot {
   };
 }
 
-describe('MemberRemoval over the database and the folders (plan 8G, `/admin forget`)', () => {
+describe('MemberRemoval over the database and the folders (plan 8G, `/operator forget`)', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
   let users: UserRepository;
@@ -185,6 +187,8 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       await sql`insert into SavedRoutes (userId, name, region, gyms)
                 values (${userId}, 'Loop', ${guild}, '1,2')`.execute(db);
     }
+    // The gyms of the routes beside them (migration 056).
+    await indexRouteGyms(db);
     for (const server of [HOME, AWAY]) {
       await new NewTrainRepository(db).set(member, server, true, NOW);
       await new UnownGiftRepository(db).record(member, server, NOW);
@@ -220,14 +224,23 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       .execute();
     // Two web logins and a row of access to the export tool.
     const sessions = new WebSessionRepository(db);
-    await sessions.create({ ...storedSession(sessionId(n * 16 + 1), NOW, member), userName: name });
-    await sessions.create({ ...storedSession(sessionId(n * 16 + 2), NOW, member), userName: name });
+    // The first by Discord, with the servers it read (final review R4-1); the second by a link.
+    await sessions.create(
+      { ...storedSession(sessionId(n * 16 + 1), NOW, member), userName: name, serversListed: true },
+      [HOME, AWAY],
+    );
+    await sessions.create(
+      { ...storedSession(sessionId(n * 16 + 2), NOW, member), userName: name },
+      [HOME],
+    );
     await new ScriptAccessRepository(db).ask({
       userId: member,
       name,
       community: `${name}’s raiders`,
       at: NOW,
     });
+    // Pine has sent them a direct message (plan 19B-5).
+    await new DmContactRepository(db).add(member, NOW);
     // A report they made, and one about a message they wrote.
     await reports.addReport(newReport(n * 10 + 1, partySubject({ partyId: requestId(700 + n) })), {
       reporterId: member,
@@ -271,6 +284,15 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     const as: Decider = { id: member, name, at: NOW };
     await sql`insert into EventWindow (id, startsAt, endsAt, setBy, setAt)
               values (${n}, ${NOW}, ${NOW + 1}, ${member}, ${NOW})`.execute(db);
+    // A server's settings they changed last (plan 19A-1).
+    await sql`insert into ServerSettings (serverId, settings, updatedAt, updatedBy)
+              values (${`41234567890123456${String(n)}`}, '{}', ${NOW}, ${member})`.execute(db);
+    // As an instance operator (plan 19C-1): a server allowed and blocked, another blocked.
+    await sql`insert into ServerRecord (serverId, allowedAt, allowedBy, blockedAt, blockedBy)
+              values (${`51234567890123456${String(n)}`}, ${NOW}, ${member}, ${NOW}, ${member}),
+                     (${`51234567890123457${String(n)}`}, null, null, ${NOW}, ${member})`.execute(
+      db,
+    );
     await sql`insert into Gym (id, name, lat, lon) values (${100 + n}, ${`Gym ${String(n)}`}, 40,
                                                          -80)`.execute(db);
     await sql`insert into GymWayfarer (gymId, notInWayfarer, notInWayfarerBy, notInWayfarerAt)
@@ -319,6 +341,11 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     await sql`insert into PartyAudit (serverId, partyId, at, actorId, actorName, action)
               values (${HOME}, ${requestId(800 + n)}, ${NOW}, ${member}, ${name},
                       'created')`.execute(db);
+    // A setting of the server they changed, in the staff's log of settings (plan 19A-1).
+    await sql`insert into ServerSettingsAudit (serverId, at, actorId, actorName, \`key\`, \`before\`,
+                                               \`after\`)
+              values (${HOME}, ${NOW}, ${member}, ${name}, 'postNewGyms', 'false',
+                      'true')`.execute(db);
     await sql`insert into Party (id, type, guildId, createdById, createdAt, updatedAt, state,
                                  mirrorMessages)
               values (${requestId(800 + n)}, 'raid', 1, ${member}, ${NOW}, ${NOW}, '{}',
@@ -464,18 +491,19 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     history: { optIns: 2, boards: 1, fillIns: 1, named: 5, words: 1 },
     sessions: 2,
     toolAccess: true,
+    dmContact: true,
     // Their own report, and the one both of them gave a reason on.
     reports: { reasons: 2, about: 1 },
     meetups: { blocks: 1, open: 1, unmade: 0, live: 0, over: 3 },
-    // Her own entry, and Bob's that made her conductor.
-    audit: 2,
+    // Her own entry, Bob's that made her conductor, and her change of the server's settings.
+    audit: 3,
     stopReports: 1,
     stopConfirms: 1,
     accessGrants: 1,
     // Two rulings (one by allowing an ask), a boss override, a stop, the event window, a gym
     // review, a gym marked, an import, and a report, a request, an appeal, an ask and a block
-    // decided.
-    staffActs: 13,
+    // decided; as an instance operator two servers allowed or blocked (one both, counted once).
+    staffActs: 16,
   };
 
   it('looks: counts what Pine holds of a member over every server, and changes nothing', async () => {
@@ -516,6 +544,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       history: HELD.history,
       sessions: [sessionId(17), sessionId(18)],
       toolAccess: true,
+      dmContact: true,
       reportReasons: 2,
       meetupRecords: 3,
     });
@@ -528,6 +557,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
     const changed = (table: string, change: (row: Row) => Row) =>
       (before[table] ?? []).map((row) => change(row));
     const hung = (row: Row) => row.userId === aliceRow;
+    const herRoutes = new Set((before.SavedRoutes ?? []).filter(hung).map((row) => row.id));
     const hersBy = (column: string) => (row: Row) => row[column] === ALICE;
     const blank = (row: Row, is: boolean, columns: string[]) =>
       is ? { ...row, ...Object.fromEntries(columns.map((column) => [column, null])) } : row;
@@ -538,13 +568,19 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       TargetWant: without('TargetWant', hung),
       GymNotification: without('GymNotification', hung),
       SavedRoutes: without('SavedRoutes', hung),
+      SavedRouteGym: without('SavedRouteGym', (row) => herRoutes.has(row.routeId)),
       NewTrainNotification: without('NewTrainNotification', hersBy('memberId')),
       UnownWantGift: without('UnownWantGift', hersBy('memberId')),
       HistoryOptIn: without('HistoryOptIn', hersBy('memberId')),
       LeaderboardOptIn: without('LeaderboardOptIn', hersBy('memberId')),
       LegacyFillIn: without('LegacyFillIn', hersBy('memberId')),
       WebSession: without('WebSession', hersBy('userId')),
+      // Her logins' servers go with her logins (the key cascades; final review R4-1).
+      WebSessionServer: without('WebSessionServer', (row) =>
+        [sessionId(17), sessionId(18)].includes(String(row.sessionId)),
+      ),
       ScriptAccess: without('ScriptAccess', hersBy('userId')),
+      DmContact: without('DmContact', hersBy('userId')),
       // What she wrote of the parties she made goes with her id; Bob's train keeps his words.
       PartyHistory: changed('PartyHistory', (row) =>
         blank(
@@ -578,7 +614,15 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       ),
     });
     // The seed had something of hers in each of them.
-    for (const table of ['User', 'TargetWant', 'HistoryOptIn', 'WebSession', 'ScriptAccess']) {
+    for (const table of [
+      'User',
+      'TargetWant',
+      'HistoryOptIn',
+      'WebSession',
+      'WebSessionServer',
+      'ScriptAccess',
+      'DmContact',
+    ]) {
       expect((await dump())[table]?.length).toBeLessThan(before[table]?.length ?? 0);
     }
 
@@ -602,13 +646,14 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
         history: { optIns: 0, boards: 0, fillIns: 0, named: 0, words: 0 },
         sessions: 0,
         toolAccess: false,
+        dmContact: false,
         reports: { reasons: 0, about: 1 },
         meetups: { blocks: 1, open: 1, unmade: 0, live: 0, over: 0 },
-        audit: 2,
+        audit: 3,
         stopReports: 1,
         stopConfirms: 1,
         accessGrants: 1,
-        staffActs: 13,
+        staffActs: 16,
       },
       screenshots: { sent: 0, feedback: 0 },
       liveParties: 2,
@@ -643,6 +688,7 @@ describe('MemberRemoval over the database and the folders (plan 8G, `/admin forg
       history: { optIns: 0, boards: 0, fillIns: 0, named: 0, words: 0 },
       sessions: [],
       toolAccess: false,
+      dmContact: false,
       reportReasons: 0,
       meetupRecords: 0,
     });

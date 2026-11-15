@@ -6,7 +6,7 @@ import { partyServiceWith, reportedRaid } from '../../test/support/party-service
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { PartyStatus } from '../domain/party/status.js';
 import { ApplicationEmoji } from './application-emoji.js';
-import { EMOJI_RENDER_GAP_MS } from './party-service.js';
+import { EMOJI_RENDER_GAP_MS, SUMMARY_BURST, SUMMARY_GAP_MS } from './party-service.js';
 
 /** Timers that run only when a test fires them. */
 function handTimers() {
@@ -352,12 +352,125 @@ describe('PartyService: the emoji of a post', () => {
     );
   });
 
+  it('takes turns between servers when it shows the posts anew (plan 19B-5)', async () => {
+    const made = await fiftyMeetups();
+    // The last five meetups are another server's (the Guild row 2).
+    const away = made.postIds.slice(45);
+    for (const party of made.store.active()) {
+      if (!away.includes(party.forumPostId ?? '')) continue;
+      await made.store.update(party.id, (current) => ({ party: { ...current, guildId: 2 } }));
+    }
+    made.service.emojiChanged();
+    for (let next = made.timers.waiting()[0]; next; next = made.timers.waiting()[0]) {
+      next.fired = true;
+      next.run();
+    }
+    await made.service.flush();
+    const order = [
+      ...new Set(
+        made.gateway.calls
+          .filter((call) => call.startsWith('editPost '))
+          .map((call) => call.slice('editPost '.length)),
+      ),
+    ];
+    expect(order).toHaveLength(50);
+    // One of each server in turn while both have posts waiting: the other server's five do not
+    // wait behind the first one's forty-five.
+    const side = (id: string | undefined) => (away.includes(id ?? '') ? 'away' : 'home');
+    for (let turn = 0; turn < 5; turn++) {
+      expect(new Set([side(order[2 * turn]), side(order[2 * turn + 1])])).toEqual(
+        new Set(['home', 'away']),
+      );
+    }
+  });
+
   it('stops showing posts anew at a flush: what waited is left as it is', async () => {
     const made = await fiftyMeetups();
     made.service.emojiChanged();
     await made.service.flush();
     expect(made.edited()).toHaveLength(1);
     expect(made.timers.waiting()).toEqual([]);
+  });
+
+  describe('every summary drawn anew (final review R1-1)', () => {
+    /**
+     * As many boards of the server as are drawn at once and two more, and ten of a second server
+     * (the Guild row 2), each drawn once; then a line of the stops in every one, so that each
+     * draws anew with an edit. Hand timers.
+     */
+    async function manyBoards() {
+      const timers = handTimers();
+      const made = await partyServiceWith([], { setTimer: timers.setTimer });
+      const west = made.regions.rows[0]!;
+      const away: string[] = [];
+      for (let n = 0; n < SUMMARY_BURST + 12; n++) {
+        const forumChannelId = `16000000000000${String(n).padStart(4, '0')}`;
+        made.gateway.addForum(forumChannelId);
+        made.regions.rows.push({
+          ...west,
+          id: 100 + n,
+          guildId: n < SUMMARY_BURST + 2 ? west.guildId : 2,
+          channelId: `16100000000000${String(n).padStart(4, '0')}`,
+          forumChannelId,
+          summaryMessageId: null,
+        });
+      }
+      for (const region of made.regions.rows) {
+        if (region.forumChannelId !== null) await made.service.ensureSummary(region);
+        if (region.guildId === 2) away.push(region.summaryMessageId ?? '');
+      }
+      await made.service.flush();
+      const boards = made.regions.rows.flatMap((region) => region.summaryMessageId ?? []);
+      const editsBefore = new Map(boards.map((id) => [id, made.gateway.posts.get(id)?.edits ?? 0]));
+      made.service.setStopPosts({
+        summaryOf: () => ({
+          serverId: made.gateway.guildId,
+          threadId: '1700000000000000009',
+          messageId: '1700000000000000001',
+          tasks: 2,
+          hideouts: 0,
+        }),
+        boardChanged: () => undefined,
+      });
+      const edited = () =>
+        boards.filter(
+          (id) => (made.gateway.posts.get(id)?.edits ?? 0) > (editsBefore.get(id) ?? 0),
+        );
+      const paced = () =>
+        timers.set.filter((t) => t.ms === SUMMARY_GAP_MS && !t.cancelled && !t.fired);
+      return { ...made, timers, boards, away, edited, paced };
+    }
+
+    it('draws as many boards at once as a Pine of one server has, the servers in turns', async () => {
+      const made = await manyBoards();
+      expect(made.boards).toHaveLength(SUMMARY_BURST + 14);
+      made.service.emojiChanged();
+      // The rest wait for the pace; a flush (shutdown) leaves them as they are.
+      expect(made.paced()).toHaveLength(1);
+      await made.service.flush();
+      expect(made.edited()).toHaveLength(SUMMARY_BURST);
+      // The other server's ten took their turns among the first: none waits behind the first's.
+      expect(made.away).toHaveLength(10);
+      for (const board of made.away) expect(made.edited()).toContain(board);
+    });
+
+    it('draws the rest one at each turn of the pace, at midnight too', async () => {
+      const made = await manyBoards();
+      made.service.watchMidnight();
+      const midnight = made.timers.set.filter((t) => t.ms > EMOJI_RENDER_GAP_MS && !t.fired);
+      expect(midnight).toHaveLength(1);
+      midnight[0]!.fired = true;
+      midnight[0]!.run();
+      let fired = 0;
+      for (let next = made.paced()[0]; next; next = made.paced()[0]) {
+        next.fired = true;
+        next.run();
+        fired++;
+      }
+      expect(fired).toBe(14);
+      await made.service.flush();
+      expect(made.edited()).toEqual(made.boards);
+    });
   });
 
   it('shows nothing anew once closed for shutdown', async () => {

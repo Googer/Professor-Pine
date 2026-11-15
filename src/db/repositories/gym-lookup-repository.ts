@@ -1,32 +1,62 @@
 import { sql, type Kysely } from 'kysely';
+import { OUT_OF_SHARE_RANK } from '../../domain/geo/google-line.js';
 import type {
   GymLookup,
   GymLookups,
+  GymRank,
+  LineNeed,
   NextGymOptions,
   QueuedGym,
   WaitingGym,
 } from '../../services/gym-lookups.js';
+import { inTransaction } from '../transaction.js';
 import type { DB } from '../types.js';
 
 /**
- * The line of gyms that wait for Google, in the table `GymLookup` (migration 014, its rank of
- * migration 032): what `GymUpkeep` works through within the monthly budget, and the gyms Google
- * answered about (`GymGoogleAsked`, migration 032). Its twin in memory is `MemoryGymLookups`;
- * both run `gymLookupCases` (`test/support/gym-lookup-cases.ts`). The old count per day,
- * `GymLookupDay`, is read by `GoogleUseRepository`.
+ * The line of gyms that wait for Google, one row per server that has the gym (`ServerGymLookup`,
+ * migration 059, plan 19B-3; its row goes with the gym's `GymServer` link): what `GymUpkeep`
+ * works through within the monthly budget. Its twin in memory is `MemoryGymLookups`; both run
+ * `gymLookupCases` (`test/support/gym-lookup-cases.ts`). `GymLookup` (of before) stays and is no
+ * longer read or written; the old count per day, `GymLookupDay`, is read by
+ * `GoogleUseRepository`.
+ *
+ * The line's order is `servergymlookup_order_index` (`next`, `list`: read in its order, the first
+ * row that passes the filters); a gym's rows are read and written by the primary key
+ * `(gymId, guildId)` (`setAddress`, `remove`, `setRanks`).
  */
 export class GymLookupRepository implements GymLookups {
   constructor(private readonly db: Kysely<DB>) {}
 
+  /**
+   * Puts the rows whose gym is still linked to their server (final review R5-3): the caller knows
+   * the links from memory, and a link deleted meanwhile (a server's deletion, a gym's removal,
+   * before the bot's memory followed) would fail the whole statement on the foreign key. The
+   * links are read by the primary key and held (`for share`) until the rows are written.
+   */
   async add(gyms: readonly QueuedGym[], now: number): Promise<void> {
     if (gyms.length === 0) return;
-    // A gym already in the line keeps its time; it waits for its address when either asks, and
+    await inTransaction(this.db, async (trx) => {
+      const links = await trx
+        .selectFrom('GymServer')
+        .select(['gymId', 'guildId'])
+        .where('gymId', 'in', [...new Set(gyms.map((gym) => gym.gymId))])
+        .forShare()
+        .execute();
+      const linked = new Set(links.map((link) => `${String(link.gymId)}:${String(link.guildId)}`));
+      const kept = gyms.filter((gym) => linked.has(`${String(gym.gymId)}:${String(gym.guildId)}`));
+      if (kept.length > 0) await this.put(trx, kept, now);
+    });
+  }
+
+  private async put(trx: Kysely<DB>, gyms: readonly QueuedGym[], now: number): Promise<void> {
+    // A row already in the line keeps its time; it waits for its address when either asks, and
     // takes the rank given.
-    await this.db
-      .insertInto('GymLookup')
+    await trx
+      .insertInto('ServerGymLookup')
       .values(
-        gyms.map(({ gymId, address, rank }) => ({
+        gyms.map(({ guildId, gymId, address, rank }) => ({
           gymId,
+          guildId,
           address: address ? 1 : 0,
           regionRank: rank,
           queuedAt: String(now),
@@ -34,56 +64,77 @@ export class GymLookupRepository implements GymLookups {
       )
       // The row alias (MySQL 8.0.19 on), not `VALUES()`, which 8.0.20 deprecates.
       .modifyEnd(
-        sql`as new on duplicate key update address = greatest(GymLookup.address, new.address),
-            regionRank = new.regionRank`,
+        sql`as new on duplicate key update
+            address = greatest(ServerGymLookup.address, new.address), regionRank = new.regionRank`,
       )
       .execute();
   }
 
+  private ordered() {
+    return this.db
+      .selectFrom('ServerGymLookup')
+      .select(['guildId', 'gymId', 'address', 'regionRank', 'queuedAt'])
+      .orderBy('regionRank', 'desc')
+      .orderBy('queuedAt')
+      .orderBy('gymId')
+      .orderBy('guildId');
+  }
+
   async next(options: NextGymOptions = {}): Promise<GymLookup | undefined> {
     const except = [...(options.except ?? [])];
-    const row = await this.db
-      .selectFrom('GymLookup')
-      .select(['gymId', 'address'])
+    const { outOfShare } = options;
+    const outPlaces = [...(outOfShare?.places ?? [])];
+    const outGeocodes = [...(outOfShare?.geocodes ?? [])];
+    const row = await this.ordered()
       .$if(options.placesOnly === true, (query) => query.where('address', '=', 0))
       .$if(except.length > 0, (query) => query.where('gymId', 'not in', except))
-      .orderBy('regionRank', 'desc')
-      .orderBy('queuedAt')
-      .orderBy('gymId')
+      // By shares (plan 19B-5): the order index read above the rows held out of their share, a
+      // range of its first part; the servers named only pass over rows queued before their
+      // server's were ranked anew.
+      .$if(outOfShare !== undefined, (query) => query.where('regionRank', '>', OUT_OF_SHARE_RANK))
+      .$if(outPlaces.length > 0, (query) => query.where('guildId', 'not in', outPlaces))
+      .$if(outGeocodes.length > 0, (query) =>
+        query.where((eb) =>
+          eb.not(eb.and([eb('address', '=', 1), eb('guildId', 'in', outGeocodes)])),
+        ),
+      )
       .limit(1)
       .executeTakeFirst();
-    return row && { gymId: row.gymId, address: row.address === 1 };
+    return row && { guildId: row.guildId, gymId: row.gymId, address: row.address === 1 };
   }
 
-  async setAddress(gymId: number, address: boolean): Promise<void> {
-    await this.db
-      .updateTable('GymLookup')
-      .set({ address: address ? 1 : 0 })
-      .where('gymId', '=', gymId)
-      .execute();
-  }
-
-  async remove(gymId: number): Promise<void> {
-    await this.db.deleteFrom('GymLookup').where('gymId', '=', gymId).execute();
-  }
-
-  async count(): Promise<number> {
-    const row = await this.db
-      .selectFrom('GymLookup')
-      .select((eb) => eb.fn.countAll<number | string>().as('n'))
-      .executeTakeFirst();
-    return Number(row?.n ?? 0);
-  }
-
-  async list(): Promise<WaitingGym[]> {
+  async needs(): Promise<Map<number, LineNeed>> {
+    // Every server's rows, counted along `servergymlookup_guildid_address_index` (migration 060)
+    // from the index alone: the need is every row's by its nature, read whenever the shares are
+    // worked out (`GymUpkeep.readShares`: at start, at the line's first turn of each Pacific day,
+    // after a write of rows of a server the shares do not know and before such a row is served,
+    // after a raise, and at the next turn after a reading that failed), in the line's turn.
     const rows = await this.db
-      .selectFrom('GymLookup')
-      .select(['gymId', 'address', 'regionRank', 'queuedAt'])
-      .orderBy('regionRank', 'desc')
-      .orderBy('queuedAt')
-      .orderBy('gymId')
+      .selectFrom('ServerGymLookup')
+      .select((eb) => ['guildId', 'address', eb.fn.countAll<number | string>().as('n')])
+      .groupBy(['guildId', 'address'])
+      .execute();
+    const needs = new Map<number, LineNeed>();
+    for (const row of rows) {
+      const kept = needs.get(row.guildId) ?? { places: 0, geocodes: 0 };
+      const n = Number(row.n);
+      needs.set(row.guildId, {
+        places: kept.places + n,
+        geocodes: kept.geocodes + (row.address === 1 ? n : 0),
+      });
+    }
+    return needs;
+  }
+
+  async ofServer(guildId: number): Promise<WaitingGym[]> {
+    // The server's rows by `servergymlookup_guildid_address_index`'s first part.
+    const rows = await this.db
+      .selectFrom('ServerGymLookup')
+      .select(['guildId', 'gymId', 'address', 'regionRank', 'queuedAt'])
+      .where('guildId', '=', guildId)
       .execute();
     return rows.map((row) => ({
+      guildId: row.guildId,
       gymId: row.gymId,
       address: row.address === 1,
       rank: row.regionRank,
@@ -91,50 +142,76 @@ export class GymLookupRepository implements GymLookups {
     }));
   }
 
-  async setRanks(ranks: ReadonlyMap<number, number>): Promise<void> {
-    // A region's rank is shared by its gyms: one statement per rank.
-    for (const [rank, ids] of byRank(ranks)) {
-      await this.db
-        .updateTable('GymLookup')
-        .set({ regionRank: rank })
-        .where('gymId', 'in', ids)
-        .execute();
-    }
-  }
-
-  async asked(): Promise<Set<number>> {
-    const rows = await this.db.selectFrom('GymGoogleAsked').select('gymId').execute();
-    return new Set(rows.map((row) => row.gymId));
-  }
-
-  async markAsked(gymId: number, at: number): Promise<void> {
+  async setAddress(gymId: number, address: boolean): Promise<void> {
     await this.db
-      .insertInto('GymGoogleAsked')
-      .values({ gymId, askedAt: String(at) })
-      .modifyEnd(sql`as new on duplicate key update askedAt = new.askedAt`)
+      .updateTable('ServerGymLookup')
+      .set({ address: address ? 1 : 0 })
+      .where('gymId', '=', gymId)
       .execute();
   }
 
-  async forgetAsked(gymId: number): Promise<void> {
-    await this.db.deleteFrom('GymGoogleAsked').where('gymId', '=', gymId).execute();
+  async remove(gymId: number): Promise<void> {
+    await this.db.deleteFrom('ServerGymLookup').where('gymId', '=', gymId).execute();
+  }
+
+  async count(): Promise<number> {
+    const row = await this.db
+      .selectFrom('ServerGymLookup')
+      .select((eb) => eb.fn.countAll<number | string>().as('n'))
+      .executeTakeFirst();
+    return Number(row?.n ?? 0);
+  }
+
+  async any(): Promise<boolean> {
+    // One entry of any index, never a count of the line.
+    const row = await this.db
+      .selectFrom('ServerGymLookup')
+      .select(sql<number>`1`.as('one'))
+      .limit(1)
+      .executeTakeFirst();
+    return row !== undefined;
+  }
+
+  async list(): Promise<WaitingGym[]> {
+    return (await this.ordered().execute()).map((row) => ({
+      guildId: row.guildId,
+      gymId: row.gymId,
+      address: row.address === 1,
+      rank: row.regionRank,
+      queuedAt: Number(row.queuedAt),
+    }));
+  }
+
+  async setRanks(ranks: readonly GymRank[]): Promise<void> {
+    // A region's rank is shared by its gyms: one statement per rank and server, the gyms by the
+    // primary key's `gymId` with its `guildId`.
+    for (const [[rank, guildId], ids] of byRankAndServer(ranks)) {
+      await this.db
+        .updateTable('ServerGymLookup')
+        .set({ regionRank: rank })
+        .where('gymId', 'in', ids)
+        .where('guildId', '=', guildId)
+        .execute();
+    }
   }
 }
 
 /** How many ids one statement names at most. */
 const CHUNK = 1_000;
 
-/** The ids of each rank, in chunks of `CHUNK`. */
-function byRank<K>(ranks: ReadonlyMap<K, number>): [number, K[]][] {
-  const grouped = new Map<number, K[]>();
-  for (const [id, rank] of ranks) {
-    const ids = grouped.get(rank);
-    if (ids) ids.push(id);
-    else grouped.set(rank, [id]);
+/** The gym ids of each rank and server, in chunks of `CHUNK`. */
+function byRankAndServer(ranks: readonly GymRank[]): [[number, number], number[]][] {
+  const grouped = new Map<string, { rank: number; guildId: number; ids: number[] }>();
+  for (const { guildId, gymId, rank } of ranks) {
+    const key = `${String(rank)}:${String(guildId)}`;
+    const group = grouped.get(key);
+    if (group) group.ids.push(gymId);
+    else grouped.set(key, { rank, guildId, ids: [gymId] });
   }
-  const chunks: [number, K[]][] = [];
-  for (const [rank, ids] of grouped) {
+  const chunks: [[number, number], number[]][] = [];
+  for (const { rank, guildId, ids } of grouped.values()) {
     for (let start = 0; start < ids.length; start += CHUNK) {
-      chunks.push([rank, ids.slice(start, start + CHUNK)]);
+      chunks.push([[rank, guildId], ids.slice(start, start + CHUNK)]);
     }
   }
   return chunks;

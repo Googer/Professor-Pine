@@ -54,6 +54,7 @@ import { distanceWords, type DistanceUnits } from '../../render/distance-words.j
 import { gymWithId } from '../../render/gym-view.js';
 import { actingMember } from '../parties/reply.js';
 import { button, EXPIRED, markAnswered, NOT_YOURS, staffPlace, wasAnswered } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** Discord's upload limit without boosts: an export of all of Pittsburgh is far smaller, packed. */
 export const MAX_EXPORT_BYTES = 10 * 1024 * 1024;
@@ -364,6 +365,14 @@ function counted(n: number, noun: string, one: string, many: string): string {
   return `${count(n, noun)} ${n === 1 ? one : many}`;
 }
 
+/**
+ * How many of the gyms an import would send to the review queue are there already, after the
+ * sentence that counts them (staging A25 of phase 19: never "of thems").
+ */
+export function queuedAlreadyWords(n: number): string {
+  return ` ${String(n)} of them ${n === 1 ? 'is' : 'are'} there already.`;
+}
+
 /** A line by region: what happens there, counted, leaving out what does not. */
 function regionLine(channelId: string | null, counts: WayfarerCounts): string {
   const parts = [
@@ -625,10 +634,7 @@ function previewLines(
         `(${reviewWords(counts)}). ${oneByOne}`,
     );
   } else if (review > 0) {
-    const already =
-      preview.queuedAlready === 0
-        ? ''
-        : ` ${counted(preview.queuedAlready, 'of them', 'is', 'are')} there already.`;
+    const already = preview.queuedAlready === 0 ? '' : queuedAlreadyWords(preview.queuedAlready);
     lines.push(
       `${count(review, 'gym')} would go to the review queue for you to decide ` +
         `(${reviewWords(counts)}). ${oneByOne}${already}`,
@@ -850,7 +856,7 @@ export const importGyms: SubcommandPart = {
       option.setName('file5').setDescription('Part 5 of the export, if it was saved in parts'),
     ),
   help: {
-    details: (settings) =>
+    details: (settings, facts) =>
       'The true list of gyms is Wayfarer’s. The export is made by the Pine Wayfarer export ' +
       `tool: ask for it at ${settings.wayspotTool}. It takes the KML file of \`/region export\`.\n\n` +
       `Attach the file it saves (${EXPORT_NAME}) here; an export too large for one upload ` +
@@ -861,7 +867,7 @@ export const importGyms: SubcommandPart = {
       'Wayfarer gyms that match none of ours are added, and every gym is listed in the attached ' +
       'report.\n\nAn import never deletes a gym: what needs a person to decide (which Wayspot a gym is, a gym ' +
       'Wayfarer no longer has) goes to the review queue of `/gym review`.\n\nThe scan also goes a ' +
-      `little beyond the regions (${distanceWords(DEFAULT_SCAN_MARGIN, settings.distanceUnits)} unless set otherwise): Wayfarer gyms found ` +
+      `little beyond the regions (${distanceWords(DEFAULT_SCAN_MARGIN, facts?.server?.distanceUnits ?? 'imperial')} unless set otherwise): Wayfarer gyms found ` +
       'there are never added, but the report lists them as `outside`, so you see where an ' +
       'outline should grow.\n\nGyms of this server in no region and beyond the area a finished ' +
       'scan of every region covered are listed as `beyond`: once the import is done, a button ' +
@@ -880,12 +886,12 @@ export const importGyms: SubcommandPart = {
     const file = await attachedExport(interaction, ctx);
     const preview = await ctx.wayfarer.preview(place, file);
     const names = regionNames(interaction, ctx, place);
-    const units = ctx.config.settings.distanceUnits;
+    const units = serverValuesOf(interaction, ctx).distanceUnits;
     if (preview.regions === 0 || changesNothing(preview)) {
       await interaction.editReply(renderImportPreview(preview, file, names, units));
       return;
     }
-    const token = pendingImports.put(interaction.user.id, { file: forImport(file) });
+    const token = pendingImports.put(interaction, { file: forImport(file) });
     await interaction.editReply(
       renderImportPreview(preview, file, names, units, [
         button(token, IMPORT_ACTION, 'Import', ButtonStyle.Primary).toJSON(),
@@ -920,7 +926,7 @@ export async function importButton(
   if (id.action === OUTSIDE_DELETE || id.action === OUTSIDE_KEEP) {
     return answerOutside(interaction, id, ctx);
   }
-  const found = pendingImports.take(id.id, interaction.user.id);
+  const found = pendingImports.take(id.id, interaction);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   if (found === 'expired') {
     if (wasAnswered(id.id)) await interaction.deferUpdate();
@@ -963,7 +969,7 @@ export async function importButton(
       ? []
       : [
           button(
-            pendingOutside.put(interaction.user.id, {
+            pendingOutside.put(interaction, {
               outlines: file.outlines,
               margin: file.margin,
             }),
@@ -998,7 +1004,7 @@ async function askOutside(
   id: CustomId,
   ctx: AppContext,
 ): Promise<void> {
-  const found = pendingOutside.peek(id.id, interaction.user.id);
+  const found = pendingOutside.peek(id.id, interaction);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   if (found === 'expired') throw new UserError(EXPIRED);
   // Reading what goes with each gym takes a moment.
@@ -1018,16 +1024,16 @@ async function askOutside(
   let targets = 0;
   let raids = 0;
   for (const { gymId } of beyond) {
-    const references = await ctx.gymAdmin.references(gymId);
+    const references = await ctx.gymAdmin.references(gymId, place.guildId);
     routes += references.routes;
     targets += references.targets;
     if (references.raids.length > 0) raids++;
   }
   const named = beyond.slice(0, OUTSIDE_NAMED).flatMap(({ gymId, metres }) => {
-    const gym = ctx.gyms.get(gymId);
+    const gym = ctx.gyms.of(place.guildId).get(gymId);
     return gym
       ? [
-          `- ${gymWithId(gym)}, ${distanceWords(metres, ctx.config.settings.distanceUnits)} from the ` +
+          `- ${gymWithId(gym)}, ${distanceWords(metres, serverValuesOf(interaction, ctx).distanceUnits)} from the ` +
             "nearest region's outline",
         ]
       : [];
@@ -1040,7 +1046,7 @@ async function askOutside(
   // One question per outcome: asked again, it replaces itself (the buttons of an earlier asking
   // answer the newest list), so that presses do not crowd other questions out of the store.
   const token = pendingOutside.put(
-    interaction.user.id,
+    interaction,
     {
       outlines: found.value.outlines,
       margin: found.value.margin,
@@ -1124,7 +1130,7 @@ async function answerOutside(
   id: CustomId,
   ctx: AppContext,
 ): Promise<void> {
-  const found = pendingOutside.take(id.id, interaction.user.id);
+  const found = pendingOutside.take(id.id, interaction);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   if (found === 'expired') {
     if (wasAnswered(id.id)) await interaction.deferUpdate();

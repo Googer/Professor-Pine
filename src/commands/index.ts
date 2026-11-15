@@ -1,5 +1,6 @@
 import type { CommandModule, MessageCommand } from '../discord/command.js';
 import { admin } from './admin/index.js';
+import { operator } from './operator/index.js';
 import { friendCode, nickname } from './friends/friends.js';
 import { gym } from './gyms/index.js';
 import { info } from './meetups/info.js';
@@ -126,6 +127,7 @@ export const commands: readonly CommandModule[] = [
   friendCode,
   nickname,
   admin,
+  operator,
   gym,
   pokestop,
   region,

@@ -1,5 +1,6 @@
 import { BoundedMap } from '../bounded-map.js';
-import type { Settings } from '../config/settings.js';
+import { serverChannel } from './server-channels.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 import { isMissingPermission, type PartyGateway } from '../discord/party-gateway.js';
 import {
   isRaid,
@@ -15,7 +16,11 @@ import { renderMirror, type MirrorPlace } from '../render/mirrors.js';
 import type { RenderedPost } from '../render/party-post.js';
 import { Coalescer } from './coalescer.js';
 import type { PartyStore } from './party-store.js';
-import { stopRegionsInGuild } from './region-directory.js';
+import {
+  stopRegionsInGuild,
+  type ServerGymRegions,
+  type ServerWayspotRegions,
+} from './region-directory.js';
 import { refusalSaid, sendInForms, type MessageForms, type RefusedFiles } from './refused-files.js';
 
 const MINUTE = 60_000;
@@ -35,23 +40,29 @@ export interface PartyMirrorsOptions {
   store: PartyStore;
   gateway: Pick<
     PartyGateway,
-    'sendMessage' | 'editMessage' | 'deleteMessage' | 'findChannel' | 'mayPost' | 'channelUnknown'
+    | 'sendMessage'
+    | 'editMessage'
+    | 'deleteMessage'
+    | 'findChannel'
+    | 'serverOf'
+    | 'mayPost'
+    | 'channelUnknown'
   >;
   regions: {
     byId(id: number): { channelId: string } | undefined;
     byChannel(channelId: string): { channelId: string; guildId: number | null } | undefined;
   };
-  gyms: {
-    get(id: number): { taggedEx: boolean; confirmedEx: boolean } | undefined;
-    /** The region channels a gym lies in. */
-    regionsOf(gymId: number): string[];
+  /** The gyms per server (plan 19B-2): a party's gym a stored reference, where it lies its server's. */
+  gyms: ServerGymRegions & {
+    stored(id: number): { taggedEx: boolean; confirmedEx: boolean } | undefined;
   };
   /**
    * The kept Wayspots (plan 8X-4): a train's copies go also where a power spot of its route lies.
    * Without them a power spot is in no region.
    */
-  wayspots?: { byId(id: string): { kind: string } | undefined; regionsOf(id: string): string[] };
-  settings: Pick<Settings, 'features' | 'channels'>;
+  wayspots?: ServerWayspotRegions;
+  /** Each server's values: whether it has the copies, and their channels (plan 19A-1). */
+  servers: ServerSettingsLookup;
   /** What the post of a party shows now. */
   render: (party: Party) => RenderedPost;
   /** The channels that refused files lately (the post's own service shares them). */
@@ -123,7 +134,7 @@ function slotOf(copy: WantedCopy): string {
  * post's: all raids of a server edit in those channels, and a post must never wait for them.
  * The copies of a train in region channels are kept by that queue too.
  *
- * A server without such a channel (by the names in `settings.channels`), with the feature
+ * A server without such a channel (by the ids its staff set, `ServerSettings`), with the feature
  * switched off, or with a channel the bot may not write in, simply has no copy there.
  *
  * A run of the queue that left something undone (an edit or a send failed, a channel was left
@@ -169,14 +180,18 @@ export class PartyMirrors {
 
   /** The channel that takes copies of this kind for a party of this region; undefined for none. */
   private channelFor(kind: 'ex' | 'remote', near: string | undefined): string | undefined {
-    const { settings, gateway } = this.options;
+    const { gateway, servers } = this.options;
     if (near === undefined) return undefined;
-    const enabled =
-      kind === 'ex' ? settings.features.exGymChannel : settings.features.remoteRaidChannel;
+    const server = gateway.serverOf(near);
+    if (server === undefined) return undefined;
+    const { features } = servers.of(server);
+    const enabled = kind === 'ex' ? features.exGymChannel : features.remoteRaidChannel;
     if (!enabled) return undefined;
-    return gateway.findChannel(
+    return serverChannel(
+      gateway,
+      servers,
       near,
-      settings.channels[kind === 'ex' ? 'elite-gym-raids' : 'remote-raids'],
+      kind === 'ex' ? 'elite-gym-raids' : 'remote-raids',
     );
   }
 
@@ -426,7 +441,7 @@ export class PartyMirrors {
     }
     const rendered = render(party);
     const place = this.place(party, postId);
-    const gym = party.gymId === null ? undefined : gyms.get(party.gymId);
+    const gym = party.gymId === null ? undefined : gyms.stored(party.gymId);
     // Without a channel of the server to start from, no channel is found and the copies go;
     // they are made again once there is one.
     const near = place.regionChannelId ?? party.forumChannelId ?? undefined;

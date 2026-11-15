@@ -71,11 +71,11 @@ export async function wayfarerImportWith(
     log: made.log,
     now: () => made.clock.now,
   });
-  // What the foreign keys do: a gym's Wayfarer rows go with it.
+  // What the foreign keys do: a gym's Wayfarer rows go with its row.
   const remove = made.removal.remove.bind(made.removal);
-  made.removal.remove = async (gymId) => {
-    const removed = await remove(gymId);
-    wayfarerStore.removeGym(gymId);
+  made.removal.remove = async (gymId, server) => {
+    const removed = await remove(gymId, server);
+    if (removed.deleted) wayfarerStore.removeGym(gymId);
     return removed;
   };
   return {

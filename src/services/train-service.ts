@@ -43,7 +43,7 @@ import { tidyName } from '../domain/party/timed.js';
 import { gymStop, hasStop, sameStop, stopIndexOf } from '../domain/party/stops.js';
 import type { Logger } from '../log.js';
 import type { PostGym } from '../render/raid-post.js';
-import { stopInWords, stopsFrom, type StopLookup } from '../render/train-stops.js';
+import { stopInWords, stopsFrom } from '../render/train-stops.js';
 import { doer } from '../render/activity.js';
 import { groupWords } from '../render/party-controls.js';
 import { count, endSentence, memberText, plain } from '../render/text.js';
@@ -61,6 +61,7 @@ import type { PartyLines } from './party-lines.js';
 import type { PartyService, SplitOutcome } from './party-service.js';
 import type { PartyStore } from './party-store.js';
 import { stopRegionsInGuild, type RegionProvider } from './region-directory.js';
+import type { GymView } from './gym-directory.js';
 import type { WayspotProvider } from './wayspot-directory.js';
 
 /**
@@ -122,19 +123,21 @@ export interface TrainServiceOptions {
   /** The members' settings: who lets the bot ping them when the train moves. */
   users: UserSettingsReader;
   /**
-   * The gyms, to name the stops, and the region channels each lies in; `size`, how many gyms
-   * the list knows, for the sweep of stops whose gym is gone (`removeUnknownStops`).
+   * The gyms per server (plan 19B-2): a stop is named as the train's server stored it (`stored`);
+   * whether it is still a stop, and where it lies, is read in that server's view (`of`), so that
+   * a gym the server deleted is gone for its trains though another server keeps it. `size`, how
+   * many gyms the list knows, for the sweep of stops whose gym is gone (`removeUnknownStops`).
    */
   gyms: {
-    get(id: number): PostGym | undefined;
-    regionsOf(gymId: number): string[];
+    of(guildId: number | undefined): Pick<GymView, 'get' | 'regionsOf'>;
+    stored(id: number): PostGym | undefined;
     readonly size?: number;
   };
   /**
    * The kept Wayspots (plan 8X-4), to name a power spot of a route as it is now; without them every
    * power spot is unknown.
    */
-  wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf' | 'regionsOf' | 'size'>;
+  wayspots?: Pick<WayspotProvider, 'of' | 'stored' | 'addressOf' | 'size'>;
   /** The regions, to tell the gyms of the server of a train from those of another. */
   regions: Pick<RegionProvider, 'byChannel'>;
   /** The routes members saved (the table `SavedRoutes`). */
@@ -251,14 +254,12 @@ export class TrainService {
     });
   }
 
-  /** The stops of a route as they are now: gyms from the gym list, power spots from the Wayspots. */
-  private get stops(): StopLookup {
-    return stopsFrom(this.options.gyms, this.options.wayspots);
-  }
-
-  /** A stop as a line names it: `**The Stacks**`, `**Gazebo** (Power Spot)`. */
-  private named(ref: StopRef): string {
-    return stopInWords(this.stops(ref));
+  /**
+   * A stop of a train's route as a line names it, as it is now (gyms from the gym list, power
+   * spots from the train's server's Wayspots): `**The Stacks**`, `**Gazebo** (Power Spot)`.
+   */
+  private named(party: TrainParty, ref: StopRef): string {
+    return stopInWords(stopsFrom(this.options.gyms, this.options.wayspots, party.guildId)(ref));
   }
 
   /**
@@ -273,10 +274,14 @@ export class TrainService {
     return stopRegionsInGuild(places, regions, ref, party.guildId).length > 0;
   }
 
-  /** Whether a stop is gone: a gym the list no longer has, a power spot no longer kept as one. */
-  private gone(ref: StopRef): boolean {
-    if (ref.kind === 'gym') return this.options.gyms.get(ref.id) === undefined;
-    return this.options.wayspots?.byId(ref.id)?.kind !== 'powerspot';
+  /**
+   * Whether a stop of this train is gone: a gym its server's list no longer has (plan 19B-2: one
+   * the server deleted is gone, though another server keeps it), a power spot no longer kept as
+   * one.
+   */
+  private gone(party: TrainParty, ref: StopRef): boolean {
+    if (ref.kind === 'gym') return this.options.gyms.of(party.guildId).get(ref.id) === undefined;
+    return this.options.wayspots?.of(party.guildId).byId(ref.id)?.kind !== 'powerspot';
   }
 
   /**
@@ -304,15 +309,15 @@ export class TrainService {
       member,
       (party) =>
         stale(party, drawn) ??
-        (this.gone(added)
+        (this.gone(party, added)
           ? refused(added.kind === 'gym' ? 'gym-gone' : 'spot-gone')
           : addStop(party, member.id, added, staff)),
       (party, result) => {
         const who = doer(party, member);
         return endSentence(
           who
-            ? `${who} added stop ${result.number} to the route: ${this.named(added)}`
-            : `Stop ${result.number} was added to the route: ${this.named(added)}`,
+            ? `${who} added stop ${result.number} to the route: ${this.named(party, added)}`
+            : `Stop ${result.number} was added to the route: ${this.named(party, added)}`,
         );
       },
     );
@@ -336,8 +341,8 @@ export class TrainService {
       (party, removed) => {
         const who = doer(party, member);
         return who
-          ? `${who} took ${this.named(removed.stop)} off the route.`
-          : `${this.named(removed.stop)} was taken off the route.`;
+          ? `${who} took ${this.named(party, removed.stop)} off the route.`
+          : `${this.named(party, removed.stop)} was taken off the route.`;
       },
     );
   }
@@ -362,10 +367,17 @@ export class TrainService {
     gymId: number,
     member: Member,
     name: string,
+    guildId?: number,
   ): Promise<{ changed: TrainParty[]; failed: TrainParty[] }> {
     const changed: TrainParty[] = [];
     const failed: TrainParty[] = [];
-    for (const train of this.options.store.active().filter(isTrain)) {
+    // Only the trains of the server that removed it (its `Guild` row) when the gym stays other
+    // servers' (plan 19B-2); every train when it went.
+    const trains = this.options.store
+      .active()
+      .filter(isTrain)
+      .filter((train) => guildId === undefined || train.guildId === guildId);
+    for (const train of trains) {
       try {
         const outcome = await this.movable(
           train.id,
@@ -424,7 +436,7 @@ export class TrainService {
             const removed = { gyms: 0, spots: 0 };
             for (;;) {
               const index = current.train.route.findIndex(
-                (ref) => (ref.kind === 'gym' ? gymsKnown : spotsKnown) && this.gone(ref),
+                (ref) => (ref.kind === 'gym' ? gymsKnown : spotsKnown) && this.gone(current, ref),
               );
               const gone = current.train.route[index];
               if (gone === undefined) break;
@@ -465,8 +477,8 @@ export class TrainService {
       (party, moved) => {
         const who = doer(party, member);
         return who
-          ? `${who} moved ${this.named(moved.stop)} to stop ${to} of the route.`
-          : `${this.named(moved.stop)} was moved to stop ${to} of the route.`;
+          ? `${who} moved ${this.named(party, moved.stop)} to stop ${to} of the route.`
+          : `${this.named(party, moved.stop)} was moved to stop ${to} of the route.`;
       },
     );
   }
@@ -525,11 +537,11 @@ export class TrainService {
     const { route } = party.train;
     const [start, end] = [route[0], route.at(-1)];
     const again =
-      restarted && start !== undefined ? `, and starts again at ${this.named(start)}` : '';
+      restarted && start !== undefined ? `, and starts again at ${this.named(party, start)}` : '';
     const runs =
       start === undefined || end === undefined
         ? ''
-        : `: it now runs from ${this.named(start)} to ${this.named(end)}${again}`;
+        : `: it now runs from ${this.named(party, start)} to ${this.named(party, end)}${again}`;
     const who = doer(party, member);
     return endSentence(
       who ? `The route was reversed by ${who}${runs}` : `The route was reversed${runs}`,
@@ -884,7 +896,9 @@ export class TrainService {
         const distinct = route.stops.filter(
           (stop, index) => stopIndexOf(route.stops, stop) === index,
         );
-        const existing = distinct.filter((ref) => !this.gone(ref) && this.reaches(party, ref));
+        const existing = distinct.filter(
+          (ref) => !this.gone(party, ref) && this.reaches(party, ref),
+        );
         const missing = distinct.length - existing.length;
         const cut = Math.max(0, existing.length - MAX_ROUTE_STOPS);
         const replaced = replaceRoute(party, member.id, existing, staff, route.atEnd);
@@ -940,7 +954,7 @@ export class TrainService {
    * as such when the train is where that step took it; otherwise the other words apply.
    */
   private movement(party: TrainParty, pending: PendingMove): Movement | undefined {
-    const { stops } = this;
+    const stops = stopsFrom(this.options.gyms, this.options.wayspots, party.guildId);
     const { route } = party.train;
     const { last, by } = pending;
     if (route.length === 0) return undefined;

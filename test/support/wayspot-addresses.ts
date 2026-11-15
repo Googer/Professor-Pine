@@ -1,7 +1,8 @@
 import type { GoogleBudget } from '../../src/domain/geo/google-line.js';
 import { MemoryGoogleUse } from '../../src/services/google-use.js';
 import { DEFAULT_GOOGLE_BUDGET } from '../../src/services/gym-upkeep.js';
-import { MemoryWayspotAddresses, WayspotAddresses } from '../../src/services/wayspot-addresses.js';
+import { GoogleAnswers, MemoryGoogleAnswerStorage } from '../../src/services/google-answers.js';
+import { WayspotAddresses } from '../../src/services/wayspot-addresses.js';
 import { FakeGeoGateway } from './geo.js';
 import { createTestLogger } from './test-logger.js';
 
@@ -17,16 +18,17 @@ export async function wayspotAddressesWith(
 ) {
   const geo = new FakeGeoGateway();
   const use = new MemoryGoogleUse();
-  const storage = new MemoryWayspotAddresses();
+  const storage = new MemoryGoogleAnswerStorage();
   const { log, entries } = createTestLogger();
+  const answers = new GoogleAnswers({ storage, log });
+  await answers.load();
   const addresses = new WayspotAddresses({
-    storage,
+    answers,
     geo,
     use,
     budget: options.budget ?? DEFAULT_GOOGLE_BUDGET,
     log,
     now: options.now ?? (() => Date.now()),
   });
-  await addresses.load();
-  return { addresses, geo, use, storage, entries };
+  return { addresses, answers, geo, use, storage, entries };
 }

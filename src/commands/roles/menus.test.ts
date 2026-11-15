@@ -30,6 +30,7 @@ import { MEMBER_WRITE_THROTTLE } from '../../discord/throttle.js';
 import { menuRequest, NONE_VALUE } from '../../domain/roles/menus.js';
 import { iam, iamnot } from './iam.js';
 import { OLD_MENUS, roleControls } from './menus.js';
+import { withFeatures } from '../../../test/support/server-values.js';
 
 const ELSEWHERE = '499999999999999999';
 /** What a member reads when Discord refuses a role for lack of a permission. */
@@ -815,15 +816,12 @@ describe('the handler of the role menus', () => {
 
   it('refuses a press outside a server, and where the feature is off', async () => {
     const made = selfRolesWith();
-    const base = createTestContext({ selfRoles: made.selfRoles });
-    const config = {
-      ...base.ctx.config,
-      settings: {
-        ...base.ctx.config.settings,
-        features: { ...base.ctx.config.settings.features, roles: false },
-      },
-    };
-    const off = new InteractionRouter({ ...base.ctx, config }, [], [roleControls]);
+    // A server whose members give themselves no roles (plan 19A-1).
+    const base = createTestContext({
+      selfRoles: made.selfRoles,
+      servers: withFeatures({ roles: false }),
+    });
+    const off = new InteractionRouter(base.ctx, [], [roleControls]);
     const press = fakeButton({ customId: 'roles:page:next:0' });
     await off.handle(press as never);
     expect(sent(press.reply).content).toBe(STALE_COMPONENT);

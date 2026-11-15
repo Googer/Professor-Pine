@@ -1,7 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import type { OutgoingHttpHeaders } from 'node:http';
 import { tmpdir } from 'node:os';
-import type { DistanceUnits } from '../../src/render/distance-words.js';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { Logger } from 'pino';
@@ -16,7 +15,12 @@ import { EditorCache, type EditorSources } from '../../src/web/editor-cache.js';
 import { GeoCache, type GeoSources } from '../../src/web/geo-cache.js';
 import { MAP_WRITES_PER_MINUTE } from '../../src/web/acting.js';
 import { RateLimiter } from '../../src/web/rate-limit.js';
-import type { RegionStaffSource, StaffAnswer } from '../../src/web/region-staff.js';
+import {
+  regionStaffAnswer,
+  type RegionStaffSource,
+  type StaffAnswer,
+  type StaffFacts,
+} from '../../src/web/region-staff.js';
 import { LoginLinks } from '../../src/web/login-links.js';
 import type { MapServer, MapServers } from '../../src/web/map-servers.js';
 import type { WebAssets } from '../../src/web/page.js';
@@ -43,13 +47,22 @@ import { buildWebServer, type WebDeps, type WebSettings } from '../../src/web/se
 import { maxLook } from '../../src/render/max-post.js';
 import { inThisThread } from '../../src/web/save-check.js';
 import type { RegionEditing } from '../../src/web/editor-save.js';
-import { Sessions, sessionHash } from '../../src/web/sessions.js';
+import { Sessions, sessionHash, type SessionServers } from '../../src/web/sessions.js';
 import { catalogueFixture } from './game-data.js';
 import { FakePartyGateway } from './fake-gateway.js';
 import { FAKE_GUILD_ID } from './fake-interactions.js';
 import { TEST_ENV } from './test-env.js';
 import { gymDirectoryWith } from './gym-store.js';
-import { EAST_CHANNEL, EAST_FORUM, testRegions, WEST_CHANNEL, WEST_FORUM } from './gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  OTHER_GUILD_ID,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
+  testRegions,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from './gyms.js';
 import { FakeMemberDirectory } from './members.js';
 import { regionAdminWith } from './region-admin.js';
 import { createTestLogger } from './test-logger.js';
@@ -66,6 +79,8 @@ import type { partyServiceWith } from './party-service.js';
 import { LiveSignals } from '../../src/web/live-signals.js';
 import { MEMBER_LOOKUPS_PER_SECOND } from '../../src/web/paced-members.js';
 import { Tally } from './tally.js';
+import { TEST_MAP_ROLE, TestServers } from './server-values.js';
+import type { ServerSettingsLookup } from '../../src/services/server-settings.js';
 
 /** The bot's owner in the tests' environment (`TEST_ENV.OWNER_ID`), staff in every server. */
 export const TEST_OWNER_ID = TEST_ENV.OWNER_ID ?? '';
@@ -120,7 +135,7 @@ export async function geoSourcesWith() {
       },
     },
     // The settings' default, as the forums of servers set up with it are named.
-    forumSuffix: '-board',
+    forumSuffix: () => '-board',
   };
   return { gyms, directory, regionRows, regions, channelNames, hidden, unseen, opens, sources };
 }
@@ -133,11 +148,18 @@ export const TOWN_CATEGORY_ID = '100000000000000041';
  * Where the region editor's view is built from in tests: the sources of `geoSourcesWith` (the
  * invented gyms and regions, `regionRows` to change them), the kept Wayspots of `rows`, and the
  * server's channels as `ServerChannel`s: `west` and `east` in the category `Town`, `south` (no
- * region) and a forum. `servers.serverName` names the server `Pinewood`.
+ * region) and a forum. `servers.serverName` names the server `Pinewood`. The servers' snowflakes by
+ * their rows are `snowflakes` (the fakes' server row 1, the second server row 2; a test adds
+ * more), and the web lists those `listed` says (every one by default; `webServers`' `listed` for
+ * the bot's own rule).
  */
-export async function editorSourcesWith(rows: readonly WayspotRow[] = []) {
+export async function editorSourcesWith(
+  rows: readonly WayspotRow[] = [],
+  others: Parameters<typeof wayspotsWith>[3] = [],
+  listed: (serverId: string) => boolean = () => true,
+) {
   const geo = await geoSourcesWith();
-  const { wayspots } = await wayspotsWith(rows);
+  const { wayspots } = await wayspotsWith(rows, undefined, undefined, others);
   const channels: ServerChannel[] = [
     { id: TOWN_CATEGORY_ID, name: 'Town', kind: 'category', categoryId: null },
     { id: WEST_CHANNEL, name: 'west', kind: 'text', categoryId: TOWN_CATEGORY_ID },
@@ -145,17 +167,25 @@ export async function editorSourcesWith(rows: readonly WayspotRow[] = []) {
     { id: SOUTH_TEXT_CHANNEL, name: 'south', kind: 'text', categoryId: null },
     { id: '100000000000000011', name: 'west-raids', kind: 'forum', categoryId: TOWN_CATEGORY_ID },
   ];
+  const snowflakes = new Map<number, string>([
+    [TEST_GUILD_ROW, FAKE_GUILD_ID],
+    [OTHER_GUILD_ROW, OTHER_GUILD_ID],
+  ]);
   const sources: EditorSources = {
-    guilds: geo.sources.guilds,
+    guilds: {
+      idFor: (guild) => geo.sources.guilds.idFor(guild),
+      snowflakeOf: (row) => Promise.resolve(snowflakes.get(row)),
+    },
     regions: geo.regions,
     gyms: geo.directory,
     wayspots,
     servers: {
       serverChannels: (guild) => (guild === FAKE_GUILD_ID ? channels : undefined),
       serverName: (guild) => (guild === FAKE_GUILD_ID ? 'Pinewood' : undefined),
+      listed,
     },
   };
-  return { ...geo, wayspots, channels, sources };
+  return { ...geo, wayspots, channels, snowflakes, sources };
 }
 
 /**
@@ -173,12 +203,26 @@ export class FakeRegionStaff implements RegionStaffSource {
     return this;
   }
 
-  /** Makes somebody staff of the fakes' server (row 1). */
+  /** Makes somebody staff of the fakes' server (row 1), by role: they may remove regions too. */
   asStaff(userId: string, mayManageChannels = true): this {
     return this.answer(userId, {
       kind: 'staff',
-      staff: { staffId: userId, guildId: 1, server: FAKE_GUILD_ID, mayManageChannels },
+      staff: {
+        staffId: userId,
+        guildId: 1,
+        server: FAKE_GUILD_ID,
+        mayManageChannels,
+        mayRemoveRegions: true,
+      },
     });
+  }
+
+  /**
+   * What Discord says of a member of the fakes' server (row 1), decided as the bot decides it
+   * (`regionStaffAnswer`; the bot's owner is nobody of the tests).
+   */
+  asMember(userId: string, facts: StaffFacts): this {
+    return this.answer(userId, regionStaffAnswer(facts, userId, '', FAKE_GUILD_ID, 1));
   }
 
   check(guildId: string, userId: string): Promise<StaffAnswer> {
@@ -190,18 +234,21 @@ export class FakeRegionStaff implements RegionStaffSource {
 
 /** No regions, gyms or Wayspots: the editor of a server that has none. */
 const NO_EDITOR: EditorSources = {
-  guilds: { idFor: () => Promise.resolve(undefined) },
+  guilds: {
+    idFor: () => Promise.resolve(undefined),
+    snowflakeOf: () => Promise.resolve(undefined),
+  },
   regions: { all: () => [], generation: 0 },
-  gyms: { all: () => [], regionsOf: () => [], generation: 0 },
-  wayspots: { all: () => [], generation: 0 },
-  servers: { serverChannels: () => undefined, serverName: () => undefined },
+  gyms: { of: () => ({ all: () => [], regionsOf: () => [] }), generation: 0 },
+  wayspots: { of: () => ({ all: () => [] }), generation: 0 },
+  servers: { serverChannels: () => undefined, serverName: () => undefined, listed: () => true },
 };
 
 /** No regions and no gyms: the map of a server that has none. */
 const NOTHING: GeoSources = {
   guilds: { idFor: () => Promise.resolve(undefined) },
   regions: { all: () => [], generation: 0 },
-  gyms: { all: () => [], regionsOf: () => [], generation: 0 },
+  gyms: { of: () => ({ all: () => [], regionsOf: () => [] }), generation: 0 },
   channels: {
     serverChannels: () => undefined,
     everyoneGates: () => ({
@@ -210,7 +257,7 @@ const NOTHING: GeoSources = {
       denials: () => ({ own: false, roles: [] }),
     }),
   },
-  forumSuffix: '-board',
+  forumSuffix: () => '-board',
 };
 
 /**
@@ -268,7 +315,11 @@ export class FakeActingMembers implements ActingMembers {
     const member = this.members.get(key);
     if (!member) return Promise.resolve({ kind: 'not-member' });
     const held = this.held.get(key);
-    const standing = this.standings.get(key) ?? { roleNames: [], administrator: false };
+    const standing = this.standings.get(key) ?? {
+      roleNames: [],
+      roleIds: [],
+      administrator: false,
+    };
     return Promise.resolve(
       held
         ? { kind: held }
@@ -327,7 +378,7 @@ export const NO_PARTIES: PartyWebDeps = {
   guilds: { idFor: () => Promise.resolve(undefined) },
   store: { active: () => [], get: () => undefined, raidAt: () => undefined },
   look: () => ({}),
-  stops: () => {
+  stopsOf: () => () => {
     throw new Error('no trains in this test');
   },
   layoutOf: () => undefined,
@@ -335,7 +386,6 @@ export const NO_PARTIES: PartyWebDeps = {
   titleOf: () => '',
   places: NO_PLACES,
   forums: { memberAccess: () => Promise.resolve(undefined) },
-  zone: 'America/New_York',
   attendance: {
     signUp: noAttendance,
     joinInto: noAttendance,
@@ -386,7 +436,7 @@ export function partyWebWith(
     },
     store: made.store,
     look: (raid) => made.service.raidLookOf(raid),
-    stops: made.service.stops,
+    stopsOf: (guildId) => made.service.stopsOf(guildId),
     maxLook: (party) => maxLook(made.service.maxView(party)),
     layoutOf: (partyId) => made.service.layoutOf(partyId),
     // Nothing waits for a post unless the test says so (`RecordingDraws`, or the service).
@@ -394,7 +444,6 @@ export function partyWebWith(
     titleOf: (party) => made.service.postTitle(party),
     places: options.places ?? NO_PLACES,
     forums: made.gateway,
-    zone: made.settings.timezone,
     attendance: made.attendance,
     acting: options.acting ?? new FakeActingMembers(),
     throttles: options.throttles ?? new Throttles(),
@@ -574,8 +623,18 @@ export function activityWebWith(
     | 'days'
     | 'durations'
   > &
-    Partial<ActivityWebDeps>,
+    Partial<ActivityWebDeps> & {
+      /**
+       * The servers' zones of the region tally and the raids per day made here: the same lookup
+       * as the web server's `serverSettings`, so that they read the zone the routes read
+       * (`requestZone`, plan 19A-2; fix round 1, N7). Every server in the test settings' zone by
+       * default.
+       */
+      servers?: Pick<ServerSettingsLookup, 'zoneOf'>;
+    },
 ): ActivityWebDeps {
+  const { servers = new TestServers(), ...given } = deps;
+  const zoneOf = (serverId: string) => servers.zoneOf(serverId);
   // The fakes' server is row 1, as the regions of the fixtures say.
   const guilds = {
     idFor: (snowflake: string) => Promise.resolve(snowflake === FAKE_GUILD_ID ? 1 : undefined),
@@ -596,7 +655,7 @@ export function activityWebWith(
       regions: deps.regions,
       guilds,
       gateway: new FakePartyGateway(),
-      zone: deps.zone,
+      zoneOf,
     }),
     guilds,
     channelName: () => undefined,
@@ -607,10 +666,10 @@ export function activityWebWith(
     // Raids per day (plan 8H-8) over the same reader where it has them (`MemoryActivity`).
     days: new HistoryDays({
       reader: isDayReader(deps.reader) ? deps.reader : new MemoryActivity(),
-      zone: deps.zone,
+      zoneOf,
       bossName: (key) => catalogueFixture().byKey(key)?.name,
     }),
-    ...deps,
+    ...given,
   };
 }
 
@@ -688,11 +747,15 @@ export const WEB_START = Date.UTC(2026, 9, 16, 12);
 export class FakeOAuth implements OAuthGateway {
   readonly exchanged: Array<{ code: string; redirectUri: string }> = [];
   whoFails = false;
+  /** Discord does not give the member's servers (final review R4-1). */
+  serversFail = false;
   private readonly codes = new Map<string, OAuthUser>();
+  private readonly serverIds = new Map<string, readonly string[]>();
 
-  /** A code Discord would give for this member. */
-  knows(code: string, user: OAuthUser): this {
+  /** A code Discord would give for this member, in these servers (none by default). */
+  knows(code: string, user: OAuthUser, servers: readonly string[] = []): this {
     this.codes.set(code, user);
+    this.serverIds.set(code, servers);
     return this;
   }
 
@@ -707,6 +770,12 @@ export class FakeOAuth implements OAuthGateway {
     const user = this.codes.get(accessToken.replace(/^token:/, ''));
     if (this.whoFails || !user) return Promise.resolve({ failed: 'status 401' });
     return Promise.resolve({ ...user });
+  }
+
+  servers(accessToken: string) {
+    const servers = this.serverIds.get(accessToken.replace(/^token:/, ''));
+    if (this.serversFail || !servers) return Promise.resolve({ failed: 'status 401' });
+    return Promise.resolve([...servers]);
   }
 }
 
@@ -729,6 +798,13 @@ export interface WebTestOptions {
   /** Changes of `TEST_WEB`. */
   web?: Partial<WebSettings>;
   servers?: WebDeps['servers'];
+  /** Whether the instance is open to every server (`servers: "open"`); not by default. */
+  openInstance?: boolean;
+  /**
+   * Each server's values (plan 19A-1): the test settings' by default; `withMapRole()` for a map
+   * only members with its role count on.
+   */
+  serverSettings?: WebDeps['serverSettings'];
   /** Lowers the limits of the reads (`WebDeps.readUses`); each its own number by default. */
   readUses?: WebDeps['readUses'];
   /**
@@ -744,8 +820,6 @@ export interface WebTestOptions {
   /** Discord's side of a login (a `FakeOAuth` by default); undefined: no client secret. */
   oauth?: OAuthGateway | undefined;
   googleKey?: string;
-  /** `settings.distanceUnits`; imperial by default, as the settings' own. */
-  distanceUnits?: DistanceUnits;
   /** Where the map's view is built from (`geoSourcesWith`); nothing by default. */
   geo?: { sources: GeoSources };
   /** The built bundle (`builtAssets`); by default none was built. */
@@ -846,7 +920,7 @@ export async function regionEditingWith(selfRoles = false) {
     regions: made.regions,
     admin: made.regionAdmin,
     checker: inThisThread,
-    selfRoles,
+    selfRoles: () => selfRoles,
     log: made.log,
   };
   return { ...made, editing };
@@ -865,7 +939,7 @@ const NO_EDITING: RegionEditing = {
     orphanForums: () => Promise.resolve([]),
   },
   checker: inThisThread,
-  selfRoles: false,
+  selfRoles: () => false,
   log: createTestLogger().log,
 };
 
@@ -924,8 +998,13 @@ export interface TestWeb {
   sessions: MemoryWebSessions;
   sessionService: Sessions;
   loginLinks: LoginLinks;
-  /** Starts a session for somebody, as a login does; gives the `cookie` header that carries it. */
-  loggedIn(userId: string, name: string): Promise<string>;
+  /**
+   * Starts a session for somebody, as a login does; gives the `cookie` header that carries it.
+   * Its servers (final review R4-1) are none read at the login by default, as a session from
+   * before; a login with Discord's are `{ listed: true, ids }`, a link's `{ listed: false, ids:
+   * [its server] }`.
+   */
+  loggedIn(userId: string, name: string, servers?: SessionServers): Promise<string>;
   /**
    * Starts a session for somebody and gives the headers a POST of Pine's own page carries: the
    * cookie, `Origin` and the session's CSRF token.
@@ -987,6 +1066,37 @@ function membersForEditor(staff: RegionStaffSource | undefined): FakeMemberDirec
 }
 
 /**
+ * The routes of a web server as Fastify lists them once it is ready (`printRoutes`: a tree, a
+ * line per path, four characters of indent per level, its methods in brackets), each method of
+ * each path with its parameters' names; `method` keeps only those of one (and the page's `HEAD`
+ * of a `GET` is left out unless asked for).
+ */
+export function serverRoutes(
+  app: FastifyInstance,
+  method?: string,
+): Array<{ method: string; url: string }> {
+  const parents: string[] = [];
+  const routes: Array<{ method: string; url: string }> = [];
+  const tree = app.printRoutes(
+    method === undefined ? { commonPrefix: false } : { commonPrefix: false, method },
+  );
+  for (const line of tree.split('\n')) {
+    const match = /^([│ ]*)[├└]── (.+?)(?: \((.+)\))?$/u.exec(line);
+    if (!match) continue;
+    const [, indent = '', part = '', methods] = match;
+    const depth = indent.length / 4;
+    parents.length = depth;
+    parents.push(part);
+    for (const one of methods?.split(', ') ?? []) {
+      if (method === undefined ? one !== 'HEAD' : one === method) {
+        routes.push({ method: one, url: parents.join('') });
+      }
+    }
+  }
+  return routes;
+}
+
+/**
  * The web server over fakes: the bot is in the server of the fake interactions alone, unless
  * `servers` says otherwise; sessions in memory, on a clock of the test's. Close `app` after the
  * test.
@@ -1027,8 +1137,16 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     // As the bot's: the feeds' host and its own address, whose /pictures/ and /eggs/ posts show.
     pictureOrigins: ['https://cdn.leekduck.com', settings.publicUrl],
     googleKey: options.googleKey,
-    distanceUnits: options.distanceUnits ?? 'imperial',
-    servers: options.servers ?? { has: (guildId) => guildId === FAKE_GUILD_ID },
+    servers: options.servers ?? {
+      has: (guildId) => guildId === FAKE_GUILD_ID,
+      inSetup: () => false,
+      openToVisitors: () => true,
+    },
+    openInstance: options.openInstance ?? false,
+    serverSettings: options.serverSettings ?? new TestServers(),
+    // The fakes' server names the map's role of the tests (`withMapRole`) `Verified`.
+    roleName: (guildId, roleId) =>
+      guildId === FAKE_GUILD_ID && roleId === TEST_MAP_ROLE ? 'Verified' : undefined,
     serversWithMap: serversWithMapOf(options.serversWithMap),
     // Those a test of the region editor names by `staff` are not listed as members as well: the
     // editor asks the directory first (plan 8Z), and a test of that gives its own.
@@ -1082,8 +1200,8 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     sessions,
     sessionService,
     loginLinks,
-    async loggedIn(userId, name) {
-      const token = await sessionService.create({ id: userId, name });
+    async loggedIn(userId, name, servers) {
+      const token = await sessionService.create({ id: userId, name }, servers);
       return `${sessionService.cookieName}=${token}`;
     },
     async posting(userId, name) {

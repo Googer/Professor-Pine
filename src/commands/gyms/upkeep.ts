@@ -10,6 +10,7 @@ import { count, timestamp } from '../../render/text.js';
 import type { FetchOutcome } from '../../services/gym-upkeep.js';
 import { chosenGym, respondWithGyms, withGymOption } from './gym-option.js';
 import { answerGym, GYM_GONE, gymViewMessage, staffPlace } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** How often one member may ask Google about a gym by hand (plan 8Z); the cap is the instance's. */
 const GYM_REFRESH_THROTTLE: Throttle = { uses: 10, perSeconds: 600 };
@@ -64,16 +65,21 @@ export const refreshGym: SubcommandPart = {
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const chosen = await chosenGym(interaction, ctx);
-    const refreshed = await ctx.gymAdmin.refresh(chosen.id);
+    const place = await staffPlace(interaction, ctx);
+    // The server's lookup by hand, against its own floor of the month too (plan 19B-5).
+    const refreshed = await ctx.gymAdmin.refresh(chosen.id, place.guildId);
     if (!refreshed) throw new UserError(GYM_GONE);
     const { gym, geodata, places } = refreshed;
+    const { googleByHandPerMonth } = ctx.config.settings;
     const lines =
       geodata === 'capped'
         ? [
-            `I did not ask Google: this instance has used its ` +
-              `${ctx.config.settings.googleByHandPerMonth} lookups by hand for this month. They ` +
-              `start again ${timestamp(googleMonth(Date.now()).nextReset, 'f')}. The gym keeps ` +
-              'what it has.',
+            // Shared by floors (plan 19B-5, fix round 3, T3): `withinFloors`.
+            'I did not ask Google: the lookups by hand this server may make this month are ' +
+              `used (each server may always make a few of this instance’s ` +
+              `${String(googleByHandPerMonth)}, and more of what the others leave). They start ` +
+              `again ${timestamp(googleMonth(Date.now()).nextReset, 'f')}. The gym keeps what ` +
+              'it has.',
           ]
         : geodata === 'count-unread'
           ? [
@@ -86,10 +92,12 @@ export const refreshGym: SubcommandPart = {
                 fetched('address', 'Geocoding API', geodata),
                 fetched('nearby places', 'Places API (New)', places),
               ];
-    const place = await staffPlace(interaction, ctx);
     await answerGym(
       interaction,
-      await gymViewMessage(ctx, place, gym, [`${gymWithId(gym)}:`, ...lines]),
+      await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, place, gym, [
+        `${gymWithId(gym)}:`,
+        ...lines,
+      ]),
     );
   },
   autocomplete: respondWithGyms,
@@ -120,7 +128,7 @@ export const exportGyms: SubcommandPart = {
     // A gym in two regions that overlap is one line.
     const gyms = new Map<number, Gym>();
     for (const region of regions) {
-      for (const gym of ctx.gyms.inRegion(region.channelId)) gyms.set(gym.id, gym);
+      for (const gym of ctx.gyms.of(guildId).inRegion(region.channelId)) gyms.set(gym.id, gym);
     }
     if (gyms.size === 0) throw new UserError('No gym lies in a region of this server.');
     const file = new AttachmentBuilder(Buffer.from(gymsTsv([...gyms.values()]), 'utf8'), {

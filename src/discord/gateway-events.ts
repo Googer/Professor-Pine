@@ -34,8 +34,10 @@ export const MISSED_ACK_MS = 60_000;
 /** A run of shard errors of one kind is said again at most once in this time: a minute. */
 export const REPEAT_EVERY_MS = 60_000;
 
-/** The gateway back after a real disconnect (`GatewayWatch.onBack`). */
+/** A shard of the gateway back after a real disconnect (`GatewayWatch.onBack`). */
 export interface GatewayBack {
+  /** Which shard (plan 19D): each has its own time away. */
+  shard: number;
   /**
    * How long it was away: from the first reconnection, or from the last heartbeat acknowledged
    * where that was missed (`MISSED_ACK_MS`).
@@ -45,6 +47,11 @@ export interface GatewayBack {
   shardErrors: number;
   /** It came back with a new session (`ShardReady`): the events of the time away are lost. */
   newSession: boolean;
+  /**
+   * What made the return real, decided here alone (19D fix round 2, R3): its time away
+   * (`REAL_AWAY_MS` or more), else its shard errors, else only its new session.
+   */
+  real: 'time' | 'errors' | 'session';
 }
 
 export interface GatewayWatchOptions {
@@ -68,6 +75,19 @@ interface ErrorRun {
   unsaid: number;
 }
 
+/** What the watch keeps of one shard. */
+interface ShardWatch {
+  /** Its first ready came: from here on a reconnection of it counts. */
+  armed: boolean;
+  downSince: number | undefined;
+  /**
+   * The shard's last heartbeat acknowledged, as it was at the first reconnection: the new
+   * connection's first acknowledgement can come before its RESUMED and hide it (review F3).
+   */
+  ackWhenDown: number | undefined;
+  errorsWhileDown: number;
+}
+
 /**
  * Whether the gateway came back after a real disconnect (plan 8X-H, review R2), so that what
  * failed meanwhile is caught up: armed by the first ready (the login's own and earlier
@@ -88,21 +108,20 @@ interface ErrorRun {
  * not said yet are counted in the line of the gateway back, and a kind is said anew when the next
  * outage begins.
  *
- * One state for every shard: the first away, the first back. Pine runs one shard
- * (`createClient`, `src/discord/client.ts`, sets no `shards`: discord.js's `shardCount` of 1;
- * Discord asks for more only beyond 2,500 servers); with several, one shard's return would end
- * the time away of all (review r0 B9).
+ * Each shard by itself (plan 19D; review r0 B9 of 8X-H): its arming by its own first ready, its
+ * time away, its last acknowledgement and its count of errors, so that one shard's return never
+ * ends another's time away, a late shard's login is no return, and one shard's errors make no
+ * other's return real. What is said of the errors is the process's (fix round 1, F6): the runs of
+ * a kind are shared by every shard, so a network away, which every shard meets at once, says its
+ * first error once and its repeats once a minute; an outage begins when a shard goes away while
+ * none is, and ends when none is away any more (the runs are cleared then, the unsaid counted in
+ * the line of the gateway back of each shard as it returns). `createClient` connects as many
+ * shards as Discord asks for (one up to 2,500 servers); with one, all of this is as before.
  */
 export class GatewayWatch {
   private readonly now: () => number;
-  private armed = false;
-  private downSince: number | undefined;
-  /**
-   * The shard's last heartbeat acknowledged, as it was at the first reconnection: the new
-   * connection's first acknowledgement can come before its RESUMED and hide it (review F3).
-   */
-  private ackWhenDown: number | undefined;
-  private errorsWhileDown = 0;
+  private readonly shards = new Map<number, ShardWatch>();
+  /** The runs of shard errors by kind, of every shard. */
   private readonly runs = new Map<string, ErrorRun>();
   private readonly listeners: ((back: GatewayBack) => void)[] = [];
 
@@ -132,44 +151,76 @@ export class GatewayWatch {
     this.listeners.push(listener);
   }
 
+  /** What the watch keeps of `shard`, made at its first event. */
+  private watchOf(shard: number): ShardWatch {
+    let watch = this.shards.get(shard);
+    if (!watch) {
+      watch = {
+        armed: false,
+        downSince: undefined,
+        ackWhenDown: undefined,
+        errorsWhileDown: 0,
+      };
+      this.shards.set(shard, watch);
+    }
+    return watch;
+  }
+
+  /** Whether any shard is away now. */
+  private anyAway(): boolean {
+    return [...this.shards.values()].some((watch) => watch.downSince !== undefined);
+  }
+
   private away(shard: number): void {
-    if (!this.armed || this.downSince !== undefined) return;
-    this.downSince = this.now();
-    this.ackWhenDown = this.options.lastAck?.(shard);
-    this.errorsWhileDown = 0;
-    // An outage's first error of a kind is said, also of a kind seen while connected (review r1 C5).
-    this.runs.clear();
+    const watch = this.watchOf(shard);
+    if (!watch.armed || watch.downSince !== undefined) return;
+    // An outage's first error of a kind is said, also of a kind seen while connected (review r1
+    // C5); an outage begins when a shard goes away while none is (fix round 1, F6).
+    if (!this.anyAway()) this.runs.clear();
+    watch.downSince = this.now();
+    watch.ackWhenDown = this.options.lastAck?.(shard);
+    watch.errorsWhileDown = 0;
   }
 
   private back(shard: number, newSession: boolean): void {
-    if (!this.armed) {
-      // The login's own ready: from here on a reconnection counts.
-      this.armed = true;
-      this.runs.clear();
+    const watch = this.watchOf(shard);
+    if (!watch.armed) {
+      // The shard's login ready: from here on a reconnection of it counts.
+      watch.armed = true;
+      if (!this.anyAway()) this.runs.clear();
       return;
     }
-    const since = this.downSince;
+    const since = watch.downSince;
     if (since === undefined) return;
     const now = this.now();
-    const ack = this.ackWhenDown;
+    const ack = watch.ackWhenDown;
     const from = ack !== undefined && ack >= 0 && since - ack > MISSED_ACK_MS ? ack : since;
     const awayMs = now - from;
-    const shardErrors = this.errorsWhileDown;
+    const shardErrors = watch.errorsWhileDown;
     const unsaid = [...this.runs.values()].reduce((sum, run) => sum + run.unsaid, 0);
-    this.downSince = undefined;
-    this.ackWhenDown = undefined;
-    this.errorsWhileDown = 0;
-    this.runs.clear();
-    const real = awayMs >= (this.options.realAfterMs ?? REAL_AWAY_MS) || shardErrors > 0;
-    if (!real && !newSession) {
+    watch.downSince = undefined;
+    watch.ackWhenDown = undefined;
+    watch.errorsWhileDown = 0;
+    // The outage ends with the last shard back; until then the unsaid are said in this line.
+    if (this.anyAway()) for (const run of this.runs.values()) run.unsaid = 0;
+    else this.runs.clear();
+    const real: GatewayBack['real'] | undefined =
+      awayMs >= (this.options.realAfterMs ?? REAL_AWAY_MS)
+        ? 'time'
+        : shardErrors > 0
+          ? 'errors'
+          : newSession
+            ? 'session'
+            : undefined;
+    if (real === undefined) {
       this.options.log.debug({ shard, awayMs }, 'discord gateway resumed');
       return;
     }
     this.options.log.info(
-      { shard, awayMs, shardErrors, unsaid, newSession },
+      { shard, awayMs, shardErrors, unsaid, newSession, real },
       'discord gateway back',
     );
-    const event: GatewayBack = { awayMs, shardErrors, newSession };
+    const event: GatewayBack = { shard, awayMs, shardErrors, newSession, real };
     for (const listener of this.listeners) {
       try {
         listener(event);
@@ -180,7 +231,8 @@ export class GatewayWatch {
   }
 
   private shardError(err: Error, shard: number): void {
-    if (this.downSince !== undefined) this.errorsWhileDown++;
+    const watch = this.watchOf(shard);
+    if (watch.downSince !== undefined) watch.errorsWhileDown++;
     const code: unknown = (err as { code?: unknown }).code;
     const kind = typeof code === 'string' || typeof code === 'number' ? String(code) : err.message;
     const now = this.now();
@@ -199,4 +251,44 @@ export class GatewayWatch {
     run.saidAt = now;
     run.unsaid = 0;
   }
+}
+
+/**
+ * How often a shard's short return with a new session alone asks for the catch-up: at most once in
+ * ten minutes (fix round 1 of 19D, F5).
+ */
+export const SESSION_CATCH_UP_EVERY_MS = 10 * 60_000;
+
+export interface CatchUpOnReturnOptions {
+  /** How many shards the client has (`client.ws.shards.size`). */
+  shards: () => number;
+  now?: () => number;
+  sessionEveryMs?: number;
+}
+
+/**
+ * The listener of `GatewayWatch.onBack` that asks for the catch-up (`request`), by what made the
+ * return real (`GatewayBack.real`, decided by the watch alone): at every return real by its time
+ * away or by its shard errors, when requests failed meanwhile; with one shard at every return, as
+ * before plan 19D (19D fix round 2, R3); with several, a return real only by its new session (an
+ * ECONNRESET on a live connection, a second away), whose few seconds failed hardly anything and
+ * which several shards each have now and then, at most once in `SESSION_CATCH_UP_EVERY_MS`,
+ * counted from the last catch-up asked for whatever the reason. The catch-up is the whole one,
+ * every server's (`operations.md`, "The catch-up on reconnect"); it coalesces and is safe to run
+ * again.
+ */
+export function catchUpOnReturn(
+  request: () => void,
+  options: CatchUpOnReturnOptions,
+): (back: GatewayBack) => void {
+  const now = options.now ?? Date.now;
+  const everyMs = options.sessionEveryMs ?? SESSION_CATCH_UP_EVERY_MS;
+  let lastAsked: number | undefined;
+  return (back) => {
+    const at = now();
+    const limited = back.real === 'session' && options.shards() > 1;
+    if (limited && lastAsked !== undefined && at - lastAsked < everyMs) return;
+    lastAsked = at;
+    request();
+  };
 }

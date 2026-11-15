@@ -8,6 +8,7 @@ import { count, fitItems, memberText, plain } from '../../render/text.js';
 import { legacyLine } from '../settings/panel.js';
 import { settingsLines } from '../settings/settings-lines.js';
 import { wantLineNames } from '../notifications/wants.js';
+import { serverGyms } from '../util/server-gym.js';
 
 /** How many wants and gym targets are named before the rest is counted. */
 const NAMED = 5;
@@ -49,8 +50,9 @@ export async function memberSettingsLines(
       ctx.gymTargets.list(memberId, guildId),
     ]);
   const legacy = legacyLine(fillIn, { indexed: ctx.legacyIndex !== undefined, hasFile, history });
+  const gyms = await serverGyms({ guildId }, ctx);
   const gymNames = targets.gymIds.map((id) => {
-    const gym = ctx.gyms.get(id);
+    const gym = gyms.get(id);
     return gym ? plain(gym.name) : `gym #${String(id)} (gone)`;
   });
   return [

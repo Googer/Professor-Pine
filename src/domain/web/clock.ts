@@ -6,7 +6,7 @@
 /** Spaces the formatter writes as narrow or no-break ones (every space separator), as plain. */
 const plainSpaces = (text: string): string => text.replace(/\p{Zs}/gu, ' ');
 
-/** `2:30 PM` in the posts' zone, with the day (`Wed, Oct 14, 2:00 PM`) when it is not today. */
+/** `2:30 PM` in the server's zone, with the day (`Wed, Oct 14, 2:00 PM`) when it is not today. */
 export function clockTime(at: number, zone: string, now: number): string {
   const day = (time: number) =>
     new Intl.DateTimeFormat('en-CA', { timeZone: zone, dateStyle: 'short' }).format(time);
@@ -34,7 +34,7 @@ export function zoneLabel(zone: string): string {
 }
 
 /**
- * A day and time in the posts' zone as Discord shows a member a timestamp of style `f`
+ * A day and time in the server's zone as Discord shows a member a timestamp of style `f`
  * (`<t:…:f>`, what the DMs write), with the zone's short name, since a page is read from
  * anywhere and does not show it in the reader's zone as Discord does: `November 19, 2026 at
  * 2:27 PM EST` (a zone without a short name in English as `GMT+1`). For a page, which cannot

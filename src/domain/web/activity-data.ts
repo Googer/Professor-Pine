@@ -22,7 +22,7 @@ export interface ActivityPlaceView {
 
 export interface ActivityView {
   mode: ActivityModeName;
-  /** Expected now's weekday (ISO, 1 Monday … 7 Sunday) in the posts' zone; null in other modes. */
+  /** Expected now's weekday (ISO, 1 Monday … 7 Sunday) in the server's zone; null in other modes. */
   weekday: number | null;
   places: ActivityPlaceView[];
   /**

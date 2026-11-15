@@ -6,7 +6,8 @@ import { blockAt, clientSheet } from '../../test/support/stylesheets.js';
 import { builtAssets, webServerWith, type TestWeb } from '../../test/support/web.js';
 import { csrfInTop, LOGGED_OUT_MARK as CLIENT_LOGGED_OUT_MARK } from './client/top-logout.js';
 import { AFTER_JOINING, LOGGED_OUT_MARK } from './top-page.js';
-import { TOP_LOOKUP_MS, TOP_PER_MINUTE } from './top-routes.js';
+import { TOP_LOOKUP_MS, TOP_LOOKUPS_PER_LOAD, TOP_PER_MINUTE } from './top-routes.js';
+import { withInvites, withMapRole } from '../../test/support/server-values.js';
 
 const ASH = '700000000000000001';
 const PINEWOOD = { id: '410000000000000001', name: 'Pinewood' };
@@ -152,11 +153,11 @@ describe('the top page', () => {
 
   it('asks the member directory itself: a member without the map role still counts', async () => {
     web = webServerWith({
-      web: { memberRole: 'Trainer' },
+      serverSettings: withMapRole(),
       serversWithMap: [PINEWOOD],
       members: new FakeMemberDirectory()
         .add(ASH, 'Ash', PINEWOOD.id)
-        .standing(ASH, { roleNames: [], administrator: false }, PINEWOOD.id),
+        .standing(ASH, { roleNames: [], roleIds: [], administrator: false }, PINEWOOD.id),
     });
     const answer = await web.app.inject({
       url: '/',
@@ -167,7 +168,10 @@ describe('the top page', () => {
 
   it('lists the servers of theirs and those they could join, names the visitor and offers Log out', async () => {
     web = webServerWith({
-      web: { invites: { [OAKVALE.id]: OAK_INVITE, [ELMHURST.id]: 'https://discord.gg/elm' } },
+      serverSettings: withInvites({
+        [OAKVALE.id]: OAK_INVITE,
+        [ELMHURST.id]: 'https://discord.gg/elm',
+      }),
       serversWithMap: [PINEWOOD, OAKVALE, ELMHURST, { id: '410000000000000004', name: 'acorn' }],
       members: new FakeMemberDirectory()
         .add(ASH, 'Ash', PINEWOOD.id)
@@ -209,7 +213,7 @@ describe('the top page', () => {
       'Once you have joined, reload this page; Discord can take a minute to tell Pine.',
     );
     web = webServerWith({
-      web: { invites: { [OAKVALE.id]: OAK_INVITE } },
+      serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
       serversWithMap: [PINEWOOD, OAKVALE],
       members: new FakeMemberDirectory().add(ASH, 'Ash', PINEWOOD.id),
     });
@@ -232,9 +236,26 @@ describe('the top page', () => {
     expect(none.body).not.toContain('Once you have joined');
   });
 
+  it('names no server to join on an instance open to every server (final review R4-2)', async () => {
+    web = webServerWith({
+      openInstance: true,
+      serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
+      serversWithMap: [PINEWOOD, OAKVALE, ELMHURST],
+      members: new FakeMemberDirectory().add(ASH, 'Ash', PINEWOOD.id).add(ASH, 'Ash', ELMHURST.id),
+    });
+    const { body } = await web.app.inject({
+      url: '/',
+      headers: { cookie: await web.loggedIn(ASH, 'Ash') },
+    });
+    expect(body).toContain('<bdi>Pinewood</bdi>');
+    expect(body).not.toContain('Oakvale');
+    expect(body).not.toContain(OAK_INVITE);
+    expect(body).not.toContain('Servers you can join');
+  });
+
   it('says they are in no server here, with the servers they could join', async () => {
     web = webServerWith({
-      web: { invites: { [OAKVALE.id]: OAK_INVITE } },
+      serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
       serversWithMap: [PINEWOOD, OAKVALE],
     });
     const answer = await web.app.inject({
@@ -282,7 +303,7 @@ describe('the top page', () => {
   it('counts a server unavailable as one Discord did not answer for, never asking of it (F1)', async () => {
     const members = new FakeMemberDirectory().add(ASH, 'Ash', PINEWOOD.id);
     web = webServerWith({
-      web: { invites: { [OAKVALE.id]: OAK_INVITE } },
+      serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
       serversWithMap: { servers: [PINEWOOD], unavailable: [OAKVALE.id] },
       members,
     });
@@ -321,11 +342,95 @@ describe('the top page', () => {
     expect(most).toBe(3);
   });
 
+  describe('a login with Discord that read the member’s servers (final review R4-1)', () => {
+    /** Seven servers with a map: more than one load asks the directory of. */
+    const SEVEN = Array.from({ length: 7 }, (_, i) => ({
+      id: `41000000000000001${String(i)}`,
+      name: `Server ${String.fromCharCode(65 + i)}`,
+    }));
+
+    it('reads their servers from the session and asks Discord nothing', async () => {
+      const members = new FakeMemberDirectory().add(ASH, 'Ash', OAKVALE.id);
+      web = webServerWith({
+        serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
+        serversWithMap: [PINEWOOD, OAKVALE, ELMHURST, ...SEVEN],
+        members,
+      });
+      // In Pinewood and Elmhurst at the login; the directory would say Oakvale, never asked.
+      const cookie = await web.loggedIn(ASH, 'Ash', {
+        listed: true,
+        ids: [PINEWOOD.id, ELMHURST.id],
+      });
+      const { body } = await web.app.inject({ url: '/', headers: { cookie } });
+      expect(members.asked).toEqual([]);
+      expect(body).toContain('<bdi>Pinewood</bdi>');
+      expect(body).toContain('<bdi>Elmhurst</bdi>');
+      expect(body).toContain(
+        `<bdi>Oakvale</bdi> <a class="top-join" href="${OAK_INVITE}" target="_blank" rel="noopener">Join on Discord</a>`,
+      );
+      expect(body).not.toContain('did not answer');
+      expect(body).not.toContain(html(AFTER_JOINING));
+      // A server joined since is theirs after their next login: the page says how.
+      expect(body).toContain(
+        `<p>I read your servers when you logged in. If you joined one since, <a href="/auth/login?next=/">log in with Discord again</a> to see it here.</p>`,
+      );
+    });
+
+    it('leads straight to the map of their one server, asking nothing', async () => {
+      const members = new FakeMemberDirectory();
+      web = webServerWith({ serversWithMap: [PINEWOOD, ...SEVEN], members });
+      const cookie = await web.loggedIn(ASH, 'Ash', { listed: true, ids: [PINEWOOD.id] });
+      const answer = await web.app.inject({ url: '/', headers: { cookie } });
+      expect(answer.statusCode).toBe(302);
+      expect(answer.headers.location).toBe(`/s/${PINEWOOD.id}/map`);
+      expect(members.asked).toEqual([]);
+    });
+
+    it(`asks a session from before of at most ${String(TOP_LOOKUPS_PER_LOAD)} servers a load, and says the list may be partial`, async () => {
+      const members = new FakeMemberDirectory().add(ASH, 'Ash', SEVEN[0]?.id);
+      web = webServerWith({ serversWithMap: SEVEN, members });
+      const answer = await web.app.inject({
+        url: '/',
+        headers: { cookie: await web.loggedIn(ASH, 'Ash') },
+      });
+      expect(members.asked).toHaveLength(TOP_LOOKUPS_PER_LOAD);
+      expect(answer.statusCode).toBe(200);
+      expect(answer.body).toContain('<bdi>Server A</bdi>');
+      expect(answer.body).toContain(
+        '<p class="top-partial">I checked only some of the servers here for you. <a href="/auth/login?next=/">Log in with Discord again</a> to see all of yours.</p>',
+      );
+      expect(answer.body).not.toContain('None of your Discord servers');
+      expect(answer.body).not.toContain('did not answer');
+    });
+
+    it('counts the server of a login by link as theirs, asking only of the others', async () => {
+      const members = new FakeMemberDirectory().add(ASH, 'Ash', OAKVALE.id);
+      web = webServerWith({ serversWithMap: [PINEWOOD, OAKVALE], members });
+      const cookie = await web.loggedIn(ASH, 'Ash', { listed: false, ids: [PINEWOOD.id] });
+      const { body } = await web.app.inject({ url: '/', headers: { cookie } });
+      expect(members.asked).toEqual([`${OAKVALE.id}:${ASH}`]);
+      expect(body).toContain('<bdi>Pinewood</bdi>');
+      expect(body).toContain('<bdi>Oakvale</bdi>');
+    });
+
+    it('points to /maps for the rest without the client secret', async () => {
+      web = webServerWith({ serversWithMap: SEVEN, oauth: undefined });
+      const { body } = await web.app.inject({
+        url: '/',
+        headers: { cookie: await web.loggedIn(ASH, 'Ash') },
+      });
+      expect(body).toContain(
+        '<p class="top-partial">I checked only some of the servers here for you. Use /maps in your server on Discord to open its map.</p>',
+      );
+      expect(body).not.toContain('/auth/login');
+    });
+  });
+
   it("escapes a server's and the visitor's names, and keeps their direction to themselves", async () => {
     const hostile = { id: PINEWOOD.id, name: '<img src=x onerror=alert(1)>\u202Eevil"&' };
     const hostileToJoin = { id: ELMHURST.id, name: '<svg onload=alert(2)>\u202Ejoin"&' };
     web = webServerWith({
-      web: { invites: { [ELMHURST.id]: 'https://discord.gg/elm' } },
+      serverSettings: withInvites({ [ELMHURST.id]: 'https://discord.gg/elm' }),
       serversWithMap: [hostile, OAKVALE, hostileToJoin],
       members: new FakeMemberDirectory().add(ASH, 'Ash', PINEWOOD.id).add(ASH, 'Ash', OAKVALE.id),
     });
@@ -464,7 +569,7 @@ describe('the top page', () => {
 
   it("draws every class of its pages in the short pages' stylesheet, no style in the markup", async () => {
     web = webServerWith({
-      web: { invites: { [OAKVALE.id]: OAK_INVITE } },
+      serverSettings: withInvites({ [OAKVALE.id]: OAK_INVITE }),
       serversWithMap: [PINEWOOD, OAKVALE, ELMHURST],
       members: new FakeMemberDirectory().add(ASH, 'Ash', PINEWOOD.id).add(ASH, 'Ash', ELMHURST.id),
     });

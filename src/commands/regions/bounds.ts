@@ -79,7 +79,8 @@ export const bounds: SimpleCommand = {
     const map = await mapOrNothing(ctx.maps.region(region), ctx.log, 'a region', {
       region: region.id,
     });
-    const gyms = ctx.gyms.inRegion(region.channelId).length;
+    // The gyms of the region's server (plan 19B-2): another server's in its outline are not.
+    const gyms = ctx.gyms.of(region.guildId ?? undefined).inRegion(region.channelId).length;
     await interaction.editReply(v2Answer(boundsMessage(region.channelId, gyms, map)));
   },
 };

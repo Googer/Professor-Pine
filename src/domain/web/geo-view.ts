@@ -40,9 +40,9 @@ export interface GeoInput {
   regions: readonly GeoRegion[];
   /** The names of channels by id, as the bot sees them now. */
   channelNames: ReadonlyMap<string, string>;
-  /** Every gym the bot knows. */
+  /** The gyms of the server (plan 19B-2: its view, `GymDirectory.of`). */
   gyms: readonly GeoGym[];
-  /** The channels of the regions a gym lies in (`GymProvider.regionsOf`). */
+  /** The channels of the server's regions a gym lies in (its view's `regionsOf`). */
   regionsOf(gymId: number): readonly string[];
 }
 
@@ -77,7 +77,7 @@ export function publicRegions<
 /**
  * The name the public view gives a region (v2.0.2), from the name of its gate (`regionGate`,
  * the channel that let it in, F-B1): a forum is named after its region's channel with
- * `settings.regionForumSuffix` added (`north` and `north-board`; `/admin setup-forums`,
+ * the server's `regionForumSuffix` added (plan 19A-1) (`north` and `north-board`; `/admin setup-forums`,
  * `/region import`), so a forum's name that ends with the suffix is shown without it. Nothing
  * else is read: the text channel's name may be one the public cannot view. A forum named
  * otherwise, or only the suffix, and a region whose gate is its text channel keep the name.
@@ -96,8 +96,8 @@ const round = (value: number): number => Math.round(value * 1e6) / 1e6;
 
 /**
  * The map of a server: its regions that have an outline (a region whose channel the bot does not
- * see is named by its number), and the gyms that lie in at least one of them. Gyms that lie in
- * no region of any server are left out: which server's they are is not cheap to say (8M-1).
+ * see is named by its number), and the gyms of the server that lie in at least one of them (plan
+ * 19B-2: its view). Its gyms in none of its regions are left out (8M-1).
  */
 /**
  * Whether a region is on the map: it has an outline (`/api/geo` shows it; "Your regions" lists

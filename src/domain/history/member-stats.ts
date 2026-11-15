@@ -86,7 +86,7 @@ export interface MemberStats {
 }
 
 export interface MemberStatsOptions {
-  /** `settings.timezone`: a year and a month are local. */
+  /** The server's zone: a year and a month are local. */
   zone: string;
   /** A calendar year; all time without. */
   year?: number;

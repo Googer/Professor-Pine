@@ -1,11 +1,68 @@
 /**
  * The one place Pine makes and reads zoned times (plan 8Y: Temporal in place of Luxon). Times
- * are epoch milliseconds in data; while computing they are `Temporal.ZonedDateTime` in
- * `settings.timezone` (or a feed's fixed zone), made here and changed with Temporal's own
- * methods (`add`, `with`, `startOfDay`, `since`). Never `Temporal.Now`: the clock is `Date.now()`
- * or an injected `now`, so tests that fake `Date` keep working. A zone never comes from member
- * text: Temporal throws on a zone it does not know.
+ * are epoch milliseconds in data; while computing they are `Temporal.ZonedDateTime` in the
+ * server's zone (plan 19A-2; the instance's default where there is no server, or a feed's fixed
+ * zone), made here and changed with Temporal's own methods (`add`, `with`, `startOfDay`,
+ * `since`). Never `Temporal.Now`: the clock is `Date.now()` or an injected `now`, so tests that
+ * fake `Date` keep working. A zone typed by staff is taken only through `zoneNamed`, never from
+ * other member text: Temporal throws on a zone it does not know.
  */
+
+/**
+ * A place's zone name, as IANA's (`Area/Location`, one or more slashes), or `UTC`; never an
+ * abbreviation (`EST`), a POSIX rule (`EST5EDT`) or a fixed offset named (`Etc/GMT+5`): none of
+ * those follows a place's daylight saving time (fix round 1, K2).
+ */
+const PLACE_ZONE = /^(?:UTC|[a-z][\w+-]*(?:\/[\w+-]+)+)$/iu;
+const ETC_GMT = /^etc\/gmt/iu;
+
+/** The name as Temporal writes it (its case), or nothing for a name it does not know. */
+function zoneId(name: string): string | undefined {
+  try {
+    return zoned(0, name).timeZoneId;
+  } catch (error) {
+    if (error instanceof RangeError) return undefined;
+    throw error;
+  }
+}
+
+/**
+ * The zone a name names, as IANA writes it (`america/new_york` is `America/New_York`; a link or
+ * an older name is kept, `Asia/Kolkata` never becomes ICU's `Asia/Calcutta`: fix round 1, K3), or
+ * nothing for a name that is no place's zone (plan 19A-2: a server's zone, which its staff type).
+ * Refused: an offset (`+05:30`), an abbreviation (`EST`, `zoneAbbreviation`), a POSIX rule
+ * (`EST5EDT`) and the `Etc/GMT±N` names, which never change for daylight saving time.
+ */
+export function zoneNamed(text: string): string | undefined {
+  const name = text.trim();
+  if (!PLACE_ZONE.test(name) || ETC_GMT.test(name)) return undefined;
+  return zoneId(name);
+}
+
+/**
+ * Whether a name is an abbreviation or a POSIX rule (`EST`, `CST`, `GMT`, `EST5EDT`), known to
+ * the zone database or not, never a place's: `zoneNamed` refuses it, and the panel says why
+ * (fix round 1, K2). Capitals only (fix round 2, P3): `Paris` or `est` is a word the panel does
+ * not know, not an abbreviation.
+ */
+export function zoneAbbreviation(text: string): boolean {
+  const name = text.trim();
+  return /^[A-Z]{2,5}(?:\d{1,2}[A-Z]{2,5})?$/u.test(name) && !PLACE_ZONE.test(name);
+}
+
+/**
+ * Whether two zone names name the same zone (a link, an older name, a case: `US/Eastern` and
+ * `America/New_York`), so that writing one over the other changes nothing (fix round 1, K3).
+ */
+export function sameZone(a: string, b: string): boolean {
+  if (a === b) return true;
+  try {
+    return zoned(0, a).equals(zoned(0, b));
+  } catch (error) {
+    if (error instanceof RangeError) return false;
+    throw error;
+  }
+}
 
 /** The farthest moment from 1970 Temporal holds, either way (a hundred million days). */
 const MOMENT_LIMIT_MS = 8.64e15;
@@ -130,14 +187,19 @@ const FEED_TIME =
   /^(\d{4}-\d{2}-\d{2})(?:[Tt](\d{2})(?::(\d{2})(?::([0-5]\d)(?:\.(\d{1,9}))?)?)?([Zz]|[+-]\d{2}(?::?\d{2})?)?)?$/;
 
 /**
- * A feed's time as the feeds mean it: one with an offset or `Z` is that moment, seen in `zone`;
- * one without is a wall-clock time in `zone`; a date alone is its midnight there; `24:00` is the
- * next day's midnight. Anything else, empty or malformed, is nothing, never a throw. A wall-clock
- * time in the fall overlap is the earlier of the two (`disambiguation: 'compatible'`), whenever
- * Pine reads it: a feed's time is not decided by our clock. Luxon's `fromISO` took the offset
- * of the moment it ran there (the earlier in summer, the later after the clocks fell back).
+ * A feed's time as the feed gave it (plan 19A-2): one with an offset or `Z` is a moment (`at`,
+ * epoch milliseconds), the same in every zone; one without is a wall-clock time (`local`,
+ * `yyyy-mm-ddThh:mm:ss[.fff]`, as `Temporal.PlainDateTime` writes it), which is a moment only in a
+ * zone: Raid Hour at 18:00 is 18:00 in each server's zone. `momentIn` gives its moment in a zone.
  */
-export function feedTime(text: string, zone: string): Temporal.ZonedDateTime | undefined {
+export type FeedTime = { readonly at: number } | { readonly local: string };
+
+/**
+ * A feed's time read without a zone (`FeedTime`): one with an offset or `Z` is that moment; one
+ * without is wall-clock time; a date alone is its midnight; `24:00` is the next day's midnight.
+ * Anything else, empty or malformed, is nothing, never a throw.
+ */
+export function readFeedTime(text: string): FeedTime | undefined {
   const shape = FEED_TIME.exec(text);
   if (!shape) return undefined;
   const [, date = '', hour, minute = '00', second = '00', fraction = '0', offset] = shape;
@@ -149,14 +211,37 @@ export function feedTime(text: string, zone: string): Temporal.ZonedDateTime | u
       hour === undefined ? '' : `T${endOfDay ? '00' : hour}:${minute}:${second}.${fraction}`;
     const iso = `${day}${time}`;
     return offset === undefined
-      ? Temporal.PlainDateTime.from(iso, { overflow: 'reject' }).toZonedDateTime(zone, {
-          disambiguation: 'compatible',
-        })
-      : Temporal.Instant.from(`${iso}${offset.toUpperCase()}`).toZonedDateTimeISO(zone);
+      ? { local: Temporal.PlainDateTime.from(iso, { overflow: 'reject' }).toString() }
+      : { at: Temporal.Instant.from(`${iso}${offset.toUpperCase()}`).epochMilliseconds };
   } catch (error) {
     if (error instanceof RangeError) return undefined;
     throw error;
   }
+}
+
+/**
+ * The moment of a feed's time in `zone`, seen there: a moment as it is; a wall-clock time on
+ * `zone`'s clock, the earlier of the two in the fall overlap (`disambiguation: 'compatible'`),
+ * whenever Pine reads it (a feed's time is not decided by our clock), a time in the spring gap
+ * moved forward by the gap.
+ */
+export function momentIn(time: FeedTime, zone: string): Temporal.ZonedDateTime {
+  return 'at' in time
+    ? zoned(time.at, zone)
+    : Temporal.PlainDateTime.from(time.local).toZonedDateTime(zone, {
+        disambiguation: 'compatible',
+      });
+}
+
+/**
+ * A feed's time as the feeds mean it, in `zone` (`readFeedTime`, then `momentIn`): one with an
+ * offset or `Z` is that moment, seen in `zone`; one without is a wall-clock time in `zone`; a
+ * date alone is its midnight there; `24:00` is the next day's midnight. Anything else is nothing,
+ * never a throw. Luxon's `fromISO` took the offset of the moment it ran there in the overlap.
+ */
+export function feedTime(text: string, zone: string): Temporal.ZonedDateTime | undefined {
+  const time = readFeedTime(text);
+  return time === undefined ? undefined : momentIn(time, zone);
 }
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];

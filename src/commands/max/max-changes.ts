@@ -44,7 +44,7 @@ export async function changeMaxEnd(
   party: MaxParty,
   text: string,
 ): Promise<void> {
-  const typed = typedMaxTime(ctx, 'end', text, Date.now(), party);
+  const typed = typedMaxTime(ctx, 'end', text, Date.now(), ctx.partyService.zoneOf(party), party);
   // An end cannot be removed (`typedMaxTime` refuses `none`).
   if (typed === 'unset') throw new UserError('A max battle always has an end.');
   const member = { id: interaction.user.id, ...memberInfo(interaction) };
@@ -75,7 +75,15 @@ export async function changeMaxBoss(
 ): Promise<void> {
   let read: ReadMaxBoss;
   try {
-    read = readMaxBoss(ctx, text, tierText, Date.now(), party.max.tier);
+    read = readMaxBoss(
+      ctx,
+      ctx.partyService.serverOf(party),
+      text,
+      tierText,
+      Date.now(),
+      ctx.partyService.zoneOf(party),
+      party.max.tier,
+    );
   } catch (err) {
     // Asked for the tier, nothing was changed: the use is given back (final review of 8X-F, F6).
     if (err instanceof UserError && err.message === WHICH_TIER) {

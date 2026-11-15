@@ -3,7 +3,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import { MemoryUnownGifts } from '../../../test/support/unown-gifts.js';
 import type { DB } from '../types.js';
-import { GuildRepository } from './guild-repository.js';
 import { UnownGiftRepository, type UnownGiftStorage } from './unown-gift-repository.js';
 
 const ALICE = '312345678901234567';
@@ -74,7 +73,7 @@ describe('UnownGiftRepository', () => {
 
   it('loses its rows with the server', async () => {
     await gifts.record(ALICE, HOME, NOW);
-    await new GuildRepository(db).remove(HOME);
+    await db.deleteFrom('Guild').where('snowflake', '=', HOME).execute();
     expect(await stored()).toEqual([]);
   });
 

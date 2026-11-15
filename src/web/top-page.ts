@@ -1,4 +1,4 @@
-import { escapeHtml, shortDocument } from './answers.js';
+import { escapeHtml, shortDocument, TOP_LOGIN } from './answers.js';
 import type { MapServer } from './map-servers.js';
 import type { JoinableServer, TopAnswer } from './top-answer.js';
 
@@ -12,9 +12,6 @@ export const TOP_SCRIPT = '/assets/top.js';
 
 /** The tag of `TOP_SCRIPT`, run once the page is read. */
 const TOP_SCRIPT_TAG = `<script src="${TOP_SCRIPT}" defer></script>`;
-
-/** Where "Log in with Discord" leads: Discord's login, back to the top page. */
-export const TOP_LOGIN = '/auth/login?next=/';
 
 export const NO_MAP = 'Professor Pine has no map here yet.';
 /** What the login page says first, under its heading "Professor Pine" (review BR-1, F6). */
@@ -36,6 +33,15 @@ export const JOIN = 'Join on Discord';
  */
 export const AFTER_JOINING =
   'Once you have joined, reload this page; Discord can take a minute to tell Pine.';
+/** What starts the line of servers not asked of (final review R4-1, `TopAnswer.unchecked`). */
+export const UNCHECKED = 'I checked only some of the servers here for you.';
+/**
+ * Under the servers of a session that read them at its login (final review R4-1): they are as
+ * Discord said then, so a server joined since shows after the next login.
+ */
+const RELOGIN =
+  `<p>I read your servers when you logged in. If you joined one since, ` +
+  `<a href="${escapeHtml(TOP_LOGIN)}">log in with Discord again</a> to see it here.</p>`;
 
 /**
  * The mark of a page for a visitor logged out (the login, or /maps alone): how the page's script,
@@ -96,20 +102,36 @@ function serversPage(answer: Extract<TopAnswer, { kind: 'servers' }>, csrf: stri
     answer.yours.length === 0
       ? ''
       : `<h2>${YOUR_SERVERS}</h2><ul class="top-servers">${answer.yours.map(yourItem).join('')}</ul>`;
+  // A session that read its servers at the login says how to see a server joined since once,
+  // under everything; reloading would not show it (final review R4-1).
   const toJoin =
     answer.toJoin.length === 0
       ? ''
       : `<h2>${TO_JOIN}</h2><ul class="top-servers">${answer.toJoin.map(joinItem).join('')}</ul>` +
-        line(AFTER_JOINING);
+        (answer.listed ? '' : line(AFTER_JOINING));
   return {
     main:
       account +
       (answer.notIn ? line(NOT_IN) : '') +
       yours +
       (answer.partial ? line(PARTIAL, 'top-partial') : '') +
-      toJoin,
+      (answer.unchecked === undefined ? '' : uncheckedLine(answer.unchecked)) +
+      toJoin +
+      (answer.listed ? RELOGIN : ''),
     head: TOP_SCRIPT_TAG,
   };
+}
+
+/**
+ * The line of servers not asked of (final review R4-1): logging in with Discord again reads them
+ * all; without the client secret, `/maps` in a server opens its map.
+ */
+function uncheckedLine(way: 'discord' | 'maps'): string {
+  const rest =
+    way === 'discord'
+      ? `<a href="${escapeHtml(TOP_LOGIN)}">Log in with Discord again</a> to see all of yours.`
+      : escapeHtml(ONLY_MAPS);
+  return `<p class="top-partial">${escapeHtml(UNCHECKED)} ${rest}</p>`;
 }
 
 /** The parts of the top page's answer, but a redirect's. */

@@ -33,8 +33,8 @@ const parts: readonly SubcommandPart[] = [
  * `/gym`: the gym list, for staff. Discord offers it only to members who may manage the server
  * (or to whom a server admin grants it), and the bot's own check applies on top: admins,
  * moderators and bot developers. It is tied to no channel, and every answer is for the staff
- * member alone. Staff may touch the gyms that lie in a region of their own server and those
- * in no region of any server, never the gyms of another server (`GymAdminService.mayTouch`).
+ * member alone. Staff may touch exactly the gyms of their own server, wherever they lie, never
+ * the gyms of another server (plan 19B-2, `GymAdminService.mayTouch`).
  */
 export const gym = commandGroup({
   data: new SlashCommandBuilder()

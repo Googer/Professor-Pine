@@ -49,6 +49,7 @@ export function researchTasksFixture(
   const index = (): VersionIndex => (versions ??= versionIndex(tasks(), catalogueFixture()));
   return {
     tasks,
+    storedTasks: tasks,
     byKey: (key) => (byKey ??= new Map(tasks().map((task) => [task.key, task]))).get(key),
     readAt: () => readAt ?? undefined,
     stale: (now) => readAt === null || now - readAt >= staleAfterHours * 3_600_000,

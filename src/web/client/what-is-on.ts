@@ -323,7 +323,7 @@ export interface LineWords {
 
 /**
  * A line's words, its distance from `origin` (your location, else the map's middle) in the
- * settings' units (`settings.distanceUnits`, the page's `data-distance-units`; task 7).
+ * server's units (its `distanceUnits`, plan 19A-1; the page's `data-distance-units`).
  */
 export function lineWords(
   line: ListLine,

@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { between, htmlText, partsFrom } from '../research/leekduck.js';
 import { isForEveryone } from '../time/event-reach.js';
-import { feedTime } from '../time/zoned.js';
+import { allIn, localsOf } from '../time/feed-times.js';
+import { momentIn, readFeedTime } from '../time/zoned.js';
 import { readHeading } from './raid-boss-feed.js';
 
 /*
@@ -25,6 +26,10 @@ export interface RaidRotation {
   /** Epoch ms; the rotation is in force from `start` until before `end`. */
   start: number;
   end: number;
+  /** The start as wall-clock time, where it is one (`FeedTimed`, plan 19A-2: `local_time`). */
+  startLocal?: string;
+  /** The end as wall-clock time, where it is one. */
+  endLocal?: string;
 }
 
 export interface ParsedManifest {
@@ -95,10 +100,12 @@ function titleOf(title: unknown, slug: string): string {
 /**
  * Reads Leek Duck's `raids/manifest.json`: `regular_raids` and `shadow_raids`, each a list of
  * rotations with a `slug`, a `title`, a `start_date` and `end_date`, and `local_time`. A rotation
- * at local times is read in `zone` (`settings.timezone`); one at a city's own times is an
- * in-person event's and is left out by the rule of everyone's events (`isForEveryone`, plan
- * 8R-7: a time with a zone of its own), counted as `elsewhere`. A rotation that cannot be read is
- * skipped and counted; only a document that is no manifest (no list of regular raids) throws.
+ * at local times is read in `zone` (the instance's default zone, in which the list is stored;
+ * `rotationsIn` places it in each server's) and keeps its wall-clock times; one at a city's own
+ * times is an in-person event's and is left out by the rule of everyone's events
+ * (`isForEveryone`, plan 8R-7: a time with a zone of its own), counted as `elsewhere`. A rotation
+ * that cannot be read is skipped and counted; only a document that is no manifest (no list of
+ * regular raids) throws.
  */
 export function parseRaidManifest(json: unknown, zone: string): ParsedManifest {
   if (typeof json !== 'object' || json === null || Array.isArray(json)) {
@@ -141,14 +148,20 @@ export function parseRaidManifest(json: unknown, zone: string): ParsedManifest {
         elsewhere += 1;
         continue;
       }
-      const from = feedTime(start, zone)?.epochMilliseconds;
-      const to = feedTime(end, zone)?.epochMilliseconds;
-      if (from === undefined || to === undefined || to <= from) {
+      const fromTime = readFeedTime(start);
+      const toTime = readFeedTime(end);
+      if (fromTime === undefined || toTime === undefined) {
+        skipped += 1;
+        continue;
+      }
+      const from = momentIn(fromTime, zone).epochMilliseconds;
+      const to = momentIn(toTime, zone).epochMilliseconds;
+      if (to <= from) {
         skipped += 1;
         continue;
       }
       slugs.add(slug);
-      rotations.push({ slug, title, kind, start: from, end: to });
+      rotations.push({ slug, title, kind, start: from, end: to, ...localsOf(fromTime, toTime) });
     }
   }
   return { rotations, skipped, elsewhere };
@@ -203,6 +216,37 @@ export function nextRotationChange(
       .join(' ');
   const current = slugs(now);
   return times.find((time) => slugs(time) !== current);
+}
+
+/**
+ * The rotations in force at `now` in `zone` (plan 19A-2; `rotationsAt` with each rotation at local
+ * times on `zone`'s clock, `timedIn`): the game starts a rotation at 10:00 in every zone, so a
+ * server in Berlin has the new bosses six hours before one in New York. The one path for which
+ * rotations a server's raid boss list is made of.
+ */
+export function rotationsIn(
+  rotations: readonly RaidRotation[],
+  zone: string,
+  now: number,
+): RaidRotation[] {
+  return rotationsAt(allIn(rotations, zone), now);
+}
+
+/**
+ * The first moment after `now` at which the rotations in force change in any of `zones` (the
+ * zones in use, `nextRotationChange` in each): the list is read again just after it. Undefined
+ * when nothing later changes them anywhere.
+ */
+export function nextRotationChangeIn(
+  rotations: readonly RaidRotation[],
+  zones: readonly string[],
+  now: number,
+): number | undefined {
+  const times = zones.flatMap((zone) => {
+    const next = nextRotationChange(allIn(rotations, zone), now);
+    return next === undefined ? [] : [next];
+  });
+  return times.length === 0 ? undefined : Math.min(...times);
 }
 
 /** A rotation's page, beside the manifest, as Leek Duck's own script asks for it (`<slug>.html`). */

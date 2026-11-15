@@ -473,6 +473,11 @@ export class FakePartyGateway implements PartyGateway {
     string,
     { name: string; kind: ServerChannel['kind']; categoryId: string | null; guildId: string }
   >();
+  /**
+   * The servers (by snowflake) Discord says are unavailable (`serverAvailable`, plan 19B-1); their
+   * channels are still listed, as the real one's cache keeps them.
+   */
+  readonly unavailableServers = new Set<string>();
   /** The servers (by snowflake) in which the bot may not create channels. */
   readonly noCreating = new Set<string>();
   /** The ids of the channels and categories that were created, in order. */
@@ -1546,11 +1551,12 @@ export class FakePartyGateway implements PartyGateway {
   }
 
   /** `@everyone` and the roles named that `noReplies` keeps from writing in the posts (BR-7). */
-  rolesWithoutReplies(forumId: string, roleNames: readonly string[]) {
+  /** The fake knows no roles: a role's id stands for its name here (`noReplies`). */
+  rolesWithoutReplies(forumId: string, roleIds: readonly string[]) {
     return this.attempt('rolesWithoutReplies', forumId, () => {
       if (!this.forums.has(forumId) || this.gone.has(forumId)) return undefined;
       const without = this.noReplies.get(forumId) ?? [];
-      return ['@everyone', ...roleNames].filter((name) => without.includes(name));
+      return ['@everyone', ...roleIds].filter((name) => without.includes(name));
     });
   }
 
@@ -1725,7 +1731,8 @@ export class FakePartyGateway implements PartyGateway {
       forumId,
       () => {
         if (!this.isGate(forumId)) return undefined;
-        if (this.leftServer.has(memberId)) return undefined;
+        // Not in the server: kept out, as the real gateway says (plan 19B-4).
+        if (this.leftServer.has(memberId)) return 'barred';
         if (fresh) this.memberFetched(memberId);
         // The cache's roles where a look put the member there (plan 8M-20), else as they are.
         return this.accessNow(
@@ -1883,19 +1890,30 @@ export class FakePartyGateway implements PartyGateway {
   /** The name of the fake's server, as the fake interactions name it; none of another. */
   serverName = 'Test Server';
 
+  /** The names of other servers the bot is in, by id (a neighbor's, plan 19E); none unless set. */
+  readonly otherServerNames = new Map<string, string>();
+
   guildName(guildId: string): string | undefined {
-    return guildId === this.guildId ? this.serverName : undefined;
+    return guildId === this.guildId ? this.serverName : this.otherServerNames.get(guildId);
   }
 
   /**
-   * Every channel of the fake is in the one server: the channel named so in `channelNames`,
-   * and like the real gateway only one in which the bot may post embeds (`noEmbeds`).
+   * A channel the fake knows (`channelNames`) in the server of `nearChannelId` (`serverOf`), and
+   * like the real gateway only a text channel (not a forum, nor a channel `addChannel` gave another
+   * kind) in which the bot may post embeds (`noEmbeds`).
    */
-  findChannel(_nearChannelId: string, name: string): string | undefined {
-    for (const [id, known] of this.channelNames) {
-      if (known === name && !this.gone.has(id) && !this.noEmbeds.has(id)) return id;
-    }
-    return undefined;
+  findChannel(nearChannelId: string, channelId: string): string | undefined {
+    if (!this.channelNames.has(channelId) || this.gone.has(channelId)) return undefined;
+    if (this.forums.has(channelId)) return undefined;
+    const known = this.channels.get(channelId);
+    if (known !== undefined && known.kind !== 'text') return undefined;
+    if (this.noEmbeds.has(channelId)) return undefined;
+    return this.serverOf(channelId) === this.serverOf(nearChannelId) ? channelId : undefined;
+  }
+
+  /** Every channel of the fake is in its one server, but one `addChannel` put in another. */
+  serverOf(channelId: string): string | undefined {
+    return this.channels.get(channelId)?.guildId ?? this.guildId;
   }
 
   /**
@@ -2050,6 +2068,14 @@ export class FakePartyGateway implements PartyGateway {
       }
     }
     return listed.length === 0 && guildId !== this.guildId ? undefined : listed;
+  }
+
+  /**
+   * A server the bot is in (one `serverChannels` lists) and not in `unavailableServers` (plan
+   * 19B-1; fix round 3, J2: as the real one, false for a server the bot is not in).
+   */
+  serverAvailable(guildId: string): boolean {
+    return !this.unavailableServers.has(guildId) && this.serverChannels(guildId) !== undefined;
   }
 
   /** A forum of the fake, a channel given with `addChannel`; none that is gone. */

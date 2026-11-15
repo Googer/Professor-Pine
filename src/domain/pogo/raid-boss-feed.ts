@@ -32,6 +32,12 @@ export interface FeedBoss<T = RaidTier> {
    * effect leaves it out until then. Undefined: from the read that lists it.
    */
   startsAt?: number;
+  /**
+   * The moment the feed gives an upcoming boss's start (plan 19A-2: Pokebattler's `startDate`,
+   * while it is ahead): `startsAt` is the start of its day in the instance's default zone, and in
+   * each server's zone that day's start there (`maxRowsIn`). Stored (`RaidBoss.startsFrom`).
+   */
+  startsFrom?: number;
 }
 
 export interface ParsedFeed<T = RaidTier> {
@@ -534,7 +540,7 @@ export function identifyBoss(
 }
 
 /**
- * How a boss was identified, as `npm run raid-bosses:check` and `/admin boss list` say it:
+ * How a boss was identified, as `npm run raid-bosses:check` and `/operator boss list` say it:
  * `agree` (picture and name name one entry), `new-form` (the picture shows a form of the named
  * species that the game data does not know yet), `disagree` (they name different entries; `used`
  * says what `matchBoss` made of it), `picture` or `name` (only that one names anything), or

@@ -1,3 +1,4 @@
+import { asTestServerGyms } from '../../../test/support/providers.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
 import { distanceWords } from '../../render/distance-words.js';
 import { gymStop, spotStop, type StopRef } from '../../domain/party/stops.js';
@@ -15,7 +16,7 @@ import {
   sent,
   type FakeInteraction,
 } from '../../../test/support/fake-interactions.js';
-import { testGyms, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import { TEST_GUILD_ROW, testGyms, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
 import {
   ALICE,
   BOB,
@@ -34,11 +35,11 @@ import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
 import { MAX_ROUTE_STOPS } from '../../domain/party/party.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { currentStop } from '../../domain/party/train.js';
-import type { PostGym } from '../../render/raid-post.js';
 import { LIMITS } from '../../render/text.js';
 import { TrainService } from '../../services/train-service.js';
 import { route } from './route.js';
 import { textOf } from '../../../test/support/messages.js';
+import { changeServers } from '../../../test/support/server-values.js';
 
 const maps = (id: number): string => {
   const gym = testGyms().find((found) => found.id === id);
@@ -218,7 +219,7 @@ describe('/route show', () => {
     }));
     const gyms = {
       ...made.ctx.gyms,
-      get: (id: number) => ({
+      stored: (id: number) => ({
         ...testGyms()[0],
         id,
         name: `Gym with a long name ${id}`,
@@ -393,12 +394,7 @@ describe('/route add', () => {
       `Maple Leaf Mosaic (gym) · Birch Street · ${distanceWords(metresBetween(mosaic, lighthouse), 'metric')}`,
     );
     // In the settings' units: feet or miles where they are imperial.
-    Object.assign(made.ctx, {
-      config: {
-        ...made.ctx.config,
-        settings: { ...made.ctx.config.settings, distanceUnits: 'imperial' },
-      },
-    });
+    changeServers(made.ctx, { distanceUnits: 'imperial' });
     const imperial = await made.choices('add', 'stop');
     expect(imperial[0]?.name).toBe(
       `Maple Leaf Mosaic (gym) · Birch Street · ${distanceWords(metresBetween(mosaic, lighthouse), 'imperial')}`,
@@ -682,7 +678,7 @@ describe('/route add stop: a gym or a Power Spot (plan 8X-4; design 6.2)', () =>
     const fromSeven = await values(await withSpots(undefined, [], [4, 1, 7]));
     // The Fountain, the last stop, is forgotten (it became a gym, say): gym 7 is the anchor.
     const gone = await withSpots(undefined, [], [4, 1, 7, spotStop(FOUNTAIN.id)]);
-    gone.directory.forget([FOUNTAIN.id]);
+    gone.directory.forget(TEST_GUILD_ROW, [FOUNTAIN.id]);
     expect(await values(gone)).toEqual(
       fromSeven.filter((value) => value !== `powerspot:${FOUNTAIN.id}`),
     );
@@ -756,7 +752,7 @@ describe('/route add stop: a gym or a Power Spot (plan 8X-4; design 6.2)', () =>
       spotStop(FOUNTAIN.id),
     ]);
     // The fountain is no power spot any more (an import made it a PokéStop): it is left out.
-    made.directory.forget([FOUNTAIN.id]);
+    made.directory.forget(TEST_GUILD_ROW, [FOUNTAIN.id]);
     await made.trains.clearRoute(made.party.id, { id: ALICE }, true);
     const id = made.routes.rows[0]?.id ?? 0;
     expect(await made.answer('load', { route: `id:${id}` })).toMatch(
@@ -1203,10 +1199,10 @@ describe('/route: what was found in review', () => {
       splits: made.service,
       lines: made.partyLines,
       users: made.users,
-      gyms: {
-        get: (id) => ({ ...testGyms()[0], id, name: `Gym ${id}` }) as PostGym,
+      gyms: asTestServerGyms({
+        get: (id) => ({ ...testGyms()[0], id, name: `Gym ${id}` }),
         regionsOf: () => [WEST_CHANNEL],
-      },
+      }),
       regions: made.regions,
       routes: made.routes,
       log: made.log,
@@ -1286,7 +1282,7 @@ describe('/route: what the review of the whole plan found', () => {
   it('add refuses a gym that lies in no region of the server, as a name that finds nothing', async () => {
     const made = await setup();
     // Gym 10 exists and lies in no region: the list never offers it, but its choice can be typed.
-    expect(made.ctx.gyms.get(10)?.name).toBe('Lakeview Trailhead');
+    expect(made.ctx.gyms.stored(10)?.name).toBe('Lakeview Trailhead');
     expect(await made.answer('add', { stop: 'gym:10' })).toBe(
       'I found no gym or Power Spot for "gym:10". Type part of its name and pick it from the list.',
     );

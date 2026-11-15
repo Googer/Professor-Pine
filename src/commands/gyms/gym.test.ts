@@ -13,9 +13,14 @@ import {
   MODERATOR,
   said,
 } from '../../../test/support/gym-commands.js';
-import { EAST_CHANNEL, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { EAST_CHANNEL, TEST_GUILD_ROW, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { ANSWERED_BELOW } from '../../discord/late-reply.js';
 import { PENDING_HOURS } from './shared.js';
+import {
+  changeServers,
+  TestServers,
+  testServerValues,
+} from '../../../test/support/server-values.js';
 
 const choices = (interaction: { respond: { mock: { calls: unknown[][] } } }) =>
   interaction.respond.mock.calls[0]?.[0] as { name: string; value: string }[];
@@ -149,7 +154,7 @@ describe('/gym: the gym option', () => {
     const twelve = await made.use('show', { gym: '12' });
     expect(gymOf(answerOf(twelve))).toMatch(/^Gym #12 /);
     // Not gym 120 or 121 either, which the search would find by the beginning of their number.
-    await made.gymStore.create({ name: 'Liberty Bell', lat: 40.021, lon: -80.021 });
+    await made.gymStore.create({ name: 'Liberty Bell', lat: 40.021, lon: -80.021 }, 1);
     await made.directory.refreshGym(13);
     const one = await made.use('show', { gym: '1' });
     expect(gymOf(answerOf(one))).toMatch(/^Gym #1 /);
@@ -180,7 +185,7 @@ describe('/gym: the gym option', () => {
     const shown = await made.use('show', { gym: '12' });
     expect(gymOf(answerOf(shown))).toMatch(/^Gym #12 /);
     // Another gym that is called so still makes it a question.
-    await made.gymStore.create({ name: 'Pier 12', lat: 40.021, lon: -80.021 });
+    await made.gymStore.create({ name: 'Pier 12', lat: 40.021, lon: -80.021 }, 1);
     await made.directory.refreshGym(13);
     expect(said(sent((await made.use('show', { gym: '12' })).followUp))).toBe(
       '"12" is the number of one gym and in the name of another. Pick the one you mean from ' +
@@ -195,11 +200,14 @@ describe('/gym: the gym option', () => {
     await made.gymStore.delete(12);
     await made.directory.refreshGym(12);
     for (let id = 13; id <= 120; id++) {
-      await made.gymStore.create({
-        name: id === 120 ? '12 Apostles' : `Filler ${String.fromCharCode(97 + (id % 26))}`,
-        lat: 41 + id / 1000,
-        lon: -81,
-      });
+      await made.gymStore.create(
+        {
+          name: id === 120 ? '12 Apostles' : `Filler ${String.fromCharCode(97 + (id % 26))}`,
+          lat: 41 + id / 1000,
+          lon: -81,
+        },
+        1,
+      );
     }
     await made.directory.load();
     const apostles = await made.use('show', { gym: '12' });
@@ -209,7 +217,7 @@ describe('/gym: the gym option', () => {
   it('does not act on a number that another gym with a longer number is called by', async () => {
     const made = await gymCommandsWith();
     // Gym 1 exists, and gym 13 is called "1 Main Street": `1` could mean either.
-    await made.gymStore.create({ name: '1 Main Street', lat: 41, lon: -81 });
+    await made.gymStore.create({ name: '1 Main Street', lat: 41, lon: -81 }, 1);
     await made.directory.refreshGym(13);
     const both = await made.use('show', { gym: '1' });
     expect(said(sent(both.followUp))).toBe(
@@ -330,10 +338,12 @@ describe('/gym add', () => {
       smallPrint: 'Gym #13 · 40.015, -80.015',
     });
     expect(made.gymStore.row(13)).toMatchObject({ name: 'Clock Tower', lat: 40.015, lon: -80.015 });
-    expect(made.directory.search(WEST_CHANNEL, 'clock tower')[0]?.gym.id).toBe(13);
+    expect(made.directory.of(TEST_GUILD_ROW).search(WEST_CHANNEL, 'clock tower')[0]?.gym.id).toBe(
+      13,
+    );
     await made.settle();
     expect(made.gateway.messagesIn(UPDATES_CHANNEL)).toHaveLength(1);
-    expect(made.gymStore.row(13)?.places).toBe('Corner Bakery Maple Dental');
+    expect(made.directory.stored(13)?.places).toBe('Corner Bakery Maple Dental');
     // Answered once: a second press (a double click) is only acknowledged, and writes nothing
     // over the answer of the first.
     const again = await made.press(buttonId(question, 'Add'));
@@ -462,10 +472,8 @@ describe('/gym add', () => {
 
   it('names the gym nearby in the settings’ units, feet where they are imperial (round 2)', async () => {
     const made = await gymCommandsWith();
-    const { settings } = made.ctx.config;
-    Object.assign(made.ctx, {
-      config: { ...made.ctx.config, settings: { ...settings, distanceUnits: 'imperial' } },
-    });
+    // The server's units (plan 19A-1).
+    changeServers(made.ctx, { distanceUnits: 'imperial' });
     const question = answerOf(
       await made.use('add', { location: '40.05005,-80.05', name: 'Library Annex' }),
     );
@@ -776,6 +784,29 @@ describe('/gym add', () => {
     expect(said(question)).toContain('It would lie in no region of this server.');
     const answer = answerOf(await made.press(buttonId(question, 'Add')));
     expect(gymViewOf(answer).lines.at(-1)).toBe('It lies in no region of this server.');
+  });
+
+  it('notes a name by the words this server’s search ignores (plan 19B-2)', async () => {
+    // This server's search ignores "lodge", not "gym".
+    const made = await gymCommandsWith([], {
+      servers: new TestServers(testServerValues({ blacklistWords: ['lodge'] })),
+    });
+    made.geo.enabled = false;
+    const searched = answerOf(
+      await made.press(
+        buttonId(answerOf(await made.use('add', { location: FREE, name: 'The Gym' })), 'Add'),
+      ),
+    );
+    expect(said(searched)).not.toContain('words the search ignores');
+    const ignored = answerOf(
+      await made.press(
+        buttonId(
+          answerOf(await made.use('add', { location: '40.031, -80.031', name: 'The Lodge' })),
+          'Add',
+        ),
+      ),
+    );
+    expect(said(ignored)).toContain('Its name consists only of words the search ignores');
   });
 
   it('notes a name the search ignores, and that nothing is fetched without a key', async () => {

@@ -98,7 +98,7 @@ export interface UserSettingsStore extends UserSettingsReader {
 }
 
 /**
- * What a member's row holds and what hangs on it, over every server (plan 8G, `/admin forget`):
+ * What a member's row holds and what hangs on it, over every server (plan 8G, `/operator forget`):
  * which of the three things they told Pine about themselves are set, and how many rows of each
  * table name the row.
  */
@@ -276,7 +276,7 @@ export class UserRepository implements UserSettingsStore {
 
   /**
    * What the member's row holds and what hangs on it in every server (plan 8G: the look of
-   * `/admin forget`); undefined for a member without a row. Never creates a row, and asks the
+   * `/operator forget`); undefined for a member without a row. Never creates a row, and asks the
    * table itself: a row id this process remembers may be of a row that is gone.
    */
   async holdingsOf(snowflake: string): Promise<UserHoldings | undefined> {

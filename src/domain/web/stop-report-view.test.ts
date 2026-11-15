@@ -68,8 +68,9 @@ const input = (overrides: Partial<StopReportViewInput> = {}): StopReportViewInpu
   reports: reports(),
   period: {
     key: 'event:cd',
+    start: 0,
     event: { id: 'cd', name: 'Pawniard Community Day' },
-    waiting: { key: 'day:2026-10-21', at: REPORT_NOW + 3 * 3_600_000 },
+    waiting: { key: 'day:2026-10-21', at: REPORT_NOW + 3 * 3_600_000, from: 0 },
   },
   now: REPORT_NOW,
   zone: 'America/New_York',
@@ -253,7 +254,7 @@ describe('stopReportView', () => {
           { ...rocketReport(), id: 4 },
           twoCatches,
         ],
-        period: { key: 'day:2026-10-21' },
+        period: { key: 'day:2026-10-21', start: 0 },
         pictureOrigins: [CDN, pine],
         // Mudkip's picture is gone (it answered 404): none.
         picture: (source) => (source === MUDKIP.image ? undefined : square(source)),
@@ -309,7 +310,7 @@ describe('stopReportView', () => {
     // A grunt's type, which a filter by grunt type matches (the lineup's too).
     expect(view.grunts.map((grunt) => grunt.typeKey)).toEqual(['grunt:water', 'grunt:water']);
     // The rewards in short, as a reward line of the post says them.
-    const day = stopReportView(input({ period: { key: 'day:2026-10-21' } }));
+    const day = stopReportView(input({ period: { key: 'day:2026-10-21', start: 0 } }));
     expect(day.research.map((one) => one.rewardText)).toEqual(['Dratini', 'Dratini']);
     expect(view.research).toEqual([]);
     const typed = stopReportView(input()).research[0];
@@ -317,7 +318,7 @@ describe('stopReportView', () => {
   });
 
   it('gives an encounter its catalogue key, and the day’s research when no window is on', () => {
-    const view = stopReportView(input({ period: { key: 'day:2026-10-21' } }));
+    const view = stopReportView(input({ period: { key: 'day:2026-10-21', start: 0 } }));
     expect(view.event).toBeNull();
     expect(view.waiting).toBeNull();
     expect(view.research.map((one) => one.id)).toEqual([1, 2]);
@@ -348,7 +349,7 @@ describe('stopReportView', () => {
   it('gives each report its search words and whether it is confirmed, as the domain reads them (plan 8M-12)', () => {
     const view = stopReportView(
       input({
-        period: { key: 'day:2026-10-21' },
+        period: { key: 'day:2026-10-21', start: 0 },
         reports: [
           ...reports(),
           { ...magikarpLineup({ stop: reportedStop(7) }), id: 7 },

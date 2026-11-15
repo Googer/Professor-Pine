@@ -29,6 +29,9 @@ import type { GameDataProvider } from './game-data-service.js';
 import type { RaidBossProvider } from './raid-boss-service.js';
 import type { PictureMaking } from './research-task-service.js';
 import { ReadsBetweenWrites } from './reads-between-writes.js';
+import { serverChannel } from './server-channels.js';
+import type { ServerSettingsLookup } from './server-settings.js';
+import type { QuietServers } from './quiet-servers.js';
 
 /** The Pokédex number of Unown, whose sightings a server may collect in a channel of their own. */
 export const UNOWN_DEX = 201;
@@ -92,7 +95,12 @@ export interface SpawnServiceOptions {
    * and delete a message, find a channel by name where the bot may post embeds, ask whether it
    * may post embeds in one), with a fake that is as strict: no port of their own.
    */
-  gateway: Pick<PartyGateway, 'sendMessage' | 'deleteMessage' | 'findChannel' | 'mayPost'>;
+  gateway: Pick<
+    PartyGateway,
+    'sendMessage' | 'deleteMessage' | 'findChannel' | 'serverOf' | 'mayPost'
+  >;
+  /** Each server's values: its Unown sightings channel (plan 19A-1). */
+  servers: ServerSettingsLookup;
   /** The pictures of the Pokémon that are raid bosses now: what the feed shows wins. */
   raidBosses: Pick<RaidBossProvider, 'bosses'>;
   /** The catalogue and the icon files that exist: the picture of every other Pokémon. */
@@ -114,6 +122,11 @@ export interface SpawnServiceOptions {
    * deleted by the next one (`sweep`). Without it they are kept in memory only.
    */
   store?: SpawnReportStorage;
+  /**
+   * The quiet servers (`QuietServers`, plans 19C-1 and 19C-2): the sweep passes over their reports,
+   * kept for when they are back.
+   */
+  quiet?: QuietServers;
   settings: Settings;
   log: Logger;
   now?: () => number;
@@ -147,7 +160,7 @@ export interface SpawnServiceOptions {
  *
  * Unown is a species like any other (Matt, 2026-10-12): the region message and the direct
  * messages as for every Pokémon. Where the server has the channel for Unown sightings
- * (`settings.channels.unown`, found by name, only where the bot may post embeds) the report
+ * (the server's Unown channel, by the id its staff set, only where the bot may post embeds) the report
  * is also posted there, and stays. No role is assigned or pinged and nothing is pinned.
  */
 export class SpawnService {
@@ -192,10 +205,11 @@ export class SpawnService {
    * now, otherwise the icon of its catalogue entry; none when neither is known. A report goes
    * out without its picture rather than not at all.
    */
-  private pictureOf(key: string): string | undefined {
-    const { raidBosses, gameData, log } = this.options;
+  private pictureOf(key: string, guildId: string): string | undefined {
+    const { raidBosses, gameData, log, servers } = this.options;
     try {
-      const feed = raidBosses.bosses().find((boss) => boss.entry?.key === key)?.image;
+      const bosses = raidBosses.bosses(servers.zoneOf(guildId));
+      const feed = bosses.find((boss) => boss.entry?.key === key)?.image;
       return pokemonPicture(feed, gameData.catalogue.byKey(key), gameData);
     } catch (err) {
       log.warn({ err, pokemon: key }, 'could not find the picture of a Pokémon');
@@ -218,13 +232,14 @@ export class SpawnService {
   }
 
   /**
-   * Whether an event on at `at` lists the Pokémon costumed (plan 8R-4); a provider that fails
-   * is logged, and the report goes out plain.
+   * Whether an event on at `at` in the server's zone (plan 19A-2) lists the Pokémon costumed
+   * (plan 8R-4); a provider that fails is logged, and the report goes out plain.
    */
-  private costumed(key: string, at: number): boolean {
-    const { costumes, log } = this.options;
+  private costumed(key: string, at: number, serverId: string): boolean {
+    const { costumes, log, servers } = this.options;
     try {
-      return costumes !== undefined && costumedSpawn(costumes.sightingsAt(at), { key });
+      const zone = servers.zoneOf(serverId);
+      return costumes !== undefined && costumedSpawn(costumes.sightingsAt(at, zone), { key });
     } catch (err) {
       log.warn({ err, pokemon: key }, 'could not tell whether a spawn is costumed');
       return false;
@@ -232,20 +247,20 @@ export class SpawnService {
   }
 
   private async post(report: SpawnReport): Promise<SpawnOutcome> {
-    const { gateway, notify, settings, log } = this.options;
+    const { gateway, notify, log } = this.options;
     const eventAt = this.now();
-    const costumed = this.costumed(report.pokemon.key, eventAt);
+    const costumed = this.costumed(report.pokemon.key, eventAt, report.guildId);
     const view: SpawnView = {
       pokemon: report.pokemon.name,
       iv: report.iv,
       details: report.details,
       reporter: report.reporter,
-      image: this.pictureOf(report.pokemon.key),
+      image: this.pictureOf(report.pokemon.key, report.guildId),
       near: report.near,
       ...(costumed ? { costumed: true } : {}),
     };
     // Without the permission to embed Discord would show the sentence alone: as text then.
-    const footer = spawnFooter(settings.features.notifications);
+    const footer = spawnFooter(this.options.servers.of(report.guildId).features.notifications);
     const goneAt = eventAt + this.deleteAfterMs;
     const embeds = gateway.mayPost(report.regionChannelId);
     const message = (shown: SpawnView): OutgoingMessage =>
@@ -285,7 +300,12 @@ export class SpawnService {
     }
     if (report.pokemon.dex === UNOWN_DEX) {
       try {
-        const sightings = gateway.findChannel(report.regionChannelId, settings.channels.unown);
+        const sightings = serverChannel(
+          gateway,
+          this.options.servers,
+          report.regionChannelId,
+          'unown',
+        );
         if (sightings !== undefined && sightings !== report.regionChannelId) {
           await this.sendWithoutPicture(sightings, view, (shown) =>
             sightingMessage(shown, report.regionChannelId),
@@ -428,17 +448,21 @@ export class SpawnService {
   /**
    * Takes up the recorded reports that do not wait in this process; answers how many. Each is
    * deleted when it is due (now, when that has passed), and tried again at the next sweep when
-   * that fails, until `GIVE_UP_MS` after its time.
+   * that fails, until `GIVE_UP_MS` after its time. Those of a quiet server (plans 19C-1, 19C-2: the
+   * report's server, else its channel's by the cache) are passed over, neither deleted nor given
+   * up: kept for when it is back.
    */
   async sweep(): Promise<number> {
-    const { store, log } = this.options;
+    const { store, log, quiet, gateway } = this.options;
     if (!store || this.closed) return 0;
     const rows = await store.all();
     const now = this.now();
     let taken = 0;
-    for (const { channelId, messageId, deleteAt } of rows) {
+    for (const { channelId, messageId, deleteAt, guildId } of rows) {
       if (this.closed) break;
       if (this.waiting.has(messageId) || this.removing.has(messageId)) continue;
+      const server = guildId ?? gateway.serverOf(channelId);
+      if (server !== undefined && quiet?.isQuiet(server) === true) continue;
       if (now - deleteAt >= GIVE_UP_MS) {
         await this.forget(channelId, messageId);
         log.warn({ channel: channelId, message: messageId }, 'gave up deleting a spawn report');

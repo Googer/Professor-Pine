@@ -35,7 +35,7 @@ const rendered = renderTrainPost({
   zone: PARTY_ZONE,
   archiving: { graceMinutes: 5, warningMinutes: 60 },
   emoji,
-  stop: stopsFrom(gyms),
+  stop: stopsFrom({ stored: (id) => gyms.get(id) }),
   boss: undefined,
   catalogue: catalogueFixture(),
 });

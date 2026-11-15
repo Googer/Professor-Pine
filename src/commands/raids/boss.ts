@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   MessageFlags,
   SlashCommandBuilder,
@@ -61,7 +62,13 @@ async function setTrainBoss(
   if (NO_BOSS.has(text.trim().toLowerCase())) {
     change = { boss: null, label: '' };
   } else {
-    change = trainBoss(ctx, text, NO_TIER);
+    change = trainBoss(
+      ctx,
+      ctx.partyService.serverOf(party),
+      text,
+      NO_TIER,
+      ctx.partyService.zoneOf(party),
+    );
   }
   const outcome = await ctx.trains.setBoss(party.id, member, change);
   if (outcome.kind === 'gone') throw new UserError(partyOver(party));
@@ -139,12 +146,13 @@ export const boss: SimpleCommand = {
     const typed = interaction.options.getFocused();
     // A train has no tier: its list has no eggs, and any Pokémon after the current bosses.
     const here = partyOf(interaction, ctx);
+    const zone = zoneOf(interaction, ctx);
     await interaction.respond(
       here && isTrain(here)
-        ? trainBossChoices(ctx, typed)
+        ? trainBossChoices(ctx, interaction.guildId, typed, zone)
         : here && isMax(here)
-          ? maxBossOptions(ctx, typed, Date.now(), battleKindOf(here.max.tier))
-          : bossChoices(ctx, typed),
+          ? maxBossOptions(ctx, typed, Date.now(), zone, battleKindOf(here.max.tier))
+          : bossChoices(ctx, interaction.guildId, typed, zone),
     );
   },
 };

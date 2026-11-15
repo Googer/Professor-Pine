@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import {
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
@@ -62,6 +63,7 @@ import {
   shotCarriesOn,
 } from './max-screenshot.js';
 import { MAX_CHOICES } from '../choices.js';
+import { serverOf } from '../util/server-gym.js';
 
 /*
  * `/max` (plan 8X-3; design 3.2): reports a max battle at a power spot, or at a pin, "Unlisted
@@ -154,13 +156,15 @@ const requireMaxReport: Guard = async (interaction, ctx) => {
   if (regionChannelId === undefined) return;
   const boss = readMaxBoss(
     ctx,
+    interaction.guildId,
     interaction.options.getString('boss', true),
     interaction.options.getString('tier'),
     now,
+    zoneOf(interaction, ctx),
   );
   const spot = await readSpot(interaction, ctx, interaction.options.getString('spot', true));
   const endText = interaction.options.getString('end');
-  const end = reportedEnd(ctx, boss.tier, endText, now);
+  const end = reportedEnd(ctx, boss.tier, endText, now, zoneOf(interaction, ctx));
   const guild = await ctx.guilds.idFor(guildIdOf(interaction));
   const there = battleThere(ctx, { guild, spot }, now);
   if (there && otherBoss(there, boss)) throw new UserError(takenWords(ctx, there, boss.tier));
@@ -306,20 +310,20 @@ function maxCommand(screenshots: boolean): SimpleCommand {
       // Nothing is read for the dialog, but the guard's reads must have left Discord's three
       // seconds for it (the slow-read rule): past them no dialog opens.
       await readInTime(ctx.log, interaction, () => Promise.resolve());
-      const next = nextRotationEnd(ask.end, maxEndInput(ctx, ask.boss.tier, now));
-      const token = pending.put(interaction.user.id, {
+      const zone = zoneOf(interaction, ctx);
+      const next = nextRotationEnd(ask.end, maxEndInput(ctx, ask.boss.tier, now, zone));
+      const token = pending.put(interaction, {
         ...ask,
         countedAt: whenCounted(interaction) ?? now,
         ...(next === undefined ? {} : { next }),
       });
-      const { settings } = ctx.config;
       await interaction.showModal(
         endingSoonDialog({
           customId: encodeCustomId({ kind: MAX_KIND, id: token, action: 'report', args: [] }),
           end: ask.end,
           next,
           now,
-          zone: settings.timezone,
+          zone,
         }),
       );
     },
@@ -327,13 +331,19 @@ function maxCommand(screenshots: boolean): SimpleCommand {
     async autocomplete(interaction, ctx) {
       const focused = interaction.options.getFocused(true);
       if (focused.name === 'boss') {
-        await interaction.respond(maxBossOptions(ctx, focused.value, Date.now()));
+        await interaction.respond(
+          maxBossOptions(ctx, focused.value, Date.now(), zoneOf(interaction, ctx)),
+        );
         return;
       }
       if (focused.name === 'spot' && focused.value.trim() === '') {
         // Nothing typed: the region's power spots by name (plan 8X-F), as a max train's route.
         await interaction.respond(
-          regionSpotChoices(ctx, regionChannelOf(interaction, ctx)).slice(0, MAX_CHOICES),
+          regionSpotChoices(
+            ctx,
+            await serverOf(interaction, ctx),
+            regionChannelOf(interaction, ctx),
+          ).slice(0, MAX_CHOICES),
         );
         return;
       }
@@ -371,8 +381,8 @@ export const maxControls: ComponentHandler = {
   // A command's guards do not cover its controls: a Submit is of a server too (review B, B5).
   guards: [requireGuild],
   carriesOn: (interaction, id) => {
-    if (id.action !== 'report') return shotCarriesOn(interaction.user.id, id.id);
-    const waiting = pending.peek(id.id, interaction.user.id);
+    if (id.action !== 'report') return shotCarriesOn(interaction, id.id);
+    const waiting = pending.peek(id.id, interaction);
     return typeof waiting === 'object' && waiting.value.countedAt !== undefined
       ? { ...MAX_THROTTLE, as: MAX_COMMAND, countedAt: waiting.value.countedAt }
       : undefined;
@@ -394,7 +404,7 @@ export const maxControls: ComponentHandler = {
 
   async modal(interaction, id, ctx) {
     if (id.action !== 'report') throw new UserError('That question has expired. Use `/max` again.');
-    const taken = pending.take(id.id, interaction.user.id);
+    const taken = pending.take(id.id, interaction);
     if (taken === 'not-yours') throw new UserError('That is somebody else’s report.');
     if (taken === 'expired') throw new UserError('That question has expired. Use `/max` again.');
     const ask = taken.value;

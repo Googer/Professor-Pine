@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isPictureSource } from '../stops/pictures.js';
 import { IN_PERSON_TYPES, everyonesTimes, isForEveryoneKind } from './event-reach.js';
+import { lastEnd, localsOf } from './feed-times.js';
 import { BIG_EVENT_TYPES, type BigEvent, type MaxEvent } from './max-events.js';
 import { eventName, type RaidEvent } from './raid-events.js';
 import { addDays, isoDate, shortDateWords, shortDayWords, shortHourWords, zoned } from './zoned.js';
@@ -30,6 +31,13 @@ export interface ListedEvent {
   start: number;
   /** The first moment after it. */
   end: number;
+  /**
+   * The start as wall-clock time, where the feed gave it so (`FeedTimed`, plan 19A-2): the truth,
+   * `start` its moment in the instance's default zone. Stored so (`ListedEvent.startsLocal`).
+   */
+  startLocal?: string;
+  /** The end as wall-clock time, where it is one. */
+  endLocal?: string;
   /**
    * The ids it was listed under before it moved (R12: a new id of the same name and type while
    * the old one was dropped before its start), oldest first: a post made for one is its post.
@@ -236,10 +244,14 @@ export function readListedEvents(
       : BIG_KINDS.has(eventType)
         ? parsed.big.find((one) => one.id === id)
         : undefined;
-    let start: number;
-    let end: number;
+    let when: Pick<ListedEvent, 'start' | 'end' | 'startLocal' | 'endLocal'>;
     if (own) {
-      ({ start, end } = own);
+      when = {
+        start: own.start,
+        end: own.end,
+        ...(own.startLocal === undefined ? {} : { startLocal: own.startLocal }),
+        ...(own.endLocal === undefined ? {} : { endLocal: own.endLocal }),
+      };
     } else if (times.kind === 'none') {
       // Not seen (R3).
       untimed.push(id);
@@ -248,8 +260,11 @@ export function readListedEvents(
       // Those parsers left it out (too long, of no shape of theirs): so does the listing.
       continue;
     } else {
-      start = times.start.epochMilliseconds;
-      end = times.end.epochMilliseconds;
+      when = {
+        start: times.start.epochMilliseconds,
+        end: times.end.epochMilliseconds,
+        ...localsOf(times.feed.start, times.feed.end),
+      };
     }
     const event: ListedEvent = {
       id,
@@ -257,8 +272,7 @@ export function readListedEvents(
       eventType,
       link: leekDuckLink(item.data.link),
       image: eventPicture(item.data.image),
-      start,
-      end,
+      ...when,
       formerIds: [],
     };
     if (isListed(event)) read.push(event);
@@ -289,13 +303,16 @@ export function pageHoursListed(
     if (hour.page === undefined) return [];
     return [
       {
-        id: `${hour.page.event}:${eventType}:${isoDate(hour.start, zone)}`,
+        // The local day of a wall-clock hour (plan 19A-2): one id in every zone.
+        id: `${hour.page.event}:${eventType}:${hour.startLocal?.slice(0, 10) ?? isoDate(hour.start, zone)}`,
         name: hour.name,
         eventType,
         link: leekDuckLink(hour.page.link),
         image: null,
         start: hour.start,
         end: hour.end,
+        ...(hour.startLocal === undefined ? {} : { startLocal: hour.startLocal }),
+        ...(hour.endLocal === undefined ? {} : { endLocal: hour.endLocal }),
         formerIds: [],
       },
     ];
@@ -336,13 +353,16 @@ export interface ListingMerge {
  * times (R3) kept as it is; one the read no longer lists kept to its end where it has begun, and
  * removed where it has not (`dropped`), unless the read has a new id of the same name
  * (`sameEventName`) and type that no kept event had: then it moved, and the new one carries its
- * ids (`moved`, R12). What has ended is forgotten.
+ * ids (`moved`, R12). What has ended in every zone of `zones` (the zones in use: `lastEnd`, final
+ * review R3-1) is forgotten.
  */
 export function mergeListed(
   kept: readonly ListedEvent[],
   listing: FeedListing,
   now: number,
+  zones: readonly string[],
 ): ListingMerge {
+  const over = (event: ListedEvent): boolean => lastEnd(event, zones) <= now;
   const keptById = new Map(kept.map((event) => [event.id, event]));
   const readIds = new Set(listing.read.map((event) => event.id));
   const untimed = new Set(listing.untimed);
@@ -355,7 +375,7 @@ export function mergeListed(
   const dropped: ListedEvent[] = [];
   const taken = new Set<string>();
   for (const old of kept) {
-    if (readIds.has(old.id) || old.end <= now) continue;
+    if (readIds.has(old.id) || over(old)) continue;
     if (untimed.has(old.id) || old.start <= now) {
       stays.push(old);
       continue;
@@ -377,7 +397,7 @@ export function mergeListed(
     dropped.push(old);
   }
   return {
-    events: inOrder([...read, ...stays].filter((event) => event.end > now)),
+    events: inOrder([...read, ...stays].filter((event) => !over(event))),
     moved,
     dropped,
   };
@@ -393,11 +413,12 @@ export function isShortRead(
   kept: readonly ListedEvent[],
   listing: FeedListing,
   now: number,
+  zones: readonly string[],
 ): boolean {
   if (listing.read.length === 0) return true;
   const coming = kept.filter((event) => event.start > now && event.end > now);
   if (coming.length === 0) return false;
-  return mergeListed(kept, listing, now).dropped.length === coming.length;
+  return mergeListed(kept, listing, now, zones).dropped.length === coming.length;
 }
 
 /**
@@ -410,9 +431,10 @@ export function mergeRead(
   kept: readonly ListedEvent[],
   listing: FeedListing,
   now: number,
+  zones: readonly string[],
 ): ListingMerge & { short: boolean } {
-  const merged = mergeListed(kept, listing, now);
-  if (!isShortRead(kept, listing, now)) return { ...merged, short: false };
+  const merged = mergeListed(kept, listing, now, zones);
+  if (!isShortRead(kept, listing, now, zones)) return { ...merged, short: false };
   return {
     events: inOrder([...merged.events, ...merged.dropped]),
     moved: merged.moved,

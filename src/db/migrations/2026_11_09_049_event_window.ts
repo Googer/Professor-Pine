@@ -2,7 +2,7 @@ import { sql, type Kysely } from 'kysely';
 import type { Migration } from 'kysely/migration';
 
 /**
- * The event window staff set with `/admin event-window` (Matt, 2026-11-09: the days around a big
+ * The event window staff set with `/operator event-window` (Matt, 2026-11-09: the days around a big
  * event, its lead-up and the event itself, when raids last as in a Raid Hour and max battles
  * rotate every 30 minutes; `EventWindowRepository`): one row at most, `id` always 1 (one window
  * per installation, game events being global); `startsAt` and `endsAt` epoch milliseconds (an

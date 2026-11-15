@@ -31,7 +31,6 @@ async function setup() {
       partyId: party.id,
       reporter: { id: reporterId, name },
       reason: text,
-      roleIds: [],
     });
   const post = () => made.gateway.messagesIn(MOD_CHANNEL)[0]?.message;
   /** Holds the gateway's next call of `method` into the moderators' channel until released. */
@@ -157,7 +156,7 @@ describe('ModerationReports: the sweep', () => {
     await made.reportStore.addReport(stranded, reason(DAVE));
     await made.reports.sweep();
     expect(made.reportStore.reports.size).toBe(0);
-    // Carol is forgotten (`/admin forget`) before the next report of the meetup.
+    // Carol is forgotten (`/operator forget`) before the next report of the meetup.
     made.reports.forgetReporter(CAROL);
     expect((await made.report(BOB, 'Bob')).kind).toBe('sent');
     const [report] = made.reportStore.reports.values();

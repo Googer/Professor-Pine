@@ -50,6 +50,19 @@ export function sameText(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+/**
+ * The servers a login knows the member is in (final review R4-1): with Discord, every server of
+ * this Pine served on the web that Discord said they are in (`listed`); by a link of `/maps`, the
+ * link's server alone (not `listed`). Kept with the session, for the top page.
+ */
+export interface SessionServers {
+  listed: boolean;
+  ids: readonly string[];
+}
+
+/** A login that knows none of the member's servers. */
+export const NO_SERVERS: SessionServers = { listed: false, ids: [] };
+
 export interface SessionsOptions {
   store: WebSessionStore;
   /** Whether cookies are `Secure` (the public address is https). */
@@ -82,26 +95,38 @@ export class Sessions {
   }
 
   /** Starts a session for a member; gives the cookie value to send. */
-  async create(user: { id: string; name: string }): Promise<string> {
-    return (await this.made(user)).token;
+  async create(
+    user: { id: string; name: string },
+    servers: SessionServers = NO_SERVERS,
+  ): Promise<string> {
+    return (await this.made(user, servers)).token;
   }
 
   /** Stores a new session: its cookie value, and the ids of the sessions it pushed out. */
-  private async made(user: {
-    id: string;
-    name: string;
-  }): Promise<{ token: string; pushedOut: string[] }> {
+  private async made(
+    user: { id: string; name: string },
+    servers: SessionServers,
+  ): Promise<{ token: string; pushedOut: string[] }> {
     const token = randomToken();
     const now = this.now();
-    const pushedOut = await this.options.store.create({
-      id: sessionHash(token),
-      userId: user.id,
-      userName: [...user.name].slice(0, NAME_LENGTH).join(''),
-      createdAt: now,
-      lastUsedAt: now,
-      expiresAt: now + SESSION_MS,
-    });
+    const pushedOut = await this.options.store.create(
+      {
+        id: sessionHash(token),
+        userId: user.id,
+        userName: [...user.name].slice(0, NAME_LENGTH).join(''),
+        createdAt: now,
+        lastUsedAt: now,
+        expiresAt: now + SESSION_MS,
+        serversListed: servers.listed,
+      },
+      servers.ids,
+    );
     return { token, pushedOut };
+  }
+
+  /** The servers kept with a session (final review R4-1; `SessionServers`). */
+  serversOf(session: Pick<WebSession, 'id'>): Promise<string[]> {
+    return this.options.store.serversOf(session.id);
   }
 
   /**
@@ -109,12 +134,13 @@ export class Sessions {
    * stood for, if any, is deleted first: a browser holds one session, and a login over another
    * leaves no row behind that the old cookie could still use. Gives the ids of the sessions that
    * ended (F-B5: their live streams end too): the browser's old one, and those of the account
-   * the new one pushed out of its ten.
+   * the new one pushed out of its ten. The new one keeps `servers` (final review R4-1).
    */
   async start(
     request: FastifyRequest,
     reply: FastifyReply,
     user: { id: string; name: string },
+    servers: SessionServers,
   ): Promise<string[]> {
     const ended: string[] = [];
     const current = request.cookies[this.cookieName];
@@ -123,7 +149,7 @@ export class Sessions {
       await this.options.store.remove(id);
       ended.push(id);
     }
-    const { token, pushedOut } = await this.made(user);
+    const { token, pushedOut } = await this.made(user, servers);
     void reply.setCookie(this.cookieName, token, sessionCookie(this.secure));
     return [...ended, ...pushedOut];
   }

@@ -9,6 +9,7 @@ import {
   loginNoticeFor,
   NOTICE_MS,
   NoticeBand,
+  startsLiveLayers,
 } from './notice.js';
 
 describe('loginNotice', () => {
@@ -78,6 +79,15 @@ describe("the map's way to the history page (plan 8H-5)", () => {
     expect(historyOffered(me)).toBe(true);
     expect(historyOffered({ ...me, member: false })).toBe(false);
     expect(historyOffered({ loggedIn: false })).toBe(false);
+    // A server in setup has no history yet (plan 19C-2, S11).
+    expect(historyOffered({ ...me, inSetup: true })).toBe(false);
+  });
+
+  it('starts the live layers but in a server in setup (plan 19C-2, S11)', () => {
+    const me = { loggedIn: true as const, name: 'Ash', csrf: 't', member: true, readOnly: false };
+    expect(startsLiveLayers(me)).toBe(true);
+    expect(startsLiveLayers({ loggedIn: false })).toBe(true);
+    expect(startsLiveLayers({ ...me, inSetup: true })).toBe(false);
   });
 });
 

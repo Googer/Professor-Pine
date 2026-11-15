@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ALICE, at, PARTY_NOW } from '../../../test/support/parties.js';
-import { reportedRaid } from '../../../test/support/party-service.js';
+import { OTHER_GUILD_ID, OTHER_GUILD_ROW } from '../../../test/support/gyms.js';
+import { nicknameSearchWith } from '../../../test/support/nicknames.js';
+import { ALICE, at, PARTY_NOW, testRaid } from '../../../test/support/parties.js';
+import { partyServiceWith, reportedRaid } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { UserError } from '../../discord/errors.js';
+import { isRaid } from '../../domain/party/party.js';
 import type { RaidReport } from '../../services/party-service.js';
 import {
   bossMoves,
@@ -16,6 +19,8 @@ const HATCH = at('2026-10-13T14:30');
 const END = at('2026-10-13T15:15');
 const stamp = (time: number) => `<t:${time / 1000}:t>`;
 const ALICE_MEMBER = { id: ALICE, name: 'Alice' };
+/** A raid of the second server (`OTHER_GUILD_ROW`). */
+const THEIR_RAID = '00000000-0000-4000-8000-000000000002';
 
 /**
  * The changes of a raid as `/hatch`, `/end`, `/boss` and `/moveset` and the live map share them:
@@ -94,6 +99,33 @@ describe('the shared changes of a raid', () => {
     await expect(
       changeRaidMoves(made.ctx, made.current(), ALICE_MEMBER, 'waterfall', null),
     ).rejects.toThrow(/is not one fast move of Yveltal/);
+  });
+
+  // Plan 19B-4: a typed boss is read with the nicknames of the raid's server, wherever asked.
+  it('reads a typed boss with the nicknames of the raid’s server', async () => {
+    const ours = testRaid();
+    const theirs = testRaid({ id: THEIR_RAID, guildId: OTHER_GUILD_ROW, gymId: 2 });
+    const made = await partyServiceWith([ours, theirs]);
+    const { search } = await nicknameSearchWith(
+      { yveltal: ['birdy'] },
+      { [OTHER_GUILD_ID]: { mewtwo: ['birdy'] } },
+    );
+    const { ctx } = createTestContext({
+      partyService: made.service,
+      attendance: made.attendance,
+      raids: made.raids,
+      parties: made.store,
+      regions: made.regions,
+      pokemon: search,
+    });
+    const typed = (id: string) => {
+      const party = made.store.get(id);
+      if (!party || !isRaid(party)) throw new Error(`no raid ${id}`);
+      // At its tier: Mewtwo is not on the boss list.
+      return changeRaidBoss(ctx, party, ALICE_MEMBER, 't5 birdy');
+    };
+    expect(await typed(ours.id)).toMatchObject({ text: 'The boss is now Yveltal (T5).' });
+    expect(await typed(THEIR_RAID)).toMatchObject({ text: 'The boss is now Mewtwo (T5).' });
   });
 
   it('answers a raid that ended meanwhile as over', async () => {

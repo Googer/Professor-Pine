@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { PARTY_ZONE } from '../../test/support/parties.js';
 import { catalogueFixture } from '../../test/support/game-data.js';
 import { readResearchPage } from '../../test/support/research.js';
 import { listedTask } from '../../test/support/research-store-cases.js';
@@ -76,7 +77,7 @@ describe('ResearchTaskService', () => {
     answer = () => page();
     expect(await service.catchUp()).toBe('done');
     expect(asked).toHaveLength(2);
-    expect(service.tasks()).toHaveLength(58);
+    expect(service.tasks(PARTY_ZONE)).toHaveLength(58);
     expect(await service.catchUp()).toBe('not-owed');
     // The next read is a refresh's interval on.
     expect(vi.getTimerCount()).toBe(1);
@@ -90,7 +91,7 @@ describe('ResearchTaskService', () => {
 
   it('reads the page with Pine’s User-Agent and keeps the list in the database', async () => {
     const { service, store, asked } = serviceWith(() => page());
-    expect(service.tasks()).toEqual([]);
+    expect(service.tasks(PARTY_ZONE)).toEqual([]);
     expect(await service.refresh()).toEqual({ status: 'updated', tasks: 58 });
     expect(asked).toEqual([
       {
@@ -99,9 +100,9 @@ describe('ResearchTaskService', () => {
         redirect: 'manual',
       },
     ]);
-    expect(service.tasks()).toHaveLength(58);
+    expect(service.tasks(PARTY_ZONE)).toHaveLength(58);
     expect(service.readAt()).toBe(NOW);
-    const [first] = service.tasks();
+    const [first] = service.tasks(PARTY_ZONE);
     expect(service.byKey(first!.key)).toEqual(first);
     expect((await store.kept()).tasks).toHaveLength(58);
   });
@@ -111,7 +112,9 @@ describe('ResearchTaskService', () => {
     const { service, clock } = serviceWith(() => page(html));
     expect(service.byVersion('6458b09802613fa3')).toBeUndefined();
     await service.refresh();
-    const dragon = service.tasks().find((task) => task.text === 'Catch a Dragon-type Pokémon');
+    const dragon = service
+      .tasks(PARTY_ZONE)
+      .find((task) => task.text === 'Catch a Dragon-type Pokémon');
     const versions = service.versions(dragon!);
     expect(versions.map((version) => version.label)).toEqual([
       'Dratini',
@@ -150,10 +153,10 @@ describe('ResearchTaskService', () => {
     await service.refresh();
     const plain = serviceWith(() => page());
     await plain.service.refresh();
-    expect(service.tasks().map((task) => task.text)).toEqual([
+    expect(service.tasks(PARTY_ZONE).map((task) => task.text)).toEqual([
       'Catch 3 Water-type Pokémon',
       'Make 3 Splash Throws',
-      ...plain.service.tasks().map((task) => task.text),
+      ...plain.service.tasks(PARTY_ZONE).map((task) => task.text),
     ]);
     // The event's headings are logged at each read, so a standing heading Leek Duck renames or
     // adds (read as an event's) shows in the log (review 8R8-3); a page without one logs none.
@@ -173,7 +176,8 @@ describe('ResearchTaskService', () => {
         '<section class="research-breakthrough-section',
         `${event}<section class="research-breakthrough-section`,
       );
-    const offered = (service: ResearchTaskService) => service.tasks().map((task) => task.text);
+    const offered = (service: ResearchTaskService) =>
+      service.tasks(PARTY_ZONE).map((task) => task.text);
     const GHOST = 'Catch 8 Ghost-type Pokémon';
 
     it('stops offering its tasks at the end, with no read, and keeps the others', async () => {
@@ -187,10 +191,25 @@ describe('ResearchTaskService', () => {
       expect(offered(service)).toEqual(all.filter((text) => text !== GHOST));
     });
 
+    // Plan 19A-2: the page's end is local time, so each server stops offering the task at 10:00
+    // on its own clock (Berlin's 10:00 is 09:00 UTC, New York's 15:00 UTC).
+    it('stops offering its tasks at the end on each server’s clock', async () => {
+      const { service, clock } = serviceWith(() => page(withEvent()));
+      await service.refresh();
+      const inBerlin = (service: ResearchTaskService) =>
+        service.tasks('Europe/Berlin').map((task) => task.text);
+      clock.now = Date.UTC(2026, 10, 1, 9) - 1;
+      expect(inBerlin(service)).toContain(GHOST);
+      clock.now = Date.UTC(2026, 10, 1, 9);
+      expect(inBerlin(service)).not.toContain(GHOST);
+      expect(offered(service)).toContain(GHOST);
+      expect(service.tasks('America/New_York').map((task) => task.text)).toContain(GHOST);
+    });
+
     it('still knows the task by its key: a report made from a list open at the end, a report standing', async () => {
       const { service, clock } = serviceWith(() => page(withEvent()));
       await service.refresh();
-      const task = service.tasks().find((one) => one.text === GHOST);
+      const task = service.tasks(PARTY_ZONE).find((one) => one.text === GHOST);
       expect(task).toBeDefined();
       clock.now = END;
       expect(service.byKey(task?.key ?? '')?.text).toBe(GHOST);
@@ -252,7 +271,7 @@ describe('ResearchTaskService', () => {
     );
     const { service } = serviceWith(() => Promise.reject(new Error('no network')), store);
     await service.load();
-    expect(service.tasks().map((task) => task.text)).toEqual([
+    expect(service.tasks(PARTY_ZONE).map((task) => task.text)).toEqual([
       'Catch 3 Water-type Pokémon',
       'Make 2 Excellent Throws',
     ]);
@@ -263,7 +282,7 @@ describe('ResearchTaskService', () => {
     await store.replace([listedTask('Make 2 Excellent Throws')], NOW - HOUR / 2);
     const { service } = serviceWith(() => Promise.reject(new Error('no network')), store);
     await service.load();
-    expect(service.tasks().map((task) => task.text)).toEqual(['Make 2 Excellent Throws']);
+    expect(service.tasks(PARTY_ZONE).map((task) => task.text)).toEqual(['Make 2 Excellent Throws']);
     expect(service.readAt()).toBe(NOW - HOUR / 2);
   });
 
@@ -272,10 +291,10 @@ describe('ResearchTaskService', () => {
     await store.replace([listedTask('Make 2 Excellent Throws')], NOW - HOUR / 2);
     const { service, prepared, inBackground } = serviceWith(() => page(), store);
     await service.load();
-    expect(prepared).toEqual([taskPictureSources(service.tasks())]);
+    expect(prepared).toEqual([taskPictureSources(service.tasks(PARTY_ZONE))]);
     await service.refresh();
     expect(prepared).toHaveLength(2);
-    expect(prepared[1]).toEqual(taskPictureSources(service.tasks()));
+    expect(prepared[1]).toEqual(taskPictureSources(service.tasks(PARTY_ZONE)));
     expect(prepared[1]?.length).toBeGreaterThan(20);
     // Behind the pictures a post or a DM waits for (branch review W5).
     expect(inBackground).toEqual([true, true]);
@@ -291,7 +310,7 @@ describe('ResearchTaskService', () => {
     const shrunk = serviceWith(() => page(one), store);
     await shrunk.service.load();
     expect(await shrunk.service.refresh()).toEqual({ status: 'kept', tasks: 58, read: 1 });
-    expect(shrunk.service.tasks()).toHaveLength(58);
+    expect(shrunk.service.tasks(PARTY_ZONE)).toHaveLength(58);
     expect(
       shrunk.said('the research page lists fewer than half the tasks it did; the list is kept'),
     ).toBe(1);
@@ -318,7 +337,7 @@ describe('ResearchTaskService', () => {
     expect(await service.refresh()).toMatchObject({ status: 'kept' });
     clock.now += HOUR;
     expect(await service.refresh()).toEqual({ status: 'updated', tasks: 1 });
-    expect(service.tasks().map((task) => task.text)).toEqual(['Catch a Snorlax']);
+    expect(service.tasks(PARTY_ZONE).map((task) => task.text)).toEqual(['Catch a Snorlax']);
     expect(service.readAt()).toBe(clock.now);
     expect(said('the research task list is out of date')).toBe(0);
   });
@@ -330,7 +349,7 @@ describe('ResearchTaskService', () => {
     html = SHRUNK;
     clock.now += 6 * HOUR;
     expect(await service.refresh()).toEqual({ status: 'updated', tasks: 1 });
-    expect(service.tasks().map((task) => task.text)).toEqual(['Catch a Ditto']);
+    expect(service.tasks(PARTY_ZONE).map((task) => task.text)).toEqual(['Catch a Ditto']);
     // The list was read just now: it is not out of date.
     expect(said('the research task list is out of date')).toBe(0);
   });
@@ -346,7 +365,7 @@ describe('ResearchTaskService', () => {
     clock.now += 6 * HOUR;
     expect(await service.refresh()).toMatchObject({ status: 'failed' });
     expect(await service.refresh()).toMatchObject({ status: 'failed' });
-    expect(service.tasks()).toHaveLength(58);
+    expect(service.tasks(PARTY_ZONE)).toHaveLength(58);
   });
 
   it('keeps its list when the page cannot be read: a refusal, no tasks, too large', async () => {
@@ -365,7 +384,7 @@ describe('ResearchTaskService', () => {
       status: 'failed',
       reason: `${URL}: the page is too-large`,
     });
-    expect(service.tasks()).toHaveLength(58);
+    expect(service.tasks(PARTY_ZONE)).toHaveLength(58);
   });
 
   it('says once that the list is out of date, until a read succeeds again', async () => {

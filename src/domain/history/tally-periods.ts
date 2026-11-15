@@ -3,7 +3,7 @@
  * that the web page, whose type check has no Temporal, can import them.
  */
 
-/** The periods of the tally: this month, this year, all time, in `settings.timezone`. */
+/** The periods of the tally: this month, this year, all time, in the server's zone. */
 export const TALLY_PERIODS = ['month', 'year', 'all'] as const;
 export type TallyPeriod = (typeof TALLY_PERIODS)[number];
 

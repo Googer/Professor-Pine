@@ -59,17 +59,19 @@ export function maxChoiceValue(boss: Pick<MaxBoss, 'tier' | 'key'>): string {
 
 /**
  * The choices of `/max`'s `boss`: the list in its order (`currentMaxBossChoices`), narrowed; of
- * one kind only for `/boss` in a battle (`kind`: a battle never changes kind, review B, B7).
+ * one kind only for `/boss` in a battle (`kind`: a battle never changes kind, review B, B7). The
+ * list and its week are the server's `zone`'s (plan 19A-2).
  */
 export function maxBossOptions(
   ctx: MaxReading,
   typed: string,
   now: number,
+  zone: string,
   kind?: BattleKind,
 ): Choice[] {
   const words = typed.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const fits = (name: string): boolean => words.every((word) => name.toLowerCase().includes(word));
-  return currentMaxBossChoices(maxDeps(ctx), now)
+  return currentMaxBossChoices(maxDeps(ctx, zone), now)
     .filter((choice) => kind === undefined || battleKindOf(choice.boss.tier) === kind)
     .filter((choice) => fits(choice.name))
     .map((choice) => ({
@@ -80,14 +82,18 @@ export function maxBossOptions(
     .slice(0, MAX_CHOICES);
 }
 
-/** What `currentMaxBossChoices` reads, from the bot's context. */
-function maxDeps(ctx: MaxReading) {
+/**
+ * What `currentMaxBossChoices` reads, from the bot's context, in the server's zone. The bosses an
+ * event features are read from its name by the instance's names alone (`of(null)`), never a
+ * server's nicknames: one event features the same bosses in every server (plan 19B-4).
+ */
+function maxDeps(ctx: MaxReading, zone: string) {
   return {
     maxBosses: ctx.maxBosses,
     maxEvents: ctx.raidEvents,
-    pokemon: ctx.pokemon,
+    pokemon: ctx.pokemon.of(null),
     gameData: ctx.gameData,
-    zone: ctx.config.settings.timezone,
+    zone,
   };
 }
 
@@ -152,28 +158,31 @@ export function kindOfText(text: string): {
  * named so (it has no stars to ask). `fallback` is the tier of the battle `/boss` changes: a
  * name that says no kind takes the listed boss of the battle's kind first, and in a Gigantamax
  * battle a Pokémon the game lets battle so; a Dynamax boss on no list needs `tier:` there too
- * (plan 8X-F). Refused with a sentence for anything else.
+ * (plan 8X-F). Refused with a sentence for anything else. A Pokémon typed is read by the server's
+ * search (`serverId`, its nicknames too: plan 19B-4).
  */
 export function readMaxBoss(
   ctx: MaxReading,
+  serverId: string | null,
   text: string,
   tierText: string | null,
   now: number,
+  zone: string,
   fallback?: MaxTier,
 ): ReadMaxBoss {
   const tier = tierText === null ? undefined : tierText.trim().toUpperCase();
   if (tier !== undefined && !isMaxTier(tier)) {
     throw new UserError('That is no max battle tier: pick one from the list.');
   }
-  const bosses = ctx.maxBosses.bosses();
+  const bosses = ctx.maxBosses.bosses(zone);
   const picked = /^m:(D[1-5]|G):(.{1,95})$/.exec(text.trim());
   if (picked) {
     const pickedTier = picked[1] as MaxTier;
     const key = picked[2];
-    const listed = [...bosses, ...ctx.maxBosses.coming()].find(
+    const listed = [...bosses, ...ctx.maxBosses.coming(zone)].find(
       (boss) => boss.key === key && boss.tier === pickedTier,
     );
-    const offered = currentMaxBossChoices(maxDeps(ctx), now).find(
+    const offered = currentMaxBossChoices(maxDeps(ctx, zone), now).find(
       (choice) => choice.boss.key === key && choice.boss.tier === pickedTier,
     );
     const boss = offered?.boss ?? listed;
@@ -181,7 +190,7 @@ export function readMaxBoss(
     return read(refOf(boss), boss.name, boss.tier);
   }
   const { gigantamax, eternamax, rest } = kindOfText(text);
-  const named = ctx.pokemon.exact(rest);
+  const named = ctx.pokemon.of(serverId).exact(rest);
   const shown = plain(truncate(text.trim(), 80));
   if (!named) throw new UnknownMaxBoss(shown);
   // `Eternamax Eternatus` names the species; the list has its Eternamax form.
@@ -300,16 +309,19 @@ export function isPinText(text: string): boolean {
   return readPin(text).kind !== 'none';
 }
 
-/** What `defaultMaxEnd` and its dialog read: the events, the hours, the zone. */
-export function maxEndInput(ctx: MaxReading, tier: MaxTier, at: number): MaxEndInput {
+/**
+ * What `defaultMaxEnd` and its dialog read: the events, the hours, and the zone of the battle's
+ * server (plan 19A-2), whose clock the hours are on.
+ */
+export function maxEndInput(ctx: MaxReading, tier: MaxTier, at: number, zone: string): MaxEndInput {
   const { settings } = ctx.config;
   return {
     tier,
     at,
-    events: ctx.raidEvents.maxEvents(),
-    big: ctx.raidEvents.bigEvents(),
+    events: ctx.raidEvents.maxEvents(zone),
+    big: ctx.raidEvents.bigEvents(zone),
     hours: settings.maxBattles,
-    zone: settings.timezone,
+    zone,
   };
 }
 
@@ -331,17 +343,18 @@ export function typedMaxTime(
   parameter: 'end' | 'meet',
   text: string,
   now: number,
+  zone: string,
   battle?: Pick<MaxParty, 'createdAt' | 'endTime'>,
 ): { at: number } | 'unset' {
   const { settings } = ctx.config;
   const from = battle?.createdAt ?? now;
-  const last = lastBattleOn(from, settings.maxBattles, settings.timezone);
+  const last = lastBattleOn(from, settings.maxBattles, zone);
   const until = parameter === 'end' ? last : (battle?.endTime ?? last);
   const minutes = Math.max(1, Math.ceil((until - from) / MINUTE));
   const result = resolvePartyTime({
     text,
     now,
-    zone: settings.timezone,
+    zone,
     parameter,
     partyType: 'raid',
     raidKind: 'standard',
@@ -381,11 +394,12 @@ export function reportedEnd(
   tier: MaxTier,
   text: string | null,
   now: number,
+  zone: string,
 ): number {
-  const decided = defaultMaxEnd(maxEndInput(ctx, tier, now));
+  const decided = defaultMaxEnd(maxEndInput(ctx, tier, now, zone));
   if (decided.kind === 'over') throw new UserError(battlesOver(ctx));
   if (text === null || text.trim() === '') return decided.end;
-  const typed = typedMaxTime(ctx, 'end', text, now);
+  const typed = typedMaxTime(ctx, 'end', text, now, zone);
   if (typed === 'unset') return decided.end;
   return typed.at;
 }

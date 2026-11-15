@@ -1,11 +1,11 @@
+import { asTestServerGyms } from '../../test/support/providers.js';
 import { describe, expect, it } from 'vitest';
-import { EAST_CHANNEL, testGyms, WEST_CHANNEL } from '../../test/support/gyms.js';
+import { EAST_CHANNEL, TEST_GUILD_ROW, testGyms, WEST_CHANNEL } from '../../test/support/gyms.js';
 import { ALICE, BOB, CAROL, REPORTER, stops, gym, inGyms } from '../../test/support/parties.js';
 import { createdMeetup, createdTrain } from '../../test/support/party-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import { MAX_SAVED_ROUTES } from '../db/repositories/saved-route-repository.js';
 import { PartyStatus } from '../domain/party/status.js';
-import type { PostGym } from '../render/raid-post.js';
 import type { Member } from './attendance-service.js';
 import { TrainService } from './train-service.js';
 
@@ -152,10 +152,10 @@ describe('TrainService.loadRoute', () => {
     const list = gymsFixture();
     let gone = false;
     const gyms = {
-      get: (id: number) => (gone && id === 6 ? undefined : list.get(id)),
-      regionsOf: (id: number) => (gone && id === 6 ? [] : list.regionsOf(id)),
+      get: (id: number) => (gone && id === 6 ? undefined : list.stored(id)),
+      regionsOf: (id: number) => (gone && id === 6 ? [] : list.of(TEST_GUILD_ROW).regionsOf(id)),
     };
-    const made = await createdTrain({ route: stops(4) }, { gyms });
+    const made = await createdTrain({ route: stops(4) }, { gyms: asTestServerGyms(gyms) });
     await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);
     const saved = made.routes.add(ALICE, WEST, 'Round', [2, 6, 3]);
     const update = made.store.update.bind(made.store);
@@ -373,10 +373,10 @@ describe('TrainService.loadRoute with a route longer than a route may be', () =>
       splits: made.service,
       lines: made.lines,
       users: made.users,
-      gyms: {
-        get: (id) => ({ ...testGyms()[0], id, name: `Gym ${id}` }) as PostGym,
+      gyms: asTestServerGyms({
+        get: (id) => ({ ...testGyms()[0], id, name: `Gym ${id}` }),
         regionsOf: () => [WEST_CHANNEL],
-      },
+      }),
       regions: made.regions,
       routes: made.routes,
       log: made.log,

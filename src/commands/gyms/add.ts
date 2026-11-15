@@ -23,7 +23,6 @@ import {
   LOCATION_OPTION,
   EXPIRED,
   fetchNote,
-  foreignPlace,
   gymQuestion,
   gymViewMessage,
   markAnswered,
@@ -42,10 +41,11 @@ import {
   type PendingGym,
   type TypedTexts,
 } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
+import type { DistanceUnits } from '../../render/distance-words.js';
+import type { Asker } from '../../services/pending-requests.js';
 
 type PendingAdd = Extract<PendingGym, { what: 'add' }>;
-
-const FOREIGN_PLACE = foreignPlace('add a gym');
 
 /** The fields of the form behind "Add with details…": everything but the name, which is given. */
 const DETAIL_FIELDS = ['nickname', 'description', 'notice', 'keywords'] as const;
@@ -60,7 +60,10 @@ const DETAIL_FIELDS = ['nickname', 'description', 'notice', 'keywords'] as const
  */
 function addQuestion(
   ctx: AppContext,
-  userId: string,
+  /** The server's units (plan 19A-1). */
+  units: DistanceUnits,
+  /** Who asks, and in which server: the question is theirs there (plan 19B-4). */
+  asker: Asker,
   guildId: number | undefined,
   name: string,
   place: GivenPlace,
@@ -70,7 +73,7 @@ function addQuestion(
   const { point, approximate } = place;
   const near = ctx.gymAdmin.near(point, guildId);
   const regions = ctx.gymAdmin.regionsAt(point, guildId);
-  const token = pendingGyms.put(userId, {
+  const token = pendingGyms.put(asker, {
     what: 'add',
     name,
     point,
@@ -85,7 +88,7 @@ function addQuestion(
         `Add **${gymLabel({ name })}** at ${pointLink(point)}?`,
         approximate ? APPROXIMATE : undefined,
         regionsSentence(regions).replace(/^It lies/, 'It would lie'),
-        ...nearLines(near, ctx.config.settings.distanceUnits),
+        ...nearLines(near, units),
       ]),
     ],
     [
@@ -124,13 +127,13 @@ async function addAnswered(
     place,
     request.nearIds,
   );
-  if (outcome.kind === 'foreign') throw new UserError(FOREIGN_PLACE);
   if (outcome.kind === 'near') {
     await answerGym(
       interaction,
       addQuestion(
         ctx,
-        interaction.user.id,
+        serverValuesOf(interaction, ctx).distanceUnits,
+        interaction,
         place.guildId,
         request.name,
         request,
@@ -144,11 +147,11 @@ async function addAnswered(
   const { gym } = outcome;
   await answerGym(
     interaction,
-    await gymViewMessage(ctx, place, gym, [
+    await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, place, gym, [
       `Added ${gymWithId(gym)}.`,
       fetchNote(ctx),
-      nameNote(ctx, gym),
-      namesakeNote(ctx, gym),
+      nameNote(serverValuesOf(interaction, ctx), gym),
+      namesakeNote(ctx.gyms.of(place.guildId), gym),
     ]),
   );
 }
@@ -196,7 +199,7 @@ export const addForms: Readonly<Record<string, FormAnswer>> = {
       return;
     }
     // Answered once: the Add button under the question no longer works either.
-    if (pendingGyms.take(token, interaction.user.id) === 'expired') throw new UserError(EXPIRED);
+    if (pendingGyms.take(token, interaction) === 'expired') throw new UserError(EXPIRED);
     markAnswered(token);
     if (interaction.isFromMessage()) await interaction.deferUpdate();
     else await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -247,8 +250,16 @@ export const addGym: SubcommandPart = {
       await ctx.gymAdmin.readLocation(interaction.options.getString('location', true)),
     );
     const { guildId } = await staffPlace(interaction, ctx);
-    // Refused before anything is asked; the service decides again when Add is pressed.
-    if (!ctx.gymAdmin.mayPlace(place.point, guildId)) throw new UserError(FOREIGN_PLACE);
-    await answerGym(interaction, addQuestion(ctx, interaction.user.id, guildId, name, place));
+    await answerGym(
+      interaction,
+      addQuestion(
+        ctx,
+        serverValuesOf(interaction, ctx).distanceUnits,
+        interaction,
+        guildId,
+        name,
+        place,
+      ),
+    );
   },
 };

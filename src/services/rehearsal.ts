@@ -319,8 +319,8 @@ export function rehearsalGateway<G extends PartyGateway>(
 
 /**
  * The gateway meetup safety uses during a rehearsal (Matt, 2026-10-17): its own posts, the
- * requests and appeals, go into the moderators' channel (a text channel named
- * `moderationChannel`, as `findChannel` finds it), so the staff who rehearse see them; every
+ * requests and appeals, go into the moderators' channel (a text channel that `moderators` says
+ * is a server's moderators' channel, by its values), so the staff who rehearse see them; every
  * other message, and everything else, goes through `guarded` (the rehearsal's gateway). Only
  * meetup safety is given this gateway: the rest of the bot (the boss list, bot updates) posts
  * through `guarded`, and nothing of it reaches that channel.
@@ -328,14 +328,11 @@ export function rehearsalGateway<G extends PartyGateway>(
 export function rehearsalModeratorsGateway<G extends PartyGateway>(
   guarded: G,
   inner: PartyGateway,
-  moderationChannel: string,
+  moderators: (channelId: string) => boolean,
   log: Logger,
 ): G {
   const sendMessage: PartyGateway['sendMessage'] = (channelId, message) => {
-    if (
-      inner.channelKind(channelId) === 'text' &&
-      inner.channelName(channelId) === moderationChannel
-    ) {
+    if (inner.channelKind(channelId) === 'text' && moderators(channelId)) {
       return inner.sendMessage(channelId, message);
     }
     log.info(

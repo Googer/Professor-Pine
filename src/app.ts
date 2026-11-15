@@ -1,4 +1,4 @@
-import { Events, type Client } from 'discord.js';
+import { Events, REST, type Client, type Guild, type Interaction } from 'discord.js';
 import { sql } from 'kysely';
 import type { AppContext } from './app-context.js';
 import {
@@ -9,18 +9,21 @@ import { wildExceptionsOf } from './commands/notifications/wild.js';
 import { components } from './components/index.js';
 import { ScreenshotTrigger } from './commands/screenshots/mention.js';
 import { loadConfig } from './config/index.js';
-import { channelNamesOf } from './config/settings.js';
+import { channelNamesOf, instanceZone, isOpenInstance } from './config/settings.js';
 import { configWarnings } from './config/warnings.js';
 import { dbConfigFrom } from './db/db-config.js';
 import { createDb } from './db/kysely.js';
 import { runMigrations } from './db/migrator.js';
+import { isSnowflake } from './db/snowflake.js';
 import { AccessGrantRepository } from './db/repositories/access-grant-repository.js';
+import { DmContactRepository } from './db/repositories/dm-contact-repository.js';
 import { PartyAuditRepository } from './db/repositories/party-audit-repository.js';
 import { GuildRepository } from './db/repositories/guild-repository.js';
 import { GymNotificationRepository } from './db/repositories/gym-notification-repository.js';
 import { GymRemovalRepository } from './db/repositories/gym-removal-repository.js';
 import { NewTrainRepository } from './db/repositories/new-train-repository.js';
 import { GymRepository } from './db/repositories/gym-repository.js';
+import { ActivityZoneRebuild } from './services/activity-zone-rebuild.js';
 import { ActivityRepository } from './db/repositories/activity-repository.js';
 import { HistoryDays } from './services/history-days.js';
 import { HistoryRepository } from './db/repositories/history-repository.js';
@@ -28,7 +31,7 @@ import { PartyRepository } from './db/repositories/party-repository.js';
 import { PokemonNotificationRepository } from './db/repositories/pokemon-notification-repository.js';
 import { TargetWantRepository } from './db/repositories/target-want-repository.js';
 import { WantBoxRepository } from './db/repositories/want-box-repository.js';
-import { PokemonRepository } from './db/repositories/pokemon-repository.js';
+import { PokemonNicknameRepository } from './db/repositories/pokemon-nickname-repository.js';
 import { MaxBossRepository, RaidBossRepository } from './db/repositories/raid-boss-repository.js';
 import { RegionRepository } from './db/repositories/region-repository.js';
 import { RowIds } from './db/repositories/row-ids.js';
@@ -44,12 +47,17 @@ import { ScriptAccessRepository } from './db/repositories/script-access-reposito
 import { MeetupSafetyRepository } from './db/repositories/meetup-safety-repository.js';
 import type { DB } from './db/types.js';
 import { ClickAnswers } from './discord/click-answers.js';
-import { createClient, loginWithFallback } from './discord/client.js';
+import { createClient, identifyConcurrency, loginWithFallback } from './discord/client.js';
 import { enabledCommands, enabledMessageCommands } from './discord/command.js';
 import { DiscordDmGateway } from './discord/dm-gateway.js';
-import { attachGatewayHandlers, GatewayWatch } from './discord/gateway-events.js';
+import { attachGatewayHandlers, catchUpOnReturn, GatewayWatch } from './discord/gateway-events.js';
+import { ShardReadiness } from './discord/shard-readiness.js';
 import { DiscordMemberDirectory } from './discord/member-directory.js';
-import { managementRoleIdsOf } from './discord/guards.js';
+import {
+  isInstanceOperatorOf,
+  managementRoleIdsOf,
+  serverStaffShareData,
+} from './discord/guards.js';
 import { DiscordRegionStaff } from './discord/web-staff.js';
 import { DiscordWebMembers } from './discord/web-members.js';
 import { MAP_WRITES_PER_MINUTE } from './web/acting.js';
@@ -62,9 +70,34 @@ import { BoardKeeper } from './services/board-keeper.js';
 import { DiscordApplicationEmoji } from './discord/application-emoji.js';
 import { DiscordPartyGateway } from './discord/party-gateway.js';
 import { syncGuilds } from './discord/guild-sync.js';
+import { ServerSettings } from './services/server-settings.js';
+import { ServerStandings } from './services/server-standings.js';
+import { quietServers, unservedServers } from './services/quiet-servers.js';
+import { ServerSetup, setupCounts } from './services/server-setup.js';
+import { ServerDeletion } from './services/server-deletion.js';
+import { ServerDataRepository } from './db/repositories/server-data-repository.js';
+import { ServerAdmission } from './services/server-admission.js';
+import { ServerAdoption } from './services/server-adoption.js';
+import { DiscordServerExits } from './discord/server-exits.js';
+import { discordInvites } from './discord/server-invites.js';
+import { ServerNeighbors } from './services/server-neighbors.js';
+import { NeighborMatches } from './services/neighbor-matches.js';
+import { NeighborParties } from './services/neighbor-parties.js';
+import { NeighborCopy } from './services/neighbor-copy.js';
+import { ServerNeighborRepository } from './db/repositories/server-neighbor-repository.js';
+import { wireServerAdmission } from './discord/server-admission-wiring.js';
+import { botIsPublic } from './discord/application-public.js';
+import { ServerFill } from './services/server-fill.js';
+import { noticeSender, ServerNotices } from './services/server-notices.js';
+import { serverNamesOf } from './discord/server-names.js';
+import { wireServerStart } from './discord/server-start.js';
+import { ServerSettingsRepository } from './db/repositories/server-settings-repository.js';
+import { ServerRecordRepository } from './db/repositories/server-record-repository.js';
+import { LastPartyRepository } from './db/repositories/last-party-repository.js';
+import { ServerSettingsAuditRepository } from './db/repositories/server-settings-audit-repository.js';
 import { InteractionRouter } from './discord/router.js';
 import { lobbySize } from './domain/party/lobby.js';
-import { screenshotIdOf } from './domain/party/party.js';
+import { screenshotIdOf, type Party } from './domain/party/party.js';
 import { formReader } from './domain/pogo/wants.js';
 import { trainMapLinkOf } from './domain/web/train-history-data.js';
 import { createLogger, type Logger } from './log.js';
@@ -73,7 +106,8 @@ import { auditNamesOf, PartyAudit } from './services/party-audit.js';
 import { AdminLock } from './services/admin-lock.js';
 import { FetchAttachments } from './services/attachment-gateway.js';
 import { AttendanceService } from './services/attendance-service.js';
-import { QueuedDmSender } from './services/dm-sender.js';
+import { DM_PRIORITY, QueuedDmSender } from './services/dm-sender.js';
+import { GoogleShares } from './services/google-shares.js';
 import { GameDataService } from './services/game-data-service.js';
 import { GoogleGeo } from './services/geo-gateway.js';
 import { GitHubIssues } from './services/issue-gateway.js';
@@ -98,7 +132,7 @@ import { EventWindowRepository } from './db/repositories/event-window-repository
 import { EventWindowService } from './services/event-window-service.js';
 import { ListedEventRepository } from './db/repositories/listed-event-repository.js';
 import { EventForumRepository } from './db/repositories/event-forum-repository.js';
-import { eventForumWanted, EventForumService } from './services/event-forum.js';
+import { eventForumWanted, EventForumService, newEventsForumName } from './services/event-forum.js';
 import { StopReportRepository } from './db/repositories/stop-report-repository.js';
 import { StopReportService } from './services/stop-reports.js';
 import { rewardHash } from './domain/research/versions.js';
@@ -109,8 +143,10 @@ import { StopLineRepository } from './db/repositories/stop-line-repository.js';
 import { PineStopRepository } from './db/repositories/pine-stop-repository.js';
 import { GymUpkeep } from './services/gym-upkeep.js';
 import { GymLookupRepository } from './db/repositories/gym-lookup-repository.js';
+import { GoogleShareRaiseRepository } from './db/repositories/google-share-raise-repository.js';
 import { GoogleUseRepository } from './db/repositories/google-use-repository.js';
-import { WayspotAddressRepository } from './db/repositories/wayspot-address-repository.js';
+import { GoogleAnswerRepository } from './db/repositories/google-answer-repository.js';
+import { GoogleAnswers } from './services/google-answers.js';
 import { WayspotAddresses } from './services/wayspot-addresses.js';
 import { GoogleRanks } from './services/google-ranks.js';
 import { KeptActivity } from './services/kept-activity.js';
@@ -127,7 +163,7 @@ import { LegacyFillInRepository } from './db/repositories/legacy-fill-in-reposit
 import { LegacyFillInService } from './services/legacy-fill-in.js';
 import { MemberDataRepository } from './db/repositories/member-data-repository.js';
 import { MemberRemoval } from './services/member-removal.js';
-import { memberIndexServers } from './ops/legacy-index.js';
+import { hasServerIndex, memberIndexServers } from './ops/legacy-index.js';
 import { OcrAssets } from './services/ocr-assets.js';
 import { OcrService } from './services/ocr-service.js';
 import { ScreenshotService } from './services/screenshot-service.js';
@@ -140,6 +176,7 @@ import { CatchUp, type CatchUpOutcome } from './services/catch-up.js';
 import { PartyService } from './services/party-service.js';
 import { PartyStore } from './services/party-store.js';
 import { PokemonSearchService } from './services/pokemon-search-service.js';
+import { ModeratorsLab } from './services/moderators-lab.js';
 import { RaidBossAnnouncer } from './services/raid-boss-announcer.js';
 import { MaxBossService } from './services/max-boss-service.js';
 import { MaxChangeService } from './services/max-change-service.js';
@@ -178,14 +215,32 @@ import {
   servedSettings,
 } from './services/rehearsal.js';
 import { healthFiles } from './ops/health.js';
-import { gatewayConnected, Heartbeat } from './ops/heartbeat.js';
+import { GatewayProbe, Heartbeat } from './ops/heartbeat.js';
 import { startCheckpoint } from './ops/start-stop.js';
 import {
+  bossSyncStep,
+  directMessagesStep,
   eventsFeedStep,
+  followLeaving,
+  followServers,
+  followStandings,
+  forgetServerMemory,
+  afterDeletions,
+  backAfterDeletion,
+  webServers,
+  topPageServers,
+  followZones,
   liveSources,
+  notOfQuietServers,
   picturesServed,
   reportPictures,
+  serverSetUpWork,
+  servesRow,
+  serversNotQuiet,
+  shardStartWork,
   stopReportSteps,
+  wireServerSetup,
+  type SetupLate,
 } from './app-wiring.js';
 import { createShutdown } from './shutdown.js';
 import { maxLook } from './render/max-post.js';
@@ -196,7 +251,6 @@ import { SaveCheckWorker } from './web/save-check.js';
 import { EditorCache } from './web/editor-cache.js';
 import { GeoCache } from './web/geo-cache.js';
 import { LIVE_ON_THE_CLOCK, LiveSignals } from './web/live-signals.js';
-import { joinedServers, mapServers } from './web/map-servers.js';
 import { MEMBER_LOOKUPS_PER_SECOND } from './web/paced-members.js';
 import { readAssets } from './web/page.js';
 import { WayspotToolFiles } from './services/wayspot-tool.js';
@@ -219,8 +273,6 @@ const EVENTS_WAIT_MS = 15_000;
 const HOUR_MS = 60 * MINUTE_MS;
 /** After this long without a read of the max boss feed, a warning is logged once (no setting). */
 const MAX_BOSSES_STALE_AFTER_HOURS = 48;
-/** How long direct messages that wait at shutdown are still sent. */
-const DM_DRAIN_MS = 10_000;
 
 export interface StartOptions {
   /**
@@ -284,8 +336,11 @@ export async function startApp(
   });
   const raidBosses = new RaidBossService({
     url: config.settings.raidBosses.url,
-    // Leek Duck's rotations first, ScrapedDuck's feed as the fallback (plan 8B-L).
-    manifest: { url: config.settings.raidBosses.manifestUrl, zone: config.settings.timezone },
+    // Leek Duck's rotations first, ScrapedDuck's feed as the fallback (plan 8B-L), in the
+    // instance's default zone and every zone in use (plan 19A-2: each its own rotations).
+    manifest: { url: config.settings.raidBosses.manifestUrl, zone: instanceZone(config.settings) },
+    // Late: the servers' settings are made below, and asked at the first read.
+    zones: () => servers.zonesInUse(),
     refreshMs: config.settings.raidBosses.refreshMinutes * MINUTE_MS,
     staleAfterMs: config.settings.raidBosses.staleAfterHours * HOUR_MS,
     store: new RaidBossRepository(db, (override) => {
@@ -306,32 +361,43 @@ export async function startApp(
     url: maxSettings.url,
     refreshMs: maxSettings.refreshMinutes * MINUTE_MS,
     staleAfterMs: MAX_BOSSES_STALE_AFTER_HOURS * HOUR_MS,
-    zone: config.settings.timezone,
-    store: new MaxBossRepository(db),
+    zone: instanceZone(config.settings),
+    store: new MaxBossRepository(db, undefined, instanceZone(config.settings)),
     gameData,
     fetch: (url, init) => fetch(url, init),
     log,
   });
-  // The event window staff set (`/admin event-window`, 2026-11-09), kept in the database.
-  const eventWindows = new EventWindowService({ store: new EventWindowRepository(db), log });
+  // The event window staff set (`/operator event-window`, 2026-11-09), kept in the database.
+  const eventWindows = new EventWindowService({
+    store: new EventWindowRepository(db, instanceZone(config.settings)),
+    log,
+    // Where an end finds the window still on (fix round 1, M4). Late: the servers' settings are
+    // made below, and asked only by an end.
+    zones: () => servers.zonesInUse(),
+  });
   const raidEvents = new RaidEventService({
     url: config.settings.raidEvents.url,
     refreshMs: config.settings.raidEvents.refreshHours * HOUR_MS,
-    zone: config.settings.timezone,
+    // Kept in the instance's default zone; each reader asks in its server's (plan 19A-2).
+    zone: instanceZone(config.settings),
+    // What is kept while on ends when it has ended in every zone in use (final review R3-1).
+    // Late: the servers' settings are made below, and asked only at a read.
+    zones: () => servers.zonesInUse(),
     fetch: (url, init) => fetch(url, init),
     // The events with field research of their own, kept as seen (plan 8R-1).
-    research: new ResearchEventRepository(db),
+    research: new ResearchEventRepository(db, instanceZone(config.settings)),
     // The max events and the big events, kept as last merged (plan 8X-F).
-    maxEvents: new MaxEventRepository(db, log),
+    maxEvents: new MaxEventRepository(db, log, instanceZone(config.settings)),
     // The events forum's listed events, kept as last merged (plan 8V-1).
-    listed: new ListedEventRepository(db, log),
+    listed: new ListedEventRepository(db, log, instanceZone(config.settings)),
     // The Raid Hours of the events' Leek Duck pages (2026-11-07), with the feed's for every
     // reader of `events()`; `eventPages` is made just below, and asked only once running.
     pageRaidHours: (): readonly RaidEvent[] => eventPages.raidHours(),
     // Their Max Battle hours, with the feed's max events for every reader of `maxEvents()`.
     pageMaxHours: (): readonly MaxEvent[] => eventPages.maxHours(),
-    // A Raid Hour and a Max Battle Day to every reader while staff's event window is on.
-    eventWindow: () => eventWindows.current(),
+    // A Raid Hour and a Max Battle Day to every reader while staff's event window is on, on
+    // the clock of the zone asked (plan 19A-2: typed as local time).
+    eventWindow: (zone) => eventWindows.current(zone),
     log,
   });
   // The events' Leek Duck pages: the spawns of the events on (plan 8R-4: a community day's from
@@ -341,7 +407,9 @@ export async function startApp(
     events: raidEvents,
     gameData,
     fetch: (url, init) => fetch(url, init),
-    zone: config.settings.timezone,
+    zone: instanceZone(config.settings),
+    // A page is read once its event is on in any zone in use (plan 19A-2); asked at each look.
+    zones: () => servers.zonesInUse(),
     weeklyRaidHour: config.settings.raidEvents.weeklyRaidHour,
     // The events forum lists the pages' hours: it draws again when a read changed them.
     onHoursChange: () => {
@@ -363,10 +431,10 @@ export async function startApp(
   const researchTasks = new ResearchTaskService({
     pictures: stopPictures,
     url: config.settings.research.url,
-    zone: config.settings.timezone,
+    zone: instanceZone(config.settings),
     refreshMs: config.settings.research.refreshHours * HOUR_MS,
     staleAfterMs: config.settings.research.staleAfterHours * HOUR_MS,
-    store: new ResearchTaskRepository(db, log),
+    store: new ResearchTaskRepository(db, log, instanceZone(config.settings)),
     gameData,
     fetch: (url, init) => fetch(url, init),
     log,
@@ -386,6 +454,82 @@ export async function startApp(
   // would otherwise ask for a row id before every statement (plan 4F).
   const rowIds = new RowIds();
   const guilds = new GuildRepository(db, rowIds);
+  // Who may have this Pine and which servers it left (plan 19C-1): each server's standing, read
+  // once the migrations ran, before the login.
+  const standings = new ServerStandings({
+    store: new ServerRecordRepository(db),
+    settings: config.settings,
+    log,
+  });
+  // Each server's values (plan 19A-1): what the settings file held that is a server's, one row
+  // per server, read once the migrations ran; the file's server keys are a new row's defaults.
+  // The staff's log of the servers' settings (plan 19A-1): written with each change of a server's
+  // values, read by `/admin settings` and `/audit`, swept after 30 days with the upkeep.
+  const serverSettingsAudit = new ServerSettingsAuditRepository(db);
+  // The servers the bot is in, once the client is ready (fix round 1, K5).
+  let serversPresent: (() => readonly string[]) | undefined;
+  // The shards of the client the login keeps, made in its `configure` (plan 19C-2, S6).
+  let liveShards: ShardReadiness | undefined;
+  const servers = new ServerSettings({
+    store: new ServerSettingsRepository(db),
+    audit: serverSettingsAudit,
+    settings: config.settings,
+    log,
+    // The zones in use are those of the servers the bot is in, once the client is ready; every
+    // server with a row until then (fix round 1, K5).
+    present: () => serversPresent?.(),
+  });
+  // The quiet servers (plans 19C-1, 19C-2): those Pine left or that may not have it (final review
+  // R4-3) and those in setup, for which nothing is posted, sent or swept outside their
+  // interactions.
+  const quiet = quietServers(standings, servers);
+  // A zone in use came or went (plan 19A-2): the raid bosses are read again for the zones now
+  // in use, their own rotations and the soonest change among them; also when a server joins or
+  // leaves with a zone of its own (fix round 1, N5).
+  followZones(servers, { zones: [() => raidBosses.zonesChanged()] }, log);
+  // The fill (plan 19A-1): a row for a server without one, at ready and when the bot joins one;
+  // the names it cannot find are told in the server's moderators' bot lab. The events forum is
+  // the one its record names (review F3), whether the events forum is drawn here or not.
+  const eventForumRecords = new EventForumRepository(db);
+  // What is wrong with one server's setup, told to its own staff in its moderators' bot lab, once
+  // per server and what while the bot runs (plan 19B-1; never the owner's). A send that sent
+  // nothing (the lab gone) counts as refused (fix round 2, G1). The party gateway is made below:
+  // asked only once a notice is told.
+  const serverNotices = new ServerNotices({
+    servers,
+    // A server Pine left is told nothing until it is back (plan 19C-1), nor one that may not have
+    // it while Pine is still in it (final review R4-3).
+    left: unservedServers(standings),
+    log,
+    send: (channelId, text) => noticeSender(partyGateway)(channelId, text),
+  });
+  const serverFill = new ServerFill({
+    servers,
+    settings: config.settings,
+    log,
+    notices: serverNotices,
+    recordedForum: async (serverId) => (await eventForumRecords.forum(serverId))?.forumId,
+    // Set up already where the record has it from before 2.1 or adopted by a new install at its
+    // first start (plan 19C-2, S2), and its data was never deleted (plan 19C-3), asked when its
+    // fill is written.
+    recorded: (serverId) => standings.setUpOnRecord(serverId),
+  });
+  // Who is in (plan 19C-1): a server that may not have this Pine is told so in its system channel
+  // and left, on joining and at every ready; a server Pine was in that no shard names any more is
+  // marked left. In rehearsal mode a refusal is only logged.
+  const serverExits = new DiscordServerExits();
+  const admission = new ServerAdmission({
+    standings,
+    exits: rehearsal ? undefined : serverExits,
+    recorded: () => guilds.snowflakes(),
+    inServer: (serverId) => serverExits.inServer(serverId) && !standings.isLeft(serverId),
+    // By the live client's shards, made at the login (plan 19C-2, S6); none before.
+    isPresent: (serverId) => liveShards?.isPresent(serverId) ?? false,
+    // A new install's adoption (plan 19C-1, J1), made just before the login once it is known
+    // whether the application is public; asked only once the client is there.
+    undecided: (serverId) => serverAdoption.undecided(serverId),
+    log,
+  });
   const regionRepository = new RegionRepository(db);
   const regions = new RegionDirectory({ regions: regionRepository, log });
   // Reports at stops (plan 8R-1), each in the research period of the stored events.
@@ -393,7 +537,8 @@ export async function startApp(
   const stopReports = new StopReportService({
     store: stopReportStore,
     events: raidEvents,
-    zone: config.settings.timezone,
+    // Each server's periods and days on its own clock (plan 19A-2).
+    zoneOf: (serverId) => servers.zoneOf(serverId),
     // A grunt's report (plan 8R-2) stands as long as its message.
     gruntMs: config.settings.rocket.gruntMinutes * 60_000,
     // A costume is told by the game data (plan 8R-5): a costumed reward's version is its own.
@@ -407,10 +552,19 @@ export async function startApp(
   // A typed task's reward, on no list, made square once reported (plan 8M-9B).
   stopReports.listen(reportPictures(stopPictures));
   const gymRepository = new GymRepository(db);
+  // Google's answers by the point (plan 19B-3): every gym's and Wayspot's address and places.
+  const googleAnswers = new GoogleAnswers({ storage: new GoogleAnswerRepository(db), log });
   const gyms = new GymDirectory({
     gyms: gymRepository,
     regions: new RegionRepository(db),
-    ignoredWords: config.settings.blacklistWords,
+    // Each server's search ignores the words its staff set (plan 19B-2); a row whose server is
+    // not known yet has the file's defaults until it is.
+    wordsOf: (row) => {
+      const server = rowIds.serverOfRow(row);
+      return (server === undefined ? servers.defaults() : servers.of(server)).blacklistWords;
+    },
+    // A gym's address and places are its point's.
+    answers: googleAnswers,
     log,
   });
   // The kept Wayspots of the Wayfarer imports, placed in the regions by their outlines.
@@ -431,7 +585,7 @@ export async function startApp(
   };
   // The addresses of Power Spots the map asked for, which every reader of the kept Wayspots shows.
   const wayspotAddresses = new WayspotAddresses({
-    storage: new WayspotAddressRepository(db),
+    answers: googleAnswers,
     geo,
     use: googleUse,
     budget: googleBudget,
@@ -442,23 +596,31 @@ export async function startApp(
     regions,
     log,
     addresses: wayspotAddresses,
+    answers: googleAnswers,
   });
   const history = new HistoryRepository(db);
   // The activity heatmap's buckets (plan 8H-4): derived from the history, added hourly by the
   // upkeep after its sweep, read by the map's /api/activity and the region tally (plan 8H-5).
   const activity = new ActivityRepository(db, {
-    zone: config.settings.timezone,
+    // Each server's buckets and days on its own clock (plan 19A-2).
+    zoneOf: (serverId) => servers.zoneOf(serverId),
     settings: config.settings,
     log,
   });
   // What the map's heatmap and the region tally read of them, each read of a server and window
   // kept a minute for everybody (plan 8Z-2): what a member may see is decided on the rows after.
   const activityReads = new KeptActivity(activity);
+  // A server whose zone changed has its buckets and days rebuilt on its new clock, in the
+  // background (plan 19A-2); the heatmap shows what is there meanwhile.
+  const activityRebuild = new ActivityZoneRebuild({ activity, log });
+  servers.onZoneChange((serverId) => {
+    activityRebuild.zoneChanged(serverId);
+  });
   // Raids per day and big days (plan 8H-8): the history page and the events forum's "On this
   // day" read them through one service, a server's days kept a few minutes.
   const historyDays = new HistoryDays({
     reader: activity,
-    zone: config.settings.timezone,
+    zoneOf: (serverId) => servers.zoneOf(serverId),
     bossName: (key) => gameData.catalogue.byKey(key)?.name,
   });
   // Every party that ends is kept in the party history (plan 8H), with what the store writes;
@@ -471,6 +633,8 @@ export async function startApp(
     gameData,
     raidBosses,
     maxBosses,
+    // Late: the party service is made below, and asked only when a party ends.
+    zoneOf: (party: Party): string => partyService.zoneOf(party),
     log,
     // Where a train's stops lie when it ends (plan 8H-7A), as its copies find their regions.
     stopRegions: (guildId, stop) =>
@@ -486,7 +650,10 @@ export async function startApp(
     },
   });
   const parties = new PartyStore({ storage: partyRepository, log, history: partyHistory });
-  const discordGateway = new DiscordPartyGateway(log);
+  // A quiet server is none of its servers (Pine left it, plan 19C-1, or it is in setup, plan
+  // 19C-2): the events forum, the boss announcer and meetup safety's check at the start ask
+  // `serverAvailable`.
+  const discordGateway = new DiscordPartyGateway(log, quiet);
   // In rehearsal mode nothing is posted but into the posts of parties in the rehearsed forums
   // (and meetup safety's own posts into the moderators' channel: its gateway, below).
   const partyGateway = rehearsal
@@ -506,13 +673,31 @@ export async function startApp(
   const appEmoji = new ApplicationEmoji(appEmojiSource, log);
   // The servers of the client that ended up connected, once it is ready.
   let botServers: () => readonly string[] = () => [];
-  // Changes of the boss list and a list that is out of date, told to the servers once the client
-  // is ready (what comes earlier waits). Listening from here on: before the first sync.
+  const dmGateway = new DiscordDmGateway();
+  // Each server's messages to members never written to are capped (plan 19B-5).
+  const dms = new QueuedDmSender({
+    gateway: dmGateway,
+    log,
+    contacts: new DmContactRepository(db),
+    firstContacts: {
+      perWindow: config.settings.dms.firstContactsPerWindow,
+      windowMs: config.settings.dms.firstContactWindowMinutes * 60_000,
+    },
+  });
+  // In rehearsal mode only the allowlist is written to; the queue itself is drained at shutdown.
+  const memberDms = rehearsal ? new RehearsalDms(dms, rehearsal, log) : dms;
+  // Changes of the boss list told to the servers, and a list that is out of date to the owner
+  // (plan 19B-1), once the client is ready (what comes earlier waits). Listening from here on:
+  // before the first sync. The owner's DM goes through the queue itself, also in rehearsal mode.
   const bossAnnouncer = new RaidBossAnnouncer({
     gateway: partyGateway,
-    servers: () => botServers(),
+    serverIds: () => botServers(),
+    servers,
     settings: config.settings,
     log,
+    dms,
+    ownerId: config.env.OWNER_ID,
+    notices: serverNotices,
   });
   bossAnnouncer.attach(raidBosses);
   const members = new DiscordMemberDirectory({ log });
@@ -525,10 +710,6 @@ export async function startApp(
     gateway: roleGateway,
     log,
   });
-  const dmGateway = new DiscordDmGateway();
-  const dms = new QueuedDmSender({ gateway: dmGateway, log });
-  // In rehearsal mode only the allowlist is written to; the queue itself is drained at shutdown.
-  const memberDms = rehearsal ? new RehearsalDms(dms, rehearsal, log) : dms;
   // Listens to the store: whoever signs up for a party in a forum they cannot see is let in.
   const access = new AccessService({
     store: parties,
@@ -536,6 +717,9 @@ export async function startApp(
     guilds,
     storage: new AccessGrantRepository(db),
     log,
+    // The grants of a quiet server are not swept (plans 19C-1, 19C-2).
+    quiet,
+    serverOfRow: (row) => rowIds.serverOfRow(row),
   });
   // The staff audit log (`/audit`): listens to the store, so every change is logged whoever made
   // it; entries older than 30 days go with the scheduler's upkeep.
@@ -567,6 +751,14 @@ export async function startApp(
   const partyService = new PartyService({
     eggPictures,
     wayspots,
+    servers,
+    // A party's server, whose zone its times are in (plan 19A-2): every row is read at the start,
+    // before the parties, and every row made since is added (fix round 1, K1).
+    serverOfRow: (row) => rowIds.serverOfRow(row),
+    // A quiet server: its parties neither drawn nor advanced, no summary made (plans 19C-1, 19C-2).
+    quiet,
+    // A forum the bot may not make posts in, told to the server's staff (plan 19B-1).
+    notices: serverNotices,
     // The raids along an ended train's way, for its card (plan 8H-7A).
     raidsAlong: history,
     // What ended parties left on Discord, written with their end, swept with the upkeep.
@@ -617,7 +809,9 @@ export async function startApp(
       db,
       formReader(() => gameData.catalogue),
     ),
-    zone: config.settings.timezone,
+    servers,
+    // A quiet server's wants are not counted (final review R2-1).
+    quiet,
     log,
   });
   // The legacy fill-ins members ask for in /settings (plan 8H-10): only where the installation
@@ -637,6 +831,12 @@ export async function startApp(
   const notify = new NotifyService({
     store: parties,
     posts: partyService,
+    // Whether each server notifies its members (plan 19A-1), its row named by every row read at
+    // the start or made since (fix round 1, K1).
+    servers,
+    serverOfRow: (row) => rowIds.serverOfRow(row),
+    // Nobody is told of a quiet server (plans 19C-1, 19C-2).
+    quiet,
     pictures: stopPictures,
     wants,
     targetWants,
@@ -679,7 +879,7 @@ export async function startApp(
     wants,
     gifts: new UnownGiftRepository(db),
     gameData,
-    settings: config.settings,
+    servers,
     log,
   });
   const spawns = new SpawnService({
@@ -690,7 +890,10 @@ export async function startApp(
     pictures: stopPictures,
     notify,
     store: new SpawnReportRepository(db),
+    // Kept for its return (plan 19C-1); none in setup (plan 19C-2).
+    quiet,
     settings: config.settings,
+    servers,
     log,
   });
   // The grunts' messages (plan 8R-2), deleted after their half hour; none in rehearsal mode,
@@ -702,6 +905,8 @@ export async function startApp(
         store: new GruntMessageRepository(db),
         reports: stopReports,
         pictures: stopPictures,
+        // Kept for its return (plan 19C-1); none in setup (plan 19C-2).
+        quiet,
         log,
       });
   // The events forum (plan 8V-1): only where the settings name one, never in rehearsal mode (R8:
@@ -711,9 +916,13 @@ export async function startApp(
     ? undefined
     : new EventForumService({
         gateway: partyGateway,
-        store: new EventForumRepository(db),
+        store: eventForumRecords,
         events: raidEvents,
         settings: config.settings,
+        servers,
+        forumName: newEventsForumName(config.settings),
+        // The forum gone or a permission missing, told to the server's staff (plan 19B-1).
+        notices: serverNotices,
         log,
         days: historyDays,
         // The trains and meetups planned during the events (Matt, 2026-11-07).
@@ -772,7 +981,6 @@ export async function startApp(
     users,
     notify,
     log,
-    zone: config.settings.timezone,
   });
   const trains = new TrainService({
     store: parties,
@@ -792,7 +1000,41 @@ export async function startApp(
   // The PokéStops and Power Spots that wait for Google, and the places it gave around them
   // (plan 8W-6), which the search reads.
   const wayspotLookups = new WayspotLookupRepository(db);
-  const wayspotPlaces = new WayspotPlaces({ storage: wayspotLookups, log });
+  const wayspotPlaces = new WayspotPlaces({ answers: googleAnswers, log });
+  // The servers Pine is in by their rows (known since the start's `ensure` of each): each has its
+  // floor of the lookups by hand and of `/find-region`'s maps (plan 19B-5, fix round 3, T3). From
+  // the complete map of rows (fix round 4), never the bounded memory of `rowIds.guild`.
+  const serverRows = (): number[] =>
+    botServers().flatMap((server) => rowIds.rowOfServer(server) ?? []);
+  // Google's month shared between servers by need (plan 19B-5): a server out of its share is
+  // told in its moderators' bot lab, and the owner once a month when the month is used.
+  const googleShares = new GoogleShares({
+    budget: googleBudget,
+    ...(config.settings.googleServerShareMax === undefined
+      ? {}
+      : { max: config.settings.googleServerShareMax }),
+    use: googleUse,
+    raises: new GoogleShareRaiseRepository(db),
+    tellServer: (guildRow, key, text) => {
+      const server = rowIds.serverOfRow(guildRow);
+      if (server !== undefined) serverNotices.tell(server, key, text);
+    },
+    tellOwner: (text) => {
+      const ownerId = config.env.OWNER_ID.trim();
+      if (ownerId === '') return;
+      const at = Date.now();
+      dms.send({
+        userId: ownerId,
+        serverId: null,
+        message: { content: text },
+        priority: DM_PRIORITY.normal,
+        eventAt: at,
+        // Worth sending while the month lasts: a week at most.
+        expiresAt: at + 7 * 24 * 3_600_000,
+      });
+    },
+    log,
+  });
   const gymUpkeep = new GymUpkeep({
     gyms: gymRepository,
     directory: gyms,
@@ -804,20 +1046,44 @@ export async function startApp(
     use: googleUse,
     budget: googleBudget,
     byHandPerMonth: config.settings.googleByHandPerMonth,
+    byHandPerServer: config.settings.googleByHandPerServer,
+    servers: serverRows,
+    shares: googleShares,
+    // Not a quiet server (plan 19C-1: one Pine left; plan 19C-2: one in setup) nor one that may
+    // no longer have it: its rows are held out of the line's range at `OUT_OF_SHARE_RANK` and
+    // count for no share; once it is served again (back, or set up: the line's next turn notices
+    // it, told or not) they are ranked anew from the raids read first. Every row is known from the
+    // start (`guilds.loadRows`, before `resume`); one made since is known when made.
+    serves: servesRow({
+      serverOfRow: (row) => rowIds.serverOfRow(row),
+      admits: (server) => admission.admits(server),
+      quiet,
+    }),
     // The line goes by the raids of each place's best region (plan 8W-6), from the history.
     ranks: new GoogleRanks({
       regions,
-      gymRegions: (id) => gyms.regionsOf(id),
-      wayspotRegions: (id) => wayspots.regionsOf(id),
-      // The servers by their rows: the first reading comes before the login (plan 8Z-2).
-      servers: () => guilds.snowflakes(),
+      // Each server's row by that server's regions (plan 19B-3).
+      gymRegions: (guildId, id) => gyms.regionsIn(guildId, id),
+      wayspotRegions: (guildId, id) => wayspots.regionsIn(guildId, id),
+      // The servers by their rows: the first reading comes before the login (plan 8Z-2); those
+      // Pine left keep theirs, and are left out (plan 19C-1), and so are those in setup (19C-2).
+      servers: serversNotQuiet(() => guilds.snowflakes(), quiet),
       activity: history,
     }),
     wayspots,
     // A region added or saved queues the PokéStops and Power Spots it newly covers at once.
     outlineChanges: regions,
     wayspotLookups,
+    answers: googleAnswers,
     places: wayspotPlaces,
+  });
+  // A server Pine left (plan 19C-1), however it was marked: its queued DMs are dropped, and
+  // Google's line holds its rows until it is back. An operator's allow, block or unblock tells
+  // the line too: whether it serves a server may change without its leaving or coming back.
+  followLeaving(standings, {
+    dms,
+    line: gymUpkeep,
+    rowOf: (server) => rowIds.rowOfServer(server),
   });
   // Map pictures from Google Static Maps, through the image cache (also for gym announcements).
   const mapCache = new ImageCache({
@@ -843,6 +1109,7 @@ export async function startApp(
     gateway: partyGateway,
     maps,
     settings: config.settings,
+    servers,
     log,
   });
   // The Wayfarer import writes gyms through gym administration, under its lock.
@@ -881,6 +1148,7 @@ export async function startApp(
     routes: savedRoutes,
     gateway: partyGateway,
     settings: config.settings,
+    servers,
     log,
   });
   // Files that members attach to a command, downloaded from Discord's own hosts only.
@@ -891,7 +1159,7 @@ export async function startApp(
     reviewDays: config.settings.ocr.reviewDays,
     keepMegabytes: config.settings.ocr.keepMegabytes,
     reviewPerDay: config.settings.ocr.reviewPerDay,
-    gymName: (id) => gyms.get(id)?.name,
+    gymName: (id) => gyms.stored(id)?.name,
     // A raid's screenshot is kept while the raid is active, for its "Screenshot feedback" button;
     // a max battle's while it lasts (plan 8X-S, review R4), or the sweep would undo `inUse`.
     shown: () =>
@@ -920,14 +1188,21 @@ export async function startApp(
     dms: memberDms,
     log,
   });
-  // Meetup safety (plan 8S-1): off without settings.channels.moderation. Its requests expire
+  // Meetup safety (plan 8S-1): off without the server's moderators' channel. Its requests expire
   // with the clock. In rehearsal mode its requests and appeals go into the moderators' channel
   // (Matt, 2026-10-17): through a gateway of its own, so that nothing else of the bot does.
-  const moderation = config.settings.channels.moderation;
-  const moderatorsGateway =
-    rehearsal && moderation !== undefined
-      ? rehearsalModeratorsGateway(partyGateway, discordGateway, moderation, log)
-      : partyGateway;
+  const moderatorsGateway = rehearsal
+    ? rehearsalModeratorsGateway(
+        partyGateway,
+        discordGateway,
+        // A server's moderators' channel, by its values (plan 19A-1).
+        (channelId) => {
+          const server = discordGateway.serverOf(channelId);
+          return server !== undefined && servers.of(server).channels.moderation === channelId;
+        },
+        log,
+      )
+    : partyGateway;
   const meetupSafety = new MeetupSafety({
     storage: new MeetupSafetyRepository(db, log),
     gateway: moderatorsGateway,
@@ -939,6 +1214,11 @@ export async function startApp(
     store: parties,
     guilds,
     settings: config.settings,
+    servers,
+    // What keeps it from working in a server, told to that server's staff (plan 19B-1).
+    notices: serverNotices,
+    // A quiet server: its records are not expired, nobody told (plans 19C-1, 19C-2).
+    quiet,
     log,
   });
   // Reports to the moderators (plan 8S-2): their posts go into meetup safety's channel, through
@@ -953,9 +1233,63 @@ export async function startApp(
     gyms,
     wayspots,
     settings: config.settings,
+    servers,
+    // Where a server's staff may not change the boss list, its operators decide (plan 19B-1):
+    // the owner is told of screenshots against it, through the queue, also in rehearsal mode.
+    staffChangeShared: (serverId) => serverStaffShareData(serverId, { config, standings }),
+    ownerId: config.env.OWNER_ID,
+    dms,
     log,
   });
   reports.watch(parties);
+  // The servers Pine left more than 30 days ago are deleted (plan 19C-3): the database table by
+  // table, then what the bot keeps of them in memory, then their kept screenshots; once a day with
+  // the upkeep (none in rehearsal mode, which only rehearses), never one Pine is in by its shards'
+  // view, and a deletion cut short is finished when its server adds Pine back. The owner is told
+  // by DM.
+  // Each server's Pokémon search, with its own nicknames (plan 19B-4).
+  const pokemon = new PokemonSearchService(gameData, new PokemonNicknameRepository(db), log);
+  const serverDeletion = new ServerDeletion({
+    standings,
+    data: new ServerDataRepository(db),
+    screenshots: screenshotStore,
+    forget: forgetServerMemory({
+      rowIds,
+      servers,
+      notices: serverNotices,
+      // Made below, read before the login: a deletion runs only once the scheduler starts.
+      neighbors: { forgetServer: (serverId) => neighbors.forgetServer(serverId) },
+      parties,
+      access,
+      regions,
+      gyms,
+      wayspots: { load: (guildRow) => wayspots.load(guildRow) },
+      // Made below with the neighbors.
+      matches: {
+        forgetRow: (guildRow) => {
+          neighborMatches.forgetRow(guildRow);
+        },
+      },
+      pineStops,
+      nicknames: pokemon,
+      line: gymUpkeep,
+      log,
+    }),
+    // By the live client's shards (unavailable included), made at the login; not known before.
+    present: (serverId) => liveShards?.isPresent(serverId),
+    // The old bot's member index, which Pine only reads: the owner removes a server's folder,
+    // where it holds one (a leftover `.<server>.old` included; a record's id is a snowflake, which
+    // `hasServerIndex` requires).
+    ...(legacyIndexDir === undefined
+      ? {}
+      : {
+          legacyIndex: (serverId: string) =>
+            isSnowflake(serverId) && hasServerIndex(legacyIndexDir, serverId),
+        }),
+    dms,
+    ownerId: config.env.OWNER_ID,
+    log,
+  });
   const scheduler = new PartyScheduler({
     store: parties,
     history: partyHistory,
@@ -984,6 +1318,7 @@ export async function startApp(
     attendance,
     access,
     audit: partyAudit,
+    settingsAudit: { sweep: () => servers.sweepLog() },
     routes: trains,
     spawns,
     stops: stopReports,
@@ -991,6 +1326,14 @@ export async function startApp(
     pictures: maps,
     // The places' pictures of the web map's posts, in the same folder of pictures (plan 8Z-2).
     placePictures: { prune: () => prunePlacePictures(mapCache) },
+    // Google's answers no gym or Wayspot of any server shows, once a day (plan 19B-3): the
+    // scheduler starts after both are loaded.
+    googleAnswers: { sweep: () => googleAnswers.sweep([gyms, wayspots]) },
+    // The servers Pine left more than 30 days ago, once a day (plan 19C-3); not in rehearsal mode.
+    ...(rehearsal ? {} : { deletions: serverDeletion }),
+    // The neighbors' requests and declines no longer kept (plan 19E), made below; the scheduler
+    // starts after they are read.
+    neighbors: { sweep: () => neighbors.sweep() },
     screenshots: screenshotStore,
     emoji: appEmoji,
     webSessions,
@@ -1020,22 +1363,75 @@ export async function startApp(
     threads: config.settings.ocr.threads,
     priority: config.settings.ocr.priority,
     queue: config.settings.ocr.queue,
+    queuePerServer: config.settings.ocr.queuePerServer ?? config.settings.ocr.queue,
     timeoutMs: config.settings.ocr.timeoutSeconds * 1000,
     log,
   });
   const clickAnswers = new ClickAnswers({ log });
   // The client that ended up connected, for what talks to Discord's REST API through it.
   let liveClient: Client | undefined;
+  // A server's moderators' bot lab (plan 19B-4): the gym requests of a server the instance's
+  // repository does not serve, and the neighbors' requests (plan 19E).
+  const moderatorsLab = new ModeratorsLab({ gateway: partyGateway, servers });
+  // Each server's neighbors and their requests (plan 19E), read before the login. A server's
+  // staff are told only where Pine is in it, may serve it, and it is not quiet.
+  const neighbors = new ServerNeighbors({
+    storage: new ServerNeighborRepository(db),
+    reach: {
+      reachable: (serverId) =>
+        liveClient?.guilds.cache.has(serverId) === true &&
+        standings.mayHave(serverId) &&
+        !quiet.isQuiet(serverId),
+      nameOf: (serverId) => liveClient?.guilds.cache.get(serverId)?.name,
+    },
+    lab: moderatorsLab,
+    log,
+  });
+  // The same gyms and Power Spots of two neighbors, per pair, rebuilt when either's gyms change.
+  const neighborMatches = new NeighborMatches({ gyms, spots: wayspots });
+  // A raid's or max battle's post shows its neighbors' parties at the same gym or Power Spot
+  // (plan 19E), from memory: the same gyms per pair of servers, rebuilt when either's gyms change.
+  partyService.useNeighbors(
+    new NeighborParties({
+      neighbors,
+      quiet,
+      matches: neighborMatches,
+      rowOf: (serverId) => rowIds.rowOfServer(serverId),
+      serverOfRow: (row) => rowIds.serverOfRow(row),
+      parties,
+    }),
+  );
+  // A pair that becomes or stops being neighbors, and a server that leaves or comes back, or that
+  // an operator blocks, unblocks or allows (final review R6-4), redraw the posts that show, or
+  // would show, the other's parties; an operator's change reads the zones in use again.
+  neighbors.whenChanged((pair) => {
+    partyService.neighborsChanged(pair);
+  });
+  followStandings(standings, {
+    neighborsQuietChanged: (serverIds) => {
+      partyService.neighborsQuietChanged(serverIds);
+    },
+    presenceChanged: () => {
+      servers.presenceChanged();
+    },
+  });
+  // A change of a server's gyms (an import, an edit, a region edit) redraws, gathered, the posts
+  // at gyms whose match with a neighbor's changed.
+  gyms.whenServersChanged((rows) => {
+    partyService.neighborGymsChanged(rows);
+  });
   // The catch-up on reconnect (plan 8X-H), made once the services of the stops are there.
   const reconnect: { catchUp?: CatchUp } = {};
   const legacyCleanup = new LegacyCleanup({
     rest: () => liveClient?.rest,
     botId: () => liveClient?.user?.id,
     partiesDir: config.env.LEGACY_PARTIES_DIR,
+    settingsChannelIds: (guildId) =>
+      Object.values(servers.of(guildId).channels).filter((id) => id !== undefined),
+    // And the file's names of them, as before 2.1 (review F6).
     settingsChannelNames: channelNamesOf(config.settings),
     log,
   });
-  const pokemon = new PokemonSearchService(gameData, new PokemonRepository(db), log);
   const checkpoint = startCheckpoint(options.stopRequested);
   try {
     await runMigrations(db, log);
@@ -1051,24 +1447,33 @@ export async function startApp(
     // Before the first read of the feed: the week's featured boss, a max battle's default end.
     await raidEvents.loadMax();
     await eventWindows.load();
+    await servers.load();
+    await standings.load();
+    await neighbors.load();
     // Before the first read too: the events forum's listing survives a restart (plan 8V-1).
     await raidEvents.loadListed();
+    // Before the gyms and the Wayspots, whose addresses and places they are (plan 19B-3).
+    await googleAnswers.load();
     await gyms.load();
     await regions.load();
-    await wayspotAddresses.load();
     await wayspots.load();
     await pineStops.load();
-    await wayspotPlaces.load();
+    // Every party's server, so its zone, known from its first moment (fix round 1, K1); and
+    // every row's server before the line for Google is taken up, which serves no row of a
+    // server Pine left (plan 19C-1).
+    await guilds.loadRows();
     // The gyms that waited for Google before a restart, and those that lack what it gives;
-    // after the regions and the Wayspots, which its ranks read, and the Wayspots' places,
-    // which say which were asked (plan 8W-6).
+    // after the regions and the Wayspots, which its ranks read, and Google's answers, which
+    // say which were asked (plans 8W-6, 19B-3).
     await gymUpkeep.resume();
     await parties.load();
     await access.load();
     // What a stop between storing a raid and creating its post left behind: only the store is
     // needed, and reports can arrive as soon as the bot has logged in.
     await partyService.endPartiesWithoutPost();
-    await pokemon.reloadNicknames();
+    // The nicknames of every server recorded, in one read (plan 19B-4); a server that joins
+    // later is read when it is first asked about.
+    await pokemon.load(await guilds.snowflakes());
     checkpoint();
   } catch (err) {
     await heartbeat.stop();
@@ -1090,7 +1495,7 @@ export async function startApp(
   // The screenshot trigger, for "Read screenshot" in a message's Apps menu (plan 7M): set once
   // it is made below, since it takes the context itself.
   const shotTrigger: { is?: ScreenshotTrigger } = {};
-  // Removing a member's data on request (plan 8G, the owner's `/admin forget`): the database in
+  // Removing a member's data on request (plan 8G, the operators' `/operator forget`): the database in
   // one transaction, then the kept screenshots and the live streams of the web logins it
   // deleted, which the hub of the live map ends once it is made (below).
   const liveSessions: { end?: (sessionId: string) => void } = {};
@@ -1105,10 +1510,45 @@ export async function startApp(
     heldReports: reports,
     log,
   });
+  // What a server's setup reaches that is made after it (fix round 1, S5): the posts of the stops
+  // below, and what the live client's `configure` makes.
+  const setupLate: SetupLate = { ...(eventForum ? { eventForum } : {}) };
+  // A server added back while its deletion was pending: once it is over, its fill and its `Guild`
+  // row, as its joining would have begun them (by the live client's start, made at the login).
+  standings.whenBackAfterDeletion(backAfterDeletion({ late: setupLate, guilds, log }));
+  // A server's setup (plan 19C-2): what /admin setup reads, and the leaving of setup once its
+  // required items are done, its bot lab told so (only where Pine may post there); then what was
+  // held for it begins (`serverSetUpWork`): the zones in use (with it now), its summaries, the
+  // events forums, the posts of the stops, meetup safety's warnings of it, Google's line.
+  const serverSetup = new ServerSetup({
+    servers,
+    counts: setupCounts({ guilds, regions, gyms }),
+    send: (channelId, text) => noticeSender(partyGateway)(channelId, text),
+    setUp: serverSetUpWork({
+      presenceChanged: () => {
+        servers.presenceChanged();
+      },
+      checkSummaries: () => partyService.checkSummaries(),
+      warnAtStart: (serverIds) => {
+        meetupSafety.warnAtStart(serverIds);
+      },
+      // Google's line serves its rows from now on (plan 19C-2).
+      line: gymUpkeep,
+      rowOf: (server) => rowIds.rowOfServer(server),
+      late: setupLate,
+      log,
+    }),
+    log,
+  });
   const ctx: AppContext = {
     throttles,
     memberRemoval,
     config,
+    servers,
+    standings,
+    admission,
+    setup: serverSetup,
+    lastParties: new LastPartyRepository(db),
     log,
     db,
     commands,
@@ -1161,6 +1601,7 @@ export async function startApp(
     newTrains,
     historyOptIns: history,
     partyAudit: partyAuditStore,
+    serverSettingsAudit,
     legacyFillIns: legacyFillInStore,
     legacyIndex: legacyFillIns,
     // The region tally (plan 8H-5): the heatmap's buckets summed per region, for /stats.
@@ -1169,7 +1610,7 @@ export async function startApp(
       regions,
       guilds,
       gateway: partyGateway,
-      zone: config.settings.timezone,
+      zoneOf: (serverId) => servers.zoneOf(serverId),
     }),
     members,
     // The names the boards show (plan 8H-6), for Discord and the web alike.
@@ -1185,12 +1626,12 @@ export async function startApp(
       },
       tasks: researchTasks,
       gateway: partyGateway,
-      zone: config.settings.timezone,
+      zoneOf: (serverId) => servers.zoneOf(serverId),
     }),
     memberStats: new MemberStatsService({
       reader: boardReader,
       optIns: history,
-      zone: config.settings.timezone,
+      zoneOf: (serverId) => servers.zoneOf(serverId),
     }),
     selfRoles,
     spawns,
@@ -1202,16 +1643,29 @@ export async function startApp(
     mapBudget: new MapBudget({
       use: googleUse,
       perMonth: config.settings.googleByHandPerMonth,
+      // Each server's members their server's floor of them (plan 19B-5, fix round 3, T3).
+      perServer: config.settings.googleByHandPerServer,
+      servers: serverRows,
       log,
     }),
     loginLinks,
     scriptAccess,
-    // Gym requests; without GITHUB_TOKEN and GITHUB_REPO `/request` is not offered.
+    // Gym requests: to the instance's repository (GITHUB_TOKEN and GITHUB_REPO) where it serves
+    // the server, else to the server's moderators' bot lab (plan 19B-4).
     issues: new GitHubIssues({
       token: config.env.GITHUB_TOKEN,
       repo: config.env.GITHUB_REPO,
       fetch: (url, init) => fetch(url, init),
       log,
+    }),
+    moderatorsLab,
+    neighbors,
+    invites: discordInvites(() => liveClient?.rest, log),
+    // A neighbor's curated gym text copied through gym administration's own writes (plan 19E).
+    neighborCopy: new NeighborCopy({
+      gyms,
+      matches: neighborMatches,
+      fill: (id, texts, staffId) => gymAdmin.fillEmpty(id, texts, staffId),
     }),
     // Raid simulations for `/counters`, with ten minutes of memory of each answer.
     pokebattler: new PokebattlerFight({ fetch: (url, init) => fetch(url, init), log }),
@@ -1233,6 +1687,7 @@ export async function startApp(
         gyms,
         regions,
         config,
+        servers,
         maxBosses,
         wayspots,
         pokemon,
@@ -1244,6 +1699,8 @@ export async function startApp(
         maxBossAdmin: maxBosses,
         gameData,
         reports,
+        // The list as the screenshot's server sees it (fix round 1, L6).
+        zoneOf: (serverId) => servers.zoneOf(serverId),
       }),
     }),
     // A message read because a member asked: by the one trigger that reads the mentions. (No
@@ -1269,7 +1726,10 @@ export async function startApp(
     regions,
     gateway: partyGateway,
     dms: memberDms,
-    zone: config.settings.timezone,
+    zoneOfRow: (row) => partyService.zoneOfRow(row),
+    serverOfRow: (row) => rowIds.serverOfRow(row),
+    // A board of a quiet server is not swept (plans 19C-1, 19C-2).
+    ofQuietServer: (region) => partyService.ofQuietServer(region),
     log,
     changed: (regionId) => {
       partyService.summaryChanged(regionId, true);
@@ -1287,6 +1747,19 @@ export async function startApp(
   const connected = new Promise<void>((resolve) => {
     markConnected = resolve;
   });
+  // A server leaves setup once its required items are done (plan 19C-2), whatever did the last,
+  // checked from the start on; a server an operator allows after it waited begins on the live
+  // client. Wired once, before the login (fix round 1, S5).
+  wireServerSetup({
+    setup: serverSetup,
+    servers,
+    regions,
+    serverOfRow: (row) => rowIds.serverOfRow(row),
+    admission,
+    fill: serverFill,
+    late: setupLate,
+    connected,
+  });
 
   try {
     await options.beforeLogin?.();
@@ -1298,56 +1771,160 @@ export async function startApp(
     await db.destroy();
     throw err;
   }
+  // A new install keeps the servers it is in (plan 19C-1, J1; `ServerAdoption`): read before the
+  // login whether its application is public, only while nothing was ever recorded (one request
+  // at a new install's first starts, none afterwards).
+  const publicBot = standings.adopting
+    ? await botIsPublic(new REST().setToken(config.env.DISCORD_TOKEN), log)
+    : undefined;
+  const serverAdoption = new ServerAdoption({
+    standings,
+    publicBot,
+    ownerOf: (serverId) => {
+      const guild = liveClient?.guilds.cache.get(serverId);
+      return guild?.available === true ? guild.ownerId : undefined;
+    },
+    nameOf: (serverId) => liveClient?.guilds.cache.get(serverId)?.name,
+    mayOwn: (userId) => isInstanceOperatorOf(userId, ctx),
+    ownerId: config.env.OWNER_ID,
+    dms,
+    refuse: (serverId) => {
+      admission.refuse(serverId);
+    },
+    log,
+  });
   const { client, features } = await loginWithFallback(requested, {
     token: config.env.DISCORD_TOKEN,
     log,
     create: createClient,
     configure(client) {
-      heartbeat.loggingIn(() => gatewayConnected(client.ws.shards, Date.now()));
+      // Every shard read at each heartbeat; one away for minutes, or all, is down (plan 19D).
+      const probe = new GatewayProbe(() => client.ws.shards, {
+        maxConcurrency: () => identifyConcurrency(client),
+      });
+      heartbeat.loggingIn((now) => probe.read(now));
       // Whether the gateway is back after a real disconnect, and its shard errors said once per
       // kind (plan 8X-H); attached before the login, whose ready arms it. Back for real, what
-      // failed meanwhile is caught up (`catchUp`, made once the services are there).
+      // failed meanwhile is caught up (`catchUp`, made once the services are there). Each shard
+      // by itself (plan 19D), but a shard's return catches up every server: what failed while it
+      // was away were REST requests, which go out for every shard's servers alike. With several
+      // shards, a short return with a new session alone asks at most once in ten minutes
+      // (`catchUpOnReturn`).
       new GatewayWatch({
         log,
         lastAck: (shard) => client.ws.shards.get(shard)?.lastPingTimestamp,
       })
         .attach(client)
-        .onBack(() => {
-          reconnect.catchUp?.request();
-        });
+        .onBack(
+          catchUpOnReturn(
+            () => {
+              reconnect.catchUp?.request();
+            },
+            { shards: () => client.ws.shards.size },
+          ),
+        );
       discordGateway.use(client);
       liveClient = client;
       appEmojiSource.use(client);
       members.use(client);
       roleGateway.use(client);
       dmGateway.use(client);
-      client.once(Events.ClientReady, (ready) => {
-        log.info({ user: ready.user.tag, guilds: ready.guilds.cache.size }, 'connected to Discord');
-        void syncGuilds(guilds, [...ready.guilds.cache.keys()], log);
-        botServers = () => [...ready.guilds.cache.keys()];
-        bossAnnouncer.ready();
+      serverExits.use(client);
+      // The work per server at each shard's ready (plan 19D, `shardStartWork`): the servers
+      // recorded, and at the shard's first ready meetup safety's warnings and the spawns that
+      // stood through the restart; at `ClientReady`, the servers that added the bot meanwhile
+      // without an event. Who is in is checked once every shard is ready (plan 19C-1).
+      const startWork = shardStartWork({
+        // A server added back while its data is deleted: once the deletion is over (plan 19C-3).
+        syncServers: afterDeletions(standings).syncServers((servers) =>
+          syncGuilds(guilds, servers, log),
+        ),
         // Where meetup safety cannot work: once per server, in the log of the start.
-        meetupSafety.warnAtStart([...ready.guilds.cache.keys()]);
-        // Before the first posts are shown; `refresh` logs what fails and never throws.
-        void appEmoji.refresh();
-        markConnected();
-        // The reader's files (about 15 MB the first time) are had now, so that the first
-        // screenshot does not wait for them; never awaited, and `ensure` logs what fails.
-        if (config.settings.ocr.enabled) void ocrAssets.ensure();
-        // The square pictures of the spawns that stood through the restart (review SF1-4); never
-        // awaited, and it logs what fails.
-        void spawns.prepareStanding([...ready.guilds.cache.keys()]);
+        warnAtStart: (servers) => {
+          meetupSafety.warnAtStart(servers);
+        },
+        // Never awaited, and it logs what fails (review SF1-4).
+        prepareStanding: (servers) => void spawns.prepareStanding(servers),
+      });
+      const shards = new ShardReadiness({
+        log,
+        shardIds: () => client.ws.shards.keys(),
+        serversOf: (shard) => [
+          ...client.guilds.cache.filter((guild) => guild.shardId === shard).keys(),
+        ],
+      }).attach(client);
+      // The servers present by this client's shards, for an operator's allowance (plan 19C-2, S6).
+      liveShards = shards;
+      // Who is in (plan 19C-1): a new install's adoption, then the check once every shard is
+      // ready, by the servers present by the shards, never the cache; before `wireServerStart`,
+      // whose listeners ask `admits` in the same events.
+      wireServerAdmission(client, { shards, adoption: serverAdoption, admission });
+      // The client's once: after the last shard's first ready.
+      client.once(Events.ClientReady, (ready) => {
+        log.info(
+          { user: ready.user.tag, guilds: ready.guilds.cache.size, shards: ready.ws.shards.size },
+          'connected to Discord',
+        );
+        // Not the quiet ones: those Pine left (plan 19C-1; discord.js keeps one that removed the
+        // bot while its shard was away) and those in setup (plan 19C-2).
+        botServers = () => [...ready.guilds.cache.keys()].filter((id) => !quiet.isQuiet(id));
+        // The zones in use are those of the servers present from now on (fix round 1, K5).
+        serversPresent = botServers;
+        servers.presenceChanged();
+      });
+      // The servers' rows (plan 19A-1, `wireServerStart`): each server's fill begun in the
+      // client's own events, before discord.js hands on any interaction of it, every interaction
+      // routed after its server's; a shard's start work after its servers' rows, and what
+      // follows, which reads the servers' values, once every shard's is done: the clock and the
+      // web wait for `connected`.
+      const serverStart = wireServerStart<Guild, Interaction>(client, {
+        // A server added back while its data is deleted is filled, and its interactions routed,
+        // once the deletion is over (plan 19C-3).
+        fill: afterDeletions(standings).fill(serverFill),
+        namesOf: serverNamesOf,
+        serverOf: (serverId) => client.guilds.cache.get(serverId),
+        shards,
+        work: startWork,
+        started: () => {
+          bossAnnouncer.ready();
+          // Before the first posts are shown; `refresh` logs what fails and never throws.
+          void appEmoji.refresh();
+          markConnected();
+          // The reader's files (about 15 MB the first time) are had now, so that the first
+          // screenshot does not wait for them; never awaited, and `ensure` logs what fails.
+          if (config.settings.ocr.enabled) void ocrAssets.ensure();
+        },
+        route: (interaction) => router.handle(interaction),
+        // A server that may not have this Pine: nothing of it begun, refused on joining.
+        admits: (serverId) => admission.admits(serverId),
+        refuse: (serverId) => {
+          admission.refuse(serverId);
+        },
+        log,
+      });
+      // A server joining gets its `Guild` row and is no longer left; one removing Pine is marked
+      // left, its row and everything on it kept (plan 19C-1); a refused one is neither. Either way
+      // the zones in use are read again (a zone of its own, fix round 1, N5).
+      const serverEvents = followServers({
+        admission,
+        standings,
+        guilds,
+        presenceChanged: () => {
+          servers.presenceChanged();
+        },
+        log,
       });
       client.on(Events.GuildCreate, (guild) => {
-        guilds
-          .ensure(guild.id)
-          .catch((err: unknown) => log.error({ err, guild: guild.id }, 'could not record guild'));
+        void serverEvents.joined(guild.id);
       });
       client.on(Events.GuildDelete, (guild) => {
-        guilds
-          .remove(guild.id)
-          .catch((err: unknown) => log.error({ err, guild: guild.id }, 'could not remove guild'));
+        void serverEvents.removed(guild.id);
       });
+      // A present server an instance operator allows after it waited (plan 19C-2; a new install's
+      // undecided one) begins on this client, the one the login keeps (`wireServerSetup`): its
+      // fill, its `Guild` row and its return, as its joining would.
+      setupLate.serverStart = serverStart;
+      setupLate.joined = (serverId) => serverEvents.joined(serverId);
       // A party's post deleted by hand ends its party at once (the `Guilds` intent delivers it;
       // discord.js emits it only for a thread in its cache, otherwise the next render notices);
       // the bot's own deletions find no active party there.
@@ -1362,39 +1939,44 @@ export async function startApp(
           if (interaction.inCachedGuild()) {
             const { member } = interaction;
             unownWants.noticed(interaction.guildId, interaction.user.id, () =>
-              member.roles.cache.map((role) => role.name),
+              member.roles.cache.map((role) => role.id),
             );
           }
         } catch (err) {
           log.warn({ err }, 'could not look at a member for an Unown want');
         }
-        void router.handle(interaction);
+        // Routed by `wireServerStart`, after its server's fill.
       });
       // Only that a member wrote, and where: the archive warning of a busy post is said again.
       // Bots (this one, others, webhooks) do not count.
-      client.on(Events.MessageCreate, (message) => {
-        // The board first, before the bot filter (plan 8R-9F, B3): other applications' and
-        // webhooks' messages go too. Nothing of a board's message goes further; one with
-        // attachments is the screenshot trigger's first, which downloads before the delete (B2).
-        try {
-          const shots =
-            message.attachments.size > 0
-              ? () => screenshotTrigger.handle(postedMessage(message))
-              : undefined;
-          if (boardKeeper.posted(postedBoardMessage(message), shots) !== 'elsewhere') return;
-        } catch (err) {
-          log.error({ err }, 'could not look at a message in the board');
-        }
-        if (message.author.bot) return;
-        scheduler.activity(message.channelId);
-        // Only a message with an attachment can be a screenshot; the trigger decides the rest.
-        if (message.attachments.size === 0) return;
-        try {
-          void screenshotTrigger.handle(postedMessage(message));
-        } catch (err) {
-          log.error({ err }, 'could not read the screenshots of a message');
-        }
-      });
+      // A message of a quiet server (Pine left it, or it is in setup: plan 19C-2) is passed over
+      // before anything looks at it.
+      client.on(
+        Events.MessageCreate,
+        notOfQuietServers(quiet, (message) => {
+          // The board first, before the bot filter (plan 8R-9F, B3): other applications' and
+          // webhooks' messages go too. Nothing of a board's message goes further; one with
+          // attachments is the screenshot trigger's first, which downloads before the delete (B2).
+          try {
+            const shots =
+              message.attachments.size > 0
+                ? () => screenshotTrigger.handle(postedMessage(message))
+                : undefined;
+            if (boardKeeper.posted(postedBoardMessage(message), shots) !== 'elsewhere') return;
+          } catch (err) {
+            log.error({ err }, 'could not look at a message in the board');
+          }
+          if (message.author.bot) return;
+          scheduler.activity(message.channelId);
+          // Only a message with an attachment can be a screenshot; the trigger decides the rest.
+          if (message.attachments.size === 0) return;
+          try {
+            void screenshotTrigger.handle(postedMessage(message));
+          } catch (err) {
+            log.error({ err }, 'could not read the screenshots of a message');
+          }
+        }),
+      );
       client.on(Events.Error, (err) => log.error({ err }, 'discord client error'));
       client.on(Events.Warn, (message) => log.warn(message));
     },
@@ -1428,13 +2010,15 @@ export async function startApp(
   const stopPosts = rehearsal
     ? undefined
     : new StopPostService({
+        // A quiet server: its posts kept as they are (plans 19C-1, 19C-2).
+        quiet,
         storage: new StopPostRepository(db),
         reports: stopReports,
         events: raidEvents,
         regions,
         guilds,
         gateway: partyGateway,
-        zone: config.settings.timezone,
+        servers,
         log,
         // The region's summary links the post with its counts (plan 8X-G); a draw in the board
         // may have opened it, so its pin is checked too (plan 8R-9, B4).
@@ -1445,18 +2029,22 @@ export async function startApp(
         pictures: stopPictures,
       });
   researchPostLinks.posts = stopPosts;
-  if (stopPosts) partyService.setStopPosts(stopPosts);
+  if (stopPosts) {
+    partyService.setStopPosts(stopPosts);
+    setupLate.stopPosts = stopPosts;
+  }
   // The lines of new tasks and leaders in the region channels (plan 8R-9, B9), linking the
   // board's messages; none in rehearsal mode, which makes no posts of the stops.
   const stopLines = stopPosts
     ? new StopLineService({
+        quiet,
         storage: new StopLineRepository(db),
         reports: stopReports,
         posts: stopPosts,
         regions,
         guilds,
         gateway: partyGateway,
-        zone: config.settings.timezone,
+        servers,
         log,
       })
     : undefined;
@@ -1502,6 +2090,11 @@ export async function startApp(
   void connected.then(() => {
     partyService.watchMidnight();
   });
+  // An instance in more servers than its lookups by hand keep floors for says so (final review
+  // R1-4), once the servers are known.
+  void connected.then(() => {
+    ctx.mapBudget.warnOfNoFloor();
+  });
   // The events forum (plan 8V-1): drawn after each read of the feed, at its next change, a second
   // after local midnight, and now.
   void connected.then(() => {
@@ -1511,6 +2104,25 @@ export async function startApp(
   void connected.then(() => {
     wantCounts.start();
   });
+  // A server's zone changed (plan 19A-2): its summaries and active posts drawn anew on the new
+  // clock, the events forums and the posts of the stops too, and every midnight timer following
+  // the zones now in use. Moments stored stay the same moments.
+  // A server joining or leaving with a zone of its own changes the zones in use too: every
+  // midnight timer follows them (fix round 1, N5).
+  followZones(
+    servers,
+    {
+      server: [(serverId) => partyService.zoneChanged(serverId)],
+      zones: [
+        () => partyService.zonesChanged(),
+        () => eventForum?.zonesChanged(),
+        () => wantCounts.zonesChanged(),
+        () => stopPosts?.zonesChanged(),
+        () => stopLines?.zonesChanged(),
+      ],
+    },
+    log,
+  );
   void connected.then(() =>
     stopPosts
       ?.start()
@@ -1556,6 +2168,16 @@ export async function startApp(
   liveSessions.end = (sessionId) => {
     live.endSession(sessionId);
   };
+  // A server Pine left or whose data is being deleted is answered as one it is not in (plans
+  // 19C-1, 19C-3); one in setup too, but for its staff's region editor (plan 19C-2); one whose
+  // map its staff keep closed, to visitors who are not logged in (plan 19C-4: closed unless
+  // opened on an open instance).
+  const onWeb = webServers({
+    has: (guildId) => client.guilds.cache.has(guildId),
+    standings,
+    servers,
+    open: isOpenInstance(config.settings),
+  });
   const web =
     webSettings &&
     webSessions &&
@@ -1564,11 +2186,16 @@ export async function startApp(
       settings: webSettings,
       pictureOrigins: pictureOrigins(webSettings.publicUrl),
       googleKey: config.env.GOOGLE_MAPS_BROWSER_KEY,
-      distanceUnits: config.settings.distanceUnits,
-      servers: { has: (guildId) => client.guilds.cache.has(guildId) },
-      // The top page's servers (plan 8M-14): those the bot is in with a region that has an outline.
-      serversWithMap: mapServers({
-        joined: () => joinedServers(client.guilds.cache.values()),
+      servers: onWeb,
+      openInstance: isOpenInstance(config.settings),
+      serverSettings: servers,
+      roleName: (guildId, roleId) =>
+        client.guilds.cache.get(guildId)?.roles.cache.get(roleId)?.name,
+      // The top page's servers (plan 8M-14): those the bot is in with a region that has an outline
+      // and that the web lists (`topPageServers`).
+      serversWithMap: topPageServers({
+        cached: () => client.guilds.cache.values(),
+        web: onWeb,
         guilds,
         regions,
       }),
@@ -1599,8 +2226,18 @@ export async function startApp(
           regions,
           gyms,
           channels: partyGateway,
-          roles: config.settings.features.roles ? ctx.selfRoles : undefined,
-          forumSuffix: config.settings.regionForumSuffix,
+          // Per server (plan 19A-1): its roles where its members give themselves roles.
+          roles: {
+            roster: (guildId, remember) =>
+              servers.of(guildId).features.roles
+                ? ctx.selfRoles.roster(guildId, remember)
+                : Promise.resolve(undefined),
+            get generation() {
+              return ctx.selfRoles.generation;
+            },
+            usedIn: (guildId) => servers.of(guildId).features.roles,
+          },
+          forumSuffix: (guildId) => servers.of(guildId).regionForumSuffix,
         },
         { log },
       ),
@@ -1615,13 +2252,15 @@ export async function startApp(
           servers: {
             serverChannels: (guildId) => partyGateway.serverChannels(guildId),
             serverName: (guildId) => client.guilds.cache.get(guildId)?.name,
+            // Other servers' regions only of those the web lists (fix round 3, R1).
+            listed: (guildId) => onWeb.listed(guildId),
           },
         }),
         editing: {
           regions,
           admin: regionAdmin,
           checker: new SaveCheckWorker({ log }),
-          selfRoles: config.settings.features.roles,
+          selfRoles: (serverId) => servers.of(serverId).features.roles,
           log,
         },
         // The first step of the shutdown: from then on no save of the editor is started.
@@ -1634,7 +2273,7 @@ export async function startApp(
         store: parties,
         look: (raid) => partyService.raidLookOf(raid),
         // The stops of trains' routes as they are now: a train's Move… names them (plan 8M-8C).
-        stops: partyService.stops,
+        stopsOf: (guildId) => partyService.stopsOf(guildId),
         // How a max battle's post shows it (plan 8X-5): its boss, picture and spot as they are now.
         maxLook: (party) => maxLook(partyService.maxView(party)),
         // The layout each post was last shown with, the popup's (plan 8M-8A), and posts' titles.
@@ -1645,14 +2284,13 @@ export async function startApp(
         // A place's picture beside Where (plan 8M-8A), by its gym or Wayspot, from the image cache.
         places: new PlacePictures({ gyms, wayspots, cache: webPictureCache }),
         // A power spot of a train's route (plan 8X-4), as the kept Wayspots have it now.
-        spotOf: (id) => {
-          const kept = wayspots.byId(id);
+        spotOf: (guildId, id) => {
+          const kept = wayspots.stored(guildId, id);
           return kept?.kind === 'powerspot'
             ? { name: kept.title, lat: kept.lat, lon: kept.lon }
             : undefined;
         },
         forums: partyGateway,
-        zone: config.settings.timezone,
         attendance,
         acting: new DiscordWebMembers(client),
         throttles,
@@ -1702,7 +2340,6 @@ export async function startApp(
         regions,
         gyms,
         wayspots,
-        zone: config.settings.timezone,
         durations: config.settings,
         tallies: ctx.regionTallies,
         channelName: (channelId) => partyGateway.channelName(channelId),
@@ -1723,14 +2360,16 @@ export async function startApp(
         guilds,
         regions,
         gates: partyGateway,
-        selfRoles: config.settings.features.roles ? ctx.selfRoles : undefined,
+        // Per server (plan 19A-1): the routes ask its `features.roles`.
+        selfRoles: ctx.selfRoles,
       },
       // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
       // approved, on an instance that has the file (the owner's).
       tool: {
         files: new WayspotToolFiles({ log }),
         access: scriptAccess,
-        zone: config.settings.timezone,
+        // The tool page has no server (plan 19A-2): the instance's default zone.
+        zone: instanceZone(config.settings),
       },
       pictures: stopPictures,
       // The application's emoji for the map's posts (plan 8M-8A), fetched once from Discord's CDN.
@@ -1766,10 +2405,15 @@ export async function startApp(
       // The catch-up starts no job more (plan 8X-H); the clock's stop waits for the upkeep it may
       // have started, which starts no step more and whose closings end between parties. A job of
       // the catch-up's under way that reads a feed ends with that feed's stop below, one that
-      // draws the posts of the stops with theirs (review r0 B6). The steps add up to 145 s, 5 s
-      // within the stop's 2m30s (review r1 C4: 6 s here and 12 s for the direct messages; plan
+      // draws the posts of the stops with theirs (review r0 B6). The steps' limits add up to 139 s
+      // without the optional ones, 143 s with every one (the web server's 3 s, the rehearsal
+      // count's 1 s), 142 s as production runs (the web server, no rehearsal): 7 s within the
+      // stop's 2m30s, `stop_grace_period` of compose.yaml, 8 s in production (review r1 C4: 6 s
+      // here and 12 s for the direct messages, the server notices among them, plan 19B-1; plan
       // 8R-6: the reports at stops' ten, `stopReportSteps`, the pictures' second taken from the
-      // grunts' messages).
+      // grunts' messages; fix round 3, J1: the two boss syncs in one step of 5 s, `bossSyncStep`,
+      // and the server fill's stop in this one). A new step means checking that sum
+      // (`operations.md`).
       {
         name: 'party clock',
         timeoutMs: 6_000,
@@ -1779,6 +2423,9 @@ export async function startApp(
           eventForum?.stop();
           wantCounts.stop();
           legacyFillIns?.stop();
+          // A server's fill that waits to be tried again is not (plan 19A-1): synchronous, it
+          // clears the retries' timers and never throws (fix round 3, J1).
+          serverFill.stop();
           await scheduler.stop();
         },
       },
@@ -1795,23 +2442,9 @@ export async function startApp(
           await gameData.whenIdle();
         },
       },
-      {
-        name: 'raid boss sync',
-        // A sync in flight may be writing the list; give it time to finish before the pool closes.
-        timeoutMs: 5_000,
-        run: async () => {
-          raidBosses.stop();
-          await raidBosses.whenIdle();
-        },
-      },
-      {
-        name: 'max boss sync',
-        timeoutMs: 5_000,
-        run: async () => {
-          maxBosses.stop();
-          await maxBosses.whenIdle();
-        },
-      },
+      // A sync in flight may be writing its list: both are waited for at once, before the pool
+      // closes (fix round 3, J1).
+      bossSyncStep({ raid: raidBosses, max: maxBosses }),
       // The events feed and the events forum in one second (branch review BR-2).
       eventsFeedStep({ events: raidEvents, forum: eventForum }),
       {
@@ -1863,6 +2496,10 @@ export async function startApp(
       // A member's roles are changed one request after the other: a change that has begun is
       // finished while Discord is connected and the database is open.
       { name: 'self-assigned roles', timeoutMs: 5_000, run: () => selfRoles.idle() },
+      // A change of neighbors under way is written, and what the moderators' bot labs are told of
+      // it posted, while Discord is connected and the database is open; a request's tell whose
+      // post did not go is written back (plan 19E, review RR1).
+      { name: 'neighbors', timeoutMs: 3_000, run: () => neighbors.idle() },
       // The spawn reports that wait for their half hour are deleted now: they would stay for good.
       { name: 'spawn reports', timeoutMs: 5_000, run: () => spawns.flush() },
       // The pictures of the stops (no more fetched), the grunts' messages (they stand on), then
@@ -1883,7 +2520,9 @@ export async function startApp(
       // Whoever is still being looked up for an event is put in line before the line is drained.
       { name: 'notifications', timeoutMs: 5_000, run: () => notify.close() },
       // Direct messages go on at their usual rate for ten seconds (spec 9); the rest is dropped.
-      { name: 'direct messages', timeoutMs: 12_000, run: () => dms.drain(DM_DRAIN_MS) },
+      // What a server's staff are told on its way is sent beside them, in the same step, while
+      // Discord is connected (plan 19B-1; fix round 2, G3).
+      directMessagesStep({ dms, notices: serverNotices }),
       { name: 'discord', timeoutMs: 5_000, run: () => client.destroy() },
       // The last count of what the rehearsal dropped, once the client is down and nothing more
       // can be sent.
@@ -1896,19 +2535,21 @@ export async function startApp(
             },
           ]
         : []),
-      // The want counts' second is the Unown wants' (plan 8H-3): the limits still add up to 145 s.
+      // The want counts' second is the Unown wants' (plan 8H-3): the sum above stays as it was.
       { name: 'unown wants', timeoutMs: 4_000, run: () => unownWants.flush() },
       // A day's count under way writes its server's day, or none of it, before the pool closes
       // (review P3); one cut short is counted again at the next start.
       // A legacy fill-in's batch under way (plan 8H-10) shares that second: one cut short is
       // rolled back whole and done again. Its claim is given back within the second, so that the
       // next start takes it up at once; else the claim lapses after ten minutes
-      // (`FILL_IN_LEASE_MS`) and the request waits that long.
+      // (`FILL_IN_LEASE_MS`) and the request waits that long. A server's activity rebuilt in its
+      // new zone stops before its next batch in the same second (fix round 1, N2); the next
+      // change of its zone, or `activity:rebuild`, does it again.
       {
-        name: 'want counts and fill-ins',
+        name: 'want counts, fill-ins and activity',
         timeoutMs: 1_000,
         run: async () => {
-          await Promise.all([wantCounts.idle(), legacyFillIns?.idle()]);
+          await Promise.all([wantCounts.idle(), legacyFillIns?.idle(), activityRebuild.close()]);
         },
       },
       // A write in flight must finish before the pool closes.

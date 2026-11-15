@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TEST_GUILD_ROW } from '../../test/support/gyms.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import { ALICE, BOB, CAROL, REPORTER } from '../../test/support/parties.js';
 import { reportedRaid } from '../../test/support/party-service.js';
@@ -45,10 +46,11 @@ describe('AttendanceService: Join where the party has a lobby size', () => {
   it('places a reporter whom a second report signs up', async () => {
     const made = await reportedRaid({ autoStatus: PartyStatus.Coming }, inLobbiesOf4);
     await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming, { number: 3 });
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     const again = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: BOB,
       anonymous: false,
       autoStatus: PartyStatus.Coming,

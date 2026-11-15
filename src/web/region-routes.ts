@@ -28,6 +28,7 @@ import { sendFailure } from './answers.js';
 import { postGuard } from './csrf.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import { UNCONFIRMED } from './party-routes.js';
 import type { PartyViewers } from './party-viewers.js';
 import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
@@ -43,7 +44,8 @@ export interface RegionWebDeps {
   gates: Pick<PartyGateway, 'memberGates'>;
   /**
    * Self-assigned roles (`ctx.selfRoles`), the service `/iam` and its menus go through; undefined
-   * where `settings.features.roles` is off (R6: the view says access alone, the writes are 404).
+   * without them. A server whose `features.roles` is off (plan 19A-1) is as without them (R6: the
+   * view says access alone, the writes are 404).
    */
   selfRoles: Pick<SelfRoleService, 'roster' | 'heldNow' | 'change'> | undefined;
 }
@@ -105,6 +107,8 @@ async function regionsNow(
   guild: string,
   userId: string,
   fresh: boolean,
+  /** The server's zone, the request's (`requestZone`): the words of the view. */
+  zone: string,
   member?: { held: readonly string[]; seenAt: number },
 ): Promise<RegionsNow | undefined> {
   const { regions: regionDeps } = deps;
@@ -112,7 +116,8 @@ async function regionsNow(
   const gates = regions.map((region) => region.gateId);
   const look = await regionDeps.gates.memberGates(guild, userId, gates, fresh);
   if (!look) return undefined;
-  const { selfRoles } = regionDeps;
+  // Only where the server's members give themselves roles (plan 19A-1, its `features.roles`).
+  const selfRoles = deps.serverSettings.of(guild).features.roles ? regionDeps.selfRoles : undefined;
   let roster: Roster | undefined;
   if (selfRoles) {
     try {
@@ -132,7 +137,7 @@ async function regionsNow(
       : (member?.held ?? look.held),
   );
   const now = deps.now();
-  const words = (text: string): string => pageWords(text, deps.parties.zone, now);
+  const words = (text: string): string => pageWords(text, zone, now);
   const choices = regionChoices(regions, look, roster, held);
   const view: RegionsMineView = {
     readOnly: false,
@@ -186,7 +191,7 @@ type ChangeRequest = FastifyRequest<{
  * and nothing of the regions (R8).
  *
  * `POST /s/<guild>/api/regions/<region id>/join|leave`, body `{ role }`, only where
- * `settings.features.roles` is on (R6): the per-address limit and `postGuard` before the body is
+ * the server's `features.roles` is on (R6; plan 19A-1): the per-address limit and `postGuard` before the body is
  * read; who writes as every write on the map (`actingOnTheMap`: a member who counts, not timed
  * out, through the screening, fetched afresh); the member and the gates from that fetch
  * (`memberGates`, cached): a region kept out of 403 (R4), a join where it is seen 409, a role that
@@ -208,12 +213,13 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
       const member = await viewers.askedMembership(guild, session.userId);
       if (member.kind === 'not-member') return sendFailure(request, reply, 403);
       if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
-      const roles = deps.regions.selfRoles !== undefined;
+      const roles =
+        deps.regions.selfRoles !== undefined && deps.serverSettings.of(guild).features.roles;
       const readOnly: RegionsMineView = { readOnly: true, roles, regions: [] };
       if (member.readOnly) return readOnly;
       try {
         // As the member directory's look (paced, kept a minute) left the member in the cache (A1).
-        const now = await regionsNow(deps, guild, session.userId, false);
+        const now = await regionsNow(deps, guild, session.userId, false, requestZone(request));
         return now?.view ?? sendFailure(request, reply, 403);
       } catch (err) {
         deps.log.warn(
@@ -232,6 +238,10 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
   const known = async (request: ChangeRequest, reply: FastifyReply) => {
     const { region, action } = request.params;
     if (!/^\d{1,10}$/u.test(region) || (action !== 'join' && action !== 'leave')) {
+      return sendFailure(request, reply, 404);
+    }
+    // A server whose members give themselves no roles has nothing here (R6, plan 19A-1).
+    if (!deps.serverSettings.of(request.params.guild).features.roles) {
       return sendFailure(request, reply, 404);
     }
   };
@@ -271,7 +281,7 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
       try {
         // As the forced fetch of `actingOnTheMap` left the member in the cache, planned over
         // the roles of that fetch, as the change is (A3).
-        before = await regionsNow(deps, guild, userId, false, {
+        before = await regionsNow(deps, guild, userId, false, requestZone(request), {
           held: acting.roleIds,
           seenAt: acting.fetchedAt,
         });
@@ -319,7 +329,7 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
       }
       const name = roleText(entry.name);
       const said = joining ? gaveWords(name, entry.group?.name, outcome) : tookWords(name, outcome);
-      const text = pageWords(said.text, deps.parties.zone, deps.now());
+      const text = pageWords(said.text, requestZone(request), deps.now());
       if (said.refused) {
         const answer: RegionChangeAnswer = { ok: false, outcome: 'refused', text };
         return noted('skipped', reply.code(422).send(answer));
@@ -327,7 +337,9 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
       const changed = outcome.given.length + outcome.taken.length > 0;
       let view: RegionsMineView | undefined;
       try {
-        view = changed ? (await regionsNow(deps, guild, userId, true))?.view : before.view;
+        view = changed
+          ? (await regionsNow(deps, guild, userId, true, requestZone(request)))?.view
+          : before.view;
       } catch (err) {
         deps.log.warn(
           { err, guild, user: userId },

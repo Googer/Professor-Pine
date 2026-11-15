@@ -161,7 +161,7 @@ describe('appeals of a meetup block', () => {
     made.gateway.failing.set('sendMessage', new Error('Discord is away'));
     for (let n = 0; n <= APPEAL_THROTTLE.uses; n++) {
       expect(told(await made.send(`Please ${String(n)}.`))).toMatch(
-        /^I could not send your appeal/,
+        /^Your appeal could not reach the moderators/,
       );
     }
     made.gateway.failing.delete('sendMessage');

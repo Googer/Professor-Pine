@@ -89,14 +89,14 @@ function toDocument(wayspot: SearchableWayspot, places: string | null): WayspotD
   };
 }
 
-/** The names of the places Google gave around a Wayspot (`WayspotPlaces.placesOf`), or null. */
-export type PlacesOf = (id: string) => string | null;
+/** The names of the places Google gave around a Wayspot (`WayspotPlaces.placesAt`), or null. */
+export type PlacesOf<W> = (wayspot: W) => string | null;
 
 export class WayspotIndex<W extends SearchableWayspot> {
   private readonly index: MiniSearch<WayspotDocument>;
   private readonly wayspots = new Map<string, W>();
 
-  constructor(wayspots: Iterable<W>, placesOf: PlacesOf = () => null) {
+  constructor(wayspots: Iterable<W>, placesOf: PlacesOf<W> = () => null) {
     this.index = new MiniSearch<WayspotDocument>({
       fields: [...FIELDS],
       tokenize: searchTokens,
@@ -106,7 +106,7 @@ export class WayspotIndex<W extends SearchableWayspot> {
     for (const wayspot of wayspots) {
       if (this.wayspots.has(wayspot.id)) continue;
       this.wayspots.set(wayspot.id, wayspot);
-      documents.push(toDocument(wayspot, placesOf(wayspot.id)));
+      documents.push(toDocument(wayspot, placesOf(wayspot)));
     }
     this.index.addAll(documents);
   }

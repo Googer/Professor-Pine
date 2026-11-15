@@ -3,7 +3,7 @@ import { MessageFlags } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import { asV2, sent } from '../../../test/support/fake-interactions.js';
 import { STAFF_PLACE, withOtherServer } from '../../../test/support/gym-admin.js';
-import { NORTH_PLACE } from '../../../test/support/gyms.js';
+import { NORTH_PLACE, TEST_GUILD_ROW } from '../../../test/support/gyms.js';
 import {
   answerOf,
   buttonId,
@@ -106,15 +106,16 @@ describe('the buttons of the view of /gym show', () => {
     expect(moveForm({ id: 6, name: '*Big* Fountain' }).title).toBe('Move *Big* Fountain');
   });
 
-  it('refuses a place of another server and a gym gone from the Move form', async () => {
+  it('moves a gym into another server’s region, and refuses a gym gone, from the Move form', async () => {
     const made = await gymCommandsWith();
     const view = await shown(made, 'id:6');
     const form = formOf(await made.press(buttonId(view, 'Move…')));
     await withOtherServer(made);
-    const foreign = await made.submit(form.custom_id, {
+    // Far: asked first, as any far move; no refusal for the other server's region (plan 19B-2).
+    const far = await made.submit(form.custom_id, {
       location: `${NORTH_PLACE.lat}, ${NORTH_PLACE.lon}`,
     });
-    expect(said(answerOf(foreign))).toMatch(/^That place belongs to another server/);
+    expect(said(answerOf(far))).toMatch(/^Move \*\*Maple Leaf Mosaic\*\* \(#6\) from /);
     await made.admin.delete(6, { id: REPORTER }, STAFF_PLACE);
     const gone = await made.submit(form.custom_id, { location: '40.0302, -80.03' });
     expect(said(answerOf(gone))).toBe(VIEW_GONE);
@@ -222,10 +223,11 @@ describe('the buttons of the view of /gym show', () => {
 
   it('refuses to delete a gym with a raid, as /gym delete does', async () => {
     const made = await gymCommandsWith();
-    const gym = made.directory.get(6);
+    const gym = made.directory.stored(6);
     if (!gym) throw new Error('no gym 6');
     const raid = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

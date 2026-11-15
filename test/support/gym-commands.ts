@@ -5,6 +5,7 @@ import { gymReviewControls } from '../../src/components/gym-review.js';
 import { gym } from '../../src/commands/gyms/index.js';
 import { pendingGyms } from '../../src/commands/gyms/shared.js';
 import { admin } from '../../src/commands/admin/index.js';
+import { operator } from '../../src/commands/operator/index.js';
 import { InteractionRouter } from '../../src/discord/router.js';
 import type { Party } from '../../src/domain/party/party.js';
 import {
@@ -21,6 +22,7 @@ import { FakeAttachments } from './attachments.js';
 import { OTHER_STAFF } from './gym-admin.js';
 import { NORTH_CHANNEL, OTHER_GUILD_ID, OTHER_GUILD_ROW, WEST_CHANNEL } from './gyms.js';
 import { MapBudget } from '../../src/services/map-budget.js';
+import type { TestServers } from './server-values.js';
 import { createTestContext } from './test-context.js';
 import { createTestLogger } from './test-logger.js';
 import { wayfarerImportWith } from './wayfarer-import.js';
@@ -170,7 +172,7 @@ export function answerOf(interaction: FakeInteraction): SentPayload {
 }
 
 /**
- * `/gym` and `/admin` over the fakes of `gymAdminWith` and the Wayfarer import of
+ * `/gym`, `/admin` and `/operator` over the fakes of `gymAdminWith` and the Wayfarer import of
  * `wayfarerImportWith`, routed like in the bot, used by a moderator in the channel of West
  * unless a call says otherwise. `use` runs a subcommand, `typing` asks for the list of its `gym`
  * option, `press` presses a button and `submit` sends a form (the form the bot showed under that
@@ -178,10 +180,14 @@ export function answerOf(interaction: FakeInteraction): SentPayload {
  * interaction to read back. `file` puts a file where an attachment option finds it
  * (`attachments`).
  */
-export async function gymCommandsWith(parties: readonly Party[] = []) {
+export async function gymCommandsWith(
+  parties: readonly Party[] = [],
+  options: { servers?: TestServers } = {},
+) {
   const made = await wayfarerImportWith(parties);
   const attachments = new FakeAttachments();
   const { ctx, entries } = createTestContext({
+    ...(options.servers ? { servers: options.servers } : {}),
     // The month's maps of places, over the counts `/gym google` reads (`made.googleUse`).
     mapBudget: new MapBudget({
       use: made.googleUse,
@@ -216,7 +222,7 @@ export async function gymCommandsWith(parties: readonly Party[] = []) {
   });
   const router = new InteractionRouter(
     ctx,
-    [gym, admin],
+    [gym, admin, operator],
     [gymControls, gymViewControls, gymReviewControls],
   );
   const staff: FakeOptions = {

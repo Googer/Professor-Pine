@@ -1,3 +1,5 @@
+import { meetupSafetyWords } from '../render/server-notices.js';
+import type { ServerNotices } from './server-notices.js';
 import { closedEnd, type PartyEnd } from '../domain/history/party-history.js';
 import { randomUUID } from 'node:crypto';
 import type { Settings } from '../config/settings.js';
@@ -58,6 +60,9 @@ import { addressLine } from '../domain/geo/google.js';
 import type { PartyProvider } from './party-store.js';
 import { forumBarred } from './forum-access.js';
 import type { RegionProvider } from './region-directory.js';
+import { moderatorsNamed } from '../config/server-settings.js';
+import type { ServerSettingsLookup } from './server-settings.js';
+import type { QuietServers } from './quiet-servers.js';
 
 /** Who asks for a check of a place: the maker, in a server, and whether they are staff. */
 export interface PlaceAsk {
@@ -170,6 +175,7 @@ export interface MeetupSafetyOptions {
     | 'editMessage'
     | 'deleteMessage'
     | 'serverChannels'
+    | 'serverAvailable'
     | 'mayPost'
   >;
   /**
@@ -186,81 +192,145 @@ export interface MeetupSafetyOptions {
   /** How the makers are told what came of their requests. */
   dms: DmSender;
   /** The gyms, by which a gym is checked by its official name and its nickname alike. */
-  gyms?: Pick<GymProvider, 'get'>;
+  gyms?: Pick<GymProvider, 'stored'>;
   /** The kept Wayspots: a PokéStop asked about whose ruling kept no place (one of 8S-1). */
-  wayspots?: Pick<WayspotProvider, 'byId'>;
+  wayspots?: Pick<WayspotProvider, 'stored'>;
   settings: Settings;
+  /** Each server's values: its moderators' channel, which turns the safety on (plan 19A-1). */
+  servers: ServerSettingsLookup;
+  /**
+   * What keeps meetup safety from working in a server, told to its staff in its moderators' bot
+   * lab at the start (plan 19B-1, `ServerNotices`).
+   */
+  notices: Pick<ServerNotices, 'tell'>;
   log: Logger;
   now?: () => number;
+  /**
+   * The quiet servers (`QuietServers`, plans 19C-1 and 19C-2): their requests, appeals, asks and
+   * approvals are not expired nor failed, and nobody is told, until the server is back (or plan
+   * 19C-3 deletes them).
+   */
+  quiet?: QuietServers;
 }
 
 /**
  * Meetup safety (plan 8S-1; spec `2026-10-17-meetup-safety-design.md`): the shared check of a
  * place (`verdict`), the making of a meetup with it (`make`: `/meetup`'s form, and 8M-5M's
- * meetups from the web map), the requests held for the moderators in the channel
- * `settings.channels.moderation` names (`submit`), their decisions and expiry, blocks and
+ * meetups from the web map), the requests held for the moderators in the server's moderators'
+ * channel (its values, plan 19A-1; `submit`), their decisions and expiry, blocks and
  * appeals. Everything is kept in the database
- * (`MeetupSafetyStore`), so a press on a moderators' post works after a restart. Off (`on`
- * false) without that setting: every place is allowed and nothing is kept.
+ * (`MeetupSafetyStore`), so a press on a moderators' post works after a restart. Off in a server
+ * (`on` false) without that channel: every place is allowed and nothing is kept.
  */
 export class MeetupSafety {
   private readonly now: () => number;
-  private readonly flaggedWords: readonly string[];
+  /**
+   * The flagged words of each server's list as it is (`flaggedWordsOf`, one expression per
+   * list): kept by the list itself, so that a change of the server's values makes a new one.
+   */
+  private readonly flaggedWordsOfList = new WeakMap<readonly string[], readonly string[]>();
   private readonly changesOnTheirWay = new Set<Promise<void>>();
 
   constructor(private readonly options: MeetupSafetyOptions) {
     this.now = options.now ?? (() => Date.now());
-    this.flaggedWords = flaggedWordsOf(options.settings.meetupSafety?.flaggedWords);
-  }
-
-  /** Whether meetup safety is on: the settings name a moderators' channel. */
-  get on(): boolean {
-    return this.options.settings.channels.moderation !== undefined;
-  }
-
-  /** The name of the moderators' channel; undefined while the safety is off. */
-  get channelName(): string | undefined {
-    return this.options.settings.channels.moderation;
   }
 
   /**
-   * Says at the start where meetup safety cannot work: off without the setting, said once (plan
-   * 8M-11A: the setting is the instance's, not a server's); per server the bot is in, a server
-   * without a text channel of that name, or one where the bot may not post in it (`mayPost`: View
-   * Channel, Send Messages, Embed Links). Meetups that need a moderator's approval cannot be made
-   * there; a channel made or fixed later is found then. Never throws.
+   * Whether meetup safety is on in a server: its staff set a moderators' channel (plan 19A-1,
+   * the server's values).
+   */
+  on(serverId: string): boolean {
+    return moderatorsNamed(this.options.servers.of(serverId));
+  }
+
+  /**
+   * The server's moderators' channel near `nearChannelId` (a region's channel, a post), where the
+   * bot may post in it; undefined while the safety is off there, or the channel is gone.
+   */
+  private channelOf(serverId: string, nearChannelId: string): string | undefined {
+    const id = this.options.servers.of(serverId).channels.moderation;
+    return id === undefined ? undefined : this.options.gateway.findChannel(nearChannelId, id);
+  }
+
+  /** The flagged words of a server: the code's and its own (plan 19A-1, its `flaggedWords`). */
+  private flaggedWordsIn(serverId: string): readonly string[] {
+    const list = this.options.servers.of(serverId).flaggedWords;
+    let words = this.flaggedWordsOfList.get(list);
+    if (words === undefined) {
+      words = flaggedWordsOf(list);
+      this.flaggedWordsOfList.set(list, words);
+    }
+    return words;
+  }
+
+  /**
+   * Says at the start where meetup safety cannot work, per server the bot is in: off where its
+   * staff set no moderators' channel; a channel that is gone, or one where the bot may not post
+   * (`mayPost`: View Channel, Send Messages, Embed Links). Meetups that need a moderator's
+   * approval cannot be made there; a channel set or fixed later is found then. Asked at each
+   * shard's first ready for that shard's servers (plan 19D), so once per server in the process
+   * (the setting being a server's since plan 19A-1, no line is the instance's): one line per
+   * reason for the servers of that call, their ids listed (`listedServers`: the first 50 and how
+   * many more; fix round 4, I5). A channel gone or not postable is told to the server's staff
+   * too, in words for them, in its moderators' bot lab (plan 19B-1, `ServerNotices`: once per
+   * server and reason while the bot runs); not the rest: no channel chosen is the staff's choice,
+   * a channel of the file not found was told by the fill (the row's marker), and a lookup that
+   * failed is the bot's own. A server Discord says is unavailable (`serverAvailable`; those its
+   * shard's READY said unavailable among them) is passed over, nothing of it checked or said gone,
+   * and named in a line of its own (fix round 2, G5); so is a quiet server (`quiet`: Pine left
+   * it, or it is in setup, plan 19C-2), whose staff are told nothing until it is set up (then
+   * `ServerSetup`'s hook asks for it alone). Never throws.
    */
   warnAtStart(guildIds: readonly string[]): void {
-    const { gateway, log } = this.options;
-    const name = this.channelName;
-    if (name === undefined) {
-      log.warn('meetup safety is off: settings.channels.moderation is not set');
-      return;
-    }
+    const { gateway, servers, notices, log } = this.options;
+    const by = new Map<StartWarning, string[]>();
+    let lookupErr: unknown;
+    const add = (reason: StartWarning, server: string, channelId?: string) => {
+      const list = by.get(reason);
+      if (list === undefined) by.set(reason, [server]);
+      else list.push(server);
+      if (reason === 'gone' || reason === 'cannot-post') {
+        notices.tell(server, `meetup-safety:${reason}`, meetupSafetyWords(reason, channelId));
+      }
+    };
     for (const server of guildIds) {
-      let found: string | undefined;
-      let mayPost: boolean;
-      try {
-        found = gateway
-          .serverChannels(server)
-          ?.find((channel) => channel.kind === 'text' && channel.name === name)?.id;
-        mayPost = found !== undefined && gateway.mayPost(found);
-      } catch (err) {
-        // Only a warning was to be said: it never stands in the way of the start.
-        log.warn({ err, server }, "could not look for the moderators' channel");
+      // A quiet server (Pine left it, or it is in setup: plan 19C-2) is passed over, by name: its
+      // staff are told nothing, and it is no outage of Discord's.
+      if (this.options.quiet?.isQuiet(server) === true) {
+        add('quiet', server);
         continue;
       }
-      if (found === undefined) {
-        log.warn(
-          { server, channel: name },
-          `the server has no text channel #${name}: meetups that need a moderator's approval cannot be made there`,
-        );
-      } else if (!mayPost) {
-        log.warn(
-          { server, channel: name },
-          `the bot cannot post in #${name} (View Channel, Send Messages, Embed Links): meetups that need a moderator's approval cannot be made there`,
-        );
+      // Unavailable (an outage of Discord's): its channels, and what the fill found of them, may
+      // be out of date; it is only named (fix round 2, G5).
+      if (!gateway.serverAvailable(server)) {
+        add('unavailable', server);
+        continue;
       }
+      const values = servers.of(server);
+      const name = values.channels.moderation;
+      if (name === undefined) {
+        // Named in the settings file and not found by the fill (review F2): on, unreachable.
+        add(moderatorsNamed(values) ? 'unreachable' : 'off', server);
+        continue;
+      }
+      try {
+        const found = gateway
+          .serverChannels(server)
+          ?.find((channel) => channel.kind === 'text' && channel.id === name)?.id;
+        if (found === undefined) add('gone', server);
+        else if (!gateway.mayPost(found)) add('cannot-post', server, found);
+      } catch (err) {
+        // Only a warning was to be said: it never stands in the way of the start.
+        lookupErr ??= err;
+        add('lookup-failed', server);
+      }
+    }
+    for (const reason of START_WARNINGS) {
+      const list = by.get(reason);
+      if (list === undefined) continue;
+      const fields = { servers: listedServers(list) };
+      if (reason === 'lookup-failed') log.warn({ err: lookupErr, ...fields }, START_WORDS[reason]);
+      else log.warn(fields, START_WORDS[reason]);
     }
   }
 
@@ -272,7 +342,7 @@ export class MeetupSafety {
    */
   async verdict(ask: PlaceAsk): Promise<MeetupVerdict> {
     const { storage } = this.options;
-    if (!this.on || ask.staff) return 'allowed';
+    if (!this.on(ask.serverId) || ask.staff) return 'allowed';
     const key = rulingKeyOf(ask.place);
     const [blocked, ruling] = await Promise.all([
       ask.blocked ?? this.blocked(ask.serverId, ask.makerId, false),
@@ -284,7 +354,7 @@ export class MeetupSafety {
       staff: false,
       blocked,
       ruling,
-      flaggedWords: this.flaggedWords,
+      flaggedWords: this.flaggedWordsIn(ask.serverId),
       otherTitles: this.otherTitles(ask.place),
     });
   }
@@ -295,7 +365,7 @@ export class MeetupSafety {
    * member hears of the block, not of a place it cannot find.
    */
   async blocked(serverId: string, memberId: string, staff: boolean): Promise<boolean> {
-    if (!this.on || staff) return false;
+    if (!this.on(serverId) || staff) return false;
     return (await this.options.storage.block(serverId, memberId)) !== undefined;
   }
 
@@ -304,7 +374,7 @@ export class MeetupSafety {
    * 8Z, `openPartiesFull`); none while the safety is off.
    */
   async pendingCount(serverId: string, memberId: string): Promise<number> {
-    if (!this.on) return 0;
+    if (!this.on(serverId)) return 0;
     return (await this.options.storage.pendingOf(serverId, memberId)).length;
   }
 
@@ -316,7 +386,7 @@ export class MeetupSafety {
    * up for this: what goes wrong is logged. `flushChanges` waits for those on their way.
    */
   tellChange(change: ApprovedMeetupChange): void {
-    if (!this.on) return;
+    if (!this.on(change.serverId)) return;
     const telling: Promise<void> = this.tellOfChange(change)
       .catch((err: unknown) => {
         this.options.log.warn(
@@ -440,7 +510,7 @@ export class MeetupSafety {
   /** A gym's official name and nickname, which its title (the nickname first) may not show. */
   private otherTitles(place: Place): string[] {
     if (place.kind !== 'gym') return [];
-    const gym = this.options.gyms?.get(Number(place.id));
+    const gym = this.options.gyms?.stored(Number(place.id));
     return gym === undefined ? [] : [gym.name, gym.nickname ?? ''].filter((title) => title !== '');
   }
 
@@ -460,13 +530,11 @@ export class MeetupSafety {
     const description = tidyDescription(ask.description);
     if (description === undefined || description === null) return { kind: 'bad-description' };
     if (!mayRequestReview(now, ask.startTime)) return { kind: 'too-soon' };
-    const name = this.channelName;
-    const channelId =
-      name === undefined ? undefined : gateway.findChannel(ask.regionChannelId, name);
+    const channelId = this.channelOf(ask.serverId, ask.regionChannelId);
     if (channelId === undefined) {
       log.warn(
-        { server: ask.serverId, channel: name },
-        `the moderators' channel #${name ?? ''} is not there: a meetup was not sent for approval`,
+        { server: ask.serverId },
+        "the moderators' channel is not there: a meetup was not sent for approval",
       );
       return { kind: 'not-sent' };
     }
@@ -727,7 +795,7 @@ export class MeetupSafety {
   }): Promise<CloseIfBlocked> {
     const { parties, storage, log } = this.options;
     // As `blocked` asks, with the block itself: who blocked the maker closes the meetup.
-    if (!this.on || made.staff) return false;
+    if (!this.on(made.serverId) || made.staff) return false;
     let block: MeetupBlock | undefined;
     try {
       block = await storage.block(made.serverId, made.makerId);
@@ -876,6 +944,7 @@ export class MeetupSafety {
       const now = this.now();
       dms.send({
         userId: memberId,
+        serverId,
         message: blockedDm(serverName),
         priority: DM_PRIORITY.normal,
         eventAt: now,
@@ -937,12 +1006,11 @@ export class MeetupSafety {
     const { storage, gateway, log } = this.options;
     const state = await this.appealState(ask.serverId, ask.member.id);
     if (state.kind !== 'may') return state;
-    const name = this.channelName;
-    const channelId = name === undefined ? undefined : gateway.findChannel(ask.nearChannelId, name);
+    const channelId = this.channelOf(ask.serverId, ask.nearChannelId);
     if (channelId === undefined) {
       log.warn(
-        { server: ask.serverId, channel: name },
-        `the moderators' channel #${name ?? ''} is not there: an appeal was not sent`,
+        { server: ask.serverId },
+        "the moderators' channel is not there: an appeal was not sent",
       );
       return { kind: 'not-sent' };
     }
@@ -1056,6 +1124,7 @@ export class MeetupSafety {
       const now = this.now();
       dms.send({
         userId: memberId,
+        serverId: appeal.serverId,
         message: appealOutcomeDm(expired, gateway.guildName(appeal.serverId)),
         priority: DM_PRIORITY.normal,
         eventAt: now,
@@ -1150,6 +1219,7 @@ export class MeetupSafety {
     }
     dms.send({
       userId: appeal.memberId,
+      serverId: appeal.serverId,
       message: appealOutcomeDm(decided, serverName),
       priority: DM_PRIORITY.normal,
       eventAt: now,
@@ -1197,17 +1267,17 @@ export class MeetupSafety {
     const state = await this.askState(ask.serverId, ask.key, ask.member.id);
     if (state.kind !== 'may') return state;
     // The place as it was ruled; a ruling of 8S-1 kept none: the gym or Wayspot as it is now.
-    const place = state.ruling.place ?? this.placeNow(ask.key);
+    const place =
+      state.ruling.place ?? this.placeNow(ask.key, await this.options.guilds.idFor(ask.serverId));
     if (place === undefined) {
       log.warn({ server: ask.serverId, place: ask.key }, 'an ask names a place that is gone');
       return { kind: 'not-sent' };
     }
-    const name = this.channelName;
-    const channelId = name === undefined ? undefined : gateway.findChannel(ask.nearChannelId, name);
+    const channelId = this.channelOf(ask.serverId, ask.nearChannelId);
     if (channelId === undefined) {
       log.warn(
-        { server: ask.serverId, channel: name },
-        `the moderators' channel #${name ?? ''} is not there: an ask about a place was not sent`,
+        { server: ask.serverId },
+        "the moderators' channel is not there: an ask about a place was not sent",
       );
       return { kind: 'not-sent' };
     }
@@ -1292,6 +1362,7 @@ export class MeetupSafety {
     await this.showAsk(decided, asked);
     dms.send({
       userId: ask.memberId,
+      serverId: ask.serverId,
       message: askOutcomeDm(decided, serverName ?? gateway.guildName(ask.serverId)),
       priority: DM_PRIORITY.normal,
       eventAt: now,
@@ -1350,6 +1421,7 @@ export class MeetupSafety {
       const now = this.now();
       dms.send({
         userId: ask.memberId,
+        serverId: ask.serverId,
         message: askOutcomeDm(expired, gateway.guildName(ask.serverId)),
         priority: DM_PRIORITY.normal,
         eventAt: now,
@@ -1359,10 +1431,13 @@ export class MeetupSafety {
     return true;
   }
 
-  /** A ruled place as it is now, where its ruling kept none: the gym or the kept Wayspot. */
-  private placeNow(key: RulingKey): KnownPlace | undefined {
+  /**
+   * A ruled place as it is now, where its ruling kept none (8S-1's): the gym or the server's kept
+   * Wayspot (the ruling's server, by its `Guild` row). The one path for an ask and `/places`.
+   */
+  placeNow(key: RulingKey, guildRow: number | undefined): KnownPlace | undefined {
     if (key.kind === 'gym') {
-      const gym = /^\d+$/u.test(key.id) ? this.options.gyms?.get(Number(key.id)) : undefined;
+      const gym = /^\d+$/u.test(key.id) ? this.options.gyms?.stored(Number(key.id)) : undefined;
       return (
         gym && {
           kind: 'gym',
@@ -1375,7 +1450,7 @@ export class MeetupSafety {
         }
       );
     }
-    const wayspot = this.options.wayspots?.byId(key.id);
+    const wayspot = this.options.wayspots?.stored(guildRow, key.id);
     return (
       wayspot && {
         kind: key.kind,
@@ -1460,6 +1535,7 @@ export class MeetupSafety {
     }
     this.options.dms.send({
       userId: memberId,
+      serverId,
       message: blockLiftedDm(serverName ?? this.options.gateway.guildName(serverId)),
       priority: DM_PRIORITY.normal,
       eventAt: now,
@@ -1471,7 +1547,7 @@ export class MeetupSafety {
   /** A gym's official name where its title (the nickname first) shows another; else null. */
   officialName(place: Place): string | null {
     if (place.kind !== 'gym' || !/^\d+$/u.test(place.id)) return null;
-    const gym = this.options.gyms?.get(Number(place.id));
+    const gym = this.options.gyms?.stored(Number(place.id));
     if (!gym?.nickname || gym.nickname === gym.name) return null;
     return gym.name;
   }
@@ -1481,12 +1557,16 @@ export class MeetupSafety {
    * expired, its post edited and its maker told. Answers how many. Also while the safety is off:
    * the requests made before it was turned off end all the same. Then the approvals that never
    * got their meetup (the bot stopped in between) fail once they are `STRANDED_MS` old: their
-   * posts are edited and their makers told.
+   * posts are edited and their makers told. Nothing of a quiet server (plans 19C-1, 19C-2, `quiet`):
+   * its records wait for its return.
    */
   async expire(): Promise<number> {
     const { storage, log } = this.options;
     const now = this.now();
-    const due = await storage.duePending(now);
+    // A quiet server (plans 19C-1, 19C-2): its records wait as they are.
+    const kept = (record: { serverId: string }): boolean =>
+      this.options.quiet?.isQuiet(record.serverId) !== true;
+    const due = (await storage.duePending(now)).filter(kept);
     let expired = 0;
     for (const request of due) {
       try {
@@ -1495,21 +1575,21 @@ export class MeetupSafety {
         log.error({ err, request: request.id }, 'could not expire a meetup request');
       }
     }
-    for (const appeal of await storage.staleAppeals(this.staleBounds())) {
+    for (const appeal of (await storage.staleAppeals(this.staleBounds())).filter(kept)) {
       try {
         await this.expireAppeal(appeal, true);
       } catch (err) {
         log.error({ err, appeal: appeal.id }, 'could not close an appeal nobody decided');
       }
     }
-    for (const ask of await storage.staleAsks(this.staleAskBounds())) {
+    for (const ask of (await storage.staleAsks(this.staleAskBounds())).filter(kept)) {
       try {
         await this.expireAsk(ask, true);
       } catch (err) {
         log.error({ err, ask: ask.id }, 'could not close an ask nobody decided');
       }
     }
-    for (const request of await storage.strandedApprovals(now - STRANDED_MS)) {
+    for (const request of (await storage.strandedApprovals(now - STRANDED_MS)).filter(kept)) {
       try {
         await this.settleStranded(request);
       } catch (err) {
@@ -1641,6 +1721,7 @@ export class MeetupSafety {
     if (request.makerId === null) return;
     dms.send({
       userId: request.makerId,
+      serverId: request.serverId,
       message: requestOutcomeDm(
         request,
         postId === undefined ? {} : { postUrl: postLink(request.serverId, postId) },
@@ -1674,6 +1755,46 @@ export class MeetupSafety {
       log.warn({ err, request: request.id }, 'could not show the outcome of a meetup request');
     }
   }
+}
+
+/**
+ * Why meetup safety cannot work in a server, as the start says it (`warnAtStart`), in the order
+ * the lines are said.
+ */
+const START_WARNINGS = [
+  'off',
+  'unreachable',
+  'gone',
+  'cannot-post',
+  'unavailable',
+  'quiet',
+  'lookup-failed',
+] as const;
+type StartWarning = (typeof START_WARNINGS)[number];
+
+const START_WORDS: Readonly<Record<StartWarning, string>> = {
+  off: "meetup safety is off in these servers: they have no moderators' channel set",
+  unreachable:
+    "the moderators' channel of the settings file is not in these servers: meetups that need a moderator's approval cannot be made there until their staff set one",
+  gone: "the moderators' channel of these servers is gone: meetups that need a moderator's approval cannot be made there",
+  'cannot-post':
+    "the bot cannot post in the moderators' channel of these servers (View Channel, Send Messages, Embed Links): meetups that need a moderator's approval cannot be made there",
+  unavailable:
+    "could not check the moderators' channel of these servers: Discord says they are unavailable",
+  quiet:
+    "did not check the moderators' channel of these servers: Pine left them, or they are in setup",
+  'lookup-failed': "could not look for the moderators' channel of these servers",
+};
+
+/** How many servers' ids a line of the start lists at most (`listedServers`). */
+const LISTED_SERVERS = 50;
+
+/** The servers a line of the log lists: the first `LISTED_SERVERS`, then `and N more`. */
+function listedServers(servers: readonly string[]): string[] {
+  const more = servers.length - LISTED_SERVERS;
+  return more <= 0
+    ? [...servers]
+    : [...servers.slice(0, LISTED_SERVERS), `and ${String(more)} more`];
 }
 
 /** How long the DM of an outcome may wait at least: past the meetup's start it says nothing. */

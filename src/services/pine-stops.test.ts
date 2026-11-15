@@ -69,9 +69,23 @@ describe('PineStopService', () => {
     const own = await stops.add(
       newPineStop({ serverId: FAKE_GUILD_ID, lat: 40.06, lon: -80.0603 }),
     );
-    const near = stops.nearStops({ lat: 40.06, lon: -80.0601 }, FAKE_GUILD_ID);
+    const near = await stops.nearStops({ lat: 40.06, lon: -80.0601 }, FAKE_GUILD_ID);
     expect(near.map(({ wayspot }) => wayspot.id)).toEqual([wayspotId(1), `pine-${String(own.id)}`]);
-    expect(stops.nearStops({ lat: 40.07, lon: -80.07 }, FAKE_GUILD_ID)).toEqual([]);
+    expect(await stops.nearStops({ lat: 40.07, lon: -80.07 }, FAKE_GUILD_ID)).toEqual([]);
+  });
+
+  it('names none of another server’s imported stops beside a new stop (plan 19B-3)', async () => {
+    const { stops } = await stopsWith();
+    // The second server keeps nothing, though the test server keeps Yellow Mural there.
+    expect(await stops.nearStops({ lat: 40.06, lon: -80.0601 }, OTHER_GUILD_ID)).toEqual([]);
+    const theirs = await stops.add(
+      newPineStop({ serverId: OTHER_GUILD_ID, lat: 40.06, lon: -80.0601 }),
+    );
+    expect(
+      (await stops.nearStops({ lat: 40.06, lon: -80.0601 }, OTHER_GUILD_ID)).map(
+        ({ wayspot }) => wayspot.id,
+      ),
+    ).toEqual([`pine-${String(theirs.id)}`]);
   });
 
   it('changes and removes a stop of its own server, and the search follows', async () => {

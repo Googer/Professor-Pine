@@ -44,6 +44,21 @@ describe('AttendanceService: a newcomer somebody keeps out of the forum (plan 8Z
     });
   });
 
+  it('refuses a member who is not in the party’s server as kept out (plan 19B-4)', async () => {
+    const made = await reportedRaid();
+    made.gateway.leftServer.add(ALICE);
+    expect(await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming)).toEqual(
+      KEPT_OUT,
+    );
+    await made.attendance.flush();
+    expect(attendeeOf(made.current(), ALICE)).toBeUndefined();
+    expect(made.said()).toEqual([]);
+    // A member of the server is let in as before.
+    expect(await made.attendance.signUp(made.party.id, bob, PartyStatus.Coming)).toMatchObject({
+      kind: 'ok',
+    });
+  });
+
   it('refuses a newcomer to a train and to a meetup the same way', async () => {
     const train = await createdTrain();
     train.gateway.barred.set(WEST_FORUM, new Set([ALICE]));

@@ -1,3 +1,6 @@
+import { forumRefusedWords } from '../render/server-notices.js';
+import type { ServerNotices } from './server-notices.js';
+import type { QuietServers } from './quiet-servers.js';
 import { DiscordAPIError } from 'discord.js';
 import { isNetworkError } from './network-error.js';
 import type { Settings } from '../config/settings.js';
@@ -75,6 +78,8 @@ import {
   setSaved,
   endParty,
   type RaidScreenshot,
+  type BattleParty,
+  isBattle,
 } from '../domain/party/party.js';
 import {
   certainMoves,
@@ -127,9 +132,11 @@ import {
   type PostLayout,
   type PostVariant,
   type RenderedPost,
+  type NeighborsShown,
 } from '../render/party-post.js';
 import {
   raidLook,
+  raidNeighborLine,
   raidTitle,
   renderRaidPost,
   shownAutoset,
@@ -140,8 +147,10 @@ import { summaryRefusedWords } from '../render/activity.js';
 import { customIconText } from '../render/party-controls.js';
 import { postLink } from '../render/notify-dm.js';
 import { postKey } from '../render/post-view.js';
-import { everyLocalMidnight } from './local-midnight.js';
+import { everyLocalMidnightIn, type ZonesMidnight } from './local-midnight.js';
+import type { NeighborParties } from './neighbor-parties.js';
 import {
+  maxNeighborLine,
   maxTitle,
   renderMaxPost,
   shownMaxBoss,
@@ -161,6 +170,7 @@ import type { TimedPostView } from '../render/timed-post.js';
 import { renderTrainPost, trainTitle, type TrainPostView } from '../render/train-post.js';
 import { stopLabel, stopsFrom, type StopLookup } from '../render/train-stops.js';
 import { BoundedMap } from '../bounded-map.js';
+import { Turns } from '../turns.js';
 import { Coalescer } from './coalescer.js';
 import type { GameDataProvider } from './game-data-service.js';
 import { KeyedLock } from './keyed-lock.js';
@@ -180,6 +190,9 @@ import {
   stopRegionsInGuild,
   type RegionProvider,
 } from './region-directory.js';
+import type { GymProvider } from './gym-directory.js';
+import type { ServerSettingsLookup } from './server-settings.js';
+import { DEFAULT_REGION_FORUM_SUFFIX } from '../config/settings.js';
 
 const MINUTE = 60_000;
 
@@ -225,6 +238,27 @@ const CHECK_EVERY_MS = 10 * MINUTE;
  * a restart reads the emoji anew, and every post at once would be a burst of edits.
  */
 export const EMOJI_RENDER_GAP_MS = 250;
+/**
+ * Every summary drawn anew at once (`showAllAnew`: the emoji read at a start, the catch-up; a
+ * zone's local midnight) goes on a paced line, the servers in turns (final review R1-1): as many
+ * as this at once, as many boards as a Pine of one server has (Pittsburgh's 28 regions draw at
+ * once, as before), then one every `SUMMARY_GAP_MS`, back to this many after a quiet while.
+ * Every request counts against Discord's 50 a second for the whole bot, the deferred answers
+ * included: an open instance of 300 servers of ten regions would otherwise ask 6,000 at once.
+ */
+export const SUMMARY_BURST = 40;
+/**
+ * The pace of that line beyond its burst: eight summaries a second, each an edit and at times a
+ * pin, about a third of Discord's budget, the posts shown anew beside them.
+ */
+export const SUMMARY_GAP_MS = 125;
+
+/**
+ * How long changes of servers' gyms are gathered before their neighbors' matches are compared
+ * (plan 19E, review R9, `neighborGymsChanged`): a Wayfarer import writes its gyms in blocks, each
+ * read again, and every pair of the server is compared once for all the blocks of a few seconds.
+ */
+export const NEIGHBOR_MATCHES_GATHER_MS = 5_000;
 
 /** At most so many closings that failed are kept to be done again (`redoClosings`). */
 export const UNDONE_CLOSINGS_MAX = 500;
@@ -314,7 +348,15 @@ export interface RaidReport {
   /** Left out, a move is set when the boss has only that one (`certainMoves`). */
   fastMove?: string | null;
   chargedMove?: string | null;
-  /** The region channel the report was made in; the raid goes to a region of that server. */
+  /**
+   * The server the report was made in (its `Guild` row): the raid goes to a region of this server,
+   * and only while the server has the gym (plan 19B-2).
+   */
+  guildRow: number;
+  /**
+   * The region channel the report was made in: the raid goes to that region when it is one of the
+   * server's, the gym lies in it and it has a forum.
+   */
   regionChannelId?: string;
   /** A time the caller has checked (`resolvePartyTime`): when the egg hatches, or the raid ends. */
   time?: { hatch: number } | { end: number };
@@ -643,6 +685,12 @@ export interface ForumSetup {
   /** Whether a new summary post was made. */
   summary: boolean;
   /**
+   * Set where the region's server is quiet (plan 19C-2: in setup): the forum is made and recorded,
+   * and its board is neither posted nor looked at until the server is set up (`checkSummaries`
+   * makes it then).
+   */
+  boardWaits?: true;
+  /**
    * Set when a new summary post, or one that stood unpinned (review W3), could not be pinned:
    * `refused` where the bot lacks Manage Posts in the forum, `failed` for anything else (logged).
    * It is made and kept all the same.
@@ -676,6 +724,12 @@ export interface ForumSetup {
    * which only the category gives it (none named when nothing more was asked).
    */
   refused?: readonly string[];
+  /**
+   * Set when a forum was `created`: the server's forums of its name that no region has (staging
+   * F3 of phase 19: a board from before the server's data was deleted, which no party names, so
+   * it is not taken back). Staff are told; nothing is done with them.
+   */
+  alsoNamed?: readonly string[];
 }
 
 /** Told of a post drawn (`PartyService.onPostShown`): the party, its server's row, whether it changed. */
@@ -691,7 +745,7 @@ export const RAID_LOOK_READS = {
     catalogue: 'compared',
     icons: 'compared: replaced alone when the list of icons is read',
   },
-  gyms: { get: 'compared: the gym’s row' },
+  gyms: { stored: 'compared: the gym’s row' },
   raidBosses: {
     bosses: 'compared: the very same list until it changes',
     bossesOf: 'of that list',
@@ -700,8 +754,10 @@ export const RAID_LOOK_READS = {
   eggPictures: {
     picture: 'by its name, of the boss list, and `isServed`, which is compared',
   },
+  servers: {
+    zoneOf: 'the zone of the party’s server (plan 19A-2); the look reads no time by it',
+  },
   settings: {
-    timezone: 'does not change while the bot runs; the look reads no time by it',
     showUnknownMoves: 'does not change while the bot runs, and the look shows no moves',
     emoji: 'does not change while the bot runs, and the look shows no emoji',
     lobbies: 'does not change while the bot runs, and the look shows no lobby',
@@ -727,7 +783,11 @@ export interface PartyServiceOptions {
     idFor(snowflake: string): Promise<number | undefined>;
     snowflakeOf?(id: number): Promise<string | undefined>;
   };
-  gyms: { get(id: number): Gym | undefined; regionsOf(gymId: number): string[] };
+  /**
+   * The gyms per server (plan 19B-2): a party's gym is a reference its server stored (`stored`),
+   * where a gym lies is read in the party's server's view (`of`).
+   */
+  gyms: Pick<GymProvider, 'of' | 'stored' | 'serversOf'>;
   raidBosses: RaidBossProvider;
   /**
    * The max bosses (plan 8X-3): whether a max battle's boss is shiny, its picture. Max battles
@@ -745,6 +805,27 @@ export interface PartyServiceOptions {
    */
   appEmoji?: { get(name: string): string | undefined; refused?(): void };
   settings: Settings;
+  /** Each server's values (plan 19A-1): the channels of the copies, the forums' ending. */
+  servers: ServerSettingsLookup;
+  /**
+   * The snowflake of the server of a `Guild` row, from every row read at start or made since
+   * (`RowIds.serverOfRow`, never a bounded memory: fix round 1, K1): a party's server, whose zone
+   * its times are in (plan 19A-2). Without it, or for a row not known, the summary's learned
+   * snowflakes, else the instance's default zone (warned of once per row).
+   */
+  serverOfRow?: (row: number) => string | undefined;
+  /**
+   * The quiet servers (`QuietServers`: those Pine left, plan 19C-1, and those in setup, plan
+   * 19C-2): their parties are not drawn, their summaries neither drawn nor made, their posts and
+   * copies neither swept nor closed again, and the clock passes over them (`ofQuietServer`);
+   * nothing of them is ended. Without it, none.
+   */
+  quiet?: QuietServers;
+  /**
+   * What is wrong with a server's setup, told to its staff in its moderators' bot lab (plan
+   * 19B-1, `ServerNotices`): a forum the bot may not make posts in.
+   */
+  notices: Pick<ServerNotices, 'tell'>;
   log: Logger;
   now?: () => number;
   /**
@@ -771,7 +852,7 @@ export interface PartyServiceOptions {
    * (`shownPlace`), and is shown anew after every change of what they are. Without them it
    * shows the place as it was named.
    */
-  wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf' | 'whenChanged' | 'regionsOf' | 'size'>;
+  wayspots?: Pick<WayspotProvider, 'of' | 'stored' | 'addressOf' | 'whenChanged' | 'size'>;
   /**
    * The raids and max battles of the history (plan 8H-7A): read once when a train ends, for the
    * raids along its way on its card. Without it the card says nothing of raids.
@@ -910,8 +991,11 @@ export class PartyService {
    * its text changed (plan 8R-9, B4: the stops were drawn in it, which opens it if archived).
    */
   private readonly boardChecks = new Set<number>();
-  /** Cancels the timer of the next local midnight (plan 8R-9, B7); none until `watchMidnight`. */
-  private midnightTimer: (() => void) | undefined;
+  /**
+   * The timers of the next local midnight of each zone in use (plan 8R-9, B7; plan 19A-2); none
+   * until `watchMidnight`.
+   */
+  private midnights: ZonesMidnight | undefined;
   /** The timers that try a summary post's rename again, by region (review r1, R1-6). */
   private readonly summaryRenameTimers = new Map<number, { cancel: () => void }>();
   /** The renames those timers have under way, which `flush` waits for. */
@@ -919,12 +1003,27 @@ export class PartyService {
 
   /** The snowflakes of the servers by their rows, as far as known (`guilds.snowflakeOf`). */
   private readonly snowflakes = new Map<number, string>();
+  /** The `Guild` rows whose server was not known, each warned of once (`zoneOfRow`). */
+  private readonly unknownRows = new Set<number>();
 
   /** The posts of the stops (`StopPostService`), for the summary's line; none until set. */
   private stopPosts: StopPostsForSummary | undefined;
-  /** The parties whose posts wait to be shown with other emoji, and the timer of the next. */
-  private emojiQueue: string[] = [];
+  /**
+   * The parties whose posts wait to be shown anew (other emoji, the catch-up, a zone), a line per
+   * server (its `Guild` row) served in turns (plan 19B-5), and the timer of the next.
+   */
+  private readonly emojiQueue = new Turns<number | null, string>();
   private emojiTimer: (() => void) | undefined;
+  /**
+   * The regions whose summaries wait to be drawn anew all at once (`showAllAnew`, a zone's
+   * midnight), a line per server (its `Guild` row) served in turns at `SUMMARY_GAP_MS` beyond a
+   * burst of `SUMMARY_BURST` (final review R1-1), and the timer of the next.
+   */
+  private readonly summaryLine = new Turns<number | null, number>();
+  private summaryTimer: (() => void) | undefined;
+  /** How many of that line's draws may start now, and when that was counted. */
+  private summaryRoom = SUMMARY_BURST;
+  private summaryRoomAt: number | undefined;
   /** Set by `close` at shutdown: nothing is shown anew from then on. */
   private closed = false;
   /** The copies of a party's message in other channels and at the bottom of its post. */
@@ -941,6 +1040,12 @@ export class PartyService {
 
   /** Told of new raids and of raids that moved to another region (`announceTo`). */
   private notifier: PartyNotifier | undefined;
+  /** The neighbors' parties at a party's gym or Power Spot (plan 19E, `useNeighbors`). */
+  private neighborParties: NeighborParties | undefined;
+  /** The servers (`Guild` rows) whose gyms changed since their matches were last compared. */
+  private readonly gymsChangedOf = new Set<number>();
+  /** Cancels the timer of that comparison (`NEIGHBOR_MATCHES_GATHER_MS`), while one waits. */
+  private gymsChangedTimer: (() => void) | undefined;
 
   /** Where an egg's picture comes from: the bot's web pages, or the post's own file. */
   private readonly eggPictures: EggPictures;
@@ -962,7 +1067,7 @@ export class PartyService {
       regions: options.regions,
       gyms: options.gyms,
       ...(options.wayspots === undefined ? {} : { wayspots: options.wayspots }),
-      settings: options.settings,
+      servers: options.servers,
       render: (party) => this.rendered(party),
       refusedFiles: this.refusedFiles,
       emojiRefused: () => options.appEmoji?.refused?.(),
@@ -1003,13 +1108,126 @@ export class PartyService {
           ? options.log.warn({ err, region }, 'could not update a summary')
           : options.log.error({ err, region }, 'could not update a summary'),
     });
-    options.wayspots?.whenChanged(() => {
-      this.wayspotsChanged();
+    options.wayspots?.whenChanged((guildId) => {
+      this.wayspotsChanged(guildId);
     });
     // Each change in memory counted, for the presses that wait for their post (plan 8M-11A, S1).
     options.store.onChange((_before, after) => {
       this.changes.set(after.id, (this.changes.get(after.id) ?? 0) + 1);
     });
+    // A party's change shows in its neighbors' posts at its gym (plan 19E).
+    options.store.onChange((before, after) => {
+      this.neighborsFollow(before, after);
+    });
+  }
+
+  /**
+   * Shows the neighbors' parties at a raid's gym or a max battle's Power Spot in its post (plan
+   * 19E): set once at start, when the neighbors are read.
+   */
+  useNeighbors(parties: NeighborParties): void {
+    this.neighborParties = parties;
+  }
+
+  /**
+   * What a raid's or max battle's post shows of its neighbors' parties there (plan 19E): a line
+   * each, made by the renderer of the neighbor party's kind from its own view (the one path of
+   * its post's words), its times on this party's server's clock; nothing for an ended party, nor
+   * without neighbors there.
+   */
+  private neighborsShown(party: BattleParty): { neighbors?: NeighborsShown } {
+    const finder = this.neighborParties;
+    if (finder === undefined || party.status !== 'active') return {};
+    const found = finder.of(party, this.now());
+    if (found.length === 0) return {};
+    const zone = this.zoneOf(party);
+    const lines = found.map(({ serverId, party: theirs }) => {
+      const neighbor = {
+        server: this.options.gateway.guildName(serverId),
+        link: postLink(serverId, theirs.forumPostId ?? ''),
+      };
+      return isRaid(theirs)
+        ? raidNeighborLine(this.view(theirs), neighbor, zone)
+        : maxNeighborLine(this.maxView(theirs), neighbor, zone);
+    });
+    return { neighbors: { at: isRaid(party) ? 'gym' : 'spot', lines } };
+  }
+
+  /**
+   * A party changed (`PartyStore.onChange`): the posts of its neighbors' parties at its gym or
+   * Power Spot, before and after the change, are shown anew in their servers' turns (plan 19E,
+   * `queueAnew`), gathered with what waits already. A quiet server's party reaches nobody.
+   */
+  private neighborsFollow(before: Party | undefined, after: Party): void {
+    const finder = this.neighborParties;
+    if (finder === undefined || this.closed || !isBattle(after)) return;
+    const now = this.now();
+    const changed = before === undefined || before === after ? [after] : [before, after];
+    this.queueAnew(changed.flatMap((party) => finder.of(party, now).map((found) => found.party)));
+  }
+
+  /**
+   * Two servers became neighbors or stopped being so (`ServerNeighbors.whenChanged`): the posts of
+   * either's parties at a gym or Power Spot of the other's parties are shown anew, paced.
+   */
+  neighborsChanged(pair: { serverA: string; serverB: string }): void {
+    const finder = this.neighborParties;
+    if (finder === undefined || this.closed) return;
+    const now = this.now();
+    this.queueAnew(
+      this.options.store.active().filter((party) => {
+        if (!isBattle(party)) return false;
+        const server = this.serverOf(party);
+        const other =
+          server === pair.serverA
+            ? pair.serverB
+            : server === pair.serverB
+              ? pair.serverA
+              : undefined;
+        return other !== undefined && finder.in(party, other, now) !== undefined;
+      }),
+    );
+  }
+
+  /**
+   * Servers' gyms changed as the same gyms of two neighbors read them (`GymDirectory.
+   * whenServersChanged`: an import, an edit, a link, a removal, a region edit): gathered for
+   * `NEIGHBOR_MATCHES_GATHER_MS`, then each pair of neighbors of these servers is compared once,
+   * and the posts of both servers' live raids at gyms that gained, lost or changed a match are
+   * shown anew on the paced queue (review R9). Nothing after `close`; `flush` drops what waits.
+   */
+  neighborGymsChanged(guildRows: readonly number[]): void {
+    if (this.neighborParties === undefined || this.closed) return;
+    for (const row of guildRows) this.gymsChangedOf.add(row);
+    if (this.gymsChangedTimer !== undefined) return;
+    this.gymsChangedTimer = this.setTimer(() => {
+      this.gymsChangedTimer = undefined;
+      const rows = [...this.gymsChangedOf];
+      this.gymsChangedOf.clear();
+      const finder = this.neighborParties;
+      if (finder === undefined || this.closed) return;
+      this.queueAnew(finder.matchesChanged(rows, this.now()));
+    }, NEIGHBOR_MATCHES_GATHER_MS);
+  }
+
+  /**
+   * Servers went quiet or came back (Pine left them or is back, `ServerStandings.whenLeftChanged`):
+   * their neighbors' posts that show, or would show, their parties are shown anew, paced.
+   */
+  neighborsQuietChanged(serverIds: readonly string[]): void {
+    const finder = this.neighborParties;
+    if (finder === undefined || this.closed) return;
+    const now = this.now();
+    const shown: Party[] = [];
+    for (const serverId of serverIds) {
+      const neighbors = new Set(finder.neighborsOf(serverId));
+      for (const party of this.options.store.active()) {
+        const server = this.serverOf(party);
+        if (!isBattle(party) || server === null || !neighbors.has(server)) continue;
+        if (finder.in(party, serverId, now)) shown.push(party);
+      }
+    }
+    this.queueAnew(shown);
   }
 
   /**
@@ -1127,9 +1345,82 @@ export class PartyService {
     return this.rendered(party).title;
   }
 
-  /** The durations in effect, with the events known at this moment. */
-  rules(): RaidDurationRules {
-    return raidDurationRules(this.options.settings, this.options.raidEvents.events());
+  /**
+   * The durations in effect in a zone, with the events known at this moment: the rules of the
+   * parties of the servers in `zone` (plan 19A-2; `rulesOf` a party's).
+   */
+  rulesIn(zone: string): RaidDurationRules {
+    return raidDurationRules(this.options.settings, this.options.raidEvents.events(zone), zone);
+  }
+
+  /** The durations in effect for a party: those of its server's zone (`zoneOf`). */
+  rulesOf(party: Pick<Party, 'guildId'>): RaidDurationRules {
+    return this.rulesIn(this.zoneOf(party));
+  }
+
+  /**
+   * The zone of a party's server (plan 19A-2): every time of it said or typed, its days. Its
+   * server is its `Guild` row's (`serverOfRow`, else as the summary learned it); the instance's
+   * default zone for a row not seen.
+   */
+  zoneOf(party: Pick<Party, 'guildId'>): string {
+    return this.zoneOfRow(party.guildId);
+  }
+
+  /**
+   * The zone of the server of a `Guild` row (`zoneOf`); the default for none. A row whose server
+   * is not known cannot be once every row was read at the start (`RowIds.serverOfRow`; fix round
+   * 1, K1): should one be, it is warned of once and has the default.
+   */
+  zoneOfRow(row: number | null): string {
+    const { servers } = this.options;
+    const server = this.serverOfRow(row);
+    if (server === undefined && row !== null && !this.unknownRows.has(row)) {
+      this.unknownRows.add(row);
+      this.options.log.warn({ row }, 'a party’s server is not known');
+    }
+    return server === undefined ? servers.defaultZone() : servers.zoneOf(server);
+  }
+
+  /**
+   * The snowflake of a party's server (its `Guild` row's, as `zoneOf` finds it, in memory):
+   * whether a custom id names a party of the interaction's server (`partyOfServer`, plan 19B-4),
+   * and what is the server's own, such as its Pokémon nicknames. Null for a row not known, which
+   * cannot be once every row was read at the start: the instance's names alone then.
+   */
+  serverOf(party: Pick<Party, 'guildId'>): string | null {
+    return this.serverOfRow(party.guildId) ?? null;
+  }
+
+  /**
+   * Whether the server of a party (or of a region, by its `Guild` row) is quiet (Pine left it,
+   * plan 19C-1, or it is in setup, plan 19C-2): the clock passes over it, nothing of it is drawn,
+   * and its board is not swept.
+   */
+  ofQuietServer(of: { guildId: number | null }): boolean {
+    return this.quietRow(of.guildId);
+  }
+
+  /** Whether the server of a `Guild` row is quiet. */
+  private quietRow(row: number | null): boolean {
+    const { quiet } = this.options;
+    if (quiet === undefined) return false;
+    const server = this.serverOfRow(row);
+    return server !== undefined && quiet.isQuiet(server);
+  }
+
+  /** Whether a channel is in a quiet server, by the gateway's cache. */
+  private quietChannel(channelId: string | undefined): boolean {
+    const { quiet, gateway } = this.options;
+    if (quiet === undefined || channelId === undefined) return false;
+    const server = gateway.serverOf(channelId);
+    return server !== undefined && quiet.isQuiet(server);
+  }
+
+  /** The server of a `Guild` row: `serverOfRow`'s, else as the summary learned it. */
+  private serverOfRow(row: number | null): string | undefined {
+    if (row === null) return undefined;
+    return this.options.serverOfRow?.(row) ?? this.snowflakes.get(row);
   }
 
   /**
@@ -1162,23 +1453,24 @@ export class PartyService {
   view(party: RaidParty): RaidPostView {
     const { gyms, raidBosses, gameData, settings } = this.options;
     const catalogue = gameData.catalogue;
-    const boss = shownBoss(party, catalogue, raidBosses.bosses(), gameData.icons);
+    const zone = this.zoneOf(party);
+    const boss = shownBoss(party, catalogue, raidBosses.bosses(zone), gameData.icons);
     const hatchesAs = boss
       ? undefined
-      : shownAutoset(party.raid.tier, raidBosses.autoset(party.raid.tier), gameData);
-    const eggName = raidEggName(party.raid.tier, raidBosses.bossesOf(party.raid.tier));
+      : shownAutoset(party.raid.tier, raidBosses.autoset(party.raid.tier, zone), gameData);
+    const eggName = raidEggName(party.raid.tier, raidBosses.bossesOf(party.raid.tier, zone));
     const egg = eggName === undefined ? undefined : this.eggPictures.picture(eggName);
     return {
       party,
       now: this.now(),
-      gym: party.gymId === null ? undefined : gyms.get(party.gymId),
+      gym: party.gymId === null ? undefined : gyms.stored(party.gymId),
       boss,
       ...(hatchesAs ? { hatchesAs } : {}),
       ...(egg === undefined ? {} : { eggPicture: egg.url }),
       ...(egg?.file === undefined ? {} : { eggFile: egg.file }),
       catalogue,
       showUnknownMoves: settings.showUnknownMoves,
-      zone: settings.timezone,
+      zone: this.zoneOf(party),
       emoji: this.emoji(party),
       ...this.lobbiesOf(party),
     };
@@ -1197,8 +1489,8 @@ export class PartyService {
     const { gyms, raidBosses, gameData } = this.options;
     const { catalogue, icons } = gameData;
     const stage = raidStage(party, this.now());
-    const gym = party.gymId === null ? undefined : gyms.get(party.gymId);
-    const bosses = raidBosses.bosses();
+    const gym = party.gymId === null ? undefined : gyms.stored(party.gymId);
+    const bosses = raidBosses.bosses(this.zoneOf(party));
     const served = this.eggPictures.isServed;
     const kept = this.looks.get(party);
     if (
@@ -1235,7 +1527,7 @@ export class PartyService {
     return {
       party,
       now: this.now(),
-      zone: settings.timezone,
+      zone: this.zoneOf(party),
       archiving: {
         graceMinutes: settings.deletionGraceTime,
         warningMinutes: settings.trainOrMeetupDeletionWarningTime,
@@ -1253,25 +1545,27 @@ export class PartyService {
     const { gyms, wayspots } = this.options;
     return {
       ...this.timedView(party),
-      gym: (id) => gyms.get(id),
+      gym: (id) => gyms.stored(id),
       ...(wayspots === undefined
         ? {}
         : {
-            wayspot: (id: string) => wayspots.byId(id),
+            wayspot: (id: string) => wayspots.stored(party.guildId, id),
             addressOf: (wayspot: AddressedWayspot & { id: string }) => wayspots.addressOf(wayspot),
           }),
     };
   }
 
   /**
-   * After the kept Wayspots changed (an import): the meetups near a PokéStop or power spot are
-   * shown anew, with the place as it is now (`shownPlace`).
+   * After a server's kept Wayspots changed (its import): its meetups near a PokéStop or power
+   * spot are shown anew, with the place as it is now (`shownPlace`); another server's parties
+   * read none of its Wayspots, and are left alone.
    */
-  private wayspotsChanged(): void {
+  private wayspotsChanged(guildId: number): void {
     // At shutdown nothing is shown anew any more. At start the kept Wayspots load before the
     // parties: a post shown after that shows the place as it is then anyway.
     if (this.closed || !this.options.store.isLoaded) return;
     for (const party of this.options.store.active()) {
+      if (party.guildId !== guildId) continue;
       // A max battle at a power spot shows it as it is now too (plan 8X-3).
       const kind = isMeetup(party)
         ? party.meetup.place?.kind
@@ -1305,17 +1599,17 @@ export class PartyService {
     if (spot.kind === 'pin' || wayspots === undefined) return spot;
     return spotNow(
       spot,
-      (id) => wayspots.byId(id),
+      (id) => wayspots.stored(party.guildId, id),
       (wayspot) => wayspots.addressOf(wayspot),
     );
   }
 
   /**
-   * The stops of trains' routes as they are now (plan 8X-4): gyms from the gym list, power spots
-   * from the kept Wayspots.
+   * The stops of the routes of a server's trains as they are now (plan 8X-4): gyms from the gym
+   * list, power spots from the server's kept Wayspots (plan 19B-3).
    */
-  get stops(): StopLookup {
-    return stopsFrom(this.options.gyms, this.options.wayspots);
+  stopsOf(guildId: number): StopLookup {
+    return stopsFrom(this.options.gyms, this.options.wayspots, guildId);
   }
 
   /** Everything the renderer needs to show a train as it is now. */
@@ -1324,8 +1618,8 @@ export class PartyService {
     const catalogue = gameData.catalogue;
     return {
       ...this.timedView(party),
-      stop: this.stops,
-      boss: shownBoss(party, catalogue, raidBosses.bosses(), gameData.icons),
+      stop: this.stopsOf(party.guildId),
+      boss: shownBoss(party, catalogue, raidBosses.bosses(this.zoneOf(party)), gameData.icons),
       catalogue,
     };
   }
@@ -1343,7 +1637,7 @@ export class PartyService {
     const last = closed === undefined ? {} : { closed };
     switch (party.type) {
       case 'raid':
-        return renderRaidPost({ ...this.view(party), ...last });
+        return renderRaidPost({ ...this.view(party), ...this.neighborsShown(party), ...last });
       case 'meetup':
         return renderMeetupPost({ ...this.meetupView(party), ...last });
       case 'train':
@@ -1359,25 +1653,25 @@ export class PartyService {
           ...(mapLink === undefined ? {} : { mapLink }),
         });
       case 'max':
-        return renderMaxPost({ ...this.maxView(party), ...last });
+        return renderMaxPost({ ...this.maxView(party), ...this.neighborsShown(party), ...last });
     }
   }
 
   /** Everything the renderer needs to show a max battle as it is now (plan 8X-3). */
   maxView(party: MaxParty): MaxPostView {
-    const { maxBosses, gameData, settings, wayspots } = this.options;
+    const { maxBosses, gameData, wayspots } = this.options;
     const { catalogue } = gameData;
     return {
       party,
       now: this.now(),
-      zone: settings.timezone,
-      boss: shownMaxBoss(party, catalogue, maxBosses.bosses(), gameData.icons),
+      zone: this.zoneOf(party),
+      boss: shownMaxBoss(party, catalogue, maxBosses.bosses(this.zoneOf(party)), gameData.icons),
       catalogue,
       emoji: this.emoji(party),
       ...(wayspots === undefined
         ? {}
         : {
-            wayspot: (id: string) => wayspots.byId(id),
+            wayspot: (id: string) => wayspots.stored(party.guildId, id),
             addressOf: (wayspot: AddressedWayspot & { id: string }) => wayspots.addressOf(wayspot),
           }),
       ...this.lobbiesOf(party),
@@ -1537,28 +1831,29 @@ export class PartyService {
   }
 
   /**
-   * The region whose forum takes a raid at this gym, among the regions the gym lies in: the
-   * region the report was made in; else a region of the same server; else, when the report names
-   * no region, the first with a forum. `any` is the first candidate, for "no forum yet"; neither
-   * is set when the gym lies in no region of this server. What `reportRaid` uses, so a caller can
-   * say beforehand where a raid would go.
+   * The region whose forum takes a raid at this gym, among the regions of the server it was
+   * reported in (`guildRow`, plan 19B-2: a gym the server does not have lies in none of its
+   * regions) that the gym lies in: the region the report was made in, when that channel is a
+   * region of this server (a region row of another server, or of none, is no region here); else
+   * the first with a forum. `any` is the first candidate, for "no forum yet"; neither is set when
+   * the gym lies in no region of this server. What `reportRaid` uses, so a caller can say
+   * beforehand where a raid would go.
    */
-  regionFor(gym: Gym, regionChannelId?: string): { region?: Region; any?: Region } {
+  regionFor(
+    gym: Gym,
+    guildRow: number,
+    regionChannelId?: string,
+  ): { region?: Region; any?: Region } {
     const { gyms, regions } = this.options;
-    const lying = gyms
-      .regionsOf(gym.id)
-      .map((channelId) => regions.byChannel(channelId))
-      .filter((region): region is Region => region !== undefined);
-    const invoking = regionChannelId === undefined ? undefined : regions.byChannel(regionChannelId);
-    let candidates = lying;
-    if (invoking) {
-      const ofServer =
-        invoking.guildId === null ? [] : gymRegionsInGuild(gyms, regions, gym.id, invoking.guildId);
-      candidates = [
-        ...lying.filter((region) => region.id === invoking.id),
-        ...ofServer.filter((region) => region.id !== invoking.id),
-      ];
-    }
+    const channel = regionChannelId === undefined ? undefined : regions.byChannel(regionChannelId);
+    const invoking = channel?.guildId === guildRow ? channel : undefined;
+    const lying = gymRegionsInGuild(gyms, regions, gym.id, guildRow);
+    const candidates = invoking
+      ? [
+          ...lying.filter((region) => region.id === invoking.id),
+          ...lying.filter((region) => region.id !== invoking.id),
+        ]
+      : lying;
     const region = candidates.find((candidate) => candidate.forumChannelId !== null);
     return { ...(region ? { region } : {}), ...(candidates[0] ? { any: candidates[0] } : {}) };
   }
@@ -1600,9 +1895,13 @@ export class PartyService {
     });
   }
 
-  /** Whether the gym list still has a gym: asked under the gym's lock when a raid is stored. */
-  private gymExists(gymId: number): boolean {
-    return this.options.gyms.get(gymId) !== undefined;
+  /**
+   * Whether the server (its `Guild` row) still has a gym (plan 19B-2: one a server deleted is
+   * gone for it, though another server keeps it): asked under the gym's lock when a raid is
+   * stored.
+   */
+  private gymExists(gymId: number, guildRow: number | null | undefined): boolean {
+    return this.options.gyms.of(guildRow ?? undefined).get(gymId) !== undefined;
   }
 
   /**
@@ -1620,8 +1919,9 @@ export class PartyService {
     const { gym } = report;
     // Deleted since the member picked it: it lies in no region any more, but that is not what
     // to tell them. (Asked again under the gym's lock, where it counts.)
-    if (!this.gymExists(gym.id)) return { kind: 'gym-gone' };
-    const { region, any } = this.regionFor(gym, report.regionChannelId);
+    const server = report.guildRow;
+    if (!this.gymExists(gym.id, server)) return { kind: 'gym-gone' };
+    const { region, any } = this.regionFor(gym, server, report.regionChannelId);
     if (!region?.forumChannelId)
       return any ? { kind: 'no-forum', region: any } : { kind: 'no-region' };
     if (region.guildId === null) {
@@ -1631,7 +1931,7 @@ export class PartyService {
     const forumId = region.forumChannelId;
 
     const now = this.now();
-    const rules = this.rules();
+    const rules = this.rulesOf({ guildId: region.guildId });
     const certain = certainMoves(
       report.boss && 'key' in report.boss
         ? this.options.gameData.catalogue.byKey(report.boss.key)
@@ -1666,7 +1966,7 @@ export class PartyService {
 
     let stored: Awaited<ReturnType<PartyStore['addRaidUnlessTaken']>>;
     try {
-      stored = await store.addRaidUnlessTaken(raid, now, () => this.gymExists(gym.id), {
+      stored = await store.addRaidUnlessTaken(raid, now, () => this.gymExists(gym.id, server), {
         ...(report.joinOnly ? { mayAdd: false } : {}),
       });
     } catch (err) {
@@ -1676,7 +1976,7 @@ export class PartyService {
     }
     if (!stored.added) {
       if (!stored.existing) {
-        return report.joinOnly && this.gymExists(gym.id)
+        return report.joinOnly && this.gymExists(gym.id, server)
           ? { kind: 'none-there' }
           : { kind: 'gym-gone' };
       }
@@ -1967,11 +2267,16 @@ export class PartyService {
     const rendered = renderRaidPost(this.view({ ...raid, forumChannelId: forumId }));
     let stored: Awaited<ReturnType<PartyStore['addRaidUnlessTaken']>>;
     try {
-      stored = await store.addRaidUnlessTaken(raid, this.now(), () => this.gymExists(gym.id), {
-        movedFrom: partyId,
-        // The audit log names who moved it (none: Pine).
-        ...(by === undefined ? {} : { by: loggedBy(by) }),
-      });
+      stored = await store.addRaidUnlessTaken(
+        raid,
+        this.now(),
+        () => this.gymExists(gym.id, region.guildId),
+        {
+          movedFrom: partyId,
+          // The audit log names who moved it (none: Pine).
+          ...(by === undefined ? {} : { by: loggedBy(by) }),
+        },
+      );
     } catch (err) {
       // The region it should move to was removed meanwhile: it has no forum to move into.
       if (err instanceof RegionClosedError) return { kind: 'no-forum' };
@@ -2371,7 +2676,7 @@ export class PartyService {
       await this.abandon(fresh.id, NO_POST);
       if (err instanceof PostLostError) return { kind: 'no-post' };
       if (err instanceof PostsRefusedError) {
-        this.postsRefusedIn(err);
+        this.postsRefusedIn(err, region);
         return { kind: 'no-post', refused: { forumId: err.forumId, missing: err.missing } };
       }
       throw err;
@@ -2429,15 +2734,26 @@ export class PartyService {
   }
 
   /**
-   * Logs, once per forum while the bot runs, that it may not make posts there (the owner reads
-   * the log; the member is told by the command): staff must give it what it lacks.
+   * Says that the bot may not make posts in a forum (the member is told by the command): in the
+   * log with the server, once per forum while the bot runs, and to the server's staff in its
+   * moderators' bot lab (plan 19B-1), who must give it what it lacks, asked at every refusal
+   * (fix round 2, G2: `ServerNotices` says it once, and again at the next refusal where it could
+   * not, so a lab set later hears of it).
    */
-  private postsRefusedIn(refusal: PostsRefusedError): void {
-    if (this.refusedForums.has(refusal.forumId)) return;
-    this.refusedForums.set(refusal.forumId, true);
-    this.options.log.warn(
-      { forum: refusal.forumId, missing: refusal.missing },
-      'the bot may not make posts in a forum: staff must give it the permissions',
+  private postsRefusedIn(refusal: PostsRefusedError, region: Pick<Region, 'guildId'>): void {
+    const server = this.serverOfRow(region.guildId);
+    if (!this.refusedForums.has(refusal.forumId)) {
+      this.refusedForums.set(refusal.forumId, true);
+      this.options.log.warn(
+        { server, forum: refusal.forumId, missing: refusal.missing },
+        'the bot may not make posts in a forum: staff must give it the permissions',
+      );
+    }
+    if (server === undefined) return;
+    this.options.notices.tell(
+      server,
+      `forum-posts:${refusal.forumId}`,
+      forumRefusedWords(refusal.forumId, refusal.missing),
     );
   }
 
@@ -2741,27 +3057,34 @@ export class PartyService {
 
   /**
    * Every active post shown anew, paced (`emojiChanged`, `redrawPosts`), and every summary drawn
-   * anew (plan 8R-9, B7: a midnight passed while the network was away); one that reads the same
-   * is not edited.
+   * anew (plan 8R-9, B7: a midnight passed while the network was away), paced on a line of its
+   * own (`queueSummaries`, final review R1-1); one that reads the same is not edited.
    */
   private showAllAnew(): void {
     if (this.closed) return;
     this.allSummaries();
-    this.emojiQueue = this.options.store
-      .active()
-      .filter((party) => party.forumPostId !== null)
-      .map((party) => party.id);
+    // The round starts anew: what waited is in it again.
+    this.emojiQueue.clear();
+    for (const party of this.options.store.active()) {
+      // A quiet server draws nothing (plans 19C-1, 19C-2): its posts take no turn of the pace.
+      if (party.forumPostId !== null && !this.ofQuietServer(party)) {
+        this.emojiQueue.put(party.guildId, party.id);
+      }
+    }
     if (this.emojiTimer === undefined) this.nextEmojiPost();
   }
 
-  /** Shows the next waiting post with the new emoji, and sets the timer of the one after it. */
+  /**
+   * Shows the next waiting post anew, the servers in turns (plan 19B-5: one server's many posts
+   * do not hold back another's), and sets the timer of the one after it.
+   */
   private nextEmojiPost(): void {
     this.emojiTimer = undefined;
-    const partyId = this.emojiQueue.shift();
+    const partyId = this.emojiQueue.take();
     if (partyId === undefined) return;
     // Ended meanwhile: there is nothing to show.
     if (this.options.store.get(partyId)?.forumPostId) this.posts.request(partyId);
-    if (this.emojiQueue.length > 0) {
+    if (this.emojiQueue.size > 0) {
       this.emojiTimer = this.setTimer(() => {
         this.nextEmojiPost();
       }, EMOJI_RENDER_GAP_MS);
@@ -2800,32 +3123,122 @@ export class PartyService {
   }
 
   /**
-   * Draws every region's summary anew at each local midnight from now on (plan 8R-9, B7: what
-   * starts tomorrow moves from Coming up to today), also in rehearsal mode. Temporal's midnight in
-   * `settings.timezone`, so a day of a change of the clocks is 23 or 25 hours long. A summary
-   * that reads the same is not edited. Nothing after `close`.
+   * Draws the summaries of the regions of the servers in a zone anew at each local midnight of
+   * that zone from now on (plan 8R-9, B7: what starts tomorrow moves from Coming up to today;
+   * plan 19A-2: one timer per zone in use, `everyLocalMidnightIn`), also in rehearsal mode,
+   * paced (`queueSummaries`, final review R1-1). Temporal's midnight, so a day of a change of the
+   * clocks is 23 or 25 hours long. A summary that reads the same is not edited. Nothing after
+   * `close`.
    */
   watchMidnight(): void {
     if (this.closed) return;
-    this.midnightTimer?.();
-    // The timer shared with the events forum's listing (plan 8V-1), a second after midnight.
-    const watch = everyLocalMidnight({
-      zone: this.options.settings.timezone,
+    this.midnights?.cancel();
+    this.midnights = everyLocalMidnightIn({
+      zones: () => this.options.servers.zonesInUse(),
       now: this.now,
       setTimer: this.setTimer,
-      run: () => {
-        if (!this.closed) this.allSummaries();
+      run: (zone) => {
+        if (this.closed) return;
+        // Paced, the servers in turns (final review R1-1): a zone of many servers at once.
+        this.queueSummaries(
+          this.options.regions.all().filter((region) => this.zoneOfRow(region.guildId) === zone),
+        );
       },
     });
-    this.midnightTimer = () => {
-      watch.cancel();
-    };
   }
 
-  /** Asks for the summary of every region that has a forum. */
-  private allSummaries(): void {
+  /**
+   * A server's zone changed (plan 19A-2; `ServerSettings.onZoneChange`): its summaries are drawn
+   * anew, and its active parties' posts, paced as after a change of the emoji (`showAllAnew`),
+   * so that every time they say is on the new clock; the midnights follow the zones now in use.
+   * Moments stored stay the same moments. Nothing after `close`.
+   */
+  zoneChanged(serverId: string): void {
+    if (this.closed) return;
+    this.zonesChanged();
+    const ofServer = (row: number | null) => this.serverOfRow(row) === serverId;
     for (const region of this.options.regions.all()) {
-      if (region.forumChannelId !== null) this.summaries.request(region.id);
+      if (region.forumChannelId !== null && ofServer(region.guildId)) {
+        this.summaries.request(region.id);
+      }
+    }
+    this.queueAnew(this.options.store.active().filter((party) => ofServer(party.guildId)));
+  }
+
+  /**
+   * Queues parties' posts to be shown anew on the paced queue (`EMOJI_RENDER_GAP_MS`, each in its
+   * server's line, plan 19B-5), all of them before the first is shown, so that they are paced
+   * among themselves; a post that waits there already is not queued twice (gathered: several
+   * asks before its turn make one draw), nor one without a post or of a quiet server. A
+   * neighbor's changes (plan 19E) take the turn of the server whose post shows them, never more
+   * than its posts' pace (and each post's own, `posts`).
+   */
+  private queueAnew(parties: Iterable<Party>): void {
+    if (this.closed) return;
+    for (const party of parties) {
+      if (party.forumPostId === null || this.ofQuietServer(party)) continue;
+      if (this.emojiQueue.has(party.guildId, (id) => id === party.id)) continue;
+      this.emojiQueue.put(party.guildId, party.id);
+    }
+    if (this.emojiTimer === undefined) this.nextEmojiPost();
+  }
+
+  /**
+   * The zones in use changed (a server joined or left with a zone of its own: fix round 1, N5):
+   * the summaries' midnights follow them. Nothing after `close`.
+   */
+  zonesChanged(): void {
+    if (this.closed) return;
+    this.midnights?.refresh();
+  }
+
+  /** Asks for the summary of every region that has a forum, paced (`queueSummaries`). */
+  private allSummaries(): void {
+    this.queueSummaries(this.options.regions.all());
+  }
+
+  /**
+   * Puts the summaries of these regions on the paced line (final review R1-1), each in its
+   * server's line, and starts what may start now: up to `SUMMARY_BURST` at once, then one every
+   * `SUMMARY_GAP_MS`, the servers in turns. A region without a forum, of a quiet server, or
+   * waiting there already is not put; a summary that reads the same is not edited when its turn
+   * comes. Nothing after `close`; `flush` drops what waits.
+   */
+  private queueSummaries(regions: Iterable<Region>): void {
+    if (this.closed) return;
+    for (const region of regions) {
+      if (region.forumChannelId === null || this.quietRow(region.guildId)) continue;
+      if (this.summaryLine.has(region.guildId, (id) => id === region.id)) continue;
+      this.summaryLine.put(region.guildId, region.id);
+    }
+    if (this.summaryTimer === undefined) this.nextSummaries(false);
+  }
+
+  /**
+   * Starts the summaries of the line that may start now (`summaryRoom`, one more every
+   * `SUMMARY_GAP_MS` up to `SUMMARY_BURST`), and sets the timer of the next while some wait. A
+   * turn of that timer lets one start whatever the clock says (a clock that stands still, as a
+   * test's, would never give room back).
+   */
+  private nextSummaries(byTimer: boolean): void {
+    this.summaryTimer = undefined;
+    const now = this.now();
+    const earned = Math.max(
+      this.summaryRoomAt === undefined ? 0 : (now - this.summaryRoomAt) / SUMMARY_GAP_MS,
+      byTimer ? 1 : 0,
+    );
+    this.summaryRoom = Math.min(SUMMARY_BURST, this.summaryRoom + earned);
+    this.summaryRoomAt = now;
+    while (this.summaryRoom >= 1) {
+      const regionId = this.summaryLine.take();
+      if (regionId === undefined) return;
+      this.summaryRoom -= 1;
+      this.summaries.request(regionId);
+    }
+    if (this.summaryLine.size > 0) {
+      this.summaryTimer = this.setTimer(() => {
+        this.nextSummaries(true);
+      }, SUMMARY_GAP_MS);
     }
   }
 
@@ -3385,6 +3798,8 @@ export class PartyService {
       if (options.isStopped?.()) break;
       const undone = this.undoneClosings.get(partyId);
       if (!undone) continue;
+      // Kept for when its server is back (plan 19C-1).
+      if (this.quietRow(undone.party.guildId)) continue;
       if (undone.since < tooOld) {
         this.undoneClosings.delete(partyId);
         continue;
@@ -3438,9 +3853,13 @@ export class PartyService {
         if (options.isStopped?.()) break;
         // A closing under way, or one still owed, deletes its copies itself.
         if (this.closing.has(copy.partyId) || this.undoneClosings.has(copy.partyId)) continue;
-        const channelId =
-          copy.channelId ??
-          (copy.regionId === null ? undefined : regions.byId(copy.regionId)?.channelId);
+        const region = copy.regionId === null ? undefined : regions.byId(copy.regionId);
+        const channelId = copy.channelId ?? region?.channelId;
+        // Kept for when its server is back (plan 19C-1): by its region's server, else by the
+        // server its channel is in (a copy in another channel names no region).
+        if (region !== undefined ? this.quietRow(region.guildId) : this.quietChannel(channelId)) {
+          continue;
+        }
         try {
           // A link line whose region is gone has nowhere left to be.
           // `/status`'s copy is in the post, which may be archived by now: opened for it (the post
@@ -3484,12 +3903,16 @@ export class PartyService {
     // The forums of the regions, and the forums that party rows name and no region has: one
     // whose region was removed and that was kept (`/region remove`) is looked after as before.
     const forums = new Map<string, number | null>();
+    // A quiet server is not swept (plans 19C-1, 19C-2): its forums are left as they are.
+    const leftForums = new Set<string>();
     for (const region of regions.all()) {
-      if (region.forumChannelId !== null) forums.set(region.forumChannelId, region.id);
+      if (region.forumChannelId === null) continue;
+      if (this.quietRow(region.guildId)) leftForums.add(region.forumChannelId);
+      else forums.set(region.forumChannelId, region.id);
     }
     try {
       for (const { forumChannelId } of await store.partyForums()) {
-        forums.getOrInsert(forumChannelId, null);
+        if (!leftForums.has(forumChannelId)) forums.getOrInsert(forumChannelId, null);
       }
     } catch (err) {
       log.warn({ err }, 'could not list the forums that parties name');
@@ -3568,7 +3991,8 @@ export class PartyService {
    */
   async checkSummaries(): Promise<void> {
     for (const region of this.options.regions.all()) {
-      if (region.forumChannelId === null) continue;
+      // A quiet server: no summary drawn, none made (plans 19C-1, 19C-2).
+      if (region.forumChannelId === null || this.quietRow(region.guildId)) continue;
       try {
         await this.ensureSummary(region);
       } catch (err) {
@@ -3580,14 +4004,23 @@ export class PartyService {
   /**
    * Does everything that is waiting now, and cancels the timers of titles and tags that wait for
    * a rate limit, so what they wait for is not retried, and drops the posts that wait to be shown
-   * with other emoji (`emojiChanged`). For tests; at shutdown `close`: stop whatever calls
+   * with other emoji (`emojiChanged`) and the summaries that wait for their pace (`queueSummaries`).
+   * For tests; at shutdown `close`: stop whatever calls
    * `changed` (the scheduler) before it.
    */
   async flush(): Promise<void> {
     // Posts that wait for other emoji stay as they are.
     this.emojiTimer?.();
     this.emojiTimer = undefined;
-    this.emojiQueue = [];
+    this.emojiQueue.clear();
+    // And the summaries that wait for the pace of their line (final review R1-1).
+    this.summaryTimer?.();
+    this.summaryTimer = undefined;
+    this.summaryLine.clear();
+    // So do those that wait for the neighbors' matches to be compared (plan 19E).
+    this.gymsChangedTimer?.();
+    this.gymsChangedTimer = undefined;
+    this.gymsChangedOf.clear();
     // A raid on its way to another region arrives first.
     await this.moves.whenIdle();
     do {
@@ -3608,8 +4041,8 @@ export class PartyService {
   /** For shutdown: shows nothing anew from now on (`emojiChanged`), then `flush`. */
   async close(): Promise<void> {
     this.closed = true;
-    this.midnightTimer?.();
-    this.midnightTimer = undefined;
+    this.midnights?.cancel();
+    this.midnights = undefined;
     await this.flush();
   }
 
@@ -3743,6 +4176,10 @@ export class PartyService {
 
   /** One run of the render of a party: its post, then the copies of its message. */
   private async renderPost(partyId: string): Promise<void> {
+    // Of a quiet server (plans 19C-1, 19C-2): a draw of a server Pine left would find the post
+    // gone and end the party.
+    const party = this.options.store.get(partyId);
+    if (party !== undefined && this.quietRow(party.guildId)) return;
     const read = this.drawStarted(partyId);
     try {
       await this.showPost(partyId);
@@ -3903,7 +4340,7 @@ export class PartyService {
     const meetups = parties.filter(isMeetup).map((party) => ({ party, title: meetupTitle(party) }));
     const trains = parties.filter(isTrain).map((party) => {
       const stop = currentStop(party);
-      const at = stop === undefined ? undefined : stopLabel(this.stops(stop));
+      const at = stop === undefined ? undefined : stopLabel(this.stopsOf(party.guildId)(stop));
       return { party, title: trainTitle(party), at };
     });
     const maxBattles = parties
@@ -3914,7 +4351,7 @@ export class PartyService {
       passing: region === undefined ? [] : this.passingThrough(region),
       stops: region === undefined ? undefined : this.stopsLine(region),
       stopsBelow: where === 'board',
-      zone: this.options.settings.timezone,
+      zone: this.zoneOfRow(region?.guildId ?? null),
       trainMark: this.trainMark(),
     });
   }
@@ -3959,7 +4396,7 @@ export class PartyService {
         return {
           party,
           title: trainTitle(party),
-          at: stop === undefined ? undefined : stopLabel(this.stops(stop)),
+          at: stop === undefined ? undefined : stopLabel(this.stopsOf(party.guildId)(stop)),
           copyUrl:
             copy === undefined || snowflake === undefined
               ? undefined
@@ -4000,6 +4437,8 @@ export class PartyService {
   private async renderSummary(regionId: number): Promise<void> {
     const region = this.options.regions.byId(regionId);
     if (!region?.forumChannelId || !region.summaryMessageId) return;
+    // Of a quiet server (plans 19C-1, 19C-2).
+    if (this.quietRow(region.guildId)) return;
     const failed = region.summaryMessageId;
     const { gateway, log } = this.options;
     const check = this.boardChecks.delete(regionId);
@@ -4538,14 +4977,14 @@ export class PartyService {
       tagsAdded = Object.keys(tags).length - (Object.keys(had).length - tagsRemoved);
       tagsMissing = FORUM_TAGS.filter((tag) => tags[tag] === undefined);
     }
+    let alsoNamed: readonly string[] = [];
     if (!tags) {
+      const name = this.forumName(
+        before.channelId,
+        gateway.channelName(before.channelId) ?? 'region',
+      );
       const made = await gateway
-        .createForum(
-          before.channelId,
-          this.forumName(gateway.channelName(before.channelId) ?? 'region'),
-          FORUM_TAGS,
-          hidden,
-        )
+        .createForum(before.channelId, name, FORUM_TAGS, hidden)
         .catch((err: unknown) => {
           throw hidden && isMissingPermission(err) ? new HiddenForumRefused(err) : err;
         });
@@ -4572,7 +5011,9 @@ export class PartyService {
       }
       await regions.load();
       forum = 'created';
+      alsoNamed = this.forumsAlsoNamed(before.channelId, name, made.forumId);
     }
+    const others = alsoNamed.length > 0 ? { alsoNamed } : {};
     const region = regions.byId(before.id) ?? before;
     let hiding: ForumSetup['hidden'];
     let refused: readonly string[] | undefined;
@@ -4608,11 +5049,30 @@ export class PartyService {
           ...(tagsMissing.length > 0 ? { tagsMissing } : {}),
           summary: false,
           hidden: 'not-allowed',
+          ...others,
         };
       }
     }
     const renamed = forum === 'ready' && (await this.renameForum(region));
     const posting = await this.reservePosts(region);
+    // A quiet server (plan 19C-2: one in setup) has nothing posted: its board is made once it is
+    // set up (`serverSetUpWork`'s summaries).
+    if (this.quietRow(region.guildId)) {
+      return {
+        region: regions.byId(before.id) ?? region,
+        forum,
+        tagsAdded,
+        ...(tagsRemoved > 0 ? { tagsRemoved } : {}),
+        ...(tagsMissing.length > 0 ? { tagsMissing } : {}),
+        summary: false,
+        boardWaits: true,
+        ...others,
+        ...(renamed ? { renamed } : {}),
+        ...(posting === undefined ? {} : { posting }),
+        ...(hiding === undefined ? {} : { hidden: hiding }),
+        ...(refused === undefined ? {} : { refused }),
+      };
+    }
     const { made: summary, unpinned, closed } = await this.summaryMade(region);
     const after = regions.byId(before.id) ?? region;
     return {
@@ -4622,6 +5082,7 @@ export class PartyService {
       ...(tagsRemoved > 0 ? { tagsRemoved } : {}),
       ...(tagsMissing.length > 0 ? { tagsMissing } : {}),
       summary,
+      ...others,
       ...(unpinned === undefined ? {} : { unpinned }),
       ...(closed === undefined ? {} : { closed }),
       // Whether members' messages in the board can be deleted (plan 8R-9F).
@@ -4635,9 +5096,35 @@ export class PartyService {
     };
   }
 
-  /** The name of the forum of a region whose channel has this name (`settings.regionForumSuffix`). */
-  private forumName(regionName: string): string {
-    const suffix = this.options.settings.regionForumSuffix;
+  /**
+   * The forums of its server named `name` but the one just made (`madeId`) that no region has
+   * (staging F3 of phase 19), from the cache.
+   */
+  private forumsAlsoNamed(channelId: string, name: string, madeId: string): string[] {
+    const { gateway, regions } = this.options;
+    const server = gateway.serverOf(channelId);
+    if (server === undefined) return [];
+    return (gateway.serverChannels(server) ?? [])
+      .filter(
+        (channel) =>
+          channel.kind === 'forum' &&
+          channel.name === name &&
+          channel.id !== madeId &&
+          regions.byForum(channel.id) === undefined,
+      )
+      .map((channel) => channel.id);
+  }
+
+  /**
+   * The name of the forum of a region whose channel has this name (its server's
+   * `regionForumSuffix`, plan 19A-1).
+   */
+  private forumName(channelId: string, regionName: string): string {
+    const server = this.options.gateway.serverOf(channelId);
+    const suffix =
+      server === undefined
+        ? DEFAULT_REGION_FORUM_SUFFIX
+        : this.options.servers.of(server).regionForumSuffix;
     // Discord allows 100 characters in a name.
     return `${[...regionName].slice(0, 100 - [...suffix].length).join('')}${suffix}`;
   }
@@ -4653,7 +5140,7 @@ export class PartyService {
     const regionName = gateway.channelName(region.channelId);
     const current = forumId === null ? undefined : gateway.channelName(forumId);
     if (forumId === null || regionName === undefined || current === undefined) return false;
-    const wanted = this.forumName(regionName);
+    const wanted = this.forumName(region.channelId, regionName);
     const ending = current.startsWith(regionName) ? current.slice(regionName.length) : '';
     if (current === wanted || !/^-[\p{L}\p{N}]+$/u.test(ending)) return false;
     try {

@@ -11,9 +11,12 @@ import { regionsFixture } from './providers.js';
  * `west` and `east` and known to the server, as region 3's is, which has no name, so it is
  * "Region 3") says who a forum keeps
  * out (`barred`), and the invented regions are those of the fakes' server, row 1. Pass `tallies`
- * as `regionTallies` to `createTestContext`.
+ * as `regionTallies` to `createTestContext`. `zone`: every server's, or each server's by a
+ * function (plan 19A-2).
  */
-export function regionTalliesWith(zone = 'America/New_York') {
+export function regionTalliesWith(
+  zone: string | ((serverId: string) => string) = 'America/New_York',
+) {
   const activity = new MemoryActivity();
   const gateway = new FakePartyGateway();
   gateway.addForum(WEST_FORUM);
@@ -32,7 +35,7 @@ export function regionTalliesWith(zone = 'America/New_York') {
     regions: regionsFixture(),
     guilds: { idFor: (snowflake) => Promise.resolve(snowflake === FAKE_GUILD_ID ? 1 : undefined) },
     gateway,
-    zone,
+    zoneOf: typeof zone === 'string' ? () => zone : zone,
   });
   return { tallies, activity, gateway };
 }

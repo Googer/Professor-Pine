@@ -52,6 +52,7 @@ import { postGuard } from './csrf.js';
 import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import { raidOptions } from '../commands/raids/raid-options.js';
 import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
@@ -67,7 +68,9 @@ export const RAID_WRITES_PER_ADDRESS_MINUTE = 30;
  * `/hatch`, `/end`, `/boss` and `/moveset` use (the readers' sources, the members' settings, the
  * party and raid services, the gyms and regions), so that the map shares their code paths.
  */
-export type RaidWebContext = RaidChanging & RaidReporting & Pick<AppContext, 'gyms' | 'regions'>;
+export type RaidWebContext = RaidChanging &
+  RaidReporting &
+  Pick<AppContext, 'gyms' | 'regions' | 'servers'>;
 
 /** What the raids of the live map need beyond the parties' own (`PartyWebDeps`). */
 export interface RaidWebDeps {
@@ -167,8 +170,9 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
   const { sessions, raids, parties } = deps;
   const { ctx } = raids;
 
-  /** The words of a command as text of the page, in the posts' zone. */
-  const words = (text: string): string => pageWords(text, parties.zone, deps.now());
+  /** The words of a command as text of the page, in the zone of the request's server. */
+  const words = (text: string, request: FastifyRequest): string =>
+    pageWords(text, requestZone(request), deps.now());
 
   /** A region as an answer names it: its channel's name, or its number where the bot sees none. */
   const regionName = (region: Pick<Region, 'id' | 'channelId'>): string =>
@@ -210,6 +214,8 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
     party: RaidParty,
     userId: string,
     staff: boolean,
+    /** The request whose server's zone the view is in (`requestZone`). */
+    request: FastifyRequest,
   ): MapRaid | undefined => {
     const shown = mapParty(party, {
       guildId,
@@ -218,7 +224,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       memberId: userId,
       barred: new Set(),
       now: deps.now(),
-      zone: parties.zone,
+      zone: requestZone(request),
       readOnly: false,
       staff,
       look: (raid) => parties.look(raid),
@@ -264,7 +270,8 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if (!session) return sendFailure(request, reply, 401);
       const refused = await memberOrFailure(request, reply, request.params.guild, session.userId);
       if (refused) return refused;
-      const body = JSON.stringify(raidOptions(ctx.raidBosses.bosses(), parties.zone));
+      const zone = requestZone(request);
+      const body = JSON.stringify(raidOptions(ctx.raidBosses.bosses(zone), zone));
       const etag = etagOf(body);
       void reply.header('etag', etag);
       if (etagMatches(request.headers['if-none-match'], etag)) return reply.code(304).send();
@@ -305,7 +312,8 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       return sent;
     };
     const row = await parties.guilds.idFor(guild);
-    const gym = ctx.gyms.get(body.data.gym);
+    // A gym of the server only (plan 19B-2): another server's is no gym here (404).
+    const gym = ctx.gyms.of(row).get(body.data.gym);
     const lying =
       gym === undefined || row === undefined
         ? []
@@ -325,7 +333,8 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       return noted('several-regions', reply.code(422).send(ask));
     }
     const regionChannelId = picked.channelId;
-    const forum = ctx.partyService.regionFor(gym, regionChannelId).region?.forumChannelId ?? null;
+    const forum =
+      ctx.partyService.regionFor(gym, row, regionChannelId).region?.forumChannelId ?? null;
     // The forum the raid would go to, and that of a raid already at the gym, which the report
     // would join and which may stand in another forum of the server: `/raid`'s own check.
     try {
@@ -347,11 +356,11 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
     let reported: ReportedBoss;
     let time: ReturnType<typeof reportedTime>;
     try {
-      reported = reportedBoss(ctx, body.data.boss);
-      time = reportedTime(ctx, reported, body.data.time ?? null, deps.now());
+      reported = reportedBoss(ctx, guild, body.data.boss, requestZone(request));
+      time = reportedTime(ctx, reported, body.data.time ?? null, deps.now(), requestZone(request));
     } catch (err) {
       if (!(err instanceof UserError)) throw err;
-      const refused: RaidAnswer = { ok: false, text: words(err.message) };
+      const refused: RaidAnswer = { ok: false, text: words(err.message, request) };
       return noted('refused', reply.code(422).send(refused));
     }
     // A raid reported at the gym since the check above, in a forum it did not see, is asked
@@ -363,6 +372,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
         reported,
         time,
         regionChannelId,
+        guildRow: row,
         mayJoin: joining.mayJoin,
       });
     } catch (err) {
@@ -393,7 +403,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
         }
       }
       const staff = isMapStaff(acting.standing, userId, parties.ownerId);
-      if (shown) raid = viewOf(guild, row, outcome.party, userId, staff);
+      if (shown) raid = viewOf(guild, row, outcome.party, userId, staff, request);
     }
     // The region picked has no forum: the raid went to another region of the gym, said by name.
     const postedIn =
@@ -405,7 +415,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
     const answer: RaidAnswer = {
       ok: outcome.kind === 'created',
       text:
-        words(reportWords(result, gym, reported.label, names)) +
+        words(reportWords(result, gym, reported.label, names), request) +
         (postedIn ? ` It was posted in ${regionInWords(postedIn)}.` : ''),
       ...(raid ? { raid } : {}),
     };
@@ -515,7 +525,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
           );
         }
         if (!(err instanceof UserError)) throw err;
-        const refused: RaidAnswer = { ok: false, text: words(err.message) };
+        const refused: RaidAnswer = { ok: false, text: words(err.message, request) };
         return reply.code(422).send(refused);
       }
       deps.log.info(
@@ -524,10 +534,10 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       );
       await shownAfter(parties.drawn, party.id, answer.kind === 'ok');
       const raid =
-        answer.kind === 'ok' ? viewOf(guild, row, answer.party, userId, staff) : undefined;
+        answer.kind === 'ok' ? viewOf(guild, row, answer.party, userId, staff, request) : undefined;
       const sent: RaidAnswer = {
         ok: answer.kind === 'ok',
-        text: words(answer.text),
+        text: words(answer.text, request),
         ...(raid ? { raid } : {}),
       };
       return reply.code(CHANGE_STATUS[answer.kind]).send(sent);

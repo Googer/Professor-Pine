@@ -2,15 +2,28 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryActivity } from '../../test/support/activity.js';
 import { boardAttendee, boardRecord } from '../../test/support/board-cases.js';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL } from '../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  OTHER_GUILD_ROW,
+  WEST_CHANNEL,
+} from '../../test/support/gyms.js';
 import { MemoryHistory } from '../../test/support/history.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
-import { gymsFixture, regionsFixture } from '../../test/support/providers.js';
+import {
+  gymsFixture,
+  regionsFixture,
+  THEIR_GYM,
+  twoServerGyms,
+  type TestGyms,
+} from '../../test/support/providers.js';
 import { zonedAt } from '../../test/support/time.js';
 import { trainRecord } from '../../test/support/train-history-cases.js';
-import { noWayspots } from '../../test/support/wayspots.js';
+import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
+import { noWayspots, wayspotsWith } from '../../test/support/wayspots.js';
+import type { WayspotDirectory } from '../services/wayspot-directory.js';
 import {
   activityWebWith,
   partyWebWith,
@@ -76,7 +89,11 @@ const legacyTrain = (start: number, gyms: (number | null)[]): HistoryRecord =>
  * The fakes' server with its history in memory, Alice and Bob members, West and East named by
  * their channels. `records` go in in order: a record's id is its place, from 1.
  */
-async function setup(records: readonly HistoryRecord[]) {
+async function setup(
+  records: readonly HistoryRecord[],
+  gyms: TestGyms = gymsFixture(),
+  wayspots: WayspotDirectory = noWayspots(),
+) {
   const made = await partyServiceWith();
   const history = new MemoryHistory();
   history.records.push(...records);
@@ -90,10 +107,9 @@ async function setup(records: readonly HistoryRecord[]) {
     parties: partyWebWith(made),
     activity: activityWebWith({
       reader: new MemoryActivity(),
-      gyms: gymsFixture(),
+      gyms,
       regions: regionsFixture(),
-      wayspots: noWayspots(),
-      zone: ZONE,
+      wayspots,
       channelName: (channelId) => names.get(channelId),
       trains: history,
     }),
@@ -381,6 +397,70 @@ describe('the ended trains on the map’s History (plan 8H-7B)', () => {
       expect(answer.body).toBe(refused.body);
     }
     expect((await made.train(1, BOB)).statusCode).toBe(200);
+  });
+
+  it('places a train by the server’s own gyms: another server’s gym in a region of both is none (plan 19B-2)', async () => {
+    // Gym 2 lies in West but is the other server's alone; gym 1 is this server's.
+    const made = await setup(
+      [
+        { ...legacyTrain(SUNDAY, [THEIR_GYM]), regionId: null },
+        { ...legacyTrain(SUNDAY + MINUTE, [1]), regionId: null },
+      ],
+      twoServerGyms().gyms,
+    );
+    web = made.web;
+    const listed = (await made.month('2026-06')).json<TrainMonthView>();
+    expect(listed.trains.map((one) => one.id)).toEqual([2]);
+    expect((await made.train(1)).statusCode).toBe(404);
+    expect((await made.train(2)).statusCode).toBe(200);
+  });
+
+  it('places a train’s Power Spots by the server’s own copies, never one only another server keeps (plan 19B-3)', async () => {
+    const start = SUNDAY;
+    const spotStop = (id: string, from: number): HistoryStop => ({
+      gymId: null,
+      legacyGymId: null,
+      wayspotId: id,
+      arrivedAt: start + from * MINUTE,
+      leftAt: start + (from + 20) * MINUTE,
+      regionIds: [1],
+    });
+    const { wayspots } = await wayspotsWith(
+      [keptRow(5, { title: 'Library Garden', kind: 'powerspot', lat: 40.0502, lon: -80.0502 })],
+      undefined,
+      undefined,
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            keptRow(5, { title: 'Their Garden', kind: 'powerspot', lat: 40.07, lon: -80.07 }),
+            keptRow(9, { title: 'Their Spot', kind: 'powerspot', lat: 40.065, lon: -80.065 }),
+          ],
+        },
+      ],
+    );
+    const made = await setup(
+      [
+        westTrain(start, {
+          stops: [
+            at(1, [1], start, 0),
+            spotStop(wayspotId(5), 20),
+            spotStop(wayspotId(9), 40),
+            at(2, [1], start, 60),
+          ],
+        }),
+      ],
+      gymsFixture(),
+      wayspots,
+    );
+    web = made.web;
+    const view = (await made.train(1)).json<TrainRouteView>();
+    // Its own Library Garden where it keeps it (positive control); the other server's spot passed
+    // over, as a place gone.
+    expect(view.points).toContainEqual({ lat: 40.0502, lon: -80.0502 });
+    expect(view.points).not.toContainEqual({ lat: 40.07, lon: -80.07 });
+    expect(view.points).not.toContainEqual({ lat: 40.065, lon: -80.065 });
+    expect(view.route).toHaveLength(3);
   });
 
   it('refuses the route of a train with any stop in a barred region (A5)', async () => {

@@ -19,6 +19,7 @@ import { InteractionRouter } from '../../discord/router.js';
 import { PineStopService } from '../../services/pine-stops.js';
 import { PlaceFinder } from '../../services/place-finder.js';
 import { NO_SUCH_STOP, pokestop, pokestopControls, STOP_NOT_HERE } from './pokestop.js';
+import { changeServers } from '../../../test/support/server-values.js';
 
 const MODERATOR = '200000000000000009';
 
@@ -98,9 +99,7 @@ describe('/pokestop', () => {
 
   it('names the PokéStop nearby in the settings’ units, feet where they are imperial (round 2)', async () => {
     const { use, ctx } = await setup();
-    Object.assign(ctx, {
-      config: { ...ctx.config, settings: { ...ctx.config.settings, distanceUnits: 'imperial' } },
-    });
+    changeServers(ctx, { distanceUnits: 'imperial' });
     const question = answerOf(await use('add', { name: 'Mural Café', at: '40.0601, -80.0601' }));
     expect(said(question)).toContain('A PokéStop lies within 98 ft of that place:');
     expect(said(question)).toContain('**Yellow Mural**, 46 ft away');

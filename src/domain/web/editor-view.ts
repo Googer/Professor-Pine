@@ -6,10 +6,10 @@ import type { EditorData, EditorWayspotKind, Point } from './editor-data.js';
 
 /**
  * What the region editor loads (`GET /s/<guild>/api/regions/edit`, plan 8M-2), but for who is
- * asking: the server's regions with their versions, other servers' regions near them, the gyms
+ * asking: the server's regions with their versions, other servers' regions near them, its gyms
  * and Wayspots around them, and the text channels a new region may take. Pure: the caller gives
- * every region, the server's channels as the bot sees them, every gym with where it lies, and
- * the kept Wayspots.
+ * every region, the server's channels as the bot sees them, the server's gyms with where they
+ * lie, and the kept Wayspots.
  */
 
 /** How far around the server's regions the editor shows what lies outside them. */
@@ -28,12 +28,18 @@ export interface EditorInput {
   }[];
   /** The server's channels; undefined when the bot does not know the server. */
   channels: readonly ServerChannel[] | undefined;
-  /** Every gym. */
+  /** The server's gyms (plan 19B-2: its view, `GymDirectory.of`); another server's are none. */
   gyms: readonly { id: number; name: string; lat: number; lon: number }[];
-  /** The channels of the regions (of any server) a gym lies in. */
+  /** The channels of the server's regions a gym lies in (its view's `regionsOf`). */
   regionsOf(gymId: number): readonly string[];
   /** Every kept Wayspot. */
   wayspots: readonly { kind: EditorWayspotKind; lat: number; lon: number; title: string }[];
+  /**
+   * Whether another server's regions are shown, by its row (plan 19C-4): only those of a server
+   * the web serves and lists (`webServers`' `listed`: not one Pine left, nor one being deleted,
+   * nor one in setup). A region of no server is never shown.
+   */
+  othersShown(guildRow: number): boolean;
 }
 
 /** What the editor loads but for who is asking. */
@@ -65,8 +71,9 @@ const meet = (a: Box, b: Box): boolean =>
  * them (`Region <id>` when the channel is gone), with the category their channel is in and
  * their version. Around them, the box of their outlines grown by `REACH_METRES` (nothing around
  * a server without outlines): other servers' regions whose boxes meet it, by their outlines
- * alone; the gyms in no region of any server and the kept Wayspots inside it. The gyms in its
- * regions wherever they are. The text channels of the server that are no region of any server.
+ * alone (no name, no channel, no server), of the servers shown (`othersShown`); the server's gyms in none of its regions and the kept Wayspots inside it. The gyms in
+ * its regions wherever they are. The text channels of the server that are no region of any
+ * server.
  * Places at six decimals.
  */
 export function editorView(input: EditorInput): EditorView {
@@ -97,7 +104,9 @@ export function editorView(input: EditorInput): EditorView {
         .filter(
           (region): region is typeof region & { bounds: readonly LatLon[] } =>
             !ownChannels.has(region.channelId) &&
-            (guildRow === undefined || region.guildId !== guildRow) &&
+            region.guildId !== null &&
+            region.guildId !== guildRow &&
+            input.othersShown(region.guildId) &&
             region.bounds !== null &&
             meet(reach, boxOf(region.bounds)),
         )

@@ -28,7 +28,13 @@ import { showGymDots, type GymDots } from './gyms-ui.js';
 import { LayerRegistry, MAP_LAYERS, regionLabelsShown } from './layer-registry.js';
 import { showLayerControls } from './layers-ui.js';
 import { loggedOutPane } from './list-ui.js';
-import { historyOffered, loginNotice, loginNoticeFor, type Me } from './notice.js';
+import {
+  historyOffered,
+  loginNotice,
+  loginNoticeFor,
+  startsLiveLayers,
+  type Me,
+} from './notice.js';
 import { MapActivity } from './parties.js';
 import { showParties } from './party-layer.js';
 import { quietLine, showPlaces, type PlacesHooks } from './places-ui.js';
@@ -713,6 +719,20 @@ function start(): void {
       // may report raids at gyms (plan 8M-4) and spawns at any point (plan 8M-4S), not while
       // the map is read-only: by `/api/me` at first, then by the list of parties at each draw.
       const me = await account;
+      // A server in setup (plan 19C-2, S11): the regions and gyms for its region editor, no live
+      // layer (parties, their stream, stops, Power Spots, activity), no tour.
+      if (!startsLiveLayers(me)) {
+        controls.refresh(false);
+        const pane = byId('parties');
+        const section = document.createElement('section');
+        section.className = 'what-is-on';
+        loggedOutPane(section, 'in-setup');
+        pane.replaceChildren(section);
+        pane.hidden = false;
+        map.invalidateSize();
+        firstListDrawn();
+        return;
+      }
       const member = me.loggedIn && (me.member || me.readOnly);
       controls.refresh(member);
       // A Power Spot tapped is a stop in route mode (plan 8M-8C, R5), once the parties are drawn.

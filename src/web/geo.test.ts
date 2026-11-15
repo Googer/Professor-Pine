@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
+  WEST_FORUM,
+} from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ROLE, selfRolesWith } from '../../test/support/roles.js';
 import { GeoCache, PUBLIC_REGIONS_KEPT_MS } from './geo-cache.js';
 import { geoSourcesWith, webServerWith, type TestWeb } from '../../test/support/web.js';
+import { TEST_MAP_ROLE, withMapRole } from '../../test/support/server-values.js';
 
 const GEO = `/s/${FAKE_GUILD_ID}/api/geo`;
 
@@ -124,8 +131,8 @@ describe('the regions a visitor may not see (plan 8Z-2, ruling 8)', () => {
     const members = new FakeMemberDirectory()
       .add(ASH, 'Ash')
       .add(BROCK, 'Brock')
-      .standing(BROCK, { roleNames: ['Verified'], administrator: false });
-    web = webServerWith({ geo: sources, members, web: { memberRole: 'Verified' } });
+      .standing(BROCK, { roleNames: ['Verified'], roleIds: [TEST_MAP_ROLE], administrator: false });
+    web = webServerWith({ geo: sources, members, serverSettings: withMapRole() });
     const names = async (userId: string) => {
       const cookie = (await web?.loggedIn(userId, 'A member')) ?? '';
       const answer = await web?.app.inject({ url: GEO, headers: { cookie } });
@@ -279,6 +286,25 @@ describe('the regions a member can open for themselves (F-B10, Matt 2026-11-10)'
     expect(await names()).toEqual([]);
   });
 
+  it("follows the server's self-assigned roles turned off and on at the next build (review F8)", async () => {
+    const { names, roles, sources } = await gated();
+    // As the app gives them: the roster only where the server's members give themselves roles.
+    let on = true;
+    sources.sources.roles = {
+      roster: (guildId, remember) =>
+        on ? roles.selfRoles.roster(guildId, remember) : Promise.resolve(undefined),
+      get generation() {
+        return roles.selfRoles.generation;
+      },
+      usedIn: () => on,
+    };
+    expect(await names()).toEqual(['east']);
+    on = false;
+    expect(await names()).toEqual([]);
+    on = true;
+    expect(await names()).toEqual(['east']);
+  });
+
   it('shows only what everybody views while the roster cannot be read', async () => {
     const { names, roles, sources, made } = await gated();
     roles.storage.failing = new Error('the database is away');
@@ -334,6 +360,18 @@ describe('the regions and gyms of a server', () => {
     expect(view.gyms).toHaveLength(11);
   });
 
+  it("show the server's own gyms only, though another server's lies in its regions (plan 19B-2)", async () => {
+    const sources = await geoSourcesWith();
+    web = webServerWith({ geo: sources });
+    // The Library, in West, becomes the second server's alone.
+    sources.gyms.unlink(1, TEST_GUILD_ROW);
+    sources.gyms.link(1, OTHER_GUILD_ROW);
+    await sources.directory.refreshGym(1);
+    const view = (await web.app.inject({ url: GEO })).json<View>();
+    expect(view.gyms).toHaveLength(10);
+    expect(view.gyms.map((gym) => gym.id)).not.toContain(1);
+  });
+
   it('answer an unchanged view with 304, and nothing else', async () => {
     const sources = await geoSourcesWith();
     web = webServerWith({ geo: sources });
@@ -380,7 +418,11 @@ describe('the regions and gyms of a server', () => {
     const sources = await geoSourcesWith();
     web = webServerWith({
       geo: sources,
-      servers: { has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999' },
+      servers: {
+        has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999',
+        inSetup: () => false,
+        openToVisitors: () => true,
+      },
     });
     const answer = await web.app.inject({ url: '/s/412345678901234999/api/geo' });
     expect(answer.json()).toEqual({ regions: [], gyms: [] });

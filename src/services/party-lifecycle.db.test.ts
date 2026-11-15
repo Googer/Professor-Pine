@@ -2,7 +2,13 @@ import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startMigratedDatabase } from '../../test/support/migrated-db.js';
 import { ALICE, asRaid, at, BOB, MINUTE, REPORTER } from '../../test/support/parties.js';
-import { EAST_FORUM, REMOTE_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  EAST_FORUM,
+  REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../test/support/gyms.js';
 import {
   gatewayWithMirrorChannels,
   partyServiceWith,
@@ -64,10 +70,11 @@ describe('a raid from report to archive, in MySQL, over a restart', () => {
         gateway: gatewayWithMirrorChannels(),
       },
     );
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym');
     const outcome = await first.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       reporter: { name: 'Rhea', team: 'valor' },
       anonymous: false,
@@ -176,11 +183,12 @@ describe('a raid from report to archive, in MySQL, over a restart', () => {
     );
     first.gateway.shutOut(WEST_FORUM, ALICE);
     first.gateway.shutOut(EAST_FORUM, ALICE, BOB);
-    const gym = gymsFixture().get(1);
-    const cafe = gymsFixture().get(8);
+    const gym = gymsFixture().stored(1);
+    const cafe = gymsFixture().stored(8);
     if (!gym || !cafe) throw new Error('no gym');
     const outcome = await first.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

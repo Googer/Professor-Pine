@@ -1,8 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
 import { watchEachTest, watchImmediates } from '../../test/support/timers.js';
 import { heldCall } from '../../test/support/held-call.js';
-import { REMOTE_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
-import { ALICE, asRaid, at, BOB, CAROL, MINUTE, testRaid } from '../../test/support/parties.js';
+import {
+  REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../test/support/gyms.js';
+import {
+  ALICE,
+  asRaid,
+  at,
+  BOB,
+  CAROL,
+  MINUTE,
+  PARTY_ZONE,
+  testRaid,
+} from '../../test/support/parties.js';
 import {
   gatewayWithMirrorChannels,
   partyServiceWith,
@@ -151,7 +165,7 @@ describe('PartyScheduler: hatch and end', () => {
     expect(warning).not.toBeNull();
     const later = END + 20 * MINUTE;
     await made.store.update(id, (party) => ({
-      party: setEndTime(asRaid(party), later, made.service.rules(), made.clock.now),
+      party: setEndTime(asRaid(party), later, made.service.rulesIn(PARTY_ZONE), made.clock.now),
     }));
     expect(made.current().deletionTime).toBeNull();
     await tickAt(made, END + 7 * MINUTE);
@@ -172,7 +186,12 @@ describe('PartyScheduler: hatch and end', () => {
     // The tick is queued, and right behind it a correction of the end time.
     const ticking = made.scheduler.tick();
     const corrected = made.store.update(id, (party) => ({
-      party: setEndTime(asRaid(party), END + 40 * MINUTE, made.service.rules(), made.clock.now),
+      party: setEndTime(
+        asRaid(party),
+        END + 40 * MINUTE,
+        made.service.rulesIn(PARTY_ZONE),
+        made.clock.now,
+      ),
     }));
     await Promise.all([ticking, corrected]);
     await made.attendance.flush();
@@ -216,10 +235,11 @@ describe('PartyScheduler: hatch and end', () => {
 
   it('goes on with the other parties when one cannot be stored or shown', async () => {
     const made = await reportedRaid({ time: { hatch: HATCH } });
-    const gym = gymsFixture().get(2);
+    const gym = gymsFixture().stored(2);
     if (!gym) throw new Error('no gym');
     const second = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: ALICE,
       anonymous: false,
       autoStatus: PartyStatus.Interested,
@@ -331,7 +351,7 @@ describe('PartyScheduler: the warning in a busy post', () => {
     await chatter(made, WARN_AGAIN_AFTER - 1);
     const later = END + 30 * MINUTE;
     await made.store.update(id, (party) => ({
-      party: setEndTime(asRaid(party), later, made.service.rules(), made.clock.now),
+      party: setEndTime(asRaid(party), later, made.service.rulesIn(PARTY_ZONE), made.clock.now),
     }));
     // A message while the raid runs on forgets the count.
     await chatter(made, 1);
@@ -702,6 +722,40 @@ describe('PartyScheduler: running', () => {
     expect(pruned).toBe(1);
   });
 
+  // Plan 19A-1: the staff's log of a server's settings keeps 30 days, as the parties' log.
+  it("has the staff's log of server settings swept with the upkeep, after the parties' log", async () => {
+    const made = await reportedRaid();
+    const swept: string[] = [];
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      audit: {
+        sweep: () => {
+          swept.push('parties');
+          return Promise.reject(new Error('the database is away'));
+        },
+      },
+      settingsAudit: {
+        sweep: () => {
+          swept.push('settings');
+          return Promise.resolve(0);
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    expect(swept).toEqual(['parties', 'settings']);
+  });
+
   // Plan 8Z-2: the pictures of places beside a post's Where, which nothing bounded.
   it('has the pictures of places nobody asked for deleted with the upkeep, also when the maps’ fail', async () => {
     const made = await reportedRaid();
@@ -729,6 +783,101 @@ describe('PartyScheduler: running', () => {
     await scheduler.tick();
     await scheduler.whenIdle();
     expect(pruned).toBe(1);
+  });
+
+  // Plan 19B-3: Google's answers no gym or Wayspot uses (the sweep itself runs once a day).
+  it('has the answers of Google no place uses swept with the upkeep', async () => {
+    const made = await reportedRaid();
+    let swept = 0;
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      googleAnswers: {
+        sweep: () => {
+          swept += 1;
+          return Promise.resolve(0);
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    expect(swept).toBe(1);
+  });
+
+  // Plan 19C-3: the servers left more than 30 days ago are deleted (the sweep runs once a day).
+  it('has the servers Pine left 30 days ago deleted last in the upkeep, told of the clock’s stop', async () => {
+    const made = await reportedRaid();
+    const order: string[] = [];
+    let stopped: (() => boolean) | undefined;
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      eventForum: {
+        upkeep: () => {
+          order.push('events forum');
+          return Promise.resolve();
+        },
+      },
+      deletions: {
+        sweep: (options) => {
+          order.push('deletions');
+          stopped = options.isStopped;
+          return Promise.resolve([]);
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    expect(order).toEqual(['events forum', 'deletions']);
+    expect(stopped?.()).toBe(false);
+    await scheduler.stop();
+    expect(stopped?.()).toBe(true);
+  });
+
+  // Plan 19E, review R8: the neighbors' requests and declines no longer kept go with the upkeep.
+  it('has the neighbors’ rows no longer kept swept with the upkeep', async () => {
+    const made = await reportedRaid();
+    let swept = 0;
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      neighbors: {
+        sweep: () => {
+          swept += 1;
+          return Promise.resolve(0);
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    expect(swept).toBe(1);
   });
 
   // Plan 8V-1: the events forum is drawn hourly (a post still open three days after its end).
@@ -1215,10 +1364,11 @@ describe('PartyScheduler: running', () => {
 
 /** A second raid that has ended and whose post a late message opened again; gives the post. */
 async function endedButOpen(made: Made): Promise<string> {
-  const gym = gymsFixture().get(3);
+  const gym = gymsFixture().stored(3);
   if (!gym) throw new Error('no gym');
   const outcome = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: BOB,
     anonymous: false,
     autoStatus: PartyStatus.Interested,

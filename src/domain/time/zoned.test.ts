@@ -8,7 +8,9 @@ import {
   isoDate,
   localTime,
   minuteStamp,
+  momentIn,
   monthStart,
+  readFeedTime,
   sameDay,
   shortDateWords,
   shortDayWords,
@@ -16,7 +18,10 @@ import {
   sameWeek,
   startOfHour,
   startOfMonth,
+  sameZone,
+  zoneAbbreviation,
   zoned,
+  zoneNamed,
 } from './zoned.js';
 
 const ZONE = 'America/New_York';
@@ -31,6 +36,64 @@ describe('zoned', () => {
     expect(time.millisecond).toBe(250);
     expect(time.epochMilliseconds).toBe(moment);
     expect(zoned(moment, 'UTC').hour).toBe(19);
+  });
+});
+
+describe('zoneNamed', () => {
+  it('gives the zone a name names, as the zone database writes it, and nothing for one it does not know', () => {
+    expect(zoneNamed('Europe/Berlin')).toBe('Europe/Berlin');
+    expect(zoneNamed(' america/new_york ')).toBe('America/New_York');
+    expect(zoneNamed('America/Argentina/Buenos_Aires')).toBe('America/Argentina/Buenos_Aires');
+    expect(zoneNamed('UTC')).toBe('UTC');
+    expect(zoneNamed('utc')).toBe('UTC');
+    expect(zoneNamed('Mars/Olympus_Mons')).toBeUndefined();
+    expect(zoneNamed('')).toBeUndefined();
+    // An offset is a zone to Temporal, but never one with daylight saving time: no name.
+    expect(zoneNamed('+05:30')).toBeUndefined();
+    expect(zoneNamed('-04:00')).toBeUndefined();
+  });
+
+  it('keeps the name as the zone database writes it, never an older name of the same zone (fix round 1, K3)', () => {
+    expect(zoneNamed('Asia/Kolkata')).toBe('Asia/Kolkata');
+    expect(zoneNamed('asia/kolkata')).toBe('Asia/Kolkata');
+    expect(zoneNamed('Europe/Kyiv')).toBe('Europe/Kyiv');
+    // A link is a name of its own, kept as typed (case aside): it names the same zone.
+    expect(zoneNamed('us/eastern')).toBe('US/Eastern');
+  });
+
+  it('refuses an abbreviation, a fixed offset named, and a POSIX rule: no place (fix round 1, K2)', () => {
+    for (const name of ['EST', 'CST', 'PST', 'MST', 'HST', 'GMT', 'EST5EDT', 'PST8PDT']) {
+      expect(zoneNamed(name), name).toBeUndefined();
+      expect(zoneAbbreviation(name), name).toBe(true);
+    }
+    for (const name of ['Etc/GMT+5', 'Etc/GMT-14', 'etc/gmt', 'Etc/GMT0', 'est']) {
+      expect(zoneNamed(name), name).toBeUndefined();
+    }
+    // A word too long for one, a word of a place or in lower case (fix round 2, P3: only
+    // capitals are an abbreviation), and real names, are no abbreviation.
+    for (const name of [
+      'Pittsburgh',
+      'Paris',
+      'Japan',
+      'Tokyo',
+      'est',
+      'America/Chicago',
+      'UTC',
+      'Etc/GMT+5',
+      '+05:30',
+    ]) {
+      expect(zoneAbbreviation(name), name).toBe(false);
+    }
+  });
+});
+
+describe('sameZone', () => {
+  it('takes two names of one zone for the same zone: a link, an older name, a case (fix round 1, K3)', () => {
+    expect(sameZone('Asia/Kolkata', 'Asia/Calcutta')).toBe(true);
+    expect(sameZone('US/Eastern', 'America/New_York')).toBe(true);
+    expect(sameZone('Europe/Kyiv', 'Europe/Kiev')).toBe(true);
+    expect(sameZone('America/New_York', 'America/Chicago')).toBe(false);
+    expect(sameZone('Europe/Berlin', 'Europe/Berlin')).toBe(true);
   });
 });
 
@@ -245,6 +308,47 @@ describe('feedTime', () => {
     ]) {
       expect(feedTime(text, ZONE), text).toBeUndefined();
     }
+  });
+});
+
+describe('readFeedTime and momentIn (plan 19A-2: a feed time kept as the feed gave it)', () => {
+  it('keeps a time without an offset as wall-clock time, a moment only in a zone', () => {
+    const time = readFeedTime('2026-10-28T18:00:00.000');
+    expect(time).toEqual({ local: '2026-10-28T18:00:00' });
+    if (!time) throw new Error('unread');
+    expect(momentIn(time, ZONE).epochMilliseconds).toBe(Date.UTC(2026, 9, 28, 22));
+    expect(momentIn(time, 'Europe/Berlin').epochMilliseconds).toBe(Date.UTC(2026, 9, 28, 17));
+    expect(momentIn(time, 'Asia/Kolkata').epochMilliseconds).toBe(Date.UTC(2026, 9, 28, 12, 30));
+  });
+
+  it('keeps a time with an offset or Z as one moment, the same in every zone', () => {
+    const time = readFeedTime('2026-10-28T18:00:00Z');
+    expect(time).toEqual({ at: Date.UTC(2026, 9, 28, 18) });
+    if (!time) throw new Error('unread');
+    expect(momentIn(time, 'Europe/Berlin').epochMilliseconds).toBe(Date.UTC(2026, 9, 28, 18));
+    expect(momentIn(time, 'Europe/Berlin').hour).toBe(19);
+    expect(readFeedTime('2026-10-28T10:00-04:00')).toEqual({ at: Date.UTC(2026, 9, 28, 14) });
+  });
+
+  it('keeps a date alone as its local midnight, 24:00 as the next day’s, and a fraction', () => {
+    expect(readFeedTime('2026-10-28')).toEqual({ local: '2026-10-28T00:00:00' });
+    expect(readFeedTime('2026-10-31T24:00')).toEqual({ local: '2026-11-01T00:00:00' });
+    expect(readFeedTime('2026-10-28T10:00:00.250')).toEqual({ local: '2026-10-28T10:00:00.25' });
+  });
+
+  it('gives the earlier of the fall overlap’s two, in each zone its own', () => {
+    const time = readFeedTime('2026-11-01T01:30');
+    if (!time) throw new Error('unread');
+    expect(momentIn(time, ZONE).epochMilliseconds).toBe(Date.UTC(2026, 10, 1, 5, 30));
+    const berlin = readFeedTime('2026-10-25T02:30');
+    if (!berlin) throw new Error('unread');
+    expect(momentIn(berlin, 'Europe/Berlin').epochMilliseconds).toBe(Date.UTC(2026, 9, 25, 0, 30));
+  });
+
+  it('reads what feedTime reads, and nothing it refuses', () => {
+    expect(readFeedTime('2026-02-30T10:00')).toBeUndefined();
+    expect(readFeedTime('2026-10-28 10:00')).toBeUndefined();
+    expect(readFeedTime('')).toBeUndefined();
   });
 });
 

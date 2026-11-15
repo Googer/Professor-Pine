@@ -1,3 +1,9 @@
+import {
+  asTestServerGyms,
+  regionsFixture,
+  twoServerGyms,
+  viewWith,
+} from '../../../test/support/providers.js';
 import { MessageFlags } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import { dialogText, shownDialog } from '../../../test/support/dialogs.js';
@@ -21,7 +27,13 @@ import {
   textDisplays,
 } from '../../../test/support/messages.js';
 import { expectV2Sendable } from '../../../test/support/post-limits.js';
-import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  OTHER_GUILD_ID,
+  WEST_CHANNEL,
+  WEST_FORUM,
+  WIDE_CHANNEL,
+} from '../../../test/support/gyms.js';
 import { ALICE, BOB } from '../../../test/support/parties.js';
 import {
   createdMeetup,
@@ -44,6 +56,7 @@ import {
   untarget,
   untargetAll,
 } from './targets.js';
+import { testServerValues } from '../../../test/support/server-values.js';
 
 const OTHER_GUILD = '499999999999999999';
 /** The channels of the fakes' server: the regions West and East. */
@@ -122,18 +135,17 @@ function controls(interaction: FakeInteraction) {
 }
 
 describe('the target commands', () => {
-  it('exist only where notifications are switched on, with help in the notifications category', () => {
+  it('are set up only where the server notifies, with help in the notifications category', () => {
     const { ctx } = createTestContext();
-    const off = {
-      ...ctx.config,
-      settings: {
-        ...ctx.config.settings,
-        features: { ...ctx.config.settings.features, notifications: false },
-      },
-    };
+    const values = testServerValues();
+    const off = { ...values, features: { ...values.features, notifications: false } };
     for (const command of [target, untarget, targets, untargetAll]) {
-      expect(command.enabled?.(ctx.config)).toBe(true);
-      expect(command.enabled?.(off)).toBe(false);
+      // Registered whatever the server (plan 19A-1); not set up where it does not notify.
+      expect(command.enabled).toBeUndefined();
+      expect(command.setUpIn?.(values, ctx, FAKE_GUILD_ID)).toBeUndefined();
+      expect(command.setUpIn?.(off, ctx, FAKE_GUILD_ID)).toBe(
+        'Staff turn on notifications in /admin settings.',
+      );
       expect(command.help.category).toBe('notifications');
       expect(command.help.details).toBeTruthy();
       expect(command.help.examples?.length).toBeGreaterThan(0);
@@ -149,6 +161,43 @@ describe('the target commands', () => {
     });
     const used = await made.run('target', { gym: 'g:1' });
     expect(sent(used.reply).flags).toBe(MessageFlags.Ephemeral);
+  });
+});
+
+describe('/target in two servers whose regions overlap (plan 19B-2)', () => {
+  it('neither offers, accepts nor names the other server’s gym in a region of both', async () => {
+    const { gyms, regions, guilds } = twoServerGyms();
+    const made = setup({ gyms, regions: regionsFixture(regions), guilds });
+    const west = { channelId: WEST_CHANNEL };
+    const wide = { guildId: OTHER_GUILD_ID, channelId: WIDE_CHANNEL };
+    expect(JSON.stringify(await made.choices('target', 'fountain', west))).not.toContain(
+      'Stone Fountain',
+    );
+    expect(await made.answer('target', { gym: 'g:2' }, west)).toBe(
+      'I found no gym of this server for "g:2". Type part of its name and pick it from the list.',
+    );
+    const typed = (await made.answer('target', { gym: 'old stone fountain' }, west)) ?? '';
+    expect(typed).not.toContain('Old Stone Fountain');
+    expect(await made.store.list(ALICE, FAKE_GUILD_ID)).toMatchObject({ gymIds: [] });
+
+    // Its own gym is offered and taken.
+    expect(JSON.stringify(await made.choices('target', 'library', west))).toContain(
+      'Pinewood Public Library',
+    );
+    expect(await made.answer('target', { gym: 'g:1' }, west)).toMatch(/is one of your gyms now/);
+    // From the other server: its gym, and not this server's.
+    expect(JSON.stringify(await made.choices('target', 'fountain', wide))).toContain(
+      'Old Stone Fountain',
+    );
+    expect(JSON.stringify(await made.choices('target', 'library', wide))).not.toContain(
+      'Pinewood Public Library',
+    );
+    expect(await made.answer('target', { gym: 'g:1' }, wide)).toBe(
+      'I found no gym of this server for "g:1". Type part of its name and pick it from the list.',
+    );
+    expect(await made.answer('target', { gym: 'g:2' }, wide)).toMatch(/is one of your gyms now/);
+    expect(await made.store.list(ALICE, FAKE_GUILD_ID)).toMatchObject({ gymIds: [1] });
+    expect(await made.store.list(ALICE, OTHER_GUILD_ID)).toMatchObject({ gymIds: [2] });
   });
 });
 
@@ -452,7 +501,7 @@ describe('/untarget', () => {
 
   it('shows 25 of a long list', () => {
     const { ctx } = createTestContext();
-    const gym = ctx.gyms.get(1);
+    const gym = ctx.gyms.stored(1);
     if (!gym) throw new Error('no gym 1');
     const many = Array.from({ length: 60 }, (_unused, index) => ({
       ...gym,
@@ -486,11 +535,11 @@ describe('/targets', () => {
   /** What `/targets` answered (or a press of its buttons showed), as a v2 message. */
   const shown = (payload: SentPayload) => asV2(payload);
   const link = (
-    ctx: { gyms: { get(id: number): { lat: number; lon: number } | undefined } },
+    ctx: { gyms: { stored(id: number): { lat: number; lon: number } | undefined } },
     id: number,
     name: string,
   ) => {
-    const gym = ctx.gyms.get(id);
+    const gym = ctx.gyms.stored(id);
     if (!gym) throw new Error(`no gym ${String(id)}`);
     return `[${name}](<${gymMapsUrl(gym)}>)`;
   };
@@ -533,13 +582,16 @@ describe('/targets', () => {
 
   it('puts a gym outside the regions of this server last, marks no elite raid gym, and counts what it cannot read', () => {
     const made = setup();
-    const base = made.ctx.gyms.get(3);
+    const base = made.ctx.gyms.stored(3);
     if (!base) throw new Error('no gym 3');
     const elite = { ...base, confirmedEx: true };
     const ctx = {
       ...made.ctx,
       gyms: Object.assign(Object.create(made.ctx.gyms) as typeof made.ctx.gyms, {
-        get: (id: number) => (id === 3 ? elite : made.ctx.gyms.get(id)),
+        of: (guildId: number | undefined) =>
+          viewWith(made.ctx.gyms.of(guildId), {
+            get: (id: number) => (id === 3 ? elite : made.ctx.gyms.of(guildId).get(id)),
+          }),
       }),
     };
     const message = targetsList(
@@ -632,7 +684,7 @@ describe('/targets', () => {
 
   it('keeps a full page of long names within the components and the text Discord takes', () => {
     const { ctx } = createTestContext();
-    const base = ctx.gyms.get(1);
+    const base = ctx.gyms.stored(1);
     if (!base) throw new Error('no gym 1');
     const gyms = new Map(
       Array.from({ length: 25 }, (_unused, index) => [
@@ -650,7 +702,10 @@ describe('/targets', () => {
     if (!west) throw new Error('no region');
     const wide = {
       ...ctx,
-      gyms: { ...ctx.gyms, get: (id: number) => gyms.get(id), regionsOf: () => [WEST_CHANNEL] },
+      gyms: Object.assign(Object.create(ctx.gyms) as typeof ctx.gyms, {
+        of: asTestServerGyms({ get: (id: number) => gyms.get(id), regionsOf: () => [WEST_CHANNEL] })
+          .of,
+      }),
       regions: {
         ...ctx.regions,
         byChannel: (channelId: string) => ({ ...west, channelId, guildId: 1 }),

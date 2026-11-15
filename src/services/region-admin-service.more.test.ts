@@ -1,7 +1,7 @@
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { Tally } from '../../test/support/tally.js';
 import { watchImmediates } from '../../test/support/timers.js';
-import { EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
+import { EAST_FORUM, TEST_GUILD_ROW, WEST_FORUM } from '../../test/support/gyms.js';
 import { REPORTER, testRaid } from '../../test/support/parties.js';
 import {
   kmlArea,
@@ -15,10 +15,11 @@ import { PartyStatus } from '../domain/party/status.js';
 type Made = Awaited<ReturnType<typeof regionAdminWith>>;
 
 async function reported(made: Made, gymId: number) {
-  const gym = made.directory.get(gymId);
+  const gym = made.directory.stored(gymId);
   if (!gym) throw new Error(`no gym ${gymId}`);
   const outcome = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: REPORTER,
     anonymous: false,
     autoStatus: PartyStatus.Interested,
@@ -101,7 +102,7 @@ describe('RegionAdminService: what review A asked for', () => {
     const preview = once.regionAdmin.preview(REGION_STAFF, [kmlArea('South', SOUTH_RING)]);
     const imported = await once.regionAdmin.import(REGION_STAFF, preview.imports);
     expect(imported.reloaded).toBe(true);
-    expect(once.directory.isRegion(SOUTH_CHANNEL)).toBe(true);
+    expect(once.directory.of(TEST_GUILD_ROW).isRegion(SOUTH_CHANNEL)).toBe(true);
 
     const twice = await regionAdminWith();
     failLoads(twice, 2);
@@ -158,10 +159,11 @@ describe('RegionAdminService: what review A asked for', () => {
 
   it('answers a report that races the removal as one in no region', async () => {
     const made = await regionAdminWith();
-    const gym = made.directory.get(1);
+    const gym = made.directory.stored(1);
     if (!gym) throw new Error('no gym 1');
     const reporting = made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

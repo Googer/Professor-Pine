@@ -12,6 +12,7 @@ import { createTestContext } from '../../../test/support/test-context.js';
 import { TEST_WEB } from '../../../test/support/web.js';
 import type { Settings } from '../../config/settings.js';
 import { enabledCommands } from '../../discord/command.js';
+import { SERVER_ADMIN_ONLY } from '../../discord/guards.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { region } from './index.js';
 
@@ -80,10 +81,10 @@ describe('/region edit', () => {
     });
   });
 
-  it('is for staff alone', async () => {
+  it('is for whoever may set the server up alone (plan 19C-2)', async () => {
     const { run } = setup(TEST_WEB);
     const refused = sent((await run({ roleNames: [] })).reply);
-    expect(refused.content).toBe('Only admins, moderators and bot developers can do that.');
+    expect(refused.content).toBe(SERVER_ADMIN_ONLY);
   });
 
   it('says in its help what it gives', () => {

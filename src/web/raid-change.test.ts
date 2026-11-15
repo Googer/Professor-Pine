@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PRESS_SHOWN_MS } from './post-drawn.js';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, at, BOB, PARTY_NOW } from '../../test/support/parties.js';
 import { reportedRaid } from '../../test/support/party-service.js';
@@ -250,10 +250,11 @@ describe('changing a raid on the map', () => {
     // Over by the clock, then a new raid at the same gym: the first cannot come back beside it.
     map.made.clock.now = at('2026-10-13T14:12');
     web.clock.now = at('2026-10-13T14:12');
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     const standard = await map.made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: BOB,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

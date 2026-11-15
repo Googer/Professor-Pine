@@ -1,6 +1,8 @@
+import type { V2Message } from '../discord/party-gateway.js';
 import { tidyLine } from '../domain/gyms/gym-text.js';
 import { codePointsOf, MAX_ISSUE_TITLE, type NewIssue } from '../services/issue-gateway.js';
-import { fencedBlock } from './text.js';
+import { fencedBlock, memberText, plain } from './text.js';
+import { LIST_COLOUR, textMessage } from './v2.js';
 
 /** A zero-width space: what breaks a mention or a reference on GitHub without showing. */
 const BREAK = '\u200b';
@@ -67,4 +69,22 @@ export function gymRequestIssue(request: GymRequest): NewIssue {
       fencedBlock(noGitHubMentions(request.text), 'text'),
     labels: [String(gym.id)],
   };
+}
+
+/**
+ * A gym request in the server's own moderators' bot lab (plan 19B-4: a server the instance's
+ * repository does not serve), what the issue holds as a components-v2 message: the issue's title
+ * as its heading, who sent it (`memberText`: a mention, which pings nobody, the message naming
+ * nobody to ping), and the member's words quoted as text (`plain`: nothing in them renders or
+ * pings). The server is the lab's own, so it is not named.
+ */
+export function gymRequestPost(
+  request: Omit<GymRequest, 'serverName'> & { memberId: string },
+): V2Message {
+  const { gym } = request;
+  return textMessage(LIST_COLOUR, [
+    `### Gym request: ${plain(tidyLine(gym.name) || 'Gym')} (#${String(gym.id)})`,
+    `From ${memberText({ id: request.memberId, name: request.memberName })}:`,
+    `> ${plain(request.text)}`,
+  ]);
 }

@@ -98,6 +98,7 @@ function setup(
     rest: () => api,
     botId: () => FAKE_BOT_ID,
     partiesDir,
+    settingsChannelIds: () => [],
     settingsChannelNames: [],
     pauseMs: 1_000,
     wait: (ms) => {

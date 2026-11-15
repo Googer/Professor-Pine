@@ -520,7 +520,7 @@ describe('RaidBossRepository', () => {
     it('stores an upcoming boss from its start, and follows the start until it has come', async () => {
       const uxie = (startsAt?: number) => ({
         ...maxBoss('UXIE', 'D5'),
-        ...(startsAt === undefined ? {} : { startsAt }),
+        ...(startsAt === undefined ? {} : { startsAt, startsFrom: startsAt + 17 * HOUR }),
       });
       await max.replaceFeed([uxie(NOW + 10 * HOUR), maxBoss('SNEASEL', 'D1')], NOW);
       const first = (await max.listActive()).map((b) => [b.pokemonId, b.firstSeen]);
@@ -528,12 +528,20 @@ describe('RaidBossRepository', () => {
         ['UXIE', NOW + 10 * HOUR],
         ['SNEASEL', NOW],
       ]);
+      // Pokebattler's moment is kept as given (plan 19A-2), and none for a boss without one.
+      expect((await max.listActive()).map((b) => b.startsFrom)).toEqual([
+        NOW + 27 * HOUR,
+        undefined,
+      ]);
       // Moved to an earlier start before it came: the stored start follows.
       await max.replaceFeed([uxie(NOW + 5 * HOUR), maxBoss('SNEASEL', 'D1')], NOW + HOUR);
       expect((await max.listActive())[0]?.firstSeen).toBe(NOW + 5 * HOUR);
       // Once it has come it stays a boss from then, whatever the feed says of a start.
       await max.replaceFeed([uxie(NOW + 30 * HOUR)], NOW + 6 * HOUR);
       expect((await max.listActive())[0]?.firstSeen).toBe(NOW + 5 * HOUR);
+      // A read without a moment forgets the one kept.
+      await max.replaceFeed([uxie()], NOW + 6 * HOUR);
+      expect((await max.listActive())[0]).not.toHaveProperty('startsFrom');
       // A start that is no later than the read is the read.
       await max.replaceFeed([maxBoss('SNEASEL', 'D1'), uxie(NOW)], NOW + 7 * HOUR);
       expect((await max.listActive()).map((b) => [b.pokemonId, b.firstSeen])).toEqual([

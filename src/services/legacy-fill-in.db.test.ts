@@ -391,7 +391,7 @@ describe('LegacyFillInService: filling in a member’s legacy history', () => {
     const stats = new MemberStatsService({
       reader: new BoardRepository(db),
       optIns: history,
-      zone: 'America/New_York',
+      zoneOf: () => 'America/New_York',
       now: () => now,
     });
     const before = await stats.stats(HOME, ALICE);

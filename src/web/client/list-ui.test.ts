@@ -427,6 +427,12 @@ describe('the focus in the list drawn anew (review fix 2)', () => {
     loggedOutPane(pane as unknown as HTMLElement, 'member-only');
     expect(pane.words()).toContain("What's going on");
     expect(pane.words()).toContain('Only members of this server see what is going on.');
+    // A server in setup (plan 19C-2, S11): only its region editor is there.
+    const setup = new FakeElement('aside');
+    loggedOutPane(setup as unknown as HTMLElement, 'in-setup');
+    expect(setup.words()).toContain(
+      'Pine is not set up in this server yet. Draw its regions with Edit regions in your menu.',
+    );
   });
 
   it('goes to the sort when the line it was on drops out (8M-7 follow-up N1)', () => {

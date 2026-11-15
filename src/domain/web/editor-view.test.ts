@@ -59,6 +59,7 @@ function input(more: Partial<EditorInput> = {}): EditorInput {
       { kind: 'powerspot', lat: 40.115, lon: -80.05, title: 'Kiosk' },
       { kind: 'gym', lat: 40.9, lon: -80.05, title: 'Far gym' },
     ],
+    othersShown: () => true,
     ...more,
   };
 }
@@ -79,6 +80,21 @@ describe('what the region editor loads', () => {
   it("shows other servers' regions near its own by their outlines alone", () => {
     const view = editorView(input());
     expect(view.others).toEqual([{ id: 4, outline: NEAR.map(({ lat, lon }) => [lat, lon]) }]);
+  });
+
+  it('leaves out the regions of servers the web does not serve, and those of no server', () => {
+    const regions = [
+      ...input().regions,
+      { id: 6, guildId: 3, channelId: '100000000000000010', description: null, bounds: NEAR },
+      { id: 7, guildId: null, channelId: '100000000000000011', description: null, bounds: NEAR },
+    ];
+    const shown = (others: readonly number[]) =>
+      editorView(input({ regions, othersShown: (row) => others.includes(row) })).others.map(
+        (other) => other.id,
+      );
+    expect(shown([2, 3])).toEqual([4, 6]);
+    expect(shown([3])).toEqual([6]);
+    expect(shown([])).toEqual([]);
   });
 
   it('has the gyms in its regions and those in no region near them, at six decimals', () => {

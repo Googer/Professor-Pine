@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { EAST_CHANNEL, NORTH_PLACE, testGym, WEST_CHANNEL } from '../../test/support/gyms.js';
-import { gymsFixture, regionsFixture } from '../../test/support/providers.js';
+import {
+  EAST_CHANNEL,
+  NORTH_PLACE,
+  OTHER_GUILD_ROW,
+  TEST_GUILD_ROW,
+  testGym,
+  WEST_CHANNEL,
+  WIDE_CHANNEL,
+} from '../../test/support/gyms.js';
+import {
+  gymsFixture,
+  regionsFixture,
+  twoServerGyms,
+  viewWith,
+} from '../../test/support/providers.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
@@ -9,7 +22,7 @@ import { geodataJson } from '../domain/geo/google.js';
 import { MAX_SEARCH_WORDS } from '../domain/search/text.js';
 import type { WayspotRow } from '../domain/wayspots/kept.js';
 import { clearOf, PlaceFinder, placeValue, readPlaceValue } from './place-finder.js';
-import { MemoryWayspotLookups } from './wayspot-lookups.js';
+import { GoogleAnswers, MemoryGoogleAnswerStorage } from './google-answers.js';
 import { WayspotPlaces } from './wayspot-places.js';
 
 /**
@@ -37,9 +50,239 @@ async function finderWith(extra: { rows?: WayspotRow[]; gyms?: Gym[] } = {}) {
     regions: regionsFixture(),
     log: createTestLogger().log,
   });
-  await finder.built();
+  await finder.built(TEST_GUILD_ROW);
   return { finder, storage, wayspots };
 }
+
+describe('PlaceFinder and the Wayspots of two servers whose regions overlap (plan 19B-3)', () => {
+  /**
+   * The test server keeps a stop called Fountain in West; the second server, whose Wide lies over
+   * West, keeps its own copy of it called Fountain Plaza and a Power Spot, Library Garden, the
+   * test server does not have.
+   */
+  async function twoServerFinder() {
+    const { gyms, regions } = twoServerGyms();
+    const { wayspots } = await wayspotsWith(
+      [keptRow(1, { title: 'Fountain', lat: 40.0601, lon: -80.0601 })],
+      regionsFixture(regions),
+      undefined,
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            keptRow(1, { title: 'Fountain Plaza', lat: 40.0601, lon: -80.0601 }),
+            keptRow(2, { title: 'Library Garden', kind: 'powerspot', lat: 40.0502, lon: -80.0502 }),
+          ],
+        },
+      ],
+    );
+    const finder = new PlaceFinder({
+      gyms,
+      wayspots,
+      regions: regionsFixture(regions),
+      log: createTestLogger().log,
+    });
+    await finder.built(TEST_GUILD_ROW);
+    await finder.built(OTHER_GUILD_ROW);
+    return finder;
+  }
+  const values = (choices: readonly { kind: string; id: string; title: string }[]) =>
+    choices
+      .filter((choice) => choice.kind !== 'gym')
+      .map((choice) => `${choice.kind}:${choice.title}`);
+
+  it('neither finds, takes, pins nor lists the other server’s Wayspot in a region of both', async () => {
+    const finder = await twoServerFinder();
+    const spot = placeValue({ kind: 'powerspot', id: wayspotId(2) });
+    expect(values(finder.find(TEST_GUILD_ROW, WEST_CHANNEL, 'library garden'))).toEqual([]);
+    expect(finder.chosen(TEST_GUILD_ROW, spot)).toBeUndefined();
+    expect(
+      finder.nearestPowerSpot(TEST_GUILD_ROW, { lat: 40.0502, lon: -80.0502 }),
+    ).toBeUndefined();
+    expect(
+      finder.pin(TEST_GUILD_ROW, { lat: 40.0502, lon: -80.0502 }, null, ['powerspot'])?.near,
+    ).toBeNull();
+    expect(
+      finder
+        .nearest(TEST_GUILD_ROW, ['powerspot'], [{ lat: 40.05, lon: -80.05 }], {})
+        .map(({ choice }) => choice.title),
+    ).toEqual([]);
+    // Its own copy of the same Wayspot, by its own title.
+    expect(values(finder.find(TEST_GUILD_ROW, WEST_CHANNEL, 'fountain'))).toEqual([
+      'stop:Fountain',
+    ]);
+    expect(
+      finder.chosen(TEST_GUILD_ROW, placeValue({ kind: 'stop', id: wayspotId(1) }))?.title,
+    ).toBe('Fountain');
+  });
+
+  it('finds and takes the other server’s own there (positive control)', async () => {
+    const finder = await twoServerFinder();
+    expect(values(finder.find(OTHER_GUILD_ROW, WIDE_CHANNEL, 'library garden'))).toEqual([
+      'powerspot:Library Garden',
+    ]);
+    expect(
+      finder.chosen(OTHER_GUILD_ROW, placeValue({ kind: 'powerspot', id: wayspotId(2) }))?.title,
+    ).toBe('Library Garden');
+    expect(values(finder.find(OTHER_GUILD_ROW, WIDE_CHANNEL, 'fountain plaza'))).toEqual([
+      'stop:Fountain Plaza',
+    ]);
+  });
+});
+
+describe('PlaceFinder’s indexes, per server and on demand (plan 19B-3)', () => {
+  /** Two servers' Wayspots (the test server's Fountain, the second's Library Garden) and a finder. */
+  async function twoServers(
+    options: { maxServers?: number; nextTurn?: (run: () => void) => void } = {},
+  ) {
+    const { gyms, regions } = twoServerGyms();
+    const { storage, wayspots } = await wayspotsWith(
+      [keptRow(1, { title: 'Fountain', lat: 40.0601, lon: -80.0601 })],
+      regionsFixture(regions),
+      undefined,
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            keptRow(2, { title: 'Library Garden', kind: 'powerspot', lat: 40.0502, lon: -80.0502 }),
+          ],
+        },
+      ],
+    );
+    const finder = new PlaceFinder({
+      gyms,
+      wayspots,
+      regions: regionsFixture(regions),
+      log: createTestLogger().log,
+      ...options,
+    });
+    const spots = (guildId: number, channelId: string, text: string) =>
+      finder
+        .find(guildId, channelId, text)
+        .filter((one) => one.kind !== 'gym')
+        .map((one) => one.title);
+    return { storage, wayspots, finder, spots };
+  }
+
+  it('builds a server’s index on its first search, and no other server’s', async () => {
+    const turns: (() => void)[] = [];
+    const { finder, spots } = await twoServers({ nextTurn: (run) => turns.push(run) });
+    // Nothing is built, nor waits to be, before a search.
+    expect(turns).toHaveLength(0);
+    // The first search answers from nothing yet, and has its server's index built.
+    expect(spots(TEST_GUILD_ROW, WEST_CHANNEL, 'fountain')).toEqual([]);
+    expect(turns).toHaveLength(1);
+    turns.shift()?.();
+    expect(turns).toHaveLength(0);
+    expect(finder.builds).toBe(1);
+    expect(spots(TEST_GUILD_ROW, WEST_CHANNEL, 'fountain')).toEqual(['Fountain']);
+    expect(turns).toHaveLength(0);
+    expect(finder.builds).toBe(1);
+  });
+
+  it('builds anew only the server whose Wayspots changed', async () => {
+    const { storage, wayspots, finder, spots } = await twoServers();
+    await finder.built(TEST_GUILD_ROW);
+    await finder.built(OTHER_GUILD_ROW);
+    expect(finder.builds).toBe(2);
+    await storage.saveFromImport(
+      OTHER_GUILD_ROW,
+      {
+        upsert: [keptRow(3, { title: 'Library Steps', lat: 40.0503, lon: -80.0503 })],
+        remove: [],
+      },
+      2_000,
+    );
+    await wayspots.load(OTHER_GUILD_ROW);
+    // The test server's index is current: its searches build nothing.
+    expect(spots(TEST_GUILD_ROW, WEST_CHANNEL, 'fountain')).toEqual(['Fountain']);
+    await finder.built(TEST_GUILD_ROW);
+    expect(finder.builds).toBe(2);
+    // The second server's first search after its change has it built anew, once.
+    expect(spots(OTHER_GUILD_ROW, WIDE_CHANNEL, 'library')).toEqual(['Library Garden']);
+    await finder.built(OTHER_GUILD_ROW);
+    expect(finder.builds).toBe(3);
+    expect(spots(OTHER_GUILD_ROW, WIDE_CHANNEL, 'library').sort()).toEqual([
+      'Library Garden',
+      'Library Steps',
+    ]);
+  });
+
+  it('keeps as many servers’ indexes as it may, building one per turn', async () => {
+    const turns: (() => void)[] = [];
+    const { gyms, regions } = twoServerGyms();
+    const { wayspots } = await wayspotsWith(
+      [keptRow(1, { title: 'Fountain', lat: 40.0601, lon: -80.0601 })],
+      regionsFixture(regions),
+      undefined,
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [keptRow(2, { title: 'Library Garden', lat: 40.0502, lon: -80.0502 })],
+        },
+      ],
+    );
+    const finder = new PlaceFinder({
+      gyms,
+      wayspots,
+      regions: regionsFixture(regions),
+      log: createTestLogger().log,
+      maxServers: 1,
+      nextTurn: (run) => turns.push(run),
+    });
+    finder.find(TEST_GUILD_ROW, WEST_CHANNEL, 'fountain');
+    finder.find(OTHER_GUILD_ROW, WIDE_CHANNEL, 'library');
+    // One turn, one server.
+    expect(turns).toHaveLength(1);
+    turns.shift()?.();
+    expect(finder.builds).toBe(1);
+    expect(turns).toHaveLength(1);
+    turns.shift()?.();
+    expect(finder.builds).toBe(2);
+    expect(turns).toHaveLength(0);
+    // The second server's index pushed the first one's out: its next search builds it again.
+    finder.find(TEST_GUILD_ROW, WEST_CHANNEL, 'fountain');
+    turns.shift()?.();
+    expect(finder.builds).toBe(3);
+  });
+});
+
+describe('PlaceFinder in two servers whose regions overlap (plan 19B-2)', () => {
+  it('neither finds, takes nor names the other server’s gym in a region of both', async () => {
+    const { gyms, regions } = twoServerGyms();
+    const { wayspots } = await wayspotsWith([], regionsFixture(regions));
+    const finder = new PlaceFinder({
+      gyms,
+      wayspots,
+      regions: regionsFixture(regions),
+      log: createTestLogger().log,
+    });
+    await finder.built();
+    const ids = (choices: readonly { kind: string; id: string }[]) =>
+      choices.map((choice) => `${choice.kind}:${choice.id}`);
+    const found = finder.find(1, WEST_CHANNEL, 'old stone fountain', ['gym']);
+    expect(ids(found)).not.toContain('gym:2');
+    expect(finder.chosen(1, 'gym:2')).toBeUndefined();
+    // Its own gym: found and taken.
+    expect(ids(finder.find(1, WEST_CHANNEL, 'pinewood public library', ['gym']))).toContain(
+      'gym:1',
+    );
+    expect(finder.chosen(1, 'gym:1')?.title).toBe('Pinewood Public Library');
+    // The other server's own: found and taken there (Wide), and not this server's.
+    expect(
+      ids(finder.find(OTHER_GUILD_ROW, WIDE_CHANNEL, 'old stone fountain', ['gym'])),
+    ).toContain('gym:2');
+    expect(finder.chosen(OTHER_GUILD_ROW, 'gym:2')?.title).toBe('Old Stone Fountain');
+    expect(
+      ids(finder.find(OTHER_GUILD_ROW, WIDE_CHANNEL, 'pinewood public library', ['gym'])),
+    ).not.toContain('gym:1');
+    expect(finder.chosen(OTHER_GUILD_ROW, 'gym:1')).toBeUndefined();
+    // Never named as what a place is near: the Reading Bench's nearest gym is the Fountain's
+    // neighbour the Library, as this server knows its gyms.
+    const pin = finder.pin(1, { lat: 40.0601, lon: -80.0601 }, null);
+    expect(JSON.stringify(pin)).not.toContain('Old Stone Fountain');
+  });
+});
 
 describe('PlaceFinder', () => {
   it("gives a Power Spot's looked-up address, as every reader of the kept Wayspots does", async () => {
@@ -52,8 +295,10 @@ describe('PlaceFinder', () => {
     });
     const geodata = geodataJson({ formatted_address: '600 Grant St, Pittsburgh, PA 15219, USA' });
     const { wayspots } = await wayspotsWith([spot], regionsFixture(), {
-      lookedUp: (id) =>
-        id === spot.id ? { lat: spot.lat, lon: spot.lon, geodata, askedAt: 1 } : undefined,
+      lookedUp: (point) =>
+        point.lat === spot.lat && point.lon === spot.lon
+          ? { lat: spot.lat, lon: spot.lon, geodata, askedAt: 1 }
+          : undefined,
     });
     const finder = new PlaceFinder({
       gyms: gymsFixture(),
@@ -61,7 +306,7 @@ describe('PlaceFinder', () => {
       regions: regionsFixture(),
       log: createTestLogger().log,
     });
-    await finder.built();
+    await finder.built(TEST_GUILD_ROW);
     const [choice] = finder.find(1, undefined, 'Library Garden');
     expect(choice).toMatchObject({
       title: 'Library Garden',
@@ -257,19 +502,28 @@ describe('PlaceFinder', () => {
     ]);
     const finder = new PlaceFinder({
       gyms: {
-        search: (...args) => gyms.search(...args),
-        get: (id) => gyms.get(id),
-        regionsOf: (id) => gyms.regionsOf(id),
-        inRegion: (channelId) =>
-          gyms.inRegion(channelId).map((gym) => watched(gym, 'geodata', `gym:${gym.id}`)),
+        of: (guildId) =>
+          viewWith(gyms.of(guildId), {
+            inRegion: (channelId) =>
+              gyms
+                .of(guildId)
+                .inRegion(channelId)
+                .map((gym) => watched(gym, 'geodata', `gym:${gym.id}`)),
+          }),
       },
       wayspots: new Proxy(wayspots, {
         get(target, name) {
-          if (name === 'inRegion') {
-            return (channelId: string) =>
-              target
-                .inRegion(channelId)
-                .map((one) => watched(one, 'address', `${one.kind}:${one.id}`));
+          if (name === 'of') {
+            return (guildId: number | undefined) => {
+              const view = target.of(guildId);
+              return {
+                ...view,
+                inRegion: (channelId: string) =>
+                  view
+                    .inRegion(channelId)
+                    .map((one) => watched(one, 'address', `${one.kind}:${one.id}`)),
+              };
+            };
           }
           const value = Reflect.get(target, name, target) as unknown;
           return typeof value === 'function' ? (value as () => unknown).bind(target) : value;
@@ -278,7 +532,7 @@ describe('PlaceFinder', () => {
       regions: regionsFixture(),
       log: createTestLogger().log,
     });
-    await finder.built();
+    await finder.built(TEST_GUILD_ROW);
     const lighthouse = { lat: 40.05, lon: -79.99 };
     const near = finder.nearest(1, ['gym', 'powerspot'], [lighthouse], {
       count: 2,
@@ -379,14 +633,14 @@ describe('PlaceFinder', () => {
       regions: regionsFixture(),
       log,
     });
-    await finder.built();
+    await finder.built(TEST_GUILD_ROW);
     const builds = () =>
       entries.filter((entry) => entry.msg === 'the search of the Wayspots was built').length;
     expect(builds()).toBe(1);
     const fountain = finder.find(1, WEST_CHANNEL, 'fountain').find((one) => one.kind === 'stop');
     expect(fountain?.title).toBe('Fountain');
 
-    wayspots.forget([wayspotId(1), wayspotId(2)]);
+    wayspots.forget(TEST_GUILD_ROW, [wayspotId(1), wayspotId(2)]);
     expect(finder.find(1, WEST_CHANNEL, 'fountain').map((one) => one.kind)).toEqual(['gym']);
     expect(finder.find(1, WEST_CHANNEL, 'library garden').map((one) => one.kind)).toEqual(['gym']);
     expect(finder.chosen(1, placeValue(fountain!))).toBeUndefined();
@@ -398,8 +652,11 @@ describe('PlaceFinder', () => {
     const { wayspots } = await wayspotsWith([
       keptRow(1, { title: 'Fountain', lat: 40.0601, lon: -80.0601, address: null }),
     ]);
-    const storage = new MemoryWayspotLookups();
-    const places = new WayspotPlaces({ storage, log: createTestLogger().log });
+    const answers = new GoogleAnswers({
+      storage: new MemoryGoogleAnswerStorage(),
+      log: createTestLogger().log,
+    });
+    const places = new WayspotPlaces({ answers, log: createTestLogger().log });
     const finder = new PlaceFinder({
       gyms: gymsFixture(),
       wayspots,
@@ -414,14 +671,11 @@ describe('PlaceFinder', () => {
         .filter((one) => one.kind === 'stop')
         .map((one) => one.title);
     expect(stops()).toEqual([]);
-    await places.save({
-      wayspotId: wayspotId(1),
-      kind: 'stop',
-      lat: 40.0601,
-      lon: -80.0601,
-      places: 'Zeppelin Bakery',
-      askedAt: 1,
-    });
+    // The point's answer, and the upkeep's word that the server's stop got it.
+    await answers.save([
+      { kind: 'places', lat: 40.0601, lon: -80.0601, answer: 'Zeppelin Bakery', askedAt: 1 },
+    ]);
+    places.changed(1);
     await finder.built();
     expect(stops()).toEqual(['Fountain']);
   });
@@ -445,6 +699,7 @@ describe('PlaceFinder', () => {
     ]);
 
     await storage.saveFromImport(
+      TEST_GUILD_ROW,
       {
         upsert: [keptRow(2, { title: 'Fountain Steps', lat: 40.0602, lon: -80.0602 })],
         remove: [],

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { heldCall } from '../../test/support/held-call.js';
 import { watchEachTest } from '../../test/support/timers.js';
 import { missingPermissions } from '../../test/support/fake-gateway.js';
-import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { reportedRaid } from '../../test/support/party-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
@@ -280,10 +280,11 @@ describe('PartyService.sweepPosts', () => {
     const byMember = (await gateway.createPost(WEST_FORUM, post)) ?? '';
     gateway.foreign.add(byMember);
     // A second raid that has ended, whose post a late message opened again.
-    const gym = gymsFixture().get(2);
+    const gym = gymsFixture().stored(2);
     if (!gym) throw new Error('no gym');
     const second = await service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: ALICE,
       anonymous: false,
       autoStatus: PartyStatus.Interested,

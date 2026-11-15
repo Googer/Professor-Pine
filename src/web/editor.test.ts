@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
+import { webServers } from '../app-wiring.js';
+import { OTHER_GUILD_ID, OTHER_GUILD_ROW, TEST_GUILD_ROW } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { keptRow } from '../../test/support/wayspot-cases.js';
 import {
@@ -33,6 +35,85 @@ describe("the region editor's data", () => {
     web = webServerWith({ staff, editor });
     return { web, staff, editor };
   }
+
+  it("gives the server's own gyms only, none of another server's in its regions (plan 19B-2)", async () => {
+    const { web, editor } = await made();
+    // The Library, in West, becomes the second server's alone.
+    editor.gyms.unlink(1, TEST_GUILD_ROW);
+    editor.gyms.link(1, OTHER_GUILD_ROW);
+    await editor.directory.refreshGym(1);
+    const cookie = await web.loggedIn(STAFF, 'Brock');
+    const data = (await web.app.inject({ url: DATA, headers: { cookie } })).json<EditorData>();
+    expect(data.gyms.map(([id]) => id)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 11, 12]);
+  });
+
+  it('shows the outlines of other servers’ regions nearby only of servers the web serves: not of one Pine left, one being deleted or one in setup (plan 19C-4)', async () => {
+    const LEFT = '412345678901234571';
+    const PENDING = '412345678901234572';
+    const SETUP = '412345678901234573';
+    const left = new Set([LEFT]);
+    // The bot's own rule (`webServers`): the client has all of them, as it may a server it is
+    // leaving.
+    const onWeb = webServers({
+      has: (guild) => [FAKE_GUILD_ID, OTHER_GUILD_ID, LEFT, PENDING, SETUP].includes(guild),
+      standings: {
+        isLeft: (guild) => left.has(guild),
+        pending: (guild) => guild === PENDING,
+        mayHave: () => true,
+      },
+      servers: { inSetup: (guild) => guild === SETUP, of: () => ({}) },
+      open: false,
+    });
+    const editor = await editorSourcesWith([], [], (guild) => onWeb.listed(guild));
+    // Four servers with a region each just north of West: the second server (served), one Pine
+    // left, one being deleted, one in setup.
+    const servers = [OTHER_GUILD_ID, LEFT, PENDING, SETUP];
+    servers.forEach((guild, index) => {
+      const row = OTHER_GUILD_ROW + index;
+      editor.snowflakes.set(row, guild);
+      const west = -80.1 + index * 0.02;
+      editor.regionRows.rows.push({
+        id: 10 + index,
+        guildId: row,
+        channelId: String(100000000000000060n + BigInt(index)),
+        description: null,
+        bounds: [
+          { lat: 40.1, lon: west },
+          { lat: 40.11, lon: west },
+          { lat: 40.11, lon: west + 0.01 },
+          { lat: 40.1, lon: west + 0.01 },
+          { lat: 40.1, lon: west },
+        ],
+        forumChannelId: null,
+        summaryMessageId: null,
+      });
+    });
+    await editor.regions.load();
+    const served = webServerWith({ staff: new FakeRegionStaff().asStaff(STAFF), editor });
+    web = served;
+    const cookie = await served.loggedIn(STAFF, 'Brock');
+    const others = async () =>
+      (await served.app.inject({ url: DATA, headers: { cookie } }))
+        .json<EditorData>()
+        .others.map((other) => other.id);
+    expect(await others()).toEqual([10]);
+    // The served neighbor leaves: its outline goes from the next answer.
+    left.add(OTHER_GUILD_ID);
+    expect(await others()).toEqual([]);
+  });
+
+  it('tells the page whether the member may remove regions: staff by role, not who may only manage the server', async () => {
+    const staff = new FakeRegionStaff()
+      .asMember(STAFF, { roleNames: ['Moderator'], manageGuild: true, manageChannels: true })
+      .asMember(MEMBER, { roleNames: [], manageGuild: true, manageChannels: true });
+    const { web } = await made(staff);
+    const dataOf = async (userId: string, name: string) =>
+      (
+        await web.app.inject({ url: DATA, headers: { cookie: await web.loggedIn(userId, name) } })
+      ).json<EditorData>();
+    expect((await dataOf(STAFF, 'Brock')).mayRemoveRegions).toBe(true);
+    expect((await dataOf(MEMBER, 'Misty')).mayRemoveRegions).toBe(false);
+  });
 
   it('is for those logged in', async () => {
     const { web } = await made();
@@ -126,6 +207,33 @@ describe("the region editor's data", () => {
       ['powerspot', 'Stop 2'],
     ]);
     expect(data.channels).toEqual([{ id: SOUTH_TEXT_CHANNEL, name: 'south' }]);
+  });
+
+  it('gives the server’s own Wayspots alone, never another server’s copy or Wayspot in its regions (plan 19B-3)', async () => {
+    const editor = await editorSourcesWith(
+      [keptRow(1, { lat: 40.05, lon: -80.04 })],
+      [
+        {
+          guildId: OTHER_GUILD_ROW,
+          rows: [
+            keptRow(1, { lat: 40.05, lon: -80.04, title: 'Their Fountain' }),
+            keptRow(4, { lat: 40.06, lon: -80.06, title: 'Their Bench' }),
+          ],
+        },
+      ],
+    );
+    web = webServerWith({ staff: new FakeRegionStaff().asStaff(STAFF), editor });
+    const cookie = await web.loggedIn(STAFF, 'Brock');
+    const data = (await web.app.inject({ url: DATA, headers: { cookie } })).json<EditorData>();
+    expect(data.wayspots.map(([, , , title]) => title)).toEqual(['Stop 1']);
+    // The other server keeps both (positive control).
+    expect(
+      editor.wayspots
+        .of(OTHER_GUILD_ROW)
+        .all()
+        .map((one) => one.title)
+        .sort(),
+    ).toEqual(['Their Bench', 'Their Fountain']);
   });
 
   it('shows the server’s own stops of Pine’s own, never another server’s, and follows them', async () => {

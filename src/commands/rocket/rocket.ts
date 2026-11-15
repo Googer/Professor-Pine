@@ -245,14 +245,14 @@ const reportRocket: SubcommandPart = {
     )
     .addStringOption(stopOption),
   help: {
-    details: (settings) =>
+    details: (settings, facts) =>
       'Reports who of Team GO Rocket is at a PokéStop. Pick them from the list that appears ' +
       'while you type (it finds them by what can be caught too: `dratini`), and the stop from ' +
       'its list, or paste a maps link to a stop. The stops list puts your region’s stops ' +
       'first.\n\nThose near the stop where you last reported today (research or Team GO ' +
       'Rocket, also a report that has ended or changed since, but not one you took back) ' +
       'come first among stops that fit what you type equally well. With nothing typed, it lists the PokéStops within ' +
-      `${distanceWords(MORE_STOPS_METRES, settings.distanceUnits)} of that stop, nearest ` +
+      `${distanceWords(MORE_STOPS_METRES, facts?.server?.distanceUnits ?? 'imperial')} of that stop, nearest ` +
       `first.\n\nA grunt is posted in the region’s channel for ` +
       `${String(settings.rocket.gruntMinutes)} minutes. A leader, Giovanni or a decoy grunt ` +
       'goes in "Today’s Stops" on the region’s board until midnight and keeps grunts away from ' +
@@ -292,7 +292,7 @@ const reportRocket: SubcommandPart = {
       throttle: rocketThrottle(settings),
       window: rocketWindow(settings),
     };
-    const token = pending.put(interaction.user.id, waiting);
+    const token = pending.put(interaction, waiting);
     await interaction.showModal(replaceDialog(token, waiting));
   },
   autocomplete: async (interaction, ctx) => {
@@ -417,7 +417,7 @@ export const rocketControls: ComponentHandler = {
     id.action === ROCKET_ACTIONS.back ? MEMBER_WRITE_THROTTLE : undefined,
   carriesOn: (interaction, id) => {
     if (id.action !== ROCKET_ACTIONS.replace) return undefined;
-    const waiting = pending.peek(id.id, interaction.user.id);
+    const waiting = pending.peek(id.id, interaction);
     return typeof waiting === 'object'
       ? { ...waiting.value.throttle, as: waiting.value.window, countedAt: waiting.value.countedAt }
       : undefined;
@@ -459,7 +459,7 @@ export const rocketControls: ComponentHandler = {
   },
   async modal(interaction, id, ctx) {
     if (id.action !== ROCKET_ACTIONS.replace) throw new UserError(STALE_COMPONENT);
-    const taken = pending.take(id.id, interaction.user.id);
+    const taken = pending.take(id.id, interaction);
     if (taken === 'not-yours') throw new UserError('That is somebody else’s report.');
     if (taken === 'expired') {
       throw new UserError('That question has expired. Use `/rocket report` again.');

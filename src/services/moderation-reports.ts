@@ -47,6 +47,10 @@ import type { GymProvider } from './gym-directory.js';
 import type { PartyService, PostRemoved } from './party-service.js';
 import type { PartyListener, PartyProvider } from './party-store.js';
 import type { RegionProvider } from './region-directory.js';
+import { moderatorsNamed } from '../config/server-settings.js';
+import type { ServerSettingsLookup } from './server-settings.js';
+import { DM_PRIORITY, type DmSender } from './dm-sender.js';
+import { listTierOwnerDm } from '../render/shared-change-dm.js';
 
 /** A member's report of a party, as `/report` (or the Apps menu) gives it. */
 export interface PartyReportAsk {
@@ -56,8 +60,6 @@ export interface PartyReportAsk {
   reporter: NamedMember;
   /** As typed: trimmed here. */
   reason: string;
-  /** The staff roles to ping where there is no moderators' channel (`requestDeletion`). */
-  roleIds: readonly string[];
 }
 
 /** A member's report of one message, as the Apps menu gives it. */
@@ -130,32 +132,22 @@ export type ReportOutcome =
   | { kind: 'not-sent' }
   /** A reason of nothing but white space, or longer than `MAX_REPORT_REASON`. */
   | { kind: 'no-reason' }
-  /** A message reported where the server has no moderators' channel. */
-  | { kind: 'no-channel' }
   /**
-   * Without a moderators' channel (`settings.channels.moderation`): put into the party's post,
-   * the staff roles pinged once (`PartyService.requestDeletion`, as a member's `/delete` before),
-   * or asked by this member before.
+   * Where the server has no moderators' channel (plan 19A-1: `reportRefusal`): refused, never
+   * put into the open.
    */
-  | { kind: 'asked' }
-  | { kind: 'asked-before' };
+  | { kind: 'no-channel' };
 
 export interface ModerationReportsOptions {
   storage: ReportStore;
   /** Meetup safety's gateway (its own in rehearsal mode): the moderators' posts go through it. */
   gateway: Pick<
     PartyGateway,
-    'findChannel' | 'sendMessage' | 'editMessage' | 'deleteMessage' | 'deleteReported'
+    'findChannel' | 'sendMessage' | 'editMessage' | 'deleteMessage' | 'deleteReported' | 'guildName'
   >;
   parties: Pick<
     PartyService,
-    | 'requestDeletion'
-    | 'briefOf'
-    | 'postTitle'
-    | 'placeOf'
-    | 'endAs'
-    | 'mayDeletePost'
-    | 'deletePostOf'
+    'briefOf' | 'postTitle' | 'placeOf' | 'endAs' | 'mayDeletePost' | 'deletePostOf'
   >;
   /** Meetup safety: a place refused for good, a maker blocked (Refuse place…, Block maker…). */
   safety: Pick<MeetupSafety, 'refusePlace' | 'blockMember'>;
@@ -163,10 +155,22 @@ export interface ModerationReportsOptions {
   store: Pick<PartyProvider, 'get'>;
   regions: Pick<RegionProvider, 'byId'>;
   /** The gyms, for a raid's and a train's place and a gym's official name. */
-  gyms?: Pick<GymProvider, 'get'>;
+  gyms?: Pick<GymProvider, 'stored'>;
   /** The kept Wayspots, for a train at a power spot (plan 8X-4); without them it is at no place. */
-  wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf'>;
+  wayspots?: Pick<WayspotProvider, 'stored' | 'addressOf'>;
   settings: Settings;
+  /** Each server's values: its moderators' channel, which reports go to (plan 19A-1). */
+  servers: ServerSettingsLookup;
+  /**
+   * Whether a server's staff change what every server shares from it (plan 19B-1,
+   * `serverStaffShareData`: the operators' tiers): where they may not, a note of screenshots
+   * against the boss list names no command, and the owner is told. Unless given, they may.
+   */
+  staffChangeShared?: (serverId: string) => boolean;
+  /** `OWNER_ID`, told through `dms`; blank or none: nobody is. */
+  ownerId?: string;
+  /** The DM queue, for the owner's note of screenshots against the boss list (plan 19B-1). */
+  dms?: DmSender;
   log: Logger;
   now?: () => number;
   /**
@@ -193,12 +197,6 @@ export const MISSING_SPOT_DAYS = 7;
  */
 export const LIST_TIER_NOTE_DAYS = 7;
 
-/**
- * As much of a reason as is quoted in a party's post where there is no moderators' channel: in
- * one message with the pings, escaped (`plain` may double it), within Discord's 2,000.
- */
-const PUBLIC_REASON_ROOM = 500;
-
 /** As many of a party's brief lines as a report keeps, and as much of each. */
 const MAX_LINES = 10;
 const LINE_ROOM = 1000;
@@ -206,7 +204,7 @@ const LINE_ROOM = 1000;
 /**
  * Reports to the moderators (plan 8S-2; spec `2026-10-17-moderation-reports-design.md`): a
  * member's report of a party (`/report`, the Apps menu on its post) or of a message goes to the
- * moderators' channel (`settings.channels.moderation`, meetup safety's) as a post with what is
+ * moderators' channel (the server's moderators' channel, meetup safety's) as a post with what is
  * reported and every reporter's reason, where the moderators decide. Reports are kept in the
  * database (`ReportStore`), so that a press on an old post works after a restart; reasons of one
  * party or message gather on its one open report. Without the moderators' channel a party's
@@ -236,6 +234,8 @@ export class ModerationReports {
 
   /** By server and Power Spot name (`spotNameKey`): when the moderators were told it is missing. */
   private readonly spotsNoted = new BoundedMap<string, number>(1_000);
+  /** By sighting (`sightingKey`), of any server: when the owner was told the list disagrees. */
+  private readonly ownerNoted = new BoundedMap<string, number>(1_000);
   /** By server and sighting (`sightingKey`): when the moderators were told the list disagrees. */
   private readonly tiersNoted = new BoundedMap<string, number>(1_000);
 
@@ -243,9 +243,21 @@ export class ModerationReports {
     this.now = options.now ?? (() => Date.now());
   }
 
-  /** Whether reports go to the moderators: the settings name their channel. */
-  get on(): boolean {
-    return this.options.settings.channels.moderation !== undefined;
+  /**
+   * Whether reports go to the moderators of a server: its staff set their channel (plan 19A-1),
+   * or the settings file named one the server lacks (`moderatorsNamed`, review F2: unreachable).
+   */
+  on(serverId: string): boolean {
+    return moderatorsNamed(this.options.servers.of(serverId));
+  }
+
+  /**
+   * The server's moderators' channel near `nearChannelId`, where the bot may post in it;
+   * undefined where none is set or it is gone.
+   */
+  private channelOf(serverId: string, nearChannelId: string): string | undefined {
+    const id = this.options.servers.of(serverId).channels.moderation;
+    return id === undefined ? undefined : this.options.gateway.findChannel(nearChannelId, id);
   }
 
   /**
@@ -270,13 +282,12 @@ export class ModerationReports {
    * notice that cannot be sent is logged. Nothing without the moderators' channel.
    */
   maxAtPin(notice: MaxPinNotice): void {
-    if (!this.on) return;
-    const { gateway, settings, store, log } = this.options;
-    const name = settings.channels.moderation ?? '';
+    if (!this.on(notice.serverId)) return;
+    const { gateway, store, log } = this.options;
     const work = async (): Promise<void> => {
-      const channelId = gateway.findChannel(notice.regionChannelId, name);
+      const channelId = this.channelOf(notice.serverId, notice.regionChannelId);
       if (channelId === undefined) {
-        log.warn({ party: notice.partyId, channel: name }, "the moderators' channel is not there");
+        log.warn({ party: notice.partyId }, "the moderators' channel is not there");
         return;
       }
       const messageId = await gateway.sendMessage(channelId, maxPinNotice(notice));
@@ -304,11 +315,10 @@ export class ModerationReports {
    * the next screenshot of the name sends it.
    */
   missingSpot(notice: { serverId: string; channelId: string; name: string }): boolean {
-    const { gateway, settings, log } = this.options;
+    const { gateway, log } = this.options;
     // Where only: the name a member's screenshot showed stays out of the log (review r4 B2).
     const about = { server: notice.serverId, channel: notice.channelId };
-    const name = settings.channels.moderation;
-    const channelId = name === undefined ? undefined : gateway.findChannel(notice.channelId, name);
+    const channelId = this.channelOf(notice.serverId, notice.channelId);
     if (channelId === undefined) {
       log.info(about, 'a screenshot showed a Power Spot Pine does not know');
       return false;
@@ -340,13 +350,19 @@ export class ModerationReports {
    * `LIST_TIER_NOTE_DAYS` (review M4; in memory: a restart may tell once more). True when the
    * staff were told, now or before; false without the moderators' channel, which is a log line
    * only (the server and the channel). Sent on the side; one not sent or refused is forgotten,
-   * so the next screenshot sends it.
+   * so the next screenshot sends it. Where the server's staff may not change the list (plan
+   * 19B-1, `staffChangeShared`), the note names no command, and the owner is told by DM instead
+   * (`listTierOwnerDm`), once per sighting of any server in `LIST_TIER_NOTE_DAYS`.
    */
   listTier(notice: ListTierNotice): boolean {
-    const { gateway, settings, log } = this.options;
+    const { gateway, log } = this.options;
     const about = { server: notice.serverId, channel: notice.channelId };
-    const name = settings.channels.moderation;
-    const channelId = name === undefined ? undefined : gateway.findChannel(notice.channelId, name);
+    const operatorsDecide = this.options.staffChangeShared?.(notice.serverId) === false;
+    const who = {
+      operatorsDecide,
+      operatorsTold: operatorsDecide && this.tellOwnerOfListTier(notice),
+    };
+    const channelId = this.channelOf(notice.serverId, notice.channelId);
     if (channelId === undefined) {
       log.info(about, 'screenshots disagree with the boss list');
       return false;
@@ -359,12 +375,38 @@ export class ModerationReports {
     const work = async (): Promise<void> => {
       let sent: string | undefined;
       try {
-        sent = await gateway.sendMessage(channelId, { content: listTierNote(notice) });
+        sent = await gateway.sendMessage(channelId, { content: listTierNote(notice, who) });
       } finally {
         if (sent === undefined) this.tiersNoted.delete(key);
       }
     };
     this.aside(work(), about, 'could not tell the moderators of screenshots against the boss list');
+    return true;
+  }
+
+  /**
+   * Tells the owner by DM of screenshots against the boss list where the server's staff may not
+   * change it (plan 19B-1), through the queue as the other DMs about shared data, once per
+   * sighting in `LIST_TIER_NOTE_DAYS` whichever server it came from. True where there is an owner
+   * to tell (told now or before).
+   */
+  private tellOwnerOfListTier(notice: ListTierNotice): boolean {
+    const { dms, gateway } = this.options;
+    const ownerId = this.options.ownerId?.trim() ?? '';
+    if (ownerId === '' || dms === undefined) return false;
+    const key = sightingKey(notice);
+    const now = this.now();
+    const noted = this.ownerNoted.get(key);
+    if (noted !== undefined && now - noted < LIST_TIER_NOTE_DAYS * DAY) return true;
+    this.ownerNoted.set(key, now);
+    dms.send({
+      userId: ownerId,
+      serverId: null,
+      message: listTierOwnerDm(notice, gateway.guildName(notice.serverId)),
+      priority: DM_PRIORITY.normal,
+      eventAt: now,
+      expiresAt: now + DAY,
+    });
     return true;
   }
 
@@ -426,16 +468,8 @@ export class ModerationReports {
     if (reason === '' || reason.length > MAX_REPORT_REASON) return { kind: 'no-reason' };
     const party = this.options.store.get(ask.partyId);
     if (!party?.forumPostId) return { kind: 'gone' };
-    if (!this.on) {
-      const asked = await this.options.parties.requestDeletion(
-        party.id,
-        ask.reporter,
-        // Quoted in one message with the pings, which Discord keeps to 2,000 characters.
-        cutWhole(reason, PUBLIC_REASON_ROOM),
-        ask.roleIds,
-      );
-      return { kind: asked === 'asked' ? 'asked' : asked === 'already' ? 'asked-before' : 'gone' };
-    }
+    // Never into the open (plan 19A-1): without the moderators' channel, refused.
+    if (!this.on(ask.serverId)) return { kind: 'no-channel' };
     const subject = this.subjectOf(party);
     const nearChannelId = subject.regionChannelId;
     if (nearChannelId === null) return { kind: 'gone' };
@@ -452,7 +486,7 @@ export class ModerationReports {
   async reportMessage(ask: MessageReportAsk): Promise<ReportOutcome> {
     const reason = ask.reason.trim();
     if (reason === '' || reason.length > MAX_REPORT_REASON) return { kind: 'no-reason' };
-    if (!this.on) return { kind: 'no-channel' };
+    if (!this.on(ask.serverId)) return { kind: 'no-channel' };
     const { message } = ask;
     const subject: MessageSubject = {
       kind: 'message',
@@ -484,12 +518,13 @@ export class ModerationReports {
    * or takes longer than `checkTimeoutMs` (logged): the form opens then, and its submit says it.
    */
   async reportedBefore(
+    serverId: string,
     subject:
       | Pick<PartySubject, 'kind' | 'partyId'>
       | Pick<MessageSubject, 'kind' | 'channelId' | 'messageId'>,
     reporterId: string,
   ): Promise<boolean> {
-    if (!this.on) return false;
+    if (!this.on(serverId)) return false;
     const ms = this.options.checkTimeoutMs ?? 1_000;
     let timer: NodeJS.Timeout | undefined;
     const timeout = new Promise<never>((_, reject) => {
@@ -589,17 +624,14 @@ export class ModerationReports {
     nearChannelId: string,
     openerId: string,
   ): Promise<ReportOutcome> {
-    const { storage, gateway, settings, store, log } = this.options;
+    const { storage, gateway, store, log } = this.options;
     const report = await storage.report(reportId);
     if (!report) return { kind: 'not-sent' };
-    const name = settings.channels.moderation;
-    const channelId = name === undefined ? undefined : gateway.findChannel(nearChannelId, name);
+    const channelId = this.channelOf(report.serverId, nearChannelId);
     const sentMessage = reportMessage(report);
     let messageId: string | undefined;
     try {
-      if (channelId === undefined) {
-        throw new Error(`the moderators' channel #${name ?? ''} is not there`);
-      }
+      if (channelId === undefined) throw new Error("the moderators' channel is not there");
       messageId = await gateway.sendMessage(channelId, sentMessage);
       if (messageId === undefined) throw new Error('the moderators’ channel is gone');
       await storage.setReportPost(report.id, channelId, messageId);
@@ -636,7 +668,7 @@ export class ModerationReports {
 
   /**
    * Drops the reasons of `memberId` held for the next report of their subject (`orphans`): the
-   * owner's `/admin forget` (plan 8G) calls it once the removal has committed, so that their id
+   * operators' `/operator forget` (plan 8G) calls it once the removal has committed, so that their id
    * and name are not written back with somebody's next report.
    */
   forgetReporter(memberId: string): void {
@@ -948,18 +980,19 @@ export class ModerationReports {
     if (at?.kind === 'powerspot') {
       // A power spot of a train's route (plan 8X-4), as it is kept now.
       const { wayspots } = this.options;
-      const kept = wayspots?.byId(at.id);
+      const kept = wayspots?.stored(party.guildId, at.id);
       return wayspots && kept?.kind === 'powerspot'
         ? spotPlace(kept, wayspots.addressOf(kept))
         : null;
     }
     const gymId = isTrain(party) ? at?.id : party.gymId;
-    const gym = gymId === undefined || gymId === null ? undefined : this.options.gyms?.get(gymId);
+    const gym =
+      gymId === undefined || gymId === null ? undefined : this.options.gyms?.stored(gymId);
     return gym === undefined ? null : gymPlace(gym);
   }
 
   private gym(id: string): Gym | undefined {
-    return /^\d+$/u.test(id) ? this.options.gyms?.get(Number(id)) : undefined;
+    return /^\d+$/u.test(id) ? this.options.gyms?.stored(Number(id)) : undefined;
   }
 
   /** A party ended without a moderator: its open reports end with it. */

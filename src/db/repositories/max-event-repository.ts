@@ -1,5 +1,6 @@
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
+import { trustedLocals } from '../../domain/time/feed-times.js';
 import type { BigEvent, FeaturedNames, MaxEvent } from '../../domain/time/max-events.js';
 import type { Logger } from '../../log.js';
 import { inTransaction } from '../transaction.js';
@@ -44,10 +45,15 @@ function inOrder<T extends { start: number; name: string }>(events: T[]): T[] {
 
 /** The `MaxEvent` table. */
 export class MaxEventRepository implements MaxEventStorage {
-  /** `log` hears of a row that cannot be read (left out). */
+  /**
+   * `log` hears of a row that cannot be read (left out). `zone`: the instance's default, in which
+   * the moments are written; a wall-clock time that no longer agrees with its moment there is
+   * left out on read (`trustedLocals`; fix round 1, L8).
+   */
   constructor(
     private readonly db: Kysely<DB>,
     private readonly log?: Logger,
+    private readonly zone?: string,
   ) {}
 
   async all(): Promise<KeptMaxEvents> {
@@ -55,10 +61,16 @@ export class MaxEventRepository implements MaxEventStorage {
     const max: MaxEvent[] = [];
     const big: BigEvent[] = [];
     for (const row of rows) {
-      const start = Number(row.startsAt);
-      const end = Number(row.endsAt);
+      const kept = {
+        start: Number(row.startsAt),
+        end: Number(row.endsAt),
+        ...(row.startsLocal === null ? {} : { startLocal: row.startsLocal }),
+        ...(row.endsLocal === null ? {} : { endLocal: row.endsLocal }),
+      };
+      const { start, end, ...locals } =
+        this.zone === undefined ? kept : trustedLocals(kept, this.zone);
       if (row.kind === BIG && row.eventId !== null) {
-        big.push({ id: row.eventId, name: row.name, start, end });
+        big.push({ id: row.eventId, name: row.name, start, end, ...locals });
         continue;
       }
       const featured = this.featuredOf(row.featured);
@@ -74,6 +86,7 @@ export class MaxEventRepository implements MaxEventStorage {
         name: row.name,
         start,
         end,
+        ...locals,
         short: row.short === 1,
         hoursAssumed: row.hoursAssumed === 1,
         featured,
@@ -106,6 +119,8 @@ export class MaxEventRepository implements MaxEventStorage {
           name: event.name,
           startsAt: String(event.start),
           endsAt: String(event.end),
+          startsLocal: event.startLocal ?? null,
+          endsLocal: event.endLocal ?? null,
           short: event.short ? 1 : 0,
           hoursAssumed: event.hoursAssumed ? 1 : 0,
           featured: event.featured === undefined ? null : JSON.stringify(event.featured),
@@ -116,6 +131,8 @@ export class MaxEventRepository implements MaxEventStorage {
           name: event.name,
           startsAt: String(event.start),
           endsAt: String(event.end),
+          startsLocal: event.startLocal ?? null,
+          endsLocal: event.endLocal ?? null,
           short: 0,
           hoursAssumed: 0,
           featured: null,

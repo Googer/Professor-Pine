@@ -6,11 +6,12 @@ import { sendButtonPage, sendFailure } from './answers.js';
 import { addressBucket, prefixBucket } from './client-address.js';
 import { postGuard } from './csrf.js';
 import { authorizeUrl } from './discord-oauth.js';
+import { hiddenFrom } from './hidden-servers.js';
 import { localPath } from './local-path.js';
 import type { LinkPage } from './login-links.js';
 import { limitedPerAddress, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
-import { sameText } from './sessions.js';
+import { NO_SERVERS, sameText } from './sessions.js';
 
 /**
  * The name of the cookie that holds the state of a login with Discord, and where it returns to:
@@ -74,8 +75,9 @@ interface LinkParams {
  * from one address. "Log in with Discord" (only with the client secret): `/auth/login` sends
  * the member to Discord with a random state, kept with the page to return to in a cookie of ten
  * minutes; `/auth/callback` checks the state, exchanges the code, asks who the member is and
- * starts a session; whatever fails returns to the page with `?login=failed`, the cookie
- * deleted either way. One address causes at most `EXCHANGES_PER_ADDRESS_MINUTE` exchanges a
+ * which servers they are in (final review R4-1: those of this Pine served on the web are kept
+ * with the session, nothing else of them) and starts a session; whatever fails returns to the
+ * page with `?login=failed`, the cookie deleted either way. One address causes at most `EXCHANGES_PER_ADDRESS_MINUTE` exchanges a
  * minute (plan 8Z-2), counted only once the state and the code have passed. A link of `/maps`, `/auth/link/<guild>/<token>`, shows a page whose
  * button (a POST of Pine's own page) starts a session once, within five minutes, for its own
  * server; then the map, without the token. Logging out is a POST of Pine's own pages
@@ -146,7 +148,19 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     if ('failed' in token) return failed(`exchange: ${token.failed}`);
     const user = await oauth.gateway.who(token.accessToken);
     if ('failed' in user) return failed(`user: ${user.failed}`);
-    endStreams(await sessions.start(request, reply, user));
+    // Their servers, once, with their own token (final review R4-1): only those of this Pine
+    // served on the web are kept, for the top page. Without them the login still goes through,
+    // and the top page asks the member directory as for a session from before.
+    const read = await oauth.gateway.servers(token.accessToken);
+    if ('failed' in read) {
+      log.warn(
+        { reason: read.failed, user: user.id },
+        'could not read the servers of somebody logging in with Discord',
+      );
+    }
+    const theirs =
+      'failed' in read ? NO_SERVERS : { listed: true, ids: read.filter((id) => servers.has(id)) };
+    endStreams(await sessions.start(request, reply, user, theirs));
     log.info({ user: user.id }, 'logged in to the web pages with Discord');
     return reply.redirect(back, 302);
   });
@@ -164,14 +178,21 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     (page: LinkPage) =>
     async (request: FastifyRequest<{ Params: LinkParams }>, reply: FastifyReply) => {
       const { guild, token } = request.params;
+      // Who the browser is logged in as, read first for every link alike (fix round 1, R1): a
+      // server Pine is in does no more work than one it is not in.
+      const session = await sessions.of(request, reply);
       if (!isSnowflake(guild) || !servers.has(guild)) return sendFailure(request, reply, 404);
       const holder = loginLinks.peek(token, now());
       if (!holder || holder.guildId !== guild) {
+        // Where the page would answer as a server Pine is not in, so does a link that is none
+        // (plan 19C-4: a closed map, a server in setup); a link of the server's still logs in.
+        if (await hiddenFrom(request, reply, deps, guild, `/${page}`)) {
+          return sendFailure(request, reply, 404);
+        }
         return reply.redirect(`/s/${guild}/${page}?login=expired`, 303);
       }
-      // Who the browser is logged in as (plan 8Z-2): only one that is not logged in has the
-      // button pressed for it; a session's holder sees whose link it is and presses, or not.
-      const session = await sessions.of(request, reply);
+      // Only a browser that is not logged in has the button pressed for it (plan 8Z-2); a
+      // session's holder sees whose link it is and presses, or not.
       return sendButtonPage(reply, {
         sentence: LINK_SENTENCES[page],
         action: `/auth/link/${guild}/${encodeURIComponent(token)}${LINK_SUFFIXES[page]}`,
@@ -201,14 +222,30 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     (page: LinkPage) =>
     async (request: FastifyRequest<{ Params: LinkParams }>, reply: FastifyReply) => {
       const { guild, token } = request.params;
+      // The session first, for every link alike, as the link's page reads it (fix round 1, R1).
+      await sessions.of(request, reply);
       if (!isSnowflake(guild) || !servers.has(guild)) return sendFailure(request, reply, 404);
+      // As the link's page (plan 19C-4): before anything else says the server is here.
+      if (
+        loginLinks.peek(token, now())?.guildId !== guild &&
+        (await hiddenFrom(request, reply, deps, guild, `/${page}`))
+      ) {
+        return sendFailure(request, reply, 404);
+      }
       if (request.headers.origin !== settings.publicUrl) return sendFailure(request, reply, 403);
       const holder = loginLinks.redeem(token, now());
       if (!holder || holder.guildId !== guild) {
         return reply.redirect(`/s/${guild}/${page}?login=expired`, 303);
       }
+      // The link's server is theirs (they used /maps there); their other servers are not known
+      // (final review R4-1: the top page asks the member directory of them, a few a load).
       endStreams(
-        await sessions.start(request, reply, { id: holder.userId, name: holder.userName }),
+        await sessions.start(
+          request,
+          reply,
+          { id: holder.userId, name: holder.userName },
+          { listed: false, ids: [guild] },
+        ),
       );
       log.info({ user: holder.userId, guild }, 'logged in to the web pages with a link');
       // The map on the region of the channel /maps was used in (plan 8M-7): a number of ours.

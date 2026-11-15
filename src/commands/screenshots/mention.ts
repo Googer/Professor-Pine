@@ -1,3 +1,4 @@
+import { serverGyms } from '../util/server-gym.js';
 import {
   ButtonStyle,
   ComponentType,
@@ -41,7 +42,7 @@ import {
 import { endSentence, plain, truncate } from '../../render/text.js';
 import { MAX_SCREENSHOT_BYTES } from '../../services/ocr-service.js';
 import type { ReportOutcome } from '../../services/party-service.js';
-import { PendingRequests } from '../../services/pending-requests.js';
+import { PendingRequests, type Asker } from '../../services/pending-requests.js';
 import {
   screenshotsOf,
   unreadWords,
@@ -63,6 +64,7 @@ import {
   SPOT_GONE,
   type MaxShotRequest,
 } from '../max/max-shot.js';
+import { passiveIn } from './read-screenshot.js';
 
 /**
  * A raid screenshot posted in a region channel with a mention of the bot (or, with
@@ -179,9 +181,10 @@ interface AskedFor {
  * server, or one without a mention where pictures are not read passively (none of them an asked
  * message's case); `post`: in a thread or a forum's post, the region's board included for a
  * message asked for (its pictures are taken as they are posted); `being-read`: it is read just
- * now, for a mention or for somebody who asked.
+ * now, for a mention or for somebody who asked; `in-setup`: of a server in setup (plan 19C-2).
  */
 export type NotRead =
+  | 'in-setup'
   | 'closing'
   | 'off'
   | 'not-for-me'
@@ -361,6 +364,11 @@ const answeredShots = new BoundedMap<string, true>(1_000);
 /** The questions of the trigger, for the controls of the kind `shot` that answer them. */
 export const pendingShots = new PendingRequests<PendingShot>({ ttlMs: QUESTION_MS + 60_000 });
 
+/** The author of a posted message as the asker of its question, in the server it was posted in. */
+function authorOf(message: Pick<PostedMessage, 'authorId' | 'guildId'>): Asker {
+  return { user: { id: message.authorId }, guildId: message.guildId };
+}
+
 /**
  * The region's board as the trigger needs it (plan 8R-9F; `BoardKeeper`): which region a board
  * post is, and taking a message out of it once its pictures are downloaded (B2).
@@ -467,10 +475,14 @@ export const MAX_BOARD_MESSAGE_BYTES = 100 * 1024 * 1024;
 
 /**
  * The most bytes the board's messages hold at once, from their downloads until their last picture
- * is read or dropped (plan 8Z-2): the reader's `full()` trips only after about `ocr.queue + 1`
- * messages, as each holds one place in its queue while its pictures are read one at a time, and
+ * is read or dropped (plan 8Z-2): the reader's `full(server)` trips only after about
+ * `ocr.queuePerServer + 1` messages of a server (`ocr.queue + 1` of all; plan 19B-5),
+ * as each holds one place in its queue while its pictures are read one at a time, and
  * messages that come while downloads are on their way all pass it. Two messages as large as one
- * may be; one always fits while no other holds any.
+ * may be; one always fits while no other holds any. Each server holds at most one message's
+ * worth of it (`MAX_BOARD_MESSAGE_BYTES`, plan 19B-5): one server's burst leaves room for another;
+ * and beside other servers less, its share were one more to come (`boardPartOf`, final review
+ * R1-6), so that two servers never hold it all.
  */
 export const MAX_BOARD_BYTES_HELD = 2 * MAX_BOARD_MESSAGE_BYTES;
 
@@ -501,6 +513,8 @@ export class ScreenshotTrigger {
    * their pictures: one trigger per bot, so the whole process's.
    */
   private boardBytesHeld = 0;
+  /** Of `boardBytesHeld`, each server's (plan 19B-5); servers holding none are not here. */
+  private readonly boardBytesOf = new Map<string, number>();
   /**
    * The messages read just now, by id (plan 7M): one that a member asks for meanwhile is not
    * read a second time beside it (`being-read`).
@@ -587,11 +601,15 @@ export class ScreenshotTrigger {
     if (this.closed) return 'closing';
     if (!ctx.config.settings.ocr.enabled) return 'off';
     if (message.authorBot || message.guildId === null) return 'not-for-me';
+    // A server in setup reads nothing (plan 19C-2): neither a posted message (the listener passes
+    // over it already) nor one a member asks for.
+    if (ctx.servers.inSetup(message.guildId)) return 'in-setup';
     // Off in rehearsal mode: it reacts to and answers in a region channel, where every member
     // would see it. The testers report from a screenshot with /raid, answered privately.
     if (ctx.rehearsal) return 'rehearsal';
     const passive = !message.mentionsBot;
-    if (passive && !(ctx.config.settings.ocr.passive && ctx.features.ocrPassive)) {
+    // Where the instance allows it and the server uses it (plan 19A-1).
+    if (passive && !passiveIn(ctx, message)) {
       return 'not-for-me';
     }
     // A post is read only where it is the region's board (plan 8R-9F), and the board only as
@@ -778,9 +796,14 @@ export class ScreenshotTrigger {
       return true;
     });
     // A reader with no room, or the board's messages holding as much as they may together
-    // (`MAX_BOARD_BYTES_HELD`), refuses the message's pictures as a full reader refuses a
-    // mention's: the first takes its use, the rest take none, and nothing is downloaded.
-    const full = ctx.screenshots.full() || this.boardBytesHeld + wanted > MAX_BOARD_BYTES_HELD;
+    // (`MAX_BOARD_BYTES_HELD`) or of this server (`boardPartOf`, plans 19B-5, R1-6), refuses
+    // the message's pictures as a full reader refuses a mention's: the first takes its use, the
+    // rest take none, and nothing is downloaded.
+    const server = posted.guildId;
+    const full =
+      ctx.screenshots.full(server) ||
+      this.boardBytesHeld + wanted > MAX_BOARD_BYTES_HELD ||
+      (this.boardBytesOf.get(server) ?? 0) + wanted > this.boardPartOf(server);
     let busy = false;
     /** The bytes of the pictures to download, as Discord gives their sizes. */
     let bytes = 0;
@@ -812,11 +835,26 @@ export class ScreenshotTrigger {
     // Taken before the first download (no wait since `full` was asked), given back once the
     // last picture is read or dropped, whatever happens meanwhile.
     this.boardBytesHeld += bytes;
+    this.boardBytesOf.set(server, (this.boardBytesOf.get(server) ?? 0) + bytes);
     try {
       return await this.readBoardHeld(posted, region, passive, guildRow, images, said, counted);
     } finally {
       this.boardBytesHeld -= bytes;
+      const left = (this.boardBytesOf.get(server) ?? 0) - bytes;
+      if (left > 0) this.boardBytesOf.set(server, left);
+      else this.boardBytesOf.delete(server);
     }
+  }
+
+  /**
+   * The most bytes of the board's messages a server may hold at once (final review R1-6): its
+   * share were one more server to come, `MAX_BOARD_BYTES_HELD` over the servers holding some
+   * (this one counted) and one more, at most one message's worth (`MAX_BOARD_MESSAGE_BYTES`).
+   * Alone, a full message; beside another, two thirds of one; so two servers never hold it all.
+   */
+  private boardPartOf(server: string): number {
+    const holding = this.boardBytesOf.size + (this.boardBytesOf.has(server) ? 0 : 1);
+    return Math.min(MAX_BOARD_MESSAGE_BYTES, MAX_BOARD_BYTES_HELD / (holding + 1));
   }
 
   /**
@@ -938,6 +976,7 @@ export class ScreenshotTrigger {
     const now = this.now();
     ctx.dms.send({
       userId: posted.authorId,
+      serverId: posted.guildId,
       message: { content: boardDmText(head, lines) },
       priority: DM_PRIORITY.normal,
       eventAt: now,
@@ -1035,9 +1074,9 @@ export class ScreenshotTrigger {
     // about like a gym that is not clear: a raid is never sent to another region unasked.
     if (
       decision.kind === 'report' &&
-      ctx.gyms.regionsOf(decision.raid.gymId).includes(message.channelId)
+      ctx.gyms.of(guildRow).regionsOf(decision.raid.gymId).includes(message.channelId)
     ) {
-      const gym = ctx.gyms.get(decision.raid.gymId);
+      const gym = ctx.gyms.of(guildRow).get(decision.raid.gymId);
       if (!gym) return refused(refusalWords('no-gym'));
       const reported = await reportShot(ctx, {
         gym,
@@ -1072,8 +1111,8 @@ export class ScreenshotTrigger {
     // by the doubts as the channel words it (review W4).
     if (batch.board) {
       if (decision.kind === 'ask') return refused(unsureInBoard(decision.doubts));
-      const gym = ctx.gyms.get(decision.raid.gymId);
-      const there = gym && ctx.partyService.regionFor(gym, message.channelId).region;
+      const gym = ctx.gyms.of(guildRow).get(decision.raid.gymId);
+      const there = gym && ctx.partyService.regionFor(gym, guildRow, message.channelId).region;
       return refused(
         gym && there
           ? elsewhereInBoard(plain(gym.nickname || gym.name), there.channelId, '/raid screenshot:')
@@ -1098,7 +1137,7 @@ export class ScreenshotTrigger {
       batch,
       giveBack,
     };
-    const token = pendingShots.put(message.authorId, pending);
+    const token = pendingShots.put(authorOf(message), pending);
     // The gym is not named here: it is what is asked.
     const what = shortReading(storedReport(report), gymNamerOf(ctx), { gym: false });
     const read = report.gym.read ? ` I read "${plain(truncate(report.gym.read, 80))}".` : '';
@@ -1111,11 +1150,13 @@ export class ScreenshotTrigger {
           token,
           'gym',
           'Choose the gym',
-          gymMenuOptions(ctx, message.channelId, gyms, (id) => message.channelName(id)),
+          gymMenuOptions(ctx.gyms.of(guildRow), message.channelId, gyms, (id) =>
+            message.channelName(id),
+          ),
         ),
       },
       this.options.questionMs ?? QUESTION_MS,
-      () => pendingShots.take(token, message.authorId),
+      () => pendingShots.take(token, authorOf(message)),
     );
     return { kind: 'asked' };
   }
@@ -1136,7 +1177,7 @@ export class ScreenshotTrigger {
   ): Promise<ImageResult> {
     const { ctx } = this.options;
     const { message } = batch;
-    const gym = ctx.gyms.get(raid.gymId);
+    const gym = ctx.gyms.of(guildRow).get(raid.gymId);
     if (!gym) return refused(refusalWords('no-gym'));
     // Joined only, decided under the gym's lock: a raid reported there meanwhile is joined, and
     // none is made unasked (review A2).
@@ -1158,7 +1199,7 @@ export class ScreenshotTrigger {
       return refused(outcomeWords(reported, gym));
     }
     // Asked only where a raid could be reported: a region of the server with a forum (review A3).
-    const { region: there } = ctx.partyService.regionFor(gym, message.channelId);
+    const { region: there } = ctx.partyService.regionFor(gym, guildRow, message.channelId);
     if (!there) return refused(refusalWords('no-gym'));
     // From the board nothing is asked (R1).
     if (batch.board) {
@@ -1177,7 +1218,7 @@ export class ScreenshotTrigger {
       batch,
       giveBack,
     };
-    const token = pendingShots.put(message.authorId, pending);
+    const token = pendingShots.put(authorOf(message), pending);
     pending.question = `<@${message.authorId}> ${elsewhereQuestion(plain(gym.nickname || gym.name), there.channelId)}`;
     pending.again = ASK_AGAIN_YES;
     pending.keep = await this.say(
@@ -1188,7 +1229,7 @@ export class ScreenshotTrigger {
         ping: message.authorId,
       },
       this.options.questionMs ?? QUESTION_MS,
-      () => pendingShots.take(token, message.authorId),
+      () => pendingShots.take(token, authorOf(message)),
     );
     return { kind: 'asked' };
   }
@@ -1339,7 +1380,7 @@ export class ScreenshotTrigger {
       giveBack,
       again: ASK_AGAIN_SPOT,
     };
-    const token = pendingShots.put(message.authorId, pending);
+    const token = pendingShots.put(authorOf(message), pending);
     const read = report.spot.read ? ` I read "${plain(truncate(report.spot.read, 80))}".` : '';
     pending.question = truncate(
       `${shortMaxReading(report)}. Which Power Spot is it?${read}`,
@@ -1353,11 +1394,11 @@ export class ScreenshotTrigger {
           token,
           'spot',
           'Choose the Power Spot',
-          spotMenuOptions(ctx, offered, message),
+          spotMenuOptions(ctx, guildRow, offered, message),
         ),
       },
       this.options.questionMs ?? QUESTION_MS,
-      () => pendingShots.take(token, message.authorId),
+      () => pendingShots.take(token, authorOf(message)),
     );
     return { kind: 'asked' };
   }
@@ -1398,13 +1439,13 @@ export class ScreenshotTrigger {
       giveBack,
       again: ASK_AGAIN_YES,
     };
-    const token = pendingShots.put(message.authorId, pending);
+    const token = pendingShots.put(authorOf(message), pending);
     pending.question = `<@${message.authorId}> ${elsewhereQuestion(plain(maxSpotName(request.spot)), there.channelId)}`;
     pending.keep = await this.say(
       batch,
       { content: pending.question, components: [yesNoRow(token)], ping: message.authorId },
       this.options.questionMs ?? QUESTION_MS,
-      () => pendingShots.take(token, message.authorId),
+      () => pendingShots.take(token, authorOf(message)),
     );
     return { kind: 'asked' };
   }
@@ -1530,16 +1571,18 @@ function menuQuestion(
 }
 
 /**
- * The options of a Power Spot menu: each by its title, one of another region than the message's
- * told apart by that region's name (as `menuDescription` tells a gym).
+ * The options of a Power Spot menu of a server's spots (its `Guild` row): each by its title, one
+ * of another region than the message's told apart by that region's name (as `menuDescription`
+ * tells a gym).
  */
 function spotMenuOptions(
   ctx: Pick<AppContext, 'wayspots'>,
+  guildRow: number,
   spots: readonly SpotTitle[],
   message: Pick<PostedMessage, 'channelName'>,
 ): APISelectMenuOption[] {
   return spots.map((spot) => {
-    const [elsewhere] = spot.local ? [] : ctx.wayspots.regionsOf(spot.id);
+    const [elsewhere] = spot.local ? [] : ctx.wayspots.of(guildRow).regionsOf(spot.id);
     const region = elsewhere === undefined ? undefined : message.channelName(elsewhere);
     return {
       label: truncate(spot.title, 100),
@@ -1622,6 +1665,7 @@ async function reportShot(
     ...(raid.hatched && !raid.boss ? { hatched: true } : {}),
     screenshot: { id: shot.screenshotId ?? null, timeUncertain: raid.timeUncertain },
     regionChannelId: shot.regionChannelId,
+    guildRow: shot.guildRow,
     ...(raid.time ? { time: raid.time } : {}),
     ...(shot.joinOnly ? { joinOnly: true } : {}),
   });
@@ -1699,7 +1743,7 @@ function peeked(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   token: string,
 ): PendingShot | undefined {
-  const found = pendingShots.peek(token, interaction.user.id);
+  const found = pendingShots.peek(token, interaction);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   return found === 'expired' ? undefined : found.value;
 }
@@ -1713,7 +1757,7 @@ export async function cancelShot(interaction: ButtonInteraction, token: string):
     return;
   }
   await interaction.deferUpdate();
-  if (pendingShots.take(token, interaction.user.id) === 'expired') return;
+  if (pendingShots.take(token, interaction) === 'expired') return;
   answeredShots.set(token, true);
   await interaction.deleteReply().catch(() => undefined);
 }
@@ -1791,7 +1835,7 @@ async function taken(
   request: PendingShot,
 ): Promise<boolean> {
   await interaction.deferUpdate();
-  if (pendingShots.take(token, interaction.user.id) === 'expired') {
+  if (pendingShots.take(token, interaction) === 'expired') {
     // Another press took the question meanwhile: the question says what came of that one.
     if (answeredShots.has(token)) return false;
     await interaction
@@ -1817,7 +1861,7 @@ async function askedAgain(
 ): Promise<boolean> {
   if (!request.keep?.askAgain()) return false;
   answeredShots.delete(token);
-  pendingShots.put(interaction.user.id, request, token);
+  pendingShots.put(interaction, request, token);
   const asked = await interaction
     .editReply({
       content: [request.question, request.again ?? ASK_AGAIN].filter(Boolean).join('\n'),
@@ -1825,7 +1869,7 @@ async function askedAgain(
     .then(() => true)
     .catch(() => false);
   if (asked) return true;
-  pendingShots.take(token, interaction.user.id);
+  pendingShots.take(token, interaction);
   answeredShots.set(token, true);
   return false;
 }
@@ -1870,7 +1914,9 @@ async function answerShot(
   picked: boolean,
 ): Promise<void> {
   const gym =
-    gymId !== undefined && request.gymIds.includes(gymId) ? ctx.gyms.get(gymId) : undefined;
+    gymId !== undefined && request.gymIds.includes(gymId)
+      ? (await serverGyms(interaction, ctx)).get(gymId)
+      : undefined;
   if (!gym) {
     await interaction.update({ content: 'That gym no longer exists.', components: [] });
     return;

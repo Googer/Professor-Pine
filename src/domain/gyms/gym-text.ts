@@ -41,6 +41,23 @@ export const GYM_TEXT_FIELDS: readonly GymTextField[] = [
 ];
 
 /**
+ * The curated texts of a server's own that may be filled from a neighbor's same gym (plan 19E,
+ * `/admin neighbors copy`), each only where the gym's is empty (`emptyGymText`).
+ */
+export const FILLABLE_GYM_TEXTS = ['nickname', 'notice', 'description', 'keywords'] as const;
+export type FillableGymText = (typeof FILLABLE_GYM_TEXTS)[number];
+
+/** Whether a gym's text is empty: none, or blank; for the search words, none. */
+export function emptyGymText(
+  gym: Pick<GymTexts, FillableGymText>,
+  field: FillableGymText,
+): boolean {
+  if (field === 'keywords') return gym.keywords.length === 0;
+  const text = gym[field];
+  return text === null || text.trim() === '';
+}
+
+/**
  * Why a text cannot be a gym's. `blank`: a name of nothing. `too-long`: longer than may be
  * typed, by `by` characters. `too-long-stored`: short enough as typed, but its stored form
  * (entity-encoded) is `by` characters wider than the column. `keyword-too-long`: the keyword

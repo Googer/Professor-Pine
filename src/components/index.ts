@@ -1,5 +1,5 @@
 import { cleanupControls } from '../commands/admin/cleanup-legacy.js';
-import { forgetControls } from '../commands/admin/forget.js';
+import { forgetControls } from '../commands/operator/forget.js';
 import { closeControls } from '../commands/parties/delete.js';
 import { reportControls } from '../commands/parties/report.js';
 import { gymControls } from '../commands/gyms/controls.js';
@@ -30,6 +30,9 @@ import { helpControls } from '../commands/util/help.js';
 import { rankControls } from '../commands/util/rank.js';
 import { statsControls } from '../commands/stats/stats.js';
 import { settingsControls } from '../commands/settings/settings.js';
+import { serverSettingsControls } from '../commands/admin/server-settings.js';
+import { setupControls } from '../commands/admin/setup.js';
+import { neighborControls } from '../commands/admin/neighbors.js';
 import { screenshotControls } from '../commands/screenshots/feedback.js';
 import type { ComponentHandler } from '../discord/command.js';
 import { dmControls } from './dm.js';
@@ -86,6 +89,9 @@ export const components: readonly ComponentHandler[] = [
   rankControls,
   statsControls,
   settingsControls,
+  serverSettingsControls,
+  setupControls,
+  neighborControls,
   helpControls,
   countersControls,
   cleanupControls,

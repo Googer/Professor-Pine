@@ -14,6 +14,9 @@ import { REGION_COLOUR } from './shared.js';
  * staff, as all of `/region`; the editor asks Discord again who is staff at every request.
  */
 export const editRegions: SubcommandPart = {
+  // One of the two ways to the first region of a server in setup (plan 19C-2), for whoever may
+  // set the server up: its guard is `/region`'s list's (`staffParts`).
+  worksInSetup: true,
   data: new SlashCommandSubcommandBuilder()
     .setName('edit')
     .setDescription('Draw and change the regions on a map in your browser'),

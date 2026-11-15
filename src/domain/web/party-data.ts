@@ -527,7 +527,7 @@ export interface MapClose {
 
 /** The active parties of a server a member may see, in the order they were made. */
 export interface PartiesView {
-  /** The zone the posts give times in (`settings.timezone`). */
+  /** The zone the server's posts give times in (the server's zone). */
   zone: string;
   /** Discord cannot be reached: nothing can be pressed (spec 2.5). */
   readOnly: boolean;

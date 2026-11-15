@@ -46,7 +46,7 @@ const member = (
 ) => ({
   id: USER,
   displayName,
-  roles: { cache: new Collection(roles.map((name, i) => [String(i), { name }])) },
+  roles: { cache: new Collection(roles.map((name, i) => [String(i), { id: String(i), name }])) },
   pending: state.pending ?? false,
   isCommunicationDisabled: () => state.timedOut ?? false,
   permissions: {
@@ -64,6 +64,7 @@ describe('the member who presses a button on the live map, asked of Discord', ()
       member: { id: USER, name: 'Alice', team: 'mystic' },
       standing: {
         roleNames: ['Trainer', 'Mystic'],
+        roleIds: ['0', '1'],
         administrator: false,
         manageGuild: false,
         manageMessages: false,
@@ -107,6 +108,7 @@ describe('the member who presses a button on the live map, asked of Discord', ()
       member: { id: USER, name: 'Alice', team: 'valor' },
       standing: {
         roleNames: ['Valor'],
+        roleIds: ['0'],
         administrator: true,
         manageGuild: true,
         manageMessages: true,

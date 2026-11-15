@@ -1,6 +1,6 @@
 import { DiscordAPIError, RESTJSONErrorCodes } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
-import { EAST_CHANNEL, EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
+import { EAST_CHANNEL, EAST_FORUM, TEST_GUILD_ROW, WEST_FORUM } from '../../test/support/gyms.js';
 import { ALICE, BOB, CAROL, MINUTE, REPORTER } from '../../test/support/parties.js';
 import {
   createdMeetup,
@@ -34,10 +34,11 @@ const accessCalls = (made: Made): string[] =>
 
 /** A second raid in West, at the fountain (gym 2), reported by `REPORTER`; gives its id. */
 async function secondRaid(made: Made): Promise<string> {
-  const gym = gymsFixture().get(2);
+  const gym = gymsFixture().stored(2);
   if (!gym) throw new Error('no gym 2');
   const outcome = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: REPORTER,
     anonymous: false,
     autoStatus: PartyStatus.NotInterested,
@@ -72,6 +73,18 @@ describe('AccessService: who is let into a forum', () => {
     expect(accessCalls(made)).toHaveLength(1);
   });
 
+  it('forgets the grants of a deleted server’s row, and asks Discord nothing (plan 19C-3)', async () => {
+    const made = await reportedRaid(yveltal);
+    made.gateway.shutOut(WEST_FORUM, ALICE);
+    await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);
+    await settled(made);
+    expect(made.access.forgetServer(2)).toBe(0);
+    expect(made.access.has(WEST_FORUM, ALICE)).toBe(true);
+    expect(made.access.forgetServer(1)).toBe(1);
+    expect(made.access.has(WEST_FORUM, ALICE)).toBe(false);
+    expect(accessCalls(made)).toEqual([`admitMember ${WEST_FORUM} ${ALICE}`]);
+  });
+
   it('does nothing for a member who can see the forum', async () => {
     const made = await reportedRaid(yveltal);
     await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);
@@ -84,10 +97,11 @@ describe('AccessService: who is let into a forum', () => {
   it('lets in whoever reports a raid for a forum they cannot see', async () => {
     const made = await reportedRaid();
     made.gateway.shutOut(EAST_FORUM, BOB);
-    const gym = gymsFixture().get(8);
+    const gym = gymsFixture().stored(8);
     if (!gym) throw new Error('no gym 8');
     const outcome = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: BOB,
       anonymous: false,
       autoStatus: PartyStatus.Coming,

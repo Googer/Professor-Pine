@@ -1,4 +1,4 @@
-import { BoundedMap } from '../bounded-map.js';
+import { ServerBoundedMap } from '../bounded-map.js';
 import { isSnowflake } from '../db/snowflake.js';
 import type { Logger } from '../log.js';
 
@@ -190,6 +190,45 @@ export class GatewayWithFallback {
 }
 
 /**
+ * `GatewayWithFallback` per shard (final review R1-3): a request for members goes over the
+ * connection of its server's shard, so a shard whose request failed rests alone (said with its
+ * id), and the servers of the others go on over the gateway. A shard that is not ready (it
+ * reconnects) is not asked at all, the other way at once, and that is no failure: its request
+ * would wait out its whole time inside the one line of requests for members, then have every
+ * shard rest. A shard is known from its first request on (as many as the bot has shards).
+ */
+export class ShardGateways {
+  private readonly shards = new Map<number, GatewayWithFallback>();
+
+  constructor(
+    private readonly options: Omit<GatewayWithFallbackOptions, 'log'> & { log?: Logger } = {},
+  ) {}
+
+  /** Until when only the other way is asked for this shard (epoch ms); 0 for none. */
+  restsUntil(shard: number): number {
+    return this.shards.get(shard)?.restsUntil ?? 0;
+  }
+
+  ask<T>(
+    shard: { id: number; ready: boolean },
+    overGateway: () => Promise<T>,
+    otherwise: () => Promise<T>,
+  ): Promise<T> {
+    if (!shard.ready) return otherwise();
+    let gateway = this.shards.get(shard.id);
+    if (!gateway) {
+      const { log, ...rest } = this.options;
+      gateway = new GatewayWithFallback({
+        ...rest,
+        ...(log ? { log: log.child({ shard: shard.id }) } : {}),
+      });
+      this.shards.set(shard.id, gateway);
+    }
+    return gateway.ask(overGateway, otherwise);
+  }
+}
+
+/**
  * How long "this member sees the channel" is good for. Ten minutes: who could see a forum a
  * moment ago nearly always still can, and the next event there (a raid's boss, its gym) asks
  * about the same members again. Somebody who lost the view meanwhile gets one more message.
@@ -202,7 +241,8 @@ export const SEES_MS = 10 * 60_000;
  */
 export const UNSEEN_MS = 60_000;
 /**
- * As many answers as are remembered at once; the oldest goes first. An answer is a short key
+ * As many answers as are remembered at once, over every server; the oldest of the server holding
+ * the most goes first (`ServerBoundedMap`, plan 19B-5). An answer is a short key
  * and a flag: enough for the recipients of several events in a busy minute.
  */
 const CACHE_SIZE = 20_000;
@@ -211,6 +251,8 @@ export interface CachedViewersOptions {
   now?: () => number;
   /** Waited for before every request; none by default. */
   budget?: Pick<RequestBudget, 'take'>;
+  /** As many answers as are kept at once; `CACHE_SIZE` unless set (tests). */
+  maxKept?: number;
 }
 
 /**
@@ -224,7 +266,7 @@ export interface CachedViewersOptions {
  * that cannot be a user id (`isSnowflake`) is nobody, and is not asked for.
  */
 export class CachedViewers {
-  private readonly known = new BoundedMap<string, { sees: boolean; until: number }>(CACHE_SIZE);
+  private readonly known: ServerBoundedMap<string, { sees: boolean; until: number }>;
   /** The request that is last in line; the next one starts when it has settled. */
   private tail: Promise<unknown> = Promise.resolve();
   private readonly now: () => number;
@@ -234,15 +276,16 @@ export class CachedViewers {
     private readonly options: CachedViewersOptions = {},
   ) {
     this.now = options.now ?? (() => Date.now());
+    this.known = new ServerBoundedMap(options.maxKept ?? CACHE_SIZE);
   }
 
-  private cached(key: string): boolean | undefined {
-    const found = this.known.get(key);
+  private cached(guildId: string, key: string): boolean | undefined {
+    const found = this.known.get(guildId, key);
     return found && found.until > this.now() ? found.sees : undefined;
   }
 
-  private keep(key: string, sees: boolean): void {
-    this.known.set(key, { sees, until: this.now() + (sees ? SEES_MS : UNSEEN_MS) });
+  private keep(guildId: string, key: string, sees: boolean): void {
+    this.known.set(guildId, key, { sees, until: this.now() + (sees ? SEES_MS : UNSEEN_MS) });
   }
 
   async viewers(
@@ -252,8 +295,8 @@ export class CachedViewers {
   ): Promise<Set<string>> {
     const key = (userId: string): string => `${guildId}:${channelId}:${userId}`;
     const asked = [...new Set(userIds)].filter((id) => isSnowflake(id));
-    const unknown = asked.filter((id) => this.cached(key(id)) === undefined);
-    const seen = new Set(asked.filter((id) => this.cached(key(id)) === true));
+    const unknown = asked.filter((id) => this.cached(guildId, key(id)) === undefined);
+    const seen = new Set(asked.filter((id) => this.cached(guildId, key(id)) === true));
     const requests: Promise<void>[] = [];
     for (let start = 0; start < unknown.length; start += MEMBERS_PER_LOOKUP) {
       const chunk = unknown.slice(start, start + MEMBERS_PER_LOOKUP);
@@ -261,7 +304,7 @@ export class CachedViewers {
         // Answered by a request that was ahead in the line: not asked for again.
         const still: string[] = [];
         for (const id of chunk) {
-          const answer = this.cached(key(id));
+          const answer = this.cached(guildId, key(id));
           if (answer === undefined) still.push(id);
           else if (answer) seen.add(id);
         }
@@ -269,7 +312,7 @@ export class CachedViewers {
         await this.options.budget?.take();
         const visible = await this.fetch(guildId, channelId, still);
         for (const id of still) {
-          this.keep(key(id), visible.has(id));
+          this.keep(guildId, key(id), visible.has(id));
           if (visible.has(id)) seen.add(id);
         }
       });

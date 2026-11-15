@@ -6,6 +6,8 @@ import {
 import type { AppContext } from '../../app-context.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
+import { guildIdOf } from '../../discord/guards.js';
+import { zoneOf } from '../../discord/server-values.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
 import {
   NICKNAME_MAX,
@@ -18,7 +20,7 @@ import { count, fitItems, fitMessages, plain, truncate } from '../../render/text
 import type { NicknameAdded } from '../../services/pokemon-search-service.js';
 import { byName, CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import { pokemonChoices, pokemonOption } from '../pokemon-option.js';
-import { chosenPokemon } from './boss-input.js';
+import { chosenPokemon } from '../operator/boss-input.js';
 
 /** The subcommand group of `/admin` the nicknames live under. */
 export const NICKNAME_GROUP = 'nickname';
@@ -29,8 +31,8 @@ const PROBLEMS: Readonly<Record<NicknameProblem, string>> = {
   characters: 'A nickname has letters, digits, spaces and hyphens only.',
   'no-letter': 'A nickname needs a letter: digits alone are read as a Pokédex number.',
   reserved:
-    'A nickname cannot be or have a word that the Pokémon options read as something else: a ' +
-    'tier, `shadow`, `mega`, an egg, an IV target, `none`; nor begin with a tier (`3`, `t5`).',
+    'A nickname cannot use a word that Pokémon options read as something else (a tier, ' +
+    '`shadow`, `mega`, an egg, an IV target, `none`), nor begin with a tier (`3`, `t5`).',
 };
 
 /** The characters the legacy column holds for all nicknames of one Pokémon. */
@@ -40,41 +42,41 @@ const MAX_STORED = 255;
 const shown = (nickname: string): string => `**${plain(nickname)}**`;
 
 /** The Pokémon the `pokemon` option names; one the game data does not know has no nicknames. */
-function chosenEntry(ctx: AppContext, value: string): PokemonEntry {
-  const { entry, label } = chosenPokemon(ctx, value);
+function chosenEntry(ctx: AppContext, serverId: string, value: string, zone: string): PokemonEntry {
+  const { entry, label } = chosenPokemon(ctx, serverId, value, zone);
   if (!entry) throw new UserError(`${label} is not in the game data, so it has no nicknames yet.`);
   return entry;
 }
 
-/** The nicknames of a Pokémon, staff's and the bot's own, on one line. */
-function nicknamesLine(ctx: AppContext, entry: PokemonEntry): string {
-  const stored = ctx.nicknames.stored().get(entry.key) ?? [];
+/** The nicknames of a Pokémon, the server's staff's and the bot's own, on one line. */
+function nicknamesLine(ctx: AppContext, serverId: string, entry: PokemonEntry): string {
+  const stored = ctx.nicknames.stored(serverId).get(entry.key) ?? [];
   const curated = ctx.nicknames.curated(entry.key);
   const own =
     stored.length === 0 ? 'none added' : stored.map((nickname) => plain(nickname)).join(', ');
   const builtIn =
-    curated.length === 0
-      ? ''
-      : ` (and the bot's own: ${curated.map((one) => plain(one)).join(', ')})`;
+    curated.length === 0 ? '' : ` (and my own: ${curated.map((one) => plain(one)).join(', ')})`;
   return `${plain(entry.name)}: ${own}${builtIn}`;
 }
 
 /**
- * The choices of the `pokemon` option: with nothing typed, the Pokémon that have nicknames staff
- * added; with text, what the search finds (a guess only where its name shows the guessed word).
+ * The choices of the `pokemon` option: with nothing typed, the Pokémon that have nicknames the
+ * server's staff added; with text, what the server's search finds (a guess only where its name
+ * shows the guessed word). Either starts the read of a server not read yet (`stored` as the
+ * search), so that the next list has its nicknames.
  */
-function nicknamePokemonChoices(ctx: AppContext, typed: string): Choice[] {
+function nicknamePokemonChoices(ctx: AppContext, serverId: string, typed: string): Choice[] {
   const catalogue = ctx.gameData.catalogue;
   let choices: Choice[];
   if (searchTokens(typed).length === 0) {
-    choices = [...ctx.nicknames.stored().keys()]
+    choices = [...ctx.nicknames.stored(serverId).keys()]
       .flatMap((key) => {
         const entry = catalogue.byKey(key);
         return entry ? [{ name: entry.name, value: entry.key }] : [];
       })
       .sort((a, b) => byName(a.name, b.name));
   } else {
-    choices = pokemonChoices(ctx, typed);
+    choices = pokemonChoices(ctx, serverId, typed);
   }
   return choices
     .slice(0, MAX_CHOICES)
@@ -86,8 +88,13 @@ async function respondWithPokemon(
   ctx: AppContext,
 ): Promise<void> {
   const focused = interaction.options.getFocused(true);
+  const serverId = interaction.guildId;
+  if (serverId === null) {
+    await interaction.respond([]);
+    return;
+  }
   if (focused.name === 'pokemon') {
-    await interaction.respond(nicknamePokemonChoices(ctx, String(focused.value)));
+    await interaction.respond(nicknamePokemonChoices(ctx, serverId, String(focused.value)));
     return;
   }
   if (focused.name !== 'nickname') {
@@ -96,9 +103,10 @@ async function respondWithPokemon(
   }
   // The stored nicknames of the Pokémon picked so far; none while it names no Pokémon.
   const picked = interaction.options.getString('pokemon') ?? '';
-  const entry = ctx.gameData.catalogue.byKey(picked.trim()) ?? ctx.pokemon.exact(picked);
+  const entry =
+    ctx.gameData.catalogue.byKey(picked.trim()) ?? ctx.pokemon.of(serverId).exact(picked);
   const typed = String(focused.value).trim().toLowerCase();
-  const stored = entry ? (ctx.nicknames.stored().get(entry.key) ?? []) : [];
+  const stored = entry ? (ctx.nicknames.stored(serverId).get(entry.key) ?? []) : [];
   await interaction.respond(
     stored
       // Discord refuses the whole list for a value over 100 characters, which a legacy row may
@@ -129,9 +137,9 @@ export function addedText(entry: PokemonEntry, added: NicknameAdded): string {
       return `${shown(added.nickname)} finds ${name} already.`;
     case 'full':
       return (
-        `${name} has as many nicknames as the stored list holds (${String(MAX_STORED)} ` +
-        `characters with their commas), so ${shown(added.nickname)} ` +
-        'does not fit. Remove one first with `/admin nickname remove`.'
+        `${name}’s nicknames are full (${String(MAX_STORED)} characters in all, with their ` +
+        `commas), so ${shown(added.nickname)} does not fit. Remove one first with ` +
+        '`/admin nickname remove`.'
       );
   }
 }
@@ -153,17 +161,29 @@ export const addNickname: SubcommandPart = {
     ),
   help: {
     details:
-      'The nickname works wherever members type a Pokémon (`/raid`, `/want`, `/wild`, …) from ' +
-      `then on. It has ${String(NICKNAME_MIN)} to ${String(NICKNAME_MAX)} letters, digits, ` +
-      'spaces or hyphens, and must not be the name or a nickname of another Pokémon.',
+      'Members can then type the nickname wherever they type a Pokémon (`/raid`, `/want`, ' +
+      '`/wild`, …). Nicknames are this server’s own: other servers have theirs.\n\n' +
+      `A nickname has ${String(NICKNAME_MIN)} to ${String(NICKNAME_MAX)} letters, digits, ` +
+      'spaces or hyphens, and cannot be the name or a nickname of another Pokémon.',
     examples: ['/admin nickname add pokemon:Dratini nickname:danger noodle'],
   },
+  // The server's own (plan 19B-4): for its staff, by `/admin`'s guard.
   defer: 'ephemeral',
   async execute(interaction, ctx) {
-    const entry = chosenEntry(ctx, interaction.options.getString('pokemon', true));
-    const added = await ctx.nicknames.add(entry, interaction.options.getString('nickname', true));
+    const serverId = guildIdOf(interaction);
+    const entry = chosenEntry(
+      ctx,
+      serverId,
+      interaction.options.getString('pokemon', true),
+      zoneOf(interaction, ctx),
+    );
+    const added = await ctx.nicknames.add(
+      serverId,
+      entry,
+      interaction.options.getString('nickname', true),
+    );
     ctx.log.info(
-      { by: interaction.user.id, pokemon: entry.key, outcome: added.kind },
+      { by: interaction.user.id, server: serverId, pokemon: entry.key, outcome: added.kind },
       'a Pokémon nickname was asked for',
     );
     if (added.kind !== 'added') throw new UserError(addedText(entry, added));
@@ -193,24 +213,37 @@ export const removeNickname: SubcommandPart = {
       'first: the list then offers its nicknames.',
     examples: ['/admin nickname remove pokemon:Dratini nickname:danger noodle'],
   },
+  // The server's own (plan 19B-4): for its staff, by `/admin`'s guard.
   defer: 'ephemeral',
   async execute(interaction, ctx) {
-    const entry = chosenEntry(ctx, interaction.options.getString('pokemon', true));
+    const serverId = guildIdOf(interaction);
+    const entry = chosenEntry(
+      ctx,
+      serverId,
+      interaction.options.getString('pokemon', true),
+      zoneOf(interaction, ctx),
+    );
     // As it is stored and compared: what was typed, tidied.
     const nickname = tidyNickname(interaction.options.getString('nickname', true));
-    const removed = await ctx.nicknames.remove(entry, nickname);
+    const removed = await ctx.nicknames.remove(serverId, entry, nickname);
     if (!removed) {
       const builtIn = ctx.nicknames.curated(entry.key).includes(nickname);
       throw new UserError(
         builtIn
-          ? `${shown(nickname)} is one of the bot's own nicknames of ${plain(entry.name)}, and ` +
-              "the bot's own (see `/admin nickname list`) cannot be removed."
-          : `${plain(entry.name)} has no nickname ${shown(nickname)}. ${nicknamesLine(ctx, entry)}`,
+          ? `${shown(nickname)} is one of my own nicknames for ${plain(entry.name)}, and mine ` +
+              'cannot be removed.'
+          : `${plain(entry.name)} has no nickname ${shown(nickname)}. ` +
+              nicknamesLine(ctx, serverId, entry),
       );
     }
-    ctx.log.info({ by: interaction.user.id, pokemon: entry.key }, 'a Pokémon nickname was removed');
+    ctx.log.info(
+      { by: interaction.user.id, server: serverId, pokemon: entry.key },
+      'a Pokémon nickname was removed',
+    );
     await interaction.editReply({
-      content: `Members no longer find ${plain(entry.name)} by ${shown(nickname)}. ${nicknamesLine(ctx, entry)}`,
+      content:
+        `Members no longer find ${plain(entry.name)} by ${shown(nickname)}. ` +
+        nicknamesLine(ctx, serverId, entry),
     });
   },
   autocomplete: respondWithPokemon,
@@ -225,7 +258,7 @@ export const listNicknames: SubcommandPart = {
     .addStringOption((option) =>
       option
         .setName('pokemon')
-        .setDescription("Only this Pokémon, with the bot's own nicknames too")
+        .setDescription('Only this Pokémon, with Pine’s own nicknames too')
         .setMaxLength(100)
         .setAutocomplete(true),
     ),
@@ -237,14 +270,17 @@ export const listNicknames: SubcommandPart = {
   },
   defer: 'ephemeral',
   async execute(interaction, ctx) {
+    const serverId = guildIdOf(interaction);
+    // The server's own, read first where they were not yet (a server that joined since the start).
+    const own = await ctx.nicknames.readStored(serverId);
     const value = interaction.options.getString('pokemon');
     if (value !== null) {
-      const entry = chosenEntry(ctx, value);
-      await interaction.editReply({ content: nicknamesLine(ctx, entry) });
+      const entry = chosenEntry(ctx, serverId, value, zoneOf(interaction, ctx));
+      await interaction.editReply({ content: nicknamesLine(ctx, serverId, entry) });
       return;
     }
     const catalogue = ctx.gameData.catalogue;
-    const lines = [...ctx.nicknames.stored()]
+    const lines = [...own]
       .flatMap(([key, nicknames]) => {
         const entry = catalogue.byKey(key);
         return entry && nicknames.length > 0

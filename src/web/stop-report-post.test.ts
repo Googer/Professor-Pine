@@ -9,11 +9,13 @@ import {
   WEST_CHANNEL,
 } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
-import { ALICE, BOB } from '../../test/support/parties.js';
+import { ALICE, BOB, PARTY_ZONE } from '../../test/support/parties.js';
 import { pageTask, researchTasksFixture } from '../../test/support/research.js';
 import { feedChoice } from '../../test/support/rocket.js';
 import { STOP_NOON, STOP_ROWS, stopReportingWith } from '../../test/support/stop-reporting.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
+import { changeServers } from '../../test/support/server-values.js';
+import { zonedAt } from '../../test/support/time.js';
 import {
   FakeActingMembers,
   partyWebWith,
@@ -524,7 +526,7 @@ describe('reports at stops from the map', () => {
     it('refuses sameAs of a report ended, another server’s or a Rocket one, uncounted', async () => {
       const made = await setup();
       web = made.web;
-      const subject = readTask(made.ctx, DRAGON.key, null);
+      const subject = readTask(made.ctx, null, DRAGON.key, null, PARTY_ZONE);
       const reporter = { id: ALICE, name: 'Alice' };
       const taken = await made.ctx.stopReports.reportResearch({
         serverId: FAKE_GUILD_ID,
@@ -570,6 +572,31 @@ describe('reports at stops from the map', () => {
       expect(
         (await made.post('/research', { task: DRAGON.key, stops: [wayspotId(2)] })).status,
       ).toBe(429);
+    });
+
+    it('refuses sameAs of a report of that date made on the clock of the zone before (fix round 2, P4)', async () => {
+      const made = await setup();
+      web = made.web;
+      // 00:30 on the 23rd in Berlin: a report of Berlin's 23rd.
+      changeServers(made.ctx, { timezone: 'Europe/Berlin' });
+      vi.setSystemTime(zonedAt('2026-10-23T00:30', 'Europe/Berlin'));
+      const stale = await made.ctx.stopReports.reportResearch({
+        serverId: FAKE_GUILD_ID,
+        stops: await stopsByKey(made.ctx, FAKE_GUILD_ID, [wayspotId(1)]),
+        subject: readTask(made.ctx, null, DRAGON.key, null, PARTY_ZONE),
+        reporter: { id: BOB, name: 'Bob' },
+      });
+      // The server moves to New York: at 00:30 on its own 23rd, that report is not of the day.
+      changeServers(made.ctx, { timezone: 'America/New_York' });
+      const now = zonedAt('2026-10-23T00:30', 'America/New_York');
+      vi.setSystemTime(now);
+      made.web.clock.now = now;
+      const answer = await made.post('/research', {
+        sameAs: stale.saved[0]?.report.id,
+        stops: [wayspotId(2)],
+      });
+      expect(answer.status).toBe(409);
+      expect(answer.json).toMatchObject({ reason: 'ended' });
     });
 
     it('says where no PokéStop is known at all', async () => {
@@ -636,7 +663,7 @@ describe('reports at stops from the map', () => {
       const made = await setup();
       web = made.web;
       made.made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
-      made.acting.standing(ALICE, { roleNames: [], administrator: true });
+      made.acting.standing(ALICE, { roleNames: [], roleIds: [], administrator: true });
       const answer = await made.post('/research', { task: DRAGON.key, stops: [wayspotId(3)] });
       expect(answer.status).toBe(200);
     });
@@ -922,7 +949,7 @@ describe('reports at stops from the map', () => {
       expect(bobs.json.text).toBe(NOT_YOUR_REPORT);
       expect(made.store.rows.size).toBe(1);
       // Bob's refusal was not counted: his last use is there for it as staff.
-      made.acting.standing(BOB, { roleNames: ['Moderator'], administrator: false });
+      made.acting.standing(BOB, { roleNames: ['Moderator'], roleIds: [], administrator: false });
       const staff = await made.post(`/stop-reports/${String(id)}/remove`, {}, made.bob);
       expect(staff.status).toBe(200);
       expect(
@@ -959,7 +986,7 @@ describe('reports at stops from the map', () => {
       const hers = await remove(listed);
       expect(hers.status).toBe(409);
       expect(hers.json.text).toBe(REPORT_CHANGED);
-      made.acting.standing(ALICE, { roleNames: ['Moderator'], administrator: false });
+      made.acting.standing(ALICE, { roleNames: ['Moderator'], roleIds: [], administrator: false });
       expect((await remove(listed)).json.text).toBe(REPORT_CHANGED);
       expect([...made.store.rows.values()].map((row) => row.subjectKey)).toEqual([
         'grunt:water:male',
@@ -992,7 +1019,7 @@ describe('reports at stops from the map', () => {
       const elsewhere = await made.ctx.stopReports.reportResearch({
         serverId: OTHER_GUILD_ID,
         stops: await stopsByKey(made.ctx, FAKE_GUILD_ID, [wayspotId(2)]),
-        subject: readTask(made.ctx, DRAGON.key, null),
+        subject: readTask(made.ctx, null, DRAGON.key, null, PARTY_ZONE),
         reporter: { id: ALICE, name: 'Alice' },
       });
       const other = elsewhere.saved[0]?.report.id ?? 0;

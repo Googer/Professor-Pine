@@ -1,8 +1,13 @@
 import type { MapProvider } from '../../src/services/static-maps.js';
-import type { GymRemoval, RemovedGym } from '../../src/db/repositories/gym-removal-repository.js';
+import type {
+  GymRemoval,
+  RemovedGym,
+  RemovingServer,
+} from '../../src/db/repositories/gym-removal-repository.js';
 import { AdminLock } from '../../src/services/admin-lock.js';
 import { GymAdminService, type StaffPlace } from '../../src/services/gym-admin-service.js';
-import { GymUpkeep } from '../../src/services/gym-upkeep.js';
+import { DEFAULT_GOOGLE_BUDGET, GymUpkeep } from '../../src/services/gym-upkeep.js';
+import { GoogleShares, MemoryGoogleShareRaises } from '../../src/services/google-shares.js';
 import { MemoryGoogleUse } from '../../src/services/google-use.js';
 import { MemoryGymLookups } from '../../src/services/gym-lookups.js';
 import { MemoryWayspotLookups } from '../../src/services/wayspot-lookups.js';
@@ -15,9 +20,11 @@ import type { Region } from '../../src/db/repositories/region-repository.js';
 import { NORTH_CHANNEL, NORTH_PLACE, northRegion, OTHER_GUILD_ROW, WEST_CHANNEL } from './gyms.js';
 import { partyServiceWith, TestRegions, type Outliving } from './party-service.js';
 import type { MemorySavedRoutes } from './saved-routes.js';
+import { TEST_SERVER_CHANNELS, type TestServers } from './server-values.js';
 
 /** The channel for bot updates of the fakes' server, under the name of the test settings. */
-export const UPDATES_CHANNEL = '100000000000000031';
+/** The server's channel for bot updates, as the test servers' values name it (`TEST_SERVER_CHANNELS`). */
+export const UPDATES_CHANNEL = TEST_SERVER_CHANNELS['bot-updates'];
 
 /** The staff member of `STAFF_PLACE`. */
 export const STAFF = '200000000000000009';
@@ -41,12 +48,15 @@ export const OTHER_STAFF_PLACE: StaffPlace = {
 export async function withOtherServer(made: {
   regions: { rows: Region[] };
   gymStore: MemoryGyms;
-  directory: { load(): Promise<void>; get(id: number): Gym | undefined };
+  directory: { load(): Promise<void>; stored(id: number): Gym | undefined };
 }): Promise<Gym> {
   made.regions.rows.push(northRegion());
-  const created = await made.gymStore.create({ name: 'Northgate Clock', ...NORTH_PLACE });
+  const created = await made.gymStore.create(
+    { name: 'Northgate Clock', ...NORTH_PLACE },
+    OTHER_GUILD_ROW,
+  );
   await made.directory.load();
-  const gym = made.directory.get(created.id);
+  const gym = made.directory.stored(created.id);
   if (!gym) throw new Error('the gym of the second server is not in the directory');
   return gym;
 }
@@ -59,6 +69,8 @@ export async function withOtherServer(made: {
  */
 export class MemoryGymRemoval implements GymRemoval {
   failing: Error | undefined;
+  /** A promise every removal waits for before it decides anything (a test's hold). */
+  holdOn: Promise<void> | undefined;
 
   constructor(
     private readonly gyms: MemoryGyms,
@@ -66,8 +78,9 @@ export class MemoryGymRemoval implements GymRemoval {
     private readonly targets: MemoryGymTargets,
   ) {}
 
-  async remove(gymId: number): Promise<RemovedGym> {
+  async remove(gymId: number, server: RemovingServer): Promise<RemovedGym> {
     await new Promise((resolve) => setImmediate(resolve));
+    await this.holdOn;
     const failing =
       this.failing ??
       this.gyms.failing ??
@@ -75,11 +88,18 @@ export class MemoryGymRemoval implements GymRemoval {
       this.routes.failing ??
       this.targets.failing;
     if (failing) throw failing;
-    const routes = await this.routes.removeGym(gymId);
-    const targets = await this.targets.membersTargeting(gymId);
-    await this.targets.removeGym(gymId);
-    await this.gyms.delete(gymId);
-    return { routes: routes.changed + routes.removed, targets };
+    // The last server's removal takes the row and whatever still names it; another's, its own.
+    const last = [...(this.gyms.servers.get(gymId) ?? [])].every(
+      (guildId) => guildId === server.guildId,
+    );
+    // The server's counts; what others still name goes with the row, uncounted.
+    const routes = await this.routes.removeGym(gymId, server.regionIds);
+    if (last) await this.routes.removeGym(gymId, 'every');
+    const targets = await this.targets.membersTargeting(gymId, server.guildId);
+    await this.targets.removeGym(gymId, last ? 'every' : server.guildId);
+    if (last) await this.gyms.delete(gymId);
+    else this.gyms.unlink(gymId, server.guildId);
+    return { routes: routes.changed + routes.removed, targets, deleted: last };
   }
 }
 
@@ -96,17 +116,29 @@ export class MemoryGymRemoval implements GymRemoval {
 export async function gymAdminWith(
   parties: readonly Party[] = [],
   kept?: Partial<Outliving>,
-  options: { maps?: Pick<MapProvider, 'gym'> } = {},
+  options: { maps?: Pick<MapProvider, 'gym'>; servers?: TestServers } = {},
 ) {
   const regions = kept?.regions ?? new TestRegions();
-  const { gyms: gymStore, directory } = await gymDirectoryWith(new MemoryGyms(), regions);
-  const made = await partyServiceWith(parties, { gyms: directory }, { ...kept, regions });
+  const { gyms: gymStore, directory, answers } = await gymDirectoryWith(new MemoryGyms(), regions);
+  const made = await partyServiceWith(
+    parties,
+    { gyms: directory, ...(options.servers === undefined ? {} : { servers: options.servers }) },
+    { ...kept, regions },
+  );
   made.gateway.channelNames.set(UPDATES_CHANNEL, made.settings.channels['bot-updates']);
   const geo = new FakeGeoGateway();
   // The line and the month's counts, for a test to fill and read (plan 8W-6).
   const lookups = new MemoryGymLookups();
   const wayspotLookups = new MemoryWayspotLookups();
   const use = new MemoryGoogleUse();
+  // Google's month shared between the servers by need (plan 19B-5), over the same counts.
+  const shareRaises = new MemoryGoogleShareRaises();
+  const shares = new GoogleShares({
+    budget: DEFAULT_GOOGLE_BUDGET,
+    use,
+    raises: shareRaises,
+    log: made.log,
+  });
   const upkeep = new GymUpkeep({
     gyms: gymStore,
     directory,
@@ -119,6 +151,8 @@ export async function gymAdminWith(
     lookups,
     wayspotLookups,
     use,
+    shares,
+    answers,
   });
   const removal = new MemoryGymRemoval(gymStore, made.routes, made.gymTargets);
   // The one lock of gym and region administration, as in the bot.
@@ -138,6 +172,7 @@ export async function gymAdminWith(
     gateway: made.gateway,
     ...(options.maps === undefined ? {} : { maps: options.maps }),
     settings: made.settings,
+    servers: made.servers,
     log: made.log,
   });
   return {
@@ -152,5 +187,8 @@ export async function gymAdminWith(
     lookups,
     wayspotLookups,
     googleUse: use,
+    shares,
+    shareRaises,
+    answers,
   };
 }

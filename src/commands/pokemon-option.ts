@@ -27,17 +27,19 @@ export const entryChoice = (entry: PokemonEntry): Choice => ({
 });
 
 /**
- * The choices for typed text: what the search finds (`ctx.pokemon.find`), best first, a guess
- * only where the name shows the guessed word; nothing while nothing is typed. `filter` narrows
- * the Pokémon offered.
+ * The choices for typed text: what the search of the server finds (`ctx.pokemon.of(serverId)`,
+ * with its nicknames; plan 19B-4), best first, a guess only where the name shows the guessed
+ * word; nothing while nothing is typed. `filter` narrows the Pokémon offered.
  */
 export function pokemonChoices(
   ctx: AppContext,
+  serverId: string | null,
   typed: string,
   filter?: (entry: PokemonEntry) => boolean,
 ): Choice[] {
   if (searchTokens(typed).length === 0) return [];
   return ctx.pokemon
+    .of(serverId)
     .find(typed, { limit: MAX_CHOICES, ...(filter ? { filter } : {}) })
     .filter((hit) => hit.match !== 'guess' || showsGuessed(hit.entry.name, hit.guessed))
     .map((hit) => entryChoice(hit.entry));
@@ -45,15 +47,20 @@ export function pokemonChoices(
 
 /**
  * The Pokémon a `pokemon` option names: a choice of the list (a catalogue key), or typed text
- * that names one outright (its name, key or a nickname no other Pokémon has:
- * `ctx.pokemon.exact`). Anything else is refused with what the text could be; nothing is
- * guessed.
+ * that names one outright in the server (its name, key or a nickname of that server no other
+ * Pokémon has: `ctx.pokemon.of(serverId).exact`). Anything else is refused with what the text
+ * could be; nothing is guessed.
  */
-export function namedPokemon(ctx: AppContext, value: string): PokemonEntry {
+export function namedPokemon(
+  ctx: AppContext,
+  serverId: string | null,
+  value: string,
+): PokemonEntry {
   const text = value.trim();
-  const entry = ctx.gameData.catalogue.byKey(text) ?? ctx.pokemon.exact(text);
+  const pokemon = ctx.pokemon.of(serverId);
+  const entry = ctx.gameData.catalogue.byKey(text) ?? pokemon.exact(text);
   if (entry) return entry;
-  const could = ctx.pokemon.search(text).slice(0, 3);
+  const could = pokemon.search(text).slice(0, 3);
   throw new UserError(
     could.length === 0
       ? `I do not know a Pokémon called "${plain(truncate(text, 80))}". Pick one from the list.`

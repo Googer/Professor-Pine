@@ -1,11 +1,12 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { isSnowflake } from '../db/snowflake.js';
 import { REFUSED } from '../services/costly.js';
 import { sendFailure, shortPage } from './answers.js';
 import { editorRoutes } from './editor-routes.js';
 import { findRoutes } from './find-routes.js';
 import { etagMatches } from './geo-cache.js';
+import { hiddenFrom } from './hidden-servers.js';
 import { liveRoutes } from './live-routes.js';
+import { mapMemberRole } from '../config/server-settings.js';
 import { countsOnTheMap, mapMembers } from './map-members.js';
 import { maxRoutes } from './max-routes.js';
 import { meetupRoutes } from './meetup-routes.js';
@@ -22,6 +23,7 @@ import type { CostOf } from './public-costs.js';
 import { limitedRead } from './rate-limit.js';
 import { mayEditRegions } from './region-staff.js';
 import { spawnRoutes } from './spawn-routes.js';
+import { takeZone } from './request-zone.js';
 import { stopRoutes } from './stop-routes.js';
 import type { WebDeps } from './server.js';
 import { trainRoutes } from './train-routes.js';
@@ -34,9 +36,17 @@ const ME_PER_MINUTE = 60;
 /** The request of an address of one server, `/s/<guild>/…`. */
 export type GuildRequest = FastifyRequest<{ Params: { guild: string } }>;
 
+/** The map's member role where the bot cannot name it: `you need the map member role`. */
+export const MAP_ROLE_UNNAMED = 'map member';
+
+/** The prefix of a server's routes (`buildWebServer`). */
+const GUILD_PREFIX = '/s/:guild';
+
 /**
- * The addresses of one Discord server, `/s/<guild>/…` (spec 2.1): a server the bot is not in,
- * or no snowflake at all, is not found before anything else is looked at.
+ * The addresses of one Discord server, `/s/<guild>/…` (spec 2.1): a server that answers the
+ * request as one Pine is not in (`hiddenFrom`: no snowflake, a server the bot is not in, one in
+ * setup but to its staff's region editor, one whose map is closed to a visitor who is not logged
+ * in) is not found before anything else is looked at.
  */
 export function guildRoutes(
   scope: FastifyInstance,
@@ -45,10 +55,12 @@ export function guildRoutes(
   costOf: CostOf,
 ): void {
   const { sessions } = deps;
-  // Who counts as a member on the map (`settings.web.memberRole`): the parties (`/api/me` judges
-  // it by `countsOnTheMap` itself, to tell a member without the role which role it is); the
-  // region editor asks its own question (staff) and is not affected.
-  const judged = mapMembers(deps.members, deps.settings.memberRole);
+  // Who counts as a member on the map (the map's member role of the server's values, plan
+  // 19A-1): the parties (`/api/me` judges it by `countsOnTheMap` itself, to tell a member without
+  // the role which role it is); the region editor asks its own question (staff) and is not
+  // affected.
+  const memberRoleOf = (guildId: string) => mapMemberRole(deps.serverSettings.of(guildId));
+  const judged = mapMembers(deps.members, memberRoleOf);
   const map: WebDeps = {
     ...deps,
     members: {
@@ -58,7 +70,15 @@ export function guildRoutes(
   };
   scope.addHook('onRequest', async (request: GuildRequest, reply) => {
     const { guild } = request.params;
-    if (!isSnowflake(guild) || !deps.servers.has(guild)) return sendFailure(request, reply, 404);
+    // A server in setup (plan 19C-2) is one Pine is not in, but for its staff's region editor;
+    // one whose map is closed to visitors who are not logged in (plan 19C-4) is, to them.
+    const route = request.routeOptions.url;
+    const under = route?.startsWith(GUILD_PREFIX) ? route.slice(GUILD_PREFIX.length) : undefined;
+    if (await hiddenFrom(request, reply, deps, guild, under)) {
+      return sendFailure(request, reply, 404);
+    }
+    // The server's zone, once for the whole answer (plan 19A-2, `requestZone`).
+    takeZone(request, deps.serverSettings.zoneOf(guild));
   });
 
   // The map page (spec 3.1): the static template, told the server, the tiles and how to log in.
@@ -78,7 +98,8 @@ export function guildRoutes(
           tiles,
           googleKey: tiles === 'google' ? deps.googleKey : undefined,
           login: deps.oauth ? 'discord' : 'links',
-          distanceUnits: deps.distanceUnits,
+          // The units of the server it shows (plan 19A-1).
+          distanceUnits: deps.serverSettings.of(request.params.guild).distanceUnits,
         },
         manifest,
       ),
@@ -126,7 +147,6 @@ export function guildRoutes(
   // the address, as it may ask Discord. Somebody logged in whom the directory finds not in the
   // server is given the server's invite where the settings have one (`invite`, plan 8M-11B):
   // nobody logged out (they may be a member), no member without the role, nobody while read-only.
-  const { memberRole, invites } = deps.settings;
   scope.get(
     '/api/me',
     { onRequest: limitedRead(ME_PER_MINUTE, deps) },
@@ -139,11 +159,17 @@ export function guildRoutes(
       let readOnly = false;
       let mayEdit = false;
       let invite: string | undefined;
+      const { guild } = request.params;
+      const memberRole = memberRoleOf(guild);
       try {
-        const found = await deps.members.find(request.params.guild, session.userId);
-        if (found === undefined) invite = invites?.[request.params.guild];
+        const found = await deps.members.find(guild, session.userId);
+        // The server's invite (plan 19A-1: its values).
+        if (found === undefined) invite = deps.serverSettings.of(guild).invite;
         member = found !== undefined && countsOnTheMap(found.standing, memberRole);
-        if (found !== undefined && !member) missingRole = memberRole;
+        // Its name as the server has it now (a role the bot cannot see: by what it is for).
+        if (found !== undefined && !member && memberRole !== undefined) {
+          missingRole = deps.roleName(guild, memberRole) ?? MAP_ROLE_UNNAMED;
+        }
         // Whether to offer "Edit regions" (plan 8M-10): a hint by the member as the directory
         // keeps them, never asked of Discord for it; the editor's data asks fresh and decides.
         mayEdit =
@@ -166,6 +192,9 @@ export function guildRoutes(
         csrf: sessions.csrfToken(session),
         readOnly,
         mayEditRegions: mayEdit,
+        // A server in setup (plan 19C-2, S11), which only its staff's region editor reaches: the
+        // page starts no live layer.
+        ...(deps.servers.inSetup(guild) ? { inSetup: true } : {}),
         ...(missingRole === undefined ? {} : { missingRole }),
         ...(invite === undefined ? {} : { invite }),
       };
@@ -177,7 +206,7 @@ export function guildRoutes(
   // gyms' question who is a member.
   const viewers = new PartyViewers({
     members: map.members,
-    asks: mapMembers(pacedMembers, deps.settings.memberRole),
+    asks: mapMembers(pacedMembers, memberRoleOf),
     forums: deps.parties.forums,
     log: deps.log,
     now: deps.now,

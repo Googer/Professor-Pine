@@ -169,7 +169,7 @@ describe('UserRepository', () => {
     expect(await users.withNickname('PineTrainer ')).toEqual([]);
   });
 
-  describe('forgetting a member (plan 8G, `/admin forget`)', () => {
+  describe('forgetting a member (plan 8G, `/operator forget`)', () => {
     const NOW = 1_800_000_000_000;
 
     beforeEach(async () => {

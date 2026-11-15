@@ -37,6 +37,7 @@ import {
   type FormOpener,
   type PendingGym,
 } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 type PendingEdit = Extract<PendingGym, { what: 'edit' }>;
 
@@ -131,7 +132,7 @@ export async function openEditForm(
     ...(fromView ? { fromView } : {}),
   };
   if (formFields(request).length === 0) throw new UserError(tooLongNote(tooLong) ?? EXPIRED);
-  const token = pendingGyms.put(interaction.user.id, request);
+  const token = pendingGyms.put(interaction, request);
   await interaction.showModal(editForm(token, request, gym.name));
 }
 
@@ -164,7 +165,7 @@ export const editForms: Readonly<Record<string, FormAnswer>> = {
       await refuseForm(interaction, token, refusal, !again);
       return;
     }
-    if (pendingGyms.take(token, interaction.user.id) === 'expired') throw new UserError(EXPIRED);
+    if (pendingGyms.take(token, interaction) === 'expired') throw new UserError(EXPIRED);
     markAnswered(token);
     const names = GYM_TEXT_FIELDS.filter((field) => Object.hasOwn(changed, field));
     const note = tooLongNote(request.tooLong);
@@ -194,11 +195,15 @@ export const editForms: Readonly<Record<string, FormAnswer>> = {
       // again with every later change of a gym that has a nickname or keywords.
       const findable = gym.nickname !== null || gym.keywords.length > 0;
       await show(
-        await gymViewMessage(ctx, place, gym, [
+        await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, place, gym, [
           `Changed ${fieldList(names)} of ${gymWithId(gym)}.`,
           note,
-          names.includes('name') || !findable ? nameNote(ctx, gym) : undefined,
-          names.includes('name') || names.includes('nickname') ? namesakeNote(ctx, gym) : undefined,
+          names.includes('name') || !findable
+            ? nameNote(serverValuesOf(interaction, ctx), gym)
+            : undefined,
+          names.includes('name') || names.includes('nickname')
+            ? namesakeNote(ctx.gyms.of(place.guildId), gym)
+            : undefined,
         ]),
       );
     });

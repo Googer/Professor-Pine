@@ -2,21 +2,23 @@ import {
   DiscordAPIError,
   PermissionFlagsBits,
   RESTJSONErrorCodes,
+  Status,
   type Client,
   type Collection,
   type Guild,
   type GuildMember,
 } from 'discord.js';
-import { BoundedMap } from '../bounded-map.js';
+import { ServerBoundedMap } from '../bounded-map.js';
 import { isSnowflake } from '../db/snowflake.js';
 import type { Logger } from '../log.js';
+import { Turns } from '../turns.js';
 import {
   answeredMembers,
   CachedViewers,
-  GatewayWithFallback,
   MEMBER_REQUEST_BUDGET,
   MEMBERS_PER_LOOKUP,
   RequestBudget,
+  ShardGateways,
   withSelf,
 } from './member-viewers.js';
 
@@ -36,6 +38,8 @@ export interface ServerMember {
 /** A member's roles by name and whether they are an administrator, as Discord has them. */
 export interface MemberStanding {
   roleNames: readonly string[];
+  /** The ids of the same roles (plan 19A-1: the map's member role is one by id). */
+  roleIds: readonly string[];
   administrator: boolean;
   /**
    * Manage Server (also as an administrator), for the map's hint of the region editor
@@ -57,6 +61,7 @@ export interface MemberStanding {
 export function memberStanding(member: GuildMember): MemberStanding {
   return {
     roleNames: member.roles.cache.map((role) => role.name),
+    roleIds: member.roles.cache.map((role) => role.id),
     administrator: member.permissions.has(PermissionFlagsBits.Administrator),
     manageGuild: member.permissions.has(PermissionFlagsBits.ManageGuild),
     manageMessages: member.permissions.has(PermissionFlagsBits.ManageMessages),
@@ -132,7 +137,10 @@ const CACHE_MS = 60_000;
  * otherwise run out in one moment, a herd of forced requests every minute.
  */
 const CACHE_JITTER_MS = 30_000;
-/** As many answers as are remembered at once; the oldest goes first. */
+/**
+ * As many answers as are remembered at once, over every server; the oldest of the server holding
+ * the most goes first (`ServerBoundedMap`, plan 19B-5).
+ */
 const CACHE_SIZE = 5_000;
 
 /**
@@ -143,10 +151,10 @@ const CACHE_SIZE = 5_000;
  * all members of the server.
  */
 export class CachedMemberDirectory implements Pick<MemberDirectory, 'find'> {
-  private readonly known = new BoundedMap<
+  private readonly known: ServerBoundedMap<
     string,
     { member: ServerMember | undefined; until: number }
-  >(CACHE_SIZE);
+  >;
   /** The look-ups that are on their way: a second one for the same member waits for the first. */
   private readonly asking = new Map<string, Promise<ServerMember | undefined>>();
 
@@ -154,20 +162,24 @@ export class CachedMemberDirectory implements Pick<MemberDirectory, 'find'> {
     private readonly fetch: MemberFetch,
     private readonly now: () => number = () => Date.now(),
     private readonly random: () => number = () => Math.random(),
-  ) {}
+    /** As many answers as are kept at once; `CACHE_SIZE` unless set (tests). */
+    maxKept = CACHE_SIZE,
+  ) {
+    this.known = new ServerBoundedMap(maxKept);
+  }
 
   /** Whether `find` would answer without a request of its own: from memory, or one on its way. */
   holds(guildId: string, userId: string): boolean {
     if (!isSnowflake(userId)) return true;
     const key = `${guildId}:${userId}`;
-    const cached = this.known.get(key);
+    const cached = this.known.get(guildId, key);
     return (cached !== undefined && cached.until > this.now()) || this.asking.has(key);
   }
 
   find(guildId: string, userId: string): Promise<ServerMember | undefined> {
     if (!isSnowflake(userId)) return Promise.resolve(undefined);
     const key = `${guildId}:${userId}`;
-    const cached = this.known.get(key);
+    const cached = this.known.get(guildId, key);
     if (cached && cached.until > this.now()) return Promise.resolve(cached.member);
     const waiting = this.asking.get(key);
     if (waiting) return waiting;
@@ -182,7 +194,7 @@ export class CachedMemberDirectory implements Pick<MemberDirectory, 'find'> {
     userId: string,
   ): Promise<ServerMember | undefined> {
     const member = await this.fetch(guildId, userId);
-    this.known.set(key, {
+    this.known.set(guildId, key, {
       member,
       until: this.now() + CACHE_MS + this.random() * CACHE_JITTER_MS,
     });
@@ -223,11 +235,13 @@ interface LineJob {
  * waiting, also the next batch of a lookup chained on the one just settled (F2); names may start
  * `NAMES_PER_MINUTE` times in any minute, an ask's batches reserved all at once
  * (`reserveNames`, F1), and are refused beyond it (`MembersBusy`), never queued for later.
+ * Among the viewers, and among the names, the servers take turns (plan 19B-5; `Turns`), so that
+ * one server's burst of lookups waits behind another's rather than in front of it.
  */
 export class BudgetLine {
   private busy = false;
-  private readonly first: LineJob[] = [];
-  private readonly then: LineJob[] = [];
+  private readonly first = new Turns<string, LineJob>();
+  private readonly then = new Turns<string, LineJob>();
   /** When each request for names of the last minute was let in. */
   private readonly namesAt: number[] = [];
 
@@ -251,10 +265,10 @@ export class BudgetLine {
   }
 
   /**
-   * Runs a request in its turn: names (`{ names: true }`, reserved with `reserveNames` first)
-   * behind every request of `viewers` waiting.
+   * Runs a request of `server` in its turn: names (`names: true`, reserved with `reserveNames`
+   * first) behind every request of `viewers` waiting.
    */
-  run<T>(request: () => Promise<T>, options: { names?: boolean } = {}): Promise<T> {
+  run<T>(request: () => Promise<T>, options: { server: string; names?: boolean }): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const job: LineJob = {
         request,
@@ -263,7 +277,7 @@ export class BudgetLine {
         },
         reject,
       };
-      (options.names === true ? this.then : this.first).push(job);
+      (options.names === true ? this.then : this.first).put(options.server, job);
       this.next();
     });
   }
@@ -275,7 +289,7 @@ export class BudgetLine {
    * while it sleeps for the budget.
    */
   private next(): void {
-    if (this.busy || this.first.length + this.then.length === 0) return;
+    if (this.busy || this.first.size + this.then.size === 0) return;
     this.busy = true;
     void (async () => {
       let job: LineJob | undefined;
@@ -284,7 +298,7 @@ export class BudgetLine {
         await new Promise<void>((resolve) => {
           setImmediate(resolve);
         });
-        job = this.first.shift() ?? this.then.shift();
+        job = this.first.take() ?? this.then.take();
         if (job !== undefined) job.resolve(await job.request());
       } catch (err) {
         job?.reject(err);
@@ -309,6 +323,14 @@ function gatewayRetryAfterMs(err: unknown): number | undefined {
 }
 
 /**
+ * The shard of a server, and whether it is ready (final review R1-3): a request for members goes
+ * over that shard's connection, which `ShardGateways` asks only while it is.
+ */
+function shardOf(guild: Guild): { id: number; ready: boolean } {
+  return { id: guild.shardId, ready: guild.shard.status === Status.Ready };
+}
+
+/**
  * The directory over a discord.js client: thin, and without unit tests like the party gateway
  * (the staging run is its test); what it remembers is `CachedMemberDirectory`'s and
  * `CachedViewers`'. The client is handed over once it exists; anything asked before that fails.
@@ -324,21 +346,22 @@ function gatewayRetryAfterMs(err: unknown): number | undefined {
  * channel as the cache has it; channels, their overwrites and the roles of the server are kept
  * current by the Guilds intent. When the gateway request fails, times out or is refused as
  * rate limited, the same members are asked for one at a time over REST (`fetchGuildMember`,
- * fresh), and the gateway is left alone for a while (`GatewayWithFallback`: a minute, longer
- * after every further failure, or for as long as Discord said).
+ * fresh), and that server's shard's gateway is left alone for a while (`ShardGateways`, final
+ * review R1-3: per shard a minute, longer after every further failure, or for as long as Discord
+ * said); a shard that is not ready is not asked at all, the same members over REST at once.
  */
 export class DiscordMemberDirectory implements MemberDirectory {
   private current: Client | undefined;
   private readonly cached: CachedMemberDirectory;
   private readonly seeing: CachedViewers;
-  private readonly members: GatewayWithFallback;
+  private readonly members: ShardGateways;
   /** The one budget of the gateway's requests for members, `viewers`' and `named`'s (A7). */
   private readonly line: BudgetLine;
   private readonly now: () => number;
 
   constructor(options: { now?: () => number; log?: Logger } = {}) {
     const now = options.now ?? (() => Date.now());
-    this.members = new GatewayWithFallback({
+    this.members = new ShardGateways({
       now,
       ...(options.log ? { log: options.log } : {}),
       retryAfterMs: gatewayRetryAfterMs,
@@ -361,7 +384,9 @@ export class DiscordMemberDirectory implements MemberDirectory {
           throw new Error(`The channel ${channelId} is not known, or is a thread`);
         }
         if (userIds.length === 0) return new Set<string>();
-        const members = await this.line.run(() => this.freshMembers(guild, userIds));
+        const members = await this.line.run(() => this.freshMembers(guild, userIds), {
+          server: guildId,
+        });
         const seeing = new Set<string>();
         for (const member of members) {
           if (channel.permissionsFor(member).has(PermissionFlagsBits.ViewChannel)) {
@@ -378,6 +403,7 @@ export class DiscordMemberDirectory implements MemberDirectory {
   /** Those of these users who are members of the server, as Discord has them now. */
   private freshMembers(guild: Guild, userIds: readonly string[]): Promise<GuildMember[]> {
     return this.members.ask(
+      shardOf(guild),
       async () => {
         const selfId = guild.client.user.id;
         const found: Collection<string, GuildMember> = await guild.members.fetch({
@@ -427,8 +453,9 @@ export class DiscordMemberDirectory implements MemberDirectory {
    * `MEMBERS_PER_LOOKUP` by user id over the gateway, which Discord allows without the
    * GuildMembers intent (its docs name the intent only for the whole list), so that somebody who
    * left is found gone (review A2: without that intent the cache never hears of a member
-   * leaving). Only while the gateway rests after a failure (`GatewayWithFallback.restsUntil`) are
-   * the cache's members taken as it has them, the rest asked over REST one by one
+   * leaving). Only while the server's shard rests after a failure (`ShardGateways.restsUntil`),
+   * or is not ready (final review R1-3), are the cache's members taken as it has them, the rest
+   * asked over REST one by one
    * (`freshMembers`). Its requests take turns with those of `viewers`, one at a time on one
    * budget (`line`, reviews A7, R-A4), behind those of `viewers` and at most `NAMES_PER_MINUTE`
    * a minute, beyond which it rejects (`MembersBusy`, W1). A server the cache lacks rejects (A8):
@@ -438,7 +465,8 @@ export class DiscordMemberDirectory implements MemberDirectory {
     if (!this.current) throw new Error('Discord is not connected yet');
     const guild = this.current.guilds.cache.get(guildId);
     if (!guild) throw new Error(`The server ${guildId} is not known`);
-    const resting = this.members.restsUntil > this.now();
+    const shard = shardOf(guild);
+    const resting = !shard.ready || this.members.restsUntil(shard.id) > this.now();
     const found: ServerMember[] = [];
     const ask: string[] = [];
     for (const id of userIds) {
@@ -452,6 +480,7 @@ export class DiscordMemberDirectory implements MemberDirectory {
     for (let start = 0; start < ask.length; start += MEMBERS_PER_LOOKUP) {
       const batch = ask.slice(start, start + MEMBERS_PER_LOOKUP);
       const members = await this.line.run(() => this.freshMembers(guild, batch), {
+        server: guildId,
         names: true,
       });
       found.push(...members.map((member) => ({ id: member.id, name: member.displayName })));

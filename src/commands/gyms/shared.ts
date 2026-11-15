@@ -9,6 +9,7 @@ import {
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import { BoundedMap } from '../../bounded-map.js';
+import type { ServerValues } from '../../config/server-settings.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
 import { storedTextLength } from '../../db/repositories/gym-repository.js';
 import type { GuardableInteraction, LocatedInteraction } from '../../discord/command.js';
@@ -132,19 +133,11 @@ export function wasAnswered(token: string): boolean {
 /** What a staff member is told whose question or form is no longer known (also after a restart). */
 export { EXPIRED, NOT_YOURS } from '../../services/pending-requests.js';
 /**
- * Also what is said of a gym that has come to lie only in another server's regions since the
- * question was asked: for this server's staff it is a gym that does not exist.
+ * Also what is said of a gym that is no longer this server's since the question was asked
+ * (another server's staff cannot make it so, but this server's deletion of a gym it shared
+ * can): for this server's staff it is a gym that does not exist.
  */
 export const GYM_GONE = 'That gym no longer exists.';
-
-/**
- * What staff are told who put a gym where only another server has regions (`mayPlace` of gym
- * administration): no server's staff administer another's gyms. `what`: "add a gym", "move a
- * gym".
- */
-export function foreignPlace(what: string): string {
-  return `That place belongs to another server’s regions: I cannot ${what} there from here.`;
-}
 
 /** What runs for a button of a question, by what the question is about and the button. */
 export type ButtonAnswer = (
@@ -404,10 +397,14 @@ export async function answerForm(
 
 /**
  * What staff are told of a gym whose whole name consists of words the search ignores ("The
- * Gym"): a note, not a refusal. Undefined for any other name.
+ * Gym"), the words of the server's search (`blacklistWords` of its values, plan 19B-2): a note,
+ * not a refusal. Undefined for any other name.
  */
-export function nameNote(ctx: AppContext, gym: Pick<Gym, 'id' | 'name'>): string | undefined {
-  if (searchedWords(gym.name, ctx.config.settings.blacklistWords).length > 0) return undefined;
+export function nameNote(
+  values: Pick<ServerValues, 'blacklistWords'>,
+  gym: Pick<Gym, 'id' | 'name'>,
+): string | undefined {
+  if (searchedWords(gym.name, values.blacklistWords).length > 0) return undefined;
   return (
     'Its name consists only of words the search ignores, so members will not find it by name: ' +
     `only by its number (#${gym.id}), or by a nickname or keywords you give it.`
@@ -429,13 +426,15 @@ export function fetchNote(ctx: AppContext): string {
  */
 export async function gymViewMessage(
   ctx: AppContext,
+  /** The server's units (plan 19A-1). */
+  units: DistanceUnits,
   place: StaffPlace,
   gym: Gym,
   lines: readonly (string | undefined)[],
   controls: readonly APIButtonComponent[] = [],
 ): Promise<V2Message> {
   const [targets, map] = await Promise.all([
-    ctx.gymAdmin.targetCount(gym.id).catch((err: unknown) => {
+    ctx.gymAdmin.targetCount(gym.id, place.guildId).catch((err: unknown) => {
       ctx.log.warn({ err, gym: gym.id }, 'could not count the gym targets of a gym');
       return undefined;
     }),
@@ -445,7 +444,7 @@ export async function gymViewMessage(
     gym,
     regions: ctx.gymAdmin.regionsOf(gym.id, place.guildId),
     nearest: ctx.gymAdmin.nearestFor(gym, place.guildId),
-    units: ctx.config.settings.distanceUnits,
+    units,
     targets,
     map: mapPicture(map, 'Map of the gym'),
     above: lines,

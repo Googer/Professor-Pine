@@ -29,7 +29,8 @@ const ALREADY_OPEN =
   'Your appeal is with the moderators already. I will tell you by direct message what they decide.';
 const SENT =
   'Your appeal is with the moderators. I will tell you by direct message what they decide.';
-const NOT_SENT = 'I could not send your appeal to the moderators. Try again later.';
+const NOT_SENT =
+  'Your appeal could not reach the moderators right now. You can ask a moderator directly.';
 
 /** The form of an appeal (plan 8S-1): one paragraph, required. */
 export function appealForm(serverId: string): APIModalInteractionResponseCallbackData {

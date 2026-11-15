@@ -34,8 +34,8 @@ export function regionLine(line: RegionLine, channels: readonly ServerChannel[])
 
 /**
  * `/region list`: every region of the server on a line, with its gyms, its active parties and
- * what is wrong with it; then the gyms that lie in no region of any server, and the forums
- * that parties name and no region has.
+ * what is wrong with it; then the gyms of the server that lie in none of its regions (plan
+ * 19B-2), and the forums that parties name and no region has.
  */
 export const listRegions: SubcommandPart = {
   data: new SlashCommandSubcommandBuilder()
@@ -46,7 +46,7 @@ export const listRegions: SubcommandPart = {
       'A line per region: its channel, how many gyms lie in it (and how many of them are ' +
       'elite raid gyms), its active raids, max battles, trains and meetups, and what is wrong with it: no ' +
       'outline, a channel or a forum that is gone, no forum yet.\n\nBelow that: how many gyms ' +
-      'lie in no region of any server, and the forums whose region is gone. A region whose ' +
+      'of this server lie in none of its regions, and the forums whose region is gone. A region whose ' +
       'channel is gone stays until you remove it with `/region remove`.',
     examples: ['/region list'],
   },
@@ -77,8 +77,8 @@ export const listRegions: SubcommandPart = {
       ...(list.unplacedGyms > 0
         ? [
             list.unplacedGyms === 1
-              ? '1 gym lies in no region of any server.'
-              : `${list.unplacedGyms} gyms lie in no region of any server.`,
+              ? '1 gym of this server lies in none of its regions.'
+              : `${list.unplacedGyms} gyms of this server lie in none of its regions.`,
           ]
         : []),
       ...(list.orphanForums.length > 0

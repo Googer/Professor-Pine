@@ -86,7 +86,11 @@ export const deleteGym: SubcommandPart = {
   },
   async execute(interaction, ctx) {
     const dialog = await readInTime(ctx.log, interaction, async () =>
-      deleteDialog(ctx, await chosenGym(interaction, ctx)),
+      deleteDialog(
+        ctx,
+        await chosenGym(interaction, ctx),
+        (await staffPlace(interaction, ctx)).guildId,
+      ),
     );
     await interaction.showModal(dialog);
   },
@@ -105,8 +109,9 @@ export const DELETE_ACTION = 'delete';
 export async function deleteDialog(
   ctx: AppContext,
   gym: Gym,
+  guildId: number | undefined,
 ): Promise<APIModalInteractionResponseCallbackData> {
-  const references = await ctx.gymAdmin.references(gym.id);
+  const references = await ctx.gymAdmin.references(gym.id, guildId);
   const [raid] = references.raids;
   if (raid) throw new UserError(raidThere(gymWithId(gym), raid, 'is'));
   const going = goesWith(references, 'With it go:');
@@ -137,8 +142,8 @@ export async function deleteGymNow(
   const gymId = /^\d{1,9}$/.test(id) ? Number(id) : undefined;
   if (gymId === undefined) throw new UserError(STALE_COMPONENT);
   await deferSubmit(interaction);
-  const before = ctx.gyms.get(gymId);
   const place = await staffPlace(interaction, ctx);
+  const before = ctx.gyms.of(place.guildId).get(gymId);
   const outcome = await ctx.gymAdmin.delete(gymId, actingMember(interaction), place);
   let lines: string[];
   switch (outcome.kind) {

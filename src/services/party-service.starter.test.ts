@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FakePartyGateway } from '../../test/support/fake-gateway.js';
-import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { TEST_GUILD_ROW, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { textOf, thumbnailOf } from '../../test/support/messages.js';
 import { ALICE, REPORTER } from '../../test/support/parties.js';
 import { createdMeetup, partyServiceWith, reportedRaid } from '../../test/support/party-service.js';
@@ -214,10 +214,11 @@ describe('PartyService: the first message of a forum post, when things go wrong'
       gateway.gone.add(postId);
       return edit(postId, message, options);
     };
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     const outcome = await made.service.reportRaid({
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,
@@ -234,11 +235,12 @@ describe('PartyService: the first message of a forum post, when things go wrong'
     gateway.textLimit = 20;
     gateway.failing.set('deletePost', new Error('Discord is down'));
     const made = await partyServiceWith([], {}, { gateway });
-    const gym = gymsFixture().get(1);
+    const gym = gymsFixture().stored(1);
     if (!gym) throw new Error('no gym 1');
     await made.service
       .reportRaid({
         gym,
+        guildRow: TEST_GUILD_ROW,
         reporterId: REPORTER,
         anonymous: false,
         autoStatus: PartyStatus.Interested,
@@ -257,11 +259,12 @@ describe('PartyService: the first message of a forum post, when things go wrong'
       gateway.refuseV2Starter = refuseV2Starter;
       gateway.textLimit = 20;
       const made = await partyServiceWith([], {}, { gateway });
-      const gym = gymsFixture().get(1);
+      const gym = gymsFixture().stored(1);
       if (!gym) throw new Error('no gym 1');
       await expect(
         made.service.reportRaid({
           gym,
+          guildRow: TEST_GUILD_ROW,
           reporterId: REPORTER,
           anonymous: false,
           autoStatus: PartyStatus.Interested,

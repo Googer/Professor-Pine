@@ -12,6 +12,13 @@ import {
   webServerWith,
   type TestWeb,
 } from '../../test/support/web.js';
+import {
+  TEST_MAP_ROLE,
+  TestServers,
+  testServerValues,
+  withInvites,
+  withMapRole,
+} from '../../test/support/server-values.js';
 
 const ASH = '700000000000000001';
 const MAP = `/s/${FAKE_GUILD_ID}/map`;
@@ -60,7 +67,7 @@ describe('logging in with Discord', () => {
     web = webServerWith({ members: new FakeMemberDirectory().add(ASH, 'Ash') });
     const { state, location, answer } = await started(web);
     expect(location.origin + location.pathname).toBe('https://discord.com/oauth2/authorize');
-    expect(location.searchParams.get('scope')).toBe('identify');
+    expect(location.searchParams.get('scope')).toBe('identify guilds');
     expect(location.searchParams.get('client_id')).toBe('123456789012345678');
     expect(location.searchParams.get('redirect_uri')).toBe(
       'https://map.example.test/auth/callback',
@@ -93,6 +100,58 @@ describe('logging in with Discord', () => {
     ]);
     // Never the code in the log.
     expect(JSON.stringify(web.entries)).not.toContain('good-code');
+  });
+
+  it('keeps in the session only the servers of this Pine the member is in (final review R4-1)', async () => {
+    const LEFT = '410000000000000008';
+    const ELSEWHERE = '410000000000000009';
+    const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' }, [
+      ELSEWHERE,
+      FAKE_GUILD_ID,
+      LEFT,
+    ]);
+    web = webServerWith({
+      oauth,
+      // The bot is in the fakes' server; one it left is answered as one it is not in.
+      servers: {
+        has: (guildId) => guildId === FAKE_GUILD_ID,
+        inSetup: () => false,
+        openToVisitors: () => true,
+      },
+    });
+    const { state, cookie } = await started(web);
+    const back = await web.app.inject({
+      url: `/auth/callback?code=good-code&state=${state}`,
+      headers: { cookie },
+    });
+    expect(back.headers.location).toBe(MAP);
+    const [session] = [...web.sessions.rows.values()];
+    expect(session).toMatchObject({ userId: ASH, serversListed: true });
+    expect(await web.sessions.serversOf(session?.id ?? '')).toEqual([FAKE_GUILD_ID]);
+    // Never another server's id in the log either.
+    expect(JSON.stringify(web.entries)).not.toMatch(/410000000000000008|410000000000000009/u);
+  });
+
+  it('logs the member in when Discord does not give their servers, the session unlisted', async () => {
+    const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' }, [FAKE_GUILD_ID]);
+    oauth.serversFail = true;
+    web = webServerWith({ oauth });
+    const { state, cookie } = await started(web);
+    const back = await web.app.inject({
+      url: `/auth/callback?code=good-code&state=${state}`,
+      headers: { cookie },
+    });
+    expect(back.headers.location).toBe(MAP);
+    const [session] = [...web.sessions.rows.values()];
+    expect(session).toMatchObject({ userId: ASH, serversListed: false });
+    expect(await web.sessions.serversOf(session?.id ?? '')).toEqual([]);
+    expect(web.entries).toContainEqual(
+      expect.objectContaining({
+        level: 40,
+        user: ASH,
+        msg: 'could not read the servers of somebody logging in with Discord',
+      }),
+    );
   });
 
   it('returns to the map at an ended train, and says a failure there too (plan 8H-7B)', async () => {
@@ -601,6 +660,10 @@ describe('login links', () => {
     expect(again.headers.location).toBe(`${MAP}?login=expired`);
     expect(setCookies(again)).toEqual([]);
     expect(JSON.stringify(web.entries)).not.toContain(token);
+    // The session knows the link's server alone, not every server of theirs (final review R4-1).
+    const [stored] = [...web.sessions.rows.values()];
+    expect(stored).toMatchObject({ serversListed: false });
+    expect(await web.sessions.serversOf(stored?.id ?? '')).toEqual([FAKE_GUILD_ID]);
   });
 
   it('are used only from a page of Pine', async () => {
@@ -692,7 +755,11 @@ describe('who is asking', () => {
     const members = new FakeMemberDirectory().add(ASH, 'Ash');
     web = webServerWith({
       members,
-      servers: { has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999' },
+      servers: {
+        has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999',
+        inSetup: () => false,
+        openToVisitors: () => true,
+      },
     });
     const cookie = await web.loggedIn(ASH, 'Ash');
     const here = (await web.app.inject({ url: ME, headers: { cookie } })).json<object>();
@@ -714,9 +781,9 @@ describe('who is asking', () => {
     expect(members.asked).toEqual([`${FAKE_GUILD_ID}:${ASH}`, `412345678901234999:${ASH}`]);
   });
 
-  it("is no member without the map's member role, when the settings name one", async () => {
+  it("is no member without the map's member role, when the server's staff set one", async () => {
     const members = new FakeMemberDirectory().add(ASH, 'Ash');
-    const map = webServerWith({ members, web: { memberRole: 'Verified' } });
+    const map = webServerWith({ members, serverSettings: withMapRole() });
     web = map;
     const cookie = await map.loggedIn(ASH, 'Ash');
     const ask = async () => (await map.app.inject({ url: ME, headers: { cookie } })).json<object>();
@@ -727,34 +794,88 @@ describe('who is asking', () => {
       readOnly: false,
       missingRole: 'Verified',
     });
-    members.standing(ASH, { roleNames: ['Trainer'], administrator: false });
+    members.standing(ASH, { roleNames: ['Trainer'], roleIds: [], administrator: false });
     expect(await ask()).toMatchObject({ member: false, missingRole: 'Verified' });
-    // By name, as Pine's other role settings: trimmed, whatever its letter case.
-    members.standing(ASH, { roleNames: ['Trainer', ' VERIFIED '], administrator: false });
+    // By its id (plan 19A-1): another role of its name is not it.
+    members.standing(ASH, {
+      roleNames: ['Trainer', 'Verified'],
+      roleIds: ['300000000000000099'],
+      administrator: false,
+    });
+    expect(await ask()).toMatchObject({ member: false, missingRole: 'Verified' });
+    members.standing(ASH, {
+      roleNames: ['Trainer', 'Verified'],
+      roleIds: ['300000000000000099', TEST_MAP_ROLE],
+      administrator: false,
+    });
     expect(await ask()).toMatchObject({ member: true, readOnly: false });
     expect(await ask()).not.toHaveProperty('missingRole');
-    members.standing(ASH, { roleNames: [], administrator: true });
+    members.standing(ASH, { roleNames: [], roleIds: [], administrator: true });
+    expect(await ask()).toMatchObject({ member: true });
+  });
+
+  it('counts administrators only where the file named a member role the server lacks (review F1)', async () => {
+    const members = new FakeMemberDirectory().add(ASH, 'Ash');
+    const map = webServerWith({
+      members,
+      serverSettings: new TestServers(testServerValues({ unmatched: ['roles.mapMember'] })),
+    });
+    web = map;
+    const cookie = await map.loggedIn(ASH, 'Ash');
+    const ask = async () => (await map.app.inject({ url: ME, headers: { cookie } })).json<object>();
+    members.standing(ASH, {
+      roleNames: ['Verified'],
+      roleIds: [TEST_MAP_ROLE],
+      administrator: false,
+    });
+    expect(await ask()).toMatchObject({ member: false });
+    members.standing(ASH, { roleNames: [], roleIds: [], administrator: true });
     expect(await ask()).toMatchObject({ member: true });
   });
 
   it('may edit regions, as a hint, by what the directory says of the member (plan 8M-10)', async () => {
     const members = new FakeMemberDirectory().add(ASH, 'Ash');
     // The map's member role does not concern staff: the hint is judged on the member as found.
-    const map = webServerWith({ members, web: { memberRole: 'Verified' } });
+    const map = webServerWith({ members, serverSettings: withMapRole() });
     web = map;
     const cookie = await map.loggedIn(ASH, 'Ash');
     const ask = async () => (await map.app.inject({ url: ME, headers: { cookie } })).json<object>();
     expect(await ask()).toMatchObject({ mayEditRegions: false });
-    members.standing(ASH, { roleNames: ['Moderator'], administrator: false, manageGuild: false });
+    members.standing(ASH, {
+      roleNames: ['Moderator'],
+      roleIds: [],
+      administrator: false,
+      manageGuild: false,
+    });
     expect(await ask()).toMatchObject({ mayEditRegions: false });
-    members.standing(ASH, { roleNames: ['Moderator'], administrator: false, manageGuild: true });
+    members.standing(ASH, {
+      roleNames: ['Moderator'],
+      roleIds: [],
+      administrator: false,
+      manageGuild: true,
+    });
     expect(await ask()).toMatchObject({ member: false, mayEditRegions: true });
-    members.standing(ASH, { roleNames: ['Trainer'], administrator: true, manageGuild: true });
+    // Who may manage the server, without a staff role, as `/region edit`'s guard admits them
+    // (plan 19C-2).
+    members.standing(ASH, {
+      roleNames: ['Trainer'],
+      roleIds: [],
+      administrator: true,
+      manageGuild: true,
+    });
+    expect(await ask()).toMatchObject({ mayEditRegions: true });
+    members.standing(ASH, {
+      roleNames: ['Trainer'],
+      roleIds: [],
+      administrator: false,
+      manageGuild: false,
+    });
     expect(await ask()).toMatchObject({ mayEditRegions: false });
     // The bot's owner, as `/region`'s guard admits them.
     const owner = await map.loggedIn(TEST_OWNER_ID, 'Owner');
     members.add(TEST_OWNER_ID, 'Owner').standing(TEST_OWNER_ID, {
       roleNames: [],
+      roleIds: [],
       administrator: false,
       manageGuild: true,
     });
@@ -769,7 +890,7 @@ describe('who is asking', () => {
 
   it('names no role to somebody who is not in the server', async () => {
     const members = new FakeMemberDirectory();
-    const map = webServerWith({ members, web: { memberRole: 'Verified' } });
+    const map = webServerWith({ members, serverSettings: withMapRole() });
     web = map;
     const cookie = await map.loggedIn(ASH, 'Ash');
     const me = (await map.app.inject({ url: ME, headers: { cookie } })).json<object>();
@@ -783,8 +904,13 @@ describe('who is asking', () => {
     const invite = 'https://discord.gg/pinetest';
     const map = webServerWith({
       members,
-      web: { memberRole: 'Verified', invites: { [FAKE_GUILD_ID]: invite } },
-      servers: { has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999' },
+      // The server's invite (plan 19A-1: its values).
+      serverSettings: withInvites({ [FAKE_GUILD_ID]: invite }, withMapRole()),
+      servers: {
+        has: (guild) => guild === FAKE_GUILD_ID || guild === '412345678901234999',
+        inSetup: () => false,
+        openToVisitors: () => true,
+      },
     });
     web = map;
     const cookie = await map.loggedIn(ASH, 'Ash');
@@ -800,7 +926,11 @@ describe('who is asking', () => {
     expect(await ask()).toMatchObject({ member: false, missingRole: 'Verified' });
     expect(await ask()).not.toHaveProperty('invite');
     // A member: none.
-    members.standing(ASH, { roleNames: ['Verified'], administrator: false });
+    members.standing(ASH, {
+      roleNames: ['Verified'],
+      roleIds: [TEST_MAP_ROLE],
+      administrator: false,
+    });
     expect(await ask()).toMatchObject({ member: true });
     expect(await ask()).not.toHaveProperty('invite');
     // Discord cannot say whether they are in it: read-only, no invite.

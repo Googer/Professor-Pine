@@ -1,3 +1,4 @@
+import { zoneOf } from '../../discord/server-values.js';
 import { TRAIN_KIND_WORDS } from '../../render/train-words.js';
 import { randomBytes } from 'node:crypto';
 import {
@@ -134,11 +135,12 @@ export function bossParty(interaction: LocatedInteraction, ctx: AppContext): Par
 export function currentMaxBoss(
   ctx: AppContext,
   entry: PokemonEntry,
+  zone: string,
   dynamaxOnly = false,
 ): { entry: PokemonEntry; tier: MaxTier } | undefined {
   const rank = (tier: MaxTier): number => (tier === 'G' ? -1 : MAX_TIERS.indexOf(tier));
   const found = ctx.maxBosses
-    .bosses()
+    .bosses(zone)
     .flatMap((boss) => {
       const listed = boss.entry;
       if (!listed || (dynamaxOnly && boss.tier === 'G')) return [];
@@ -152,13 +154,18 @@ export function currentMaxBoss(
 }
 
 /**
- * The Pokémon a name stands for: a catalogue key or a name, or a mega the game master does not
- * have yet (`unlistedMega`). Undefined for anything else.
+ * The Pokémon a name stands for: a catalogue key or a name (by the server's search, its nicknames
+ * too), or a mega the game master does not have yet (`unlistedMega`). Undefined for anything
+ * else.
  */
-export function bossNamed(ctx: AppContext, name: string): PokemonEntry | undefined {
+export function bossNamed(
+  ctx: AppContext,
+  serverId: string | null,
+  name: string,
+): PokemonEntry | undefined {
   return (
     ctx.gameData.catalogue.byKey(name) ??
-    ctx.pokemon.exact(name) ??
+    ctx.pokemon.of(serverId).exact(name) ??
     ctx.gameData.catalogue.unlistedMega(name)
   );
 }
@@ -175,9 +182,13 @@ const listsBoss = (boss: Readonly<Boss>, entry: PokemonEntry): boolean =>
  * (the most stamina), an ordinary raid before a shadow raid of the same level. Undefined when it
  * is no boss now.
  */
-export function currentTier(ctx: AppContext, entry: PokemonEntry): RaidTier | undefined {
+export function currentTier(
+  ctx: AppContext,
+  entry: PokemonEntry,
+  zone: string,
+): RaidTier | undefined {
   const tiers = ctx.raidBosses
-    .bosses()
+    .bosses(zone)
     .filter((boss) => listsBoss(boss, entry))
     .map((boss) => boss.tier)
     .sort((a, b) => bossStamina(b) - bossStamina(a) || Number(a.shadow) - Number(b.shadow));
@@ -193,6 +204,7 @@ function bossAndTier(
   interaction: ChatInputCommandInteraction,
   ctx: AppContext,
 ): { entry: PokemonEntry; tier: RaidTier | MaxTier; fromPost: boolean; ownBattle: boolean } {
+  const zone = zoneOf(interaction, ctx);
   const typedBoss = interaction.options.getString('boss')?.trim() ?? '';
   const typedTier = interaction.options.getString('tier');
   const party = bossParty(interaction, ctx);
@@ -208,20 +220,20 @@ function bossAndTier(
     if (fallback !== undefined) return { entry, tier: fallback };
     if (trainKind === 'gigantamax') return { entry, tier: 'G' };
     if (trainKind === 'dynamax') {
-      const listed = currentMaxBoss(ctx, entry, true);
+      const listed = currentMaxBoss(ctx, entry, zone, true);
       if (listed) return listed;
       throw new UserError(
         `${plain(entry.name)} is not a Dynamax boss now. Say which tier to simulate with \`tier\`.`,
       );
     }
-    const raid = currentTier(ctx, entry);
+    const raid = currentTier(ctx, entry, zone);
     if (raid) return { entry, tier: raid };
     if (inTrain) {
       throw new UserError(
         `${plain(entry.name)} is not a raid boss now. Say which tier to simulate with \`tier\`.`,
       );
     }
-    const max = currentMaxBoss(ctx, entry);
+    const max = currentMaxBoss(ctx, entry, zone);
     if (!max) {
       throw new UserError(
         `${plain(entry.name)} is not a raid or max battle boss now. Say which tier to simulate ` +
@@ -247,8 +259,9 @@ function bossAndTier(
   if (typedBoss !== '') {
     const kind = kindOfText(typedBoss);
     const entry =
-      (kind.gigantamax === undefined ? bossNamed(ctx, kind.rest) : undefined) ??
-      namedPokemon(ctx, kind.rest);
+      (kind.gigantamax === undefined
+        ? bossNamed(ctx, interaction.guildId, kind.rest)
+        : undefined) ?? namedPokemon(ctx, interaction.guildId, kind.rest);
     if (kind.gigantamax === true) {
       // `Gigantamax Machamp` names its tier, as in `/max`.
       if (typedTier !== null && typedTier !== 'G') {
@@ -263,7 +276,7 @@ function bossAndTier(
       const dynamaxOf = (tier: RaidTier | MaxTier | undefined): MaxTier | undefined =>
         typeof tier === 'string' && tier !== 'G' ? tier : undefined;
       // As without the word: the listed boss, a species' listed form among them.
-      const current = typedTier === null ? currentMaxBoss(ctx, entry, true) : undefined;
+      const current = typedTier === null ? currentMaxBoss(ctx, entry, zone, true) : undefined;
       const tier =
         typedTier === null
           ? (dynamaxOf(postTier) ?? current?.tier)
@@ -295,7 +308,10 @@ function bossAndTier(
         : 'This train has no boss. Name one with `boss`.',
     );
   }
-  const entry = 'key' in ref ? ctx.gameData.catalogue.byKey(ref.key) : bossNamed(ctx, ref.name);
+  const entry =
+    'key' in ref
+      ? ctx.gameData.catalogue.byKey(ref.key)
+      : bossNamed(ctx, interaction.guildId, ref.name);
   if (!entry) {
     throw new UserError(
       `I cannot ask Pokebattler about ${'name' in ref ? plain(ref.name) : 'this boss'} yet: ` +
@@ -415,7 +431,9 @@ async function readPlan(
     // The post of a battle stands for the list only for its own boss (another named there is not).
     const listed =
       ownBattle ||
-      ctx.maxBosses.bosses().some((boss) => boss.tier === tier && boss.entry?.key === entry.key);
+      ctx.maxBosses
+        .bosses(zoneOf(interaction, ctx))
+        .some((boss) => boss.tier === tier && boss.entry?.key === entry.key);
     return readMaxPlan(interaction, entry, tier, fromPost, ctx.gameData.catalogue, listed);
   }
   if (interaction.options.getString('role') !== null) {
@@ -583,24 +601,31 @@ function bossWhileTyping(
   ctx: AppContext,
 ): PokemonEntry | undefined {
   const typed = interaction.options.getString('boss')?.trim() ?? '';
-  if (typed !== '') return bossNamed(ctx, typed);
+  if (typed !== '') return bossNamed(ctx, interaction.guildId, typed);
   const party = bossParty(interaction, ctx);
   const ref = party && bossOf(party);
   if (!ref) return undefined;
-  return 'key' in ref ? ctx.gameData.catalogue.byKey(ref.key) : bossNamed(ctx, ref.name);
+  return 'key' in ref
+    ? ctx.gameData.catalogue.byKey(ref.key)
+    : bossNamed(ctx, interaction.guildId, ref.name);
 }
 
 /** The bosses of the list the game master lacks but a mega's name tells, that fit what is typed. */
-function unlistedMegaChoices(ctx: AppContext, typed: string): Choice[] {
+function unlistedMegaChoices(
+  ctx: AppContext,
+  serverId: string | null,
+  typed: string,
+  zone: string,
+): Choice[] {
   const words = typed.toLowerCase().split(/\s+/u).filter(Boolean);
   if (words.length === 0) return [];
   const names = ctx.raidBosses
-    .bosses()
+    .bosses(zone)
     .filter(
       (boss) =>
         !boss.entry &&
         words.every((word) => boss.name.toLowerCase().includes(word)) &&
-        bossNamed(ctx, boss.name) !== undefined,
+        bossNamed(ctx, serverId, boss.name) !== undefined,
     )
     .map((boss) => boss.name);
   return [...new Set(names)].map((name) => ({ name, value: name }));
@@ -624,10 +649,11 @@ function forMaxBattle(interaction: AutocompleteInteraction, ctx: AppContext): bo
   if (party && (isMax(party) || isTrain(party))) return true;
   // A boss that is no raid boss now and is a max boss is asked about as a max battle.
   const entry = bossWhileTyping(interaction, ctx);
+  const zone = zoneOf(interaction, ctx);
   return (
     entry !== undefined &&
-    currentTier(ctx, entry) === undefined &&
-    currentMaxBoss(ctx, entry) !== undefined
+    currentTier(ctx, entry, zone) === undefined &&
+    currentMaxBoss(ctx, entry, zone) !== undefined
   );
 }
 
@@ -707,10 +733,16 @@ export const isKeptMax = (kept: KeptAnswer): kept is KeptMaxCounters => kept.kin
 
 /**
  * The options of answers by the token of their custom ids, for a day and at most `max` of them
- * (`BoundedMap`, oldest out); kept in memory only, so a restart forgets them.
+ * (`BoundedMap`, oldest out); kept in memory only, so a restart forgets them. Each is of the
+ * server of its answer (null in a DM; plan 19B-4): asked from anywhere else it is as if it were
+ * not kept. Only an answer keeps options: the dialog of Change options… names its answer's token
+ * and the member who opened it in its custom id, and keeps nothing.
  */
 export class KeptCounterOptions {
-  private readonly kept: BoundedMap<string, { value: KeptAnswer; expires: number }>;
+  private readonly kept: BoundedMap<
+    string,
+    { value: KeptAnswer; expires: number; serverId: string | null }
+  >;
 
   constructor(private readonly options: { ttlMs?: number; max?: number; now?: () => number } = {}) {
     this.kept = new BoundedMap(options.max ?? COUNTERS_KEPT_MAX);
@@ -720,19 +752,32 @@ export class KeptCounterOptions {
     return this.options.now?.() ?? Date.now();
   }
 
-  /** Keeps the options of an answer and gives the token of its custom ids. */
-  keep(value: KeptAnswer): string {
+  /** How many options are kept, those of a day not yet dropped included. */
+  get size(): number {
+    return this.kept.size;
+  }
+
+  /** Keeps the options of an answer given in a server (null: a DM), and gives their token. */
+  keep(value: KeptAnswer, serverId: string | null): string {
     const now = this.now();
     this.kept.dropWhile((entry) => entry.expires <= now);
     const token = randomBytes(8).toString('hex');
-    this.kept.set(token, { value, expires: now + (this.options.ttlMs ?? COUNTERS_KEEP_MS) });
+    this.kept.set(token, {
+      value,
+      expires: now + (this.options.ttlMs ?? COUNTERS_KEEP_MS),
+      serverId,
+    });
     return token;
   }
 
-  /** The options kept under a token; undefined once they are gone (a day, a restart). */
-  get(token: string): KeptAnswer | undefined {
+  /**
+   * The options kept under a token, asked from a server (null: a DM); undefined once they are gone
+   * (a day, a restart), and for options of another server (or a DM's asked in a server, and the
+   * other way round).
+   */
+  of(token: string, where: { readonly guildId: string | null }): KeptAnswer | undefined {
     const entry = this.kept.get(token);
-    if (!entry || entry.expires <= this.now()) return undefined;
+    if (!entry || entry.expires <= this.now() || entry.serverId !== where.guildId) return undefined;
     return entry.value;
   }
 }
@@ -759,24 +804,29 @@ export function countersMessage(
   simulated: Simulated,
   place: AnswerPlace,
 ): V2Message {
-  const token = keptCounters.keep({
-    kind: 'raid',
-    bossKey: plan.entry.key,
-    bossName: plan.entry.name,
-    tier: plan.tier,
-    attackers:
-      plan.attackers.kind === 'box'
-        ? { kind: 'box' }
-        : { kind: 'level', level: plan.attackers.level },
-    weather: plan.weather,
-    friendship: plan.friendship,
-    moveset: plan.moveset ? { fast: plan.moveset.fast.id, charged: plan.moveset.charged.id } : null,
-    shadow: plan.shadow,
-    mega: plan.mega,
-    single: plan.single,
-    askerId: place.askerId,
-    partyId: place.partyId,
-  });
+  const token = keptCounters.keep(
+    {
+      kind: 'raid',
+      bossKey: plan.entry.key,
+      bossName: plan.entry.name,
+      tier: plan.tier,
+      attackers:
+        plan.attackers.kind === 'box'
+          ? { kind: 'box' }
+          : { kind: 'level', level: plan.attackers.level },
+      weather: plan.weather,
+      friendship: plan.friendship,
+      moveset: plan.moveset
+        ? { fast: plan.moveset.fast.id, charged: plan.moveset.charged.id }
+        : null,
+      shadow: plan.shadow,
+      mega: plan.mega,
+      single: plan.single,
+      askerId: place.askerId,
+      partyId: place.partyId,
+    },
+    place.guildId,
+  );
   const optionsId = encodeCustomId({
     kind: COUNTERS_KIND,
     id: token,
@@ -784,7 +834,9 @@ export function countersMessage(
   });
   const { guildId } = place;
   const catalogue = ctx.gameData.catalogue;
-  const feedImage = ctx.raidBosses.bosses().find((boss) => listsBoss(boss, plan.entry))?.image;
+  const feedImage = ctx.raidBosses
+    .bosses(zoneOf(place, ctx))
+    .find((boss) => listsBoss(boss, plan.entry))?.image;
   return renderCounters({
     bossName: plan.entry.name,
     tier: plan.tier,
@@ -832,17 +884,20 @@ export function answeredMessage(
 ): V2Message {
   if (!('team' in answered)) return countersMessage(ctx, answered.plan, answered.simulated, place);
   const { plan } = answered;
-  const token = keptCounters.keep({
-    kind: 'max',
-    bossKey: plan.entry.key,
-    tier: plan.tier,
-    role: plan.role,
-    level: plan.level,
-    weather: plan.weather,
-    friendship: plan.friendship,
-    askerId: place.askerId,
-    partyId: place.partyId,
-  });
+  const token = keptCounters.keep(
+    {
+      kind: 'max',
+      bossKey: plan.entry.key,
+      tier: plan.tier,
+      role: plan.role,
+      level: plan.level,
+      weather: plan.weather,
+      friendship: plan.friendship,
+      askerId: place.askerId,
+      partyId: place.partyId,
+    },
+    place.guildId,
+  );
   return maxTeamMessage(ctx, plan, answered.team, {
     guildId: place.guildId,
     optionsId: encodeCustomId({ kind: COUNTERS_KIND, id: token, action: COUNTERS_ACTIONS.options }),
@@ -1014,7 +1069,10 @@ export const counters: SimpleCommand = {
     const typed = String(focused.value);
     await interaction.respond(
       focused.name === 'boss'
-        ? [...unlistedMegaChoices(ctx, typed), ...pokemonChoices(ctx, typed)].slice(0, MAX_CHOICES)
+        ? [
+            ...unlistedMegaChoices(ctx, interaction.guildId, typed, zoneOf(interaction, ctx)),
+            ...pokemonChoices(ctx, interaction.guildId, typed),
+          ].slice(0, MAX_CHOICES)
         : focused.name === 'moveset' && !forMaxBattle(interaction, ctx)
           ? movesetChoices(ctx, bossWhileTyping(interaction, ctx), typed)
           : [],

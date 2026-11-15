@@ -64,10 +64,30 @@
  * (`src/commands/admin/cleanup-legacy.ts`), with the token of the pending list as the id:
  * `cleanup:<token>:delete` and `cleanup:<token>:cancel`.
  *
- * The controls of the owner's `/admin forget` have the kind `forget`
- * (`src/commands/admin/forget.ts`, plan 8G), with the token of the pending look as the id:
+ * The controls of the operators' `/operator forget` have the kind `forget`
+ * (`src/commands/operator/forget.ts`, plan 8G), with the token of the pending look as the id:
  * `forget:<token>:ask` ("Remove…" under the look, which opens the question) and
  * `forget:<token>:remove` (the question's dialog, whose Submit removes).
+ *
+ * The controls of `/admin settings` have the kind `server` (`src/commands/admin/server-settings.ts`,
+ * plan 19A-1), with a setting's key as the id: `server:panel:show` (the menu of the sections),
+ * `server:<key>:set` (a channel, category, role or units menu: the value picked, none clears),
+ * `server:<key>:set:on|off` (a feature's button: what it sets), `server:<key>:ask` (opens the
+ * dialog `server:<key>:set:~<token>`); a list of words (`flaggedWords`, `blacklistWords`) too
+ * many to show in a dialog `server:<key>:ask` (the dialog `server:<key>:add:~<token>`) and
+ * `server:<key>:ask:remove` (`server:<key>:remove:~<token>`); `server:<key>:unset`
+ * (Leave unset, of a setting the settings file named and the fill did not find, which asks),
+ * `server:<key>:unset:confirm` (which writes) and `server:<key>:keep` (Cancel). The server
+ * is the interaction's.
+ *
+ * The controls of `/admin setup`'s checklist have the kind `setup` (`src/commands/admin/setup.ts`,
+ * plan 19C-2): `setup:<item>:show` (`setup:bot-lab:show`: the settings panel at the section the
+ * item is set in, apart) and `setup:list:show` (Check again). The server is the interaction's.
+ *
+ * The buttons under a request to be neighbors in a server's moderators' bot lab have the kind
+ * `neighbor` (`src/commands/admin/neighbors.ts`, plan 19E), with the asking server's snowflake as
+ * the id: `neighbor:<server>:accept` and `neighbor:<server>:decline`. The asked server is the
+ * interaction's; nothing else is kept but the pair's row.
  *
  * The controls about a screenshot have the kind `shot` (`src/commands/screenshots/shot-kind.ts`).
  * With the id of a kept screenshot (twelve URL-safe characters): `shot:<id>:right`,

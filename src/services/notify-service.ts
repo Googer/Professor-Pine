@@ -1,4 +1,5 @@
 import { maxSpotName } from '../domain/party/max.js';
+import type { QuietServers } from './quiet-servers.js';
 import type { Settings } from '../config/settings.js';
 import type { GymTargetStorage } from '../db/repositories/gym-notification-repository.js';
 import type { WantStorage } from '../db/repositories/pokemon-notification-repository.js';
@@ -113,6 +114,7 @@ import type { TaskReward } from '../domain/research/task.js';
 import { rewardHash } from '../domain/research/versions.js';
 import { withdrawnDm, type WithdrawnReport } from '../render/stop-withdrawn.js';
 import type { PostLink } from './stop-posts.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 
 /**
  * Manage… of a reason (plan 8R-4, design 4): a want of a Pokémon in raids, spawns or as a shadow
@@ -224,11 +226,15 @@ export interface PartyNotifier {
 }
 
 export interface NotifyServiceOptions {
+  /** The quiet servers (`QuietServers`, plans 19C-1 and 19C-2): none of their members is told. */
+  quiet?: QuietServers;
   /** The parties: an ended one is not announced, and what was told about it is forgotten. */
   store: Pick<PartyStore, 'get' | 'onChange'>;
   /** A party's post in brief as it is now (`PartyService.briefOf`). */
   posts: {
     briefOf(party: Party): PartyBrief;
+    /** The zone of a party's server (`PartyService.zoneOf`, plan 19A-2): its times are said in it. */
+    zoneOf(party: Pick<Party, 'guildId'>): string;
     /** A meetup's place as its post shows it now (`PartyService.placeOf`); else as it was named. */
     placeOf?(party: MeetupParty): MeetupPlace | null;
     /** A max battle's spot as its post shows it now (`PartyService.spotOf`); else as named. */
@@ -252,6 +258,10 @@ export interface NotifyServiceOptions {
   users: UserSettingsReader;
   members: Pick<MemberDirectory, 'viewers'>;
   dms: DmSender;
+  /** Each server's values: whether it notifies its members (plan 19A-1). */
+  servers: ServerSettingsLookup;
+  /** The snowflake of a server by its row, from what this process has seen (`RowIds`). */
+  serverOfRow(row: number): string | undefined;
   /**
    * The snowflake of a server by its row (`GuildRepository.snowflakeOf`), and its row by its
    * snowflake (`idFor`: the regions of a server's research reports).
@@ -280,7 +290,7 @@ export interface NotifyServiceOptions {
    * research or Rocket DM goes, and named by their address. Without it a DM names the feed's.
    */
   pictures?: PictureMaker;
-  gyms: { get(id: number): PostGym | undefined };
+  gyms: { stored(id: number): PostGym | undefined };
   gameData: GameDataProvider;
   raidBosses: Pick<RaidBossProvider, 'bosses'>;
   settings: Settings;
@@ -436,7 +446,8 @@ const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(reso
 
 /**
  * Tells members by direct message what they asked to be told about (spec 6.4): raids for their
- * wants and at their gyms. Only where `settings.features.notifications` is on.
+ * wants and at their gyms. Only in a server whose `features.notifications` is on (its values,
+ * plan 19A-1).
  *
  * An event is worked off on the side, in steps that give the event loop back: the members
  * with a row that may fit are read (the reads by event of the storages), then ninety-nine at a
@@ -460,6 +471,11 @@ export class NotifyService implements PartyNotifier {
   private readonly now: () => number;
   /** By party, by member: what they were already told. */
   private readonly told = new Map<string, Map<string, Told>>();
+  /**
+   * The asks of the database for the server of a row the process has not seen (`inServer`), one
+   * per row while it is under way: the row's events wait for it in the order they came.
+   */
+  private readonly rowAsks = new Map<number, Promise<string | undefined>>();
   /**
    * When a member was last told of a max battle of a boss (`<server row> <member> <kind> <boss>`),
    * for the hour of Q8; in memory, lost on a restart. Read when the members are gathered and
@@ -537,8 +553,58 @@ export class NotifyService implements PartyNotifier {
     });
   }
 
-  private get enabled(): boolean {
-    return this.options.settings.features.notifications;
+  /**
+   * Whether a server notifies its members (its `features.notifications`, plan 19A-1): never a
+   * quiet one (plans 19C-1, 19C-2).
+   */
+  private enabledIn(server: string): boolean {
+    if (this.options.quiet?.isQuiet(server) === true) return false;
+    return this.options.servers.of(server).features.notifications;
+  }
+
+  /**
+   * Runs `work` where the server of a party's row notifies its members (`enabledIn`). The row's
+   * server is what this process has seen (`serverOfRow`), else asked of the database (review F4:
+   * `GuildRepository.snowflakeOf`), and the work runs once it answers, on its own (`safely`); a
+   * row the database does not know either tells nobody, and is said in the log. One ask per row
+   * at a time (`rowAsks`, fix round 3, H6): every event of the row meanwhile waits for it, so that
+   * the events of one party are told in the order they came (a boss after its egg).
+   */
+  private inServer(event: string, row: number, work: () => void): void {
+    let asked = this.rowAsks.get(row);
+    if (asked === undefined) {
+      const seen = this.options.serverOfRow(row);
+      if (seen !== undefined) {
+        if (this.enabledIn(seen)) work();
+        return;
+      }
+      const asking = this.options.guilds.snowflakeOf(row);
+      asked = asking;
+      this.rowAsks.set(row, asking);
+      const forget = () => {
+        if (this.rowAsks.get(row) === asking) this.rowAsks.delete(row);
+      };
+      asking.then(forget, forget);
+    }
+    const { log } = this.options;
+    asked.then(
+      (server) => {
+        if (server === undefined) {
+          log.warn(
+            { event, guildRow: row },
+            'nobody was told of an event: its server is not known',
+          );
+          return;
+        }
+        if (this.enabledIn(server)) this.safely(event, work);
+      },
+      (err: unknown) => {
+        log.warn(
+          { err, event, guildRow: row },
+          'nobody was told of an event: its server could not be read',
+        );
+      },
+    );
   }
 
   /** How many parties something is remembered about. For tests. */
@@ -565,27 +631,31 @@ export class NotifyService implements PartyNotifier {
 
   raidReported(party: RaidParty, actorId: string): void {
     this.safely('a reported raid', () => {
-      if (!this.enabled) return;
-      this.announceRaid(party, 'reported', actorId, {
-        wants: true,
-        gym: true,
-        bossSet: false,
-        corrected: false,
+      this.inServer('a reported raid', party.guildId, () => {
+        this.announceRaid(party, 'reported', actorId, {
+          wants: true,
+          gym: true,
+          bossSet: false,
+          corrected: false,
+        });
       });
     });
   }
 
   maxReported(party: MaxParty, actorId: string): void {
     this.safely('a reported max battle', () => {
-      if (!this.enabled) return;
-      this.announceMax(party, 'reported', actorId);
+      this.inServer('a reported max battle', party.guildId, () => {
+        this.announceMax(party, 'reported', actorId);
+      });
     });
   }
 
   maxChanged(before: MaxParty, after: MaxParty, actorId: string | null): void {
     this.safely('a changed max battle', () => {
-      if (!this.enabled || sameBoss(before.max.boss, after.max.boss)) return;
-      this.announceMax(after, 'boss', actorId);
+      if (sameBoss(before.max.boss, after.max.boss)) return;
+      this.inServer('a changed max battle', after.guildId, () => {
+        this.announceMax(after, 'boss', actorId);
+      });
     });
   }
 
@@ -679,49 +749,63 @@ export class NotifyService implements PartyNotifier {
       // are in, so also where the server's notifications are off. That is their one message of
       // the move: the news below leaves them out (one DM per member and event).
       const reached = before.gymId === after.gymId ? [] : this.tellMoved(before, after, actorId);
-      if (!this.enabled) return;
-      const was = before.raid.boss;
-      const is = after.raid.boss;
-      const otherBoss = !sameBoss(was, is);
-      // A boss that was taken back leaves an egg again: that is news for nobody (who was told
-      // of the boss sees it in the post), whatever else changed with it.
-      const boss =
-        is === null && was !== null
-          ? false
-          : otherBoss || !sameRaidTier(before.raid.tier, after.raid.tier);
-      const gym = before.gymId !== after.gymId;
-      // The raid has a boss it did not have: who is signed up and asked to hear that is told,
-      // wanted or not; a boss in the place of another one as the correction it is.
-      const bossSet = is !== null && otherBoss;
-      const corrected = bossSet && was !== null;
-      // A change of both at once is told as the other gym it also is.
-      if (gym) {
-        this.announceRaid(
-          after,
-          'gym',
-          actorId,
-          { wants: boss, gym: true, bossSet, corrected },
-          reached,
-        );
-      } else if (boss) {
-        this.announceRaid(after, 'boss', actorId, { wants: true, gym: false, bossSet, corrected });
-      }
+      this.inServer('a changed raid', after.guildId, () => {
+        this.raidNews(before, after, actorId, reached);
+      });
     });
+  }
+
+  /** What a changed raid tells the members who want it (`raidChanged`), where the server notifies. */
+  private raidNews(
+    before: RaidParty,
+    after: RaidParty,
+    actorId: string | null,
+    reached: readonly string[],
+  ): void {
+    const was = before.raid.boss;
+    const is = after.raid.boss;
+    const otherBoss = !sameBoss(was, is);
+    // A boss that was taken back leaves an egg again: that is news for nobody (who was told
+    // of the boss sees it in the post), whatever else changed with it.
+    const boss =
+      is === null && was !== null
+        ? false
+        : otherBoss || !sameRaidTier(before.raid.tier, after.raid.tier);
+    const gym = before.gymId !== after.gymId;
+    // The raid has a boss it did not have: who is signed up and asked to hear that is told,
+    // wanted or not; a boss in the place of another one as the correction it is.
+    const bossSet = is !== null && otherBoss;
+    const corrected = bossSet && was !== null;
+    // A change of both at once is told as the other gym it also is.
+    if (gym) {
+      this.announceRaid(
+        after,
+        'gym',
+        actorId,
+        { wants: boss, gym: true, bossSet, corrected },
+        reached,
+      );
+    } else if (boss) {
+      this.announceRaid(after, 'boss', actorId, { wants: true, gym: false, bossSet, corrected });
+    }
   }
 
   raidMoving(fromId: string, toId: string): void {
     this.safely('a raid that moves', () => {
-      if (!this.enabled) return;
-      // A party that has ended meanwhile has nothing to share, and what was set under its id
-      // now would never be forgotten: it is forgotten when the party ends, which it has.
-      if (this.options.store.get(fromId) === undefined) return;
-      // One memory under both ids, not a copy: an event of the old party that is still being
-      // worked off (its members are being asked about) remembers whom it tells for the new
-      // party too. When the old party ends only its key goes; when the move is taken back,
-      // only the new one.
-      const known = this.told.get(fromId) ?? new Map<string, Told>();
-      this.told.set(fromId, known);
-      this.told.set(toId, known);
+      const moving = this.options.store.get(fromId);
+      if (moving === undefined) return;
+      this.inServer('a raid that moves', moving.guildId, () => {
+        // A party that has ended meanwhile has nothing to share, and what was set under its id
+        // now would never be forgotten: it is forgotten when the party ends, which it has.
+        if (this.options.store.get(fromId) === undefined) return;
+        // One memory under both ids, not a copy: an event of the old party that is still being
+        // worked off (its members are being asked about) remembers whom it tells for the new
+        // party too. When the old party ends only its key goes; when the move is taken back,
+        // only the new one.
+        const known = this.told.get(fromId) ?? new Map<string, Told>();
+        this.told.set(fromId, known);
+        this.told.set(toId, known);
+      });
     });
   }
 
@@ -730,27 +814,29 @@ export class NotifyService implements PartyNotifier {
       // Who is in it hears that it moved to another region, as within one (`tellMoved`), and
       // that is their one message of the move.
       const reached = this.tellMoved(from, to, actorId);
-      if (!this.enabled) return;
       // In another region other members can see it: the wants are asked again, and whoever was
       // told already is not told a second time.
-      this.announceRaid(
-        to,
-        'gym',
-        actorId,
-        { wants: true, gym: true, bossSet: false, corrected: false },
-        reached,
-      );
+      this.inServer('a moved raid', to.guildId, () => {
+        this.announceRaid(
+          to,
+          'gym',
+          actorId,
+          { wants: true, gym: true, bossSet: false, corrected: false },
+          reached,
+        );
+      });
     });
   }
 
   trainCreated(party: TrainParty, actorId: string): void {
     this.safely('a new train', () => {
-      this.announceTrain(party, actorId);
+      this.inServer('a new train', party.guildId, () => {
+        this.announceTrain(party, actorId);
+      });
     });
   }
 
   private announceTrain(party: TrainParty, actorId: string): void {
-    if (!this.enabled) return;
     const { forumChannelId, forumPostId } = party;
     if (forumChannelId === null || forumPostId === null) return;
     const { newTrains, regions, posts } = this.options;
@@ -861,7 +947,7 @@ export class NotifyService implements PartyNotifier {
     const now = this.now();
     this.tellAttendees(party, others, by, {
       what: 'start',
-      time: start === null ? null : clockOrDay(start, now, this.options.settings.timezone),
+      time: start === null ? null : clockOrDay(start, now, this.options.posts.zoneOf(party)),
       heads: headCount(party),
       expiresAt: start ?? now + CANCELLED_NEWS_MS,
     });
@@ -880,7 +966,7 @@ export class NotifyService implements PartyNotifier {
   }
 
   private announceSpawn(news: SpawnNews): void {
-    if (!this.enabled) return;
+    if (!this.enabledIn(news.guildId)) return;
     const { wants, gameData } = this.options;
     const spawn = {
       pokemon: { dex: news.pokemon.dex, key: news.pokemon.key, costumed: news.costumed === true },
@@ -938,7 +1024,7 @@ export class NotifyService implements PartyNotifier {
    */
   researchReported(news: ResearchNews): void {
     this.safely('field research', () => {
-      if (!this.enabled || !this.options.targetWants || this.closed) return;
+      if (!this.enabledIn(news.serverId) || !this.options.targetWants || this.closed) return;
       const [first] = news.reports;
       if (!first) return;
       // Who was told of a report this replaced hears so (Matt, 2026-11-07), in that report's
@@ -1141,7 +1227,8 @@ export class NotifyService implements PartyNotifier {
             .join(' ')}`,
         message: (guildId, reasons, memberId) => {
           const stops = untold(memberId).map((report) => report.stop);
-          const until = periodEndWords(news.period.end, eventAt, this.options.settings.timezone);
+          const zone = this.options.servers.zoneOf(guildId);
+          const until = periodEndWords(news.period.end, eventAt, zone);
           const links =
             link === undefined
               ? []
@@ -1207,7 +1294,7 @@ export class NotifyService implements PartyNotifier {
    */
   rocketReported(news: RocketNews): void {
     this.safely('Team GO Rocket', () => {
-      if (!this.enabled || this.closed) return;
+      if (!this.enabledIn(news.serverId) || this.closed) return;
       // Who was told of the report this replaced hears so (Matt, 2026-11-07), in its line.
       if (news.replaced) {
         this.withdraw(
@@ -1227,7 +1314,7 @@ export class NotifyService implements PartyNotifier {
    */
   rocketRenewed(from: RocketReport, to: RocketReport): void {
     this.safely('Team GO Rocket', () => {
-      if (!this.enabled || this.closed) return;
+      if (!this.enabledIn(to.serverId) || this.closed) return;
       // In the line the DMs of `from` went out in, once they are in line.
       this.inLine(lineOf(from), () => {
         this.carryTold(from, to);
@@ -1263,7 +1350,7 @@ export class NotifyService implements PartyNotifier {
    * narrowing instead. Nothing is sent where nobody was told, or after a restart.
    */
   private withdraw(serverId: string, ends: readonly WithdrawnReport[], actorId: string): void {
-    if (!this.enabled || this.closed || ends.length === 0) return;
+    if (!this.enabledIn(serverId) || this.closed || ends.length === 0) return;
     const byLine = new Map<string, WithdrawnReport[]>();
     for (const end of ends) {
       const key = lineOf(end.report);
@@ -1417,7 +1504,7 @@ export class NotifyService implements PartyNotifier {
   }
 
   private announceRocket(news: RocketNews): void {
-    const { targetWants, wants, gameData, researchPosts, pictures, log, settings } = this.options;
+    const { targetWants, wants, gameData, researchPosts, pictures, log } = this.options;
     const { report } = news;
     const hideout = isHideoutReport(report);
     const named = isLeaderOrGiovanni(report.subjectKey);
@@ -1519,7 +1606,13 @@ export class NotifyService implements PartyNotifier {
                   catches: report.rocket.catches,
                   stop: report.stop,
                   ends: hideout
-                    ? { until: periodEndWords(report.endsAt, eventAt, settings.timezone) }
+                    ? {
+                        until: periodEndWords(
+                          report.endsAt,
+                          eventAt,
+                          this.options.servers.zoneOf(guildId),
+                        ),
+                      }
                     : { goneAt: report.endsAt },
                 },
                 this.pictureLookup,
@@ -1611,7 +1704,7 @@ export class NotifyService implements PartyNotifier {
     if (others.length === 0) return [];
     const { gyms, regions, posts } = this.options;
     const gymOf = (id: number | null): MovedGym => {
-      const gym = id === null ? undefined : gyms.get(id);
+      const gym = id === null ? undefined : gyms.stored(id);
       return { name: gymName(gym), place: gym && { lat: gym.lat, lon: gym.lon } };
     };
     const region =
@@ -1659,7 +1752,7 @@ export class NotifyService implements PartyNotifier {
   private meetingSubject(party: Party): string {
     if (isRaid(party)) {
       const { gymId } = party;
-      return `the raid at ${plainNoLinks(gymName(gymId === null ? undefined : this.options.gyms.get(gymId)))}`;
+      return `the raid at ${plainNoLinks(gymName(gymId === null ? undefined : this.options.gyms.stored(gymId)))}`;
     }
     if (isMax(party)) {
       // A pin by what it is, in running text (plan 8X-F), never by its label.
@@ -1677,7 +1770,11 @@ export class NotifyService implements PartyNotifier {
    */
   private sighting(party: RaidParty): RaidSighting {
     const { gameData, raidBosses } = this.options;
-    const shown = shownBoss(party, gameData.catalogue, raidBosses.bosses());
+    const shown = shownBoss(
+      party,
+      gameData.catalogue,
+      raidBosses.bosses(this.options.posts.zoneOf(party)),
+    );
     const entry = shown?.entry;
     return {
       tier: party.raid.tier,
@@ -1769,8 +1866,9 @@ export class NotifyService implements PartyNotifier {
         // The post as it is when the first message is made, for all of them.
         brief ??= { made: this.briefOf(posts, party) };
         const region = party.regionId === null ? undefined : regions.byId(party.regionId);
-        const boss = shownBoss(party, gameData.catalogue, raidBosses.bosses())?.name;
-        const gym = gymName(gymId === null ? undefined : gyms.get(gymId));
+        const zone = this.options.posts.zoneOf(party);
+        const boss = shownBoss(party, gameData.catalogue, raidBosses.bosses(zone))?.name;
+        const gym = gymName(gymId === null ? undefined : gyms.stored(gymId));
         const map = brief.made?.map;
         // Who is signed up is told what became of their egg, whatever else fires for them.
         const theirs = boss !== undefined && reasons.some((reason) => reason.kind === 'boss-set');
@@ -1848,7 +1946,7 @@ export class NotifyService implements PartyNotifier {
         };
       case 'gym':
         return {
-          label: `raids at ${plain(gymName(gyms.get(reason.gymId)))}`,
+          label: `raids at ${plain(gymName(gyms.stored(reason.gymId)))}`,
           stop,
           command: '/untarget',
         };
@@ -2022,6 +2120,7 @@ export class NotifyService implements PartyNotifier {
             if (!event.toAll) this.remember(event.partyId, id, reasons);
             dms.send({
               userId: id,
+              serverId: guildId,
               message,
               priority: event.priority(reasons),
               eventAt: event.eventAt,
@@ -2144,10 +2243,13 @@ function lineOf(report: StopReport): string {
 
 /**
  * A member told of research at a stop in its period (`researchTold`): by the version's subject,
- * or the task's key alone, which a "one of" is and what its narrowings confirm (R5).
+ * or the task's key alone, which a "one of" is and what its narrowings confirm (R5). The period
+ * by its key and its end (fix round 3, Q5): after a change of the server's zone a report of the
+ * same key on the new clock ends at another moment than the stale one, and is news.
  */
 function researchToldKey(memberId: string, report: StopReport, subject: string): string {
-  return `${report.serverId} ${memberId} ${report.periodKey} ${subject} ${report.stop.key}`;
+  const period = `${report.periodKey}@${String(report.endsAt)}`;
+  return `${report.serverId} ${memberId} ${period} ${subject} ${report.stop.key}`;
 }
 
 /** A member told of a hideout at a stop in its day (`rocketTold`). */

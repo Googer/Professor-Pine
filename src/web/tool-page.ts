@@ -61,7 +61,7 @@ export interface ToolPageView {
   requests?: ScriptAccess[];
   /** The owner whose login is older than `OWNER_LOGIN_MS`: asked to log in again, nothing else. */
   staleOwner?: boolean;
-  /** The posts' zone, for the list's times. */
+  /** The instance's default zone (the page has no server), for the list's times. */
   zone: string;
 }
 
@@ -192,7 +192,7 @@ function changes(entries: readonly ChangelogEntry[]): string {
     .join('\n');
 }
 
-/** The section of a member's own access; `zone` is the posts' (`settings.timezone`). */
+/** The section of a member's own access; `zone` is the instance's default. */
 function ownSection(own: OwnAccess, zone: string): string {
   switch (own.kind) {
     case 'none':
@@ -227,7 +227,7 @@ const STATE_WORDS: Readonly<Record<ScriptAccessState, string>> = {
   revoked: 'Revoked',
 };
 
-/** A time of the list in the posts' zone, or a dash for none. */
+/** A time of the list in the instance's default zone, or a dash for none. */
 function when(at: number | null, zone: string): string {
   return at === null ? '–' : shortDateTime(at, zone);
 }

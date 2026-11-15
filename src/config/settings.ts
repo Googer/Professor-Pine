@@ -27,7 +27,7 @@ const clockTime = z
   .regex(/^([01]?\d|2[0-3]):[0-5]\d$/, { error: 'must be a time of day, as 06:00 or 21:00' })
   .transform((time) => time.padStart(5, '0'));
 
-function isTimeZone(zone: string): boolean {
+export function isTimeZone(zone: string): boolean {
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: zone });
     return true;
@@ -96,7 +96,8 @@ export function isLocalAddress(publicUrl: string): boolean {
  * `https://discord.com/invite/<code>`, the code (a vanity one too) letters, digits and hyphens,
  * nothing after it.
  */
-const INVITE_ADDRESS = /^https:\/\/(?:discord\.gg|discord\.com\/invite)\/[A-Za-z0-9-]{2,32}$/u;
+export const INVITE_ADDRESS =
+  /^https:\/\/(?:discord\.gg|discord\.com\/invite)\/[A-Za-z0-9-]{2,32}$/u;
 
 /**
  * The address every link of the web server points at (spec 2.1): `https:`, or `http:` for this
@@ -137,6 +138,52 @@ const optionalChannelName = z.preprocess(
     })
     .optional(),
 );
+
+/**
+ * The checks of the keys a server's own values share with the file (plan 19A-1,
+ * `server-settings.ts`): the same refinements, whichever holds the value.
+ */
+export const EVENTS_FORUM_DEFAULTS = { horizonDays: 35, postDaysAhead: 14, onThisDay: 3 };
+export const eventsForumSchema = z
+  .strictObject({
+    horizonDays: z.number().int().min(1).max(365).default(EVENTS_FORUM_DEFAULTS.horizonDays),
+    postDaysAhead: z.number().int().min(0).max(365).default(EVENTS_FORUM_DEFAULTS.postDaysAhead),
+    onThisDay: z.number().int().min(0).max(10).default(EVENTS_FORUM_DEFAULTS.onThisDay),
+  })
+  .refine((forum) => forum.postDaysAhead <= forum.horizonDays, {
+    error: 'must be at most horizonDays: a post opens for an event the listing names',
+    path: ['postDaysAhead'],
+  })
+  .default(() => ({ ...EVENTS_FORUM_DEFAULTS }));
+export const flaggedWordsSchema = z.array(z.string().trim().min(1).max(100)).max(500).default([]);
+/**
+ * The words gym search ignores (`blacklistWords`, plan 19B-2): each trimmed, a blank one dropped
+ * as none (the legacy list was never checked: a stray empty word must not refuse a file or make
+ * a server's row unreadable), then the flagged words' limits, which are refusals.
+ */
+export const ignoredWordsSchema = z
+  .array(z.string())
+  .transform((words) => words.map((word) => word.trim()).filter((word) => word !== ''))
+  .pipe(z.array(z.string().max(100)).max(500))
+  .default([]);
+/** What a region's forum's name adds to its channel's unless set: its board. */
+export const DEFAULT_REGION_FORUM_SUFFIX = '-board';
+export const regionForumSuffixSchema = z
+  .string()
+  .regex(/^-[\p{L}\p{N}_-]{1,30}$/u, { message: 'must be a hyphen and up to 30 letters' })
+  .default(DEFAULT_REGION_FORUM_SUFFIX);
+export const regionMapLinkSchema = z.preprocess(
+  // Blank means unset, as for the environment's optional values; spaces around are dropped.
+  (value) => (typeof value === 'string' ? value.trim() || undefined : value),
+  z.url({ protocol: /^https?$/ }).optional(),
+);
+export const timezoneSchema = z
+  .string()
+  .refine(isTimeZone, { message: 'must be an IANA time zone, e.g. America/New_York' });
+export const distanceUnitsSchema = z.enum(['imperial', 'metric']).default('imperial');
+export const inviteSchema = z
+  .string()
+  .regex(INVITE_ADDRESS, 'must be https://discord.gg/<code> or https://discord.com/invite/<code>');
 
 /** The settings' keys and their checks, before the checks across keys (`settingsSchema`). */
 export const settingsObject = z.strictObject({
@@ -210,6 +257,24 @@ export const settingsObject = z.strictObject({
    */
   googleByHandPerMonth: z.number().int().min(0).default(500),
   /**
+   * Google's month shared between servers by need (plan 19B-5; spec "Fairness and limits"): each
+   * server's share of the line's month is its need over everyone's, at most half of it while the
+   * others want the rest, and at most this many questions of each kind (places searches,
+   * addresses; at least 1: a most of nothing would hold every server out). Unset: no such most,
+   * so that a Pine of one server takes the whole month and notices nothing; a public instance
+   * sets it from its load. An instance operator raises one server's share for a month with
+   * `/operator google share`.
+   */
+  googleServerShareMax: z.number().int().min(1).optional(),
+  /**
+   * Each server's floor of the lookups by hand (`googleByHandPerMonth`) a Pacific month (plan
+   * 19B-5, fix round 3, T3): its staff may always make this many within the instance's cap, the
+   * floors of every server kept out of the cap (scaled down where they add up to more); above it
+   * a server takes only of what the other servers' unused floors leave. The same floor of
+   * `/find-region`'s maps for its members. A Pine of one server has the whole cap.
+   */
+  googleByHandPerServer: z.number().int().min(0).default(20),
+  /**
    * Where admins ask for the Pine Wayfarer export tool, which makes the file `/gym import` reads
    * (plan 8W-P; Matt, 2026-10-19): the page `/userscript` of the instance that hands it out. Its
    * help and `docs/guides/new-instance.md` name it.
@@ -281,17 +346,7 @@ export const settingsObject = z.strictObject({
    * (plan 8H-8): on a local day that was one of an earlier year's top `onThisDay` big days, a post
    * "On this day" recalls it (3 unless set, at most 10; 0 off).
    */
-  eventsForum: z
-    .strictObject({
-      horizonDays: z.number().int().min(1).max(365).default(35),
-      postDaysAhead: z.number().int().min(0).max(365).default(14),
-      onThisDay: z.number().int().min(0).max(10).default(3),
-    })
-    .refine((forum) => forum.postDaysAhead <= forum.horizonDays, {
-      error: 'must be at most horizonDays: a post opens for an event the listing names',
-      path: ['postDaysAhead'],
-    })
-    .default(() => ({ horizonDays: 35, postDaysAhead: 14, onThisDay: 3 })),
+  eventsForum: eventsForumSchema,
   /**
    * Meetup safety (plan 8S-1): `flaggedWords` are words and phrases that, in the title of a gym,
    * PokéStop or power spot, send a meetup there to the moderators first, besides the list in
@@ -301,11 +356,17 @@ export const settingsObject = z.strictObject({
    */
   meetupSafety: z
     .strictObject({
-      flaggedWords: z.array(z.string().trim().min(1).max(100)).max(500).default([]),
+      flaggedWords: flaggedWordsSchema,
     })
     .optional(),
   helpGroups: z.array(z.string().min(1)),
-  blacklistWords: z.array(z.string()),
+  /**
+   * The words gym search ignores in gym names and in what members type ("gym", "raid"), besides
+   * common English words: the default of a server's first row (plan 19B-2), which its staff change
+   * in `/admin settings`. A blank word is none; the flagged words' limits, by which a server's
+   * row is checked too (`ignoredWordsSchema`).
+   */
+  blacklistWords: ignoredWordsSchema,
   /**
    * The species that can be reported with `/wild` although the game calls them legendary,
    * mythical or an ultra beast: each by its catalogue key or its name. A text the game data
@@ -323,20 +384,13 @@ export const settingsObject = z.strictObject({
    * name is the region's with another one-word ending (`north-meetups`); a name chosen by hand
    * stays.
    */
-  regionForumSuffix: z
-    .string()
-    .regex(/^-[\p{L}\p{N}_-]{1,30}$/u, { message: 'must be a hyphen and up to 30 letters' })
-    .default('-board'),
+  regionForumSuffix: regionForumSuffixSchema,
   /**
    * Address of a map of all regions, which `/maps` gives members; without it the command is
    * not offered. A setting, not the environment variable `REGION_MAP_LINK` the spec named: it is
    * no secret (plan 6A).
    */
-  regionMapLink: z.preprocess(
-    // Blank means unset, as for the environment's optional values; spaces around are dropped.
-    (value) => (typeof value === 'string' ? value.trim() || undefined : value),
-    z.url({ protocol: /^https?$/ }).optional(),
-  ),
+  regionMapLink: regionMapLinkSchema,
   /**
    * Where `/find-region` searches places by name: a Nominatim server (`url`, OpenStreetMap's own
    * by default) and the User-Agent that names this installation to it, as its usage policy
@@ -394,15 +448,7 @@ export const settingsObject = z.strictObject({
                   ),
                 )
               : value,
-          z.record(
-            z.string().regex(/^\d{17,20}$/u, "must be a server's ID"),
-            z
-              .string()
-              .regex(
-                INVITE_ADDRESS,
-                'must be https://discord.gg/<code> or https://discord.com/invite/<code>',
-              ),
-          ),
+          z.record(z.string().regex(/^\d{17,20}$/u, "must be a server's ID"), inviteSchema),
         )
         .optional(),
     })
@@ -433,15 +479,52 @@ export const settingsObject = z.strictObject({
       staffRoles: z.array(z.string().min(1)).default([]),
     })
     .optional(),
-  timezone: z
-    .string()
-    .refine(isTimeZone, { message: 'must be an IANA time zone, e.g. America/New_York' }),
+  /**
+   * The instance's operators (plan 19B-1; spec "Operators"): Discord user ids who, with
+   * `OWNER_ID`, change what every server shares (`/operator`) and remove a member's data
+   * (`/operator forget`), from any server or a DM with the bot. The instance's, never a server's
+   * key. None unless set.
+   */
+  operators: z.array(z.string().regex(/^\d{17,20}$/u, 'must be a Discord ID')).default([]),
+  /**
+   * Which servers may have this Pine (spec "Joining"; plan 19C-1, `mayHave` of
+   * `src/domain/operators/admission.ts`): `"open"` for any server not blocked (a public
+   * instance); a list of server ids for those, besides the servers recorded at the upgrade to 2.1
+   * and those an instance operator allowed (`/operator servers allow`); unset, or an empty list,
+   * for no list: closed to new servers, open only to the recorded and the allowed. A server that
+   * may not have it is told so and left. Read through `isOpenInstance` and `listedServers`, also
+   * for who changes what every server shares (plan 19B-1): on an open instance the operators
+   * alone; on any other a server's staff too, where that server is allowed.
+   */
+  servers: z
+    .union([z.literal('open'), z.array(z.string().regex(/^\d{17,20}$/u, "must be a server's ID"))])
+    .optional(),
+  /**
+   * The instance's default zone (plan 19A-2): a new server's first zone, and the zone of what has
+   * no server. A server's own is in its row (`ServerSettings.zoneOf`); read this one only through
+   * `instanceZone`.
+   */
+  timezone: timezoneSchema,
   /**
    * The units every distance Pine says is in, on the map and on Discord alike (Matt,
    * 2026-10-25): `imperial` (feet and miles, the default) or `metric` (meters and kilometers);
    * `distanceWords` of `src/render/distance-words.ts`.
    */
-  distanceUnits: z.enum(['imperial', 'metric']).default('imperial'),
+  distanceUnits: distanceUnitsSchema,
+  /**
+   * Direct messages (plan 19B-5), the instance's: Discord limits how many new DM channels a bot
+   * opens, for the whole bot, so each server may start at most `firstContactsPerWindow` messages
+   * to members Pine never wrote to in any `firstContactWindowMinutes`; its others to new members
+   * wait in line for the window. The owner's DMs are never held back. Unless set, 6,000 in 10
+   * minutes: as many as the queue sends in that time at all, which one server alone never
+   * reaches, so a self-hosted instance notices nothing; a public one sets it lower from its load.
+   */
+  dms: z
+    .strictObject({
+      firstContactsPerWindow: z.number().int().min(1).max(1_000_000).default(6_000),
+      firstContactWindowMinutes: z.number().int().min(1).max(1_440).default(10),
+    })
+    .default(() => ({ firstContactsPerWindow: 6_000, firstContactWindowMinutes: 10 })),
   /**
    * Reading raid screenshots (Phase 7). The models run in a child process of their own, one
    * screenshot at a time; everything but `passive` and `debug` has a default.
@@ -463,6 +546,13 @@ export const settingsObject = z.strictObject({
     priority: z.enum(['low', 'normal']).default('low'),
     /** How many screenshots may wait while one is read; more are refused for the moment. */
     queue: z.number().int().min(0).max(100).default(10),
+    /**
+     * How many screenshots of one server may wait among them (plan 19B-5): the queue takes turns
+     * between servers, and a server with this many waiting is refused for the moment as a full
+     * queue refuses. Unset, `queue`: a Pine of one server notices nothing; a public instance sets
+     * it (3, say).
+     */
+    queuePerServer: z.number().int().min(0).max(100).optional(),
     /** How long one screenshot may take before the reading process is ended and started anew. */
     timeoutSeconds: z.number().int().min(5).max(600).default(60),
     /** The folder the model files are downloaded from (`OCR_ASSETS` names and checks them). */
@@ -538,7 +628,7 @@ export const settingsObject = z.strictObject({
     refreshHours: z.number().int().min(1).max(168),
     /**
      * The Raid Hour of every week, which needs no feed: ISO weekday (1 is Monday, 3 Wednesday),
-     * the hour it starts in `timezone` and how long it lasts. Null when there is none. It is
+     * the hour it starts in each server's zone and how long it lasts. Null when there is none. It is
      * used for a week in which the feed lists no Raid Hour.
      */
     weeklyRaidHour: z
@@ -563,7 +653,7 @@ export const settingsObject = z.strictObject({
    * cached: read every `refreshMinutes`, 6 hours unless set), whose `RAID_LEVEL_1_MAX`
    * to `RAID_LEVEL_5_MAX` are the Dynamax bosses and `RAID_LEVEL_6_MAX` the Gigantamax ones.
    * `firstBattle` and `lastBattle` are the hours of the day max battles can be fought, in
-   * `timezone` (06:00 and 21:00 unless set): a max battle ends at the last one.
+   * each server's zone (06:00 and 21:00 unless set): a max battle ends at the last one.
    */
   maxBattles: z
     .strictObject({
@@ -675,6 +765,34 @@ export const settingsSchema = settingsObject
   }));
 
 export type Settings = z.output<typeof settingsSchema>;
+
+/**
+ * The instance's default zone (plan 19A-2), the file's `timezone`: the zone of a server whose row
+ * has none, and of what has no server (a DM, `/help` there, the `/userscript` page). The one read
+ * of the file's zone outside `src/config/`'s own (`src/server-keys.test.ts`): a server's zone is
+ * `ServerSettings.zoneOf(serverId)`.
+ */
+export function instanceZone(settings: Pick<Settings, 'timezone'>): string {
+  return settings.timezone;
+}
+
+/**
+ * Whether any server may have this Pine (`servers: "open"`, plan 19B-1): a public instance, on
+ * which only its operators change what every server shares.
+ */
+export function isOpenInstance(settings: Pick<Settings, 'servers'>): boolean {
+  return settings.servers === 'open';
+}
+
+/**
+ * The servers the file lists (`servers`, plan 19B-1), which may have this Pine besides those
+ * recorded at the upgrade and those an operator allowed (plan 19C-1); undefined where it lists
+ * none: unset, open, or an empty list (as unset).
+ */
+export function listedServers(settings: Pick<Settings, 'servers'>): readonly string[] | undefined {
+  const { servers } = settings;
+  return Array.isArray(servers) && servers.length > 0 ? servers : undefined;
+}
 
 /**
  * The names of the channels the settings name (`settings.channels`), without one left unset

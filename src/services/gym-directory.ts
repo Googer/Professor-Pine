@@ -1,12 +1,23 @@
+import { metresBetween } from '@pine/wayspot-core/distance';
+import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { Gym } from '../db/repositories/gym-repository.js';
+import { WAYSPOT_MOVED_METRES } from '../domain/geo/spot-address.js';
 import type { Region } from '../db/repositories/region-repository.js';
-import { GymLookup, type GymHit, type GymLookupOptions } from '../domain/search/gym-lookup.js';
+import type { GymLink } from '../domain/gyms/gym-server.js';
 import type { Logger } from '../log.js';
+import type { GoogleAnswer, GoogleAnswers, KeptPlaces, PlaceKeeper } from './google-answers.js';
+import { ServerGyms, type GymView } from './server-gyms.js';
+
+export type { GymView } from './server-gyms.js';
 
 /** The part of `GymRepository` the directory reads. */
 export interface GymSource {
   listAll(): Promise<Gym[]>;
   get(id: number): Promise<Gym | undefined>;
+  /** Every gym's servers (`GymServer`). */
+  links(): Promise<GymLink[]>;
+  /** The servers (`Guild` rows) one gym belongs to. */
+  linksOf(gymId: number): Promise<number[]>;
 }
 
 /** The part of `RegionRepository` the directory reads. */
@@ -14,46 +25,156 @@ export interface RegionSource {
   listAll(): Promise<Region[]>;
 }
 
-/** What handlers need: the gyms, and finding them by what members type. See `GymLookup`. */
+/**
+ * What handlers need of the gyms (plan 19B-2): a server's view (`of`), and a stored reference by
+ * its id (`stored`). See `ServerGyms`. Nothing reads every server's gyms as one list but the
+ * instance's own upkeep (`GymDirectory.all`).
+ */
 export interface GymProvider {
-  /** The gym with this id, or undefined. */
-  get(id: number): Gym | undefined;
-  /** Whether the channel is a region with an outline. */
-  isRegion(channelId: string): boolean;
-  /** Channel ids of the regions the gym lies in; empty when it lies in none. */
-  regionsOf(gymId: number): string[];
-  /** The gyms that lie in the region of this channel, in no particular order (a new list). */
-  inRegion(channelId: string): Gym[];
+  /** The gyms of a server, by its `Guild` row (undefined: a server without one, no gyms). */
+  of(guildId: number | undefined): GymView;
   /**
-   * Gyms matching the text, best first. In a region channel: the matches of the text as typed
-   * (the region's own gyms, then gyms just outside it), then the matches that needed a
-   * correction (the same order of places); in any other channel, or with null, all gyms are
-   * searched. Guesses (`allWords` false: gyms with only some of the words) come only when no gym
-   * has every word, the region's own first, then the neighbours'. A hit's `score` is comparable
-   * only with hits of the same `place` and the same `corrected` value of one search.
+   * A gym by its id, whichever server it belongs to: for a reference a server stored when the
+   * gym was its own (a party's gym, a history row, a saved route's stop), never for an id a
+   * member gives.
    */
-  search(channelId: string | null, text: string, options?: GymLookupOptions): GymHit<Gym>[];
+  stored(id: number): Gym | undefined;
+  /** The servers a gym belongs to (`Guild` rows), in order. */
+  serversOf(gymId: number): number[];
 }
 
 export interface GymDirectoryOptions {
   gyms: GymSource;
   regions: RegionSource;
-  /** Words ignored in gym texts and searches (settings.blacklistWords). */
-  ignoredWords: readonly string[];
+  /**
+   * The words a server's gym search ignores (its `blacklistWords`, `ServerSettings`), read at
+   * every ask of its view: a change rebuilds its index.
+   */
+  wordsOf: (guildId: number) => readonly string[];
+  /**
+   * Google's answers by the point (plan 19B-3): each gym's places are those of its point
+   * (`GoogleAnswers.at`), the one source, and so is its address unless it has Wayfarer's of its
+   * own (`Gym.wayfarerAddress`, which comes first); what the storage gives of them is not read.
+   * An answer saved shows at once on the gyms within `WAYSPOT_MOVED_METRES` of its point.
+   */
+  answers: Pick<GoogleAnswers, 'at' | 'whenSaved'>;
   log: Logger;
 }
 
 /**
- * All gyms in memory, read from the database. `load` reads everything (two queries); after a gym
- * was added, changed or deleted call `refreshGym`, and after regions changed call `load` again.
- * Reads never wait: they use the last complete state.
+ * All gyms in memory, read from the database, with the servers each belongs to. `load` reads
+ * everything (three queries); after a gym was added, changed, linked, unlinked or deleted call
+ * `refreshGym`, and after regions changed call `load` again. Reads never wait: they use the last
+ * complete state.
  */
-export class GymDirectory implements GymProvider {
-  private lookup: GymLookup<Gym> | undefined;
+export class GymDirectory implements GymProvider, PlaceKeeper {
+  private servers: ServerGyms | undefined;
   private queue: Promise<unknown> = Promise.resolve();
   private changes = 0;
+  /**
+   * Each server's mark (`generationOf`), kept across loads: one more at every change of its gyms
+   * as the matches read them, and at a load that finds its regions or gyms changed (review R9).
+   */
+  private readonly marks = new Map<number, number>();
+  private readonly serverListeners: ((guildIds: readonly number[]) => void)[] = [];
 
-  constructor(private readonly options: GymDirectoryOptions) {}
+  /** How many gyms the answers saved had looked at (`reanswer`): for tests. */
+  gymsLookedAt = 0;
+
+  constructor(private readonly options: GymDirectoryOptions) {
+    options.answers.whenSaved((saved) => {
+      this.reanswer(saved);
+    });
+  }
+
+  /**
+   * A gym as read, with its point's answers (`answers`): its own Wayfarer address first, which
+   * is the gym's and no other server's.
+   */
+  private answered(gym: Gym): Gym {
+    const { answers } = this.options;
+    return {
+      ...gym,
+      geodata: gym.wayfarerAddress ?? answers.at('address', gym)?.answer ?? null,
+      places: answers.at('places', gym)?.answer ?? null,
+    };
+  }
+
+  /**
+   * After answers were saved: the gyms near their points take them, in memory, at once (the
+   * gyms of every server that has them; nothing is read). Also during a load or a re-read on its
+   * way: those take the answers when they are put in (`answered`), after this.
+   */
+  private reanswer(saved: readonly GoogleAnswer[]): void {
+    const servers = this.servers;
+    if (!servers) return;
+    // The gyms of the cells around each answer (`ServerGyms.near`), never every gym: a save is
+    // one gym's or one import's few, and the instance's gyms are thousands.
+    const near = new Map<number, Gym>();
+    for (const answer of saved) {
+      for (const gym of servers.near(answer)) {
+        if (near.has(gym.id)) continue;
+        this.gymsLookedAt += 1;
+        if (metresBetween(answer, gym) <= WAYSPOT_MOVED_METRES) near.set(gym.id, gym);
+      }
+    }
+    let changed = false;
+    for (const gym of near.values()) {
+      const now = this.answered(gym);
+      if (now.geodata === gym.geodata && now.places === gym.places) continue;
+      servers.put(now, servers.serversOf(gym.id));
+      changed = true;
+    }
+    if (changed) this.changes += 1;
+  }
+
+  private get perServer(): ServerGyms {
+    if (!this.servers) throw new Error('Gyms have not been loaded yet');
+    return this.servers;
+  }
+
+  of(guildId: number | undefined): GymView {
+    return this.perServer.of(guildId);
+  }
+
+  stored(id: number): Gym | undefined {
+    return this.perServer.stored(id);
+  }
+
+  serversOf(gymId: number): number[] {
+    return this.perServer.serversOf(gymId);
+  }
+
+  /**
+   * Channel ids of a server's regions one of its gyms lies in, without building the server's
+   * view (`ServerGyms.regionsIn`): for the instance's upkeep, which asks it of every gym.
+   */
+  regionsIn(guildId: number, gymId: number): string[] {
+    return this.perServer.regionsIn(guildId, gymId);
+  }
+
+  /**
+   * Whether a gym of any server lies within `WAYSPOT_MOVED_METRES` of a point (an answer of
+   * Google's it shows: `GoogleAnswers.sweep`), from the cells around it (`ServerGyms.near`).
+   */
+  anyNear(point: LatLon): boolean {
+    return this.perServer
+      .near(point)
+      .some((gym) => metresBetween(point, gym) <= WAYSPOT_MOVED_METRES);
+  }
+
+  /**
+   * The gyms as the sweep of Google's answers looks them up: the directory itself, whose cell
+   * index (`ServerGyms`) is kept for its gyms anyway; nothing is built for the sweep.
+   */
+  keptPlaces(): KeptPlaces {
+    return this;
+  }
+
+  /** A server's gyms as held, without building its view (`ServerGyms.gymsOf`): the upkeep's. */
+  gymsOf(guildId: number): Iterable<Gym> {
+    return this.perServer.gymsOf(guildId);
+  }
 
   /**
    * A number that changes with every load and every gym re-read or forgotten: what is built
@@ -64,9 +185,36 @@ export class GymDirectory implements GymProvider {
     return this.changes;
   }
 
-  private get current(): GymLookup<Gym> {
-    if (!this.lookup) throw new Error('Gyms have not been loaded yet');
-    return this.lookup;
+  /**
+   * A mark that changes with every change of one server's gyms as the same gyms of two neighbors
+   * read them (a gym of it added, renamed, moved, given a Wayfarer id, linked, unlinked or
+   * forgotten) and with a load that finds its regions or gyms changed, never with another
+   * server's (plan 19E, review R9: a region edit of one server reads every region again, and
+   * changes that server's mark alone): what is built of a server's gyms alone (`NeighborMatches`)
+   * is built anew when it differs.
+   */
+  generationOf(guildId: number): string {
+    return String(this.marks.get(guildId) ?? 0);
+  }
+
+  /**
+   * Tells `listener` of the servers whose mark (`generationOf`) changed, as it changes: one
+   * gym's change, or a load. It must decide and return (what it starts, it starts on the side);
+   * what it throws is logged.
+   */
+  whenServersChanged(listener: (guildIds: readonly number[]) => void): void {
+    this.serverListeners.push(listener);
+  }
+
+  private serversChanged(guildIds: readonly number[]): void {
+    for (const guildId of guildIds) this.marks.set(guildId, (this.marks.get(guildId) ?? 0) + 1);
+    for (const listener of this.serverListeners) {
+      try {
+        listener(guildIds);
+      } catch (err) {
+        this.options.log.error({ err }, 'a listener of the servers’ gyms failed');
+      }
+    }
   }
 
   /** Changes are applied one after the other, in the order they were asked for. */
@@ -79,12 +227,33 @@ export class GymDirectory implements GymProvider {
   /** Reads every gym and region and builds the index anew. The old state serves until then. */
   load(): Promise<void> {
     return this.enqueue(async () => {
-      const [gyms, regions] = await Promise.all([
+      const [gyms, links, regions] = await Promise.all([
         this.options.gyms.listAll(),
+        this.options.gyms.links(),
         this.options.regions.listAll(),
       ]);
       const started = performance.now();
-      this.lookup = new GymLookup(gyms, regions, this.options.ignoredWords);
+      const before = this.servers;
+      const built = new ServerGyms(
+        gyms.map((gym) => this.answered(gym)),
+        links,
+        regions,
+        this.options.wordsOf,
+        {
+          changed: (guildIds) => {
+            this.serversChanged(guildIds);
+          },
+        },
+      );
+      // The servers whose regions or gyms this load finds changed (review R9); none at the first.
+      const changed =
+        before === undefined
+          ? []
+          : [...new Set([...before.serverRows(), ...built.serverRows()])].filter(
+              (guildId) => before.fingerprintOf(guildId) !== built.fingerprintOf(guildId),
+            );
+      this.servers = built;
+      if (changed.length > 0) this.serversChanged(changed);
       this.changes += 1;
       this.options.log.info(
         { gyms: gyms.length, regions: regions.length, ms: Math.round(performance.now() - started) },
@@ -99,12 +268,15 @@ export class GymDirectory implements GymProvider {
    */
   refreshGym(id: number): Promise<Gym | undefined> {
     return this.enqueue(async () => {
-      const lookup = this.current;
-      const gym = await this.options.gyms.get(id);
-      if (gym) lookup.put(gym);
-      else lookup.remove(id);
+      const servers = this.perServer;
+      const [gym, linked] = await Promise.all([
+        this.options.gyms.get(id),
+        this.options.gyms.linksOf(id),
+      ]);
+      const answered = gym && this.answered(gym);
+      take(servers, id, answered, linked);
       this.changes += 1;
-      return gym;
+      return answered;
     });
   }
 
@@ -114,14 +286,16 @@ export class GymDirectory implements GymProvider {
    */
   refreshGyms(ids: readonly number[]): Promise<Gym[]> {
     return this.enqueue(async () => {
-      const lookup = this.current;
+      const servers = this.perServer;
       const read: Gym[] = [];
       for (const id of ids) {
-        const gym = await this.options.gyms.get(id);
-        if (gym) {
-          lookup.put(gym);
-          read.push(gym);
-        } else lookup.remove(id);
+        const [gym, linked] = await Promise.all([
+          this.options.gyms.get(id),
+          this.options.gyms.linksOf(id),
+        ]);
+        const answered = gym && this.answered(gym);
+        take(servers, id, answered, linked);
+        if (answered) read.push(answered);
       }
       this.changes += 1;
       return read;
@@ -137,44 +311,52 @@ export class GymDirectory implements GymProvider {
    * a `load` that read the database before the row went would otherwise put it back.
    */
   forget(id: number): boolean {
-    const known = this.current.remove(id);
+    const known = this.perServer.remove(id);
     this.changes += 1;
     void this.enqueue(() => {
-      if (this.lookup?.remove(id)) this.changes += 1;
+      if (this.servers?.remove(id)) this.changes += 1;
       return Promise.resolve();
     });
     return known;
   }
 
-  get size(): number {
-    return this.current.size;
+  /**
+   * Takes a gym out of one server's gyms at once, without reading anything: for a gym whose
+   * link to the server was just deleted while other servers keep it, so that nothing of that
+   * server finds it from this moment on. Again behind whatever is on its way, as `forget`.
+   */
+  unlink(id: number, guildId: number): boolean {
+    const known = this.perServer.unlink(id, guildId);
+    this.changes += 1;
+    void this.enqueue(() => {
+      if (this.servers?.unlink(id, guildId)) this.changes += 1;
+      return Promise.resolve();
+    });
+    return known;
   }
 
-  get(id: number): Gym | undefined {
-    return this.current.get(id);
+  /** How many gyms there are, of every server. */
+  get size(): number {
+    return this.perServer.size;
   }
 
   /**
-   * Every gym, in no particular order (a new list): for the upkeep of the gyms, which measures
-   * from one gym to all others. Handlers search; they do not list.
+   * Every gym of every server, in no particular order (a new list): for the instance's upkeep of
+   * the gyms (its Google queue, which measures from one gym to all others). Handlers read a
+   * server's view; they do not list.
    */
   all(): Gym[] {
-    return this.current.all();
+    return this.perServer.all();
   }
+}
 
-  isRegion(channelId: string): boolean {
-    return this.current.isRegion(channelId);
-  }
-
-  regionsOf(gymId: number): string[] {
-    return this.current.regionsOf(gymId);
-  }
-
-  inRegion(channelId: string): Gym[] {
-    return this.current.inRegion(channelId);
-  }
-
-  search(channelId: string | null, text: string, options?: GymLookupOptions): GymHit<Gym>[] {
-    return this.current.search(channelId, text, options);
-  }
+/** A gym as read: put in (with its servers) or taken out of every view. */
+function take(
+  servers: ServerGyms,
+  id: number,
+  gym: Gym | undefined,
+  linked: readonly number[],
+): void {
+  if (gym) servers.put(gym, linked);
+  else servers.remove(id);
 }

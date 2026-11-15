@@ -24,7 +24,6 @@ import {
   button,
   content,
   fetchNote,
-  foreignPlace,
   GYM_GONE,
   gymQuestion,
   gymViewMessage,
@@ -38,8 +37,7 @@ import {
   type ButtonAnswer,
   type GivenPlace,
 } from './shared.js';
-
-const FOREIGN_PLACE = foreignPlace('move a gym');
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /** What asks for a move: the command, a button of its question, the form of Move… of a view. */
 type MoveInteraction = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction;
@@ -64,7 +62,7 @@ function moveQuestion(
   const near = ctx.gymAdmin.near(point, guildId, gym.id);
   const metres = metresBetween(gym, point);
   const far = metres > FAR_MOVE_METRES;
-  const token = pendingGyms.put(interaction.user.id, {
+  const token = pendingGyms.put(interaction, {
     what: 'move',
     gymId: gym.id,
     from: { lat: gym.lat, lon: gym.lon },
@@ -78,10 +76,10 @@ function moveQuestion(
         before,
         `Move ${gymWithId(gym)} from ${pointLink(gym)} to ${pointLink(point)}?`,
         far
-          ? `That is ${distanceWords(metres, ctx.config.settings.distanceUnits)} from where it is now.`
+          ? `That is ${distanceWords(metres, serverValuesOf(interaction, ctx).distanceUnits)} from where it is now.`
           : undefined,
         approximate ? APPROXIMATE : undefined,
-        ...nearLines(near, ctx.config.settings.distanceUnits),
+        ...nearLines(near, serverValuesOf(interaction, ctx).distanceUnits),
         raidOf(interaction, ctx) ? USE_LOCATION : undefined,
       ]),
     ],
@@ -123,12 +121,11 @@ async function moveAnswered(
       .map((region) => region.channelId)
       .sort();
   const regionsBefore = regionsNow();
-  const reportable = ctx.gymAdmin.inAnyRegion(gymId);
+  const reportable = ctx.gymAdmin.inRegionOf(gymId, staff.guildId);
   const moved = await ctx.gymAdmin.move(gymId, point, staff, asked);
   if (!moved) throw new UserError(GYM_GONE);
-  if (moved.kind === 'foreign') throw new UserError(FOREIGN_PLACE);
   if (moved.kind !== 'moved') {
-    const gym = moved.kind === 'elsewhere' ? moved.gym : ctx.gyms.get(gymId);
+    const gym = moved.kind === 'elsewhere' ? moved.gym : ctx.gyms.of(staff.guildId).get(gymId);
     if (!gym) throw new UserError(GYM_GONE);
     const since =
       moved.kind === 'elsewhere'
@@ -149,14 +146,14 @@ async function moveAnswered(
     return;
   }
   const { gym, from, metres } = moved;
-  const shown = ctx.gymAdmin.shownBy(gymId);
+  const shown = ctx.gymAdmin.shownBy(gymId, staff.guildId);
   const elsewhere = regionsBefore.join() !== regionsNow().join();
   await answerGym(
     interaction,
-    await gymViewMessage(ctx, staff, gym, [
-      `Moved ${gymWithId(gym)} from ${pointLink(from)} to ${pointLink(point)} (${distanceWords(metres, ctx.config.settings.distanceUnits)}).`,
+    await gymViewMessage(ctx, serverValuesOf(interaction, ctx).distanceUnits, staff, gym, [
+      `Moved ${gymWithId(gym)} from ${pointLink(from)} to ${pointLink(point)} (${distanceWords(metres, serverValuesOf(interaction, ctx).distanceUnits)}).`,
       fetchNote(ctx),
-      namesakeNote(ctx, gym),
+      namesakeNote(ctx.gyms.of(staff.guildId), gym),
       ...(elsewhere
         ? shown.raids.map((raid) =>
             raid.forumPostId === null
@@ -167,8 +164,8 @@ async function moveAnswered(
       elsewhere && shown.trains.length > 0
         ? `It stays a stop of ${count(shown.trains.length, 'train')}.`
         : undefined,
-      reportable && !ctx.gymAdmin.inAnyRegion(gymId)
-        ? 'It now lies in no region: raids cannot be reported there.'
+      reportable && !ctx.gymAdmin.inRegionOf(gymId, staff.guildId)
+        ? 'It now lies in no region of this server: raids cannot be reported there.'
         : undefined,
       raidOf(interaction, ctx) ? USE_LOCATION : undefined,
     ]),
@@ -206,12 +203,12 @@ export const moveGym: SubcommandPart = {
       .setMaxLength(1_000),
   ),
   help: {
-    details: (settings) =>
+    details: (_settings, facts) =>
       `${HOW_TO_LOCATE} The location is read as for ` +
       '`/gym add`.\n\nThe gym keeps its texts, its raids and its ' +
       'place on train routes; its address and the places around it are fetched again, and ' +
       'the regions it lies in follow its new place. I ask first when the new place is more ' +
-      `than ${distanceWords(FAR_MOVE_METRES, settings.distanceUnits)} away or right beside another gym.\n\nThis corrects where a gym is: to ` +
+      `than ${distanceWords(FAR_MOVE_METRES, facts?.server?.distanceUnits ?? 'imperial')} away or right beside another gym.\n\nThis corrects where a gym is: to ` +
       'move a raid to another gym, use `/location` in the raid’s post.',
     examples: ['/gym move gym:Big Fountain location:40.4406, -79.9959'],
   },
@@ -236,9 +233,7 @@ export async function moveGymTo(
   gym: Gym,
   { point, approximate }: GivenPlace,
 ): Promise<void> {
-  // Refused before anything is asked or moved; the service decides again at its turn.
   const { guildId } = await staffPlace(interaction, ctx);
-  if (!ctx.gymAdmin.mayPlace(point, guildId)) throw new UserError(FOREIGN_PLACE);
   const near = ctx.gymAdmin.near(point, guildId, gym.id);
   const far = metresBetween(gym, point) > FAR_MOVE_METRES;
   if (near.length === 0 && !far && !approximate) {

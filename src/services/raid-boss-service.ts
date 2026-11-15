@@ -39,21 +39,25 @@ export interface RaidBossOptions extends Omit<BossFeedOptions<RaidTier>, 'source
   store: RaidBossStore;
   /**
    * Leek Duck's raid manifest (`settings.raidBosses.manifestUrl`, plan 8B-L), read before the
-   * feed, with the zone its local times are read in (`settings.timezone`); none: the feed only.
+   * feed, with the zone the stored list's local times are read in (the instance's default; each
+   * zone in use has its own list, `bosses(zone)`); none: the feed only.
    */
   manifest?: { url: string; zone: string };
 }
 
-/** What handlers need: the boss list in effect. */
+/**
+ * What handlers need: the boss list in effect in a server's zone (plan 19A-2: the rotations in
+ * force on its clock; `ServerSettings.zoneOf`, `zoneOf(interaction, ctx)`, `PartyService.zoneOf`).
+ */
 export interface RaidBossProvider {
   /** Every boss: the feed's list with the moderators' overrides applied, by tier, then name. */
-  bosses(): readonly Readonly<RaidBoss>[];
-  bossesOf(tier: RaidTier): RaidBoss[];
+  bosses(zone: string): readonly Readonly<RaidBoss>[];
+  bossesOf(tier: RaidTier, zone: string): RaidBoss[];
   /** What an egg of this tier hatches as when nobody says; undefined when that is not certain. */
-  autoset(tier: RaidTier): RaidBoss | undefined;
+  autoset(tier: RaidTier, zone: string): RaidBoss | undefined;
 }
 
-/** What staff need of the raid boss list beyond what handlers read (`/admin boss`). */
+/** What staff need of the raid boss list beyond what handlers read (`/operator boss`). */
 export type RaidBossAdmin = BossAdmin<RaidTier>;
 
 /**
@@ -80,14 +84,15 @@ const RAID_FEED: BossFeedFamily<RaidTier> = {
  */
 export class RaidBossService extends BossFeedService<RaidTier> implements RaidBossProvider {
   constructor({ manifest, ...options }: RaidBossOptions) {
-    super(manifest ? { ...options, source: raidManifestSource(manifest) } : options, RAID_FEED);
+    const source = manifest && raidManifestSource({ ...manifest, zones: options.zones });
+    super(source ? { ...options, source, defaultZone: manifest.zone } : options, RAID_FEED);
   }
 
-  bossesOf(tier: RaidTier): RaidBoss[] {
-    return this.bosses().filter((boss) => sameRaidTier(boss.tier, tier));
+  bossesOf(tier: RaidTier, zone: string): RaidBoss[] {
+    return this.bosses(zone).filter((boss) => sameRaidTier(boss.tier, tier));
   }
 
-  autoset(tier: RaidTier): RaidBoss | undefined {
-    return autosetBoss(this.bosses(), tier);
+  autoset(tier: RaidTier, zone: string): RaidBoss | undefined {
+    return autosetBoss(this.bosses(zone), tier);
   }
 }

@@ -1,4 +1,4 @@
-import { DiscordAPIError, MessageFlags, RESTJSONErrorCodes } from 'discord.js';
+import { DiscordAPIError, MessageFlags, PermissionFlagsBits, RESTJSONErrorCodes } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import {
   dialogChoices,
@@ -9,7 +9,13 @@ import {
 import { sent, type FakeInteraction } from '../../../test/support/fake-interactions.js';
 import { DIALOG_READ_MS, SLOW_READ } from '../../discord/dialog.js';
 import { answerOf, buttonsOf } from '../../../test/support/gym-commands.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../../test/support/gyms.js';
 import { ALICE, REPORTER } from '../../../test/support/parties.js';
 import {
   MEMBER,
@@ -26,10 +32,11 @@ type Made = Awaited<ReturnType<typeof regionCommandsWith>>;
 
 /** Reports a raid at a gym and gives its post. */
 async function reported(made: Made, gymId: number): Promise<string> {
-  const gym = made.directory.get(gymId);
+  const gym = made.directory.stored(gymId);
   if (!gym) throw new Error(`no gym ${gymId}`);
   const outcome = await made.service.reportRaid({
     gym,
+    guildRow: TEST_GUILD_ROW,
     reporterId: REPORTER,
     anonymous: false,
     autoStatus: PartyStatus.Interested,
@@ -404,6 +411,16 @@ describe('/region remove: staff without Manage Channels, and rehearsal mode', ()
     const { dialog } = await asked(made, 'id:3');
     const member = await made.submit(dialog, {}, { userId: MEMBER, roleNames: [] });
     expect(regionSaid(sent(member.reply))).toBe(
+      'Only admins, moderators and bot developers can do that.',
+    );
+    // Nor who may manage the server without a staff role, whom the import's questions admit
+    // (plan 19C-2): the dialog is `/region remove`'s.
+    const manager = await made.submit(
+      dialog,
+      {},
+      { userId: MEMBER, roleNames: [], permissions: PermissionFlagsBits.ManageGuild },
+    );
+    expect(regionSaid(sent(manager.reply))).toBe(
       'Only admins, moderators and bot developers can do that.',
     );
     expect(made.regions.byId(3)).toBeDefined();

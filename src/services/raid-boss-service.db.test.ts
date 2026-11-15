@@ -11,6 +11,9 @@ import type { BossListChange } from '../domain/pogo/raid-bosses.js';
 import type { RaidTier } from '../domain/pogo/raid-tier.js';
 import { RaidBossService, type FetchFeed } from './raid-boss-service.js';
 
+/** The zone of the test settings, every server's here. */
+const ZONE = 'America/New_York';
+
 const HOUR = 3_600_000;
 const T5: RaidTier = { level: 'T5', shadow: false };
 const SHADOW_T5: RaidTier = { level: 'T5', shadow: true };
@@ -60,11 +63,11 @@ describe('RaidBossService with the database', () => {
   it('syncs the downloaded feed into the tables and serves it', async () => {
     const { raidBosses } = service();
     await raidBosses.load();
-    expect(raidBosses.bosses()).toEqual([]);
+    expect(raidBosses.bosses(ZONE)).toEqual([]);
     expect((await raidBosses.sync()).status).toBe('updated');
-    expect(raidBosses.bosses()).toHaveLength(14);
-    expect(raidBosses.autoset(T5)?.key).toBe('yveltal');
-    expect(raidBosses.autoset(SHADOW_T5)?.key).toBe('landorus_incarnate');
+    expect(raidBosses.bosses(ZONE)).toHaveLength(14);
+    expect(raidBosses.autoset(T5, ZONE)?.key).toBe('yveltal');
+    expect(raidBosses.autoset(SHADOW_T5, ZONE)?.key).toBe('landorus_incarnate');
     const rows = await db.selectFrom('RaidBoss').select(['pokemonId', 'form', 'active']).execute();
     expect(rows).toHaveLength(14);
     expect(rows.find((row) => row.pokemonId === 'YVELTAL')).toEqual({
@@ -94,11 +97,11 @@ describe('RaidBossService with the database', () => {
     await raidBosses.load();
     expect(raidBosses.lastSyncedAt).toBe(synced);
     expect(raidBosses.overrides()).toEqual([override]);
-    expect(raidBosses.bossesOf(T5).map((b) => [b.key, b.source, b.autoset])).toEqual([
+    expect(raidBosses.bossesOf(T5, ZONE).map((b) => [b.key, b.source, b.autoset])).toEqual([
       ['yveltal', 'feed', false],
       ['zekrom', 'override', true],
     ]);
-    expect(raidBosses.autoset(T5)).toMatchObject({ key: 'zekrom', shiny: true });
+    expect(raidBosses.autoset(T5, ZONE)).toMatchObject({ key: 'zekrom', shiny: true });
   });
 
   it('retires bosses the feed drops, announces the change and deletes expired overrides', async () => {
@@ -114,7 +117,7 @@ describe('RaidBossService with the database', () => {
       expiresAt: now + HOUR,
       createdBy: '123456789012345678',
     });
-    expect(raidBosses.bossesOf(T5)).toEqual([]);
+    expect(raidBosses.bossesOf(T5, ZONE)).toEqual([]);
 
     now += HOUR;
     body = JSON.stringify([
@@ -125,7 +128,7 @@ describe('RaidBossService with the database', () => {
     expect(changes).toHaveLength(1);
     expect(changes[0]?.added.map((b) => b.pokemonId)).toEqual(['ZEKROM']);
     expect(changes[0]?.removed).toHaveLength(13);
-    expect(raidBosses.bosses().map((b) => b.key)).toEqual(['yveltal', 'zekrom']);
+    expect(raidBosses.bosses(ZONE).map((b) => b.key)).toEqual(['yveltal', 'zekrom']);
     expect(await db.selectFrom('RaidBossOverride').selectAll().execute()).toEqual([]);
     const active = await db
       .selectFrom('RaidBoss')
@@ -148,7 +151,7 @@ describe('RaidBossService with the database', () => {
     now += HOUR;
     status = 503;
     expect((await raidBosses.sync()).status).toBe('failed');
-    expect(raidBosses.bosses()).toHaveLength(14);
+    expect(raidBosses.bosses(ZONE)).toHaveLength(14);
     expect(await new RaidBossRepository(db).lastSyncedAt()).toBe(synced);
   });
 });

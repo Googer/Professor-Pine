@@ -1,5 +1,5 @@
 import { bossTierMoved, maxBossTierMoved, type BossTierMove } from '../domain/party/boss-move.js';
-import { isMax, isRaid } from '../domain/party/party.js';
+import { isMax, isRaid, type Party } from '../domain/party/party.js';
 import type { RaidDurationRules } from '../domain/time/raid-durations.js';
 import type { Logger } from '../log.js';
 import { bossMovedLine } from '../render/boss-changes.js';
@@ -11,7 +11,10 @@ import type { RaidChangeService } from './raid-change-service.js';
 export interface BossTierMovesOptions {
   store: PartyStore;
   /** Told after every stored change; knows the raid durations in effect. */
-  posts: { changed(partyId: string): void; rules(): RaidDurationRules };
+  posts: {
+    changed(partyId: string): void;
+    rulesOf(party: Pick<Party, 'guildId'>): RaidDurationRules;
+  };
   /** A raid moves under the rules of every raid change (review J1). */
   raids: Pick<RaidChangeService, 'moveBossTier'>;
   lines: Pick<PartyLines, 'say'>;
@@ -43,10 +46,10 @@ export class BossTierMoves {
   /** Moves every running battle of the boss at a tier it moved from. */
   async move(move: BossTierMove): Promise<BossTierMoved> {
     const { store, posts, log } = this.options;
-    const rules = posts.rules();
+    // Each battle by the rules of its server's zone (plan 19A-2).
     const concerned = store
       .active()
-      .filter((party) => bossTierMoved(party, move, rules, this.now()) !== party);
+      .filter((party) => bossTierMoved(party, move, posts.rulesOf(party), this.now()) !== party);
     const done: BossTierMoved = { moved: 0, inTheWay: 0 };
     for (const party of concerned) {
       // One battle that cannot be written (the database) keeps the rest from failing with it.

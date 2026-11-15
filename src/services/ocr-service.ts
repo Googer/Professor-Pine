@@ -5,6 +5,7 @@ import { deviceProblem, type OcrAssetPaths, type OcrDevice } from '../domain/ocr
 import type { Logger } from '../log.js';
 import type { ReadRequest, WorkerMessage, WorkerStart } from '../ocr/protocol.js';
 import type { PaneReading, ScreenReading } from '../ocr/screen-reader.js';
+import { Turns } from '../turns.js';
 
 export type OcrOutcome =
   | {
@@ -36,7 +37,15 @@ export type OcrOutcome =
 export const MAX_SCREENSHOT_BYTES = 32 * 1024 * 1024;
 
 export interface ReadOptions {
-  /** Called once when the screenshot has to wait, with how many are ahead of it. */
+  /**
+   * The server the screenshot was sent in (plan 19B-5): the queue takes turns between servers,
+   * each with at most `queuePerServer` waiting. None: the instance's (`ocr:check`).
+   */
+  server?: string;
+  /**
+   * Called once when the screenshot has to wait, with how many are ahead of it at most (the
+   * turns between servers decide the rest).
+   */
   onQueued?: (ahead: number) => void;
   /**
    * A screenshot whose turn comes after this time (epoch milliseconds) is not read but answered
@@ -51,10 +60,11 @@ export interface ReadOptions {
 export interface ScreenshotReader {
   read(bytes: Uint8Array, options?: ReadOptions): Promise<OcrOutcome>;
   /**
-   * As many screenshots wait already as the queue holds: the next would be answered `busy`.
-   * Asked before a screenshot is downloaded, so that none is downloaded in vain.
+   * As many screenshots wait already as the queue holds, or as many of `server` as one server
+   * may have waiting: its next would be answered `busy`. Asked before a screenshot is
+   * downloaded, so that none is downloaded in vain.
    */
-  full(): boolean;
+  full(server?: string): boolean;
   /** For shutdown: what waits is answered `unavailable`, the process is ended. */
   close(): Promise<void>;
 }
@@ -72,6 +82,11 @@ export interface OcrServiceOptions {
   priority: 'low' | 'normal';
   /** How many screenshots may wait while one is read. */
   queue: number;
+  /**
+   * How many screenshots of one server may wait while one is read (plan 19B-5); unless set, as
+   * many as `queue`.
+   */
+  queuePerServer?: number;
   /** How long one screenshot may take. */
   timeoutMs: number;
   log: Logger;
@@ -99,6 +114,8 @@ const WORKER = path.join(path.dirname(here), '..', 'ocr', `worker${path.extname(
 const PANES_WITHIN = 0.85;
 /** A process asked to end is killed outright after this long. */
 const KILL_AFTER_MS = 2_000;
+/** The key in the turns of a screenshot of no server (`ocr:check`): no snowflake is empty. */
+const NO_SERVER = '';
 
 /**
  * The environment of the reading process: only what starting Node and the device needs. It
@@ -164,9 +181,15 @@ interface Worker {
  * that could not start is not tried again for `startRetryMs`; a device this platform does not
  * have is refused once and for all. A process run from TypeScript (development, tests) is
  * started through tsx.
+ *
+ * What waits takes turns between servers (plan 19B-5): a line per server, served one screenshot
+ * each in turn, each line oldest first, so that one server's burst waits behind the others'
+ * screenshots. `queue` bounds all that waits together and `queuePerServer` what one server has
+ * waiting; beyond either a screenshot is answered `busy`.
  */
 export class OcrService implements ScreenshotReader {
-  private readonly waiting: Job[] = [];
+  /** What waits, a line per server served in turns. */
+  private readonly waiting = new Turns<string, Job>();
   private busy = false;
   private closed = false;
   private worker: Worker | undefined;
@@ -191,16 +214,17 @@ export class OcrService implements ScreenshotReader {
   read(bytes: Uint8Array, options: ReadOptions = {}): Promise<OcrOutcome> {
     if (this.closed || this.noDevice) return Promise.resolve({ kind: 'unavailable' });
     if (bytes.byteLength > MAX_SCREENSHOT_BYTES) return Promise.resolve({ kind: 'not-an-image' });
-    if (this.full()) return Promise.resolve({ kind: 'busy' });
+    if (this.full(options.server)) return Promise.resolve({ kind: 'busy' });
+    const server = options.server ?? NO_SERVER;
     return new Promise((resolve) => {
       if (this.busy) {
         try {
-          options.onQueued?.(this.waiting.length + 1);
+          options.onQueued?.(this.aheadOf(server));
         } catch (err) {
           this.options.log.error({ err }, 'a waiting screenshot could not be told so');
         }
       }
-      this.waiting.push({
+      this.waiting.put(server, {
         bytes,
         startBy: options.startBy,
         divider: options.divider ?? true,
@@ -210,19 +234,35 @@ export class OcrService implements ScreenshotReader {
     });
   }
 
-  full(): boolean {
-    return this.busy && this.waiting.length >= this.options.queue;
+  full(server?: string): boolean {
+    if (!this.busy) return false;
+    if (this.waiting.size >= this.options.queue) return true;
+    const perServer = this.options.queuePerServer ?? this.options.queue;
+    return this.waiting.sizeOf(server ?? NO_SERVER) >= perServer;
+  }
+
+  /**
+   * How many are read before a screenshot of `server` that comes now, at most: the one in hand,
+   * those of its server, and of every other server one for each turn until its own.
+   */
+  private aheadOf(server: string): number {
+    const own = this.waiting.sizeOf(server);
+    let ahead = 1 + own;
+    for (const [other, count] of this.waiting.waiting()) {
+      if (other !== server) ahead += Math.min(count, own + 1);
+    }
+    return ahead;
   }
 
   async close(): Promise<void> {
     this.closed = true;
-    for (const job of this.waiting.splice(0)) job.resolve({ kind: 'unavailable' });
+    for (const job of this.waiting.clear()) job.resolve({ kind: 'unavailable' });
     await this.stopWorker();
   }
 
   private async pump(): Promise<void> {
     if (this.busy) return;
-    const job = this.waiting.shift();
+    const job = this.waiting.take();
     if (!job) return;
     if (job.startBy !== undefined && this.now() > job.startBy) {
       job.resolve({ kind: 'busy' });
@@ -240,7 +280,7 @@ export class OcrService implements ScreenshotReader {
     }
     job.resolve(outcome);
     this.busy = false;
-    if (this.waiting.length > 0) {
+    if (this.waiting.size > 0) {
       void this.pump();
     } else if (this.worker && !this.closed) {
       this.idleTimer = setTimeout(() => void this.stopWorker(), this.options.idleMs ?? 10 * 60_000);

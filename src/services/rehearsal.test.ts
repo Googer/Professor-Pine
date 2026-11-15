@@ -2,7 +2,13 @@ import { PermissionFlagsBits as P } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import { RecordingDms } from '../../test/support/dms.js';
 import { FakePartyGateway } from '../../test/support/fake-gateway.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../test/support/gyms.js';
 import { MOD_CHANNEL } from '../../test/support/meetup-safety-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import { REPORTER } from '../../test/support/parties.js';
@@ -89,6 +95,7 @@ describe('Rehearsal', () => {
 describe('RehearsalDms', () => {
   const job = (userId: string) => ({
     userId,
+    serverId: null,
     message: { content: 'A raid you want' },
     priority: DM_PRIORITY.normal,
     eventAt: 0,
@@ -159,10 +166,11 @@ describe('rehearsalGateway', () => {
   }
 
   const report = (gymId: number) => {
-    const gym = gymsFixture().get(gymId);
+    const gym = gymsFixture().stored(gymId);
     if (!gym) throw new Error(`no gym ${gymId}`);
     return {
       gym,
+      guildRow: TEST_GUILD_ROW,
       reporterId: REPORTER,
       anonymous: false,
       autoStatus: PartyStatus.Interested,
@@ -298,7 +306,13 @@ describe('rehearsalGateway', () => {
       }),
       log,
     );
-    const safety = rehearsalModeratorsGateway(guarded, fake, 'meetup-review', log);
+    // The moderators' channel by its server's values (plan 19A-1): the forum is not it.
+    const safety = rehearsalModeratorsGateway(
+      guarded,
+      fake,
+      (channelId) => channelId === MOD_CHANNEL || channelId === forum,
+      log,
+    );
     expect(await safety.sendMessage(MOD_CHANNEL, { content: 'Meetup waiting' })).toBeDefined();
     expect(await safety.sendMessage(forum, { content: 'Meetup waiting' })).toBeUndefined();
     expect(await safety.sendMessage(WEST_CHANNEL, { content: 'New meetup' })).toBeUndefined();

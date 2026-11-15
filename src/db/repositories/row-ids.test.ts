@@ -60,11 +60,58 @@ describe('RowIds', () => {
     expect(ids.user('u20000')).toBe(20_000);
   });
 
+  it('knows the server of every row it saw, beyond what it remembers (fix round 1, K1)', () => {
+    const ids = new RowIds();
+    for (let n = 0; n <= 1_000; n++) ids.sawGuild(`g${String(n)}`, n);
+    // The memory of a thousand servers dropped the first; the server of its row stays known.
+    expect(ids.guildSnowflake(0)).toBeUndefined();
+    expect(ids.serverOfRow(0)).toBe('g0');
+    expect(ids.serverOfRow(1_000)).toBe('g1000');
+    // Forgetting a server (its row deleted, or no longer sure) leaves its row's server known:
+    // a row id is never another server's.
+    ids.forgetGuild('g1000');
+    expect(ids.serverOfRow(1_000)).toBe('g1000');
+    // A row known without being seen: what the start reads of the table.
+    ids.knowGuildRow('g2000', 2_000);
+    expect(ids.serverOfRow(2_000)).toBe('g2000');
+    expect(ids.guild('g2000')).toBeUndefined();
+    expect(ids.serverOfRow(2_001)).toBeUndefined();
+  });
+
+  it('knows the row of every server it saw, beyond what it remembers, the newer of a row made again (plan 19B-5, fix round 4)', () => {
+    const ids = new RowIds();
+    for (let n = 0; n <= 1_000; n++) ids.sawGuild(`g${String(n)}`, n);
+    expect(ids.guild('g0')).toBeUndefined();
+    expect(ids.rowOfServer('g0')).toBe(0);
+    expect(ids.rowOfServer('g1000')).toBe(1_000);
+    ids.knowGuildRow('g2000', 2_000);
+    expect(ids.rowOfServer('g2000')).toBe(2_000);
+    // Made again (the legacy bot left and came back): the newer row.
+    ids.sawGuild('g0', 3_000);
+    expect(ids.rowOfServer('g0')).toBe(3_000);
+    expect(ids.rowOfServer('g2001')).toBeUndefined();
+  });
+
+  it('forgets a deleted server’s row, and still knows the row was that server’s (plan 19C-3)', () => {
+    const ids = new RowIds();
+    ids.sawGuild('g1', 7);
+    ids.forgetServer('g1');
+    expect(ids.guild('g1')).toBeUndefined();
+    expect(ids.guildSnowflake(7)).toBeUndefined();
+    expect(ids.rowOfServer('g1')).toBeUndefined();
+    // A row id is never another server's: the party of a row still names its server.
+    expect(ids.serverOfRow(7)).toBe('g1');
+    // Added back: a new row.
+    ids.sawGuild('g1', 9);
+    expect(ids.rowOfServer('g1')).toBe(9);
+  });
+
   it('remembers nothing when it is the one a repository has by default', () => {
     RowIds.none.sawGuild('g1', 7);
     RowIds.none.sawUser('u1', 42);
     expect(RowIds.none.guild('g1')).toBeUndefined();
     expect(RowIds.none.guildSnowflake(7)).toBeUndefined();
+    expect(RowIds.none.serverOfRow(7)).toBeUndefined();
     expect(RowIds.none.user('u1')).toBeUndefined();
   });
 });

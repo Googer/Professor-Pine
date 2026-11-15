@@ -3,18 +3,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { catalogueFixture } from '../../test/support/game-data.js';
 import {
   EAST_CHANNEL,
-  UNBOUNDED_CHANNEL,
-  WEST_CHANNEL,
+  TEST_GUILD_ROW,
   testGyms,
   testRegions,
+  UNBOUNDED_CHANNEL,
+  WEST_CHANNEL,
 } from '../../test/support/gyms.js';
 import { startMigratedDatabase } from '../../test/support/migrated-db.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { GuildRepository } from '../db/repositories/guild-repository.js';
 import { GymRepository } from '../db/repositories/gym-repository.js';
-import { PokemonRepository } from '../db/repositories/pokemon-repository.js';
+import { PokemonNicknameRepository } from '../db/repositories/pokemon-nickname-repository.js';
 import { RegionRepository } from '../db/repositories/region-repository.js';
 import type { DB } from '../db/types.js';
+import { GoogleAnswerRepository } from '../db/repositories/google-answer-repository.js';
+import { GoogleAnswers } from './google-answers.js';
 import { GymDirectory } from './gym-directory.js';
 import { PokemonSearchService } from './pokemon-search-service.js';
 
@@ -37,19 +40,31 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
     }
     await db.insertInto('Region').values({ guildId, channelId: UNBOUNDED_CHANNEL }).execute();
     for (const gym of testGyms()) {
-      const created = await gyms.create(gym);
-      await gyms.update(created.id, {
-        keywords: gym.keywords,
-        notice: gym.notice,
-        geodata: gym.geodata,
-        places: gym.places,
-      });
+      const created = await gyms.create(gym, 1);
+      await gyms.update(created.id, { keywords: gym.keywords, notice: gym.notice });
       stored.set(gym.id, created.id);
     }
+    // The gyms' addresses and places are their points' answers (plan 19B-3).
+    const answers = new GoogleAnswers({
+      storage: new GoogleAnswerRepository(db),
+      log: createTestLogger().log,
+    });
+    await answers.save(
+      testGyms().flatMap((gym) => [
+        ...(gym.geodata === null
+          ? []
+          : [{ kind: 'address' as const, ...gym, answer: gym.geodata, askedAt: 1 }]),
+        ...(gym.places === null
+          ? []
+          : [{ kind: 'places' as const, ...gym, answer: gym.places, askedAt: 1 }]),
+      ]),
+    );
+    await answers.load();
     directory = new GymDirectory({
       gyms,
       regions,
-      ignoredWords: ['gym', 'raid'],
+      wordsOf: () => ['gym', 'raid'],
+      answers,
       log: createTestLogger().log,
     });
     await directory.load();
@@ -60,18 +75,21 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
 
   const id = (fixtureId: number) => stored.get(fixtureId) ?? -1;
   const ids = (channelId: string | null, text: string) =>
-    directory.search(channelId, text).map((hit) => hit.gym.id);
+    directory
+      .of(TEST_GUILD_ROW)
+      .search(channelId, text)
+      .map((hit) => hit.gym.id);
 
   it('sorts gyms into regions exactly as the database does', async () => {
     for (const channelId of [WEST_CHANNEL, EAST_CHANNEL, UNBOUNDED_CHANNEL]) {
       const inDatabase = (await gyms.listInRegion(channelId)).map((gym) => gym.id);
       const inDirectory = (await gyms.listAll())
-        .filter((gym) => directory.regionsOf(gym.id).includes(channelId))
+        .filter((gym) => directory.of(TEST_GUILD_ROW).regionsOf(gym.id).includes(channelId))
         .map((gym) => gym.id);
       expect(inDirectory, channelId).toEqual(inDatabase);
     }
     expect((await gyms.listInRegion(WEST_CHANNEL)).length).toBe(8);
-    expect(directory.isRegion(UNBOUNDED_CHANNEL)).toBe(false);
+    expect(directory.of(TEST_GUILD_ROW).isRegion(UNBOUNDED_CHANNEL)).toBe(false);
   });
 
   it('searches stored gyms by decoded text, address and places', () => {
@@ -81,11 +99,11 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
     expect(ids(WEST_CHANNEL, 'luna')).toEqual([id(2)]);
     expect(ids(WEST_CHANNEL, 'plaza')).toEqual([id(2)]);
     expect(ids(WEST_CHANNEL, 'mural')).toEqual([id(1), id(7)]);
-    expect(directory.get(id(8))?.name).toBe('Café Élan Fresco');
+    expect(directory.stored(id(8))?.name).toBe('Café Élan Fresco');
   });
 
   it('follows a gym that is edited, moved and deleted', async () => {
-    const created = await gyms.create({ name: 'Clock Tower', lat: 40.05, lon: -80.05 });
+    const created = await gyms.create({ name: 'Clock Tower', lat: 40.05, lon: -80.05 }, 1);
     expect(ids(WEST_CHANNEL, 'clock')).toEqual([]);
     await directory.refreshGym(created.id);
     expect(ids(WEST_CHANNEL, 'clock')).toEqual([created.id]);
@@ -100,19 +118,23 @@ describe('GymDirectory and PokemonSearchService against MySQL', () => {
     expect(ids(null, 'clock')).toEqual([]);
   });
 
-  it('finds Pokémon by nicknames stored in the legacy table', async () => {
-    const pokemon = new PokemonRepository(db);
+  it('finds Pokémon by the nicknames of a server stored in the database (plan 19B-4)', async () => {
+    const server = '412345678901234567';
+    const other = '412345678901234568';
+    const pokemon = new PokemonNicknameRepository(db);
     const search = new PokemonSearchService({ catalogue: catalogueFixture() }, pokemon);
-    await pokemon.addNickname('dratini', 'Danger Noodle');
-    await pokemon.addNickname('giratina_altered', 'tina');
-    await db.insertInto('Pokemon').values({ name: 'ex', nickname: 'exclusive' }).execute();
-    await search.reloadNicknames();
-    expect(search.search('danger noodle')[0]?.key).toBe('dratini');
-    expect(search.search('tina')[0]?.key).toBe('giratina_altered');
-    expect(search.search('exclusive')).toEqual([]);
+    await pokemon.addNickname(server, 'dratini', 'danger noodle');
+    await pokemon.addNickname(server, 'giratina_altered', 'tina');
+    await pokemon.addNickname(server, 'ex', 'exclusive');
+    await search.load([server, other]);
+    expect(search.of(server).search('danger noodle')[0]?.key).toBe('dratini');
+    expect(search.of(server).search('tina')[0]?.key).toBe('giratina_altered');
+    expect(search.of(server).search('exclusive')).toEqual([]);
+    expect(search.of(other).exact('danger noodle')).toBeUndefined();
 
-    await pokemon.removeNickname('dratini', 'danger noodle');
-    await search.reloadNicknames();
-    expect(search.search('danger noodle')).toEqual([]);
+    const dratini = search.of(null).exact('dratini');
+    if (!dratini) throw new Error('no dratini');
+    expect(await search.remove(server, dratini, 'danger noodle')).toBe(true);
+    expect(search.of(server).search('danger noodle')).toEqual([]);
   });
 });

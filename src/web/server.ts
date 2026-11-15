@@ -12,7 +12,7 @@ import { EGG_FOLDER, EGG_PATH } from '../services/egg-pictures.js';
 import { LockOverdueError } from '../services/keyed-lock.js';
 import { EMOJI_PATH, type EmojiPictures } from '../services/post-pictures.js';
 import { PICTURE_PATH, type StopPictures } from '../services/stop-pictures.js';
-import { carriesContinueScript, sendFailure } from './answers.js';
+import { carriesContinueScript, offerLogin, sendFailure } from './answers.js';
 import { authRoutes } from './auth-routes.js';
 import { isNearbyPeer } from './client-address.js';
 import type { OAuthGateway } from './discord-oauth.js';
@@ -40,7 +40,7 @@ import type { PostWebDeps } from './post-control-routes.js';
 import type { TrainWebDeps } from './train-routes.js';
 import { toolFileRoutes, toolPageRoutes, type ToolWebDeps } from './tool-routes.js';
 import { topRoutes } from './top-routes.js';
-import type { DistanceUnits } from '../render/distance-words.js';
+import type { ServerSettingsLookup } from '../services/server-settings.js';
 
 /** `settings.web` once it is set. */
 export type WebSettings = NonNullable<Settings['web']>;
@@ -52,17 +52,37 @@ export interface WebDeps {
   pictureOrigins: readonly string[];
   /** `GOOGLE_MAPS_BROWSER_KEY`: Google's tiles are offered only with it and `tiles: 'google'`. */
   googleKey: string | undefined;
-  /** The units distances are said in (`settings.distanceUnits`, task 7): the map's list, the region editor's fixes. */
-  distanceUnits: DistanceUnits;
-  /** The servers the bot is in (the client's cache): any other is not found. */
-  servers: { has(guildId: string): boolean };
+  /**
+   * The servers the bot is in (the client's cache): any other is not found. A server in setup
+   * (plan 19C-2, `ServerSettings.inSetup`) is not found either, but for the region editor and the
+   * map it draws on, for its staff (`guildRoutes`). One whose map is closed to visitors who are
+   * not logged in (plan 19C-4, `publicMapOn` over its values and the instance) is not found by
+   * such a visitor (`hiddenFrom`).
+   */
+  servers: {
+    has(guildId: string): boolean;
+    inSetup(guildId: string): boolean;
+    openToVisitors(guildId: string): boolean;
+  };
+  /**
+   * Whether the instance is open to every server (`servers: "open"`): the top page then offers
+   * no server to join (final review R4-2).
+   */
+  openInstance: boolean;
+  /** Each server's values (plan 19A-1): the map's member role, by id. */
+  serverSettings: ServerSettingsLookup;
+  /** A role's name as the server has it now, from the client's cache; undefined for one it lacks. */
+  roleName(guildId: string, roleId: string): string | undefined;
   /**
    * The servers with a map (plan 8M-14, the top page): those the bot is in with a region that
    * has an outline, with their names (`mapServers`), and apart by id those Discord has not made
    * available. Never shown to anybody logged out.
    */
   serversWithMap(): Promise<MapServers>;
-  /** Whether somebody is a member of a server: asked per request, never kept in a session. */
+  /**
+   * Whether somebody is a member of a server: asked per request, never what a session keeps of
+   * the servers its login read (final review R4-1), which the top page alone reads.
+   */
   members: PacedDirectory;
   /** How fast the map's own asks may cause fresh look-ups of members (`PacedMembers`). */
   memberPace: MemberPace;
@@ -150,6 +170,13 @@ export function buildWebServer(deps: WebDeps): FastifyInstance {
   const scriptedHeaders = securityHeaders({ ...policy, continueScript: true });
 
   void app.register(fastifyCookie);
+  // A server's address not found offers "Log in with Discord" where there is one (fix round 1,
+  // R8; `sendFailure`).
+  if (deps.oauth) {
+    app.addHook('onRequest', async (_request, reply) => {
+      offerLogin(reply);
+    });
+  }
   app.addHook('onSend', async (_request, reply, payload) => {
     reply.headers(carriesContinueScript(reply) ? scriptedHeaders : headers);
     return payload;

@@ -40,8 +40,8 @@ export const DEFAULT_FLAGGED_WORDS: readonly string[] = [
 ];
 
 /**
- * The words in effect: the default list and the server's own (`settings.meetupSafety.flaggedWords`),
- * trimmed, in lower case, each once.
+ * The words in effect: the default list and the server's own (`flaggedWords` of its values, plan
+ * 19A-1), trimmed, in lower case, each once.
  */
 export function flaggedWordsOf(extra: readonly string[] | undefined): string[] {
   const words = [...DEFAULT_FLAGGED_WORDS, ...(extra ?? [])]
@@ -101,7 +101,7 @@ export function rulingKeyOf(place: Place): RulingKey | undefined {
 
 /** What may be asked of the check; 8M-5 (meetups from the web map) asks the same. */
 export interface PlaceCheck {
-  /** Whether meetup safety is on in the server (`settings.channels.moderation` is set). */
+  /** Whether meetup safety is on in the server (the server's moderators' channel is set). */
   on: boolean;
   /** The place the meetup is to be at, as it was named. */
   place: Place;

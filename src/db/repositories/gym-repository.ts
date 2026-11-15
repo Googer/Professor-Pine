@@ -1,6 +1,13 @@
 import * as he from 'he';
 import { sql, type Kysely, type Updateable } from 'kysely';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
+import type { GymLink } from '../../domain/gyms/gym-server.js';
+import {
+  emptyGymText,
+  FILLABLE_GYM_TEXTS,
+  type FillableGymText,
+  type GymTexts,
+} from '../../domain/gyms/gym-text.js';
 import { snowflakeParam } from '../snowflake.js';
 import { polygonWkt } from '../spatial.js';
 import { inTransaction } from '../transaction.js';
@@ -26,9 +33,20 @@ export interface Gym {
   confirmedEx: boolean;
   imageUrl: string | null;
   sponsor: number | null;
-  /** Cached geocoding result, a JSON string. */
+  /**
+   * The address shown, a JSON string of its parts: the gym's own Wayfarer address
+   * (`wayfarerAddress`) where it has one, else Google's answer about its point (`GoogleAnswers`,
+   * plan 19B-3), which `GymDirectory` puts on its gyms; null from the storage (2.0's
+   * `GymMeta.geodata` is no longer read or written).
+   */
   geodata: string | null;
-  /** Cached nearby place names. */
+  /**
+   * Wayfarer's address of its place as a Wayfarer import or review gave it (address parts as JSON;
+   * Matt prefers it to Google's, 2026-10-16): the gym's own (`GymMeta.wayfarerAddress`, migration
+   * 059), never its point's answer, so that another server's gym there keeps Google's.
+   */
+  wayfarerAddress: string | null;
+  /** The names of the places around its point Google gave, as `geodata`: from the answers. */
   places: string | null;
   nearestGym: number | null;
 }
@@ -44,8 +62,8 @@ export interface NewGym {
   keywords?: string[];
   /** The address of the gym's picture (`GymMeta.imageUrl`; a Wayfarer import writes it). */
   imageUrl?: string | null;
-  /** Its address parts (`GymMeta.geodata`): a Wayfarer import writes the Wayspot's address. */
-  geodata?: string | null;
+  /** Wayfarer's address of its place (`Gym.wayfarerAddress`; a Wayfarer import writes it). */
+  wayfarerAddress?: string | null;
 }
 
 export interface GymPatch {
@@ -61,8 +79,7 @@ export interface GymPatch {
   confirmedEx?: boolean;
   imageUrl?: string | null;
   sponsor?: number | null;
-  geodata?: string | null;
-  places?: string | null;
+  wayfarerAddress?: string | null;
   nearestGym?: number | null;
 }
 
@@ -80,8 +97,7 @@ interface GymRow {
   confirmedEx: number | null;
   imageUrl: string | null;
   sponsor: number | null;
-  geodata: string | null;
-  places: string | null;
+  wayfarerAddress: string | null;
   nearestGym: number | null;
 }
 
@@ -137,8 +153,10 @@ function toGym(row: GymRow): Gym | undefined {
     confirmedEx: row.confirmedEx === 1,
     imageUrl: row.imageUrl,
     sponsor: row.sponsor,
-    geodata: row.geodata,
-    places: row.places,
+    // The point's answers, which the directory puts on the gym (plan 19B-3).
+    geodata: null,
+    places: null,
+    wayfarerAddress: row.wayfarerAddress,
     nearestGym: row.nearestGym,
   };
 }
@@ -166,10 +184,43 @@ function metaColumns(patch: GymPatch): Updateable<DB['GymMeta']> {
   if (patch.confirmedEx !== undefined) columns.confirmedEx = exFlag(patch.confirmedEx);
   if (patch.imageUrl !== undefined) columns.imageUrl = patch.imageUrl;
   if (patch.sponsor !== undefined) columns.sponsor = patch.sponsor;
-  if (patch.geodata !== undefined) columns.geodata = patch.geodata;
-  if (patch.places !== undefined) columns.places = patch.places;
+  if (patch.wayfarerAddress !== undefined) columns.wayfarerAddress = patch.wayfarerAddress;
   if (patch.nearestGym !== undefined) columns.nearestGym = patch.nearestGym;
   return columns;
+}
+
+/** The texts a neighbor's copy offers a gym (`GymStorage.fillEmpty`). */
+export type FillableTexts = Partial<Pick<GymTexts, FillableGymText>>;
+
+/** What `fillEmpty` wrote: the gym as it is now, and the texts it filled. */
+export interface FilledTexts {
+  gym: Gym;
+  filled: FillableGymText[];
+}
+
+/**
+ * Of `texts`, those that fill a text of `gym` that is empty with one that is not, as a patch,
+ * in `FILLABLE_GYM_TEXTS`' order (`GymStorage.fillEmpty`, and its twin in memory).
+ */
+export function fillingOf(
+  gym: Gym,
+  texts: FillableTexts,
+): { patch: GymPatch; filled: FillableGymText[] } {
+  const patch: GymPatch = {};
+  const filled: FillableGymText[] = [];
+  for (const field of FILLABLE_GYM_TEXTS) {
+    if (!emptyGymText(gym, field)) continue;
+    if (field === 'keywords') {
+      if (texts.keywords === undefined || texts.keywords.length === 0) continue;
+      patch.keywords = [...texts.keywords];
+    } else {
+      const text = texts[field];
+      if (text === undefined || text === null || text.trim() === '') continue;
+      patch[field] = text;
+    }
+    filled.push(field);
+  }
+  return { patch, filled };
 }
 
 /** A gym's nearest gym to write (`nearestBlockChanges`). */
@@ -178,8 +229,11 @@ export interface NearestWrite {
   nearestGym: number | null;
 }
 
-/** Inserts a gym and its metadata (inside the caller's transaction); gives its id. */
-async function insertGym(trx: Kysely<DB>, gym: NewGym): Promise<number> {
+/**
+ * Inserts a gym, its metadata and its link to its server (inside the caller's transaction);
+ * gives its id.
+ */
+async function insertGym(trx: Kysely<DB>, gym: NewGym, guildId: number): Promise<number> {
   const inserted = await trx
     .insertInto('Gym')
     .values({
@@ -199,9 +253,10 @@ async function insertGym(trx: Kysely<DB>, gym: NewGym): Promise<number> {
       notice: encode(gym.notice ?? null),
       keywords: formatKeywords(gym.keywords ?? []),
       imageUrl: gym.imageUrl ?? null,
-      geodata: gym.geodata ?? null,
+      wayfarerAddress: gym.wayfarerAddress ?? null,
     })
     .execute();
+  await trx.insertInto('GymServer').values({ gymId, guildId }).execute();
   return gymId;
 }
 
@@ -209,19 +264,33 @@ async function insertGym(trx: Kysely<DB>, gym: NewGym): Promise<number> {
 export interface GymStorage {
   get(id: number): Promise<Gym | undefined>;
   listAll(): Promise<Gym[]>;
-  create(gym: NewGym): Promise<Gym>;
+  /** Every gym's servers (`GymServer`). */
+  links(): Promise<GymLink[]>;
+  /** The servers one gym belongs to, in order. */
+  linksOf(gymId: number): Promise<number[]>;
+  /** Creates a gym of one server (its `Guild` row; plan 19B-2), the row and its link as one. */
+  create(gym: NewGym, guildId: number): Promise<Gym>;
   /**
-   * Creates gyms as one (plan 8W-6: a block of a Wayfarer import), with the nearest gyms that
-   * `nearest` works out from the created gyms (theirs and those of other gyms), in one
-   * transaction: all of it, or nothing when anything fails (also `nearest`). Gives the gyms as
-   * created, in order, with their nearest gym.
+   * Creates gyms of one server as one (plan 8W-6: a block of a Wayfarer import), with the
+   * nearest gyms that `nearest` works out from the created gyms (theirs and those of other
+   * gyms), in one transaction: all of it, or nothing when anything fails (also `nearest`). Gives
+   * the gyms as created, in order, with their nearest gym.
    */
   createBlock(
     gyms: readonly NewGym[],
+    guildId: number,
     nearest: (created: readonly Gym[]) => readonly NearestWrite[],
   ): Promise<Gym[]>;
   /** Undefined, having written nothing, when there is no such gym. */
   update(id: number, patch: GymPatch): Promise<Gym | undefined>;
+  /**
+   * Writes each of `texts` only where the gym's own is empty (`emptyGymText`), decided in the
+   * same step as the write, under the gym's lock (plan 19E, review R7: a neighbor's copy never
+   * writes over a text staff set between its read and its write). Gives the gym as written and the
+   * texts it filled, in `FILLABLE_GYM_TEXTS`' order; undefined, having written nothing, when there
+   * is no such gym.
+   */
+  fillEmpty(id: number, texts: FillableTexts): Promise<FilledTexts | undefined>;
   /** False when there was no such gym. */
   delete(id: number): Promise<boolean>;
 }
@@ -248,8 +317,7 @@ export class GymRepository implements GymStorage {
         'GymMeta.confirmedEx',
         'GymMeta.imageUrl',
         'GymMeta.sponsor',
-        'GymMeta.geodata',
-        'GymMeta.places',
+        'GymMeta.wayfarerAddress',
         'GymMeta.nearestGym',
       ]);
   }
@@ -261,6 +329,41 @@ export class GymRepository implements GymStorage {
 
   async listAll(): Promise<Gym[]> {
     return toGyms(await this.select().orderBy('Gym.id').execute());
+  }
+
+  /** Every gym's servers (`GymServer`, plan 19B-2): the server by its `Guild` row. */
+  async links(): Promise<GymLink[]> {
+    return this.db
+      .selectFrom('GymServer')
+      .select(['gymId', 'guildId'])
+      .orderBy('gymId')
+      .orderBy('guildId')
+      .execute();
+  }
+
+  /**
+   * The gyms of one server (its `Guild` row), by id: through the server's links
+   * (`gymserver_guildid_index`), each gym by its key, never every gym.
+   */
+  async listOf(guildId: number): Promise<Gym[]> {
+    return toGyms(
+      await this.select()
+        .innerJoin('GymServer', 'GymServer.gymId', 'Gym.id')
+        .where('GymServer.guildId', '=', guildId)
+        .orderBy('Gym.id')
+        .execute(),
+    );
+  }
+
+  /** The servers one gym belongs to, in order. */
+  async linksOf(gymId: number): Promise<number[]> {
+    const rows = await this.db
+      .selectFrom('GymServer')
+      .select('guildId')
+      .where('gymId', '=', gymId)
+      .orderBy('guildId')
+      .execute();
+    return rows.map((row) => row.guildId);
   }
 
   /** Gyms inside the region of the given channel. Empty when the channel is not a region. */
@@ -289,8 +392,8 @@ export class GymRepository implements GymStorage {
     return toGyms(rows);
   }
 
-  async create(gym: NewGym): Promise<Gym> {
-    const id = await inTransaction(this.db, (trx) => insertGym(trx, gym));
+  async create(gym: NewGym, guildId: number): Promise<Gym> {
+    const id = await inTransaction(this.db, (trx) => insertGym(trx, gym, guildId));
     const created = await this.get(id);
     if (!created) throw new Error(`Gym ${id} vanished after insert`);
     return created;
@@ -298,11 +401,12 @@ export class GymRepository implements GymStorage {
 
   async createBlock(
     gyms: readonly NewGym[],
+    guildId: number,
     nearest: (created: readonly Gym[]) => readonly NearestWrite[],
   ): Promise<Gym[]> {
     return inTransaction(this.db, async (trx) => {
       const ids: number[] = [];
-      for (const gym of gyms) ids.push(await insertGym(trx, gym));
+      for (const gym of gyms) ids.push(await insertGym(trx, gym, guildId));
       const inBlock = new GymRepository(trx);
       const created = toGyms(
         await inBlock.select().where('Gym.id', 'in', ids).orderBy('Gym.id').execute(),
@@ -356,6 +460,36 @@ export class GymRepository implements GymStorage {
           .execute();
       }
       return new GymRepository(trx).get(id);
+    });
+  }
+
+  /**
+   * In one transaction: the gym's row locked (`Gym`'s primary key, as `update` locks it), the gym
+   * read with its metadata (`GymMeta`'s primary key, `gymId`), and only the texts that are empty
+   * then written (`GymMeta`, by its key).
+   */
+  async fillEmpty(id: number, texts: FillableTexts): Promise<FilledTexts | undefined> {
+    return inTransaction(this.db, async (trx) => {
+      const locked = await trx
+        .selectFrom('Gym')
+        .select('id')
+        .where('id', '=', id)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!locked) return undefined;
+      const inside = new GymRepository(trx);
+      const gym = await inside.get(id);
+      if (!gym) return undefined;
+      const { patch, filled } = fillingOf(gym, texts);
+      if (filled.length === 0) return { gym, filled };
+      const meta = metaColumns(patch);
+      await trx
+        .insertInto('GymMeta')
+        .values({ gymId: id, ...meta })
+        .onDuplicateKeyUpdate(meta)
+        .execute();
+      const written = await inside.get(id);
+      return written && { gym: written, filled };
     });
   }
 

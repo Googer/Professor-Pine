@@ -1,6 +1,6 @@
 import { MessageFlags, SlashCommandSubcommandBuilder } from 'discord.js';
-import type { AppContext } from '../../app-context.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
+import type { GymView } from '../../services/gym-directory.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { namesakes, sharedNames, shownName } from '../../domain/gyms/shared-names.js';
 import { gymWithId } from '../../render/gym-view.js';
@@ -16,12 +16,13 @@ const NAMESAKES_SHOWN = 250;
 /**
  * What staff are told after adding, changing or moving a gym that is now shown by the same name
  * as another gym of a region it lies in (or was given a nickname that is another's shown name):
- * a note, not a refusal. Undefined when there is none.
+ * a note, not a refusal. Undefined when there is none. Among the server's gyms and regions
+ * (`gyms`, its view): another server's gym of that name is none of its staff's business.
  */
-export function namesakeNote(ctx: Pick<AppContext, 'gyms'>, gym: Gym): string | undefined {
+export function namesakeNote(gyms: GymView, gym: Gym): string | undefined {
   const others = new Map<number, Gym>();
-  for (const channelId of ctx.gyms.regionsOf(gym.id)) {
-    for (const other of namesakes(gym, ctx.gyms.inRegion(channelId))) others.set(other.id, other);
+  for (const channelId of gyms.regionsOf(gym.id)) {
+    for (const other of namesakes(gym, gyms.inRegion(channelId))) others.set(other.id, other);
   }
   if (others.size === 0) return undefined;
   // A note above a view: kept short enough to stand beside what the change did (`fitLines`).
@@ -66,7 +67,7 @@ export const duplicateGyms: SubcommandPart = {
     // Each group is an item of its own, with its region: a long list is cut between groups.
     const groups: string[] = [];
     for (const region of regions) {
-      for (const group of sharedNames(ctx.gyms.inRegion(region.channelId))) {
+      for (const group of sharedNames(ctx.gyms.of(guildId).inRegion(region.channelId))) {
         const [first] = group;
         const name = first ? plain(shownName(first)) : '';
         groups.push(

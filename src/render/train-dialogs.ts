@@ -485,7 +485,7 @@ const DIALOG_ROOM = 5;
  * menus (a radio group would have Android pick its first option whatever the train has; review
  * R7), each with the train's own picked. A train without a route is asked its kind alone.
  * `times`: the member may set its start and end (`mayArrange`), asked as the map's form asks
- * them (`timeFields`, in the posts' zone). With all of them Discord's five components are one
+ * them (`timeFields`, in the server's zone). With all of them Discord's five components are one
  * short (Matt, 2026-11-07): the text is left out, and "Finish it here" says where "here" is.
  */
 export function manageDialog(

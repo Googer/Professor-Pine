@@ -101,12 +101,9 @@ export interface WayfarerStorage {
   /**
    * The newest decided item of each of these gyms that has one (by when it was decided, then
    * id), that can be read: what staff answered last, with the question as it was asked. Of this
-   * server's items, or with `'any'` of any server's (what holds a Wayfarer gym back, `others`).
+   * server's items only (plan 19B-2: a server's import reads its own gyms' answers alone).
    */
-  latestDecided(
-    guildId: number | 'any',
-    gymIds: readonly number[],
-  ): Promise<Map<number, StoredReview>>;
+  latestDecided(guildId: number, gymIds: readonly number[]): Promise<Map<number, StoredReview>>;
   /**
    * Queues these items: a gym with an open item has its kind, candidates and `gymPogoId` replaced and is
    * tied to this import, keeping its place in the queue and when it was created; any other gym
@@ -297,14 +294,15 @@ export class WayfarerRepository implements WayfarerStorage {
   }
 
   async latestDecided(
-    guildId: number | 'any',
+    guildId: number,
     gymIds: readonly number[],
   ): Promise<Map<number, StoredReview>> {
     const latest = new Map<number, StoredReview>();
     for (const part of chunks([...new Set(gymIds)])) {
-      let query = this.db.selectFrom('GymReview').selectAll();
-      if (guildId !== 'any') query = query.where('guildId', '=', guildId);
-      const rows = await query
+      const rows = await this.db
+        .selectFrom('GymReview')
+        .selectAll()
+        .where('guildId', '=', guildId)
         .where('gymId', 'in', part)
         .where('decision', 'is not', null)
         .orderBy('decidedAt', 'desc')

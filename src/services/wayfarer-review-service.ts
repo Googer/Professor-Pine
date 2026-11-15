@@ -16,6 +16,7 @@ import type { ReviewCandidate, ReviewDecision, ReviewKind } from '../domain/ways
 import type { Logger } from '../log.js';
 import type { Member } from './attendance-service.js';
 import type { DeleteOutcome, GymAdminService, NearbyGym, StaffPlace } from './gym-admin-service.js';
+import type { GymView } from './gym-directory.js';
 import { KeyedLock } from './keyed-lock.js';
 import type { WayfarerImportService } from './wayfarer-import-service.js';
 import type { WayspotDirectory } from './wayspot-directory.js';
@@ -119,16 +120,15 @@ export interface ReviewNone {
  * - `back`: show the item again (from the question before a deletion); nothing was done. With
  *   `waits`, the item cannot be shown: its gym became another Wayspot since it was queued.
  * - `asking`: Delete was pressed: the question before the deletion, with what goes with the gym.
- * - `foreign`: "Same as" would move the gym where this server may not put one; the item stays.
  * - `gone`: the gym no longer exists for this server; its item was closed.
  * - `skipped`: the item went to the end of the queue.
  * - `decided`: closed with "None of these", "Keep" or "Not in Wayfarer".
  * - `matched`: the gym is the candidate now (`change` says what was written); closed.
  * - `taken`: another gym already is that Wayspot; nothing was done, the item stays open.
  * - `added`: the candidate was added as a gym (`added`); closed.
- * - `not-added`: it was not, because another gym lies within ten metres (`near`, the gym of
- *   the item left out), the place is another server's (`foreign`) or the Wayspot has no title
- *   to name a gym by (`untitled`); the item stays open.
+ * - `not-added`: it was not, because another gym of the server lies within ten metres (`near`,
+ *   the gym of the item left out) or the Wayspot has no title to name a gym by (`untitled`);
+ *   the item stays open.
  * - `failed`: a write failed (logged); what was written before it stands, the item stays open.
  * - `raid-there`: the gym was not deleted while a raid is there; the item stays open.
  * - `deleted`: the gym was deleted, and its item went with it.
@@ -138,13 +138,12 @@ export type ReviewOutcome =
   | { kind: 'back'; waits?: true }
   | { kind: 'changed'; waits?: true }
   | { kind: 'asking'; gym: Gym; references: GymReferences }
-  | { kind: 'foreign'; gym: Gym }
   | { kind: 'skipped'; gym: Gym }
   | { kind: 'decided'; gym: Gym; decision: 'none-of-these' | 'keep' | 'not-in-wayfarer' }
   | { kind: 'matched'; gym: Gym; change: MatchChange; now: Gym }
   | { kind: 'taken'; gym: Gym; other: Gym | undefined }
   | { kind: 'added'; gym: Gym; added: Gym }
-  | { kind: 'not-added'; gym: Gym; why: 'foreign' | 'untitled' }
+  | { kind: 'not-added'; gym: Gym; why: 'untitled' }
   | { kind: 'not-added'; gym: Gym; why: 'near'; near: NearbyGym[] }
   | { kind: 'failed'; gym: Gym }
   | { kind: 'raid-there'; gym: Gym; raid: RaidParty }
@@ -154,13 +153,16 @@ export interface WayfarerReviewOptions {
   storage: WayfarerStorage;
   /** The kept Wayspots: "New gym" deletes the row of the Wayspot it makes a gym. */
   wayspots: Pick<WayspotStorage, 'remove'>;
-  /** The same in memory: whether that Wayspot was a PokéStop, and forgetting it. */
-  kept: Pick<WayspotDirectory, 'byId' | 'forget'>;
+  /** The same in memory: whether that Wayspot was the server's PokéStop, and forgetting it. */
+  kept: Pick<WayspotDirectory, 'of' | 'forget'>;
   /** "Same as" writes a match as an import does. */
   importer: Pick<WayfarerImportService, 'applyMatch'>;
   admin: Pick<GymAdminService, 'batch' | 'delete' | 'mayTouch' | 'regionsOf' | 'references'>;
-  /** The gyms in memory (`GymDirectory`). */
-  directory: { all(): Gym[]; get(id: number): Gym | undefined };
+  /**
+   * The gyms in memory (`GymDirectory`), each server's own (plan 19B-2): a review reads only the
+   * gyms of the server whose item it is.
+   */
+  directory: { of(guildId: number | undefined): Pick<GymView, 'all' | 'get'> };
   log: Logger;
   /** The length of a name as the database stores it; default `storedTextLength`. */
   storedLength?: (text: string) => number;
@@ -214,7 +216,7 @@ export class WayfarerReviewService {
   private async waiting(guildId: number): Promise<number> {
     const { storage, directory, admin } = this.options;
     return (await storage.openReviews(guildId)).filter((item) => {
-      const gym = directory.get(item.gymId);
+      const gym = directory.of(guildId).get(item.gymId);
       return gym !== undefined && admin.mayTouch(gym.id, guildId) && waits(item, gym);
     }).length;
   }
@@ -249,7 +251,7 @@ export class WayfarerReviewService {
     item: StoredReview,
   ): Promise<ReviewShown | 'closed' | 'waits'> {
     const { storage, directory, admin, log } = this.options;
-    const gym = directory.get(item.gymId);
+    const gym = directory.of(guildId).get(item.gymId);
     if (gym && admin.mayTouch(gym.id, guildId)) {
       if (waits(item, gym)) return 'waits';
       return this.shownOf(guildId, item, gym);
@@ -267,7 +269,7 @@ export class WayfarerReviewService {
     const { storage, directory, admin } = this.options;
     const item = await storage.review(guildId, reviewId);
     if (!item || item.decision !== null) return undefined;
-    const gym = directory.get(item.gymId);
+    const gym = directory.of(guildId).get(item.gymId);
     if (!gym || !admin.mayTouch(gym.id, guildId) || waits(item, gym)) return undefined;
     return this.shownOf(guildId, item, gym);
   }
@@ -277,7 +279,7 @@ export class WayfarerReviewService {
     const { storage, directory, admin } = this.options;
     const left = await storage.openCounts(guildId);
     const heldBy = item.candidates.find((one) => one.heldBy !== undefined)?.heldBy;
-    const holder = heldBy === undefined ? undefined : directory.get(heldBy);
+    const holder = heldBy === undefined ? undefined : directory.of(guildId).get(heldBy);
     return {
       item,
       gym,
@@ -328,7 +330,7 @@ export class WayfarerReviewService {
     if (guildId === undefined) return { kind: 'stale' };
     const item = await storage.review(guildId, reviewId);
     if (!item || item.decision !== null) return { kind: 'stale' };
-    const gym = directory.get(item.gymId);
+    const gym = directory.of(guildId).get(item.gymId);
     if (!gym || !admin.mayTouch(gym.id, guildId)) {
       await this.close(place, item, 'resolved');
       return { kind: 'gone' };
@@ -368,7 +370,7 @@ export class WayfarerReviewService {
         return candidate ? this.added(place, item, gym, candidate, still) : this.changed(item);
       case 'delete': {
         // Nothing is written yet: the question, with what goes with the gym.
-        const references = await admin.references(gym.id);
+        const references = await admin.references(gym.id, place.guildId);
         const [raid] = references.raids;
         if (raid) return { kind: 'raid-there', gym, raid };
         return { kind: 'asking', gym, references };
@@ -392,7 +394,7 @@ export class WayfarerReviewService {
   ): Promise<boolean> {
     const now = await this.options.storage.review(guildId, item.id);
     if (!now || now.decision !== null || now.kind !== item.kind) return false;
-    const pogoId = this.options.directory.get(item.gymId)?.pogoId ?? null;
+    const pogoId = this.options.directory.of(guildId).get(item.gymId)?.pogoId ?? null;
     if (now.gymPogoId !== item.gymPogoId || pogoId !== item.gymPogoId) return false;
     if (!answers(now.kind, action)) return false;
     const before = new Set(item.candidates.map((one) => one.id));
@@ -418,7 +420,7 @@ export class WayfarerReviewService {
    * another Wayspot now than when it was queued.
    */
   private changed(item: StoredReview): ReviewOutcome {
-    const gym = this.options.directory.get(item.gymId);
+    const gym = this.options.directory.of(item.guildId).get(item.gymId);
     return gym && waits(item, gym) ? { kind: 'changed', waits: true } : { kind: 'changed' };
   }
 
@@ -444,7 +446,7 @@ export class WayfarerReviewService {
     const outcome = await this.options.importer.applyMatch(
       place,
       gym.id,
-      wayspotOf(candidate, this.options.kept.byId(candidate.id)),
+      wayspotOf(candidate, this.options.kept.of(place.guildId).byId(candidate.id)),
       still,
     );
     switch (outcome.kind) {
@@ -455,8 +457,6 @@ export class WayfarerReviewService {
         return { kind: 'taken', gym, other: outcome.gym };
       case 'withdrawn':
         return this.changed(item);
-      case 'foreign':
-        return { kind: 'foreign', gym };
       case 'failed':
         return { kind: 'failed', gym };
       case 'matched':
@@ -480,16 +480,18 @@ export class WayfarerReviewService {
     try {
       outcome = await admin.batch(place, 'review', async (ops): Promise<ReviewOutcome> => {
         if (!(await still())) return this.changed(item);
-        const holder = directory.all().find((other) => other.pogoId === candidate.id);
-        if (holder) {
-          const named = admin.mayTouch(holder.id, place.guildId) ? holder : undefined;
-          return { kind: 'taken', gym, other: named };
-        }
+        // A gym of this server that is the Wayspot already (plan 19B-2): another server's gym of
+        // it is that server's own, and keeps no new gym from this one.
+        const holder = directory
+          .of(place.guildId)
+          .all()
+          .find((other) => other.pogoId === candidate.id);
+        if (holder) return { kind: 'taken', gym, other: holder };
         // The staff member was shown the gym of the item, which may lie within ten metres. The
         // picture is the kept Wayspot's (an item's candidates keep none), the address Wayfarer's
         // (Matt, 2026-10-16: Google is asked for the places around it only, and for the address
         // of a Wayspot without a street).
-        const kept = this.options.kept.byId(candidate.id);
+        const kept = this.options.kept.of(place.guildId).byId(candidate.id);
         const added = await ops.add(
           {
             name,
@@ -497,7 +499,7 @@ export class WayfarerReviewService {
             lon: candidate.lon,
             pogoId: candidate.id,
             imageUrl: kept?.image ?? null,
-            geodata: wayfarerGeodata(addressOf(candidate, kept)),
+            wayfarerAddress: wayfarerGeodata(addressOf(candidate, kept)),
           },
           [gym.id],
           { promoted: wasStop(kept) },
@@ -505,8 +507,6 @@ export class WayfarerReviewService {
         switch (added.kind) {
           case 'added':
             return { kind: 'added', gym, added: added.gym };
-          case 'foreign':
-            return { kind: 'not-added', gym, why: 'foreign' };
           case 'near':
             return {
               kind: 'not-added',
@@ -528,14 +528,16 @@ export class WayfarerReviewService {
     }
     // The Wayspot lives in `Gym` now (the next import would delete its row otherwise).
     try {
-      await this.options.wayspots.remove([candidate.id]);
+      // The server's own row (plan 19B-3); another server keeps its copy.
+      if (place.guildId !== undefined)
+        await this.options.wayspots.remove(place.guildId, [candidate.id]);
     } catch (err) {
       log.error(
         { err, wayspot: candidate.id },
         'could not delete a kept Wayspot that became a gym',
       );
     }
-    this.options.kept.forget([candidate.id]);
+    if (place.guildId !== undefined) this.options.kept.forget(place.guildId, [candidate.id]);
     await this.close(place, item, 'new-gym');
     return outcome;
   }

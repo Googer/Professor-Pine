@@ -49,8 +49,9 @@ describe('FakePartyGateway: who can see a forum', () => {
     const fake = gateway();
     fake.barred.set(EAST_FORUM, new Set([ALICE]));
     expect(await fake.memberAccess(EAST_FORUM, ALICE)).toBe('barred');
+    // Not in the server: kept out of its forums, as the real gateway says (plan 19B-4).
     fake.leftServer.add(BOB);
-    expect(await fake.memberAccess(EAST_FORUM, BOB)).toBeUndefined();
+    expect(await fake.memberAccess(EAST_FORUM, BOB)).toBe('barred');
     fake.gone.add(WEST_FORUM);
     expect(await fake.memberAccess(WEST_FORUM, ALICE)).toBeUndefined();
     expect(await fake.admitMember(WEST_FORUM, ALICE)).toBe(false);
@@ -183,6 +184,20 @@ describe('FakePartyGateway: who can see a forum', () => {
     await expect(fake.memberAccess(WEST_FORUM, ALICE)).rejects.toThrow('no access');
     await expect(fake.admitMember(WEST_FORUM, ALICE)).rejects.toThrow('no permission');
     expect(fake.canSee(WEST_FORUM, ALICE)).toBe(true);
+  });
+});
+
+describe('FakePartyGateway: a channel by its id near another (findChannel)', () => {
+  it('finds a text channel only, as the real one: never a forum or a category', () => {
+    const fake = new FakePartyGateway();
+    fake.addChannel('600000000000000001', 'mods');
+    fake.addChannel('600000000000000002', 'events', { kind: 'forum' });
+    fake.addChannel('600000000000000003', 'STAFF', { kind: 'category' });
+    fake.addForum(WEST_FORUM);
+    expect(fake.findChannel('600000000000000001', '600000000000000001')).toBe('600000000000000001');
+    expect(fake.findChannel('600000000000000001', '600000000000000002')).toBeUndefined();
+    expect(fake.findChannel('600000000000000001', '600000000000000003')).toBeUndefined();
+    expect(fake.findChannel('600000000000000001', WEST_FORUM)).toBeUndefined();
   });
 });
 
@@ -323,6 +338,19 @@ describe('FakePartyGateway: the channels of a server', () => {
     // A channel that somebody deleted is no longer listed.
     fake.gone.add('c1');
     expect(fake.serverChannels(fake.guildId)?.map((channel) => channel.id)).not.toContain('c1');
+  });
+
+  // Fix round 3, J2: as the real one, a server the bot is not in is not available either.
+  it('says a server available only where the bot is in it and Discord does not say it is unavailable', () => {
+    const fake = new FakePartyGateway();
+    fake.addChannel('x1', 'north', { guildId: OTHER_GUILD });
+    expect(fake.serverAvailable(fake.guildId)).toBe(true);
+    expect(fake.serverAvailable(OTHER_GUILD)).toBe(true);
+    expect(fake.serverAvailable('999')).toBe(false);
+    fake.unavailableServers.add(OTHER_GUILD);
+    expect(fake.serverAvailable(OTHER_GUILD)).toBe(false);
+    // Its channels are still listed, as the real cache keeps them.
+    expect(fake.serverChannels(OTHER_GUILD)).toHaveLength(1);
   });
 
   it('creates categories and text channels, and writes a text channel’s name as Discord does', async () => {

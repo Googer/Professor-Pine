@@ -79,15 +79,43 @@ export function cacheFactory(): CacheFactory {
   });
 }
 
+/**
+ * The client Pine logs in with. `shards: 'auto'` (plan 19D): discord.js asks Discord how many
+ * gateway connections the bot needs (`GET /gateway/bot`; one up to 2,500 servers) and connects
+ * them all in this process, as many at a time as Discord's `max_concurrency` allows, five seconds
+ * apart; `ClientReady` comes once every shard is ready (`operations.md`, "Shards").
+ */
 export function createClient(intents: GatewayIntentBits[]): Client {
   return new Client({
     intents,
+    shards: 'auto',
     partials: [Partials.Channel],
     makeCache: cacheFactory(),
     // Mentions are off unless a send opts in with its own allowedMentions.
     allowedMentions: { parse: [] },
     rest: { rejectOnRateLimit: rejectsLongChannelPatchWait },
   });
+}
+
+/** What `identifyConcurrency` reads of discord.js's private gateway manager. */
+interface GatewayManagerInside {
+  _ws?: {
+    gatewayInformation?: {
+      data?: { session_start_limit?: { max_concurrency?: unknown } };
+    } | null;
+  } | null;
+}
+
+/**
+ * How many shards discord.js identifies at once (Discord's `max_concurrency`, fix round 1 of
+ * 19D, F4), from the answer to `GET /gateway/bot` that the login keeps in its gateway manager
+ * (`client.ws._ws.gatewayInformation`: private in discord.js 14.28 and `@discordjs/ws` 1.2.3, so
+ * read with care); 1, Discord's value for most bots, before the login or where it is not there.
+ */
+export function identifyConcurrency(client: Pick<Client, 'ws'>): number {
+  const inside = client.ws as unknown as GatewayManagerInside;
+  const value = inside._ws?.gatewayInformation?.data?.session_start_limit?.max_concurrency;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 ? value : 1;
 }
 
 export interface LoginDeps {

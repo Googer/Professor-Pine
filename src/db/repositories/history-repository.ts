@@ -68,7 +68,7 @@ export interface OptedOut {
 }
 
 /**
- * What the history holds of a member, counted (plan 8G, `/admin forget`): the servers where
+ * What the history holds of a member, counted (plan 8G, `/operator forget`): the servers where
  * their history is on (`optIns`), where they are on the boards, where they asked for their
  * old-bot history (`fillIns`), in how many records it names them (`named`: parties and reports
  * at stops together, as `namedIn` counts them), and how many of the parties they made keep what
@@ -807,9 +807,12 @@ export class HistoryRepository
   }
 
   /**
-   * Along the index `(serverId, source, kind, createdAt)` of migration 040: a server's live raids
-   * and max battles reported within the reach of the train's time, then by place (the bounds of
-   * `alongTheWay`, in SQL).
+   * A range of a server's records by time: its live raids and max battles reported within the
+   * reach of the train's time, then by place (the bounds of `alongTheWay`, in SQL). Along the
+   * index `(serverId, source, kind, createdAt)` of migration 040 or `(serverId, kind, createdAt)`
+   * of 018, whichever MySQL finds cheaper; never a merge of the gym's and the Wayspot's indexes,
+   * which would read every server's years at those places (final review R5-2: the database test
+   * asks the plan on such a spread).
    */
   async raidsAlong(serverId: string, query: RaidsAlongQuery): Promise<RaidAlongRow[]> {
     const { gymIds, wayspotIds, from, to } = query;
@@ -970,7 +973,7 @@ export class HistoryRepository
   }
 
   /**
-   * What the history holds of a member over every server (plan 8G: the look of `/admin forget`),
+   * What the history holds of a member over every server (plan 8G: the look of `/operator forget`),
    * counted as `forgetEverywhere` takes it away: server by server (`serversNaming`), the records
    * with the opt-out's own count.
    */
@@ -997,7 +1000,7 @@ export class HistoryRepository
   }
 
   /**
-   * Takes a member out of the history of every server (plan 8G, `/admin forget`), exactly as
+   * Takes a member out of the history of every server (plan 8G, `/operator forget`), exactly as
    * `optOut` does in one: the opt-out's own transaction (`forget`) for each server that holds
    * anything of them (`serversNaming`: an opt-in, a place on the boards, a request for their
    * old-bot history, a party or a report at a stop that names them; also a server the bot has
@@ -1104,9 +1107,10 @@ export class HistoryRepository
  * The servers whose history holds anything of a member (plan 8G), by their snowflakes in
  * ascending order: where their history is on, where they are on the boards or asked for their
  * old-bot history, and where a party (maker, conductor, attendee) or a record of a report at a
- * stop names them. Plain reads: the parties by the indexes that begin with the member; the
- * three switches and the reports read whole, their keys beginning with the server (only the
- * owner's `/admin forget` asks, seldom).
+ * stop names them. Plain reads, each by an index that begins with the member: the parties by
+ * those of 018, the three switches and the reports by those of migration 057
+ * (`historyoptin_memberid_index`, `leaderboardoptin_memberid_index`,
+ * `legacyfillin_memberid_index`, `stopreporthistory_reporterid_index`).
  */
 async function serversNaming(db: Kysely<DB>, memberId: string): Promise<string[]> {
   const found = await sql<{ serverId: string }>`

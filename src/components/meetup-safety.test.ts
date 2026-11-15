@@ -106,7 +106,7 @@ describe('the buttons of a moderators’ post', () => {
     const made = await setup();
     const request = await made.held();
     await made.press(request.id, 'refuse');
-    // The owner's `/admin forget` cleared who made it (plan 8G).
+    // The operators' `/operator forget` cleared who made it (plan 8G).
     const refused = made.storage.requests.get(request.id);
     if (refused === undefined) throw new Error('the request is gone');
     // The post still shows Block member and the old name: posts are not edited by the removal.

@@ -36,7 +36,7 @@ async function setup() {
       {
         guildId: made.gateway.guildId,
         regionChannelId: WEST_CHANNEL,
-        read: readSpawn(ctx, 'dratini', ' by the fountain '),
+        read: readSpawn(ctx, null, 'dratini', ' by the fountain '),
         iv: 'perfect',
         reporter: { id: ALICE, name: 'Alice' },
         ...(more.pin
@@ -58,17 +58,17 @@ describe('the spawn report /wild and the live map share', () => {
 
   it('reads the Pokémon and the details as /wild does: trimmed, and refused in its words', async () => {
     const { ctx } = await setup();
-    const read = readSpawn(ctx, 'Dratini', '  by the fountain ');
+    const read = readSpawn(ctx, null, 'Dratini', '  by the fountain ');
     expect(read.entry.key).toBe('dratini');
     expect(read.details).toBe('by the fountain');
-    expect(readSpawn(ctx, 'dratini', 'x'.repeat(300)).details).toHaveLength(200);
-    expect(() => readSpawn(ctx, 'mewtwo', 'by the fountain')).toThrow(
+    expect(readSpawn(ctx, null, 'dratini', 'x'.repeat(300)).details).toHaveLength(200);
+    expect(() => readSpawn(ctx, null, 'mewtwo', 'by the fountain')).toThrow(
       new UserError('**Mewtwo** does not appear in the wild.'),
     );
-    expect(() => readSpawn(ctx, 'dratini', '   ')).toThrow(
+    expect(() => readSpawn(ctx, null, 'dratini', '   ')).toThrow(
       new UserError('Say in `details` where the Pokémon is: a street corner, a park, a gym.'),
     );
-    expect(() => readSpawn(ctx, 'dratini', null)).toThrow(UserError);
+    expect(() => readSpawn(ctx, null, 'dratini', null)).toThrow(UserError);
   });
 
   it('posts the report and answers with the words of /wild, its link as the caller names it', async () => {
@@ -97,7 +97,7 @@ describe('the spawn report /wild and the live map share', () => {
       {
         guildId: made.gateway.guildId,
         regionChannelId: WEST_CHANNEL,
-        read: readSpawn(ctx, 'dratini', 'by the fountain'),
+        read: readSpawn(ctx, null, 'dratini', 'by the fountain'),
         reporter: { id: ALICE, name: 'Alice' },
       },
       MAP_NAMES,

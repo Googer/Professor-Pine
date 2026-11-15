@@ -1,3 +1,4 @@
+import { RecordingNotices } from './server-notices.js';
 import { MemoryTargetWants } from './target-wants.js';
 import { gymStop, stopHandle, stopKey, type StopRef } from '../../src/domain/party/stops.js';
 import { loadSettings } from '../../src/config/settings.js';
@@ -57,12 +58,13 @@ import {
   EAST_FORUM,
   ELITE_GYM_CHANNEL,
   REMOTE_CHANNEL,
+  TEST_GUILD_ROW,
   testRegions,
   WEST_CHANNEL,
   WEST_FORUM,
 } from './gyms.js';
 import { at, MemoryPartyStorage, PARTY_NOW, REPORTER, TEST_SPOT } from './parties.js';
-import { gymsFixture } from './providers.js';
+import { gymsFixture, testGuildRowOf, testServerOfRow } from './providers.js';
 import { raidBossesFixture } from './raid-bosses.js';
 import { raidEventsFixture } from './raid-events.js';
 import { MemorySavedRoutes } from './saved-routes.js';
@@ -70,6 +72,7 @@ import { createTestLogger } from './test-logger.js';
 import { NO_MAX_BOSSES } from './test-context.js';
 import { MemoryUsers } from './users.js';
 import { TEST_SETTINGS_PATH } from './test-settings.js';
+import { TestServers } from './server-values.js';
 import { PartyHistory } from '../../src/services/party-history.js';
 import { stopRegionsInGuild } from '../../src/services/region-directory.js';
 import { PartyStore } from '../../src/services/party-store.js';
@@ -233,9 +236,9 @@ export class MemoryAccessGrants implements AccessGrantStorage {
 }
 
 /**
- * A fake gateway whose server has the two channels for copies of raids, under the names of the
- * test settings (`REMOTE_CHANNEL`, `ELITE_GYM_CHANNEL`). Without them, as in most tests, a raid has no
- * copies. Pass it as `{ gateway }` in `kept`.
+ * A fake gateway whose server has the two channels for copies of raids, as the test servers'
+ * values name them by id (`REMOTE_CHANNEL`, `ELITE_GYM_CHANNEL`), under the test settings' names.
+ * Without them, as in most tests, a raid has no copies. Pass it as `{ gateway }` in `kept`.
  */
 export function gatewayWithMirrorChannels(): FakePartyGateway {
   const { channels } = loadSettings(TEST_SETTINGS_PATH);
@@ -278,6 +281,8 @@ export interface Outliving {
  * those of the notifier alone (a provider of its own that fails, a clock of its own).
  */
 export type ServiceOverrides = Partial<PartyServiceOptions> & {
+  /** Each server's values (plan 19A-1); `new TestServers()` unless given. */
+  servers?: TestServers;
   notifying?: Partial<NotifyServiceOptions>;
   /** How long a spawn report stands (the service of `/wild`); default thirty minutes. */
   spawnDeleteAfterMs?: number;
@@ -343,6 +348,8 @@ export async function partyServiceWith(
     gameData: overrides.gameData ?? { catalogue: catalogueFixture() },
     raidBosses: overrides.raidBosses ?? raidBossesFixture(),
     maxBosses: overrides.maxBosses ?? NO_MAX_BOSSES,
+    // Late: the service is made below, and asked only when a party ends.
+    zoneOf: (party: Party): string => service.zoneOf(party),
     log,
     setTimer: () => () => undefined,
     // The rows of the storage it uses (over a database, its own repository's).
@@ -379,12 +386,14 @@ export async function partyServiceWith(
   const access = new AccessService({
     store,
     gateway,
-    guilds: {
-      idFor: (snowflake) => Promise.resolve(snowflake === gateway.guildId ? 1 : undefined),
-    },
+    guilds: { idFor: (snowflake) => Promise.resolve(testGuildRowOf(snowflake, gateway.guildId)) },
     storage: grants,
     log,
     now,
+    // A quiet server (plans 19C-1, 19C-2): its grants are not swept.
+    ...(forService.quiet === undefined
+      ? {}
+      : { quiet: forService.quiet, serverOfRow: (row) => testServerOfRow(row, gateway.guildId) }),
   });
   await access.load();
   const tags = kept?.tags ?? {
@@ -393,11 +402,15 @@ export async function partyServiceWith(
   };
   const regions = kept?.regions ?? new TestRegions();
   const settings = loadSettings(TEST_SETTINGS_PATH);
+  // Every server's values (plan 19A-1): the test settings', unless a test passes its own.
+  const servers = forService.servers ?? new TestServers();
   const userSettings = kept?.userSettings ?? new Map<string, Partial<UserSettings>>();
   const users = new MemoryUsers(userSettings);
   // One list of gyms for all the services, as in the bot; a test of gym administration passes
   // its own (a directory that changes).
   const gyms = forService.gyms ?? gymsFixture();
+  // What is wrong with a server's setup, told to its staff (plan 19B-1), recorded.
+  const notices = new RecordingNotices();
   const service = new PartyService({
     store,
     gateway,
@@ -410,16 +423,20 @@ export async function partyServiceWith(
     raidEvents: raidEventsFixture(),
     users,
     settings,
+    servers,
     log,
-    // The fakes' server is the guild of row 1, which the invented regions belong to.
+    // The fakes' server is the guild of row 1, which the invented regions belong to; the second
+    // server of the tests (`OTHER_GUILD_ID`) is row 2, so that both have rows.
     guilds: {
-      idFor: (snowflake) => Promise.resolve(snowflake === gateway.guildId ? 1 : undefined),
-      snowflakeOf: (id) => Promise.resolve(id === 1 ? gateway.guildId : undefined),
+      idFor: (snowflake) => Promise.resolve(testGuildRowOf(snowflake, gateway.guildId)),
+      snowflakeOf: (id) => Promise.resolve(testServerOfRow(id, gateway.guildId)),
     },
+    serverOfRow: (row) => testServerOfRow(row, gateway.guildId),
     now,
     // Long enough that nothing runs by itself during a test.
     renderDelayMs: 3_600_000,
     sharedDelayMs: 3_600_000,
+    notices,
     // The raids along an ended train's way (plan 8H-7A), from the records in memory.
     raidsAlong: history,
     // What ended parties left, kept by the storage the store writes to.
@@ -449,9 +466,11 @@ export async function partyServiceWith(
     users,
     members,
     dms,
+    servers,
+    serverOfRow: (row) => testServerOfRow(row, gateway.guildId),
     guilds: {
-      snowflakeOf: (id) => Promise.resolve(id === 1 ? gateway.guildId : undefined),
-      idFor: (snowflake) => Promise.resolve(snowflake === gateway.guildId ? 1 : undefined),
+      snowflakeOf: (id) => Promise.resolve(testServerOfRow(id, gateway.guildId)),
+      idFor: (snowflake) => Promise.resolve(testGuildRowOf(snowflake, gateway.guildId)),
     },
     regions,
     gyms,
@@ -477,6 +496,7 @@ export async function partyServiceWith(
     notify,
     store: spawnReports,
     settings: overrides.settings ?? settings,
+    servers,
     ...(spawnDeleteAfterMs === undefined ? {} : { deleteAfterMs: spawnDeleteAfterMs }),
     ...(spawnCostumes === undefined ? {} : { costumes: spawnCostumes }),
     log,
@@ -540,7 +560,6 @@ export async function partyServiceWith(
     users,
     notify,
     log,
-    zone: settings.timezone,
     now,
     // Long enough that nothing is announced by itself during a test: `timed.flush()` does it.
     announceDelayMs: 3_600_000,
@@ -566,7 +585,7 @@ export async function partyServiceWith(
   const audit = new PartyAudit({
     store,
     storage: auditStore,
-    guilds: { snowflakeOf: (id) => Promise.resolve(id === 1 ? gateway.guildId : undefined) },
+    guilds: { snowflakeOf: (id) => Promise.resolve(testServerOfRow(id, gateway.guildId)) },
     names: auditNamesOf({
       gyms,
       ...(forService.wayspots === undefined ? {} : { wayspots: forService.wayspots }),
@@ -596,6 +615,7 @@ export async function partyServiceWith(
     now,
   });
   return {
+    notices,
     service,
     attendance,
     access,
@@ -636,6 +656,7 @@ export async function partyServiceWith(
     entries,
     log,
     settings,
+    servers,
     clock,
   };
 }
@@ -651,7 +672,7 @@ export async function reportedRaid(
   kept?: Partial<Outliving>,
 ) {
   const made = await partyServiceWith([], overrides, kept);
-  const gym = gymsFixture().get(1);
+  const gym = gymsFixture().stored(1);
   if (!gym) throw new Error('the invented gyms have no gym 1');
   const outcome = await made.service.reportRaid({
     gym,
@@ -660,6 +681,7 @@ export async function reportedRaid(
     autoStatus: PartyStatus.Interested,
     tier: { level: 'T5', shadow: false },
     boss: null,
+    guildRow: TEST_GUILD_ROW,
     ...report,
   });
   if (outcome.kind !== 'created') throw new Error(`the raid was not created: ${outcome.kind}`);

@@ -17,18 +17,22 @@ export type RaidDurationSettings = Pick<
 /** Everything that decides how long a raid lasts at a given moment. */
 export interface RaidDurationRules {
   settings: RaidDurationSettings;
-  /** IANA zone of the weekly Raid Hour (settings.timezone). */
+  /**
+   * The zone of the party's server (plan 19A-2): the weekly Raid Hour is at its hour there, its
+   * weeks and days are local there.
+   */
   zone: string;
   /** Raid Hours and Raid Days from the events feed; empty when the feed could not be read. */
   events: readonly RaidEvent[];
 }
 
-/** The rules in effect: the settings with the events known at this moment. */
+/** The rules in effect in a server's `zone`: the settings with the events known at this moment. */
 export function raidDurationRules(
-  settings: RaidDurationSettings & Pick<Settings, 'timezone'>,
+  settings: RaidDurationSettings,
   events: readonly RaidEvent[],
+  zone: string,
 ): RaidDurationRules {
-  return { settings, zone: settings.timezone, events };
+  return { settings, zone, events };
 }
 
 /** Minutes an egg takes to hatch and minutes the boss then stays. */

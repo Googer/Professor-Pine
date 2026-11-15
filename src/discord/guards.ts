@@ -1,6 +1,12 @@
 import { PermissionFlagsBits, type Guild } from 'discord.js';
 import type { AppContext } from '../app-context.js';
-import type { Settings } from '../config/index.js';
+import type { ServerValues } from '../config/server-settings.js';
+import { isOpenInstance, listedServers } from '../config/settings.js';
+import {
+  isInstanceOperator,
+  isSharedDataOperator,
+  type Instance,
+} from '../domain/operators/tiers.js';
 import {
   isMax,
   isMeetup,
@@ -57,18 +63,22 @@ export function isBotManagement(
   return userId === ownerId || hasRole(roleNames, BOT_MANAGEMENT_ROLES);
 }
 
-export function isBotChannelName(name: string | undefined, settings: Settings): boolean {
+/** Whether a channel is one of the server's two bot channels (the bot lab, the moderators'). */
+export function isBotChannel(channelId: string | undefined, values: ServerValues): boolean {
   return (
-    name !== undefined &&
-    (name === settings.channels['bot-lab'] || name === settings.channels['mod-bot-lab'])
+    channelId !== undefined &&
+    (channelId === values.channels['bot-lab'] || channelId === values.channels['mod-bot-lab'])
   );
 }
 
+/** Whether PvP commands may be used here: in a DM, or under the server's PvP category. */
 export function isPvpContext(
-  context: { isDm: boolean; parentName: string | undefined },
-  settings: Settings,
+  context: { isDm: boolean; categoryId: string | undefined },
+  values: ServerValues | undefined,
 ): boolean {
-  return context.isDm || context.parentName === settings.categories.pvp;
+  if (context.isDm) return true;
+  const category = values?.categories.pvp;
+  return category !== undefined && context.categoryId === category;
 }
 
 /** Role names of the invoking member; empty outside a cached guild. */
@@ -80,6 +90,44 @@ export function memberRoleNames(interaction: LocatedInteraction): string[] {
 /** Whether the invoking member is an admin or a moderator of the server, or the bot's owner. */
 export function isStaff(interaction: LocatedInteraction, ctx: AppContext): boolean {
   return isManagement(memberRoleNames(interaction), interaction.user.id, ctx.config.env.OWNER_ID);
+}
+
+/**
+ * Who may set a server up (plan 19C-2, `servers.md`): its Discord owner, a member who may manage
+ * it (Manage Server, which administrators have), and its staff as `/admin` counts them
+ * (`isBotManagement`: an admin, a moderator or a bot developer by role, or the bot's owner). A
+ * new community's staff may lack the role names, so the server's own word counts too. The one
+ * rule of `requireServerAdmin`, of the router's and `/help`'s staff test, and of the web's region
+ * editor (`mayEditRegions`).
+ */
+export function mayManageServer(
+  facts: { roleNames: Iterable<string>; manageGuild: boolean; guildOwner: boolean },
+  userId: string,
+  ownerId: string,
+): boolean {
+  return facts.guildOwner || facts.manageGuild || isBotManagement(facts.roleNames, userId, ownerId);
+}
+
+/**
+ * Whether the invoking member may set the server up (`mayManageServer`): the server's owner, as
+ * the client has the server; Manage Server from the interaction (`memberPermissions`); or staff
+ * by role. In a DM only the bot's owner. Also who is staff as the router and `/help` count them
+ * (plan 19C-2): only they are told of a staff command, such as `/admin settings` or `/admin
+ * setup` in a refusal (plan 19A-1, review F11), and `/help` lists the staff commands to them.
+ */
+export function isServerAdmin(
+  interaction: LocatedInteraction,
+  ctx: Pick<AppContext, 'config'>,
+): boolean {
+  return mayManageServer(
+    {
+      roleNames: memberRoleNames(interaction),
+      manageGuild: interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) ?? false,
+      guildOwner: interaction.inCachedGuild() && interaction.guild.ownerId === interaction.user.id,
+    },
+    interaction.user.id,
+    ctx.config.env.OWNER_ID,
+  );
 }
 
 /**
@@ -122,15 +170,47 @@ export function regionChannelOf(
 ): string | undefined {
   const { baseChannelId } = channelContext(interaction);
   if (baseChannelId === undefined) return undefined;
-  if (ctx.gyms.isRegion(baseChannelId)) return baseChannelId;
+  // A region with an outline (as `GymLookup.isRegion`: of several rows, the first), read from the
+  // regions, which belong to the server whose channel it is (plan 19B-2: no list of every
+  // server's gyms is asked).
+  const outlined = (channelId: string) =>
+    (ctx.regions.byChannel(channelId)?.bounds ?? null) !== null;
+  if (outlined(baseChannelId)) return baseChannelId;
   const ofForum = ctx.regions.byForum(baseChannelId)?.channelId;
-  return ofForum !== undefined && ctx.gyms.isRegion(ofForum) ? ofForum : undefined;
+  return ofForum !== undefined && outlined(ofForum) ? ofForum : undefined;
 }
 
 const SERVER_ONLY = 'This only works in a server.';
 
 function assertGuild(interaction: LocatedInteraction): void {
   if (!interaction.inCachedGuild()) throw new UserError(SERVER_ONLY);
+}
+
+/**
+ * A guard that decides by who the member is, with whom it lets through (`Guard.admits`, plan
+ * 19C-2): the same rule the guard asks, so that `/help` lists what it guards to them alone.
+ */
+function byMember(
+  admits: (asker: LocatedInteraction, ctx: AppContext) => boolean,
+  guard: (interaction: LocatedInteraction, ctx: AppContext) => void,
+): Guard {
+  return Object.assign(guard, { admits });
+}
+
+/**
+ * Whether a member passes these guards by who they are (plan 19C-2, C3: what `/help` lists of a
+ * staff command): every guard that decides by the member (`Guard.admits`) lets them through;
+ * where none does, staff as `/admin` counts them (`isBotManagementAt`), the default of a staff
+ * command's parts (`staffParts`). Where they ask is the guards' own concern, not this.
+ */
+export function admittedBy(
+  guards: readonly Guard[],
+  asker: LocatedInteraction,
+  ctx: AppContext,
+): boolean {
+  const deciding = guards.flatMap((guard) => (guard.admits === undefined ? [] : [guard.admits]));
+  if (deciding.length === 0) return isBotManagementAt(asker, ctx);
+  return deciding.every((admits) => admits(asker, ctx));
 }
 
 /**
@@ -152,37 +232,153 @@ export const requireGuild: Guard = (interaction) => {
  */
 export const STAFF_ONLY = 'Only admins and moderators can do that.';
 
-export const requireManagement: Guard = (interaction, ctx) => {
+export const requireManagement: Guard = byMember(isStaff, (interaction, ctx) => {
   assertGuild(interaction);
   if (!isStaff(interaction, ctx)) {
     throw new UserError(STAFF_ONLY);
   }
-};
+});
 
-export const requireBotManagement: Guard = (interaction, ctx) => {
+/** What `requireBotManagement` tells a member who is no staff of the bot. */
+export const BOT_STAFF_ONLY = 'Only admins, moderators and bot developers can do that.';
+
+/** Whether the invoking member is staff as `/admin` counts them (`isBotManagement`). */
+export function isBotManagementAt(
+  interaction: LocatedInteraction,
+  ctx: Pick<AppContext, 'config'>,
+): boolean {
+  return isBotManagement(
+    memberRoleNames(interaction),
+    interaction.user.id,
+    ctx.config.env.OWNER_ID,
+  );
+}
+
+export const requireBotManagement: Guard = byMember(isBotManagementAt, (interaction, ctx) => {
   assertGuild(interaction);
-  if (
-    !isBotManagement(memberRoleNames(interaction), interaction.user.id, ctx.config.env.OWNER_ID)
-  ) {
-    throw new UserError('Only admins, moderators and bot developers can do that.');
-  }
-};
+  if (!isBotManagementAt(interaction, ctx)) throw new UserError(BOT_STAFF_ONLY);
+});
 
-/** What `requireOwner` tells anybody but the bot's owner. */
-export const ONLY_THE_OWNER = 'Only the owner of this Pine can do that.';
+/** What `requireServerAdmin` tells anybody else (plan 19C-2). */
+export const SERVER_ADMIN_ONLY =
+  'Only the server’s owner, members who may manage the server, and its admins, moderators and ' +
+  'bot developers can do that.';
 
 /**
- * Only the installation's owner (`OWNER_ID`), who needs no role: for what spans every server
- * and cannot be undone (plan 8G, `/admin forget`). Staff and bot developers are refused.
+ * For what sets a server up (plan 19C-2, `isServerAdmin`): `/admin setup`, `/admin settings` and
+ * their controls and dialogs, and the ways to a server's regions its checklist sends to
+ * (`/region import`, `/region edit`, the import's questions). In a server only.
  */
-export const requireOwner: Guard = (interaction, ctx) => {
-  if (interaction.user.id !== ctx.config.env.OWNER_ID) throw new UserError(ONLY_THE_OWNER);
-};
+export const requireServerAdmin: Guard = byMember(isServerAdmin, (interaction, ctx) => {
+  assertGuild(interaction);
+  if (!isServerAdmin(interaction, ctx)) throw new UserError(SERVER_ADMIN_ONLY);
+});
+
+/**
+ * The instance as the operators' tiers read it (`src/domain/operators/tiers.ts`): the file's
+ * operators and servers, and each server's standing (plan 19C-1).
+ */
+export function instanceOf(ctx: Pick<AppContext, 'config' | 'standings'>): Instance {
+  return {
+    ownerId: ctx.config.env.OWNER_ID.trim(),
+    operators: ctx.config.settings.operators,
+    open: isOpenInstance(ctx.config.settings),
+    listed: listedServers(ctx.config.settings),
+    standingOf: (serverId) => ctx.standings.standingOf(serverId),
+  };
+}
+
+/** Whether this user is an instance operator (plan 19B-1): the owner or an operator of the file. */
+export function isInstanceOperatorOf(
+  userId: string,
+  ctx: Pick<AppContext, 'config' | 'standings'>,
+): boolean {
+  return isInstanceOperator(userId, instanceOf(ctx));
+}
+
+/**
+ * Whether the invoking member may change what every server shares where they ask (plan 19B-1,
+ * `isSharedDataOperator`): an instance operator anywhere; on an instance that is not open, also
+ * the bot-management staff of the server asked from, where that server is allowed (plan 19C-1:
+ * listed, recorded at the upgrade or allowed by an operator, not blocked); in a DM the instance
+ * operators alone.
+ */
+export function isSharedDataOperatorAt(
+  interaction: LocatedInteraction,
+  ctx: Pick<AppContext, 'config' | 'standings'>,
+): boolean {
+  return isSharedDataOperator(
+    {
+      userId: interaction.user.id,
+      serverId: interaction.guildId ?? undefined,
+      botManagement: hasRole(memberRoleNames(interaction), BOT_MANAGEMENT_ROLES),
+    },
+    instanceOf(ctx),
+  );
+}
+
+/**
+ * Whether a server's bot-management staff change what every server shares from that server (plan
+ * 19B-1): the shared-data tier asked for a member of its staff who is no operator. False on an
+ * open instance, and for a server that is not allowed (plan 19C-1).
+ */
+export function serverStaffShareData(
+  serverId: string,
+  ctx: Pick<AppContext, 'config' | 'standings'>,
+): boolean {
+  return isSharedDataOperator({ userId: '', serverId, botManagement: true }, instanceOf(ctx));
+}
+
+/** What the operators' guards tell anybody they refuse in a server (plan 19B-1). */
+export const ONLY_OPERATORS = 'Only the operators of this Pine can do that.';
+
+/** What the operators' guards tell anybody they refuse in a DM with the bot (plan 19B-1). */
+export const ONLY_OPERATORS_IN_A_DM =
+  'In a direct message, only the operators of this Pine can do that.';
+
+/**
+ * The shared-data tier (plan 19B-1): what every server shares (the boss list's overrides and its
+ * sync, the event window, the image cache). Refused in the words of where it would pass: in a
+ * server whose staff it passes (an allowed server of an instance that is not open), as `/admin`
+ * refuses; in another server, the operators'; in a DM, the DM's.
+ */
+export const requireSharedDataOperator: Guard = byMember(
+  isSharedDataOperatorAt,
+  (interaction, ctx) => {
+    if (isSharedDataOperatorAt(interaction, ctx)) return;
+    if (!interaction.inGuild()) throw new UserError(ONLY_OPERATORS_IN_A_DM);
+    throw new UserError(
+      serverStaffShareData(interaction.guildId, ctx) ? BOT_STAFF_ONLY : ONLY_OPERATORS,
+    );
+  },
+);
+
+/**
+ * The instance tier (plan 19B-1): the owner and the file's operators alone, who need no role,
+ * anywhere: for what spans every server and cannot be undone (`/operator forget`). Server staff
+ * are refused (in a DM in the DM's words).
+ */
+export const requireInstanceOperator: Guard = byMember(
+  (asker, ctx) => isInstanceOperatorOf(asker.user.id, ctx),
+  (interaction, ctx) => {
+    if (isInstanceOperatorOf(interaction.user.id, ctx)) return;
+    throw new UserError(interaction.inGuild() ? ONLY_OPERATORS : ONLY_OPERATORS_IN_A_DM);
+  },
+);
 
 export const requireBotChannel: Guard = (interaction, ctx) => {
   assertGuild(interaction);
-  if (!isBotChannelName(channelContext(interaction).name, ctx.config.settings)) {
-    throw new UserError(`Use this in #${ctx.config.settings.channels['bot-lab']}.`);
+  const values = ctx.servers.of(guildIdOf(interaction));
+  if (!isBotChannel(channelContext(interaction).baseChannelId, values)) {
+    const lab = values.channels['bot-lab'];
+    // `/admin settings` is named only to who may use it (review F11; plan 19C-2).
+    throw new UserError(
+      lab !== undefined
+        ? `Use this in <#${lab}>.`
+        : isServerAdmin(interaction, ctx)
+          ? 'This server has no bot lab yet: staff set one with /admin settings.'
+          : 'This server has no bot lab yet.',
+    );
   }
 };
 
@@ -194,11 +390,20 @@ export const requireRegion: Guard = (interaction, ctx) => {
 };
 
 export const requirePvpContext: Guard = (interaction, ctx) => {
-  const { isDm, categoryName } = channelContext(interaction);
-  if (!isPvpContext({ isDm, parentName: categoryName }, ctx.config.settings)) {
-    throw new UserError(`Use this in a DM with me or under ${ctx.config.settings.categories.pvp}.`);
+  const { isDm, categoryId } = channelContext(interaction);
+  const values = interaction.guildId === null ? undefined : ctx.servers.of(interaction.guildId);
+  if (!isPvpContext({ isDm, categoryId }, values)) {
+    throw new UserError(pvpPlaces(values));
   }
 };
+
+/** Where PvP commands may be used, in words: in a DM, or under the server's PvP category. */
+export function pvpPlaces(values: ServerValues | undefined): string {
+  const category = values?.categories.pvp;
+  return category === undefined
+    ? 'Use this in a DM with me.'
+    : `Use this in a DM with me or under <#${category}>.`;
+}
 
 /**
  * The party whose forum post an interaction came from, by the id of the post alone: the post
@@ -208,6 +413,25 @@ export const requirePvpContext: Guard = (interaction, ctx) => {
 export function partyOf(interaction: LocatedInteraction, ctx: AppContext): Party | undefined {
   const { channelId } = channelContext(interaction);
   return channelId === null ? undefined : ctx.parties.byPost(channelId);
+}
+
+/**
+ * The party a control, a dialog or a guard names by its custom id, only where it is a party of
+ * the server the interaction came from (spec, "The rule": every id checked against the server it
+ * came from). A custom id can be sent from anywhere, so a party of another server, and any party
+ * named from a DM, is undefined, as a party that has ended is: the caller answers it with the
+ * words it has for that, and nothing tells that it exists. The party's server is its `Guild`
+ * row's, read in memory (`PartyService.serverOf`, over every row read at the start, never a
+ * bounded memory), so the check reads nothing slow and a guard can ask it.
+ */
+export function partyOfServer(
+  interaction: { guildId: string | null },
+  ctx: Pick<AppContext, 'parties' | 'partyService'>,
+  partyId: string,
+): Party | undefined {
+  const party = ctx.parties.get(partyId);
+  if (party === undefined || interaction.guildId === null) return undefined;
+  return ctx.partyService.serverOf(party) === interaction.guildId ? party : undefined;
 }
 
 /** What a member is told who uses a command for the post of a party anywhere else. */

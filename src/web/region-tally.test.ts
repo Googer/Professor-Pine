@@ -55,7 +55,6 @@ async function setup() {
       gyms: gymsFixture(),
       regions: regionsFixture(),
       wayspots: noWayspots(),
-      zone: ZONE,
       channelName: (channelId) => names.get(channelId),
     }),
   });

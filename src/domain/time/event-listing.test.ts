@@ -27,6 +27,7 @@ import {
   parseMaxEventFeed,
 } from './max-events.js';
 import { eventPageRaidHours, withPageRaidHours } from './raid-events.js';
+import { wallClock, zonedAt } from '../../../test/support/time.js';
 
 const ZONE = 'America/New_York';
 const at = (iso: string): number =>
@@ -113,6 +114,8 @@ describe('which events are listed, posted and hinted (plan 8V-1, design "Which e
       image: expect.stringMatching(/^https:\/\/cdn\.leekduck\.com\//u) as string,
       start: at('2026-11-21T14:00'),
       end: at('2026-11-21T17:00'),
+      startLocal: '2026-11-21T14:00:00',
+      endLocal: '2026-11-21T17:00:00',
       formerIds: [],
     });
   });
@@ -321,12 +324,12 @@ describe('a short read (plan 8V-1, BR-1)', () => {
   const later = event({ id: 'later', start: at('2026-11-28T14:00'), end: at('2026-11-28T17:00') });
 
   it('is a read that lists no event at all', () => {
-    expect(isShortRead([on, coming], read([]), now)).toBe(true);
-    expect(isShortRead([], read([]), now)).toBe(true);
+    expect(isShortRead([on, coming], read([]), now, [ZONE])).toBe(true);
+    expect(isShortRead([], read([]), now, [ZONE])).toBe(true);
   });
 
   it('is a read that would drop every kept event not yet started', () => {
-    expect(isShortRead([on, coming, later], read([on]), now)).toBe(true);
+    expect(isShortRead([on, coming, later], read([on]), now, [ZONE])).toBe(true);
   });
 
   // Re-review RR-1: a short read is still merged, keeping what it would drop.
@@ -338,7 +341,7 @@ describe('a short read (plan 8V-1, BR-1)', () => {
       end: at('2026-11-30T11:00'),
     });
     const moved = { ...on, start: at('2026-11-09T11:00') };
-    const merged = mergeRead([on, coming], read([moved, added]), now);
+    const merged = mergeRead([on, coming], read([moved, added]), now, [ZONE]);
     expect(merged.short).toBe(true);
     expect(merged.dropped).toEqual([]);
     expect(merged.events.map((one) => [one.id, one.start])).toEqual([
@@ -346,15 +349,15 @@ describe('a short read (plan 8V-1, BR-1)', () => {
       ['coming', coming.start],
       ['added', added.start],
     ]);
-    const normal = mergeRead([on, coming, later], read([on, coming]), now);
+    const normal = mergeRead([on, coming, later], read([on, coming]), now, [ZONE]);
     expect(normal.short).toBe(false);
     expect(normal.dropped).toEqual([later]);
   });
 
   it('is not a read that keeps one of them, or that drops only what has begun', () => {
-    expect(isShortRead([on, coming, later], read([on, coming]), now)).toBe(false);
-    expect(isShortRead([on, coming], read([coming]), now)).toBe(false);
-    expect(isShortRead([on], read([coming]), now)).toBe(false);
+    expect(isShortRead([on, coming, later], read([on, coming]), now, [ZONE])).toBe(false);
+    expect(isShortRead([on, coming], read([coming]), now, [ZONE])).toBe(false);
+    expect(isShortRead([on], read([coming]), now, [ZONE])).toBe(false);
   });
 });
 
@@ -370,7 +373,7 @@ describe('the kept events merged with a read (plan 8V-1)', () => {
     const kept = [event()];
     const later = event({ start: at('2026-11-21T15:00'), end: at('2026-11-21T18:00') });
     const added = event({ id: 'raidhour20261118', name: 'Raid Hour', eventType: 'raid-hour' });
-    const merged = mergeListed(kept, read([later, added]), now);
+    const merged = mergeListed(kept, read([later, added]), now, [ZONE]);
     expect(merged.events).toEqual([later, added].sort((a, b) => a.start - b.start));
     expect(merged.moved).toEqual([]);
     expect(merged.dropped).toEqual([]);
@@ -378,20 +381,20 @@ describe('the kept events merged with a read (plan 8V-1)', () => {
 
   it('keeps a known event the feed lists without times to its end (R3)', () => {
     const on = event({ start: at('2026-11-09T10:00'), end: at('2026-11-13T20:00') });
-    const merged = mergeListed([on], read([], [on.id]), now);
+    const merged = mergeListed([on], read([], [on.id]), now, [ZONE]);
     expect(merged.events).toEqual([on]);
     expect(merged.dropped).toEqual([]);
   });
 
   it('keeps one dropped after its start to its end, and forgets it after', () => {
     const on = event({ start: at('2026-11-09T10:00'), end: at('2026-11-13T20:00') });
-    expect(mergeListed([on], read([]), now).events).toEqual([on]);
-    expect(mergeListed([on], read([]), at('2026-11-13T20:00')).events).toEqual([]);
+    expect(mergeListed([on], read([]), now, [ZONE]).events).toEqual([on]);
+    expect(mergeListed([on], read([]), at('2026-11-13T20:00'), [ZONE]).events).toEqual([]);
   });
 
   it('removes one dropped before its start, and says so', () => {
     const coming = event();
-    const merged = mergeListed([coming], read([]), now);
+    const merged = mergeListed([coming], read([]), now, [ZONE]);
     expect(merged.events).toEqual([]);
     expect(merged.dropped).toEqual([coming]);
   });
@@ -404,7 +407,7 @@ describe('the kept events merged with a read (plan 8V-1)', () => {
       start: at('2026-11-28T14:00'),
       end: at('2026-11-28T17:00'),
     });
-    const merged = mergeListed([old], read([moved]), now);
+    const merged = mergeListed([old], read([moved]), now, [ZONE]);
     expect(merged.events).toEqual([
       { ...moved, formerIds: ['earlier', 'november-communityday2026'] },
     ]);
@@ -417,18 +420,45 @@ describe('the kept events merged with a read (plan 8V-1)', () => {
   it('moves nothing to an id it knew already, or of another type, or while the old one stays', () => {
     const old = event();
     const known = event({ id: 'known', start: at('2026-11-28T14:00') });
-    expect(mergeListed([old, known], read([known]), now).dropped).toEqual([old]);
+    expect(mergeListed([old, known], read([known]), now, [ZONE]).dropped).toEqual([old]);
     const other = event({ id: 'new', eventType: 'event' });
-    expect(mergeListed([old], read([other]), now).dropped).toEqual([old]);
+    expect(mergeListed([old], read([other]), now, [ZONE]).dropped).toEqual([old]);
     const twin = event({ id: 'twin' });
-    const both = mergeListed([old], read([old, twin]), now);
+    const both = mergeListed([old], read([old, twin]), now, [ZONE]);
     expect(both.moved).toEqual([]);
     expect(both.events.map((one) => one.id)).toEqual(['november-communityday2026', 'twin']);
   });
 
   it('forgets what ended, read or kept', () => {
     const over = event({ start: at('2026-11-01T10:00'), end: at('2026-11-02T10:00') });
-    expect(mergeListed([over], read([over]), now).events).toEqual([]);
+    expect(mergeListed([over], read([over]), now, [ZONE]).events).toEqual([]);
+  });
+
+  // Final review R3-1: a local-time event ends later west of the default zone; a server there
+  // still lists it until it ends on its own clock.
+  it('keeps a local-time event until it ends in the last zone in use, read or kept', () => {
+    const LA = 'America/Los_Angeles';
+    const spotlight = event({
+      id: 'spotlight',
+      eventType: 'pokemon-spotlight-hour',
+      start: at('2026-11-17T18:00'),
+      end: at('2026-11-17T19:00'),
+      ...wallClock(at('2026-11-17T18:00'), at('2026-11-17T19:00'), ZONE),
+    });
+    // 19:05 in New York, 16:05 in Los Angeles: it has not begun there yet.
+    const after = at('2026-11-17T19:05');
+    expect(mergeListed([spotlight], read([]), after, [ZONE, LA]).events).toEqual([spotlight]);
+    expect(mergeListed([spotlight], read([spotlight]), after, [ZONE, LA]).events).toEqual([
+      spotlight,
+    ]);
+    // Over in New York alone: forgotten.
+    expect(mergeListed([spotlight], read([spotlight]), after, [ZONE]).events).toEqual([]);
+    // Over in Los Angeles too: forgotten.
+    const later = zonedAt('2026-11-17T19:00', LA);
+    expect(mergeListed([spotlight], read([]), later, [ZONE, LA]).events).toEqual([]);
+    // A moment the feed gave ends at that moment in every zone.
+    const { startLocal: _s, endLocal: _e, ...moment } = spotlight;
+    expect(mergeListed([moment], read([]), after, [ZONE, LA]).events).toEqual([]);
   });
 
   it('tells one name from another, a "(Rescheduled)" mark, case and spaces aside', () => {
@@ -548,6 +578,8 @@ describe('the hours of events’ pages as lines (2026-11-07)', () => {
         image: null,
         start: at('2026-11-09T18:00'),
         end: at('2026-11-09T19:00'),
+        startLocal: '2026-11-09T18:00:00',
+        endLocal: '2026-11-09T19:00:00',
         formerIds: [],
       },
       {
@@ -558,6 +590,8 @@ describe('the hours of events’ pages as lines (2026-11-07)', () => {
         image: null,
         start: at('2026-11-11T18:00'),
         end: at('2026-11-11T19:00'),
+        startLocal: '2026-11-11T18:00:00',
+        endLocal: '2026-11-11T19:00:00',
         formerIds: [],
       },
     ]);

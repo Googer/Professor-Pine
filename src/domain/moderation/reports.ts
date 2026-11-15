@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { moderatorsNamed, type ServerStanding } from '../servers/standing.js';
 import type { Place } from '../geo/place.js';
 import type { Decider } from '../meetups/records.js';
 import type { PartyType } from '../party/party.js';
@@ -98,6 +99,12 @@ export const MESSAGE_COPY_ROOM = 1500;
 /** As many of a reported message's attachments as are named. */
 export const MAX_ATTACHMENT_NAMES = 10;
 
+/**
+ * An id in the subject: at most 30 characters, checked as the subject is written
+ * (`ReportRepository`) as when it is read. The subject's `makerId` and `authorId` are indexed so
+ * (migration 057, cast to `char(30)`): the database refuses a longer one, so widening it is a
+ * decision of a migration, never of this schema alone.
+ */
 const snowflake = z.string().min(1).max(30);
 const text = (max: number) => z.string().max(max);
 
@@ -256,4 +263,24 @@ export interface ReportStore {
   openReports(serverId: string): Promise<ModerationReport[]>;
   /** The open reports whose post was never recorded and that were made at `before` or earlier. */
   unpostedReports(before: number): Promise<ModerationReport[]>;
+}
+
+/**
+ * What a member is told who reports where the server's staff have set no moderators' channel
+ * (plan 19A-1): a report goes to the moderators alone, never into the open (a party's post).
+ */
+export const NO_MODERATORS_CHANNEL =
+  'Reports cannot be sent here: staff have not chosen a moderators’ channel. You can tell a ' +
+  'moderator directly.';
+
+/**
+ * Whether a server takes reports (`/report`, "Report to moderators" in the Apps menu, the map's
+ * Report… alike): undefined where its staff set a moderators' channel, or where the settings file
+ * named one the server lacks (`moderatorsNamed`, review F2: taken, and found unreachable, as
+ * before 2.1); the refusal otherwise.
+ */
+export function reportRefusal(
+  values: Pick<ServerStanding, 'channels' | 'unmatched'>,
+): string | undefined {
+  return moderatorsNamed(values) ? undefined : NO_MODERATORS_CHANNEL;
 }

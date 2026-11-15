@@ -11,7 +11,12 @@ import {
 } from '../../../test/support/fake-interactions.js';
 import { galleryOf, textDisplays } from '../../../test/support/messages.js';
 import { expectV2Sendable } from '../../../test/support/post-limits.js';
-import { EAST_CHANNEL, testRegions, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  TEST_GUILD_ROW,
+  testRegions,
+  WEST_CHANNEL,
+} from '../../../test/support/gyms.js';
 import { ALICE } from '../../../test/support/parties.js';
 import { FakePlaces } from '../../../test/support/places.js';
 import { mapsFixture } from '../../../test/support/providers.js';
@@ -308,8 +313,9 @@ describe('/find-region: coordinates and links', () => {
       const first = await answer('40.05, -80.05');
       expect(first.files).toHaveLength(1);
       expect(await mapBudget.used()).toBe(1);
-      // Taken as the member's (fix round of 8Z-2: a member has twenty maps a day).
-      expect(spent).toHaveBeenCalledWith(ALICE);
+      // Taken as the member's (fix round of 8Z-2: a member has twenty maps a day), and of the
+      // member's server (plan 19B-5: each server's members have their own of the month).
+      expect(spent).toHaveBeenCalledWith(ALICE, TEST_GUILD_ROW);
       // The same place again: its map is on disk, and nothing is taken.
       expect((await answer('40.05, -80.05')).files).toEqual(first.files);
       expect(await mapBudget.used()).toBe(1);

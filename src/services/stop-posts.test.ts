@@ -34,6 +34,7 @@ import { StopPostService } from './stop-posts.js';
 import { MAX_POST_MESSAGES } from '../render/stop-post.js';
 import { StopReportService } from './stop-reports.js';
 import { zonedAt } from '../../test/support/time.js';
+import { TestServers, withZones } from '../../test/support/server-values.js';
 
 const ZONE = 'America/New_York';
 const at = (local: string): number => zonedAt(local, ZONE);
@@ -47,7 +48,14 @@ const westLine = (n: number): string =>
   `- **[Yellow Mural ${String(n)}](<https://www.google.com/maps/search/?api=1&query=` +
   `${String((40_050 + n) / 1_000)}%2C-80.05>)** · Market Street · **Ash**`;
 
-async function postsWith(initial: ResearchEvent[] = [], pictures?: PictureMaker) {
+/** The posts over fakes; every server in the test settings' zone unless `servers` say otherwise. */
+async function postsWith(
+  initial: ResearchEvent[] = [],
+  pictures?: PictureMaker,
+  servers = new TestServers(),
+  /** The servers Pine left (plan 19C-1). */
+  left: Set<string> = new Set(),
+) {
   const clock = { now: at('2026-11-21T10:00') };
   const { log, entries } = createTestLogger();
   const gateway = new FakePartyGateway();
@@ -91,7 +99,7 @@ async function postsWith(initial: ResearchEvent[] = [], pictures?: PictureMaker)
     rewardHash: fixtureRewardHash,
     store: reportStore,
     events: provider,
-    zone: ZONE,
+    zoneOf: (serverId) => servers.zoneOf(serverId),
     log,
     now: () => clock.now,
   });
@@ -108,10 +116,11 @@ async function postsWith(initial: ResearchEvent[] = [], pictures?: PictureMaker)
         snowflakeOf: (row) => Promise.resolve(row === 1 ? FAKE_GUILD_ID : undefined),
       },
       gateway,
-      zone: ZONE,
+      servers,
       log,
       now: () => clock.now,
       delayMs: 0,
+      quiet: { isQuiet: (serverId) => left.has(serverId) },
       changed: (channelId) => changes.push(channelId),
       ...(pictures ? { pictures } : {}),
     });
@@ -549,6 +558,23 @@ describe('StopPostService', () => {
     const edits = made.gateway.messagesIn(made.west)[0]?.edits;
     await made.posts.catchUp();
     expect(made.gateway.messagesIn(made.west)[0]?.edits).toBe(edits);
+  });
+
+  it('draws nothing of a server Pine left, also at a catch-up, and draws it once it is back (plan 19C-1)', async () => {
+    const left = new Set<string>();
+    made = await postsWith(undefined, undefined, undefined, left);
+    await made.report(pageTask('Catch a Dragon-type Pokémon'));
+    await made.posts.flush();
+    left.add(FAKE_GUILD_ID);
+    const edits = made.gateway.messagesIn(made.west)[0]?.edits;
+    await made.report(pageTask('Catch 7 Pokémon'), [west(2)]);
+    await made.posts.flush();
+    await made.posts.catchUp();
+    expect(made.gateway.messagesIn(made.west)[0]?.edits).toBe(edits);
+    expect(made.said()[0]).not.toContain('Yellow Mural 2');
+    left.clear();
+    await made.posts.catchUp();
+    expect(made.said()[0]).toContain('Yellow Mural 2');
   });
 
   it('sends a message anew whose edit Discord refuses after a restart, its kind not known (F3)', async () => {
@@ -1151,6 +1177,25 @@ describe('StopPostService', () => {
     await vi.advanceTimersByTimeAsync(at('2026-11-22T00:00') - made.clock.now - 1_000);
     expect(made.gateway.deleted).toEqual([]);
     made.clock.now = at('2026-11-22T00:00:01');
+    await vi.advanceTimersByTimeAsync(2_000);
+    await made.posts.flush();
+    expect(made.gateway.messagesIn(made.west)).toEqual([]);
+    expect(made.storage.rows.size).toBe(0);
+  });
+
+  it('keeps a server’s post under its own day and deletes it at its own midnight (plan 19A-2)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const berlin = (local: string) => zonedAt(local, 'Europe/Berlin');
+    // The fakes' server in Berlin, New York the instance's default: 10:00 here, 16:00 there.
+    made = await postsWith([], undefined, withZones({ [FAKE_GUILD_ID]: 'Europe/Berlin' }));
+    await made.posts.start();
+    await made.report(pageTask('Catch a Dragon-type Pokémon'));
+    await made.posts.flush();
+    expect([...made.storage.rows.values()].map((row) => row.day)).toEqual(['2026-11-21']);
+    // Berlin's midnight is 18:00 in New York: the post of its day goes then, not at 00:00 here.
+    await vi.advanceTimersByTimeAsync(berlin('2026-11-22T00:00') - made.clock.now - 1_000);
+    expect(made.gateway.deleted).toEqual([]);
+    made.clock.now = berlin('2026-11-22T00:00:01');
     await vi.advanceTimersByTimeAsync(2_000);
     await made.posts.flush();
     expect(made.gateway.messagesIn(made.west)).toEqual([]);

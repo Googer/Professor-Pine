@@ -35,6 +35,8 @@ describe('parseSpawnEventFeed (plan 8R-4)', () => {
       eventType: 'event',
       start: at('2026-10-27T10:00'),
       end: at('2026-11-01T10:00'),
+      startLocal: '2026-10-27T10:00:00',
+      endLocal: '2026-11-01T10:00:00',
       page: 'https://leekduck.com/events/halloween-2026-part-1/',
     });
   });

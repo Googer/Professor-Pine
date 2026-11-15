@@ -11,7 +11,7 @@ export interface TrainItemView {
   id: number;
   /** Its name as kept (member-typed: the page sets it as text). */
   name: string;
-  /** When it was made, in the posts' zone: "Sat, Jun 14, 6:15 PM". */
+  /** When it was made, in the server's zone: "Sat, Jun 14, 6:15 PM". */
   when: string;
   /** About its stops and who came: "About 14 stops · 12 riders". */
   about: string;
@@ -19,7 +19,7 @@ export interface TrainItemView {
 
 /** A month's trains the member may see, newest first, at most `TRAINS_LISTED` of them. */
 export interface TrainMonthView {
-  /** `yyyy-mm`, in the posts' zone. */
+  /** `yyyy-mm`, in the server's zone. */
   month: string;
   trains: TrainItemView[];
   /** How many more the member may see that the list leaves out, of the trains read. */
@@ -39,7 +39,7 @@ export interface TrainCardLineView {
 
 /** A train's route and card (`…/trains/<id>`). */
 export interface TrainRouteView extends TrainItemView {
-  /** Its month (`yyyy-mm`, in the posts' zone): where History opens for it (the page has no Temporal). */
+  /** Its month (`yyyy-mm`, in the server's zone): where History opens for it (the page has no Temporal). */
   month: string;
   /** The places of its stops the map can place, each once. */
   points: { lat: number; lon: number }[];

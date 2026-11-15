@@ -27,6 +27,7 @@ import { memberInfo } from '../../discord/member-info.js';
 import { STALE_COMPONENT, whenCounted } from '../../discord/router.js';
 import { MEMBER_WRITE_THROTTLE, type Throttle } from '../../discord/throttle.js';
 import { holdsSubject, isOneOf } from '../../domain/research/reports.js';
+import { inPeriod, type ResearchPeriod } from '../../domain/time/research-periods.js';
 import { rewardsInShort, type TaskReward } from '../../domain/research/task.js';
 import {
   isResearchReport,
@@ -79,6 +80,7 @@ import {
   takeBackAs,
   type ResearchReported,
 } from './research-report.js';
+import { serverValuesOf, zoneOf } from '../../discord/server-values.js';
 
 /** "Same task at more stops…" offers the stops within this many meters of the first one. */
 export const MORE_STOPS_METRES = 2_000;
@@ -111,7 +113,7 @@ async function moreStops(
   ctx: AppContext,
   first: ReportedStop,
   subject: ResearchSubject,
-  periodKey: string,
+  period: Pick<ResearchPeriod, 'key' | 'start'>,
 ): Promise<MoreStop[]> {
   const row = await ctx.guilds.idFor(guildIdOf(interaction));
   const ours = new Set(
@@ -127,18 +129,20 @@ async function moreStops(
       .filter(
         (report) =>
           report.kind === 'research' &&
-          report.periodKey === periodKey &&
+          inPeriod(report, period) &&
           holdsSubject(report.subjectKey, held),
       )
       .map((report) => report.stop.key),
   );
-  return ctx.wayspots
+  // The server's own stops (plan 19B-3).
+  const wayspots = ctx.wayspots.of(row);
+  return wayspots
     .near(first, MORE_STOPS_METRES, ['stop'])
     .filter(
       ({ wayspot }) =>
         wayspot.title.trim() !== '' &&
         !reported.has(wayspot.id) &&
-        ctx.wayspots.regionsOf(wayspot.id).some((id) => ours.has(id)),
+        wayspots.regionsOf(wayspot.id).some((id) => ours.has(id)),
     )
     .slice(0, MORE_STOPS)
     .map(({ wayspot, metres }) => ({
@@ -162,11 +166,11 @@ async function answerOf(
   const [first] = outcome.saved;
   return researchAnswer({
     ...view,
-    units: ctx.config.settings.distanceUnits,
+    units: serverValuesOf(interaction, ctx).distanceUnits,
     more:
       first === undefined
         ? []
-        : await moreStops(interaction, ctx, first.report.stop, subject, outcome.period.key),
+        : await moreStops(interaction, ctx, first.report.stop, subject, outcome.period),
   });
 }
 
@@ -200,20 +204,24 @@ async function moreSubject(
   version: string | undefined,
   shownAt: number,
 ): Promise<ResearchSubject> {
-  const period = ctx.stopReports.period().key;
+  const period = ctx.stopReports.period(serverId);
   const ended = new UserError(REPORT_ENDED, { givesBack: true });
   const base = await ctx.stopReports.kept(serverId, baseId);
-  if (base !== undefined && (base.kind !== 'research' || base.periodKey !== period)) throw ended;
+  // Of the period on now by the one rule (fix round 2, P4: `inPeriod`, its key and made since it
+  // began): a report of that date on the clock of the server's zone before is no report of it.
+  if (base !== undefined && (base.kind !== 'research' || !inPeriod(base, period))) throw ended;
   if (base?.kind === 'research' && (version === undefined || base.subjectKey === version)) {
     return { subjectKey: base.subjectKey, research: base.research };
   }
   if (version === undefined) throw ended;
-  if (base === undefined && ctx.stopReports.period(shownAt).key !== period) throw ended;
+  if (base === undefined && ctx.stopReports.period(serverId, shownAt).key !== period.key) {
+    throw ended;
+  }
   const found = ctx.researchTasks.byVersion(version);
   if (found) return versionSubject(found.task, found.version);
   const same = (await ctx.stopReports.standing(serverId))
     .filter(isResearchReport)
-    .find((report) => report.periodKey === period && report.subjectKey === version);
+    .find((report) => inPeriod(report, period) && report.subjectKey === version);
   if (!same) throw ended;
   return { subjectKey: same.subjectKey, research: same.research };
 }
@@ -349,10 +357,10 @@ async function askToReplace(
     countedAt,
     throttle: researchThrottle(settings),
     window: researchWindow(settings),
-    periodKey: ctx.stopReports.period(countedAt).key,
+    periodKey: ctx.stopReports.period(guildIdOf(interaction), countedAt).key,
   };
-  const token = pending.put(interaction.user.id, waiting);
-  await interaction.showModal(replaceDialog(token, waiting, settings.timezone));
+  const token = pending.put(interaction, waiting);
+  await interaction.showModal(replaceDialog(token, waiting, zoneOf(interaction, ctx)));
 }
 
 /**
@@ -383,8 +391,10 @@ const requireResearchReport: Guard = async (interaction, ctx) => {
   if (interaction.isChatInputCommand()) {
     const subject = readTask(
       ctx,
+      interaction.guildId,
       interaction.options.getString('task', true),
       interaction.options.getString('reward'),
+      zoneOf(interaction, ctx),
     );
     const stops = await namedStops(interaction, ctx);
     // Not at a stop of a region the member is kept out of (plan 8Z-2), before anything is asked.
@@ -418,8 +428,8 @@ const stopOption = (name: string, required: boolean) => (option: SlashCommandStr
  */
 async function researchChoices(interaction: AutocompleteInteraction, ctx: AppContext) {
   const focused = interaction.options.getFocused(true);
-  if (focused.name === 'task') return taskChoices(ctx, focused.value);
-  if (focused.name === 'reward') return rewardChoices(ctx, focused.value);
+  if (focused.name === 'task') return taskChoices(ctx, focused.value, zoneOf(interaction, ctx));
+  if (focused.name === 'reward') return rewardChoices(ctx, interaction.guildId, focused.value);
   const others = STOP_OPTIONS.filter((name) => name !== focused.name).map((name) =>
     interaction.options.getString(name),
   );
@@ -460,7 +470,7 @@ const reportResearch: SubcommandPart = {
     );
   })(),
   help: {
-    details: (settings) =>
+    details: (settings, facts) =>
       'Reports the field research task of up to five PokéStops at once. Pick the task from the ' +
       'list that appears while you type; it finds tasks by their rewards too (`dratini`).\n\n' +
       'A task has a choice for each of its rewards, and one that rewards one of several ' +
@@ -468,7 +478,7 @@ const reportResearch: SubcommandPart = {
       'then).\n\nPick the stops from their lists, or paste a maps link to a stop. Your ' +
       'region’s stops come first, then those nearest the stops you picked already; with ' +
       'nothing typed, the stops within ' +
-      `${distanceWords(MORE_STOPS_METRES, settings.distanceUnits)} of them, nearest first.\n\n` +
+      `${distanceWords(MORE_STOPS_METRES, facts?.server?.distanceUnits ?? 'imperial')} of them, nearest first.\n\n` +
       'A report replaces your own at a stop today, and one that names the Pokémon replaces a ' +
       '"one of". Another member’s report is asked about first: tick the stops whose report ' +
       'you replace. The same report again, or one that says less, is answered "Already ' +
@@ -576,7 +586,7 @@ export const researchControls: ComponentHandler = {
   },
   carriesOn: (interaction, id) => {
     if (id.action !== RESEARCH_ACTIONS.replace) return undefined;
-    const waiting = pending.peek(id.id, interaction.user.id);
+    const waiting = pending.peek(id.id, interaction);
     return typeof waiting === 'object'
       ? { ...waiting.value.throttle, as: waiting.value.window, countedAt: waiting.value.countedAt }
       : undefined;
@@ -629,14 +639,14 @@ export const researchControls: ComponentHandler = {
   },
   async modal(interaction, id, ctx) {
     if (id.action !== RESEARCH_ACTIONS.replace) throw new UserError(STALE_COMPONENT);
-    const taken = pending.take(id.id, interaction.user.id);
+    const taken = pending.take(id.id, interaction);
     if (taken === 'not-yours') throw new UserError('That is somebody else’s report.');
     if (taken === 'expired') {
       throw new UserError('That question has expired. Use `/research report` again.');
     }
     const use = taken.value;
     // The period asked in ended since the dialog opened (review W2): nothing is reported.
-    if (ctx.stopReports.period().key !== use.periodKey) {
+    if (ctx.stopReports.period(guildIdOf(interaction)).key !== use.periodKey) {
       throw new UserError(PERIOD_ENDED, { givesBack: true });
     }
     // The version asked about left the list since the dialog opened (review L8).

@@ -4,6 +4,7 @@ import {
   MAX_OPS,
   maxBossesAt,
   maxOverrideProblem,
+  maxRowsIn,
   parseMaxBossFeed,
   type MaxBoss,
 } from '../domain/pogo/max-bosses.js';
@@ -32,32 +33,38 @@ export interface MaxBossOptions extends BossFeedOptions<MaxTier> {
   /** Address of Pokebattler's raid list (`settings.maxBattles.url`). */
   url: string;
   store: MaxBossStore;
-  /** The zone of `settings.timezone`, in which an upcoming boss's day is read. */
+  /**
+   * The instance's default zone (`instanceZone`), in which the stored list's upcoming bosses'
+   * days are read; a server's list places them in its own (`bosses(zone)`, `maxRowsIn`).
+   */
   zone: string;
 }
 
-/** What handlers need of the max bosses (plan 8X-2; `/max`, plan 8X-3). */
+/**
+ * What handlers need of the max bosses (plan 8X-2; `/max`, plan 8X-3), in a server's zone (plan
+ * 19A-2: an upcoming boss from the start of its day there, `maxRowsIn`).
+ */
 export interface MaxBossProvider {
   /**
    * The max bosses in effect now: the feed's list whose start has come, with the moderators'
    * max overrides applied, from D1 to G, then by name.
    */
-  bosses(): readonly Readonly<MaxBoss>[];
+  bosses(zone: string): readonly Readonly<MaxBoss>[];
   /**
    * The feed's upcoming bosses, whose start has not come, with the overrides that hide one or set
    * its shiny flag: offered only while a max event that names them is on (`maxBossChoices`).
    */
-  coming(): MaxBoss[];
+  coming(zone: string): MaxBoss[];
   /** The bosses (key and tier) that the hide overrides in force take off the list. */
   hidden(): { key: string; tier: MaxTier }[];
   /**
    * The feed as stored, with when each boss was first a boss (`firstSeen`): an upcoming boss is
    * left out of `/max`'s list once its event is over (`withoutEndedUpcoming`, plan 8X-3).
    */
-  feedBosses(): readonly StoredBoss<MaxTier>[];
+  feedBosses(zone: string): readonly StoredBoss<MaxTier>[];
 }
 
-/** What staff need of the max boss list beyond what handlers read (`/admin boss`). */
+/** What staff need of the max boss list beyond what handlers read (`/operator boss`). */
 export type MaxBossAdmin = BossAdmin<MaxTier>;
 
 /**
@@ -68,7 +75,8 @@ export type MaxBossAdmin = BossAdmin<MaxTier>;
  * a featured event's hours a Gigantamax boss it names that the feed does not list; an upcoming
  * boss whose event is over is left out (`withoutEndedUpcoming`). During a big event's hours
  * (`bigEventAt`: Wild Area, GO Tour, GO Fest; Matt, 2026-10-21, Q-A) the Gigantamax bosses come
- * first, ahead of the featured Dynamax ones, each part in its order. `zone` is `settings.timezone`.
+ * first, ahead of the featured Dynamax ones, each part in its order. `zone` is the server's
+ * (plan 19A-2): its lists and its week.
  */
 export function currentMaxBossChoices(
   deps: {
@@ -80,12 +88,12 @@ export function currentMaxBossChoices(
   },
   now: number,
 ): MaxBossChoice[] {
-  const events = deps.maxEvents.maxEvents();
+  const events = deps.maxEvents.maxEvents(deps.zone);
   const exact = (text: string) => deps.pokemon.exact(text);
   const choices = maxBossChoices(
     withoutEndedUpcoming(
-      deps.maxBosses.bosses(),
-      deps.maxBosses.feedBosses(),
+      deps.maxBosses.bosses(deps.zone),
+      deps.maxBosses.feedBosses(deps.zone),
       events,
       exact,
       now,
@@ -94,13 +102,13 @@ export function currentMaxBossChoices(
     featuredAt(events, now, deps.zone),
     exact,
     {
-      coming: deps.maxBosses.coming(),
+      coming: deps.maxBosses.coming(deps.zone),
       time: now,
       catalogue: deps.gameData.catalogue,
       hidden: deps.maxBosses.hidden(),
     },
   );
-  if (!bigEventAt(deps.maxEvents.bigEvents(), now)) return choices;
+  if (!bigEventAt(deps.maxEvents.bigEvents(deps.zone), now)) return choices;
   const gigantamax = (choice: MaxBossChoice): boolean => choice.boss.tier === 'G';
   return [...choices.filter(gigantamax), ...choices.filter((choice) => !gigantamax(choice))];
 }
@@ -125,6 +133,7 @@ export class MaxBossService extends BossFeedService<MaxTier> implements MaxBossP
         parseMaxBossFeed(json, catalogue, { now, zone: options.zone }),
       effective: maxBossesAt,
       overrideProblem: maxOverrideProblem,
+      inZone: maxRowsIn,
     };
     super(options, family);
     this.gameData = options.gameData;
@@ -137,9 +146,9 @@ export class MaxBossService extends BossFeedService<MaxTier> implements MaxBossP
     );
   }
 
-  coming(): MaxBoss[] {
+  coming(zone?: string): MaxBoss[] {
     return comingMaxBosses(
-      this.feedBosses(),
+      this.feedBosses(zone),
       this.overrides(),
       this.gameData.catalogue,
       this.now(),

@@ -21,7 +21,9 @@ export interface LegacyCleanupOptions {
   rest: () => DiscordDelete | undefined;
   /** The bot's own user id, once connected. */
   botId: () => string | undefined;
-  /** The names of the channels the settings name (`settings.channels`): never listed. */
+  /** The channels of a server's settings (plan 19A-1: by id): never listed. */
+  settingsChannelIds: (guildId: string) => readonly string[];
+  /** The names the settings file gives its channels (`channelNamesOf`): never listed either. */
   settingsChannelNames: readonly string[];
   /** The legacy `parties` folder (`LEGACY_PARTIES_DIR`, mounted read-only), if there is one. */
   partiesDir: string | undefined;
@@ -79,6 +81,7 @@ export class LegacyCleanup {
       regionForumIds: regions.flatMap((one) =>
         one.forumChannelId === null ? [] : [one.forumChannelId],
       ),
+      settingsChannelIds: this.options.settingsChannelIds(guildId),
       settingsChannelNames: this.options.settingsChannelNames,
       legacyParties: parties,
     });

@@ -105,7 +105,7 @@ export async function changeRaidTime(
   now: number = Date.now(),
   post?: PostNamer,
 ): Promise<RaidChangeAnswer> {
-  const typed = typedPartyTime(ctx, party, parameter, text, now);
+  const typed = typedPartyTime(ctx, party, parameter, text, now, ctx.partyService.zoneOf(party));
   if (typed === 'unset') {
     throw new UserError('A raid keeps its times once it has them. Give the right time instead.');
   }
@@ -133,7 +133,12 @@ export async function changeRaidBoss(
   text: string,
   post?: PostNamer,
 ): Promise<RaidChangeAnswer> {
-  const reported = reportedBoss(ctx, text);
+  const reported = reportedBoss(
+    ctx,
+    ctx.partyService.serverOf(party),
+    text,
+    ctx.partyService.zoneOf(party),
+  );
   const outcome = await ctx.raids.setBoss(party.id, member, reported);
   return raidChangeAnswer(
     ctx.attendance.limits(),

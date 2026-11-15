@@ -1,6 +1,7 @@
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
 import type { ListedEvent } from '../../domain/time/event-listing.js';
+import { trustedLocals } from '../../domain/time/feed-times.js';
 import type { Logger } from '../../log.js';
 import { inTransaction } from '../transaction.js';
 import type { DB } from '../types.js';
@@ -27,10 +28,15 @@ function inOrder(events: ListedEvent[]): ListedEvent[] {
 
 /** The `ListedEvent` table. */
 export class ListedEventRepository implements ListedEventStorage {
-  /** `log` hears of a row that cannot be read (left out). */
+  /**
+   * `log` hears of a row that cannot be read (left out). `zone`: the instance's default, in which
+   * the moments are written; a wall-clock time that no longer agrees with its moment there is
+   * left out on read (`trustedLocals`; fix round 1, L8).
+   */
   constructor(
     private readonly db: Kysely<DB>,
     private readonly log?: Logger,
+    private readonly zone?: string,
   ) {}
 
   async all(): Promise<ListedEvent[]> {
@@ -42,7 +48,7 @@ export class ListedEventRepository implements ListedEventStorage {
         this.log?.warn({ event: row.eventId }, 'a kept listed event cannot be read; left out');
         continue;
       }
-      events.push({
+      const event: ListedEvent = {
         id: row.eventId,
         name: row.name,
         eventType: row.eventType,
@@ -50,8 +56,11 @@ export class ListedEventRepository implements ListedEventStorage {
         image: row.image,
         start: Number(row.startsAt),
         end: Number(row.endsAt),
+        ...(row.startsLocal === null ? {} : { startLocal: row.startsLocal }),
+        ...(row.endsLocal === null ? {} : { endLocal: row.endsLocal }),
         formerIds,
-      });
+      };
+      events.push(this.zone === undefined ? event : trustedLocals(event, this.zone));
     }
     return inOrder(events);
   }
@@ -82,6 +91,8 @@ export class ListedEventRepository implements ListedEventStorage {
             image: event.image,
             startsAt: String(event.start),
             endsAt: String(event.end),
+            startsLocal: event.startLocal ?? null,
+            endsLocal: event.endLocal ?? null,
             formerIds: event.formerIds.length === 0 ? null : JSON.stringify(event.formerIds),
           })),
         )

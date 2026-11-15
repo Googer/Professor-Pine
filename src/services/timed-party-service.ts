@@ -46,7 +46,11 @@ export interface TimedPartyServiceOptions {
   store: PartyStore;
   gateway: Pick<PartyGateway, 'sendMessage'>;
   /** Told after every stored change, to bring the post and the summary up to date. */
-  posts: { changed(partyId: string): void };
+  posts: {
+    changed(partyId: string): void;
+    /** The zone of a party's server (plan 19A-2): "today" is judged in it when a time is named. */
+    zoneOf(party: Pick<Party, 'guildId'>): string;
+  };
   /** Where the lines go that ping nobody. */
   lines: Pick<PartyLines, 'say'>;
   /** The members' settings: who lets the bot ping them. */
@@ -54,8 +58,6 @@ export interface TimedPartyServiceOptions {
   /** Told when the start of a party has changed and the post was told. */
   notify?: Pick<PartyNotifier, 'startTimeChanged'>;
   log: Logger;
-  /** IANA zone in which "today" is judged when a time is named (`settings.timezone`). */
-  zone: string;
   now?: () => number;
   /**
    * How long after the last change of a party's start the others are told. Default five
@@ -135,9 +137,13 @@ export class TimedPartyService {
     });
   }
 
-  /** A time as a line names it: with its date when it is not today, and how long until then. */
-  private when(time: number): string {
-    return `${clockOrDay(time, this.now(), this.options.zone)} (${timestamp(time, 'R')})`;
+  /**
+   * A time as a line names it: with its date when it is not today (in the party's server's zone),
+   * and how long until then.
+   */
+  private when(time: number, party: Pick<Party, 'guildId'>): string {
+    const zone = this.options.posts.zoneOf(party);
+    return `${clockOrDay(time, this.now(), zone)} (${timestamp(time, 'R')})`;
   }
 
   /**
@@ -242,8 +248,8 @@ export class TimedPartyService {
             : `The end time of this ${word} was removed.`;
         }
         return who
-          ? `${who} set the end of this ${word}: ${this.when(party.endTime)}.`
-          : `The end of this ${word} was set: ${this.when(party.endTime)}.`;
+          ? `${who} set the end of this ${word}: ${this.when(party.endTime, party)}.`
+          : `The end of this ${word} was set: ${this.when(party.endTime, party)}.`;
       },
     );
   }
@@ -325,8 +331,8 @@ export class TimedPartyService {
           ? `${who} removed the start time of this ${word}.`
           : `The start time of this ${word} was removed.`
         : who
-          ? `${who} set the start of this ${word}: ${this.when(start)}.`
-          : `The start of this ${word} was set: ${this.when(start)}.`;
+          ? `${who} set the start of this ${word}: ${this.when(start, party)}.`
+          : `The start of this ${word} was set: ${this.when(start, party)}.`;
     const others = membersWhere(
       party,
       (attendee, id) => id !== by.id && attendee.status !== PartyStatus.Complete,

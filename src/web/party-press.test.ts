@@ -27,10 +27,10 @@ import { PartyStatus } from '../domain/party/status.js';
 import type { PressAnswer } from '../domain/web/party-data.js';
 import { PARTY_KIND } from '../render/party-controls.js';
 import type { PartyWebDeps } from './party-routes.js';
-import type { WebSettings } from './server.js';
 import { PRESS_SHOWN_MS } from './post-drawn.js';
 import { textOf } from '../../test/support/messages.js';
 import { postMessage } from '../render/party-post.js';
+import { TestServers, withMapRole, TEST_MAP_ROLE } from '../../test/support/server-values.js';
 
 const press = (partyId: string, action: string) =>
   `/s/${FAKE_GUILD_ID}/api/parties/${partyId}/${action}`;
@@ -45,14 +45,14 @@ async function onTheMap<M extends Awaited<ReturnType<typeof partyServiceWith>>>(
   made: M,
   throttles = new Throttles(),
   changed: Partial<PartyWebDeps> = {},
-  settings: Partial<WebSettings> = {},
+  serverSettings: TestServers = new TestServers(),
 ) {
   const members = new FakeMemberDirectory().add(ALICE, 'Alice').add(BOB, 'Bob');
   const acting = new FakeActingMembers().add(ALICE, 'Alice', 'mystic').add(BOB, 'Bob');
   const web = webServerWith({
     members,
     parties: { ...partyWebWith(made, { acting, throttles }), ...changed },
-    web: settings,
+    serverSettings,
   });
   web.clock.now = PARTY_NOW;
   const headers = await web.posting(ALICE, 'Alice');
@@ -492,11 +492,11 @@ describe('pressing the buttons of a party on the map', () => {
     for (let n = 0; n < ACTION_THROTTLE.uses - 1; n++) {
       throttles.use(controlThrottleKey(PARTY_KIND), ALICE, ACTION_THROTTLE, PARTY_NOW);
     }
-    const map = await onTheMap(await reportedRaid(), throttles, {}, { memberRole: 'Verified' });
+    const map = await onTheMap(await reportedRaid(), throttles, {}, withMapRole());
     web = map.web;
     const url = press(map.made.party.id, 'join');
-    const unverified = { roleNames: ['Trainer'], administrator: false };
-    const verified = { roleNames: ['Verified'], administrator: false };
+    const unverified = { roleNames: ['Trainer'], roleIds: [], administrator: false };
+    const verified = { roleNames: ['Verified'], roleIds: [TEST_MAP_ROLE], administrator: false };
     // The directory says Alice lacks the role: refused before Discord is asked afresh.
     map.members.standing(ALICE, unverified);
     expect(await map.post(url)).toMatchObject({ status: 403, json: { error: 'Not allowed.' } });
@@ -508,7 +508,7 @@ describe('pressing the buttons of a party on the map', () => {
     expect(map.acting.asked).toEqual([`${FAKE_GUILD_ID}:${ALICE}`]);
     expect(map.made.current().attendees[ALICE]).toBeUndefined();
     // An administrator needs no role; neither refusal was counted.
-    map.acting.standing(ALICE, { roleNames: [], administrator: true });
+    map.acting.standing(ALICE, { roleNames: [], roleIds: [], administrator: true });
     expect((await map.post(url)).status).toBe(200);
     expect((await map.post(press(map.made.party.id, 'here'))).status).toBe(429);
   });

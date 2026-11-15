@@ -23,6 +23,7 @@ import { openEditForm } from './edit.js';
 import { eliteLine } from './elite.js';
 import { moveGymTo } from './move.js';
 import { gymViewMessage, LOCATION_OPTION, placeOrRefuse, sayGym, staffPlace } from './shared.js';
+import { serverValuesOf } from '../../discord/server-values.js';
 
 /**
  * The custom-id kind of the buttons of the view of `/gym show` (documented in `custom-id.ts`):
@@ -112,9 +113,10 @@ async function viewedGym(
   id: string,
 ): Promise<Gym> {
   const gymId = Number(id);
-  const gym = Number.isSafeInteger(gymId) ? ctx.gyms.get(gymId) : undefined;
   const { guildId } = await staffPlace(interaction, ctx);
-  if (!gym || !ctx.gymAdmin.mayTouch(gym.id, guildId)) throw new UserError(VIEW_GONE);
+  // The server's gym of that number: another server's is none (plan 19B-2).
+  const gym = Number.isSafeInteger(gymId) ? ctx.gyms.of(guildId).get(gymId) : undefined;
+  if (!gym) throw new UserError(VIEW_GONE);
   return gym;
 }
 
@@ -161,6 +163,7 @@ export const gymViewControls: ComponentHandler = {
           interaction,
           await gymViewMessage(
             ctx,
+            serverValuesOf(interaction, ctx).distanceUnits,
             place,
             gym,
             [eliteLine(isEliteGym(before), eligible, gym)],
@@ -172,7 +175,11 @@ export const gymViewControls: ComponentHandler = {
       case DELETE_ACTION: {
         // The dialog of `/gym delete`, read in time; the view stays.
         const dialog = await readInTime(ctx.log, interaction, async () =>
-          deleteDialog(ctx, await viewedGym(interaction, ctx, id.id)),
+          deleteDialog(
+            ctx,
+            await viewedGym(interaction, ctx, id.id),
+            (await staffPlace(interaction, ctx)).guildId,
+          ),
         );
         await interaction.showModal(dialog);
         return;

@@ -53,6 +53,7 @@ import {
 import {
   gymMapsUrl,
   raidLook,
+  raidNeighborLine,
   raidTags,
   raidTitle,
   renderRaidPost,
@@ -1329,5 +1330,68 @@ describe('the roles of a raid post’s blocks (plan 8M-8A)', () => {
       ['note', expect.stringMatching(/^-# Reported by /u)],
     ]);
     expect(postMessage(post.layout)).toEqual(postMessage(withoutRoles(post.layout)));
+  });
+});
+
+describe('renderRaidPost: neighbors (plan 19E)', () => {
+  const LINK = 'https://discord.com/channels/412345678901234502/900000000000000009';
+  const neighbor = { server: 'Pewter City', link: LINK };
+
+  it('words a neighbor’s raid as its own post does, its time in the reading server’s zone', () => {
+    const theirs = withAttendees(egg, {
+      [ALICE]: { status: PartyStatus.Coming, number: 2 },
+    });
+    // 14:30 in New York is 00:00 the next day in Kolkata: the date is said there.
+    expect(raidNeighborLine(view(theirs), neighbor, 'Asia/Kolkata')).toBe(
+      `- **Pewter City** · Level 5 raid (egg) · hatches <t:${String(at('2026-10-13T14:30') / 1000)}:f> · ` +
+        `Interested (1), Coming (2) · [Its post](<${LINK}>)`,
+    );
+    expect(raidNeighborLine(view(theirs), neighbor, PARTY_ZONE)).toContain(
+      `hatches <t:${String(at('2026-10-13T14:30') / 1000)}:t>`,
+    );
+    const hatched = setBoss(
+      setHatchTime(testRaid(), at('2026-10-13T13:30'), rules, PARTY_NOW),
+      { tier: T5, boss: { key: 'yveltal' } },
+      rules,
+      PARTY_NOW,
+    ).party;
+    expect(raidNeighborLine(view(hatched), neighbor, PARTY_ZONE)).toMatch(
+      /^- \*\*Pewter City\*\* · Level 5 raid against Yveltal ✨ · until <t:\d+:t> · /,
+    );
+  });
+
+  it('shows the neighbors’ lines below who comes, and none in the last showing', () => {
+    const lines = ['- **Pewter City** · Level 5 raid (egg) · nobody yet'];
+    const rendered = renderRaidPost(view(testRaid(), { neighbors: { at: 'gym', lines } }));
+    const texts = textDisplays(rendered.message);
+    const block = texts.indexOf(`**Neighbors at this gym**\n${lines[0]!}`);
+    expect(block).toBeGreaterThan(texts.findIndex((text) => text.includes('Interested (1)')));
+    expect(rendered.brief.lines.join('\n')).not.toContain('Pewter');
+    expectSendable(rendered);
+    const closed = renderRaidPost(
+      view(testRaid(), { neighbors: { at: 'gym', lines }, closed: 'Closed by staff.' }),
+    );
+    expect(textOf(closed.message)).not.toContain('Neighbors');
+  });
+
+  it('fits the neighbors by whole lines in a crowded post, counting the rest (review R6)', () => {
+    const lines = Array.from(
+      { length: 40 },
+      (_, n) =>
+        `- **${'Pewter City '.repeat(8)}${String(n)}** · Level 5 raid against Yveltal · ` +
+        `Interested (1), Coming (2) · [Its post](<${LINK}${String(n)}>)`,
+    );
+    const crowded = withAttendees(egg, trainers(30));
+    const post = renderRaidPost(view(crowded, { neighbors: { at: 'gym', lines } }));
+    expect(layoutTextLength(post.layout)).toBeLessThanOrEqual(TEXT_BUDGET - LEAD_ROOM);
+    const block = textDisplays(post.message).find((text) => text.startsWith('**Neighbors'));
+    const [heading, ...shown] = (block ?? '').split('\n');
+    expect(heading).toBe('**Neighbors at this gym**');
+    const more = /^…and (\d+) more$/.exec(shown.at(-1) ?? '');
+    const whole = shown.slice(0, -1);
+    expect(whole.length).toBeGreaterThan(0);
+    // Every line shown is whole, never cut inside its markup, and the rest are counted.
+    expect(whole).toEqual(lines.slice(0, whole.length));
+    expect(whole.length + Number(more?.[1])).toBe(lines.length);
   });
 });

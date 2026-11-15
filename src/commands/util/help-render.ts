@@ -8,7 +8,7 @@ import {
   type APISelectMenuOption,
   type APIStringSelectComponent,
 } from 'discord.js';
-import type { Settings } from '../../config/settings.js';
+import { instanceZone, type Settings } from '../../config/settings.js';
 import { dateExample } from '../../domain/time/clock-input.js';
 import {
   DATE_EXAMPLE,
@@ -354,7 +354,7 @@ const EXAMPLES_ROOM = 700;
 
 /** Where a command's page leads besides "All groups". */
 interface HelpPageControls {
-  /** The page's path: `raid`, `admin boss`, `route add`. */
+  /** The page's path: `raid`, `operator boss`, `route add`. */
   path: string;
   /** The label of "◀": a group's label, or `/admin`. */
   back: string;
@@ -372,7 +372,7 @@ function helpPage(
   facts: HelpFacts = {},
 ): V2Message {
   // `DATE_EXAMPLE` is the date three days from today, in the examples and in what it says.
-  const date = dateExample(Date.now(), settings.timezone);
+  const date = dateExample(Date.now(), facts.zone ?? instanceZone(settings));
   const said = typeof help?.details === 'function' ? help.details(settings, facts) : help?.details;
   const details = said?.replaceAll(DATE_EXAMPLE, date);
   const usageText = `**Usage**\n${fitLines(usage, USAGE_ROOM)}`;
@@ -417,7 +417,7 @@ function helpPage(
 
 /**
  * Help for a command: what it does, a usage line per subcommand, and one per group of
- * subcommands (`/admin boss …` with what the group is for), with a menu of those groups; its
+ * subcommands (`/operator boss …` with what the group is for), with a menu of those groups; its
  * examples; "◀" to its group of commands and "All groups".
  */
 export function renderCommandHelp(
@@ -524,7 +524,7 @@ export function renderSubcommandHelp(
         command.subcommands?.get(path)?.help,
         [usageLine(name, childrenOf(sub))],
         settings,
-        // A subcommand of a group leads back to its group: `/admin boss add` to `/admin boss`.
+        // A subcommand of a group leads back to its group: `/operator boss add` to `/operator boss`.
         parent === null ? controls : { path: name, back: `/${json.name} ${parent}` },
         facts,
       );

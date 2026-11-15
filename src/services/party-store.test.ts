@@ -10,6 +10,8 @@ import {
   PARTY_NOW,
   partyStoreWith,
   REPORTER,
+  TEST_SPOT,
+  testMax,
   testMeetup,
   testRaid,
   testRaidRules,
@@ -22,7 +24,7 @@ import {
   leaveParty,
   setAttendance,
 } from '../domain/party/attendance.js';
-import { endParty } from '../domain/party/party.js';
+import { endParty, isMax, isRaid } from '../domain/party/party.js';
 import type { Party, RaidParty } from '../domain/party/party.js';
 import { setEndTime } from '../domain/party/raid.js';
 import { PartyStatus } from '../domain/party/status.js';
@@ -41,6 +43,33 @@ describe('PartyStore', () => {
     const store = new PartyStore({ storage: new MemoryPartyStorage(), log });
     expect(() => store.get(ID(1))).toThrow('Parties have not been loaded yet');
     expect(() => store.active()).toThrow('Parties have not been loaded yet');
+  });
+
+  it('forgets the parties of a deleted server’s row, without a write or a word (plan 19C-3)', async () => {
+    const theirs = testRaid({ id: ID(1) });
+    const ours = { ...testRaid({ id: ID(2), regionId: 2, gymId: 7 }), guildId: 2 };
+    const { store } = await partyStoreWith([theirs, ours]);
+    const heard: string[] = [];
+    store.onChange((_before, after) => heard.push(after.id));
+    expect(store.forgetServer(theirs.guildId)).toBe(1);
+    expect(store.active().map((party) => party.id)).toEqual([ID(2)]);
+    expect(store.get(ID(1))).toBeUndefined();
+    expect(heard).toEqual([]);
+    expect(store.forgetServer(theirs.guildId)).toBe(0);
+  });
+
+  it('forgets a deleted server’s gyms and Power Spots with its parties (final review R6-1)', async () => {
+    const raid = testRaid({ id: ID(1) });
+    const max = testMax({ id: ID(2), now: PARTY_NOW + MINUTE });
+    const ours = { ...testRaid({ id: ID(3), regionId: 2, gymId: 7 }), guildId: 2 };
+    const { store } = await partyStoreWith([raid, max, ours]);
+    expect(store.placesIndexed).toBe(3);
+    expect(store.forgetServer(raid.guildId)).toBe(2);
+    expect(store.raidAt(1, 1, PARTY_NOW)).toBeUndefined();
+    expect(store.maxAt(1, TEST_SPOT, PARTY_NOW)).toBeUndefined();
+    expect(store.raidAt(2, 7, PARTY_NOW)?.id).toBe(ID(3));
+    // Only the other server's gym is left in the index.
+    expect(store.placesIndexed).toBe(1);
   });
 
   it('loads the active parties and finds them by id, post, region and gym', async () => {
@@ -268,6 +297,37 @@ describe('PartyStore', () => {
     expect(store.get(raid.id)).toBe(raid);
     storage.failing = undefined;
     await expect(store.update(raid.id, join(ALICE))).resolves.toMatchObject({ ok: true });
+  });
+
+  it('finds the party at a gym or Power Spot by its index, following every write (review R3)', async () => {
+    const raid = testRaid({ id: ID(1) });
+    const other = testRaid({ id: ID(2), guildId: 2, now: PARTY_NOW + MINUTE });
+    const { store, storage } = await partyStoreWith([raid, other]);
+    const active = vi.spyOn(store, 'active');
+    expect(store.raidAt(1, 1, PARTY_NOW)?.id).toBe(ID(1));
+    expect(store.raidAt(2, 1, PARTY_NOW)?.id).toBe(ID(2));
+    // Moved to another gym.
+    await store.update(ID(1), (party) => (isRaid(party) ? { party: { ...party, gymId: 2 } } : {}));
+    expect(store.raidAt(1, 1, PARTY_NOW)).toBeUndefined();
+    expect(store.raidAt(1, 2, PARTY_NOW)?.id).toBe(ID(1));
+    // A max battle added at a Power Spot, then moved to another.
+    const max = testMax({ id: ID(3) });
+    await store.add(max);
+    expect(store.maxAt(1, TEST_SPOT, PARTY_NOW)?.id).toBe(ID(3));
+    const elsewhere = { ...TEST_SPOT, id: 'beef0000beef0000beef0000beef0000.16' };
+    await store.update(ID(3), (party) =>
+      isMax(party) ? { party: { ...party, max: { ...party.max, spot: elsewhere } } } : {},
+    );
+    expect(store.maxAt(1, TEST_SPOT, PARTY_NOW)).toBeUndefined();
+    expect(store.maxAt(1, elsewhere, PARTY_NOW)?.id).toBe(ID(3));
+    expect(store.maxAt(2, elsewhere, PARTY_NOW)).toBeUndefined();
+    // Ended, and a row gone from the database: out of the index.
+    await store.update(ID(3), (party) => ({ party: endParty(party) }));
+    expect(store.maxAt(1, elsewhere, PARTY_NOW)).toBeUndefined();
+    storage.rows.delete(ID(1));
+    await expect(store.update(ID(1), join(ALICE))).rejects.toThrow('no longer in the database');
+    expect(store.raidAt(1, 2, PARTY_NOW)).toBeUndefined();
+    expect(active).not.toHaveBeenCalled();
   });
 
   it('drops a party whose row has vanished', async () => {

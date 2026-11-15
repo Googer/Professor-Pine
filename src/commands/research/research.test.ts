@@ -1,6 +1,7 @@
 import { metresBetween } from '@pine/wayspot-core/distance';
 import { ApplicationCommandOptionType, PermissionFlagsBits } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
+import { PARTY_ZONE } from '../../../test/support/parties.js';
 import { answerOf, buttonId, buttonsOf, said } from '../../../test/support/gym-commands.js';
 import {
   fakeAutocomplete,
@@ -60,6 +61,7 @@ import {
   researchControls,
 } from './research.js';
 import { zonedAt } from '../../../test/support/time.js';
+import { changeServers, testServerValues } from '../../../test/support/server-values.js';
 
 const ASH = '200000000000000061';
 const MISTY = '200000000000000062';
@@ -88,7 +90,7 @@ async function setup(rows: readonly WayspotRow[] = STOPS) {
       rewardHash: fixtureRewardHash,
       store,
       events: ctx.raidEvents,
-      zone: ctx.config.settings.timezone,
+      zoneOf: (serverId) => ctx.servers.zoneOf(serverId),
       log: ctx.log,
     }),
     partyService: {
@@ -373,12 +375,7 @@ describe('/research report: nearby stops first (Matt, 2026-10-27)', () => {
 
   it('says the distances in the settings’ units, feet where they are imperial', async () => {
     const made = await setup();
-    Object.assign(made.ctx, {
-      config: {
-        ...made.ctx.config,
-        settings: { ...made.ctx.config.settings, distanceUnits: 'imperial' },
-      },
-    });
+    changeServers(made.ctx, { distanceUnits: 'imperial' });
     const names = (await offered(made, 'stop2', '', { stop: stop(1) })).map((one) => one.name);
     const imperial = (a: number, b: number): string =>
       distanceWords(metresBetween(STOPS[a - 1]!, STOPS[b - 1]!), 'imperial');
@@ -572,7 +569,7 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
   it('reads the version a choice, a key or a text with its reward names (R2)', () => {
     const { ctx } = createTestContext();
     const subject = (task: string, reward: string | null = null) =>
-      readTask(ctx, task, reward).subjectKey;
+      readTask(ctx, null, task, reward, PARTY_ZONE).subjectKey;
     expect(subject(GIBLE)).toBe(GIBLE);
     expect(subject(THROWS.key, 'gible')).toBe(GIBLE);
     expect(subject('make 3 excellent throws in a row', 'Gible')).toBe(GIBLE);
@@ -882,7 +879,7 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
       await stopReports.reportResearch({
         serverId: FAKE_GUILD_ID,
         stops: there,
-        subject: readTask(made.ctx, GIBLE, null),
+        subject: readTask(made.ctx, null, GIBLE, null, PARTY_ZONE),
         reporter: { id: MISTY, name: 'Misty' },
       });
       return [];
@@ -1082,7 +1079,9 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
 
   it('explains versions, "one of", the question and "Already reported" in its help (review W3)', () => {
     const { ctx } = createTestContext();
-    const message = renderSubcommandHelp(research, 'report', ctx.config.settings);
+    const message = renderSubcommandHelp(research, 'report', ctx.config.settings, {
+      server: testServerValues(),
+    });
     if (!message) throw new Error('no help');
     expectV2Sendable(message);
     const [details = ''] = textDisplays(message);
@@ -1099,9 +1098,8 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
     expect(details).toContain(
       `the stops within ${distanceWords(2_000, 'metric')} of them, nearest first`,
     );
-    const imperial = renderSubcommandHelp(research, 'report', {
-      ...ctx.config.settings,
-      distanceUnits: 'imperial',
+    const imperial = renderSubcommandHelp(research, 'report', ctx.config.settings, {
+      server: testServerValues({ distanceUnits: 'imperial' }),
     });
     expect(textDisplays(imperial)[0]).toContain(
       `the stops within ${distanceWords(2_000, 'imperial')} of them, nearest first`,
@@ -1156,11 +1154,11 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
     Object.assign(ctx, {
       researchTasks: researchTasksFixture([{ ...task, endsAt: Date.now() + 60_000 }]),
     });
-    expect(() => readTask(ctx, task.text, null)).toThrow(PICK_THE_REWARD);
+    expect(() => readTask(ctx, null, task.text, null, PARTY_ZONE)).toThrow(PICK_THE_REWARD);
     Object.assign(ctx, {
       researchTasks: researchTasksFixture([{ ...task, endsAt: Date.now() - 1 }]),
     });
-    const typed = readTask(ctx, task.text, null);
+    const typed = readTask(ctx, null, task.text, null, PARTY_ZONE);
     expect(typed.research).toMatchObject({ text: task.text, typed: true });
     expect(typed.subjectKey).toMatch(/^typed:/);
   });
@@ -1197,8 +1195,39 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
       rewards: [pikachu('pm25.fPXP_2026.icon.png'), pikachu('pm25.icon.png')],
     };
     Object.assign(ctx, { researchTasks: researchTasksFixture([candies, electric]) });
-    expect(() => readTask(ctx, candies.key, 'rare candy')).toThrow(PICK_THE_REWARD);
+    expect(() => readTask(ctx, null, candies.key, 'rare candy', PARTY_ZONE)).toThrow(
+      PICK_THE_REWARD,
+    );
     const plain = ctx.researchTasks.versions(electric).find((one) => !one.costumed);
-    expect(readTask(ctx, electric.key, 'pikachu').subjectKey).toBe(plain?.value);
+    expect(readTask(ctx, null, electric.key, 'pikachu', PARTY_ZONE).subjectKey).toBe(plain?.value);
+  });
+});
+
+describe('/research report after a change of the server’s zone (fix round 2, P4)', () => {
+  it('reports, shows and offers a stop whose report of that date was made on the old clock', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const made = await setup();
+      // 00:30 on the 22nd in Berlin (18:30 on the 21st in New York): Misty reports at Little
+      // Bench, a report of Berlin's 22nd, standing until Berlin's midnight.
+      changeServers(made.ctx, { timezone: 'Europe/Berlin' });
+      vi.setSystemTime(zonedAt('2026-11-22T00:30', 'Europe/Berlin'));
+      await made.report({ task: DRAGON.key, stop: stop(3) }, made.as(MISTY));
+      // The server moves to New York; at 00:30 on its own 22nd that report is not of the day.
+      changeServers(made.ctx, { timezone: 'America/New_York' });
+      vi.setSystemTime(zonedAt('2026-11-22T00:30', 'America/New_York'));
+      const answer = answerOf(await made.report({ task: DRAGON.key, stop: stop(1) }));
+      const [menu] = selectsOf(asV2(answer));
+      // "Same task at more stops…" offers Little Bench: nothing of the day holds the task there.
+      expect(menu?.options.map((option) => option.label)).toContain('Little Bench');
+      // Reported there, it is stored and shown, not "Already reported".
+      const there = said(answerOf(await made.report({ task: DRAGON.key, stop: stop(3) })));
+      expect(there).toContain('### Field research reported');
+      expect(there).not.toContain('(was:');
+      const shown = await made.ctx.stopReports.at(FAKE_GUILD_ID, wayspotId(3));
+      expect(shown?.reporter).toEqual({ id: ASH, name: 'Ash' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

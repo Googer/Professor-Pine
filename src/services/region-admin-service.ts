@@ -23,7 +23,9 @@ import type { Logger } from '../log.js';
 import type { AdminLock } from './admin-lock.js';
 import type { PartyService } from './party-service.js';
 import type { PartyStore } from './party-store.js';
+import type { GymView } from './gym-directory.js';
 import type { RegionProvider } from './region-directory.js';
+import type { ServerSettingsLookup } from './server-settings.js';
 
 /**
  * The staff member a change of regions is made by: their snowflake (the log and the server's
@@ -39,6 +41,12 @@ export interface RegionStaff {
    * the bot does that for them only then.
    */
   mayManageChannels: boolean;
+  /**
+   * Whether they may remove regions (plan 19C-2): staff as `/admin` counts them
+   * (`isBotManagement`), as `/region remove` asks; absent, no. Who may set the server up without a
+   * staff role adds and edits regions, and removes none.
+   */
+  mayRemoveRegions?: boolean;
 }
 
 /** What an import would do (`planImport`), and whether the bot may create channels at all. */
@@ -66,6 +74,8 @@ export interface ImportedRegion {
   forum: 'had' | 'created' | 'adopted' | 'none';
   forumReason?: string;
   adoptedForum?: string;
+  /** With a forum `created`: the server's forums of its name that no region has (`ForumSetup`). */
+  alsoNamed?: readonly string[];
 }
 
 /**
@@ -165,7 +175,7 @@ export interface RegionLine {
 
 export interface RegionList {
   regions: RegionLine[];
-  /** How many gyms lie in no region of any server: anybody's staff may touch those. */
+  /** How many of the server's gyms lie in none of its regions (plan 19B-2): still its own. */
   unplacedGyms: number;
   /** The forums that parties of this server name and no region has, and that still exist. */
   orphanForums: string[];
@@ -239,10 +249,9 @@ export interface RegionAdminOptions {
   lock: AdminLock;
   storage: RegionAdminStorage & Pick<RegionRepository, 'setForum'>;
   regions: RegionProvider & { load(): Promise<void> };
+  /** The gyms per server (plan 19B-2): a server counts and plans with its own. */
   gyms: {
-    all(): Gym[];
-    inRegion(channelId: string): Gym[];
-    regionsOf(gymId: number): string[];
+    of(guildId: number | undefined): Pick<GymView, 'all' | 'inRegion' | 'regionsOf'>;
     load(): Promise<void>;
   };
   store: Pick<PartyStore, 'active' | 'inRegion' | 'closeRegion' | 'reopenRegion'>;
@@ -259,6 +268,8 @@ export interface RegionAdminOptions {
     | 'deleteChannel'
   >;
   settings: Settings;
+  /** Each server's values: the ending of its regions' forums (plan 19A-1). */
+  servers: ServerSettingsLookup;
   log: Logger;
 }
 
@@ -338,19 +349,19 @@ export class RegionAdminService {
     orphanForums: readonly string[] = [],
     removing: readonly number[] = [],
   ): ImportPreview {
-    const { regions, gyms, store, gateway, settings } = this.options;
+    const { regions, gyms, store, gateway, servers } = this.options;
     const mayCreate = gateway.mayCreateChannels(staff.server);
     const plan = planImport({
       areas,
       channels: this.channelsOf(staff),
       regions: regions.all(),
       guildId: staff.guildId,
-      gyms: gyms.all(),
+      gyms: gyms.of(staff.guildId).all(),
       raids: store.active().map(({ regionId, gymId }) => ({ regionId, gymId })),
       mayCreate,
       staffMayCreate: staff.mayManageChannels,
       orphanForums,
-      forumSuffix: settings.regionForumSuffix,
+      forumSuffix: servers.of(staff.server).regionForumSuffix,
       removing,
       ...(target ? { target } : {}),
     });
@@ -503,8 +514,10 @@ export class RegionAdminService {
       for (const result of results) {
         const region = needForum.find((one) => one.regionId === result.region.id);
         if (!region || region.forum === 'adopted') continue;
-        if (result.forum === 'created') region.forum = 'created';
-        else if (result.reason !== undefined) region.forumReason = result.reason;
+        if (result.forum === 'created') {
+          region.forum = 'created';
+          if (result.alsoNamed !== undefined) region.alsoNamed = result.alsoNamed;
+        } else if (result.reason !== undefined) region.forumReason = result.reason;
       }
     } catch (err) {
       log.error({ err, staff: staff.staffId }, 'could not set up the forums of imported regions');
@@ -644,7 +657,7 @@ export class RegionAdminService {
         newRegion: written.created,
         unchanged: !written.created && one.unchanged,
         channelCreated,
-        gyms: gyms.inRegion(channelId).length,
+        gyms: gyms.of(staff.guildId).inRegion(channelId).length,
         // A forum deleted by hand is none: the region gets a new one.
         forum: this.hasForum(regions.byId(written.regionId)) ? 'had' : 'none',
       };
@@ -773,17 +786,10 @@ export class RegionAdminService {
       : RegionAdminService.state(channels, region.forumChannelId, 'forum');
   }
 
-  /** Whether a gym lies in a region of any server. */
-  private placed(gymId: number): boolean {
-    const { gyms, regions } = this.options;
-    return gyms
-      .regionsOf(gymId)
-      .some((channelId) => (regions.byChannel(channelId)?.guildId ?? null) !== null);
-  }
-
-  /** The gyms of a region that lie in no other region of its server. */
+  /** The gyms of a region's server (plan 19B-2) that lie in it and in no other of its regions. */
   private onlyIn(region: Region): Gym[] {
-    const { gyms, regions } = this.options;
+    const { regions } = this.options;
+    const gyms = this.options.gyms.of(region.guildId ?? undefined);
     return gyms.inRegion(region.channelId).filter(
       (gym) =>
         !gyms.regionsOf(gym.id).some((channelId) => {
@@ -803,7 +809,9 @@ export class RegionAdminService {
 
   /** The regions of the server with what is wrong with each, and what belongs to none. */
   async list(staff: Pick<RegionStaff, 'guildId' | 'server'>): Promise<RegionList> {
-    const { gyms, store, gateway, log } = this.options;
+    const { store, gateway, log } = this.options;
+    // The server's own gyms (plan 19B-2), in its own regions.
+    const gyms = this.options.gyms.of(staff.guildId);
     const channels = gateway.serverChannels(staff.server);
     const lines = this.regionsOf(staff.guildId).map((region): RegionLine => {
       const inside = gyms.inRegion(region.channelId);
@@ -824,7 +832,7 @@ export class RegionAdminService {
     }
     return {
       regions: lines,
-      unplacedGyms: gyms.all().filter((gym) => !this.placed(gym.id)).length,
+      unplacedGyms: gyms.all().filter((gym) => gyms.regionsOf(gym.id).length === 0).length,
       orphanForums,
     };
   }

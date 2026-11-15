@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { missingPermissions } from '../../test/support/fake-gateway.js';
 import { FAKE_GUILD_ID, fakeChatInput, sent } from '../../test/support/fake-interactions.js';
-import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { EAST_CHANNEL, OTHER_GUILD_ID, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { nicknameSearchWith } from '../../test/support/nicknames.js';
+import type { PokemonFinders } from '../services/pokemon-search-service.js';
 import { dmSummary, textDisplays } from '../../test/support/messages.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, BOB, PARTY_NOW } from '../../test/support/parties.js';
@@ -33,6 +35,7 @@ import { meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
 import type { MeetupSafety } from '../services/meetup-safety.js';
 import { UNREACHABLE } from './acting.js';
 import { MAP_PLACE_GONE, MAP_SPAWN_BLOCKED } from './spawn-routes.js';
+import { THEIR_GYM, twoServerGyms, type TestGyms } from '../../test/support/providers.js';
 
 const SPAWNS = `/s/${FAKE_GUILD_ID}/api/spawns`;
 const OPTIONS = `/s/${FAKE_GUILD_ID}/api/wild-options`;
@@ -61,14 +64,20 @@ async function reporting(
     wayspots?: WayspotDirectory;
     /** The places' pictures the map serves; none without it. */
     places?: PartyWebDeps['places'];
+    /** The gyms (`twoServerGyms`); the invented ones, the test server's, without it. */
+    gyms?: TestGyms;
+    /** Each server's Pokémon search (`nicknameSearchWith`); the instance's names without it. */
+    pokemon?: PokemonFinders;
   } = {},
 ) {
   const throttles = options.throttles ?? new Throttles();
-  const made = await partyServiceWith();
+  const made = await partyServiceWith([], options.gyms ? { gyms: options.gyms } : {});
   const base = createTestContext({}).ctx.config;
   const { ctx } = createTestContext({
     ...(options.meetupSafety ? { meetupSafety: options.meetupSafety } : {}),
     ...(options.wayspots ? { wayspots: options.wayspots } : {}),
+    ...(options.gyms ? { gyms: options.gyms } : {}),
+    ...(options.pokemon ? { pokemon: options.pokemon } : {}),
     partyService: made.service,
     parties: made.store,
     regions: made.regions,
@@ -185,6 +194,25 @@ describe('reporting a wild Pokémon on the map', () => {
         'Dratini · Spawns',
       ],
     ]);
+  });
+
+  // Plan 19B-4: the Pokémon is read with the nicknames of the server of the route.
+  it('reads the Pokémon with the nicknames of the server the map is of', async () => {
+    const { search } = await nicknameSearchWith(
+      { dratini: ['wiggly'] },
+      { [OTHER_GUILD_ID]: { magikarp: ['wiggly'], dragonite: ['big noodle'] } },
+    );
+    const map = await reporting({ pokemon: search });
+    web = map.web;
+    const ours = await map.report({ pokemon: 'wiggly', details: 'by the bench', ...IN_WEST });
+    expect(ours.json).toMatchObject({
+      ok: true,
+      text: expect.stringMatching(/^Reported: a wild Dratini/) as unknown,
+    });
+    // Another server's nickname finds nothing here.
+    const theirs = await map.report({ pokemon: 'big noodle', details: 'by the bench', ...IN_WEST });
+    expect(theirs).toMatchObject({ status: 422, json: { ok: false } });
+    expect(map.reports()).toHaveLength(1);
   });
 
   it('gives the use back when the report fails for no fault of the member, as /wild does', async () => {
@@ -334,6 +362,20 @@ describe('reporting a wild Pokémon on the map', () => {
         status: 422,
         json: { ok: false, text: 'That place is not in a region of this server.' },
       });
+      expect(map.reports()).toEqual([]);
+      expect(throttles.size).toBe(0);
+    });
+
+    it('refuses a gym of another server as gone, though it lies in a region of this one (plan 19B-2)', async () => {
+      const throttles = new Throttles();
+      const map = await placed({ throttles, gyms: twoServerGyms().gyms });
+      web = map.web;
+      const answer = await map.report({
+        pokemon: 'dratini',
+        details: 'here',
+        place: { kind: 'gym', id: String(THEIR_GYM) },
+      });
+      expect(answer).toMatchObject({ status: 422, json: { ok: false, text: MAP_PLACE_GONE } });
       expect(map.reports()).toEqual([]);
       expect(throttles.size).toBe(0);
     });
@@ -556,7 +598,7 @@ describe('reporting a wild Pokémon on the map', () => {
     web = map.web;
     // Discord shows an administrator (and the server's owner) every channel, whatever its
     // overwrites say.
-    map.acting.standing(ALICE, { roleNames: [], administrator: true });
+    map.acting.standing(ALICE, { roleNames: [], roleIds: [], administrator: true });
     map.made.gateway.addChannel(WEST_CHANNEL, 'west');
     map.made.gateway.barred.set(WEST_CHANNEL, new Set([ALICE]));
     map.made.gateway.failing.set('memberAccess', new Error('not asked of an administrator'));
@@ -905,8 +947,8 @@ describe('the wild spawns on the map', () => {
     expect(await seen(ALICE, 'Alice')).toBe(0);
     expect(await seen(BOB, 'Bob')).toBe(1);
     // An administrator sees it and reports there, whatever the overwrites say.
-    map.acting.standing(ALICE, { roleNames: [], administrator: true });
-    map.members.standing(ALICE, { roleNames: [], administrator: true });
+    map.acting.standing(ALICE, { roleNames: [], roleIds: [], administrator: true });
+    map.members.standing(ALICE, { roleNames: [], roleIds: [], administrator: true });
     // What the directory said of a member is used for a minute.
     map.web.clock.now += 60_000;
     expect(await seen(ALICE, 'Alice')).toBe(1);

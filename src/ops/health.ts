@@ -29,8 +29,22 @@ const healthStatusSchema = z.object({
    * `running`: a start may take as long as a takeover's migrations take.
    */
   phase: z.enum(['starting', 'running']),
-  /** Whether the client is connected to Discord's gateway, and since when it is or is not. */
-  gateway: z.object({ connected: z.boolean(), since: z.number() }),
+  /**
+   * Whether the client is connected to Discord's gateway, and since when it is or is not; from the
+   * login on, how many of its shards are up (plan 19D; `gatewayHealth`).
+   */
+  gateway: z.object({
+    connected: z.boolean(),
+    since: z.number(),
+    shards: z
+      .object({
+        up: z.number(),
+        total: z.number(),
+        /** How many are away past their grace, where any is (fix round 1, F4). */
+        late: z.number().optional(),
+      })
+      .optional(),
+  }),
   /** Whether the database answered the last check. */
   database: z.object({
     reachable: z.boolean(),
@@ -179,16 +193,23 @@ function verdictOf(
     };
   }
   const away = now - gateway.since;
+  // How many shards are up, said only where there are several (plan 19D).
+  const { shards } = gateway;
+  const several = shards !== undefined && shards.total > 1;
+  const count = several ? ` (${shards.up} of ${shards.total} shards up)` : '';
   if (!gateway.connected && away > limits.gatewayGraceMs) {
     return {
       healthy: false,
       kind: 'gateway',
-      reason: `not connected to Discord for ${span(away)}`,
+      reason:
+        several && shards.up > 0
+          ? `${(shards.late ?? 1) > 1 ? `${shards.late} shards` : 'a shard'} away from Discord for ${span(away)}${count}`
+          : `not connected to Discord for ${span(away)}${count}`,
     };
   }
   const discord = gateway.connected
-    ? `connected to Discord for ${span(away)}`
-    : `connecting to Discord for ${span(away)}`;
+    ? `connected to Discord for ${span(away)}${count}`
+    : `connecting to Discord for ${span(away)}${count}`;
   return {
     healthy: true,
     kind: 'healthy',

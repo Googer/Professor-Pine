@@ -117,6 +117,51 @@ describe('OcrService', () => {
     expect(ocr.full()).toBe(false);
   });
 
+  it('takes turns between servers, and lets each have so many waiting at most (plan 19B-5)', async () => {
+    const HOME = '412345678901234567';
+    const AWAY = '412345678901234568';
+    const { ocr } = service({ queue: 10, queuePerServer: 2 });
+    const order: string[] = [];
+    const read = (text: string, server: string) =>
+      ocr.read(bytes(text), { server }).then((outcome) => {
+        order.push(String(gymOf(outcome)));
+        return outcome;
+      });
+    // The first is read at once; two more of Home wait, and that is all Home may have waiting.
+    const home = [read('h0', HOME), read('h1', HOME), read('h2', HOME)];
+    expect(ocr.full(HOME)).toBe(true);
+    expect(ocr.full(AWAY)).toBe(false);
+    expect(await ocr.read(bytes('h3'), { server: HOME })).toEqual({ kind: 'busy' });
+    // Away's screenshot comes last and is read before Home's second waiting one.
+    const away = read('a1', AWAY);
+    await Promise.all([...home, away]);
+    expect(order).toEqual(['h0', 'h1', 'a1', 'h2']);
+  });
+
+  it('lets one server have the whole queue waiting when no share of a server is set', async () => {
+    const HOME = '412345678901234567';
+    const { ocr } = service({ queue: 3 });
+    const reads = ['h0', 'h1', 'h2', 'h3'].map((text) => ocr.read(bytes(text), { server: HOME }));
+    expect(ocr.full(HOME)).toBe(true);
+    expect(await ocr.read(bytes('h4'), { server: HOME })).toEqual({ kind: 'busy' });
+    expect((await Promise.all(reads)).map(gymOf)).toEqual(['h0', 'h1', 'h2', 'h3']);
+  });
+
+  it('tells a waiting screenshot at most how many are ahead of it, by the turns', async () => {
+    const HOME = '412345678901234567';
+    const AWAY = '412345678901234568';
+    const { ocr } = service({ queue: 10, queuePerServer: 5 });
+    const ahead: number[] = [];
+    const reads = [
+      ocr.read(bytes('h0'), { server: HOME }),
+      ...['h1', 'h2', 'h3'].map((text) => ocr.read(bytes(text), { server: HOME })),
+      ocr.read(bytes('a1'), { server: AWAY, onQueued: (n) => ahead.push(n) }),
+    ];
+    await Promise.all(reads);
+    // The one in hand and Home's next: Away's first turn comes after them.
+    expect(ahead).toEqual([2]);
+  });
+
   it('is not upset by a waiting reader whose callback throws', async () => {
     const { ocr } = service();
     const first = ocr.read(bytes('one'));

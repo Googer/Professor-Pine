@@ -84,7 +84,7 @@ export async function readPanel(interaction: Asking, ctx: AppContext): Promise<P
   if (!interaction.inGuild() || guildId === null) {
     return { settings: await ctx.users.get(memberId) };
   }
-  const notifies = ctx.config.settings.features.notifications;
+  const notifies = ctx.servers.of(guildId).features.notifications;
   // The member's row first: reading it remembers its id, which the reads of the lists need, so
   // that none of them looks it up again (`round-trips.db.test.ts`).
   const settings = await ctx.users.get(memberId);

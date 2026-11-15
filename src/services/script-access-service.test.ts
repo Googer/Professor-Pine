@@ -100,6 +100,7 @@ describe('ScriptAccessService', () => {
     const [job] = dms.jobs;
     expect(dms.recipients).toEqual([OWNER]);
     expect(job).toMatchObject({
+      serverId: null,
       priority: DM_PRIORITY.normal,
       eventAt: ACCESS_NOW,
       expiresAt: ACCESS_NOW + 7 * 86_400_000,

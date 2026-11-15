@@ -5,7 +5,8 @@ import { FakeMemberDirectory } from '../../test/support/members.js';
 import { reportedRaid } from '../../test/support/party-service.js';
 import { at, ALICE, BOB, PARTY_NOW, stops, testTrain } from '../../test/support/parties.js';
 import { gymsFixture } from '../../test/support/providers.js';
-import { raidBossesFixture } from '../../test/support/raid-bosses.js';
+import { raidBossesFixture, type FixtureRaidBosses } from '../../test/support/raid-bosses.js';
+import { TestServers } from '../../test/support/server-values.js';
 import {
   partyWebWith,
   TEST_OWNER_ID,
@@ -43,19 +44,19 @@ async function bothAnswers() {
   const realGyms = gymsFixture();
   const renamed = new Map<number, string>();
   const gyms: typeof realGyms = Object.create(realGyms) as typeof realGyms;
-  const kept = new Map<number, ReturnType<typeof realGyms.get>>();
-  gyms.get = (id) => {
-    const gym = realGyms.get(id);
+  const kept = new Map<number, ReturnType<typeof realGyms.stored>>();
+  gyms.stored = (id) => {
+    const gym = realGyms.stored(id);
     const name = renamed.get(id);
     if (!gym || name === undefined) return gym;
     if (!kept.has(id)) kept.set(id, { ...gym, name, nickname: name });
     return kept.get(id);
   };
-  let bossesNow: RaidBossProvider = raidBossesFixture();
+  let bossesNow: FixtureRaidBosses = raidBossesFixture();
   const raidBosses: RaidBossProvider = {
-    bosses: () => bossesNow.bosses(),
-    bossesOf: (tier) => bossesNow.bossesOf(tier),
-    autoset: (tier) => bossesNow.autoset(tier),
+    bosses: (zone) => bossesNow.bosses(zone),
+    bossesOf: (tier, zone) => bossesNow.bossesOf(tier, zone),
+    autoset: (tier, zone) => bossesNow.autoset(tier, zone),
   };
   const eggPictures = new EggPictures({
     web: { publicUrl: 'https://map.example.test' },
@@ -86,7 +87,7 @@ async function bothAnswers() {
     .add(STAFF, 'Staff')
     .add(BARRED, 'Barred')
     .add(NEWCOMER, 'Newcomer')
-    .standing(STAFF, { roleNames: [], administrator: true });
+    .standing(STAFF, { roleNames: [], roleIds: [], administrator: true });
   const web = webServerWith({ members, parties: partyWebWith(made) });
   const fresh = webServerWith({
     members,
@@ -175,6 +176,7 @@ describe('what a raid’s look reads besides the party', () => {
         eggPictures: recording('eggPictures', new EggPictures({ web: undefined }), reads),
         gyms: recording('gyms', gymsFixture(), reads),
         raidBosses: recording('raidBosses', raidBossesFixture(), reads),
+        servers: recording('servers', new TestServers(), reads),
       },
     );
     reads.clear();

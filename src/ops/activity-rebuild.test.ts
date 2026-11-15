@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RebuiltServer } from '../db/repositories/activity-repository.js';
-import { rebuildStep, USAGE } from './activity-rebuild.js';
+import { rebuildStep, serverZonesFor, USAGE } from './activity-rebuild.js';
 
 /** A rebuild that records what it was asked, answering with `answer`'s servers. */
 function rebuilding(answer: RebuiltServer[] | Error) {
@@ -18,6 +18,35 @@ function rebuilding(answer: RebuiltServer[] | Error) {
 
 const WEST = '412345678901234567';
 const EAST = '412345678901234568';
+
+describe('the zones of the command (fix round 1, N8)', () => {
+  it('reads each server’s zone from its row, the default for a server without one', async () => {
+    const zoneOf = await serverZonesFor({
+      hasServerSettings: () => Promise.resolve(true),
+      servers: () =>
+        Promise.resolve({
+          zoneOf: (serverId: string) => (serverId === WEST ? 'Europe/Berlin' : 'America/New_York'),
+        }),
+      defaultZone: 'America/New_York',
+    });
+    expect(zoneOf(WEST)).toBe('Europe/Berlin');
+    expect(zoneOf(EAST)).toBe('America/New_York');
+  });
+
+  it('gives every server the default on a database without the servers’ settings, reading none', async () => {
+    let read = false;
+    const zoneOf = await serverZonesFor({
+      hasServerSettings: () => Promise.resolve(false),
+      servers: () => {
+        read = true;
+        return Promise.reject(new Error("Table 'pine.ServerSettings' doesn't exist"));
+      },
+      defaultZone: 'America/Chicago',
+    });
+    expect(zoneOf(WEST)).toBe('America/Chicago');
+    expect(read).toBe(false);
+  });
+});
 
 describe('npm run activity:rebuild', () => {
   it('rebuilds every server’s buckets and says each one’s final mark and its records (8H4-7)', async () => {

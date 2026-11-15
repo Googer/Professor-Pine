@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { isForEveryone } from './event-reach.js';
 import { eventName } from './raid-events.js';
-import { feedTime } from './zoned.js';
+import { localsOf } from './feed-times.js';
+import { momentIn, readFeedTime } from './zoned.js';
 
 /*
  * The events whose spawns can be costumed (plan 8R-4; design `2026-10-22-costume-form-wants-
@@ -27,6 +28,10 @@ export interface SpawnEvent {
   eventType: string;
   start: number;
   end: number;
+  /** The start as wall-clock time, where it is one (`FeedTimed`, plan 19A-2). */
+  startLocal?: string;
+  /** The end as wall-clock time, where it is one. */
+  endLocal?: string;
   spawns?: ListedSpawn[];
   page?: string;
 }
@@ -102,9 +107,11 @@ export function parseSpawnEventFeed(json: unknown, zone: string): SpawnEvent[] {
     const { eventID: id, eventType, name, link, start: from, end: to, extraData } = parsed.data;
     if (!SPAWN_EVENT_TYPES.has(eventType) || !isForEveryone(parsed.data)) continue;
     if (typeof from !== 'string' || typeof to !== 'string') continue;
-    const start = feedTime(from, zone)?.epochMilliseconds;
-    const end = feedTime(to, zone)?.epochMilliseconds;
-    if (start === undefined || end === undefined) continue;
+    const fromTime = readFeedTime(from);
+    const toTime = readFeedTime(to);
+    if (fromTime === undefined || toTime === undefined) continue;
+    const start = momentIn(fromTime, zone).epochMilliseconds;
+    const end = momentIn(toTime, zone).epochMilliseconds;
     const length = end - start;
     if (length <= 0 || length > MAX_SPAWN_EVENT_MS) continue;
     const fromFeed = extraData?.communityday?.spawns ?? extraData?.spotlight?.list;
@@ -120,6 +127,7 @@ export function parseSpawnEventFeed(json: unknown, zone: string): SpawnEvent[] {
       eventType,
       start,
       end,
+      ...localsOf(fromTime, toTime),
       ...(spawns && spawns.length > 0 ? { spawns } : {}),
       ...(!(spawns && spawns.length > 0) && hasPage ? { page: link } : {}),
     });

@@ -21,13 +21,14 @@ import { catalogueFixture } from '../../test/support/game-data.js';
 import type { ResearchTask, TaskReward } from '../domain/research/task.js';
 import { taskVersions } from '../domain/research/versions.js';
 import { researchOptions } from './stop-options.js';
+import { TEST_MAP_ROLE, TestServers, withMapRole } from '../../test/support/server-values.js';
 
 const RESEARCH = `/s/${FAKE_GUILD_ID}/api/research-options`;
 const ROCKET = `/s/${FAKE_GUILD_ID}/api/rocket-options`;
 const HOUR = 3_600_000;
 
 async function setup(
-  settings: { memberRole?: string } = {},
+  serverSettings: TestServers = new TestServers(),
   pictures?: { url(source: string): string | undefined },
 ) {
   const made = await stopReportingWith();
@@ -37,7 +38,7 @@ async function setup(
     parties: partyWebWith(made.made),
     meetups: meetupWebWith(made.ctx),
     stops: stopWebWith(made.ctx),
-    web: settings,
+    serverSettings,
     ...(pictures === undefined ? {} : { pictures }),
   });
   web.clock.now = STOP_NOON;
@@ -249,7 +250,7 @@ describe('the pick lists of reports at stops', () => {
     // the page may load.
     const square = (source: string) =>
       `https://map.example.test/pictures/${source.length.toString(16).padStart(32, '0')}.png`;
-    const made = await setup({}, { url: square });
+    const made = await setup(new TestServers(), { url: square });
     web = made.web;
     Object.assign(made.ctx, { rocketLineups: rocketLineupsFixture(undefined, STOP_NOON - HOUR) });
     const research = (await made.ask(RESEARCH)).json<ResearchOptionsView>();
@@ -276,13 +277,13 @@ describe('the pick lists of reports at stops', () => {
     for (const url of [RESEARCH, ROCKET]) expect((await made.ask(url)).statusCode).toBe(503);
   });
 
-  it('is for members with the map’s member role, where the settings name one', async () => {
-    const made = await setup({ memberRole: 'Verified' });
+  it('is for members with the map’s member role, where the server sets one', async () => {
+    const made = await setup(withMapRole());
     web = made.web;
     made.members
-      .standing(ALICE, { roleNames: ['Trainer'], administrator: false })
+      .standing(ALICE, { roleNames: ['Trainer'], roleIds: [], administrator: false })
       .add(BOB, 'Bob')
-      .standing(BOB, { roleNames: ['verified'], administrator: false });
+      .standing(BOB, { roleNames: ['verified'], roleIds: [TEST_MAP_ROLE], administrator: false });
     const bob = await made.web.loggedIn(BOB, 'Bob');
     for (const url of [RESEARCH, ROCKET]) {
       expect((await made.ask(url)).statusCode).toBe(403);

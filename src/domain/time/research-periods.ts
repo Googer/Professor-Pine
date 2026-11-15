@@ -1,7 +1,7 @@
 import { localDay, nextLocalMidnight } from './local-day.js';
 import { BIG_EVENT_TYPES } from './max-events.js';
 import type { ResearchEvent } from './research-events.js';
-import { addDays, sameDay, zoned } from './zoned.js';
+import { sameDay, zoned } from './zoned.js';
 
 /*
  * Field research periods (plan 8R-1; design 4.2, 9.2, Matt's answer 6). A PokéStop's task holds
@@ -9,7 +9,8 @@ import { addDays, sameDay, zoned } from './zoned.js';
  * start and end are rotations (what was reported before is gone for good) and inside which the
  * tasks roll over at each local midnight, as on any day (Matt, 2026-10-22); an intra-day event's
  * window, during which the day's reports wait and after which they come back unchanged. Pure:
- * the events are the stored ones, the zone `settings.timezone`.
+ * the events are the stored ones placed in the server's zone (`researchEvents(zone)`), and the
+ * zone is the server's.
  */
 
 /**
@@ -40,7 +41,31 @@ export interface ResearchPeriod {
    * Of a window: the period whose reports wait under it, and when they come back (the window's
    * end); undefined when that period ends with the window, or before.
    */
-  waiting?: { key: string; at: number } | undefined;
+  waiting?: { key: string; at: number; from: number } | undefined;
+}
+
+/** What a report keeps of its period: the key, and when it was made. */
+interface PeriodMark {
+  periodKey: string;
+  madeAt: number;
+}
+
+/**
+ * Whether a report counts for `period` (fix round 1, N4): of its key, and made since it began. A
+ * key is a local date: after a change of the server's zone, a report of that date on the old
+ * clock, made before the period began on the new one, is no report of it.
+ */
+export function inPeriod(
+  report: PeriodMark,
+  period: Pick<ResearchPeriod, 'key' | 'start'>,
+): boolean {
+  return report.periodKey === period.key && report.madeAt >= period.start;
+}
+
+/** Whether a report waits under `period`'s window (`waiting`), by the same rule as `inPeriod`. */
+export function waitsIn(report: PeriodMark, period: Pick<ResearchPeriod, 'waiting'>): boolean {
+  const { waiting } = period;
+  return waiting !== undefined && report.periodKey === waiting.key && report.madeAt >= waiting.from;
 }
 
 /** A window of hours an event's research holds, as a period. */
@@ -77,8 +102,15 @@ function windowsOf(events: readonly ResearchEvent[], zone: string): Window[] {
     } else if (shape === 'daily') {
       const first = zoned(event.start, zone);
       const last = zoned(event.end, zone);
-      const lastDay = last.startOfDay().epochMilliseconds;
-      for (let day = first.startOfDay(); day.epochMilliseconds <= lastDay; day = addDays(day, 1)) {
+      const lastDate = last.toPlainDate();
+      // By calendar day (final review R3-2): where the clocks go forward at midnight a day begins
+      // at 01:00, and a day's start a day on would skip the next day.
+      for (
+        let date = first.toPlainDate();
+        Temporal.PlainDate.compare(date, lastDate) <= 0;
+        date = date.add({ days: 1 })
+      ) {
+        const day = date.toZonedDateTime(zone);
         // To the millisecond (review A6: a Tour's 00:00:00 to 23:59:59).
         const start = day.with({
           hour: first.hour,
@@ -173,7 +205,8 @@ export function periodAt(
     start: window.start,
     end: window.end,
     event: { id: window.event.id, name: window.event.name },
-    waiting: base.end > window.end ? { key: base.key, at: window.end } : undefined,
+    waiting:
+      base.end > window.end ? { key: base.key, at: window.end, from: base.start } : undefined,
   };
 }
 

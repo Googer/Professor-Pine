@@ -9,33 +9,36 @@ import { gymInGuild } from './region-directory.js';
  * What `screenshotReport` needs, from the bot: the bosses in effect, every Pokémon of the game
  * data (a boss the list does not have yet, by its CP), the gym search where the
  * screenshot was posted (names only: what a raid screen shows; this server's gyms only, also
- * outside a region channel), the settings' time zone and durations. `channelId` is the region
- * channel (or null outside one), `guildRow` the server's row (`ctx.guilds.idFor`), `uploadedAt`
+ * outside a region channel), the server's time zone (plan 19A-2: the phone's clock is its
+ * member's) and the settings' durations. `channelId` is the region channel (or null outside one),
+ * `guildId` the server and `guildRow` its row (`ctx.guilds.idFor`), `uploadedAt`
  * the time of the message or interaction that brought the screenshot, `fileName` the name of
  * the screenshot's file (an Android phone names it by the moment it was taken), `readAt` when it
  * is read where that is later than the upload (plan 7M, `ReportContext.now`).
  */
 export function reportContext(
-  ctx: Pick<AppContext, 'raidBosses' | 'gameData' | 'gyms' | 'regions' | 'config'>,
-  where: { channelId: string | null; guildRow: number },
+  ctx: Pick<AppContext, 'raidBosses' | 'gameData' | 'gyms' | 'regions' | 'config' | 'servers'>,
+  where: { channelId: string | null; guildId: string; guildRow: number },
   uploadedAt: number,
   fileName?: string,
   readAt?: number,
 ): ReportContext {
   const { settings } = ctx.config;
-  const fileTakenAt =
-    fileName === undefined ? undefined : takenAtFromFileName(fileName, settings.timezone);
+  const zone = ctx.servers.zoneOf(where.guildId);
+  const fileTakenAt = fileName === undefined ? undefined : takenAtFromFileName(fileName, zone);
   return {
-    bosses: ctx.raidBosses.bosses(),
+    bosses: ctx.raidBosses.bosses(zone),
     pokemon: ctx.gameData.catalogue.all,
+    // The server's gyms in its regions (plan 19B-2): another server's is never read.
     searchGym: (text) =>
       ctx.gyms
+        .of(where.guildRow)
         .search(where.channelId, text, { nameOnly: true })
         .filter((hit) => gymInGuild(ctx.gyms, ctx.regions, hit.gym.id, where.guildRow))
         .slice(0, GYM_HITS),
     uploadedAt,
     ...(readAt === undefined ? {} : { now: readAt }),
-    zone: settings.timezone,
+    zone,
     standardIncubate: settings.standardRaidIncubateDuration,
     standardHatched: settings.standardRaidHatchedDuration,
     maxHatched: settings.maxRaidHatchedDuration,
@@ -54,16 +57,23 @@ export function reportContext(
 export function maxReportContext(
   ctx: Pick<
     AppContext,
-    'maxBosses' | 'raidEvents' | 'wayspots' | 'regions' | 'pokemon' | 'gameData' | 'config'
+    | 'maxBosses'
+    | 'raidEvents'
+    | 'wayspots'
+    | 'regions'
+    | 'pokemon'
+    | 'gameData'
+    | 'config'
+    | 'servers'
   >,
-  where: { channelId: string | null; guildRow: number },
+  where: { channelId: string | null; guildId: string; guildRow: number },
   uploadedAt: number,
   fileName?: string,
 ): MaxReportContext {
   const { settings } = ctx.config;
   const { catalogue } = ctx.gameData;
-  const fileTakenAt =
-    fileName === undefined ? undefined : takenAtFromFileName(fileName, settings.timezone);
+  const zone = ctx.servers.zoneOf(where.guildId);
+  const fileTakenAt = fileName === undefined ? undefined : takenAtFromFileName(fileName, zone);
   const channels = [
     ...(where.channelId === null ? [] : [where.channelId]),
     ...ctx.regions
@@ -71,24 +81,28 @@ export function maxReportContext(
       .filter((region) => region.guildId === where.guildRow)
       .map((region) => region.channelId),
   ];
+  // The server's own Power Spots (plan 19B-3), in its regions.
+  const serverSpots = ctx.wayspots.of(where.guildRow);
   const spots = new Map<string, SpotTitle>();
   for (const channelId of new Set(channels)) {
-    for (const spot of ctx.wayspots.inRegion(channelId)) {
+    for (const spot of serverSpots.inRegion(channelId)) {
       if (spot.kind !== 'powerspot' || spot.title.trim() === '' || spots.has(spot.id)) continue;
       spots.set(spot.id, { id: spot.id, title: spot.title, local: channelId === where.channelId });
     }
   }
   return {
-    bosses: ctx.maxBosses.bosses(),
+    bosses: ctx.maxBosses.bosses(ctx.servers.zoneOf(where.guildId)),
+    // A name read off the screen by the search of the report's server (plan 19B-4).
     pokemon: (read, among) =>
-      ctx.pokemon.find(read, { limit: 1, ...(among ? { filter: among } : {}) })[0]?.entry,
+      ctx.pokemon.of(where.guildId).find(read, { limit: 1, ...(among ? { filter: among } : {}) })[0]
+        ?.entry,
     catalogue,
     spots: [...spots.values()],
     hours: settings.maxBattles,
-    events: ctx.raidEvents.maxEvents(),
-    big: ctx.raidEvents.bigEvents(),
+    events: ctx.raidEvents.maxEvents(zone),
+    big: ctx.raidEvents.bigEvents(zone),
     uploadedAt,
-    zone: settings.timezone,
+    zone,
     guessOffsetSeconds: settings.screenshotMessageOffsetTime,
     ...(fileTakenAt === undefined ? {} : { fileTakenAt }),
   };

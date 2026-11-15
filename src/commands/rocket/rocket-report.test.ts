@@ -39,7 +39,7 @@ async function setup() {
     rewardHash: fixtureRewardHash,
     store,
     events: ctx.raidEvents,
-    zone: ctx.config.settings.timezone,
+    zoneOf: (serverId) => ctx.servers.zoneOf(serverId),
     log: ctx.log,
   });
   const messages = new GruntMessageService({

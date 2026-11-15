@@ -11,17 +11,23 @@ import { buttonsOf, textOf } from '../../../test/support/messages.js';
 import { WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { TEST_WEB } from '../../../test/support/web.js';
+import { fileDefaults } from '../../config/server-settings.js';
 import type { Settings } from '../../config/settings.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { maps } from './maps.js';
+import { TestServers, testServerValues } from '../../../test/support/server-values.js';
 
 const ASH = '700000000000000001';
 const LINK = 'https://maps.example.test/regions';
 
 function setup(settings: Partial<Settings>) {
   const base = createTestContext();
+  // The link is the server's (plan 19A-1): its values, and in a DM the file's defaults.
+  const { regionMapLink, ...instance } = settings;
+  const file = { ...base.ctx.config.settings, ...settings };
   const { ctx } = createTestContext({
-    config: { ...base.ctx.config, settings: { ...base.ctx.config.settings, ...settings } },
+    config: { ...base.ctx.config, settings: { ...base.ctx.config.settings, ...instance } },
+    servers: new TestServers(testServerValues({ regionMapLink }), fileDefaults(file)),
   });
   const router = new InteractionRouter(ctx, [maps], []);
   const run = async (extra: object = {}) => {
@@ -41,21 +47,34 @@ function setup(settings: Partial<Settings>) {
 }
 
 describe('/maps', () => {
-  it('is offered where there is a map: the web pages, or the address of a map', () => {
+  it("is registered everywhere, set up where there is a map: the web pages, or the server's link", () => {
     const { ctx } = createTestContext();
-    const settings = ctx.config.settings;
-    expect(
-      maps.enabled?.({ ...ctx.config, settings: { ...settings, regionMapLink: undefined } }),
-    ).toBe(false);
-    expect(maps.enabled?.({ ...ctx.config, settings: { ...settings, regionMapLink: LINK } })).toBe(
-      true,
+    const { web: _none, ...settings } = ctx.config.settings;
+    const without = { ...ctx, config: { ...ctx.config, settings } };
+    const withWeb = { ...ctx, config: { ...ctx.config, settings: { ...settings, web: TEST_WEB } } };
+    const values = testServerValues();
+    const { regionMapLink: _link, ...noLink } = values;
+    expect(maps.enabled).toBeUndefined();
+    expect(maps.setUpIn?.(noLink, without, FAKE_GUILD_ID)).toBe(
+      'Staff set the address of the map of all regions in /admin settings.',
     );
     expect(
-      maps.enabled?.({
-        ...ctx.config,
-        settings: { ...settings, regionMapLink: undefined, web: TEST_WEB },
-      }),
-    ).toBe(true);
+      maps.setUpIn?.({ ...values, regionMapLink: LINK }, without, FAKE_GUILD_ID),
+    ).toBeUndefined();
+    expect(maps.setUpIn?.(noLink, withWeb, FAKE_GUILD_ID)).toBeUndefined();
+  });
+
+  it('answers in a server without a map that it is not set up there', async () => {
+    const { run } = setup({ web: undefined, regionMapLink: undefined });
+    const used = await run();
+    expect(sent(used.reply).content).toBe(
+      'This is not set up in this server. The server’s staff have not turned this on.',
+    );
+    const byStaff = await run({ roleNames: ['Admin'] });
+    expect(sent(byStaff.reply).content).toBe(
+      'This is not set up in this server. Staff set the address of the map of all regions in ' +
+        '/admin settings.',
+    );
   });
 
   it("gives the server's map and a link that logs the member in, privately", async () => {

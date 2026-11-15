@@ -2,6 +2,7 @@ import {
   ApplicationCommandType,
   ContextMenuCommandBuilder,
   MessageFlags,
+  PermissionFlagsBits,
   SlashCommandBuilder,
   SlashCommandSubcommandBuilder,
   type AutocompleteInteraction,
@@ -29,12 +30,18 @@ import {
   type SimpleCommand,
 } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
+import { requireServerAdmin } from '../../discord/guards.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
 import { MEMBER_READ_THROTTLE } from '../../discord/throttle.js';
 import { meet } from '../parties/meet.js';
 import { end } from '../raids/change.js';
+import { operator } from '../operator/index.js';
+import { admin as adminCommand } from '../admin/index.js';
+import { region as regionCommand } from '../regions/index.js';
+import { instanceConfig, OPERATOR_ID } from '../../../test/support/operators.js';
 import { help, helpControls } from './help.js';
+import { TestServers, withFeatures } from '../../../test/support/server-values.js';
 
 const noop = () => Promise.resolve();
 const sub = (name: string) =>
@@ -90,6 +97,243 @@ const groupsOf = (message: V2Message): string[] =>
 /** The title of a help page. */
 const titleOf = (message: V2Message | undefined): string | undefined =>
   textDisplays(message)[0]?.split('\n')[0];
+
+// Plan 19A-1: a command a server has not set up is left out of its /help and its autocomplete.
+describe('/help: what a server has not set up', () => {
+  const want: SimpleCommand = {
+    data: new SlashCommandBuilder().setName('want').setDescription('Want a Pokémon'),
+    help: { category: 'notifications', details: 'Tells you of it.' },
+    setUpIn: (values) => (values.features.notifications ? undefined : 'Turn it on.'),
+    execute: noop,
+  };
+  const quiet = createTestContext({
+    commands: [help, want],
+    servers: withFeatures({ notifications: false }),
+  }).ctx;
+  const notifying = createTestContext({ commands: [help, want] }).ctx;
+
+  it('lists it, offers it and explains it only where the server has set it up', async () => {
+    expect(JSON.stringify(textDisplays(await ask({}, notifying)))).toContain('/want');
+    expect(await choices('wa', {}, notifying)).toEqual(['want']);
+    expect(JSON.stringify(textDisplays(await ask({}, quiet)))).not.toContain('/want');
+    expect(await choices('wa', {}, quiet)).toEqual([]);
+    await expect(ask({ options: { command: 'want' } }, quiet)).rejects.toThrow(
+      'There is no /want command.',
+    );
+    // In a DM, which is no server, it is as registered.
+    expect(await choices('wa', { isDm: true }, quiet)).toEqual(['want']);
+  });
+});
+
+// Plan 19C-2: a server in setup lists, offers and explains only what works there.
+describe('/help: a server in setup', () => {
+  const NEW = '412345678901234599';
+  const settingsPart = {
+    data: sub('settings'),
+    worksInSetup: true as const,
+    // As the real one: for whoever may set the server up (`staffParts`).
+    guards: [requireServerAdmin],
+    execute: noop,
+  };
+  const admin = commandGroup({
+    data: new SlashCommandBuilder().setName('admin').setDescription('Admin'),
+    help: { category: 'admin' },
+    parts: [settingsPart, { data: sub('tutorial'), execute: noop }],
+  });
+  const servers = new TestServers();
+  servers.settingUp.add(NEW);
+  const context = createTestContext({ commands: [help, route, admin], servers }).ctx;
+  const inNew = { guildId: NEW, ...MODERATOR };
+
+  it('lists only what works in setup, and all of it where the server is set up', async () => {
+    const groups = groupsOf(await ask(inNew, context));
+    expect(groupsOf(await ask(MODERATOR, context)).filter((one) => !groups.includes(one))).toEqual([
+      'Trains',
+    ]);
+    const page = JSON.stringify(
+      textDisplays(await ask({ ...inNew, options: { command: 'admin' } }, context)),
+    );
+    expect(page).toContain('settings');
+    expect(page).not.toContain('tutorial');
+    expect(await choices('ro', inNew, context)).toEqual([]);
+    expect(await choices('admin', inNew, context)).toEqual(['admin', 'admin settings']);
+    await expect(ask({ ...inNew, options: { command: 'route' } }, context)).rejects.toThrow(
+      'There is no /route command.',
+    );
+    expect(await choices('ro', MODERATOR, context)).toContain('route');
+  });
+
+  it('counts the server’s owner and who may manage it as staff, without a staff role', async () => {
+    const owner = {
+      guildId: NEW,
+      userId: '700000000000000050',
+      guildOwnerId: '700000000000000050',
+    };
+    expect(await choices('admin', owner, context)).toEqual(['admin', 'admin settings']);
+    const manager = { guildId: NEW, permissions: PermissionFlagsBits.ManageGuild };
+    expect(await choices('admin', manager, context)).toEqual(['admin', 'admin settings']);
+    expect(await choices('admin', { guildId: NEW }, context)).toEqual([]);
+  });
+});
+
+// Plan 19C-2 (C3): a staff command, and each part of one, is listed to a member only where its
+// guards let them through; the server's owner without a staff role sees what sets the server up.
+describe('/help: staff commands by their guards', () => {
+  const context = createTestContext({
+    commands: [help, route, gym, adminCommand, regionCommand],
+  }).ctx;
+  const OWNER_OF_SERVER = {
+    userId: '700000000000000050',
+    guildOwnerId: '700000000000000050',
+  };
+  const MANAGER = { permissions: PermissionFlagsBits.ManageGuild };
+  const SETTING_UP = [
+    'admin',
+    'admin settings',
+    'admin setup',
+    'admin setup-forums',
+    'region',
+    'region edit',
+    'region import',
+  ];
+
+  it('lists to the server’s owner and who may manage it only the parts that set the server up', async () => {
+    for (const member of [OWNER_OF_SERVER, MANAGER]) {
+      const offered = [
+        ...(await choices('admin', member, context)),
+        ...(await choices('region', member, context)),
+      ];
+      expect(offered).toEqual(SETTING_UP);
+      // A staff command none of whose parts they pass is as one that does not exist.
+      expect(await choices('gym', member, context)).toEqual([]);
+      await expect(ask({ ...member, options: { command: 'gym' } }, context)).rejects.toThrow(
+        'There is no /gym command.',
+      );
+      await expect(
+        ask({ ...member, options: { command: 'admin tutorial' } }, context),
+      ).rejects.toThrow('There is no /admin tutorial command.');
+      const page = JSON.stringify(
+        textDisplays(await ask({ ...member, options: { command: 'region' } }, context)),
+      );
+      expect(page).toContain('import');
+      expect(page).not.toContain('remove');
+    }
+  });
+
+  it('lists every part to staff by role, and none to a member', async () => {
+    const offered = await choices('admin', MODERATOR, context);
+    expect(offered).toEqual(expect.arrayContaining([...SETTING_UP.slice(0, 4), 'admin tutorial']));
+    expect(await choices('region', MODERATOR, context)).toContain('region remove');
+    expect(await choices('gym', MODERATOR, context)).toContain('gym');
+    for (const name of ['admin', 'region', 'gym']) {
+      expect(await choices(name, { roleNames: ['Raider'] }, context)).toEqual([]);
+    }
+  });
+});
+
+// Fix round 3 (R2-2): a staff group is shown only to whoever may read about a staff command; a
+// member command also listed in a staff category does not bring the group to a member.
+describe('/help: a member command also in a staff group', () => {
+  const poke: SimpleCommand = {
+    data: new SlashCommandBuilder().setName('poke').setDescription('Poke the bot'),
+    help: { category: 'util', alsoIn: ['admin'] },
+    execute: noop,
+  };
+  const context = createTestContext({ commands: [help, poke, gym] }).ctx;
+  const router = new InteractionRouter(context, [help], [helpControls]);
+
+  it('shows the staff group neither in the overview nor in its menu to a member', async () => {
+    const overview = await ask({}, context);
+    expect(groupsOf(overview)).toEqual(['Utility']);
+    expect(selectsOf(overview)[0]?.options.map((option) => option.value)).toEqual(['util']);
+    const i = fakeSelect({
+      customId: 'help:overview:group',
+      values: ['admin'],
+      ephemeralMessage: true,
+    });
+    await router.handle(i as never);
+    expect(sent(i.reply).content).toBe('There is no such group of commands.');
+  });
+
+  it('shows it to staff, with the member command in it', async () => {
+    const overview = await ask(MODERATOR, context);
+    expect(groupsOf(overview)).toEqual(['Utility', 'Administration']);
+    expect(textDisplays(overview)).toContain('**Administration**\n`/gym` · `/poke`');
+  });
+});
+
+// Plan 19B-1: `/operator` to whoever passes the shared-data tier where they ask, `forget` on its
+// page to the instance operators alone; to anybody else as if it did not exist.
+describe('/help: /operator', () => {
+  const where = (servers?: 'open') => {
+    const base = createTestContext({ commands: [help, operator] }).ctx;
+    return createTestContext({
+      commands: [help, operator],
+      config: instanceConfig(base, { operators: [OPERATOR_ID], ...(servers ? { servers } : {}) }),
+    }).ctx;
+  };
+  const listed = where();
+  const open = where('open');
+  const OPERATOR_IN_DM = { userId: OPERATOR_ID, isDm: true };
+  const page = async (o: FakeOptions, context: typeof ctx) =>
+    JSON.stringify(textDisplays(await ask({ ...o, options: { command: 'operator' } }, context)));
+
+  it('shows it to the staff of a server of a listed instance, without forget', async () => {
+    const offered = await choices('operator', MODERATOR, listed);
+    expect(offered).toContain('operator clear-image-cache');
+    expect(offered).toContain('operator event-window set');
+    expect(offered).not.toContain('operator forget');
+    const shown = await page(MODERATOR, listed);
+    expect(shown).toContain('clear-image-cache');
+    expect(shown).not.toContain('forget');
+    await expect(
+      ask({ ...MODERATOR, options: { command: 'operator forget' } }, listed),
+    ).rejects.toThrow('There is no /operator forget command.');
+  });
+
+  it('shows forget to the instance operators, in a server and in a DM', async () => {
+    expect(await choices('operator f', { userId: ctx.config.env.OWNER_ID }, listed)).toEqual([
+      'operator forget',
+    ]);
+    expect(await choices('operator f', OPERATOR_IN_DM, listed)).toEqual(['operator forget']);
+    expect(await page(OPERATOR_IN_DM, open)).toContain('forget');
+    expect(groupsOf(await ask(OPERATOR_IN_DM, listed))).toContain('Administration');
+  });
+
+  it('names google share and servers to the instance operators alone, as forget (plan 19C-1)', async () => {
+    const instanceOnly = [
+      'operator google share',
+      'operator servers list',
+      'operator servers allow',
+      'operator servers remove',
+      'operator servers block',
+      'operator servers unblock',
+    ];
+    const toStaff = await choices('operator', MODERATOR, listed);
+    for (const path of instanceOnly) expect(toStaff).not.toContain(path);
+    for (const asker of [{ userId: ctx.config.env.OWNER_ID }, OPERATOR_IN_DM]) {
+      const offered = [
+        ...(await choices('operator g', asker, listed)),
+        ...(await choices('operator s', asker, listed)),
+      ];
+      for (const path of instanceOnly) expect(offered).toContain(path);
+    }
+    await expect(
+      ask({ ...MODERATOR, options: { command: 'operator servers list' } }, listed),
+    ).rejects.toThrow('There is no /operator servers list command.');
+  });
+
+  it('answers it as nonexistent to staff who are no operators where they ask', async () => {
+    // An open instance: a server's staff change none of what every server shares.
+    expect(await choices('operator', MODERATOR, open)).toEqual([]);
+    await expect(ask({ ...MODERATOR, options: { command: 'operator' } }, open)).rejects.toThrow(
+      'There is no /operator command.',
+    );
+    // Their roles are read in their server only, never in a DM.
+    expect(await choices('operator', { ...MODERATOR, isDm: true }, listed)).toEqual([]);
+    expect(await choices('operator', {}, listed)).toEqual([]);
+  });
+});
 
 describe('/help: a command with another name', () => {
   it('lists the other name beside the command, not on its own', async () => {

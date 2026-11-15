@@ -8,7 +8,8 @@
  * neither), which bosses the game data does not know (with the ids the feed gave them) and which
  * entries were left out.
  *
- * The manifest is `raidBosses.manifestUrl` in data/settings.json, read in its `timezone`; the
+ * The manifest is `raidBosses.manifestUrl` in data/settings.json, read in the instance's default
+ * zone (the file's `timezone`, `instanceZone`: a server's own zone is in the database); the
  * fallback feed is `raidBosses.url`, or the first argument that is no option. `--fallback` reads
  * the fallback feed only. The game data is the bot's saved copy (var/game-data-cache.json) when
  * there is one, otherwise the test fixture.
@@ -19,7 +20,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { loadSettings, type Settings } from '../../src/config/settings.js';
+import { instanceZone, loadSettings, type Settings } from '../../src/config/settings.js';
 import type { GetText } from '../../src/services/boss-feed-service.js';
 import { readRaidRotations } from '../../src/services/raid-rotations.js';
 import { PokemonCatalogue } from '../../src/domain/pogo/catalogue.js';
@@ -87,7 +88,7 @@ if (fallbackOnly) {
   lines.push('Source: the fallback feed (--fallback)');
 } else {
   const { manifestUrl } = settings().raidBosses;
-  const zone = settings().timezone;
+  const zone = instanceZone(settings());
   const local = (time: number): string => minuteStamp(zoned(time, zone));
   const read = await readRaidRotations(get, manifestUrl, zone, now);
   if (read.status === 'read') {

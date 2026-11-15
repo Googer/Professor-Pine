@@ -9,6 +9,7 @@ import {
 } from '../commands/regions/import.js';
 import { goesWith, outcomeLines } from '../commands/regions/remove.js';
 import { REGION_GONE, regionInSentence, roleReminder } from '../commands/regions/shared.js';
+import { BOT_STAFF_ONLY } from '../discord/guards.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import { MAX_KML_AREAS, MAX_KML_CORNERS } from '@pine/wayspot-core/kml';
 import { MAX_OUTLINE_CORNERS } from '@pine/wayspot-core/outline';
@@ -102,8 +103,8 @@ export interface RegionEditing {
    * in the bot, on it in tests (`inThisThread`).
    */
   checker: SaveChecker;
-  /** Whether members give themselves roles (`settings.features.roles`): the reminders say so. */
-  selfRoles: boolean;
+  /** Whether a server's members give themselves roles (its `features.roles`): the reminders say so. */
+  selfRoles: (serverId: string) => boolean;
   log: Logger;
 }
 
@@ -353,6 +354,8 @@ function conflictAnswer(
     gyms: [],
     regionsOf: () => [],
     wayspots: [],
+    // Only the server's own regions are read.
+    othersShown: () => false,
   }).regions;
   return {
     kind: 'conflicts',
@@ -410,6 +413,8 @@ async function prepare(
     return { answer: conflictAnswer(all, staff, channels, plan.conflicts) };
   }
   const refused = plan.problems.map((problem) => problemLine(problem, names));
+  // A removal is staff's by role, as `/region remove` (plan 19C-2): in its words.
+  if (plan.removals.length > 0 && staff.mayRemoveRegions !== true) refused.push(BOT_STAFF_ONLY);
   if (!staff.mayManageChannels && plan.removals.some((removal) => removal.forum === 'delete')) {
     refused.push(
       'Deleting the forum of a region takes the Manage Channels permission, which you lack.',
@@ -601,7 +606,7 @@ export async function carryOutSave(
         ? [REGION_GONE]
         : removal.kind === 'error'
           ? [`I could not remove ${label}: look at the regions and try again.`]
-          : outcomeLines(removal, label, roleReminder(editing.selfRoles, 'removed'));
+          : outcomeLines(removal, label, roleReminder(editing.selfRoles(staff.server), 'removed'));
     removedLines.push(`- ${lines.join(' ')}`);
   }
   log.info(
@@ -617,7 +622,7 @@ export async function carryOutSave(
     'regions were saved in the web editor',
   );
   const words = outcome
-    ? outcomeWords(outcome, roleReminder(editing.selfRoles, 'new'))
+    ? outcomeWords(outcome, roleReminder(editing.selfRoles(staff.server), 'new'))
     : { lines: [], lists: [] as ImportList[] };
   const leftOut = preview.leftOut.map((left) => leftOutLine(left));
   const lists = words.lists.map((list) =>

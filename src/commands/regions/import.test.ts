@@ -1,11 +1,18 @@
-import { MessageFlags } from 'discord.js';
+import { MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import { expectV2Sendable } from '../../../test/support/post-limits.js';
 import { asV2, sent } from '../../../test/support/fake-interactions.js';
 import { textDisplays } from '../../../test/support/messages.js';
+import { BOT_STAFF_ONLY, SERVER_ADMIN_ONLY } from '../../discord/guards.js';
 import { ANSWERED_BELOW } from '../../discord/late-reply.js';
+import { IN_SETUP } from '../../discord/set-up.js';
 import { answerOf, buttonId, buttonsOf } from '../../../test/support/gym-commands.js';
-import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  TEST_GUILD_ROW,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../../test/support/gyms.js';
 import { testRaid } from '../../../test/support/parties.js';
 import {
   SOUTH_CHANNEL,
@@ -28,6 +35,8 @@ import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { MAX_KML_BYTES } from './import.js';
 import { Rehearsal } from '../../services/rehearsal.js';
 import { PENDING_MINUTES, pendingRegions, REHEARSAL_CHANNELS } from './shared.js';
+import { changeServers, TestServers } from '../../../test/support/server-values.js';
+import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
 
 type Made = Awaited<ReturnType<typeof regionCommandsWith>>;
 
@@ -393,16 +402,32 @@ describe('/region import: Import and Cancel', () => {
     expect(buttonsOf(done)).toEqual([]);
     expect(made.regions.byChannel(WEST_CHANNEL)?.bounds).toEqual(WEST_HALF_RING);
     expect(made.regions.byChannel(created?.id ?? '')?.forumChannelId).not.toBeNull();
-    expect(made.directory.isRegion(SOUTH_CHANNEL)).toBe(true);
+    expect(made.directory.of(TEST_GUILD_ROW).isRegion(SOUTH_CHANNEL)).toBe(true);
+  });
+
+  it('names a forum of the new forum’s name that no region has, never taking it (staging F3)', async () => {
+    const made = await regionCommandsWith();
+    // A board of South from before the server's data was deleted: no party names it any more.
+    const OLD_BOARD = '100000000000000777';
+    made.gateway.addChannel(OLD_BOARD, 'south-meetups', { kind: 'forum' });
+    const { answer } = await importing(made, [area('South', SOUTH_RING)]);
+    const done = answerOf(await made.press(importButton(answer)));
+    expect(listed(done, 'Imported')).toEqual([
+      `- <#${SOUTH_CHANNEL}> · new region · 0 gyms · forum created · <#${OLD_BOARD}> has the ` +
+        'same name as the new forum but belongs to no region: if it is an old board of mine, ' +
+        'delete it',
+    ]);
+    expect(made.regions.byChannel(SOUTH_CHANNEL)?.forumChannelId).not.toBe(OLD_BOARD);
   });
 
   it('says nothing of roles where members do not give themselves any', async () => {
     const made = await regionCommandsWith();
-    made.ctx.config.settings.features.roles = false;
+    changeServers(made.ctx, {
+      features: { ...made.ctx.servers.of(FAKE_GUILD_ID).features, roles: false },
+    });
     const { answer } = await importing(made, [area('South', SOUTH_RING)]);
     const done = answerOf(await made.press(importButton(answer)));
     expect(regionSaid(done)).toBe('Imported 1 region.');
-    made.ctx.config.settings.features.roles = true;
   });
 
   it('says what could not be done, and names a channel it created for nothing', async () => {
@@ -506,13 +531,47 @@ describe('/region import: Import and Cancel', () => {
     });
     const member = await made.press(id, { userId: MEMBER, roleNames: [] });
     expect(member.reply).toHaveBeenCalledWith({
-      content: 'Only admins, moderators and bot developers can do that.',
+      content: SERVER_ADMIN_ONLY,
       flags: MessageFlags.Ephemeral,
     });
     expect(made.regions.byChannel(SOUTH_CHANNEL)).toBeUndefined();
     // The question is still hers to answer.
     await made.press(id);
     expect(made.regions.byChannel(SOUTH_CHANNEL)).toBeDefined();
+  });
+
+  // Fix round 3 (R2-3): only the import's questions admit who may manage the server without a
+  // staff role, also in setup; every other control of `/region` is for its staff alone.
+  it('admits who may manage the server to the import’s questions alone, also in setup', async () => {
+    const MANAGER = {
+      userId: MEMBER,
+      roleNames: [],
+      permissions: PermissionFlagsBits.ManageGuild | PermissionFlagsBits.ManageChannels,
+    };
+    const asked = async (made: Made) =>
+      answerOf(
+        await made.use(
+          'import',
+          {},
+          {
+            ...MANAGER,
+            resolved: { file: made.file('regions.kml', writeKml([area('South', SOUTH_RING)])) },
+          },
+        ),
+      );
+    const setUp = await regionCommandsWith();
+    const other = await setUp.press('region:0123456789abcdef:sideways', MANAGER);
+    expect(sent(other.reply)).toEqual({ content: BOT_STAFF_ONLY, flags: MessageFlags.Ephemeral });
+    const settingUp = await regionCommandsWith();
+    if (!(settingUp.ctx.servers instanceof TestServers)) throw new Error('no TestServers');
+    settingUp.ctx.servers.settingUp.add(FAKE_GUILD_ID);
+    expect(sent((await settingUp.use('list', {}, MANAGER)).reply).content).toContain(IN_SETUP);
+    for (const made of [setUp, settingUp]) {
+      const canceled = await made.press(buttonId(await asked(made), 'Cancel'), MANAGER);
+      expect(regionSaid(sent(canceled.update))).toBe('Nothing was imported.');
+      await made.press(importButton(await asked(made)), MANAGER);
+      expect(made.regions.byChannel(SOUTH_CHANNEL)).toBeDefined();
+    }
   });
 
   it('says that a question has expired that the bot no longer remembers', async () => {

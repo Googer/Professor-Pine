@@ -3,7 +3,7 @@ import type { AppContext } from '../../app-context.js';
 import type { ComponentHandler } from '../../discord/command.js';
 import { deferSubmit, withoutOpenToken } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
-import { requireGuild } from '../../discord/guards.js';
+import { partyOfServer, requireGuild } from '../../discord/guards.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import type { AttendanceLimits } from '../../domain/party/attendance.js';
 import { meetTimes } from '../../domain/party/meet-times.js';
@@ -90,14 +90,14 @@ export async function openMeet(
   const now = Date.now();
   const party = meetRefusalOf(
     ctx.attendance.limits(),
-    ctx.parties.get(partyId),
+    partyOfServer(interaction, ctx, partyId),
     interaction.user.id,
     now,
   );
   if (typeof party === 'string') throw new UserError(party);
   const groupId = attendeeOf(party, interaction.user.id)?.group ?? party.defaultGroupId;
   await interaction.showModal(
-    meetDialog({ party, groupId, zone: ctx.config.settings.timezone, now }),
+    meetDialog({ party, groupId, zone: ctx.partyService.zoneOf(party), now }),
   );
 }
 
@@ -144,7 +144,7 @@ async function submitMeet(
   const now = Date.now();
   const member = actingMember(interaction);
   const limits = ctx.attendance.limits();
-  const party = meetRefusalOf(limits, ctx.parties.get(partyId), member.id, now);
+  const party = meetRefusalOf(limits, partyOfServer(interaction, ctx, partyId), member.id, now);
   const say = (content: string) => interaction.editReply({ content });
   if (typeof party === 'string') return void (await say(party));
   const outcome = await ctx.attendance.setMeetingTime(partyId, member, time, {

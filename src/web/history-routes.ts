@@ -47,6 +47,7 @@ import type { HistoryDays } from '../services/history-days.js';
 import { HISTORY_FIRST_YEAR } from '../domain/web/history-days-data.js';
 import { bigDaysView, bossListView, bossTrendView, historyDaysView } from './history-days.js';
 import { pageWords } from './page-words.js';
+import { requestZone } from './request-zone.js';
 import type { RegionTallies } from '../services/region-tallies.js';
 import { sendFailure } from './answers.js';
 import { etagMatches, etagOf } from './geo-cache.js';
@@ -56,6 +57,7 @@ import type { PartyViewers } from './party-viewers.js';
 import { limitedRead } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import type { RaidStandSettings } from '../domain/time/raid-durations.js';
+import type { GymView } from '../services/gym-directory.js';
 
 /** What the activity heatmap of the live map reads (plan 8H-4). */
 export interface ActivityWebDeps {
@@ -67,19 +69,20 @@ export interface ActivityWebDeps {
   /** The regions, whose forums say who may see their parties (`RegionDirectory`). */
   regions: { all(): readonly Region[] };
   /**
-   * The gyms as the map has them (`GymDirectory`): a gym no longer listed is left out; the
-   * channels of the regions a gym lies in now (plan 8H-7B: a legacy train's stops, review A1).
+   * The gyms as the server's map has them (`GymDirectory.of`, plan 19B-2): a gym no longer
+   * listed, or no longer the server's, is left out; the channels of the server's regions a gym
+   * lies in now (plan 8H-7B: a legacy train's stops, review A1).
    */
-  gyms: {
-    get(id: number): { lat: number; lon: number } | undefined;
-    regionsOf(gymId: number): string[];
-  };
+  gyms: { of(guildId: number | undefined): Pick<GymView, 'get' | 'regionsOf'> };
   /** The row of a server (`Guild.id`), whose regions are its own (plan 8H-7B, review A2). */
   guilds: { idFor(snowflake: string): Promise<number | undefined> };
-  /** The kept Wayspots (`WayspotDirectory`): a Power Spot no longer kept is left out. */
-  wayspots: { byId(id: string): { lat: number; lon: number } | undefined };
-  /** `settings.timezone`: the buckets' months, weekdays and hours. */
-  zone: string;
+  /**
+   * The kept Wayspots as the server's map has them (`WayspotDirectory.of`, plan 19B-3): a Power
+   * Spot the server no longer keeps is left out.
+   */
+  wayspots: {
+    of(guildId: number | undefined): { byId(id: string): { lat: number; lon: number } | undefined };
+  };
   /** The settings' raid times: how long a raid without an end time stood, on a train's card (W5). */
   durations: RaidStandSettings;
   /** The region tally (plan 8H-5): `/stats regions`' own path (`RegionTallies.tally`). */
@@ -266,7 +269,13 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
       if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
       const mode = query.data;
       const now = deps.now();
-      const { zone } = activity;
+      // The server's zone, the request's (plan 19A-2): its buckets' months, weekdays and hours.
+      const zone = requestZone(request);
+      // The server's gyms (plan 19B-2): a bucket at a gym no longer its own is left out.
+      const row = await activity.guilds.idFor(guild);
+      const gyms = activity.gyms.of(row);
+      // The server's Power Spots (plan 19B-3), stored references of its history.
+      const spots = activity.wayspots.of(row);
       const [buckets, months] = await Promise.all([
         activity.reader.buckets(guild, activityWindow(mode, now, zone)),
         activity.reader.months(guild),
@@ -298,7 +307,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         return gate === undefined || !keptOutOf(viewer, gate);
       });
       const pointOf = (kind: 'gym' | 'spot', id: string) =>
-        kind === 'gym' ? activity.gyms.get(Number(id)) : activity.wayspots.byId(id);
+        kind === 'gym' ? gyms.get(Number(id)) : spots.byId(id);
       const weights = activityWeights(
         seen,
         mode,
@@ -418,7 +427,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         deps.log.warn({ err, guild }, 'could not name the members of the boards');
         return reply.code(503).send({ error: UNCONFIRMED });
       }
-      const words = (text: string) => pageWords(text, activity.zone, now);
+      const words = (text: string) => pageWords(text, requestZone(request), now);
       const view: BoardsView = { period, boards: shown.map((one) => boardView(one, words)) };
       return sendJson(request, reply, view);
     },
@@ -446,7 +455,11 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         year === undefined ? {} : { year },
       );
       if (!shown.optedIn) {
-        const text = pageWords(notOptedIn(IN_SETTINGS_ON_DISCORD), activity.zone, deps.now());
+        const text = pageWords(
+          notOptedIn(IN_SETTINGS_ON_DISCORD),
+          requestZone(request),
+          deps.now(),
+        );
         return sendJson(request, reply, { optedIn: false, text });
       }
       // A year without anything of theirs: what /stats me says of it (B3).
@@ -538,15 +551,16 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
   > => {
     const row = await activity.guilds.idFor(guild);
     const ofServer = activity.regions.all().filter((region) => region.guildId === row);
+    const gyms = activity.gyms.of(row);
     const byId = new Map(ofServer.map((region) => [region.id, region]));
     const byChannel = new Map(ofServer.map((region) => [region.channelId, region.id]));
     const viewer = await viewers.viewer(guild, userId, ofServer.map(regionGate), member);
     if (viewer.kind !== 'member') return { refused: viewer.kind };
     const places: TrainPlaces = {
-      gym: (id) => activity.gyms.get(id),
-      spot: (id) => activity.wayspots.byId(id),
+      gym: (id) => gyms.get(id),
+      spot: (id) => activity.wayspots.of(row).byId(id),
       gymRegions: (id) =>
-        activity.gyms.regionsOf(id).flatMap((channel) => {
+        gyms.regionsOf(id).flatMap((channel) => {
           const regionId = byChannel.get(channel);
           return regionId === undefined ? [] : [regionId];
         }),
@@ -578,7 +592,10 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
         ? sendFailure(request, reply, 403)
         : reply.code(503).send({ error: UNCONFIRMED });
     }
-    const ids = await activity.trains.trainsMade(guild, trainMonthRange(month, activity.zone));
+    const ids = await activity.trains.trainsMade(
+      guild,
+      trainMonthRange(month, requestZone(request)),
+    );
     // The cards are read `TRAINS_READ_CHUNKS` trains at a time, newest first, until the list is
     // full (plan 8Z-2, audit L-S2), never every card of the month for a list of fifty. Filtered
     // before the cap, so that "more" counts only what the member may see (G5); the trains not
@@ -605,7 +622,7 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
       month,
       trains: shown
         .slice(0, TRAINS_LISTED)
-        .map((one) => trainItem(one.id, one.rows, activity.zone)),
+        .map((one) => trainItem(one.id, one.rows, requestZone(request))),
       // With trains left unread the heading says "50+": no count beside it (review F-E1).
       more: read < ids.length ? 0 : Math.max(0, shown.length - TRAINS_LISTED),
       older: read < ids.length,
@@ -647,10 +664,10 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
       return name === undefined ? `Region ${String(regionId)}` : `#${name}`;
     };
     const view: TrainRouteView = {
-      ...trainItem(id, rows, activity.zone),
-      month: trainMonth(rows.listing.createdAt, activity.zone),
+      ...trainItem(id, rows, requestZone(request)),
+      month: trainMonth(rows.listing.createdAt, requestZone(request)),
       ...trainLine(rows, places),
-      card: trainCardLines(rows, raids, activity.durations, regionWords, activity.zone, now),
+      card: trainCardLines(rows, raids, activity.durations, regionWords, requestZone(request), now),
     };
     return sendJson(request, reply, view);
 

@@ -1,5 +1,13 @@
+import {
+  EVENTS_FORUM_GONE,
+  eventsForumCannotPostWords,
+  eventsForumRefusedWords,
+  eventsListingUnpinnedWords,
+} from '../render/server-notices.js';
+import type { ServerNotices } from './server-notices.js';
 import { SnowflakeUtil } from 'discord.js';
 import type { Settings } from '../config/settings.js';
+import { fileChannelNames } from '../config/server-settings.js';
 import { isSnowflake } from '../db/snowflake.js';
 import type {
   EventForumRecord,
@@ -8,6 +16,7 @@ import type {
 } from '../db/repositories/event-forum-repository.js';
 import {
   isMissingPermission,
+  PostsRefusedError,
   rateLimitWaitMs,
   type OutgoingMessage,
   type PartyGateway,
@@ -25,11 +34,11 @@ import {
   eventPostTitle,
   listingMessage,
 } from '../render/events-forum.js';
-import { channelKey, channelNameFor } from '../domain/regions/region-import.js';
+import { channelNameFor } from '../domain/regions/region-import.js';
 import { BoundedMap } from '../bounded-map.js';
 import type { Logger } from '../log.js';
 import type { CatchUpOutcome } from './catch-up.js';
-import { everyLocalMidnight } from './local-midnight.js';
+import { everyLocalMidnightIn, type ZonesMidnight } from './local-midnight.js';
 import { isNetworkError } from './network-error.js';
 import type { ListedEventProvider } from './raid-event-service.js';
 import type { HistoryDays } from './history-days.js';
@@ -47,6 +56,8 @@ import type { Party } from '../domain/party/party.js';
 import { startTimeOf } from '../domain/party/timed.js';
 import type { EventPlannedView } from '../render/event-parties.js';
 import type { PartyListener } from './party-store.js';
+import type { ServerSettingsService } from './server-settings.js';
+import type { SettingsActor } from '../db/repositories/server-settings-audit-repository.js';
 
 const DAY_MS = 24 * 60 * 60_000;
 /** A post still open this long after its event's end is archived by the upkeep, once (R1). */
@@ -159,13 +170,17 @@ export type EventsForumSetup =
        * name one (`rolesWithoutReplies`, branch review BR-7).
        */
       replies: string[];
-      /** The listing "Events": made now, standing, not made, or waiting for the feed. */
-      listing: ListingOutcome;
+      /**
+       * The listing "Events": made now, standing, not made, or waiting for the feed, or for the
+       * server to be set up (`setup`, plan 19C-2).
+       */
+      listing: ListingOutcome | 'setup';
     };
 
 /**
  * What a draw did to a server's listing: made now, standing, not made (the log says why), or
- * waiting for the events feed (`listingKnown`, review V1).
+ * waiting for the events feed (`listingKnown`, review V1); for `setup`, also waiting for the
+ * server to be set up (plan 19C-2: nothing is drawn for a server in setup).
  */
 type ListingOutcome = 'made' | 'ready' | 'failed' | 'waiting';
 
@@ -173,11 +188,25 @@ export interface EventForumOptions {
   gateway: PartyGateway;
   store: EventForumStorage;
   events: ListedEventProvider;
-  settings: Pick<Settings, 'channels' | 'eventsForum' | 'timezone' | 'web'>;
+  settings: Pick<Settings, 'web'>;
+  /**
+   * What keeps the forum from being drawn as it should, told to the server's staff in its
+   * moderators' bot lab (plan 19B-1, `ServerNotices`): the forum gone, Manage Posts refused, the
+   * listing not pinned.
+   */
+  notices: Pick<ServerNotices, 'tell'>;
+  /**
+   * Each server's values (plan 19A-1): its events forum, by id (set by `setup` when it makes
+   * one), its channel for bot updates, the map's member role; its zone and the zones in use
+   * (plan 19A-2), in which its forum is drawn and its midnights come.
+   */
+  servers: ServerSettingsService;
+  /** The name a new events forum is given (the file's `channels.events`, else `events`). */
+  forumName: string;
   log: Logger;
   /**
    * The big days (plan 8H-8, `HistoryDays`): "On this day" is posted only with them, and
-   * `settings.eventsForum.onThisDay` above 0.
+   * the server's `eventsForum.onThisDay` above 0 (plan 19A-1).
    */
   days?: Pick<HistoryDays, 'onThisDay'>;
   /**
@@ -196,21 +225,28 @@ export interface EventForumOptions {
 }
 
 /**
- * Whether the bot has an events forum (`app.ts` makes `EventForumService` only then): where the
- * settings name one, and never in rehearsal mode (R8: the rehearsal's gateway would drop and log
- * its posts at every draw; plan 8H-8, G18: nor "On this day").
+ * Whether the bot has events forums (`app.ts` makes `EventForumService` only then): never in
+ * rehearsal mode (R8: the rehearsal's gateway would drop and log its posts at every draw; plan
+ * 8H-8, G18: nor "On this day"). Which servers have one is theirs (plan 19A-1): those whose staff
+ * ran `/admin setup-forums` or chose a forum in `/admin settings`.
  */
-export function eventForumWanted(settings: Pick<Settings, 'channels' | 'rehearsal'>): boolean {
-  return settings.rehearsal === undefined && settings.channels.events !== undefined;
+export function eventForumWanted(settings: Pick<Settings, 'rehearsal'>): boolean {
+  return settings.rehearsal === undefined;
+}
+
+/** The name of a new events forum: the file's `channels.events` (plan 8V-1), else `events`. */
+export function newEventsForumName(settings: Pick<Settings, 'channels' | 'servers'>): string {
+  const name = fileChannelNames(settings).events ?? 'events';
+  return channelNameFor(name) || name;
 }
 
 /**
  * The events forum of each server (plan 8V-1; design `2026-10-28-events-forum-design.md`): one
- * forum, named by `settings.channels.events`, made by `/admin setup-forums` in the category of
- * `bot-updates`, with Pine's pinned and locked listing "Events" (`EVENTS_TITLE`: Now, This week,
+ * forum, the server's events forum (plan 19A-1: by id), made by `/admin setup-forums` in the
+ * category of its channel for bot updates, with Pine's pinned and locked listing "Events" (`EVENTS_TITLE`: Now, This week,
  * Coming up, `listingSections`) and a post per event of a posted kind (`isPosted`), opened
- * `settings.eventsForum.postDaysAhead` before its start. Made only where the settings name a
- * forum and rehearsal mode is off (`app.ts`, R8).
+ * the server's `eventsForum.postDaysAhead` before its start (plan 19A-1). Made wherever
+ * rehearsal mode is off (`app.ts`, R8), drawing in a server only the forum its values name.
  *
  * Everything is drawn from the listed events (`ListedEventProvider`) and the rows of the forums
  * and posts, so a draw at any time puts right what a restart or the network missed. Draws run one
@@ -219,6 +255,8 @@ export function eventForumWanted(settings: Pick<Settings, 'channels' | 'rehearsa
  * hourly upkeep and in the catch-up on reconnect. An unchanged listing is not edited.
  */
 export class EventForumService {
+  /** The servers whose forums the last draw went through: the timer's numbers are theirs. */
+  private drawnServers: string[] = [];
   private readonly now: () => number;
   private readonly setTimer: (run: () => void, ms: number) => () => void;
   /** The draw under way, and whether another was asked for meanwhile. */
@@ -243,9 +281,9 @@ export class EventForumService {
   private readonly refusedPosts = new BoundedMap<string, number>(POSTS_SENT_KEPT);
   /** The setup under way of each server (`setup`, BR-6). */
   private readonly setups = new Map<string, Promise<unknown>>();
-  /** The servers whose forum is gone, said once each until it is back. */
+  /** The servers whose forum is gone, logged once each until it is back. */
   private readonly forumGoneTold = new Set<string>();
-  /** What Discord refused, said once per server and what (`pin`, `lock`, `archive`). */
+  /** What Discord refused, logged once per server and what (`pin`, `lock`, `archive`). */
   private readonly refusedTold = new Set<string>();
   /** The servers whose forum has as many event posts as it may, said once each (`tellFull`). */
   private readonly fullTold = new Set<string>();
@@ -281,7 +319,8 @@ export class EventForumService {
   private readonly plannedWarned = new Set<string>();
   /** The ends of the trains and meetups the draw under way counted, for the next timer (EP-5). */
   private plannedEnds: number[] = [];
-  private midnight: { cancel(): void } | undefined;
+  /** The timers of the midnights of the zones in use (plan 19A-2). */
+  private midnights: ZonesMidnight | undefined;
   /** The timers of draws after a wait Discord named (`drawLater`). */
   private readonly waits = new Set<() => void>();
   private stopped = false;
@@ -300,28 +339,18 @@ export class EventForumService {
   }
 
   /**
-   * The forum's name as Discord stores it (review V7, ruling R4: lower case, spaces to hyphens;
-   * `channelNameFor`, the one normalizer of setup and lookup), from the settings' name; the
-   * service is made only where they give one.
-   */
-  private get forumName(): string {
-    const name = this.options.settings.channels.events;
-    if (name === undefined) throw new Error('settings.channels.events names no forum');
-    return channelNameFor(name) || name;
-  }
-
-  /**
-   * Draws after each read of the feed and a second after each local midnight from now on, and
-   * once now. Once Discord is there (`app.ts`); nothing after `stop`.
+   * Draws after each read of the feed and a second after each local midnight of every zone in use
+   * from now on (plan 19A-2), and once now. Once Discord is there (`app.ts`); nothing after
+   * `stop`.
    */
   start(): void {
     if (this.stopped) return;
     this.options.events.onListedChange(() => {
       this.request();
     });
-    this.midnight?.cancel();
-    this.midnight = everyLocalMidnight({
-      zone: this.options.settings.timezone,
+    this.midnights?.cancel();
+    this.midnights = everyLocalMidnightIn({
+      zones: () => this.options.servers.zonesInUse(),
       now: this.now,
       setTimer: this.setTimer,
       run: () => {
@@ -333,11 +362,26 @@ export class EventForumService {
       this.partiesWatched = true;
       planned.parties.onChange((before, after) => {
         if (!changesPlanned(before, after)) return;
-        // Only where it started, or starts, within a listed event (review EP-4).
-        const events = this.options.events.listedEvents();
-        if (startsDuringAny(before, events) || startsDuringAny(after, events)) this.redrawSoon();
+        // Only where it started, or starts, within a listed event (review EP-4), in any zone in
+        // use: the party names its server's row, not its zone, and a draw too many is cheap.
+        const during = this.options.servers.zonesInUse().some((zone) => {
+          const events = this.options.events.listedEvents(zone);
+          return startsDuringAny(before, events) || startsDuringAny(after, events);
+        });
+        if (during) this.redrawSoon();
       });
     }
+    this.request();
+  }
+
+  /**
+   * A server's zone changed (plan 19A-2; `ServerSettings.onZoneChange`): the midnights follow the
+   * zones in use, and every forum is drawn anew (its times, its sections, "On this day" on the
+   * new clock). Nothing after `stop`.
+   */
+  zonesChanged(): void {
+    if (this.stopped) return;
+    this.midnights?.refresh();
     this.request();
   }
 
@@ -356,7 +400,7 @@ export class EventForumService {
   /** Stops the timers; a draw under way ends, and none starts after it. */
   stop(): void {
     this.stopped = true;
-    this.midnight?.cancel();
+    this.midnights?.cancel();
     this.cancelNext?.();
     this.cancelNext = undefined;
     this.cancelPartyRedraw?.();
@@ -428,17 +472,17 @@ export class EventForumService {
   }
 
   /**
-   * Gives the server its events forum (`/admin setup-forums`): the forum of that name where the
-   * server has one (the name decides, R7: a forum recorded under another name is replaced), else
-   * one made beside `bot-updates`, in its category and with its permissions; Create Posts denied
-   * to everyone (members write in Pine's posts but make none) and Manage Posts allowed to the
-   * bot. Recorded, then drawn: its listing and posts. What is there already is left as it is, so
-   * it is safe to run again.
+   * Gives the server its events forum (`/admin setup-forums`, by staff member `by`): the forum its
+   * values name (plan 19A-1: by id, chosen in `/admin settings`; a forum recorded before is
+   * replaced, R7), else one made beside its channel for bot updates, in its category and with its
+   * permissions, and kept in its values; Create Posts denied to everyone (members write in Pine's
+   * posts but make none) and Manage Posts allowed to the bot. Recorded, then drawn: its listing
+   * and posts. What is there already is left as it is, so it is safe to run again.
    */
-  setup(guildId: string): Promise<EventsForumSetup> {
+  setup(guildId: string, by: SettingsActor): Promise<EventsForumSetup> {
     // One setup per server at a time (branch review BR-6): a second waits and finds the forum.
     const previous = this.setups.get(guildId) ?? Promise.resolve();
-    const run = previous.catch(() => undefined).then(() => this.setupOnce(guildId));
+    const run = previous.catch(() => undefined).then(() => this.setupOnce(guildId, by));
     // What is kept for the next setup never rejects: the caller has the failure (`run`).
     const kept = run
       .then(
@@ -453,21 +497,20 @@ export class EventForumService {
   }
 
   /** `setup`, one at a time per server. */
-  private async setupOnce(guildId: string): Promise<EventsForumSetup> {
-    const { gateway, store, settings, log } = this.options;
-    const name = this.forumName;
+  private async setupOnce(guildId: string, by: SettingsActor): Promise<EventsForumSetup> {
+    const { gateway, store, servers, log } = this.options;
+    const values = servers.of(guildId);
     const channels = gateway.serverChannels(guildId) ?? [];
-    let forumId = channels.find(
-      (one) => one.kind === 'forum' && channelKey(one.name) === channelKey(name),
-    )?.id;
+    const chosen = channels.find(
+      (one) => one.kind === 'forum' && one.id === values.channels.events,
+    );
+    let forumId = chosen?.id;
+    const name = chosen?.name ?? this.options.forumName;
     const created = forumId === undefined;
     if (forumId === undefined) {
-      // Of two channels by that name (a server may have one per category), the one the bot may
-      // post in, as live sends pick (`findChannel`); else the first.
-      const named = channels.filter(
-        (one) => one.kind === 'text' && one.name === settings.channels['bot-updates'],
+      const botUpdates = channels.find(
+        (one) => one.kind === 'text' && one.id === values.channels['bot-updates'],
       );
-      const botUpdates = named.find((one) => gateway.mayPost(one.id)) ?? named[0];
       if (!botUpdates) return { forum: 'no-bot-updates', name };
       try {
         forumId = (await gateway.createForum(botUpdates.id, name, []))?.forumId;
@@ -481,6 +524,21 @@ export class EventForumService {
       if (forumId === undefined) {
         return { forum: 'failed', name, reason: `#${botUpdates.name} is gone.` };
       }
+      // Kept as the server's events forum (plan 19A-1); one that cannot be kept is taken back.
+      const made = forumId;
+      try {
+        await servers.set(
+          guildId,
+          (now) => ({ ...now, channels: { ...now.channels, events: made } }),
+          by,
+        );
+      } catch (err) {
+        log.error({ err, guild: guildId }, 'could not keep the new events forum');
+        await gateway.deleteChannel(made).catch((deleteErr: unknown) => {
+          log.warn({ err: deleteErr, guild: guildId }, 'could not take back the events forum');
+        });
+        return { forum: 'failed', name, reason: 'Something went wrong (see the log).' };
+      }
     }
     // In the one line of draws (re-review W2): a draw that read the old forum ends first, so none
     // makes a post in it after its rows were retired.
@@ -488,10 +546,23 @@ export class EventForumService {
     await this.exclusive(() => store.setForum(guildId, recordedId));
     const posting = (await gateway.reservePosts(forumId)) ?? 'not-allowed';
     const managing = (await gateway.letBotManagePosts(forumId)) ?? 'not-allowed';
-    const memberRole = settings.web?.memberRole;
+    const memberRole = values.roles.mapMember;
     const replies =
       (await gateway.rolesWithoutReplies(forumId, memberRole === undefined ? [] : [memberRole])) ??
       [];
+    // A server in setup (plan 19C-2) has nothing drawn: its listing and posts come once it is
+    // set up (`serverSetUpWork` draws every forum again).
+    if (servers.inSetup(guildId)) {
+      return {
+        forum: created ? 'created' : 'ready',
+        name,
+        forumId,
+        posting,
+        managing,
+        replies,
+        listing: 'setup',
+      };
+    }
     // Drawn now, through the one line of draws (two at once could make two listings): what it
     // did to the listing is in the answer.
     this.outcomes.delete(guildId);
@@ -523,6 +594,7 @@ export class EventForumService {
     }
     this.plannedEnds = [];
     this.morePostsDue = false;
+    this.drawnServers = forums.map((forum) => forum.serverId);
     for (const forum of forums) {
       if (this.stopped) return;
       const outcome = await this.drawServer(forum, reopen);
@@ -540,13 +612,22 @@ export class EventForumService {
    * catch-up puts right).
    */
   private async drawServer(forum: EventForumRecord, reopen = false): Promise<ListingOutcome> {
-    const { gateway, log } = this.options;
+    const { gateway, servers, log } = this.options;
     const { serverId, forumId } = forum;
+    // Only the forum the server's staff chose (plan 19A-1): none chosen, or another one not set
+    // up yet (`/admin setup-forums` records it), nothing is drawn.
+    if (servers.of(serverId).channels.events !== forumId) return 'failed';
+    // A server Discord says is unavailable (an outage) is not drawn, and its forum, which the
+    // cache may not show, is not said to be gone (fix round 2, G4); the next draw tries again.
+    if (!gateway.serverAvailable(serverId)) return 'failed';
     if (gateway.channelKind(forumId) !== 'forum') {
       if (!this.forumGoneTold.has(serverId)) {
         this.forumGoneTold.add(serverId);
         log.warn({ guild: serverId, forum: forumId }, 'the events forum is gone');
       }
+      // At every draw (fix round 2, G2): `ServerNotices` says it once, and again at the next
+      // draw where it could not, so a lab set later hears of it.
+      this.options.notices.tell(serverId, 'events-forum:gone', EVENTS_FORUM_GONE);
       return 'failed';
     }
     this.forumGoneTold.delete(serverId);
@@ -556,16 +637,20 @@ export class EventForumService {
     // nothing: no post is made, dropped or drawn, and the listing stands (review V1).
     if (!this.options.events.listingKnown()) return 'waiting';
     try {
-      const events = this.options.events.listedEvents();
+      // The events on the server's clock (plan 19A-2): a feed's local times in its zone.
+      const zone = servers.zoneOf(serverId);
+      const events = this.options.events.listedEvents(zone);
       const planned = await this.plannedOf(forum, events);
-      const posts = await this.drawPosts(forum, events, reopen, planned);
+      const posts = await this.drawPosts(forum, events, zone, reopen, planned);
       // Nor the listing after a stop (RR-3).
       if (this.stopped) return 'failed';
-      return await this.drawListing(forum, events, posts, planned);
+      return await this.drawListing(forum, events, zone, posts, planned);
     } catch (err) {
       const where = { err, guild: serverId, forum: forumId };
       if (isNetworkError(err)) log.warn(where, 'could not draw the events forum');
       else log.error(where, 'could not draw the events forum');
+      // The listing's post refused for a permission: the staff must give it (plan 19B-1).
+      this.tellIfPostsRefused(serverId, forumId, err);
       return 'failed';
     }
   }
@@ -574,7 +659,7 @@ export class EventForumService {
    * A day's "On this day" (plan 8H-8, design Part G): from 10:00 local time (`onThisDayDue`), at
    * the first draw of the day after it (its own timer, a start, the hourly upkeep, a catch-up),
    * once a day per server, where today's date was one of an earlier year's top
-   * `settings.eventsForum.onThisDay` big days (`HistoryDays.onThisDay`): a post of its own, never
+   * `eventsForum.onThisDay` big days of the server's values (`HistoryDays.onThisDay`): a post of its own, never
    * pinned, nobody pinged, archiving itself after a day without messages, recorded among the event
    * posts under `on-this-day:<day>` (start and end its making, ended at once), which the upkeep
    * archives three days on as an event's post. A day missed (the bot down) is never posted later.
@@ -590,10 +675,11 @@ export class EventForumService {
   private async drawOnThisDay(forum: EventForumRecord): Promise<void> {
     // Nothing after a stop, nor a post once one came while the days were read (review W7).
     if (this.stopped) return;
-    const { days, settings, store, gateway, log } = this.options;
-    const count = settings.eventsForum.onThisDay;
+    const { days, settings, store, gateway, log, servers } = this.options;
+    const count = servers.of(forum.serverId).eventsForum.onThisDay;
     const now = this.now();
-    const zone = settings.timezone;
+    // 10:00 and today on the server's clock (plan 19A-2).
+    const zone = servers.zoneOf(forum.serverId);
     if (days === undefined || count <= 0 || !onThisDayDue(now, zone)) return;
     const { serverId, forumId } = forum;
     const today = localDay(now, zone);
@@ -762,14 +848,16 @@ export class EventForumService {
   private async drawPosts(
     forum: EventForumRecord,
     events: readonly ListedEvent[],
+    zone: string,
     reopen: boolean,
     planned: ReadonlyMap<string, EventPlannedView> = new Map(),
   ): Promise<Map<string, string>> {
-    const { store, settings } = this.options;
+    const { store } = this.options;
     const { serverId } = forum;
     const now = this.now();
-    const zone = settings.timezone;
     const byId = new Map(events.map((event) => [event.id, event]));
+    // The server's numbers (plan 19A-1).
+    const { postDaysAhead } = this.options.servers.of(serverId).eventsForum;
     const rows = await store.posts(serverId);
     // Moves first: the row of an old id follows its event (R12).
     // A stop cuts a draw under way short, between posts (re-review RR-3).
@@ -791,7 +879,7 @@ export class EventForumService {
     for (const event of events) {
       if (this.stopped) break;
       if (known.has(event.id) || !isPosted(event) || event.end <= now) continue;
-      if (postOpensAt(event, settings.eventsForum.postDaysAhead, zone) > now) continue;
+      if (postOpensAt(event, postDaysAhead, zone) > now) continue;
       // Refused a while ago: passed over until it is asked for again, not counted among the ten.
       const refusedKey = `${serverId}:${event.id}`;
       if ((this.refusedPosts.get(refusedKey) ?? 0) > now) continue;
@@ -810,9 +898,10 @@ export class EventForumService {
       let refused = false;
       const row = await this.perPost(serverId, event.id, undefined, stage, async () => {
         try {
-          return await this.makePost(forum, event, planned.get(event.id));
+          return await this.makePost(forum, event, zone, planned.get(event.id));
         } catch (err) {
           refused = true;
+          this.tellIfPostsRefused(serverId, forum.forumId, err);
           throw err;
         }
       });
@@ -832,7 +921,7 @@ export class EventForumService {
       // One post Discord refuses keeps neither the others nor the listing from the draw (BR-5).
       const stage = new PostStage('edit');
       await this.perPost(serverId, row.eventId, row.postId, stage, () =>
-        this.drawPost(row, event, now, reopen, stage, event && planned.get(event.id)),
+        this.drawPost(row, event, zone, now, reopen, stage, event && planned.get(event.id)),
       );
     }
     // A dropped post is never linked (BR-1, revised ruling R2).
@@ -895,10 +984,11 @@ export class EventForumService {
   private async makePost(
     forum: EventForumRecord,
     event: ListedEvent,
+    zone: string,
     planned?: EventPlannedView,
   ): Promise<EventPostRecord | undefined> {
     const { gateway, store, log } = this.options;
-    const message = this.postMessage(event, planned);
+    const message = this.postMessage(event, zone, planned);
     const postId = await gateway.createPost(forum.forumId, {
       title: eventPostTitle(event.name),
       message,
@@ -935,19 +1025,19 @@ export class EventForumService {
   private async drawPost(
     row: EventPostRecord,
     event: ListedEvent | undefined,
+    zone: string,
     now: number,
     reopen: boolean,
     stage: PostStage,
     planned?: EventPlannedView,
   ): Promise<void> {
-    const { gateway, store, settings } = this.options;
-    const zone = settings.timezone;
+    const { gateway, store } = this.options;
     const { serverId, eventId } = row;
     if (row.dropped) {
       // Listed again under its id before its end (BR-1, revised ruling R2): restored, its body
       // drawn anew (the edit opens it); otherwise it stays dropped.
       if (!(row.endedAt === null && event && event.end > now)) return;
-      if (!(await this.editEventPost(row, this.postMessage(event, planned)))) {
+      if (!(await this.editEventPost(row, this.postMessage(event, zone, planned)))) {
         return this.postGone(row);
       }
       const restored = { dropped: false, archivedAt: null, start: event.start, end: event.end };
@@ -961,7 +1051,7 @@ export class EventForumService {
     if (row.endedAt === null && event && event.end > now) {
       const named = event.name === row.name;
       if (named && event.start === row.start && event.end === row.end) {
-        const message = this.postMessage(event, planned);
+        const message = this.postMessage(event, zone, planned);
         // Its message may differ though its event did not (plan 8M-15, V1: a multi-day event's
         // post loses the Campfire line): brought to it, once; after a restart, which knows
         // nothing it sent, once per open post. Otherwise only the hourly draw asks Discord.
@@ -993,7 +1083,7 @@ export class EventForumService {
       }
       // Only where the message would show something else than was sent (re-review W1): a
       // rename Discord keeps refusing has the rename tried again alone.
-      if (!(await this.editEventPost(row, this.postMessage(event, planned)))) {
+      if (!(await this.editEventPost(row, this.postMessage(event, zone, planned)))) {
         return this.postGone(row);
       }
       const drawn = { start: event.start, end: event.end };
@@ -1045,12 +1135,8 @@ export class EventForumService {
   }
 
   /** An event's post's message, with the trains and meetups planned during it. */
-  private postMessage(event: ListedEvent, planned: EventPlannedView | undefined) {
-    return eventPostMessage(
-      event,
-      this.options.settings.timezone,
-      planned === undefined ? {} : { planned },
-    );
+  private postMessage(event: ListedEvent, zone: string, planned: EventPlannedView | undefined) {
+    return eventPostMessage(event, zone, planned === undefined ? {} : { planned });
   }
 
   /**
@@ -1138,21 +1224,22 @@ export class EventForumService {
   private async drawListing(
     forum: EventForumRecord,
     events: readonly ListedEvent[],
+    zone: string,
     posts: ReadonlyMap<string, string>,
     planned: ReadonlyMap<string, EventPlannedView> = new Map(),
   ): Promise<ListingOutcome> {
-    const { gateway, store, settings, log } = this.options;
+    const { gateway, store, log } = this.options;
     const { serverId, forumId } = forum;
     const sections = listingSections(
       events,
       this.now(),
-      settings.timezone,
-      settings.eventsForum.horizonDays,
+      zone,
+      this.options.servers.of(serverId).eventsForum.horizonDays,
     );
     const message = listingMessage(
       sections,
       (id) => posts.get(id),
-      settings.timezone,
+      zone,
       (id) => planned.get(id)?.counts,
     );
     const text = JSON.stringify(message);
@@ -1202,31 +1289,72 @@ export class EventForumService {
     return true;
   }
 
-  /** Pins a post; a refused permission is said once per server (a moderator can pin it). */
+  /**
+   * Pins a post; a refusal is logged once per server (a moderator can pin it), and the server's
+   * staff are told at every refusal (fix round 2, G2: `ServerNotices` says it once).
+   */
   private async pin(serverId: string, postId: string): Promise<void> {
     try {
       await this.options.gateway.pinPost(postId);
     } catch (err) {
       // Whatever it is (Manage Posts refused, another post holding the forum's one pin, 30047):
-      // said once per server, and the lock, the record and the draw carry on (review V4).
+      // logged once per server, and the lock, the record and the draw carry on (review V4).
       const key = `${serverId}:pin`;
-      if (this.refusedTold.has(key)) return;
+      if (!this.refusedTold.has(key)) {
+        this.refusedTold.add(key);
+        this.options.log.warn(
+          { err, guild: serverId, post: postId },
+          'could not pin the events listing',
+        );
+      }
+      const forumId = this.options.servers.of(serverId).channels.events;
+      if (forumId !== undefined) {
+        this.options.notices.tell(
+          serverId,
+          'events-forum:pin',
+          eventsListingUnpinnedWords(forumId),
+        );
+      }
+    }
+  }
+
+  /**
+   * Says that Discord refused the bot a permission: in the log once per server and what, to the
+   * server's staff at every refusal (fix round 2, G2: `ServerNotices` says it once).
+   */
+  private refused(serverId: string, what: 'lock' | 'archive' | 'rename', err: unknown): void {
+    const key = `${serverId}:${what}`;
+    if (!this.refusedTold.has(key)) {
       this.refusedTold.add(key);
       this.options.log.warn(
-        { err, guild: serverId, post: postId },
-        'could not pin the events listing',
+        { err, guild: serverId, what },
+        'the bot may not do this in the events forum (Manage Posts)',
+      );
+    }
+    // One notice for the three: each needs Manage Posts (plan 19B-1).
+    const forumId = this.options.servers.of(serverId).channels.events;
+    if (forumId !== undefined) {
+      this.options.notices.tell(
+        serverId,
+        'events-forum:manage-posts',
+        eventsForumRefusedWords(forumId),
       );
     }
   }
 
-  /** Says once per server and what that Discord refused the bot a permission. */
-  private refused(serverId: string, what: 'lock' | 'archive' | 'rename', err: unknown): void {
-    const key = `${serverId}:${what}`;
-    if (this.refusedTold.has(key)) return;
-    this.refusedTold.add(key);
-    this.options.log.warn(
-      { err, guild: serverId, what },
-      'the bot may not do this in the events forum (Manage Posts)',
+  /**
+   * Tells the server's staff that the bot may not make posts in the events forum (plan 19B-1),
+   * where Discord refused a post for a permission (`PostsRefusedError`, a missing permission or
+   * access): they must give it. Any other refusal (AutoMod, an outage) is only logged, as it is.
+   */
+  private tellIfPostsRefused(serverId: string, forumId: string, err: unknown): void {
+    const missing =
+      err instanceof PostsRefusedError ? err.missing : isMissingPermission(err) ? [] : undefined;
+    if (missing === undefined) return;
+    this.options.notices.tell(
+      serverId,
+      'events-forum:cannot-post',
+      eventsForumCannotPostWords(forumId, missing),
     );
   }
 
@@ -1260,23 +1388,38 @@ export class EventForumService {
     this.cancelNext?.();
     this.cancelNext = undefined;
     if (this.stopped) return;
-    const { settings } = this.options;
+    const { servers } = this.options;
     const now = this.now();
-    const times = this.options.events
-      .listedEvents()
-      .flatMap((event) => [
-        // Every move of its line between sections (BR-9), and its post's opening.
-        ...sectionChangesAt(event, settings.eventsForum.horizonDays, settings.timezone),
-        ...(isPosted(event)
-          ? [postOpensAt(event, settings.eventsForum.postDaysAhead, settings.timezone)]
-          : []),
-      ])
+    // The numbers and the zone of every server drawn (plan 19A-1: each its own; plan 19A-2: its
+    // zone), each triple once.
+    const drawn = this.drawnServers.map((serverId) => ({
+      ...servers.of(serverId).eventsForum,
+      zone: servers.zoneOf(serverId),
+    }));
+    const numbers = [
+      ...new Map(
+        drawn.map(({ horizonDays, postDaysAhead, zone }) => [
+          `${String(horizonDays)}:${String(postDaysAhead)}:${zone}`,
+          { horizonDays, postDaysAhead, zone },
+        ]),
+      ).values(),
+    ];
+    const times = numbers
+      .flatMap(({ horizonDays, postDaysAhead, zone }) =>
+        this.options.events.listedEvents(zone).flatMap((event) => [
+          // Every move of its line between sections (BR-9), and its post's opening.
+          ...sectionChangesAt(event, horizonDays, zone),
+          ...(isPosted(event) ? [postOpensAt(event, postDaysAhead, zone)] : []),
+        ]),
+      )
       .filter((time) => time > now);
     // A counted train or meetup over by the clock leaves its event's count (review EP-5).
     times.push(...this.plannedEnds.filter((time) => time > now));
-    // The next 10:00 of "On this day" (plan 8H-8).
-    if (this.options.days !== undefined && settings.eventsForum.onThisDay > 0) {
-      times.push(nextOnThisDayAt(now, settings.timezone));
+    // The next 10:00 of "On this day" (plan 8H-8), on the clock of each server drawn that posts
+    // its days, not of the triples above (review F12): two servers of one triple may differ in it.
+    if (this.options.days !== undefined) {
+      const zones = new Set(drawn.filter((one) => one.onThisDay > 0).map((one) => one.zone));
+      for (const zone of zones) times.push(nextOnThisDayAt(now, zone));
     }
     if (times.length === 0) return;
     const next = Math.min(...times);

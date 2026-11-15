@@ -2,6 +2,7 @@ import { InteractionContextType, MessageFlags } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import {
   answered,
+  FAKE_GUILD_ID,
   fakeAutocomplete,
   fakeChatInput,
   sent,
@@ -19,6 +20,7 @@ import { RAID_LEVELS, raidTier, sameRaidTier, type RaidTier } from '../../domain
 import type { RaidBossProvider } from '../../services/raid-boss-service.js';
 import { bossTier } from './boss-tier.js';
 import { maps } from './maps.js';
+import { testServerValues } from '../../../test/support/server-values.js';
 
 /** A list of bosses as the provider of the context gives it. */
 function provider(bosses: () => RaidBoss[]): RaidBossProvider {
@@ -244,13 +246,14 @@ describe('/boss-tier', () => {
 });
 
 describe('/maps', () => {
-  it('works in servers and DMs, and only where a map is set', () => {
+  it('works in servers and DMs, and is set up only where a map is set (plan 19A-1)', () => {
     const json = maps.data.toJSON();
     expect(json.contexts).toEqual([InteractionContextType.Guild, InteractionContextType.BotDM]);
     const { ctx } = createTestContext();
-    expect(maps.enabled?.(ctx.config)).toBe(true);
-    const { regionMapLink: _link, ...without } = ctx.config.settings;
-    expect(maps.enabled?.({ ...ctx.config, settings: without })).toBe(false);
+    const values = testServerValues();
+    expect(maps.setUpIn?.(values, ctx, FAKE_GUILD_ID)).toBeUndefined();
+    const { regionMapLink: _link, ...without } = values;
+    expect(maps.setUpIn?.(without, ctx, FAKE_GUILD_ID)).toBeDefined();
   });
 
   it('gives the member the address of the map, privately, also in a post or a DM', async () => {

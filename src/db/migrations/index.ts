@@ -50,6 +50,20 @@ import { checkedForeignKeys } from './2026_11_07_048_checked_foreign_keys.js';
 import { eventWindow } from './2026_11_09_049_event_window.js';
 import { sweepIndexes } from './2026_11_10_050_sweep_indexes.js';
 import { forgettableMembers } from './2026_11_10_051_forgettable_members.js';
+import { serverSettings } from './2026_11_12_052_server_settings.js';
+import { serverSettingsAudit } from './2026_11_12_053_server_settings_audit.js';
+import { feedLocalTimes } from './2026_11_13_054_feed_local_times.js';
+import { maxBossStart } from './2026_11_13_055_max_boss_start.js';
+import { gymServers } from './2026_11_13_056_gym_servers.js';
+import { memberIndexes } from './2026_11_13_057_member_indexes.js';
+import { pokemonNicknames } from './2026_11_13_058_pokemon_nicknames.js';
+import { serverWayspots } from './2026_11_13_059_server_wayspots.js';
+import { dmContacts } from './2026_11_13_060_dm_contacts.js';
+import { serverRecord } from './2026_11_13_061_server_record.js';
+import { serverDeletion } from './2026_11_14_062_server_deletion.js';
+import { serverNeighbors } from './2026_11_14_063_server_neighbors.js';
+import { activityZone } from './2026_11_14_064_activity_zone.js';
+import { webSessionServers } from './2026_11_14_065_web_session_servers.js';
 
 /**
  * Every migration, keyed by name. Kysely applies them in name order, so names are
@@ -107,4 +121,18 @@ export const migrations: Record<string, Migration> = {
   '2026_11_09_049_event_window': eventWindow,
   '2026_11_10_050_sweep_indexes': sweepIndexes,
   '2026_11_10_051_forgettable_members': forgettableMembers,
+  '2026_11_12_052_server_settings': serverSettings,
+  '2026_11_12_053_server_settings_audit': serverSettingsAudit,
+  '2026_11_13_054_feed_local_times': feedLocalTimes,
+  '2026_11_13_055_max_boss_start': maxBossStart,
+  '2026_11_13_056_gym_servers': gymServers,
+  '2026_11_13_057_member_indexes': memberIndexes,
+  '2026_11_13_058_pokemon_nicknames': pokemonNicknames,
+  '2026_11_13_059_server_wayspots': serverWayspots,
+  '2026_11_13_060_dm_contacts': dmContacts,
+  '2026_11_13_061_server_record': serverRecord,
+  '2026_11_14_062_server_deletion': serverDeletion,
+  '2026_11_14_063_server_neighbors': serverNeighbors,
+  '2026_11_14_064_activity_zone': activityZone,
+  '2026_11_14_065_web_session_servers': webSessionServers,
 };

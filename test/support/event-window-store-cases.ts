@@ -11,6 +11,16 @@ export const INTO_THE_WILD_WINDOW: EventWindow = {
 };
 
 /**
+ * The same window typed as local time (plan 19A-2): 10:00 Monday to 20:00 Friday on each
+ * server's clock, its moments those of New York, the instance's default zone of the tests.
+ */
+export const INTO_THE_WILD_LOCAL: EventWindow = {
+  ...INTO_THE_WILD_WINDOW,
+  startLocal: '2026-11-09T10:00:00',
+  endLocal: '2026-11-13T20:00:00',
+};
+
+/**
  * What every `EventWindowStorage` does (`EventWindowRepository`, `MemoryEventWindows`): `fresh` gives one
  * that keeps nothing yet.
  */
@@ -36,6 +46,18 @@ export function eventWindowCases(fresh: () => Promise<EventWindowStorage>): void
       };
       await store.keep(again);
       expect(await store.current()).toEqual(again);
+    });
+
+    it('keeps the wall-clock times of a window typed as local time, and drops them again (plan 19A-2)', async () => {
+      await store.keep(INTO_THE_WILD_LOCAL);
+      expect(await store.current()).toEqual(INTO_THE_WILD_LOCAL);
+      // Ended now: the end is a moment again, the same in every zone.
+      const { endLocal: _dropped, ...ended } = {
+        ...INTO_THE_WILD_LOCAL,
+        end: Date.UTC(2026, 10, 11, 17),
+      };
+      await store.keep(ended);
+      expect(await store.current()).toEqual(ended);
     });
   });
 }
