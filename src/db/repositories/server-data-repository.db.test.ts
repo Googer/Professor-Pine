@@ -149,6 +149,29 @@ describe('ServerDataRepository: a server’s data deleted (plan 19C-3)', () => {
     expect(await dumpTables(db, TABLES)).toEqual(before);
   });
 
+  it('stops between two gyms when told, not only between two batches of them (final review R4-5)', async () => {
+    let atGyms = false;
+    let asked = 0;
+    const repository = new ServerDataRepository(db, {
+      step: (table) => {
+        if (table === 'GymServer') atGyms = true;
+      },
+    });
+    // Told to stop once the first of its two gyms is removed.
+    const isStopped = () => atGyms && (asked += 1) > 1;
+    await expect(repository.delete(DELETED_SERVER, { isStopped })).rejects.toBeInstanceOf(
+      ServerDeletionStopped,
+    );
+    const links = await db
+      .selectFrom('GymServer')
+      .select('gymId')
+      .where('guildId', '=', deleted.guildRow)
+      .execute();
+    expect(links).toHaveLength(1);
+    await repository.delete(DELETED_SERVER);
+    expect(await dumpTables(db, TABLES)).toEqual(before);
+  });
+
   it('reads no table whole: every statement along an index', async () => {
     // Twenty more servers, so that the server's rows are a few of many, as on a real instance.
     const members = (await db.selectFrom('User').select('id').execute()).map((row) => row.id);
