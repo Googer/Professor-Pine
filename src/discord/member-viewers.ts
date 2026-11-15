@@ -190,6 +190,45 @@ export class GatewayWithFallback {
 }
 
 /**
+ * `GatewayWithFallback` per shard (final review R1-3): a request for members goes over the
+ * connection of its server's shard, so a shard whose request failed rests alone (said with its
+ * id), and the servers of the others go on over the gateway. A shard that is not ready (it
+ * reconnects) is not asked at all, the other way at once, and that is no failure: its request
+ * would wait out its whole time inside the one line of requests for members, then have every
+ * shard rest. A shard is known from its first request on (as many as the bot has shards).
+ */
+export class ShardGateways {
+  private readonly shards = new Map<number, GatewayWithFallback>();
+
+  constructor(
+    private readonly options: Omit<GatewayWithFallbackOptions, 'log'> & { log?: Logger } = {},
+  ) {}
+
+  /** Until when only the other way is asked for this shard (epoch ms); 0 for none. */
+  restsUntil(shard: number): number {
+    return this.shards.get(shard)?.restsUntil ?? 0;
+  }
+
+  ask<T>(
+    shard: { id: number; ready: boolean },
+    overGateway: () => Promise<T>,
+    otherwise: () => Promise<T>,
+  ): Promise<T> {
+    if (!shard.ready) return otherwise();
+    let gateway = this.shards.get(shard.id);
+    if (!gateway) {
+      const { log, ...rest } = this.options;
+      gateway = new GatewayWithFallback({
+        ...rest,
+        ...(log ? { log: log.child({ shard: shard.id }) } : {}),
+      });
+      this.shards.set(shard.id, gateway);
+    }
+    return gateway.ask(overGateway, otherwise);
+  }
+}
+
+/**
  * How long "this member sees the channel" is good for. Ten minutes: who could see a forum a
  * moment ago nearly always still can, and the next event there (a raid's boss, its gym) asks
  * about the same members again. Somebody who lost the view meanwhile gets one more message.

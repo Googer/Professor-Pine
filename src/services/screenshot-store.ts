@@ -289,7 +289,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
       const recordBytes = Buffer.byteLength(`${JSON.stringify(record, null, 2)}
 `);
       const fileBytes = image && !linked ? bytes.byteLength : 0;
-      if (!(await this.room(fileBytes + recordBytes))) {
+      if (!(await this.room(fileBytes + recordBytes, record.guildId))) {
         if (linked && record.file) await rm(path.join(this.held, record.file), { force: true });
         return undefined;
       }
@@ -569,7 +569,7 @@ export class ScreenshotStore implements ScreenshotKeeping {
         } catch {
           // No hard links here: a copy, which takes its bytes again.
           const size = (await stat(source)).size;
-          if (!(await this.room(size))) return;
+          if (!(await this.room(size, record.guildId))) return;
           await copyFile(source, image);
           this.grow(size, record.guildId);
         }
@@ -620,9 +620,11 @@ export class ScreenshotStore implements ScreenshotKeeping {
    * its held screenshots of the index, the oldest first, each read again under its turn and left
    * when it is gone, has an issue by now or an active raid shows it; then its oldest review
    * copies that free something (not one linked to its held screenshot). A server with nothing
-   * of that left is passed over for the next; when none has any, nothing is kept.
+   * of that left is passed over for the next; when none has any, nothing is kept. Never past the
+   * server that keeps (`keeper`, final review R1-2): once it is the one keeping the most and has
+   * nothing left to give, its new one is not kept, and no server keeping less gives way for it.
    */
-  private async room(bytes: number): Promise<boolean> {
+  private async room(bytes: number, keeper?: string): Promise<boolean> {
     if (this.used === undefined) {
       // Once counted, `used` is set; a count that failed is tried again by the next keep.
       await (this.counting ??= this.count().finally(() => {
@@ -640,7 +642,10 @@ export class ScreenshotStore implements ScreenshotKeeping {
       if (server === undefined) break;
       const gave =
         (await this.givePlain(server)) || (await this.giveCopy((await reviewCopies()).get(server)));
-      if (!gave) givenAll.add(server);
+      if (gave) continue;
+      // Those after it keep less than the server that keeps: none gives way for it.
+      if (server === keeper) break;
+      givenAll.add(server);
     }
     if (fits()) return true;
     this.options.log.warn(

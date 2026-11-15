@@ -2,6 +2,7 @@ import {
   DiscordAPIError,
   PermissionFlagsBits,
   RESTJSONErrorCodes,
+  Status,
   type Client,
   type Collection,
   type Guild,
@@ -14,10 +15,10 @@ import { Turns } from '../turns.js';
 import {
   answeredMembers,
   CachedViewers,
-  GatewayWithFallback,
   MEMBER_REQUEST_BUDGET,
   MEMBERS_PER_LOOKUP,
   RequestBudget,
+  ShardGateways,
   withSelf,
 } from './member-viewers.js';
 
@@ -322,6 +323,14 @@ function gatewayRetryAfterMs(err: unknown): number | undefined {
 }
 
 /**
+ * The shard of a server, and whether it is ready (final review R1-3): a request for members goes
+ * over that shard's connection, which `ShardGateways` asks only while it is.
+ */
+function shardOf(guild: Guild): { id: number; ready: boolean } {
+  return { id: guild.shardId, ready: guild.shard.status === Status.Ready };
+}
+
+/**
  * The directory over a discord.js client: thin, and without unit tests like the party gateway
  * (the staging run is its test); what it remembers is `CachedMemberDirectory`'s and
  * `CachedViewers`'. The client is handed over once it exists; anything asked before that fails.
@@ -337,21 +346,22 @@ function gatewayRetryAfterMs(err: unknown): number | undefined {
  * channel as the cache has it; channels, their overwrites and the roles of the server are kept
  * current by the Guilds intent. When the gateway request fails, times out or is refused as
  * rate limited, the same members are asked for one at a time over REST (`fetchGuildMember`,
- * fresh), and the gateway is left alone for a while (`GatewayWithFallback`: a minute, longer
- * after every further failure, or for as long as Discord said).
+ * fresh), and that server's shard's gateway is left alone for a while (`ShardGateways`, final
+ * review R1-3: per shard a minute, longer after every further failure, or for as long as Discord
+ * said); a shard that is not ready is not asked at all, the same members over REST at once.
  */
 export class DiscordMemberDirectory implements MemberDirectory {
   private current: Client | undefined;
   private readonly cached: CachedMemberDirectory;
   private readonly seeing: CachedViewers;
-  private readonly members: GatewayWithFallback;
+  private readonly members: ShardGateways;
   /** The one budget of the gateway's requests for members, `viewers`' and `named`'s (A7). */
   private readonly line: BudgetLine;
   private readonly now: () => number;
 
   constructor(options: { now?: () => number; log?: Logger } = {}) {
     const now = options.now ?? (() => Date.now());
-    this.members = new GatewayWithFallback({
+    this.members = new ShardGateways({
       now,
       ...(options.log ? { log: options.log } : {}),
       retryAfterMs: gatewayRetryAfterMs,
@@ -393,6 +403,7 @@ export class DiscordMemberDirectory implements MemberDirectory {
   /** Those of these users who are members of the server, as Discord has them now. */
   private freshMembers(guild: Guild, userIds: readonly string[]): Promise<GuildMember[]> {
     return this.members.ask(
+      shardOf(guild),
       async () => {
         const selfId = guild.client.user.id;
         const found: Collection<string, GuildMember> = await guild.members.fetch({
@@ -442,8 +453,9 @@ export class DiscordMemberDirectory implements MemberDirectory {
    * `MEMBERS_PER_LOOKUP` by user id over the gateway, which Discord allows without the
    * GuildMembers intent (its docs name the intent only for the whole list), so that somebody who
    * left is found gone (review A2: without that intent the cache never hears of a member
-   * leaving). Only while the gateway rests after a failure (`GatewayWithFallback.restsUntil`) are
-   * the cache's members taken as it has them, the rest asked over REST one by one
+   * leaving). Only while the server's shard rests after a failure (`ShardGateways.restsUntil`),
+   * or is not ready (final review R1-3), are the cache's members taken as it has them, the rest
+   * asked over REST one by one
    * (`freshMembers`). Its requests take turns with those of `viewers`, one at a time on one
    * budget (`line`, reviews A7, R-A4), behind those of `viewers` and at most `NAMES_PER_MINUTE`
    * a minute, beyond which it rejects (`MembersBusy`, W1). A server the cache lacks rejects (A8):
@@ -453,7 +465,8 @@ export class DiscordMemberDirectory implements MemberDirectory {
     if (!this.current) throw new Error('Discord is not connected yet');
     const guild = this.current.guilds.cache.get(guildId);
     if (!guild) throw new Error(`The server ${guildId} is not known`);
-    const resting = this.members.restsUntil > this.now();
+    const shard = shardOf(guild);
+    const resting = !shard.ready || this.members.restsUntil(shard.id) > this.now();
     const found: ServerMember[] = [];
     const ask: string[] = [];
     for (const id of userIds) {

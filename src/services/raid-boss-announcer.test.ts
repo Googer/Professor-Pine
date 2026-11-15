@@ -13,7 +13,7 @@ import { diffBosses } from '../domain/pogo/boss-diff.js';
 import type { FeedBoss } from '../domain/pogo/raid-boss-feed.js';
 import { diffFeed, effectiveBosses, type NewBossOverride } from '../domain/pogo/raid-bosses.js';
 import type { RaidTier } from '../domain/pogo/raid-tier.js';
-import { RaidBossAnnouncer } from './raid-boss-announcer.js';
+import { ANNOUNCE_GAP_MS, RaidBossAnnouncer } from './raid-boss-announcer.js';
 import type { FeedChange } from './raid-boss-service.js';
 import { TestServers, testServerValues, withZones } from '../../test/support/server-values.js';
 import { RecordingDms } from '../../test/support/dms.js';
@@ -61,7 +61,14 @@ const ZEKROM_OVERRIDE: NewBossOverride = {
   createdBy: '123456789012345678',
 };
 
-function setup(options: { announceChanges?: boolean; servers?: string[]; ownerId?: string } = {}) {
+function setup(
+  options: {
+    announceChanges?: boolean;
+    servers?: string[];
+    ownerId?: string;
+    setTimer?: (run: () => void, ms: number) => () => void;
+  } = {},
+) {
   const gateway = new FakePartyGateway();
   const base = loadSettings(TEST_SETTINGS_PATH);
   const settings = {
@@ -90,6 +97,7 @@ function setup(options: { announceChanges?: boolean; servers?: string[]; ownerId
     dms,
     ownerId: options.ownerId ?? OWNER,
     notices,
+    ...(options.setTimer ? { setTimer: options.setTimer } : {}),
   });
   const sentTo = (channelId: string) =>
     gateway.messages
@@ -285,6 +293,49 @@ describe('RaidBossAnnouncer', () => {
     await announcer.flush();
     expect(gateway.messages).toHaveLength(1);
     expect(sentTo('700000000000000003')).toHaveLength(1);
+  });
+
+  it('sends a change to one server at a time, a quarter of a second apart (final review R1-1)', async () => {
+    const timers: { run: () => void; ms: number; done: boolean }[] = [];
+    const setTimer = (run: () => void, ms: number) => {
+      const timer = { run, ms, done: false };
+      timers.push(timer);
+      return () => {
+        timer.done = true;
+      };
+    };
+    const paced = () => timers.filter((timer) => timer.ms === ANNOUNCE_GAP_MS && !timer.done);
+    const { gateway, announcer, sentTo } = setup({
+      servers: ['412345678901234567', OTHER_GUILD],
+      setTimer,
+    });
+    gateway.addChannel(UPDATES, 'bot-updates');
+    gateway.addChannel(OTHER_UPDATES, 'bot-updates', { guildId: OTHER_GUILD });
+    // Which channels Discord was asked to send in, as they are asked.
+    const asked: string[] = [];
+    const send = gateway.sendMessage.bind(gateway);
+    gateway.sendMessage = (channelId, message, options) => {
+      asked.push(channelId);
+      return send(channelId, message, options);
+    };
+    announcer.ready();
+    announcer.changed(change([], [zekrom]));
+    // The first server's at once, the other's at the next turn of the pace.
+    expect(asked).toEqual([UPDATES]);
+    expect(paced()).toHaveLength(1);
+    const [next] = paced();
+    next!.done = true;
+    next!.run();
+    expect(asked).toEqual([UPDATES, OTHER_UPDATES]);
+    expect(paced()).toEqual([]);
+    await announcer.flush();
+    expect(sentTo(UPDATES)).toHaveLength(1);
+    expect(sentTo(OTHER_UPDATES)).toHaveLength(1);
+    // What waits for its turn at shutdown is not sent.
+    announcer.changed(change([], [zekrom]));
+    await announcer.close();
+    expect(asked).toEqual([UPDATES, OTHER_UPDATES, UPDATES]);
+    expect(paced()).toEqual([]);
   });
 
   it('waits in flush for the messages on their way, and sends nothing once closed', async () => {

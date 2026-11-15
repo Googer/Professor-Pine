@@ -790,6 +790,24 @@ describe('QueuedDmSender and members written to for the first time', () => {
     expect(made.contacts.added).toEqual([idOf(2)]);
   });
 
+  it('counts a member who takes no direct messages as one whose channel is open: an hour on, their message is no first one (final review R1-7)', async () => {
+    const made = capped(1);
+    made.gateway.closed.add(idOf(1));
+    made.sender.send(made.job(1));
+    await pullUntilIdle(made.sender);
+    expect(made.gateway.asked).toEqual([idOf(1)]);
+    // The hour after which Discord is asked again, within a window that opened nothing yet.
+    made.clock.now += DM_CLOSED_MS;
+    made.sender.send(made.job(1));
+    made.sender.send(made.job(2));
+    await made.pulls(20);
+    expect(made.gateway.asked).toEqual([idOf(1), idOf(1), idOf(2)]);
+    expect(made.sender.depth).toBe(0);
+    expect(made.logged('direct messages sent')[1]).toMatchObject({ firstContacts: 1 });
+    // Nothing of it in the database: they were never written to.
+    expect(made.contacts.added).toEqual([idOf(2)]);
+  });
+
   it('takes a member as new when it cannot tell, and says so', async () => {
     const made = capped(1);
     made.contacts.failing = new Error('the database is away');
@@ -928,11 +946,11 @@ describe('QueuedDmSender and members written to for the first time', () => {
       made.contacts.addHold = true;
       for (let n = 1; n <= 7; n++) made.sender.send(made.job(n));
       await made.pulls(20);
-      // Five sends on their way at most: the five records that do not answer hold the rest.
-      expect(made.gateway.sent).toHaveLength(5);
-      vi.advanceTimersByTime(10_000);
-      await made.pulls(20);
+      // A record that does not answer holds none of the five places (final review R1-7).
       expect(made.gateway.sent).toHaveLength(7);
+      expect(made.sender.depth).toBe(0);
+      // The burst lasts until the records are through.
+      expect(made.sender.idle).toBe(false);
       vi.advanceTimersByTime(10_000);
       await made.settle();
       expect(made.sender.idle).toBe(true);

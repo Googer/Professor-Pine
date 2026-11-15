@@ -6,6 +6,7 @@ import {
   CachedViewers,
   GATEWAY_REST,
   GatewayWithFallback,
+  ShardGateways,
   MEMBER_REQUEST_BUDGET,
   MEMBERS_PER_LOOKUP,
   MEMBERS_PER_REQUEST,
@@ -398,5 +399,56 @@ describe('FakeMemberDirectory.viewers', () => {
     await expect(members.viewers(GUILD, CHANNEL, [idOf(1), idOf(2)])).rejects.toThrow('at once');
     members.failing = new Error('away');
     await expect(members.viewers(GUILD, CHANNEL, [idOf(1)])).rejects.toThrow('away');
+  });
+});
+
+describe('ShardGateways (final review R1-3)', () => {
+  /** Each shard's gateway, failing while its shard is in `down`; a fallback that answers. */
+  function shardsOf() {
+    const clock = { now: 9_000_000 };
+    const { log, entries } = createTestLogger();
+    const down = new Set<number>();
+    const asked: string[] = [];
+    const gateways = new ShardGateways({ now: () => clock.now, log });
+    const ask = (shard: number, ready = true) =>
+      gateways.ask(
+        { id: shard, ready },
+        () => {
+          asked.push(`gateway ${String(shard)}`);
+          return down.has(shard)
+            ? Promise.reject(new Error('timed out'))
+            : Promise.resolve('gateway');
+        },
+        () => {
+          asked.push(`rest ${String(shard)}`);
+          return Promise.resolve('rest');
+        },
+      );
+    return { clock, down, asked, ask, gateways, entries };
+  }
+
+  it('lets the shard that failed rest alone: the others go on over the gateway', async () => {
+    const made = shardsOf();
+    made.down.add(1);
+    expect(await made.ask(1)).toBe('rest');
+    expect(made.gateways.restsUntil(1) - made.clock.now).toBe(GATEWAY_REST.firstMs);
+    expect(made.gateways.restsUntil(0)).toBe(0);
+    made.asked.length = 0;
+    expect(await made.ask(0)).toBe('gateway');
+    expect(await made.ask(1)).toBe('rest');
+    expect(made.asked).toEqual(['gateway 0', 'rest 1']);
+    // Said with the shard it is of.
+    expect(
+      made.entries.filter((entry) => entry.level === 40).map((entry) => entry['shard']),
+    ).toEqual([1]);
+  });
+
+  it('asks the other way at once for a shard that is not ready, and counts no failure', async () => {
+    const made = shardsOf();
+    made.down.add(2);
+    expect(await made.ask(2, false)).toBe('rest');
+    expect(made.asked).toEqual(['rest 2']);
+    expect(made.gateways.restsUntil(2)).toBe(0);
+    expect(made.entries).toEqual([]);
   });
 });

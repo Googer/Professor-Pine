@@ -499,6 +499,29 @@ describe('ScreenshotStore', () => {
     expect(files('review')).not.toContain(`${asked}.png`);
   });
 
+  it('keeps nothing of the server keeping the most that has nothing to give, rather than take another’s (final review R1-2)', async () => {
+    const { store, files, clock, entries } = storeWith(new Set(), { keepMegabytes: 10 });
+    const big = new Uint8Array(3 * MB);
+    big.set(PNG);
+    const away = await kept(store, screenshot(undefined, { guildId: AWAY_SERVER }), big);
+    clock.now += 1;
+    // Home keeps 6 MB, every byte with an issue (asked, its review copy linked): none may go.
+    const asked = [
+      await kept(store, screenshot({ kind: 'ask', doubts: ['gym-unclear'] }), big),
+      await kept(store, screenshot({ kind: 'ask', doubts: ['gym-unclear'] }), big),
+    ];
+    clock.now += 1;
+    expect(await store.keep(big, screenshot())).toBeUndefined();
+    expect(files('held')).toContain(`${away}.png`);
+    for (const id of asked) expect(files('held')).toContain(`${id}.png`);
+    expect(entries.map((entry) => entry.msg)).toContain(
+      'the kept screenshots fill their space; this one is not kept',
+    );
+    // Away, keeping less, still makes room of Home's nothing and of its own plain one.
+    expect(await store.keep(big, screenshot(undefined, { guildId: AWAY_SERVER }))).toBeDefined();
+    expect(files('held')).not.toContain(`${away}.png`);
+  });
+
   it('lets no review copy go that frees nothing: one linked to its held screenshot', async () => {
     const { store, files } = storeWith(new Set(), { keepMegabytes: 4 });
     const big = new Uint8Array(3 * MB);
