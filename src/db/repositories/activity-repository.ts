@@ -232,7 +232,7 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
           await trx.deleteFrom('ActivityDay').where('serverId', '=', server).execute();
           await trx
             .updateTable('ActivityProgress')
-            .set({ lastHistoryId: 0, lastDayHistoryId: 0 })
+            .set({ lastHistoryId: 0, lastDayHistoryId: 0, zone: null })
             .where('serverId', '=', server)
             .execute();
         }),
@@ -295,17 +295,55 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
   private async markOf(
     trx: Kysely<DB>,
     serverId: string,
-  ): Promise<{ buckets: number; days: number }> {
+  ): Promise<{ buckets: number; days: number; zone: string | null }> {
     await sql`insert into ActivityProgress (serverId, lastHistoryId, lastDayHistoryId)
       values (${serverId}, 0, 0) as new
       on duplicate key update lastHistoryId = ActivityProgress.lastHistoryId`.execute(trx);
-    const row = await sql<{ mark: number; dayMark: number }>`
-      select lastHistoryId as mark, lastDayHistoryId as dayMark from ActivityProgress
+    const row = await sql<{ mark: number; dayMark: number; zone: string | null }>`
+      select lastHistoryId as mark, lastDayHistoryId as dayMark, zone from ActivityProgress
       where serverId = ${serverId} for update`.execute(trx);
     return {
       buckets: Number(row.rows[0]?.mark ?? 0),
       days: Number(row.rows[0]?.dayMark ?? 0),
+      zone: row.rows[0]?.zone ?? null,
     };
+  }
+
+  /**
+   * The server's marks in a batch, its row locked (`markOf`), in `zone`, the zone it is counted
+   * in now (final review R3-3): where its activity was counted in another zone (a change whose
+   * rebuild never ended: a shutdown before its reset, a rebuild that failed), its buckets and
+   * days are deleted and both marks set to 0 in the batch's transaction, as `rebuild` resets
+   * them, so that the batch counts it again from its first record. A zone not known (a row from
+   * before migration 064, a row just made or reset) is taken as the zone now, and kept so.
+   */
+  private async marksIn(
+    trx: Kysely<DB>,
+    serverId: string,
+    zone: string,
+  ): Promise<{ buckets: number; days: number }> {
+    const marks = await this.markOf(trx, serverId);
+    if (marks.zone === zone) return marks;
+    if (marks.zone === null) {
+      await trx
+        .updateTable('ActivityProgress')
+        .set({ zone })
+        .where('serverId', '=', serverId)
+        .execute();
+      return marks;
+    }
+    await trx.deleteFrom('ActivityBucket').where('serverId', '=', serverId).execute();
+    await trx.deleteFrom('ActivityDay').where('serverId', '=', serverId).execute();
+    await trx
+      .updateTable('ActivityProgress')
+      .set({ lastHistoryId: 0, lastDayHistoryId: 0, zone })
+      .where('serverId', '=', serverId)
+      .execute();
+    this.options.log?.info(
+      { guild: serverId, zone, was: marks.zone },
+      'the activity of a server was counted in another zone; counting it again',
+    );
+    return { buckets: 0, days: 0 };
   }
 
   /**
@@ -325,7 +363,9 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
     return inTransaction(
       this.db,
       async (trx) => {
-        const marks = await this.markOf(trx, serverId);
+        // The zone of the whole batch, its marks in it (final review R3-3).
+        const zone = this.options.zoneOf(serverId);
+        const marks = await this.marksIn(trx, serverId, zone);
         const rows = await sql<{
           id: number;
           source: string;
@@ -374,7 +414,6 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
         const last = records.at(-1);
         if (last === undefined) return { read: 0, buckets: 0, days: 0 };
         const now = this.now();
-        const zone = this.options.zoneOf(serverId);
         const { trains, around } = await this.trainsOf(trx, serverId, records);
         // The trains around by the places of their stops, once a batch (V5).
         const byPlace = trainsByPlace(around);
@@ -424,6 +463,7 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
           .set({
             lastHistoryId: Math.max(marks.buckets, last.id),
             lastDayHistoryId: Math.max(marks.days, last.id),
+            zone,
           })
           .where('serverId', '=', serverId)
           .execute();

@@ -57,6 +57,7 @@ export interface ActivityProgress {
   lastDayHistoryId: Generated<number>;
   lastHistoryId: Generated<number>;
   serverId: string;
+  zone: string | null;
 }
 
 export interface Alias {

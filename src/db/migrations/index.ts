@@ -62,6 +62,7 @@ import { dmContacts } from './2026_11_13_060_dm_contacts.js';
 import { serverRecord } from './2026_11_13_061_server_record.js';
 import { serverDeletion } from './2026_11_14_062_server_deletion.js';
 import { serverNeighbors } from './2026_11_14_063_server_neighbors.js';
+import { activityZone } from './2026_11_14_064_activity_zone.js';
 
 /**
  * Every migration, keyed by name. Kysely applies them in name order, so names are
@@ -131,4 +132,5 @@ export const migrations: Record<string, Migration> = {
   '2026_11_13_061_server_record': serverRecord,
   '2026_11_14_062_server_deletion': serverDeletion,
   '2026_11_14_063_server_neighbors': serverNeighbors,
+  '2026_11_14_064_activity_zone': activityZone,
 };

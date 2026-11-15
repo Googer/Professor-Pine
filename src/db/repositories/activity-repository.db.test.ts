@@ -713,6 +713,42 @@ describe('ActivityRepository', () => {
     expect((await daysOf(OTHER_ACTIVITY_SERVER)).map((one) => one.day)).toEqual(['2026-10-23']);
   });
 
+  // Final review R3-3: a change of zone the rebuild did not see through (a shutdown before its
+  // reset, a rebuild that failed) is caught by the adding, which counts the server again.
+  it('counts a server again from its first record where its activity was counted in another zone', async () => {
+    // 03:30 UTC on the 23rd: Thursday 23:30 in New York, Friday 12:30 in Tokyo.
+    const hatch = String(Date.UTC(2026, 9, 23, 3, 30));
+    await record({ hatchTime: hatch });
+    let zone = ZONE;
+    const { log, entries } = createTestLogger();
+    const activity = new ActivityRepository(db, { zoneOf: () => zone, settings: SETTINGS, log });
+    await activity.addNew();
+    expect(await bucketsOf()).toMatchObject([{ placeId: '7', weekday: 4, hour: 23 }]);
+    // Staff set Tokyo, and the bot stopped before the rebuild; a record comes meanwhile.
+    zone = 'Asia/Tokyo';
+    await record({ hatchTime: hatch, gymId: 8 });
+    expect(await activity.addNew()).toEqual({ buckets: 2, days: 2 });
+    expect(await bucketsOf()).toMatchObject([
+      { placeId: '7', month: '2026-10', weekday: 5, hour: 12, raids: 1 },
+      { placeId: '8', month: '2026-10', weekday: 5, hour: 12, raids: 1 },
+    ]);
+    expect(await daysOf()).toMatchObject([{ day: '2026-10-23', raids: 2 }]);
+    expect(await progressOf()).toBe(await lastId());
+    expect(entries.filter((entry) => entry.msg?.toString().includes('another zone'))).toEqual([
+      expect.objectContaining({ level: 30, guild: ACTIVITY_SERVER, zone: 'Asia/Tokyo' }),
+    ]);
+    // In the zone it was counted in, nothing is counted again.
+    expect(await activity.addNew()).toEqual({ buckets: 0, days: 0 });
+    // A rebuild counts in the zone of its time, which the adding then keeps.
+    zone = ZONE;
+    await activity.rebuild(ACTIVITY_SERVER);
+    expect(await bucketsOf()).toMatchObject([
+      { weekday: 4, hour: 23 },
+      { weekday: 4, hour: 23 },
+    ]);
+    expect(await activity.addNew()).toEqual({ buckets: 0, days: 0 });
+  });
+
   it('adds in batches, one transaction each with its mark, as one pass would', async () => {
     const rows = Array.from({ length: 7 }, (_, n) => ({
       hatchTime: String(at('2026-10-22T18:00') + n * 3_600_000),

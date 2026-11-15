@@ -10,7 +10,8 @@ import type { Logger } from '../log.js';
  * per server: changes while one runs are taken by one more after it. Logged, a failure too; the
  * next change, or `activity:rebuild`, tries again. Stopped at shutdown before its next batch
  * (`close`; fix round 1, N2): what it left half done is done again by the next change or the
- * command.
+ * command, and by the hourly adding, which counts a server again wherever its activity was
+ * counted in another zone than its own (`ActivityProgress.zone`, final review R3-3).
  */
 export class ActivityZoneRebuild {
   /** The rebuild under way of each server, and whether another was asked for meanwhile. */
