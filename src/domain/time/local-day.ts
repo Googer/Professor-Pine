@@ -1,4 +1,4 @@
-import { addDays, isoDate, zoned } from './zoned.js';
+import { isoDate, zoned } from './zoned.js';
 
 /**
  * The local day of a moment in `zone`, `yyyy-mm-dd` (Temporal): the day of the posts of the stops,
@@ -20,10 +20,12 @@ export function localDayStart(time: number, zone: string): number {
  * The next local midnight after `time` in `zone` (Temporal: a day of a change of the clocks has 23
  * or 25 hours), at midnight itself the one after it: when the region's board turns its coming up
  * into today (plan 8R-9, B7), the day's research period and Rocket reports end, and the lines of
- * the region channels go.
+ * the region channels go. The start of the next day, not today's start a day on (final review
+ * R3-2): where the clocks go forward at midnight (America/Santiago), that day starts at 01:00
+ * and the next at 00:00 again.
  */
 export function nextLocalMidnight(time: number, zone: string): number {
-  return addDays(zoned(time, zone).startOfDay(), 1).epochMilliseconds;
+  return zoned(time, zone).toPlainDate().add({ days: 1 }).toZonedDateTime(zone).epochMilliseconds;
 }
 
 /**

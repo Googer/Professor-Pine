@@ -1,7 +1,7 @@
 import { localDay, nextLocalMidnight } from './local-day.js';
 import { BIG_EVENT_TYPES } from './max-events.js';
 import type { ResearchEvent } from './research-events.js';
-import { addDays, sameDay, zoned } from './zoned.js';
+import { sameDay, zoned } from './zoned.js';
 
 /*
  * Field research periods (plan 8R-1; design 4.2, 9.2, Matt's answer 6). A PokéStop's task holds
@@ -102,8 +102,15 @@ function windowsOf(events: readonly ResearchEvent[], zone: string): Window[] {
     } else if (shape === 'daily') {
       const first = zoned(event.start, zone);
       const last = zoned(event.end, zone);
-      const lastDay = last.startOfDay().epochMilliseconds;
-      for (let day = first.startOfDay(); day.epochMilliseconds <= lastDay; day = addDays(day, 1)) {
+      const lastDate = last.toPlainDate();
+      // By calendar day (final review R3-2): where the clocks go forward at midnight a day begins
+      // at 01:00, and a day's start a day on would skip the next day.
+      for (
+        let date = first.toPlainDate();
+        Temporal.PlainDate.compare(date, lastDate) <= 0;
+        date = date.add({ days: 1 })
+      ) {
+        const day = date.toZonedDateTime(zone);
         // To the millisecond (review A6: a Tour's 00:00:00 to 23:59:59).
         const start = day.with({
           hour: first.hour,

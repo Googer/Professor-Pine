@@ -33,7 +33,7 @@ import {
 import { BoundedMap } from '../bounded-map.js';
 import { editionsWithoutGlobal } from '../domain/time/event-reach.js';
 import { parseSpawnEventFeed, type SpawnEvent } from '../domain/time/spawn-events.js';
-import { allIn, type FeedTimed } from '../domain/time/feed-times.js';
+import { allIn, lastEnd, type FeedTimed } from '../domain/time/feed-times.js';
 import { isoDate } from '../domain/time/zoned.js';
 import type { ResearchEventStorage } from '../db/repositories/research-event-repository.js';
 import type { KeptMaxEvents, MaxEventStorage } from '../db/repositories/max-event-repository.js';
@@ -94,6 +94,12 @@ export interface RaidEventOptions {
    * plan 19A-2) has its wall-clock times on that zone's clock (`allIn`).
    */
   zone: string;
+  /**
+   * The zones in use (`ServerSettings.zonesInUse`; final review R3-1), asked at each read: an
+   * event the lists keep only while it is on (the listed, big and spawn events) is forgotten
+   * once it has ended in every one of them (`lastEnd`). Without it, the default zone alone.
+   */
+  zones?: () => readonly string[];
   fetch: FetchEvents;
   log: Logger;
   /** How long one download may take before it is abandoned. Default 30 seconds. */
@@ -459,6 +465,11 @@ export class RaidEventService
     this.tellListed();
   }
 
+  /** The zones in use (`zones`), the default zone among them. */
+  private zonesInUse(): readonly string[] {
+    return [this.options.zone, ...(this.options.zones?.() ?? [])];
+  }
+
   /** Tells the listeners of the listed events; one that throws is logged. */
   private tellListed(): void {
     for (const listener of this.listedListeners) {
@@ -491,7 +502,7 @@ export class RaidEventService
       }
       const now = (this.options.now ?? Date.now)();
       // A short or empty read (BR-1) drops nothing; what it brings still lands (RR-1).
-      const merged = mergeRead(this.currentListed, listing, now);
+      const merged = mergeRead(this.currentListed, listing, now, this.zonesInUse());
       if (merged.short) {
         const counts = { read: listing.read.length, kept: this.currentListed.length };
         this.safely(() => log.warn(counts, 'a short read of the events feed; the listing kept'));
@@ -758,13 +769,15 @@ export class RaidEventService
    * The big events just read, plus those known before that have begun and not ended, which the
    * feed no longer lists (review A of 8X-3: as `mergedMax`, by the feed's id): a Wild Area dropped
    * on its second day is still on. One that has not begun and is no longer listed was moved or
-   * cancelled, and one that is over is of no use: they go. Kept in the database with the max
-   * events (`keepMax`, plan 8X-F).
+   * cancelled, and one that is over in every zone in use (`lastEnd`, final review R3-1) is of no
+   * use: they go. Kept in the database with the max events (`keepMax`, plan 8X-F).
    */
   private mergedBig(read: readonly BigEvent[]): BigEvent[] {
     const now = (this.options.now ?? Date.now)();
+    const zones = this.zonesInUse();
     const kept = this.currentBig.filter(
-      (old) => old.start <= now && now < old.end && !read.some((event) => event.id === old.id),
+      (old) =>
+        old.start <= now && now < lastEnd(old, zones) && !read.some((event) => event.id === old.id),
     );
     return inOrder([...read, ...kept]);
   }
@@ -877,13 +890,15 @@ export class RaidEventService
 
   /**
    * The events with spawns just read, plus those on now that the read no longer lists (as
-   * `mergedBig`): one not begun and no longer listed was moved or cancelled, one over is of no
-   * use.
+   * `mergedBig`): one not begun and no longer listed was moved or cancelled, one over in every
+   * zone in use (`lastEnd`) is of no use.
    */
   private mergedSpawns(read: readonly SpawnEvent[]): SpawnEvent[] {
     const now = (this.options.now ?? Date.now)();
+    const zones = this.zonesInUse();
     const kept = this.currentSpawns.filter(
-      (old) => old.start <= now && now < old.end && !read.some((event) => event.id === old.id),
+      (old) =>
+        old.start <= now && now < lastEnd(old, zones) && !read.some((event) => event.id === old.id),
     );
     return [...read, ...kept].sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
   }

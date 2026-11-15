@@ -303,6 +303,49 @@ describe('WantCountRepository (plan 8H-3)', () => {
     }
   });
 
+  // Final review R3-4: each zone's midnight asks of its own servers alone, by the key that begins
+  // with the server, never along every server's days.
+  it('finds which of the servers asked have their day counted by the key that begins with the server', async () => {
+    // Forty servers with thirty days of forty targets each (48,000 rows); two servers are asked.
+    const servers = Array.from(
+      { length: 40 },
+      (_, n) => `51234567890123${String(n).padStart(4, '0')}`,
+    );
+    const days = Array.from({ length: 30 }, (_, n) => `2026-10-${String(n + 1).padStart(2, '0')}`);
+    const rows = servers.flatMap((serverId) =>
+      days.flatMap((day) =>
+        Array.from({ length: 40 }, (_, n) => ({
+          serverId,
+          day,
+          target: `gym:${String(n)}`,
+          count: 1,
+        })),
+      ),
+    );
+    for (let start = 0; start < rows.length; start += 2_000) {
+      await db
+        .insertInto('WantCountDay')
+        .values(rows.slice(start, start + 2_000))
+        .execute();
+    }
+    await sql`analyze table WantCountDay`.execute(db);
+    const day = '2026-10-17';
+    const asked = [servers[3] ?? '', servers[17] ?? '', HERE];
+    const read = (seen: Kysely<DB>) =>
+      new WantCountRepository(seen, formAsStored).serversCounted(day, asked);
+    const [plan, ...more] = await plansOf(database, read);
+    expect(more).toEqual([]);
+    expect(plan?.map((row) => [row.table, row.type, row.key])).toEqual([
+      ['WantCountDay', 'range', 'PRIMARY'],
+    ]);
+    // A skip scan over the servers asked alone, never one entry of every server's (the plan's
+    // estimate after `analyze`: 42 for the forty servers before the fix; `rowsRead` counts no
+    // skip scan).
+    expect(Number(plan?.[0]?.rows)).toBeLessThanOrEqual(asked.length);
+    expect(await read(db)).toEqual(new Set([servers[3], servers[17]]));
+    expect(await counts.serversCounted(day, [])).toEqual(new Set());
+  });
+
   it('writes a server’s day all or nothing, so that a day cut short is counted again (review P2)', async () => {
     // More rows than one insert takes, the last of them a key the column cannot hold.
     const many = new Map(
@@ -310,12 +353,12 @@ describe('WantCountRepository (plan 8H-3)', () => {
     );
     many.set(`gym:${'9'.repeat(200)}`, 1);
     await expect(counts.write(HERE, '2026-11-03', many)).rejects.toThrow();
-    expect(await counts.serversCounted('2026-11-03')).toEqual(new Set());
+    expect(await counts.serversCounted('2026-11-03', [HERE, THERE])).toEqual(new Set());
     expect(await counts.countsOf(HERE, '2026-11-03')).toEqual(new Map());
   });
 
   it('writes a server’s counts of a day once: a second write of that day changes nothing', async () => {
-    expect(await counts.serversCounted('2026-11-03')).toEqual(new Set());
+    expect(await counts.serversCounted('2026-11-03', [HERE, THERE])).toEqual(new Set());
     await counts.write(
       HERE,
       '2026-11-03',
@@ -340,8 +383,8 @@ describe('WantCountRepository (plan 8H-3)', () => {
         ['trains', 2],
       ]),
     );
-    expect(await counts.serversCounted('2026-11-03')).toEqual(new Set([HERE]));
-    expect(await counts.serversCounted('2026-11-04')).toEqual(new Set([THERE]));
+    expect(await counts.serversCounted('2026-11-03', [HERE, THERE])).toEqual(new Set([HERE]));
+    expect(await counts.serversCounted('2026-11-04', [HERE, THERE])).toEqual(new Set([THERE]));
     // No member anywhere: the table has none to hold.
     const columns = await sql<{ name: string }>`
       select column_name as name from information_schema.columns

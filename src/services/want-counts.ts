@@ -2,6 +2,7 @@ import type { WantCountStorage } from '../db/repositories/want-count-repository.
 import { dayBefore, localDay } from '../domain/time/local-day.js';
 import type { Logger } from '../log.js';
 import { everyLocalMidnightIn, type ZonesMidnight } from './local-midnight.js';
+import type { QuietServers } from './quiet-servers.js';
 import type { ServerSettingsLookup } from './server-settings.js';
 
 export interface WantCountServiceOptions {
@@ -11,6 +12,11 @@ export interface WantCountServiceOptions {
    * midnights count (plan 19A-2).
    */
   servers: Pick<ServerSettingsLookup, 'zoneOf' | 'zonesInUse'>;
+  /**
+   * The servers Pine left and those in setup (plans 19C-1, 19C-2; final review R2-1): neither
+   * their wants read nor their day written; one no longer quiet counts from its next midnight.
+   */
+  quiet: QuietServers;
   log: Logger;
   now?: () => number;
   /** Sets a timer; gives what cancels it. Tests run the timers by hand. */
@@ -19,7 +25,7 @@ export interface WantCountServiceOptions {
 
 /**
  * The daily want counts (plan 8H-3; design Part A, "Want counts"; `WantCountDay`): a snapshot of
- * the wants of every server as they stand a second after its local midnight (plan 19A-2: of its
+ * the wants of every server not quiet (`quiet`) as they stand a second after its local midnight (plan 19A-2: of its
  * zone; one timer per zone in use, counting the servers in that zone, whose wants alone it reads),
  * kept under its day that
  * just ended; and at start, under the day before, for each server that has no counts of that day
@@ -106,12 +112,15 @@ export class WantCountService {
   private async countDay(day: string, zone: string): Promise<void> {
     const { storage, log } = this.options;
     try {
-      const counted = await storage.serversCounted(day);
-      // The servers in the zone (as they are now) whose day it is not counted yet; only their
-      // wants are read (the index audit of 2026-11-13, X12).
-      const due = (await storage.servers()).filter(
-        (serverId) => !counted.has(serverId) && this.options.servers.zoneOf(serverId) === zone,
+      // The servers in the zone (as they are now), not quiet (final review R2-1), whose day it is
+      // not counted yet; only theirs are asked (final review R3-4) and only their wants read (the
+      // index audit of 2026-11-13, X12).
+      const inZone = (await storage.servers()).filter(
+        (serverId) =>
+          !this.options.quiet.isQuiet(serverId) && this.options.servers.zoneOf(serverId) === zone,
       );
+      const counted = await storage.serversCounted(day, inZone);
+      const due = inZone.filter((serverId) => !counted.has(serverId));
       const servers = due.length === 0 ? [] : [...(await storage.countNow(due))];
       let written = 0;
       let targets = 0;

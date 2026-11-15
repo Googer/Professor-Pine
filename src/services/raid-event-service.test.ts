@@ -43,6 +43,7 @@ function service(
     maxEvents?: MaxEventStorage;
     listed?: ListedEventStorage;
     eventWindow?: (zone?: string) => EventWindow | undefined;
+    zones?: () => readonly string[];
   } = {},
 ) {
   const { log, entries } = createTestLogger();
@@ -769,6 +770,55 @@ describe('RaidEventService', () => {
         ['Dialga Raid Hour', inBerlin('2026-10-14T18:00')],
         ['Zacian Raid Hour', inBerlin('2026-10-15T18:00')],
       ]);
+    });
+
+    // Final review R3-1: a server west of the default zone keeps a local-time event until it ends
+    // on its own clock, though it ended on the default zone's.
+    it('keeps the listed, big and spawn events until they end in the last zone in use', async () => {
+      const LA = 'America/Los_Angeles';
+      const zones = () => [ZONE, LA];
+      const ids = (list: readonly { id?: string }[]) => list.map((event) => event.id);
+      // Pawniard's Community Day, 14:00 to 17:00 local, still listed at 17:30 in New York.
+      const listed = service(
+        () => Promise.resolve(reply(200, JSON.stringify(readSpawnEventFeed()))),
+        {
+          now: () => at('2026-11-21T17:30'),
+          zones,
+        },
+      );
+      await listed.events.refresh();
+      expect(ids(listed.events.listedEvents(LA))).toContain(PAWNIARD_DAY.id);
+      // The global Wild Area (to 11-15 18:00 local), dropped by the feed at 18:30 in New York.
+      const wild = 'pokemon-go-wild-area-2026-global';
+      const full = readMaxEventFeed() as { eventID?: string }[];
+      let feed = full;
+      let now = at('2026-11-15T12:00');
+      const big = service(() => Promise.resolve(reply(200, JSON.stringify(feed))), {
+        now: () => now,
+        zones,
+      });
+      await big.events.refresh();
+      feed = full.filter((item) => item.eventID !== wild);
+      now = at('2026-11-15T18:30');
+      await big.events.refresh();
+      expect(ids(big.events.bigEvents(LA))).toContain(wild);
+      now = zonedAt('2026-11-15T18:00', LA);
+      await big.events.refresh();
+      expect(ids(big.events.bigEvents(LA))).not.toContain(wild);
+      // Halloween Part I (to 11-01 10:00 local), dropped by the feed at 10:30 in New York.
+      const halloween = 'halloween-2026-part-1';
+      const spawnFull = readSpawnEventFeed() as { eventID?: string }[];
+      let spawnFeed = spawnFull;
+      now = at('2026-10-28T12:00');
+      const spawns = service(() => Promise.resolve(reply(200, JSON.stringify(spawnFeed))), {
+        now: () => now,
+        zones,
+      });
+      await spawns.events.refresh();
+      spawnFeed = spawnFull.filter((item) => item.eventID !== halloween);
+      now = at('2026-11-01T10:30');
+      await spawns.events.refresh();
+      expect(ids(spawns.events.spawnEvents(LA))).toContain(halloween);
     });
 
     it('asks the event window of the zone asked for', () => {

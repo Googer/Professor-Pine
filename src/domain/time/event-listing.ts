@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { isPictureSource } from '../stops/pictures.js';
 import { IN_PERSON_TYPES, everyonesTimes, isForEveryoneKind } from './event-reach.js';
-import { localsOf } from './feed-times.js';
+import { lastEnd, localsOf } from './feed-times.js';
 import { BIG_EVENT_TYPES, type BigEvent, type MaxEvent } from './max-events.js';
 import { eventName, type RaidEvent } from './raid-events.js';
 import { addDays, isoDate, shortDateWords, shortDayWords, shortHourWords, zoned } from './zoned.js';
@@ -353,13 +353,16 @@ export interface ListingMerge {
  * times (R3) kept as it is; one the read no longer lists kept to its end where it has begun, and
  * removed where it has not (`dropped`), unless the read has a new id of the same name
  * (`sameEventName`) and type that no kept event had: then it moved, and the new one carries its
- * ids (`moved`, R12). What has ended is forgotten.
+ * ids (`moved`, R12). What has ended in every zone of `zones` (the zones in use: `lastEnd`, final
+ * review R3-1) is forgotten.
  */
 export function mergeListed(
   kept: readonly ListedEvent[],
   listing: FeedListing,
   now: number,
+  zones: readonly string[],
 ): ListingMerge {
+  const over = (event: ListedEvent): boolean => lastEnd(event, zones) <= now;
   const keptById = new Map(kept.map((event) => [event.id, event]));
   const readIds = new Set(listing.read.map((event) => event.id));
   const untimed = new Set(listing.untimed);
@@ -372,7 +375,7 @@ export function mergeListed(
   const dropped: ListedEvent[] = [];
   const taken = new Set<string>();
   for (const old of kept) {
-    if (readIds.has(old.id) || old.end <= now) continue;
+    if (readIds.has(old.id) || over(old)) continue;
     if (untimed.has(old.id) || old.start <= now) {
       stays.push(old);
       continue;
@@ -394,7 +397,7 @@ export function mergeListed(
     dropped.push(old);
   }
   return {
-    events: inOrder([...read, ...stays].filter((event) => event.end > now)),
+    events: inOrder([...read, ...stays].filter((event) => !over(event))),
     moved,
     dropped,
   };
@@ -410,11 +413,12 @@ export function isShortRead(
   kept: readonly ListedEvent[],
   listing: FeedListing,
   now: number,
+  zones: readonly string[],
 ): boolean {
   if (listing.read.length === 0) return true;
   const coming = kept.filter((event) => event.start > now && event.end > now);
   if (coming.length === 0) return false;
-  return mergeListed(kept, listing, now).dropped.length === coming.length;
+  return mergeListed(kept, listing, now, zones).dropped.length === coming.length;
 }
 
 /**
@@ -427,9 +431,10 @@ export function mergeRead(
   kept: readonly ListedEvent[],
   listing: FeedListing,
   now: number,
+  zones: readonly string[],
 ): ListingMerge & { short: boolean } {
-  const merged = mergeListed(kept, listing, now);
-  if (!isShortRead(kept, listing, now)) return { ...merged, short: false };
+  const merged = mergeListed(kept, listing, now, zones);
+  if (!isShortRead(kept, listing, now, zones)) return { ...merged, short: false };
   return {
     events: inOrder([...merged.events, ...merged.dropped]),
     moved: merged.moved,

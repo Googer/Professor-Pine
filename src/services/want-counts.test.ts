@@ -12,9 +12,9 @@ const THERE = '100000000000000002';
 
 /**
  * A count service over memory, with a clock and timers the test runs by hand; every server in
- * the test settings' zone unless `servers` say otherwise.
+ * the test settings' zone unless `servers` say otherwise, and none quiet but those of `quiet`.
  */
-function counting(now: string, servers = new TestServers()) {
+function counting(now: string, servers = new TestServers(), quiet = new Set<string>()) {
   const storage = new MemoryWantCounts();
   const clock = { now: at(now) };
   const timers: { run: () => void; ms: number; cancelled: boolean }[] = [];
@@ -22,6 +22,7 @@ function counting(now: string, servers = new TestServers()) {
   const service = new WantCountService({
     storage,
     servers,
+    quiet: { isQuiet: (serverId) => quiet.has(serverId) },
     log,
     now: () => clock.now,
     setTimer: (run, ms) => {
@@ -123,7 +124,7 @@ describe('WantCountService (plan 8H-3)', () => {
     made.timers[0]?.run();
     await made.service.idle();
     expect(await made.storage.countsOf(HERE, '2026-11-04')).toEqual(new Map([['trains', 1]]));
-    expect(await made.storage.serversCounted('2026-11-03')).toEqual(new Set());
+    expect(await made.storage.serversCounted('2026-11-03', [HERE])).toEqual(new Set());
   });
 
   it('writes the servers after one whose write fails, and names the one that failed (review 8H3-3)', async () => {
@@ -138,7 +139,9 @@ describe('WantCountService (plan 8H-3)', () => {
     made.storage.failingWrites.set(THERE, err);
     made.service.start();
     await made.service.idle();
-    expect(await made.storage.serversCounted('2026-11-03')).toEqual(new Set([HERE, YONDER]));
+    expect(await made.storage.serversCounted('2026-11-03', [HERE, THERE, YONDER])).toEqual(
+      new Set([HERE, YONDER]),
+    );
     expect(await made.storage.countsOf(YONDER, '2026-11-03')).toEqual(new Map([['trains', 3]]));
     expect(made.entries.filter((entry) => Number(entry.level) >= 40)).toEqual([
       expect.objectContaining({
@@ -165,6 +168,28 @@ describe('WantCountService (plan 8H-3)', () => {
     expect(await made.storage.countsOf(HERE, '2026-11-04')).toEqual(new Map([['trains', 1]]));
     // The day before now too (the 5th); a day further between would be lost.
     expect(await made.storage.countsOf(HERE, '2026-11-05')).toEqual(new Map([['trains', 1]]));
+  });
+
+  // Final review R2-1: nothing is read or written for a server Pine left or one in setup.
+  it('counts no quiet server, at start or at midnight, and counts it once it is no longer quiet', async () => {
+    const quiet = new Set([THERE]);
+    const made = counting('2026-11-04T10:00', new TestServers(), quiet);
+    made.storage.standing = new Map([
+      [HERE, new Map([['trains', 1]])],
+      [THERE, new Map([['gym:7', 2]])],
+    ]);
+    made.service.start();
+    await made.service.idle();
+    made.clock.now = at('2026-11-05T00:00:01');
+    made.timers[0]?.run();
+    await made.service.idle();
+    expect(made.storage.asked).toEqual([[HERE], [HERE]]);
+    expect(await made.storage.serversCounted('2026-11-04', [HERE, THERE])).toEqual(new Set([HERE]));
+    quiet.delete(THERE);
+    made.clock.now = at('2026-11-06T00:00:01');
+    made.timers[1]?.run();
+    await made.service.idle();
+    expect(await made.storage.countsOf(THERE, '2026-11-05')).toEqual(new Map([['gym:7', 2]]));
   });
 
   it('counts nothing more once stopped', async () => {

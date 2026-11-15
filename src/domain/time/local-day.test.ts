@@ -41,6 +41,19 @@ describe('nextLocalMidnight', () => {
     const springForward = at('2026-03-08T00:00');
     expect(nextLocalMidnight(springForward, ZONE) - springForward).toBe(23 * 3_600_000);
   });
+
+  // Final review R3-2: where the clocks go forward at midnight, that day begins at 01:00, and the
+  // next one at 00:00 again.
+  it('is midnight after a day that began at 01:00 (Santiago, 2026-09-06)', () => {
+    const SANTIAGO = 'America/Santiago';
+    const dayStart = zonedAt('2026-09-06T01:00', SANTIAGO);
+    expect(localDayStart(zonedAt('2026-09-06T10:00', SANTIAGO), SANTIAGO)).toBe(dayStart);
+    expect(nextLocalMidnight(zonedAt('2026-09-05T10:00', SANTIAGO), SANTIAGO)).toBe(dayStart);
+    expect(nextLocalMidnight(zonedAt('2026-09-06T10:00', SANTIAGO), SANTIAGO)).toBe(
+      zonedAt('2026-09-07T00:00', SANTIAGO),
+    );
+    expect(nextLocalMidnight(dayStart, SANTIAGO)).toBe(zonedAt('2026-09-07T00:00', SANTIAGO));
+  });
 });
 
 describe('dayBefore', () => {
