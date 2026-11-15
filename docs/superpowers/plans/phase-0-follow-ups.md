@@ -2101,6 +2101,8 @@ Right before the official release post (section 2 of `2026-10-16-phase-8l2-annou
 
 **v2.0.3, 2026-11-11 (Matt: "put these into master as 2.0.3 … and update prod with it"):** minor screenshot reading improvements, from production's screenshots of the day ("From the production screenshots of 2026-11-11"). Released by the same steps; production updated to it.
 
+**v2.1.0, 2026-11-14 (Matt: "Let’s release 2.1"):** phase 19, one instance for many servers (spec `2026-11-12-multi-server-instance-design.md`), with its staging, the text pass and the final review’s fixes. Production stays closed to other servers (Matt: "We will not yet actually turn the prod instance public … this will merely make it ready to do so"): its settings have no `servers`, so only the servers it recorded at the upgrade may have it. Before it: D5 and R5-4 on a copy of production’s backup (above), production’s settings file read by 2.1’s loader (closed, no operators), no new environment variable, production’s `OWNER_ID` set to Matt’s account (it was another ID since the cutover). Released by the same steps; production updated to it (`./pine update` applies migrations 052 to 065, then `./pine deploy-commands` for `/operator` and the new parts of `/admin`). The official post in `2026-10-16-phase-8l2-announcements.md` is still 2.0.3’s: 2.1 changes little that Pittsburgh’s members see.
+
 ## The cutover (Pittsburgh, 2026-11-09 night, the Air, main-dev 407908be; Claude drove, Matt as Googer)
 
 Runbook Part 2, the same evening as R4–R6. **Pittsburgh runs on the new bot** on the Air's `~/professor-pine` stack; legacy Pine at the office is stopped, its FireDaemon service "Pine" on manual start (the way back). **Not announced** (Matt): N7's announcement waits for his word.
