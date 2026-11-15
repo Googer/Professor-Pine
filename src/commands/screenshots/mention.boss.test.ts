@@ -228,11 +228,44 @@ describe('a screenshot whose CP and name fit more than one boss', () => {
   });
 
   it('asks nothing when the question cannot be sent: the raid stays without its boss', async () => {
-    const { trigger, image, raid } = await setup();
+    const { trigger, image, raid, router } = await setup();
+    const tried: ReplyPayload[] = [];
     const { message } = posted([image('a.png', kyurem())], {
-      reply: () => Promise.reject(new Error('Unknown Message')),
+      reply: (payload) => {
+        tried.push(payload);
+        return Promise.reject(new Error('Unknown Message'));
+      },
     });
     await trigger.handle(message);
+    expect(raid().raid.boss).toBeNull();
+    // Its question is not kept: a press made up of the reply that was never sent has expired.
+    expect(tried[0]?.content).toBe('Which boss is the raid at Old Stone Fountain?');
+    const forged = press(tried[0], 'White Kyurem');
+    await router.handle(forged as never);
+    expect(sent(forged.update)).toMatchObject({
+      content: 'That question has expired. Post the screenshot again.',
+      components: [],
+    });
+    expect(raid().raid.boss).toBeNull();
+  });
+
+  it('takes the question away at its time, and a press after it says it expired', async () => {
+    const { trigger, image, raid, router } = await setup({ questionMs: 1_500 });
+    // The replies' timers by the clock of the test, not of a machine that may be busy.
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
+    const { message, replies, did } = posted([image('a.png', kyurem())]);
+    await trigger.handle(message);
+    expect(replies[0]?.content).toBe('Which boss is the raid at Old Stone Fountain?');
+    vi.advanceTimersByTime(1_400);
+    expect(did).not.toContain('reply deleted');
+    vi.advanceTimersByTime(200);
+    expect(did).toContain('reply deleted');
+    const late = press(replies[0], 'White Kyurem');
+    await router.handle(late as never);
+    expect(sent(late.update)).toMatchObject({
+      content: 'That question has expired. Post the screenshot again.',
+      components: [],
+    });
     expect(raid().raid.boss).toBeNull();
   });
 

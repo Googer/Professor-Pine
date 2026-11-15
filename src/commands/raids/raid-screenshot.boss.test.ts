@@ -199,6 +199,25 @@ describe('/raid with a screenshot whose CP and name fit more than one boss', () 
     expect(stored().raid.boss).toBeNull();
   });
 
+  it('asks once "Report it there" has made the raid in the other region', async () => {
+    const { report, stored, handle } = await setup();
+    const asked = sent((await report({}, 'Harbor Lighthouse Mural')).editReply);
+    expect(buttonsOf(asked)[0]?.custom_id).toMatch(/^raid:[^:]+:yes$/);
+    const yes = await handle(
+      fakeButton({ customId: buttonsOf(asked)[0]?.custom_id ?? 'missing', ephemeralMessage: true }),
+    );
+    expect(stored()).toMatchObject({ gymId: 7, raid: { boss: null } });
+    const answer = sent(yes.editReply);
+    expect(answer.content?.split('\n').at(-1)).toBe(
+      'Which boss is the raid at Harbor Lighthouse Mural?',
+    );
+    const black = await handle(pressOn(answer, 'Black Kyurem'));
+    expect(sent(black.editReply).content).toMatch(
+      /\nSet the boss of the raid at Harbor Lighthouse Mural to Black Kyurem\.$/,
+    );
+    expect(stored().raid.boss).toEqual({ key: 'kyurem_black' });
+  });
+
   it('asks nothing when the member typed the boss', async () => {
     const { report, stored } = await setup();
     const answer = sent((await report({ boss: 'b:kyurem_black:T5:0' })).editReply);
