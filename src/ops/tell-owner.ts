@@ -22,7 +22,12 @@ export async function tellOwner(
   alerts: Pick<OwnerAlerts, 'send'> | undefined,
   out: TellOutput,
 ): Promise<number> {
-  const text = plain(args.join(' '));
+  // Cut by characters (code points), before the escapes: never through an emoji's two halves,
+  // never between a backslash and what it escapes.
+  const given = Array.from(args.join(' ').trim());
+  const text = plain(
+    given.length > TELL_LIMIT ? `${given.slice(0, TELL_LIMIT - 1).join('')}…` : given.join(''),
+  );
   if (text === '') {
     out.warn('There is nothing to tell. Usage: tell-owner <text>');
     return 2;
@@ -31,9 +36,10 @@ export async function tellOwner(
     out.warn('The owner cannot be told: DISCORD_TOKEN and OWNER_ID must be set (in .env).');
     return 1;
   }
-  const line = text.length > TELL_LIMIT ? `${text.slice(0, TELL_LIMIT - 1)}…` : text;
-  if ((await alerts.send('host', line)) !== 'sent') {
-    out.warn('The owner could not be told (the log above says why).');
+  if ((await alerts.send('host', text)) !== 'sent') {
+    out.warn(
+      "The owner could not be told: the log line 'could not alert the owner' above says why.",
+    );
     return 1;
   }
   out.say('The owner was told.');

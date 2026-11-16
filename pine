@@ -671,12 +671,17 @@ cmd_role_auth_export() {
 
 # For scripts on the host (scripts/host/offsite-upload.sh): a DM to the owner through Discord's
 # REST API with the bot's token, beside a running bot or without one. From the image as it is,
-# never a build: what it reports may be the very thing that would make a build fail.
+# never a build: what it reports may be the very thing that would make a build fail (and Compose
+# would build a missing image before the run). Exits as the CLI does: 0 told, 1 not, 2 nothing to
+# tell.
 cmd_tell_owner() {
   text=$*
-  [ -n "$(printf '%s' "$text" | tr -d '[:space:]')" ] ||
-    fail "There is nothing to tell. Usage: ./pine tell-owner <text>"
+  if [ -z "$(printf '%s' "$text" | tr -d '[:space:]')" ]; then
+    printf 'pine: %s\n' "There is nothing to tell. Usage: ./pine tell-owner <text>" >&2
+    exit 2
+  fi
   need_stack
+  bot_image_here || fail "The bot's image is not here: './pine up' builds it."
   say "Telling the owner (OWNER_ID) by a direct message on Discord."
   run run --rm --no-deps -T pine node --enable-source-maps dist/ops/tell-owner-cli.js "$text"
 }

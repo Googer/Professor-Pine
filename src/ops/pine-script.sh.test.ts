@@ -570,11 +570,15 @@ describe('the dump check of ./pine restore', () => {
 // For scripts on the host (scripts/host/offsite-upload.sh): a DM to the owner, beside a running
 // bot, from the image as it is (no build: what fails may be the very thing it reports).
 describe('the tell-owner of ./pine', () => {
-  /** cmd_tell_owner with the stack's checks skipped and Docker faked: each argument a line. */
-  function tellWith(args: readonly string[]) {
+  /**
+   * cmd_tell_owner with the stack's checks skipped and Docker faked (each argument a line), the
+   * bot's image here or not.
+   */
+  function tellWith(args: readonly string[], image: 'here' | 'missing' = 'here') {
     return runPineScript(
       [
         'need_stack() { :; }',
+        image === 'here' ? 'bot_image_here() { :; }' : 'bot_image_here() { return 2; }',
         'docker() { printf "<%s>\\n" "$@"; }',
         'status=0',
         '(cmd_tell_owner "$@") 2>&1 || status=$?',
@@ -614,8 +618,19 @@ describe('the tell-owner of ./pine', () => {
         'pine: There is nothing to tell. Usage: ./pine tell-owner <text>',
       );
       expect(run.stdout).not.toMatch(/^<compose>$/m);
-      expect(run.stdout).toContain('status: 1');
+      // As the CLI does: 2, nothing to tell.
+      expect(run.stdout).toContain('status: 2');
     }
+  });
+
+  // Compose would build a missing image itself before the run.
+  it('refuses to run without the bot’s image, rather than build it', (context) => {
+    const run = tellWith(['The upload failed.'], 'missing');
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain("pine: The bot's image is not here: './pine up' builds it.");
+    expect(run.stdout).not.toMatch(/^<compose>$/m);
+    expect(run.stdout).toContain('status: 1');
   });
 });
 

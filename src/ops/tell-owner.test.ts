@@ -8,12 +8,12 @@ const OWNER = '223456789012345678';
 
 function telling() {
   const rest = new FakeAlertRest();
-  const { log } = createTestLogger();
+  const { log, entries } = createTestLogger();
   const alerts = new OwnerAlerts({ rest, ownerId: OWNER, log, stamps: new MemoryStamps() });
   const said: string[] = [];
   const warned: string[] = [];
   const out = { say: (line: string) => said.push(line), warn: (line: string) => warned.push(line) };
-  return { rest, alerts, said, warned, out };
+  return { rest, alerts, said, warned, out, entries };
 }
 
 describe('tellOwner (./pine tell-owner)', () => {
@@ -55,12 +55,25 @@ describe('tellOwner (./pine tell-owner)', () => {
     expect(sent?.endsWith('x…')).toBe(true);
   });
 
+  it('cuts by characters, never through one that takes two code units', async () => {
+    const { rest, alerts, out } = telling();
+
+    expect(await tellOwner([`${'x'.repeat(TELL_LIMIT - 2)}\u{1F600}yyy`], alerts, out)).toBe(0);
+
+    expect(rest.messages()).toEqual([`${'x'.repeat(TELL_LIMIT - 2)}\u{1F600}…`]);
+  });
+
   it('fails when Discord does not take the message', async () => {
-    const { rest, alerts, warned, out } = telling();
+    const { rest, alerts, warned, out, entries } = telling();
     rest.failWith = new Error('getaddrinfo ENOTFOUND discord.com');
 
     expect(await tellOwner(['The upload failed.'], alerts, out)).toBe(1);
-    expect(warned).toEqual(['The owner could not be told (the log above says why).']);
+    // The line it points to is there, with Discord's answer.
+    expect(warned).toEqual([
+      "The owner could not be told: the log line 'could not alert the owner' above says why.",
+    ]);
+    const logged = entries.find((entry) => entry.msg === 'could not alert the owner');
+    expect(JSON.stringify(logged?.err)).toContain('getaddrinfo ENOTFOUND discord.com');
   });
 
   it('fails without the token or the owner, saying which settings it needs', async () => {
