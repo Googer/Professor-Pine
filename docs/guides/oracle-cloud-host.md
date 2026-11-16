@@ -119,7 +119,72 @@ Docker Desktop and OrbStack hide these; Docker Engine on Linux does not.
 
 ## 8. Backups off the VM
 
-The nightly backups land on the VM's own boot volume, in one data center: copy them somewhere else every day, after 03:30. The NAS of [the Mac guide's section 8](macos-host.md#8-backups-off-the-mac) works the same against the VM: the VM's address in place of `pine-host.local`, and, if section 2 narrowed SSH to your address, the NAS's public address added to that rule too. Wherever they go, keep them on storage only you reach, and **no longer than 90 days**: a dump holds every member's data, and the Privacy Policy promises that backups, and what members had removed, are gone after 90 days. The VM deletes its own after `BACKUP_KEEP_DAYS` (90); the copies need the same (the Mac guide's section 8 has a daily task for the NAS).
+The nightly backups land on the VM's own boot volume, in one data center: copy them somewhere else every day, after 03:30. Wherever they go, keep them on storage only you reach, and **no longer than 90 days**: a dump holds every member's data, and the Privacy Policy promises that backups, and what members had removed, are gone after 90 days. The VM deletes its own after `BACKUP_KEEP_DAYS` (90); the copies need the same.
+
+Two ways, either of which is enough:
+
+- **A Cloudflare R2 bucket** (below): the VM encrypts each dump and uploads it every night, and the bucket deletes it after 90 days. Nothing to run at home, and R2's free tier holds a small instance's 90 days of dumps (10 GB). The VM holds only the public half of the encryption key: it can encrypt a backup, never read one back, so a VM that falls into other hands does not give away the copies.
+- **A NAS at home** that fetches them over SSH: [the Mac guide's section 8](macos-host.md#8-backups-off-the-mac) works the same against the VM, with the VM's address in place of `pine-host.local` and, if section 2 narrowed SSH to your address, the NAS's public address added to that rule too. The Mac guide's section 8 has the NAS's daily task that deletes copies older than 90 days.
+
+### To a Cloudflare R2 bucket
+
+Pine's checkout has the two scripts this takes, in `scripts/host/`: `offsite-setup.sh` (once) and `offsite-upload.sh` (every night, by cron). The upload encrypts with [age](https://age-encryption.org) each dump of the last two days that the bucket lacks, uploads it as `<dump>.age`, and writes a line per upload. When anything fails, or when no backup in the folder is newer than 26 hours (the nightly backup has stopped), it tells you by a DM on Discord, through `./pine tell-owner` (the bot's token, to `OWNER_ID`), once per night.
+
+1. **The bucket.** In the Cloudflare dashboard: R2 Object Storage → **Create bucket**. A name (say `pine-backups`), location **Automatic**, the default storage class. A new bucket is private: leave it so (no public access, no custom domain).
+2. **Its lifecycle rule.** The bucket → **Settings** → **Object Lifecycle Rules** → **Add rule**: a name (say `delete-after-89-days`), for every object (no prefix), that deletes objects **89 days** after their upload. R2 removes an expired object "typically within 24 hours", and a dump is a few hours old when it is uploaded: 89 days keeps every copy inside the 90 days the Privacy Policy promises. Then Save. The rule is what deletes the copies: nothing on the VM does.
+3. **A token for the bucket alone.** R2 Object Storage → Overview → **Account Details**: note the **Account ID**. Beside **API Tokens**, **Manage** → **Create Account API token** (an account token outlives your own membership of the account): a name (say `pine-backups-upload`), permission **Object Read & Write**, limited to the bucket of step 1 (specific buckets, not all); no expiry, or a date you will remember. Create it, and copy the **Access Key ID** and the **Secret Access Key** at once: the secret is shown only this once. R2 has no write-only permission, so the token can also read and delete the bucket's objects: that is why the dumps are encrypted, and why the token is limited to this one bucket.
+4. **The key, on another machine.** On your own computer, never on the VM (`brew install age` on a Mac, `sudo apt-get install age` on Debian or Ubuntu; [age's page](https://github.com/FiloSottile/age#installation) for Windows):
+
+   ```bash
+   age-keygen -o pine-backups.key
+   ```
+
+   It prints `Public key: age1…`: the VM needs that line alone. `pine-backups.key` is the private key, the one thing that reads the copies back: keep it on that machine and in your password manager too (its contents, as a secure note). Without it the copies in the bucket are useless; with it, anyone who also has the bucket's token can read every member's data.
+5. **The tools, on the VM:**
+
+   ```bash
+   sudo apt-get install -y rclone age
+   ```
+
+   Ubuntu's rclone (1.60 on 26.04) is older than R2: the setup writes the setting it needs for R2 (`no_head`: R2 refuses a question it asks after each upload), and the upload sends a file of known size, since R2 refuses the way it streams one.
+6. **The setup, on the VM.** It asks for the account id, the bucket, the token's two values (neither is shown as you type), the public key of step 4 and the backup folder (`BACKUP_DIR`; `/home/ubuntu/pine-backups` by default), writes rclone's remote `pine-offsite` and `~/.config/pine-offsite/config` (both readable by you alone), and checks that the bucket answers:
+
+   ```bash
+   sh ~/professor-pine/scripts/host/offsite-setup.sh
+   ```
+
+   Run it again to change any of it (a new token, another bucket): it replaces its own remote and keeps any other of rclone's.
+7. **The first upload, by hand.** The checkout's `./pine` must have the command `tell-owner`, and the bot's image with it: if `./pine help` does not list it, update first (`./pine update`).
+
+   ```bash
+   sh ~/professor-pine/scripts/host/offsite-upload.sh
+   ```
+
+   It prints `<date> <time> uploaded pine-backup-….sql.gz.age` for each dump of the last two days. The bucket's page shows them.
+8. **A restore test**, now and then: on the machine with the key, fetch a copy through the VM (which can read the bucket but not the copy), decrypt it there, and compare it with the VM's dump:
+
+   ```bash
+   ssh ubuntu@<the VM> rclone cat pine-offsite:pine-backups/pine-backup-<date>-<time>.sql.gz.age | age -d -i pine-backups.key > pine-backup-test.sql.gz
+   ```
+
+   ```bash
+   sha256sum pine-backup-test.sql.gz; ssh ubuntu@<the VM> sha256sum pine-backups/pine-backup-<date>-<time>.sql.gz
+   ```
+
+   (`shasum -a 256` in place of `sha256sum` on a Mac.) The two sums must be equal. To try the dump itself, load it into a stack that is not production, such as a dev instance: `./pine restore pine-backup-test.sql.gz --replace --no-start` there. Delete the decrypted copy afterwards: it holds every member's data.
+9. **Every night, by cron.** The upload must run after the backup has finished, and the VM's clock is UTC while `BACKUP_TIME` (03:30) is in the server's zone (`BACKUP_TZ`, or the settings' `timezone` when that is blank), which moves by an hour twice a year. Take an hour after the backup, say 04:30 in the server's zone, in winter and in summer time, in UTC:
+
+   ```bash
+   for day in 2026-01-15 2026-07-15; do TZ=UTC date -d "TZ=\"America/New_York\" $day 04:30" +%H:%M; done
+   ```
+
+   (your zone in place of `America/New_York`). It prints `09:30` and `08:30`: take the later, so that the upload is an hour after the backup in winter and two in summer. Then `crontab -e` and add the line (minute, then hour):
+
+   ```
+   30 9 * * * sh /home/ubuntu/professor-pine/scripts/host/offsite-upload.sh >>/home/ubuntu/pine-offsite.log 2>&1
+   ```
+
+   The log gains a line or two a night. A night with a failure ends with a DM to you; a quiet night is a good one, and `tail ~/pine-offsite.log` shows its lines.
 
 ## 9. Living with it
 
