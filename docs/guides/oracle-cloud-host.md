@@ -156,7 +156,7 @@ Pine's checkout has the two scripts this takes, in `scripts/host/`: `offsite-set
    ```
 
    Run it again to change any of it (a new token, another bucket): it replaces its own remote and keeps any other of rclone's.
-7. **The first upload, by hand.** The upload tells you of a failure through `./pine tell-owner`, which arrives with the first release after 2.1.1. Production runs the release on `master`: until a release brings it, the upload runs and uploads, but a failure only reaches its log ("the owner could not be told"), nobody's DMs. Once the release is out, `./pine update` on the VM fetches it and rebuilds the bot's image; it also restarts the bot, so on production it is the owner's decision, at a quiet hour. `./pine help` lists `tell-owner` when it is there.
+7. **The first upload, by hand.** The upload tells you of a failure through `./pine tell-owner`, which every release since 2.1.2 has. A checkout of an older release lacks it: the upload runs and uploads, but a failure only reaches its log ("the owner could not be told"), nobody's DMs, until `./pine update` brings a newer release (it also restarts the bot, so on production it is the owner's decision, at a quiet hour). `./pine help` lists `tell-owner` when it is there.
 
    ```bash
    sh ~/professor-pine/scripts/host/offsite-upload.sh
