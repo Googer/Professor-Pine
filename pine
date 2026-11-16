@@ -386,6 +386,9 @@ Usage: ./pine <command>
                      (reads the application's emoji from Discord); --apply uploads them
   role-auth-export [--json]
                      the legacy role authorization of the database, mapped to the new commands
+  tell-owner <text>  DM the owner (OWNER_ID) this text on Discord, with the bot's token (contacts
+                     Discord; works while the bot runs): for scripts on the host, such as
+                     scripts/host/offsite-upload.sh
   shell              a shell in the bot's container
   import-history <folder> [--server <server id>]
                      import the legacy bot's parties folder into the party history (reads the
@@ -664,6 +667,18 @@ cmd_role_auth_export() {
   start_database
   say "The legacy role authorization of the database (reads only; Discord is not contacted)."
   run run --rm --no-deps pine node --enable-source-maps dist/ops/role-auth-cli.js "$@"
+}
+
+# For scripts on the host (scripts/host/offsite-upload.sh): a DM to the owner through Discord's
+# REST API with the bot's token, beside a running bot or without one. From the image as it is,
+# never a build: what it reports may be the very thing that would make a build fail.
+cmd_tell_owner() {
+  text=$*
+  [ -n "$(printf '%s' "$text" | tr -d '[:space:]')" ] ||
+    fail "There is nothing to tell. Usage: ./pine tell-owner <text>"
+  need_stack
+  say "Telling the owner (OWNER_ID) by a direct message on Discord."
+  run run --rm --no-deps -T pine node --enable-source-maps dist/ops/tell-owner-cli.js "$text"
 }
 
 cmd_update() {

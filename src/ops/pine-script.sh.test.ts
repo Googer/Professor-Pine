@@ -567,6 +567,58 @@ describe('the dump check of ./pine restore', () => {
   });
 });
 
+// For scripts on the host (scripts/host/offsite-upload.sh): a DM to the owner, beside a running
+// bot, from the image as it is (no build: what fails may be the very thing it reports).
+describe('the tell-owner of ./pine', () => {
+  /** cmd_tell_owner with the stack's checks skipped and Docker faked: each argument a line. */
+  function tellWith(args: readonly string[]) {
+    return runPineScript(
+      [
+        'need_stack() { :; }',
+        'docker() { printf "<%s>\\n" "$@"; }',
+        'status=0',
+        '(cmd_tell_owner "$@") 2>&1 || status=$?',
+        'echo "status: $status"',
+      ].join('\n'),
+      {},
+      args,
+    );
+  }
+
+  it('runs the image’s tell-owner with the words as one text, without a build or the database', (context) => {
+    const run = tellWith(['Backups', "weren't  uploaded:", 'pine-backup-1.sql.gz']);
+    if (!run) return context.skip('no sh here');
+
+    const argv = [...run.stdout.matchAll(/^<(.*)>$/gm)].map((match) => match[1]);
+    expect(argv.slice(argv.indexOf('run'))).toEqual([
+      'run',
+      '--rm',
+      '--no-deps',
+      '-T',
+      'pine',
+      'node',
+      '--enable-source-maps',
+      'dist/ops/tell-owner-cli.js',
+      "Backups weren't  uploaded: pine-backup-1.sql.gz",
+    ]);
+    expect(argv).not.toContain('build');
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  it('refuses an empty text before it reaches Docker', (context) => {
+    for (const args of [[], ['', '  ']]) {
+      const run = tellWith(args);
+      if (!run) return context.skip('no sh here');
+
+      expect(run.stdout).toContain(
+        'pine: There is nothing to tell. Usage: ./pine tell-owner <text>',
+      );
+      expect(run.stdout).not.toMatch(/^<compose>$/m);
+      expect(run.stdout).toContain('status: 1');
+    }
+  });
+});
+
 // After a pull without './pine up' (a build that failed, a pull by hand), `backup`, `migrate` and
 // `restore` make `mysql` anew on the network `db`, while the bot's container from before is
 // still on the default network alone: the bot has lost its database until './pine up'.
