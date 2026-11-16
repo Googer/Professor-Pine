@@ -767,20 +767,18 @@ export class HistoryRepository
   /**
    * Along the index `partyhistory_server_kind_createdat_index (serverId, kind, createdAt)` of
    * migration 018: a month holds a server's trains of both sources, so 040's index by source
-   * would read twice what this one reads once (plan 8H-7B).
+   * would read twice what this one reads once (plan 8H-7B). Named to the optimizer: on close
+   * statistics MySQL took 040's index now and then, and with no `source` to match it reads the
+   * month's rows of both sources the long way (CI of v2.1.2).
    */
   async trainsMade(serverId: string, range: { from: number; to: number }): Promise<number[]> {
-    const rows = await this.db
-      .selectFrom('PartyHistory')
-      .select('id')
-      .where('serverId', '=', serverId)
-      .where('kind', '=', 'train')
-      .where('createdAt', '>=', String(range.from))
-      .where('createdAt', '<', String(range.to))
-      .orderBy('createdAt', 'desc')
-      .orderBy('id', 'desc')
-      .execute();
-    return rows.map((row) => row.id);
+    const rows = await sql<{ id: number }>`
+      select id
+      from PartyHistory force index (partyhistory_server_kind_createdat_index)
+      where serverId = ${serverId} and kind = 'train'
+        and createdAt >= ${String(range.from)} and createdAt < ${String(range.to)}
+      order by createdAt desc, id desc`.execute(this.db);
+    return rows.rows.map((row) => Number(row.id));
   }
 
   /**
