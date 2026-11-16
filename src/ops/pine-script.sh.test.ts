@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -157,6 +157,276 @@ describe('the env file of ./pine', () => {
   );
 });
 
+// compose.yaml binds BACKUP_DIR (blank: ./backups) into the backup service with the long syntax,
+// whose missing source Docker Engine refuses (Docker Desktop and OrbStack make it): the whole
+// stack would not start.
+describe('the backup folder of ./pine', () => {
+  /** make_backup_dir in a scratch folder (as the checkout), with this env file. */
+  function makeIn(lines: readonly string[], before = '', shell = '') {
+    const dir = folder();
+    return {
+      dir,
+      run: runPineScript(
+        [
+          'cd "$1"',
+          before,
+          'make_backup_dir 2>&1',
+          'echo "status: $?"',
+          'if [ -d backups ]; then echo "made: backups"; fi',
+          'if [ -d share ]; then echo "made: share"; fi',
+        ].join('\n'),
+        { PINE_ENV_FILE: envFile(lines), BACKUP_DIR: shell },
+        [dir],
+      ),
+    };
+  }
+
+  it('is made as ./backups when BACKUP_DIR is blank and it is missing', (context) => {
+    const { run } = makeIn(['DB_SCHEMA=pine', 'BACKUP_DIR=']);
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain('made: backups');
+    expect(run.stdout).not.toContain('pine:');
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  it('is left as it is when BACKUP_DIR is blank and ./backups is there', (context) => {
+    const { dir, run } = makeIn(
+      ['BACKUP_DIR='],
+      'mkdir backups && echo kept >backups/.pine-backups',
+    );
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain('made: backups');
+    expect(run.stdout).not.toContain('pine:');
+    expect(run.stdout).toContain('status: 0');
+    expect(readFileSync(path.join(dir, 'backups', '.pine-backups'), 'utf8')).toBe('kept\n');
+  });
+
+  // As Compose reads the file: a comment after the value and spaces at its end are not the path.
+  it('is read as Compose reads the env file: a comment or spaces after the value are not the path', (context) => {
+    const blank = makeIn(['BACKUP_DIR=   # backups off']).run;
+    const set = makeIn(['BACKUP_DIR=./share   # the share']).run;
+    if (!blank || !set) return context.skip('no sh here');
+
+    expect(blank.stdout).toContain('made: backups');
+    expect(blank.stdout).not.toContain('pine:');
+    expect(set.stdout).not.toContain('made:');
+    expect(set.stdout).toMatch(
+      /pine: BACKUP_DIR in .+stack\.env names \.\/share, which does not exist/,
+    );
+  });
+
+  // Compose takes a variable of the shell before the env file's.
+  it('is the shell’s BACKUP_DIR before the env file’s', (context) => {
+    const { run } = makeIn(['BACKUP_DIR='], '', './share');
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).not.toContain('made:');
+    expect(run.stdout).toContain(
+      "pine: BACKUP_DIR in the shell's environment names ./share, which does not exist",
+    );
+  });
+
+  // The folder of real backups is the operator's (a share mounted there, with its .pine-backups
+  // file made by hand): never made here, where a share that is not mounted would pass for it.
+  it('is not made when BACKUP_DIR names a folder that is missing: the operator is told', (context) => {
+    const { run } = makeIn(['BACKUP_DIR=./share']);
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).not.toContain('made:');
+    expect(run.stdout).toMatch(
+      /pine: BACKUP_DIR in .+stack\.env names \.\/share, which does not exist: mount the backup share there, or make the folder with its \.pine-backups file \(operations\.md, "Backups"\); Docker Engine starts no part of the stack without it\./,
+    );
+    // A warning: the command goes on (down, logs, status need no backup folder).
+    expect(run.stdout).toContain('status: 0');
+  });
+});
+
+// The bot runs as the image's user node (uid 1000) and reads pine-settings.json through a
+// read-only bind mount. On Docker Engine a file of mode 600 owned by another uid is unreadable to
+// it (the bot crash-loops with "not valid JSON: EACCES"); on Docker Desktop and OrbStack the same
+// file reads fine, so the host's modes only hint and the bot's own image, user and mount decide.
+describe('the settings file of ./pine', () => {
+  /**
+   * A Docker faked as a shell function, as a stack whose MySQL image is not pulled yet: `here`
+   * whether the bot's image is built, `verdict` what the run in the bot's container says (`fail`
+   * when Docker refuses the run). `compose config` lists the bot's dependencies too, as Compose
+   * does. Every other command is written to `$RAN`.
+   */
+  function fakeDocker(here: boolean, verdict: 'readable' | 'unreadable' | 'fail'): string {
+    return [
+      'docker() {',
+      '  case "$*" in',
+      '    *"config --images pine") printf "mysql:9.7\\nprofessor-pine:pine\\n" ;;',
+      '    *"config pine") printf "%s\\n" "name: pine" "services:" "  mysql:" "    image: mysql:9.7" "  pine:" "    environment:" "      image: \'y\'" "    image: professor-pine:pine" "    build:" "      context: ." ;;',
+      `    "image inspect professor-pine:pine") ${here ? ':' : 'return 1'} ;;`,
+      '    "image inspect"*) return 1 ;;',
+      `    *"run --rm"*) echo "ran in the bot's container" >>"$RAN"; ${verdict === 'fail' ? 'return 125' : `echo ${verdict}`} ;;`,
+      '    *) echo "docker $*" >>"$RAN" ;;',
+      '  esac',
+      '}',
+    ].join('\n');
+  }
+
+  /**
+   * check_settings_readable against a faked find (the host's hint; `real` leaves the machine's)
+   * and a faked Docker (`fakeDocker`).
+   */
+  function checkWith(options: {
+    hinted: boolean | 'real';
+    here?: boolean;
+    verdict?: 'readable' | 'unreadable' | 'fail';
+    settings?: string;
+  }) {
+    const {
+      hinted,
+      here = true,
+      verdict = 'readable',
+      settings = './pine-settings.json',
+    } = options;
+    return runPineScript(
+      [
+        hinted === 'real' ? '' : `find() { ${hinted ? 'printf "%s\\n" "$1"' : ':'}; }`,
+        fakeDocker(here, verdict),
+        // A refusal ends the subshell alone (the script runs under set -e).
+        'status=0',
+        '(check_settings_readable) 2>&1 || status=$?',
+        'cat "$RAN" 2>/dev/null || true',
+        'echo "status: $status"',
+      ].join('\n'),
+      {
+        PINE_ENV_FILE: envFile(['DB_SCHEMA=pine']),
+        PINE_SETTINGS: settings,
+        RAN: path.join(folder(), 'ran'),
+      },
+    );
+  }
+
+  const REFUSAL =
+    /pine: the bot \(user node in its container\) cannot read \.\/pine-settings\.json: let others read it \(chmod 644 \.\/pine-settings\.json; it holds no secrets, those are in .+stack\.env\)\. Nothing was started\./;
+  const NOT_CHECKED =
+    "pine: the bot (user node in its container) may not be able to read ./pine-settings.json; if it cannot, its log says 'not valid JSON: EACCES' (./pine logs pine): chmod 644 ./pine-settings.json mends it.";
+
+  it('refuses to start the bot when the bot’s own container cannot read it', (context) => {
+    const run = checkWith({ hinted: true, verdict: 'unreadable' });
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toMatch(REFUSAL);
+    expect(run.stdout).toContain('status: 1');
+  });
+
+  // Docker Desktop and OrbStack: a 600 file reads fine in the container.
+  it('passes a file the host’s modes hint at when the bot’s container reads it', (context) => {
+    const run = checkWith({ hinted: true, verdict: 'readable' });
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain("ran in the bot's container");
+    expect(run.stdout).not.toContain('pine:');
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  it('asks no container of a file that others or uid 1000 may read', (context) => {
+    const run = checkWith({ hinted: false, verdict: 'unreadable' });
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).not.toContain("ran in the bot's container");
+    expect(run.stdout).not.toContain('pine:');
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  // A check never builds or pulls an image; nor does a refused run stop the command.
+  it('only warns where it cannot check: no image yet, or Docker refused the run', (context) => {
+    for (const run of [
+      checkWith({ hinted: true, here: false, verdict: 'unreadable' }),
+      checkWith({ hinted: true, verdict: 'fail' }),
+    ]) {
+      if (!run) return context.skip('no sh here');
+
+      expect(run.stdout).toContain(NOT_CHECKED);
+      expect(run.stdout).toContain('status: 0');
+    }
+  });
+
+  // A run with --no-deps needs the bot's image alone: on a first start MySQL's is not pulled yet.
+  it('checks with the bot’s image alone, whether or not MySQL’s is here', (context) => {
+    const run = checkWith({ hinted: true, verdict: 'unreadable' });
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain("ran in the bot's container");
+    expect(run.stdout).toMatch(REFUSAL);
+  });
+
+  // The real modes, where the machine keeps them (Linux and macOS: the hosts): a 600 file is
+  // hinted at unless it is uid 1000's, a 644 file never.
+  it.skipIf(process.platform === 'win32')(
+    'is hinted at by its real mode: 600 asks the bot’s container, 644 does not',
+    (context) => {
+      const settings = path.join(folder(), 'pine-settings.json');
+      writeFileSync(settings, '{}\n');
+      chmodSync(settings, 0o600);
+      const alone = checkWith({ hinted: 'real', verdict: 'unreadable', settings });
+      chmodSync(settings, 0o644);
+      const open = checkWith({ hinted: 'real', verdict: 'unreadable', settings });
+      if (!alone || !open) return context.skip('no sh here');
+
+      if (process.getuid?.() === 1000) {
+        // The bot's own uid: the host's modes say it reads the file.
+        expect(alone.stdout).not.toContain("ran in the bot's container");
+      } else {
+        expect(alone.stdout).toContain("ran in the bot's container");
+        expect(alone.stdout).toContain(`cannot read ${settings}: let others read it`);
+        expect(alone.stdout).toContain('status: 1');
+      }
+      expect(open.stdout).not.toContain("ran in the bot's container");
+      expect(open.stdout).toContain('status: 0');
+    },
+  );
+
+  // The refusal comes before anything is stopped or started.
+  it('stops and starts nothing when the bot’s container cannot read it', (context) => {
+    const command = (name: string, verdict: 'readable' | 'unreadable') =>
+      runPineScript(
+        [
+          // The other checks need a stack of files; this test is about the settings' alone.
+          'need_stack() { :; }',
+          'check_legacy_parties() { :; }',
+          'check_tool_dir() { :; }',
+          'check_index_dir() { :; }',
+          'find() { printf "%s\\n" "$1"; }',
+          fakeDocker(true, verdict),
+          'status=0',
+          `(${name}) 2>&1 || status=$?`,
+          'cat "$RAN" 2>/dev/null || true',
+          'echo "status: $status"',
+        ].join('\n'),
+        {
+          PINE_ENV_FILE: envFile(['DB_SCHEMA=pine']),
+          PINE_SETTINGS: './pine-settings.json',
+          RAN: path.join(folder(), 'ran'),
+        },
+      );
+    const runs = {
+      restart: command('cmd_restart', 'unreadable'),
+      up: command('cmd_up', 'unreadable'),
+      restartReadable: command('cmd_restart', 'readable'),
+      upReadable: command('cmd_up', 'readable'),
+    };
+    const { restart, up, restartReadable, upReadable } = runs;
+    if (!restart || !up || !restartReadable || !upReadable) return context.skip('no sh here');
+
+    for (const run of [restart, up]) {
+      expect(run.stdout).toMatch(REFUSAL);
+      expect(run.stdout).toContain('status: 1');
+      expect(run.stdout).not.toMatch(/docker compose --env-file .*restart pine/);
+      expect(run.stdout).not.toMatch(/docker compose --env-file .*up -d/);
+    }
+    // The fake sees those commands where the file is readable.
+    expect(restartReadable.stdout).toMatch(/docker compose --env-file .*restart pine/);
+    expect(upReadable.stdout).toMatch(/docker compose --env-file .*up -d/);
+  });
+});
+
 /** A dump as mysqldump writes one of Pine's database, with `statements` before its last line. */
 function dumpText(statements: readonly string[] = []): string {
   const lines = [
@@ -294,6 +564,73 @@ describe('the dump check of ./pine restore', () => {
 
     expect(run.stdout).toContain("does not end with mysqldump's '-- Dump completed' line");
     expect(run.stdout).not.toContain('passed');
+  });
+});
+
+// For scripts on the host (scripts/host/offsite-upload.sh): a DM to the owner, beside a running
+// bot, from the image as it is (no build: what fails may be the very thing it reports).
+describe('the tell-owner of ./pine', () => {
+  /**
+   * cmd_tell_owner with the stack's checks skipped and Docker faked (each argument a line), the
+   * bot's image here or not.
+   */
+  function tellWith(args: readonly string[], image: 'here' | 'missing' = 'here') {
+    return runPineScript(
+      [
+        'need_stack() { :; }',
+        image === 'here' ? 'bot_image_here() { :; }' : 'bot_image_here() { return 2; }',
+        'docker() { printf "<%s>\\n" "$@"; }',
+        'status=0',
+        '(cmd_tell_owner "$@") 2>&1 || status=$?',
+        'echo "status: $status"',
+      ].join('\n'),
+      {},
+      args,
+    );
+  }
+
+  it('runs the image’s tell-owner with the words as one text, without a build or the database', (context) => {
+    const run = tellWith(['Backups', "weren't  uploaded:", 'pine-backup-1.sql.gz']);
+    if (!run) return context.skip('no sh here');
+
+    const argv = [...run.stdout.matchAll(/^<(.*)>$/gm)].map((match) => match[1]);
+    expect(argv.slice(argv.indexOf('run'))).toEqual([
+      'run',
+      '--rm',
+      '--no-deps',
+      '-T',
+      'pine',
+      'node',
+      '--enable-source-maps',
+      'dist/ops/tell-owner-cli.js',
+      "Backups weren't  uploaded: pine-backup-1.sql.gz",
+    ]);
+    expect(argv).not.toContain('build');
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  it('refuses an empty text before it reaches Docker', (context) => {
+    for (const args of [[], ['', '  ']]) {
+      const run = tellWith(args);
+      if (!run) return context.skip('no sh here');
+
+      expect(run.stdout).toContain(
+        'pine: There is nothing to tell. Usage: ./pine tell-owner <text>',
+      );
+      expect(run.stdout).not.toMatch(/^<compose>$/m);
+      // As the CLI does: 2, nothing to tell.
+      expect(run.stdout).toContain('status: 2');
+    }
+  });
+
+  // Compose would build a missing image itself before the run.
+  it('refuses to run without the bot’s image, rather than build it', (context) => {
+    const run = tellWith(['The upload failed.'], 'missing');
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain("pine: The bot's image is not here: './pine up' builds it.");
+    expect(run.stdout).not.toMatch(/^<compose>$/m);
+    expect(run.stdout).toContain('status: 1');
   });
 });
 

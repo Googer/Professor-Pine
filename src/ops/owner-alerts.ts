@@ -18,7 +18,9 @@ export type AlertKind =
   | 'backup-warning'
   | 'backups-off'
   | 'docker-away'
-  | 'rehearsal';
+  | 'rehearsal'
+  /** What a script on the host asked to tell (`./pine tell-owner`). */
+  | 'host';
 
 /** What became of an alert: sent, held back by the interval, or failed (logged). */
 export type AlertOutcome = 'sent' | 'held' | 'failed';

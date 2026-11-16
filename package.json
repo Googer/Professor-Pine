@@ -1,6 +1,6 @@
 {
   "name": "professor-pine",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Professor Pine Discord bot for Pokemon Go",
   "private": true,
   "type": "module",
@@ -28,6 +28,7 @@
     "ocr:review": "tsx --conditions=pine-source scripts/ocr/review.ts",
     "role-auth:export": "tsx --conditions=pine-source --env-file-if-exists=.env src/ops/role-auth-cli.ts",
     "emoji:upload": "tsx --conditions=pine-source --env-file-if-exists=.env src/ops/emoji-upload-cli.ts",
+    "tell-owner": "tsx --conditions=pine-source --env-file-if-exists=.env src/ops/tell-owner-cli.ts",
     "settings:convert": "tsx --conditions=pine-source src/ops/convert-settings-cli.ts",
     "cutover:check": "tsx --conditions=pine-source --env-file-if-exists=.env src/ops/cutover-check-cli.ts",
     "db:codegen": "tsx --conditions=pine-source scripts/codegen.ts",

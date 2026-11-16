@@ -87,6 +87,7 @@ need_stack() {
   check_schema_name
   make_tool_dir
   make_index_dir
+  make_backup_dir
 }
 
 # The env file holds the bot's token and the database's passwords: a warning (never a refusal)
@@ -105,23 +106,28 @@ warn_env_mode() {
 # DB_SCHEMA goes bare onto the mysql client's command line when a dump is loaded (and, in
 # docker/backup.sh, into SQL text and onto mysqldump's): only letters, digits, _ and inner
 # hyphens, as the bot (src/config/env.ts) and docker/backup.sh hold it. The characters are written
-# out: a range would follow the locale. The value is the shell's before the env file's, as Compose
-# takes it; in the file, as Compose reads it (a comment after it and spaces at its end are not
-# the name). One that is not set is Compose's to refuse, in its own words.
+# out: a range would follow the locale. One that is not set is Compose's to refuse, in its own words.
 check_schema_name() {
-  schema=${DB_SCHEMA:-}
-  schema_from="the shell's environment"
-  if [ -z "$schema" ]; then
-    schema=$(env_value DB_SCHEMA |
-      sed "s/[[:space:]]#.*\$//; s/[[:space:]]*\$//; s/^'\(.*\)'\$/\1/; s/^\"\(.*\)\"\$/\1/")
-    schema_from=$PINE_ENV_FILE
-  fi
-  case $schema in
+  compose_value DB_SCHEMA
+  case $value in
     '') ;;
     -* | *- | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
-      fail "DB_SCHEMA in $schema_from must be letters, digits, _ and - (a hyphen neither first nor last), not '$schema'."
+      fail "DB_SCHEMA in $value_from must be letters, digits, _ and - (a hyphen neither first nor last), not '$value'."
       ;;
   esac
+}
+
+# A variable as Compose takes it, into `value` (and where it came from, for a message, into
+# `value_from`): the shell's before the env file's; in the file, as Compose reads it (a comment
+# after it and spaces at its end are not the value). Only names written here are given: the
+# name goes through eval.
+compose_value() {
+  eval "value=\${$1:-}"
+  value_from="the shell's environment"
+  [ -z "$value" ] || return 0
+  value=$(env_value "$1" |
+    sed "s/[[:space:]]#.*\$//; s/[[:space:]]*\$//; s/^'\(.*\)'\$/\1/; s/^\"\(.*\)\"\$/\1/")
+  value_from=$PINE_ENV_FILE
 }
 
 # LEGACY_INDEX_DIR (blank: none) holds the member index of the legacy history (plan 8H-10): the
@@ -165,17 +171,24 @@ check_index_dir() {
   esac
 }
 
+# Never a build or a pull for a check: the bot's image, which a run with --no-deps alone needs,
+# must be here already (MySQL's need not: on a first start it is not pulled yet). Its name is
+# the `image:` of the service pine in Compose's own rendering (`config --images pine` would list
+# its dependencies' too, in no order to rely on). 0 it is, 2 not.
+bot_image_here() {
+  image=$(compose config pine 2>/dev/null | tr -d '\r' | awk '
+    /^  [^ ]/ { in_pine = ($0 == "  pine:") }
+    in_pine && /^    image: / { sub(/^    image: /, ""); print; exit }') || return 2
+  image=$(printf '%s' "$image" | tr -d "\"'")
+  [ -n "$image" ] || return 2
+  docker image inspect "$image" >/dev/null 2>&1 || return 2
+}
+
 # Reads every folder and file of the member index (dot-named ones aside: a swap's leftovers) as
 # the bot does: its image, its user and its read-only mount. 0 readable, 1 not, 2 not checked
 # (no image built yet, or Docker refused the run).
 index_readable_in_container() {
-  # Never a build or a pull for a warning: every image the run would need (Compose lists the bot's
-  # dependencies' too) must be here already.
-  images=$(compose config --images pine 2>/dev/null) || return 2
-  [ -n "$images" ] || return 2
-  for image in $images; do
-    docker image inspect "$image" >/dev/null 2>&1 || return 2
-  done
+  bot_image_here || return 2
   # shellcheck disable=SC2016
   verdict=$(compose run --rm --no-deps -T --entrypoint sh pine -c '
     found=$(find /legacy-index -mindepth 1 -maxdepth 2 -path "*/.*" -prune -o \( -type d \( ! -readable -o ! -executable \) -o -type f ! -readable \) -print -quit 2>/dev/null) || found=x
@@ -219,6 +232,59 @@ check_tool_dir() {
     [ ! -f "$tool_dir/$served" ] || [ -n "$(find "$tool_dir/$served" -maxdepth 0 -perm -o=r)" ] ||
       fail "The bot cannot read $tool_dir/$served (PINE_TOOL_DIR): let others read it (chmod a+r)."
   done
+}
+
+# Before every command that needs the stack: compose.yaml binds BACKUP_DIR (blank: ./backups)
+# into the backup service with the long syntax, whose missing source Docker Engine refuses, and
+# with it the whole stack (Docker Desktop and OrbStack make it). Blank, backups are off and
+# ./backups is only that mount's source: made when missing. Set, it is the operator's backup
+# folder (a share mounted there, with the .pine-backups file docker/backup.sh asks for, so that
+# an unmounted share is never taken for it): never made here, the operator is told; nothing is
+# refused (down, logs and status need no backup folder).
+make_backup_dir() {
+  compose_value BACKUP_DIR
+  backup_dir=$value
+  if [ -n "$backup_dir" ]; then
+    [ -e "$backup_dir" ] ||
+      printf 'pine: BACKUP_DIR in %s names %s, which does not exist: mount the backup share there, or make the folder with its .pine-backups file (operations.md, "Backups"); Docker Engine starts no part of the stack without it.\n' "$value_from" "$backup_dir" >&2
+    return 0
+  fi
+  [ ! -e ./backups ] || return 0
+  mkdir -p ./backups ||
+    printf 'pine: ./backups (the backup service'"'"'s folder while BACKUP_DIR is blank) could not be made: make the folder.\n' >&2
+}
+
+# Before a command that starts the bot (as check_tool_dir): the settings file, which the bot reads
+# as the image's user node (uid 1000) through a read-only mount. On Docker Engine a file of mode
+# 600 that is another uid's (Oracle Cloud's ubuntu is 1001) is unreadable to it, and the bot
+# crash-loops ("data/settings.json is not valid JSON: EACCES"); on Docker Desktop and OrbStack a
+# bind mount's owner is not what the bot sees, and the same file reads fine (the Air's dev
+# settings are 600). So the host's modes only hint (a file neither uid 1000's nor readable by
+# others; a find that fails counts as a hint), and the bot's own image, user and mount decide:
+# unreadable there is refused, before anything starts; where that cannot run, a warning.
+check_settings_readable() {
+  hinted=$(find "$PINE_SETTINGS" -maxdepth 0 ! -uid 1000 ! -perm -o=r 2>/dev/null) ||
+    hinted=$PINE_SETTINGS
+  [ -n "$hinted" ] || return 0
+  settings_readable_in_container && return 0
+  case $? in
+    1) fail "the bot (user node in its container) cannot read $PINE_SETTINGS: let others read it (chmod 644 $PINE_SETTINGS; it holds no secrets, those are in $PINE_ENV_FILE). Nothing was started." ;;
+    *) printf "pine: the bot (user node in its container) may not be able to read %s; if it cannot, its log says 'not valid JSON: EACCES' (./pine logs pine): chmod 644 %s mends it.\n" "$PINE_SETTINGS" "$PINE_SETTINGS" >&2 ;;
+  esac
+}
+
+# Reads the settings file as the bot does: its image, its user and its read-only mount. 0
+# readable, 1 not, 2 not checked (no image built yet, or Docker refused the run).
+settings_readable_in_container() {
+  bot_image_here || return 2
+  verdict=$(compose run --rm --no-deps -T --entrypoint sh pine -c '
+    if [ -r /app/data/settings.json ]; then echo readable; else echo unreadable; fi' 2>/dev/null) ||
+    return 2
+  case $verdict in
+    *unreadable*) return 1 ;;
+    *readable*) return 0 ;;
+    *) return 2 ;;
+  esac
 }
 
 # A value of the env file as written there (surrounding quotes and a Windows line end taken
@@ -320,6 +386,9 @@ Usage: ./pine <command>
                      (reads the application's emoji from Discord); --apply uploads them
   role-auth-export [--json]
                      the legacy role authorization of the database, mapped to the new commands
+  tell-owner <text>  DM the owner (OWNER_ID) this text on Discord, with the bot's token (contacts
+                     Discord; works while the bot runs): for scripts on the host, such as
+                     scripts/host/offsite-upload.sh
   shell              a shell in the bot's container
   import-history <folder> [--server <server id>]
                      import the legacy bot's parties folder into the party history (reads the
@@ -352,6 +421,8 @@ cmd_up() {
   check_tool_dir
   check_index_dir
   build_image
+  # After the build, so that a first start has the bot's image to check with.
+  check_settings_readable
   say "Starting Professor Pine and its database."
   run up -d
   say "Started. './pine logs pine' follows the bot, './pine status' shows its health."
@@ -368,6 +439,7 @@ cmd_restart() {
   check_legacy_parties
   check_tool_dir
   check_index_dir
+  check_settings_readable
   service=${1:-pine}
   say "Restarting $service."
   run restart "$service"
@@ -597,11 +669,29 @@ cmd_role_auth_export() {
   run run --rm --no-deps pine node --enable-source-maps dist/ops/role-auth-cli.js "$@"
 }
 
+# For scripts on the host (scripts/host/offsite-upload.sh): a DM to the owner through Discord's
+# REST API with the bot's token, beside a running bot or without one. From the image as it is,
+# never a build: what it reports may be the very thing that would make a build fail (and Compose
+# would build a missing image before the run). Exits as the CLI does: 0 told, 1 not, 2 nothing to
+# tell.
+cmd_tell_owner() {
+  text=$*
+  if [ -z "$(printf '%s' "$text" | tr -d '[:space:]')" ]; then
+    printf 'pine: %s\n' "There is nothing to tell. Usage: ./pine tell-owner <text>" >&2
+    exit 2
+  fi
+  need_stack
+  bot_image_here || fail "The bot's image is not here: './pine up' builds it."
+  say "Telling the owner (OWNER_ID) by a direct message on Discord."
+  run run --rm --no-deps -T pine node --enable-source-maps dist/ops/tell-owner-cli.js "$text"
+}
+
 cmd_update() {
   need_stack
   check_legacy_parties
   check_tool_dir
   check_index_dir
+  check_settings_readable
   command -v git >/dev/null 2>&1 || fail "git is not installed: update fetches the code with git."
   git rev-parse --git-dir >/dev/null 2>&1 || fail "This folder is not a git clone: update needs one."
   # The installation's own files (.env, pine-settings.json) are not the repository's; a change
@@ -796,7 +886,7 @@ cmd_restore() {
   done
   [ -n "$dump" ] || fail "Name the dump to load: ./pine restore <dump.sql or dump.sql.gz> [--replace]"
   # Checked before anything is stopped, when the restore ends by starting the bot.
-  [ -z "$start" ] || { check_tool_dir && check_index_dir; }
+  [ -z "$start" ] || { check_tool_dir && check_index_dir && check_settings_readable; }
   dump=$(from_caller "$dump")
   [ -f "$dump" ] || fail "There is no readable file $dump."
   [ -r "$dump" ] || fail "You may not read $dump. A backup is for its owner alone (BACKUP_UID and BACKUP_GID, root unless set): run this with sudo, or set them to your own ids for the next backups."
