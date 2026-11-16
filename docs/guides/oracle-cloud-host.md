@@ -123,16 +123,18 @@ The nightly backups land on the VM's own boot volume, in one data center: copy t
 
 Two ways, either of which is enough:
 
-- **A Cloudflare R2 bucket** (below): the VM encrypts each dump and uploads it every night, and the bucket deletes it after 90 days. Nothing to run at home, and R2's free tier holds a small instance's 90 days of dumps (10 GB). The VM holds only the public half of the encryption key: it can encrypt a backup, never read one back, so a VM that falls into other hands does not give away the copies.
+- **A Cloudflare R2 bucket** (below): the VM encrypts each dump and uploads it every night, and the bucket deletes it within 90 days. Nothing to run at home, and R2's free tier holds a small instance's 90 days of dumps (10 GB). The VM holds only the public half of the encryption key: it can encrypt a backup, never read one back, so a VM that falls into other hands does not give away the copies.
 - **A NAS at home** that fetches them over SSH: [the Mac guide's section 8](macos-host.md#8-backups-off-the-mac) works the same against the VM, with the VM's address in place of `pine-host.local` and, if section 2 narrowed SSH to your address, the NAS's public address added to that rule too. The Mac guide's section 8 has the NAS's daily task that deletes copies older than 90 days.
 
 ### To a Cloudflare R2 bucket
 
-Pine's checkout has the two scripts this takes, in `scripts/host/`: `offsite-setup.sh` (once) and `offsite-upload.sh` (every night, by cron). The upload encrypts with [age](https://age-encryption.org) each dump of the last two days that the bucket lacks, uploads it as `<dump>.age`, and writes a line per upload. When anything fails, or when no backup in the folder is newer than 26 hours (the nightly backup has stopped), it tells you by a DM on Discord, through `./pine tell-owner` (the bot's token, to `OWNER_ID`), once per night.
+Pine's checkout has the two scripts this takes, in `scripts/host/`: `offsite-setup.sh` (once) and `offsite-upload.sh` (every night, by cron). The upload encrypts with [age](https://age-encryption.org) each dump of the last two days that the bucket lacks, uploads it as `<dump>.age`, and writes a line per upload. When anything fails, or when no nightly backup in the folder (`pine-backup-<YYYYMMDD>.sql.gz`; one made before an update does not count) is newer than 26 hours (the nightly backup has stopped), it tells you by a DM on Discord, through `./pine tell-owner` (the bot's token, to `OWNER_ID`), once per night. So a run by hand that fails contacts Discord too.
 
 1. **The bucket.** In the Cloudflare dashboard: R2 Object Storage → **Create bucket**. A name (say `pine-backups`), location **Automatic**, the default storage class. A new bucket is private: leave it so (no public access, no custom domain).
-2. **Its lifecycle rule.** The bucket → **Settings** → **Object Lifecycle Rules** → **Add rule**: a name (say `delete-after-89-days`), for every object (no prefix), that deletes objects **89 days** after their upload. R2 removes an expired object "typically within 24 hours", and a dump is a few hours old when it is uploaded: 89 days keeps every copy inside the 90 days the Privacy Policy promises. Then Save. The rule is what deletes the copies: nothing on the VM does.
-3. **A token for the bucket alone.** R2 Object Storage → Overview → **Account Details**: note the **Account ID**. Beside **API Tokens**, **Manage** → **Create Account API token** (an account token outlives your own membership of the account): a name (say `pine-backups-upload`), permission **Object Read & Write**, limited to the bucket of step 1 (specific buckets, not all); no expiry, or a date you will remember. Create it, and copy the **Access Key ID** and the **Secret Access Key** at once: the secret is shown only this once. R2 has no write-only permission, so the token can also read and delete the bucket's objects: that is why the dumps are encrypted, and why the token is limited to this one bucket.
+2. **Its lifecycle rule.** The bucket → **Settings** → **Object Lifecycle Rules** → **Add rule**: a name (say `delete-after-87-days`), for every object (no prefix), that deletes objects **87 days** after their upload. A dump can be up to two days old when it is uploaded (the upload takes every dump of the last two days the bucket lacks: one a failed night left behind, one made before an update at midday), and R2 removes an expired object "typically within 24 hours": 87 + 2 + 1 = 90, the most the Privacy Policy allows. Then Save. The rule is what deletes the copies: nothing on the VM does.
+3. **A token for the bucket alone.** R2 Object Storage → Overview → **Account Details**: note the **Account ID**. Beside **API Tokens**, **Manage** → **Create Account API token** (an account token outlives your own membership of the account): a name (say `pine-backups-upload`), permission **Object Read & Write**, limited to the bucket of step 1 (specific buckets, not all); no expiry, or a date you will remember. Create it, and copy the **Access Key ID** and the **Secret Access Key** at once: the secret is shown only this once. R2 has no write-only permission, so the token can also read and delete the bucket's objects: that is why the dumps are encrypted, and why the token is limited to this one bucket. Whoever takes over the VM can still delete every copy with it.
+
+   **Optionally, a bucket lock** against that: the bucket → **Settings** → **Bucket lock rules** → **Add rule**: a name, no prefix, a retention of **30 days**. For those 30 days no object can be deleted or overwritten, by this token or any other; changing the rule takes a token that may edit the bucket's settings (Admin), which the VM does not have. The retention must stay shorter than the lifecycle rule's 87 days: R2 lets a lock outrank the lifecycle rule, and a copy kept past 90 days breaks the Privacy Policy's promise. A bucket with lock rules cannot be emptied until they are removed.
 4. **The key, on another machine.** On your own computer, never on the VM (`brew install age` on a Mac, `sudo apt-get install age` on Debian or Ubuntu; [age's page](https://github.com/FiloSottile/age#installation) for Windows):
 
    ```bash
@@ -154,21 +156,21 @@ Pine's checkout has the two scripts this takes, in `scripts/host/`: `offsite-set
    ```
 
    Run it again to change any of it (a new token, another bucket): it replaces its own remote and keeps any other of rclone's.
-7. **The first upload, by hand.** The checkout's `./pine` must have the command `tell-owner`, and the bot's image with it: if `./pine help` does not list it, update first (`./pine update`).
+7. **The first upload, by hand.** The upload tells you of a failure through `./pine tell-owner`, which arrives with the first release after 2.1.1. Production runs the release on `master`: until a release brings it, the upload runs and uploads, but a failure only reaches its log ("the owner could not be told"), nobody's DMs. Once the release is out, `./pine update` on the VM fetches it and rebuilds the bot's image; it also restarts the bot, so on production it is the owner's decision, at a quiet hour. `./pine help` lists `tell-owner` when it is there.
 
    ```bash
    sh ~/professor-pine/scripts/host/offsite-upload.sh
    ```
 
-   It prints `<date> <time> uploaded pine-backup-….sql.gz.age` for each dump of the last two days. The bucket's page shows them.
+   It prints `<date> <time> uploaded pine-backup-<YYYYMMDD>.sql.gz.age` for each dump of the last two days. If something fails, it tells you by DM (once `tell-owner` is there): a run by hand contacts Discord then, as the nightly one does. The bucket's page shows them.
 8. **A restore test**, now and then: on the machine with the key, fetch a copy through the VM (which can read the bucket but not the copy), decrypt it there, and compare it with the VM's dump:
 
    ```bash
-   ssh ubuntu@<the VM> rclone cat pine-offsite:pine-backups/pine-backup-<date>-<time>.sql.gz.age | age -d -i pine-backups.key > pine-backup-test.sql.gz
+   ssh ubuntu@<the VM> rclone cat pine-offsite:pine-backups/pine-backup-<YYYYMMDD>.sql.gz.age | age -d -i pine-backups.key > pine-backup-test.sql.gz
    ```
 
    ```bash
-   sha256sum pine-backup-test.sql.gz; ssh ubuntu@<the VM> sha256sum pine-backups/pine-backup-<date>-<time>.sql.gz
+   sha256sum pine-backup-test.sql.gz; ssh ubuntu@<the VM> sha256sum pine-backups/pine-backup-<YYYYMMDD>.sql.gz
    ```
 
    (`shasum -a 256` in place of `sha256sum` on a Mac.) The two sums must be equal. To try the dump itself, load it into a stack that is not production, such as a dev instance: `./pine restore pine-backup-test.sql.gz --replace --no-start` there. Delete the decrypted copy afterwards: it holds every member's data.
