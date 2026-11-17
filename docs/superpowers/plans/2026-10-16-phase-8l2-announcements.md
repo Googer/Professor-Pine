@@ -112,3 +112,24 @@ Notes:
 
 @Pine Admins Questions? Ask here.
 ```
+
+## 5. The official post of 2.1.2 and 2.1.3
+
+**Not posted yet.** Drafted on 2026-11-16 (Matt: "Draft release notes for 2.1.2 and 2.1.3"). One post for both, its headline striking 2.1.2 through as the 2.1 post does, in one message (about 1,500 characters). If section 4 is still unposted when this goes out, post it first: this one assumes 2.1. `@Pine Admins`: retype it so that it pings.
+
+```md
+**~~v2.1.2~~, v2.1.3 Released**
+
+2.1.2 is for whoever runs a Pine: copies of the backups away from the host, and a guide for a free cloud host. 2.1.3 fixes research rewards.
+
+- A guide for running Pine on an Oracle Cloud Always Free VM, with the snags of a Linux host: <https://github.com/Googer/Professor-Pine/blob/master/docs/guides/oracle-cloud-host.md>
+- Backups off the host: `scripts/host/offsite-upload.sh` copies the nightly backups, encrypted, to a Cloudflare R2 bucket, and DMs the owner when an upload fails or the nightly backup has stopped. Its setup and R2's free tier are in the guide's "Backups off the VM"
+- `./pine tell-owner <text>`: a DM to the owner (`OWNER_ID`) from a script on the host
+- `./pine` makes the backup folder when `BACKUP_DIR` is blank, and refuses to start the bot with a settings file it cannot read (a `chmod 644` mends it), where Docker Engine used to fail with an unclear error
+- 2.1.3: a Pokémon's Candy as a research reward was taken for its Mega Energy, so `/want eternatus` offered Eternatus Mega Energy for the event's Eternatus Candy tasks. Candy is now a reward of its own (`/want` offers "Eternatus Candy (research)"), and a want of Eternatus Mega Energy gains one for its Candy
+- 2.1.3: a task whose reward is not known yet ("one of Drampa, Duraludon") is listed first in `/research` and on the map, and is found by words such as "encounter" or "any"
+
+To update: `./pine update` (it backs up first and migrates the database); no new commands to deploy.
+
+@Pine Admins Questions? Ask here.
+```
