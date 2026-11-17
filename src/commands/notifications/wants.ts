@@ -457,8 +457,8 @@ function opensDialog(interaction: ChatInputCommandInteraction, ctx: AppContext):
 
 /**
  * `/want` (spec 4.2; plan 8R-1, design 7; plan 8R-4): a Pokémon, a form, a raid tier, perfect or
- * zero IVs, an item or Mega Energy of the task list, or a Team GO Rocket target. A Pokémon, a form
- * or a tier opens a dialog that asks what for (Raids, Dynamax, Gigantamax, Spawns, Research,
+ * zero IVs, an item, Mega Energy or Candy of the task list, or a Team GO Rocket target. A
+ * Pokémon, a form or a tier opens a dialog that asks what for (Raids, Dynamax, Gigantamax, Spawns, Research,
  * Shadow; a tier's Raids and Shadow raids), which forms and whether only costumed ones, ticked as
  * the member's rows have them, read within Discord's three seconds (`readInTime`); a form of a
  * species with a Which field (`/want mega charizard y`) opens its species' dialog with that form
@@ -486,9 +486,9 @@ export const want: SimpleCommand = {
     category: 'notifications',
     details:
       'Puts a Pokémon, a raid tier, perfect or zero IVs, or a research reward (an item such as ' +
-      'Rare Candy, or Mega Energy) on your list for this server: you get a direct message when ' +
-      'one is reported in a region you can see.\n\nFor a Pokémon a dialog asks what for: Raids, ' +
-      'Dynamax and Gigantamax max battles, Spawns, Research (field research that may reward ' +
+      'Rare Candy, Mega Energy or a Pokémon’s Candy) on your list for this server: you get a ' +
+      'direct message when one is reported in a region you can see.\n\nFor a Pokémon a dialog ' +
+      'asks what for: Raids, Dynamax and Gigantamax max battles, Spawns, Research (field research that may reward ' +
       'it) and Shadow (shadow raids and Team GO Rocket catches), each only where the game has ' +
       'it. Tick what you want; untick everything, or press Remove, to take it off your ' +
       'list.\n\nWhere a Pokémon has several forms, the dialog asks which; ticking every form ' +
@@ -588,9 +588,9 @@ export const want: SimpleCommand = {
 
   async autocomplete(interaction, ctx) {
     const typed = interaction.options.getFocused();
-    // The Pokémon, forms, tiers and IVs first; Team GO Rocket's targets (plan 8R-2) and the items
-    // and Mega Energy of the task list fill what is left, at most `REWARD_ROOM` places where the
-    // Pokémon would fill the list (B5).
+    // The Pokémon, forms, tiers and IVs first; Team GO Rocket's targets (plan 8R-2) and the items,
+    // Mega Energy and Candy of the task list fill what is left, at most `REWARD_ROOM` places where
+    // the Pokémon would fill the list (B5).
     const rewards = [...rocketWantChoices(typed), ...rewardWantChoices(ctx, typed)];
     const others = wantChoices(ctx, interaction.guildId, typed, zoneOf(interaction, ctx)).slice(
       0,

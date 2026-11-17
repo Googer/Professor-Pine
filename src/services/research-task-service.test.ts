@@ -117,6 +117,7 @@ describe('ResearchTaskService', () => {
       .find((task) => task.text === 'Catch a Dragon-type Pokémon');
     const versions = service.versions(dragon!);
     expect(versions.map((version) => version.label)).toEqual([
+      'one of Dratini, Bagon, Axew',
       'Dratini',
       'Bagon',
       'Axew',
@@ -124,9 +125,8 @@ describe('ResearchTaskService', () => {
       'Rare Candy ×3',
       'Stardust ×1500',
       'Ultra Ball ×10',
-      'one of Dratini, Bagon, Axew',
     ]);
-    const bagon = versions[1]!;
+    const bagon = versions[2]!;
     expect(service.byVersion(bagon.value)).toEqual({ task: dragon, version: bagon });
     expect(service.byVersion(dragon!.key)?.version.oneOf).toBe(true);
     expect(service.byVersion(`${dragon!.key}:00000000`)).toBeUndefined();

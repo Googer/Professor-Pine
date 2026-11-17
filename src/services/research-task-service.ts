@@ -97,7 +97,7 @@ export interface ResearchTaskProvider {
    */
   stale(now: number): boolean;
   /**
-   * The versions of a task (plan 8R-5, R1: one per reward, then "one of" its encounters), worked
+   * The versions of a task (plan 8R-5, R1: "one of" its encounters first, then one per reward), worked
    * out once per list and game data; the autocomplete, `readTask`, the map's options and "Same
    * task at more stops…" read only these.
    */

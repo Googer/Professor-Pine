@@ -574,7 +574,7 @@ describe('StopReportService and the versions of a task (plan 8R-5)', () => {
       category: 'Catching',
       rewards: [pikachu('pm25.icon.png'), pikachu('pm25.fPXP_2026.icon.png')],
     };
-    const [, costumed, oneOf] = taskVersions(costumedTask, catalogueFixture());
+    const [oneOf, , costumed] = taskVersions(costumedTask, catalogueFixture());
     const as = (found: typeof costumed): ResearchSubject => ({
       subjectKey: found!.value,
       research: {

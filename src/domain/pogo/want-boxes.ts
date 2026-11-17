@@ -86,7 +86,12 @@ export function subjectOf(target: NotificationTarget): BoxSubject | undefined {
 
 /** The subject of a `TargetWant` that is a box of a Pokémon (Research, Dynamax, Gigantamax). */
 export function subjectOfTarget(want: TargetWant): BoxSubject | undefined {
-  if (want.kind === 'research-item' || want.kind === 'research-energy' || want.kind === 'rocket') {
+  if (
+    want.kind === 'research-item' ||
+    want.kind === 'research-energy' ||
+    want.kind === 'research-candy' ||
+    want.kind === 'rocket'
+  ) {
     return undefined;
   }
   return want.form === undefined
@@ -206,10 +211,11 @@ export function itemNameOf(key: string): string {
 
 /**
  * What a `TargetWant` is called in a list, an answer and a direct message: `Dratini (research)`,
- * `Rare Candy (research)`, `Charizard Mega Energy (research)`, `Dynamax Machamp`, `Gigantamax
- * Machamp`; a Pokémon as `pokemonWantName` names it (`(every form)` for a species of several),
- * `Costumed` before a costumed one (`Costumed Pikachu (research)`, plan 8R-4). `items` names an
- * item as the task list does (else `itemNameOf`). Not made plain here.
+ * `Rare Candy (research)`, `Charizard Mega Energy (research)`, `Eternatus Candy (research)`,
+ * `Dynamax Machamp`, `Gigantamax Machamp`; a Pokémon as `pokemonWantName` names it (`(every
+ * form)` for a species of several), `Costumed` before a costumed one (`Costumed Pikachu
+ * (research)`, plan 8R-4). `items` names an item as the task list does (else `itemNameOf`). Not
+ * made plain here.
  */
 export function targetWantLabel(
   catalogue: PokemonCatalogue,
@@ -218,6 +224,19 @@ export function targetWantLabel(
 ): string {
   const label = plainTargetLabel(catalogue, want, items);
   return isCostumedTarget(want) ? `Costumed ${label}` : label;
+}
+
+/**
+ * The name of a species' Mega Energy or Candy as Pine builds it from the Pokédex number:
+ * `Charizard Mega Energy`, `Eternatus Candy` (`Pokémon #890 Candy` for a number the game data
+ * does not know).
+ */
+export function speciesResourceName(
+  catalogue: PokemonCatalogue,
+  want: Extract<TargetWant, { kind: 'research-energy' | 'research-candy' }>,
+): string {
+  const species = speciesNameOf(catalogue, want.dex) ?? `Pokémon #${String(want.dex)}`;
+  return `${species} ${want.kind === 'research-candy' ? 'Candy' : 'Mega Energy'}`;
 }
 
 function plainTargetLabel(
@@ -229,7 +248,8 @@ function plainTargetLabel(
     case 'research-item':
       return `${items.get(want.item) ?? itemNameOf(want.item)} (research)`;
     case 'research-energy':
-      return `${speciesNameOf(catalogue, want.dex) ?? `Pokémon #${String(want.dex)}`} Mega Energy (research)`;
+    case 'research-candy':
+      return `${speciesResourceName(catalogue, want)} (research)`;
     case 'research-pokemon':
       return `${pokemonWantName(catalogue, pokemonTarget(want.dex, want.form), { everyForm: true })} (research)`;
     case 'dynamax':
@@ -243,16 +263,17 @@ function plainTargetLabel(
 
 /**
  * What a `TargetWant` is called as the reason of a direct message (plan 8R-6, the 8R staging's
- * finding 1): an item or Mega Energy in the shape of a Pokémon's reason, `Rare Candy · Research`,
- * `Charizard Mega Energy · Research` (`Gible · Research`, `changeOf`); any other as
- * `targetWantLabel` names it. Not made plain here.
+ * finding 1): an item, Mega Energy or a species' Candy in the shape of a Pokémon's reason, `Rare
+ * Candy · Research`, `Charizard Mega Energy · Research`, `Eternatus Candy · Research` (`Gible ·
+ * Research`, `changeOf`); any other as `targetWantLabel` names it. Not made plain here.
  */
 export function targetReasonLabel(catalogue: PokemonCatalogue, want: TargetWant): string {
   switch (want.kind) {
     case 'research-item':
       return `${itemNameOf(want.item)} · Research`;
     case 'research-energy':
-      return `${speciesNameOf(catalogue, want.dex) ?? `Pokémon #${String(want.dex)}`} Mega Energy · Research`;
+    case 'research-candy':
+      return `${speciesResourceName(catalogue, want)} · Research`;
     default:
       return targetWantLabel(catalogue, want);
   }

@@ -73,7 +73,7 @@ import { raidWantsFiring } from '../../domain/notify/reasons.js';
 import { wantEntries } from './want-boxes.js';
 import { NO_WHICH, wantDialogId } from './want-dialog.js';
 import { wantLineCount } from './wants.js';
-import type { ResearchTask } from '../../domain/research/task.js';
+import { taskKeyOf, type ResearchTask, type TaskReward } from '../../domain/research/task.js';
 import type { RocketChoice } from '../../domain/rocket/lineups.js';
 import { rocketChoicesOfFeed, rocketLineupsFixture } from '../../../test/support/rocket.js';
 import { testServerValues } from '../../../test/support/server-values.js';
@@ -345,6 +345,43 @@ describe('/want', () => {
     expect((await made.ctx.targetWants.list(ALICE, FAKE_GUILD_ID)).wants).toEqual([
       { kind: 'research-item', item: 'rare-candy' },
       { kind: 'research-item', item: 'golden-razz-berry' },
+    ]);
+  });
+
+  // Matt, 2026-11-16: `/want eternatus` offered "Eternatus Mega Energy (research)" for the
+  // event's Eternatus Candy.
+  it('wants a species’ Candy of the task list as Candy, never as Mega Energy', async () => {
+    const candy: TaskReward = {
+      kind: 'candy',
+      dex: 890,
+      name: 'Eternatus Candy',
+      quantity: 10,
+      image: null,
+    };
+    const made = setup([
+      {
+        key: taskKeyOf('Catch 8 Pokémon'),
+        text: 'Catch 8 Pokémon',
+        category: 'Dynamax Trails',
+        rewards: [candy, { ...candy, name: 'Eternatus Candy XL', quantity: 2 }],
+      },
+    ]);
+    const offered = await made.choices('want', 'eternatus');
+    expect(offered).toContainEqual({
+      name: 'Eternatus Candy (research)',
+      value: 'research:candy:890',
+    });
+    expect(offered.filter((choice) => String(choice.value).startsWith('research:'))).toHaveLength(
+      1,
+    );
+    expect(offered.map((choice) => choice.name)).not.toContain('Eternatus Mega Energy (research)');
+    expect(await made.answer('want', { target: 'research:candy:890' })).toBe(
+      'You will get a DM when field research that may reward **Eternatus Candy** is reported in ' +
+        'a region you can see. `/unwant` takes it off again.',
+    );
+    await made.run('want', { target: 'Eternatus Candy XL' });
+    expect((await made.ctx.targetWants.list(ALICE, FAKE_GUILD_ID)).wants).toEqual([
+      { kind: 'research-candy', dex: 890 },
     ]);
   });
 

@@ -99,6 +99,11 @@ describe('the boxes of /want’s dialog', () => {
       targetReasonLabel(catalogueFixture(), want);
     expect(reason({ kind: 'research-item', item: 'rare-candy' })).toBe('Rare Candy · Research');
     expect(reason({ kind: 'research-energy', dex: 6 })).toBe('Charizard Mega Energy · Research');
+    expect(reason({ kind: 'research-candy', dex: 890 })).toBe('Eternatus Candy · Research');
+    expect(targetWantLabel(catalogueFixture(), { kind: 'research-candy', dex: 890 })).toBe(
+      'Eternatus Candy (research)',
+    );
+    expect(subjectOfTarget({ kind: 'research-candy', dex: 890 })).toBeUndefined();
     expect(reason({ kind: 'rocket', who: 'leader:arlo' })).toBe('Arlo (Team GO Rocket leader)');
   });
 

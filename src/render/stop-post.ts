@@ -48,7 +48,10 @@ const STOPS_SHOWN = 15;
  */
 export const PICTURES_PER_TASK = 6;
 
-/** Which pictures a layout of the post shows: those of items and Mega Energy or not, how many a block. */
+/**
+ * Which pictures a layout of the post shows: those of items, Mega Energy and Candy or not, how
+ * many a block.
+ */
 interface PictureStep {
   items: boolean;
   perBlock: number;
@@ -352,7 +355,7 @@ function headText(view: StopPostView, part: number): string {
 
 /**
  * A block as components: its pieces, `step.perBlock` of their pictures at most beside them
- * (Pokémon first, then items, in order; none of items and Mega Energy where `step.items` is
+ * (Pokémon first, then items, in order; none of items, Mega Energy and Candy where `step.items` is
  * false), the address of each as `picture` names it, none where it names none (a source gone,
  * which takes no place among them); consecutive pieces without a picture in one text.
  */
@@ -417,9 +420,9 @@ function leftLine(left: readonly Block[]): string {
  * escaped parts, cut whole by `cutText` as a backstop); what does not fit the last message is
  * counted there: "…and 4 more tasks and 1 more hideout". A busy day is decided for the whole post
  * (plan 8R-6; Matt, 2026-10-24): the first layout of `PICTURE_STEPS` that places every task and
- * hideout (every picture; without those of items and Mega Energy; one a task; none), else the
- * first that places the most (`busyStep`), which spills and counts away as it must; the same view
- * always gives the same layout. `picture` gives the address of each picture's source (`StopPictures.url`).
+ * hideout (every picture; without those of items, Mega Energy and Candy; one a task; none), else
+ * the first that places the most (`busyStep`), which spills and counts away as it must; the same
+ * view always gives the same layout. `picture` gives the address of each picture's source (`StopPictures.url`).
  */
 export function stopPostMessages(
   view: StopPostView,

@@ -36,10 +36,12 @@ const task = (rewards: TaskReward[]): ResearchTask => ({
 describe('the versions of a task (plan 8R-5)', () => {
   const catalogue = catalogueFixture();
 
-  it('offers one per reward in the page’s order, then "one of" its encounters', () => {
+  // Matt, 2026-11-16: "one of" first, for a member who has not done the task yet.
+  it('offers "one of" its encounters first, then one per reward in the page’s order', () => {
     const lileep = pageTask('Make 3 Great Throws in a row');
     const versions = taskVersions(lileep, catalogue);
     expect(versions.map((one) => [one.label, one.oneOf])).toEqual([
+      ['one of Lileep, Anorith', true],
       ['Lileep', false],
       ['Anorith', false],
       ['Pinap Berry ×3', false],
@@ -48,14 +50,12 @@ describe('the versions of a task (plan 8R-5)', () => {
       ['Razz Berry ×9', false],
       ['Stardust ×1000', false],
       ['Ultra Ball ×5', false],
-      ['one of Lileep, Anorith', true],
     ]);
-    const [first] = versions;
+    const [oneOf, first] = versions;
     expect(first?.value).toBe(`${lileep.key}:${rewardHash(lileep.rewards[0]!, catalogue)}`);
     expect(first?.value).toMatch(/^[0-9a-f]{16}:[0-9a-f]{8}$/);
     expect(first?.rewards).toEqual([lileep.rewards[0]]);
     // "One of" is the task's key alone, with its encounters only (the items left out).
-    const oneOf = versions.at(-1);
     expect(oneOf?.value).toBe(lileep.key);
     expect(oneOf?.rewards.map((reward) => reward.name)).toEqual(['Lileep', 'Anorith']);
   });
@@ -81,9 +81,9 @@ describe('the versions of a task (plan 8R-5)', () => {
     );
     // The name says the costume already: no mark (review L9). The flag tells it (L7).
     expect(versions.map((one) => [one.label, one.costumed])).toEqual([
+      ['one of Pikachu, Pikachu wearing a Cosmog suit', false],
       ['Pikachu', false],
       ['Pikachu wearing a Cosmog suit', true],
-      ['one of Pikachu, Pikachu wearing a Cosmog suit', false],
     ]);
     expect(new Set(versions.map((one) => one.value)).size).toBe(3);
   });
@@ -97,9 +97,9 @@ describe('the versions of a task (plan 8R-5)', () => {
       catalogue,
     );
     expect(versions.map((one) => [one.label, one.costumed])).toEqual([
+      ['one of Pikachu, Pikachu (costumed)', false],
       ['Pikachu', false],
       ['Pikachu (costumed)', true],
-      ['one of Pikachu, Pikachu (costumed)', false],
     ]);
   });
 
@@ -121,11 +121,11 @@ describe('the versions of a task (plan 8R-5)', () => {
     const costumed = encounter('Pikachu', 'pikachu', 25, 'pm25.fPXP_2026.icon.png');
     const versions = taskVersions(task([plain, costumed]), catalogue);
     expect(versions.map((one) => one.rewards.map((reward) => 'costumed' in reward))).toEqual([
+      [false, true],
       [false],
       [true],
-      [false, true],
     ]);
-    const [carried] = versions[1]?.rewards ?? [];
+    const [carried] = versions[2]?.rewards ?? [];
     expect(rewardHash(carried!, catalogue)).toBe(rewardHash(costumed, catalogue));
   });
 
@@ -137,6 +137,21 @@ describe('the versions of a task (plan 8R-5)', () => {
     expect(taskVersions(task([]), catalogue)).toEqual([
       { value: '0123456789abcdef', label: '', rewards: [], oneOf: false, costumed: false },
     ]);
+  });
+
+  // Review C-1 (2026-11-16): reports and versions made before Candy was read apart hold the
+  // hash of Eternatus Candy read as Mega Energy; they must keep meaning the same version.
+  it('hashes a species’ Candy as the same reward read as Mega Energy hashed', () => {
+    const eternatus: TaskReward = {
+      kind: 'candy',
+      dex: 890,
+      name: 'Eternatus Candy',
+      quantity: 10,
+      image: null,
+    };
+    expect(rewardHash(eternatus, catalogue)).toBe(
+      rewardHash({ ...eternatus, kind: 'energy' }, catalogue),
+    );
   });
 
   it('names the rewards of "one of" with those matched first', () => {

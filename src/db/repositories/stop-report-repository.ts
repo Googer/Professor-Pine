@@ -10,6 +10,7 @@ import {
   type StopReportRecord,
   type TakeBackBy,
 } from '../../domain/stops/report-history.js';
+import { isSpeciesCandy } from '../../domain/research/leekduck.js';
 import type { NewStopReport, StopReport, StopReportKind } from '../../domain/stops/report.js';
 import type { Logger } from '../../log.js';
 import { isDuplicateEntry } from '../errors.js';
@@ -260,10 +261,28 @@ const reward = z.discriminatedUnion('kind', [
     quantity: z.number(),
     image: z.string().nullable(),
   }),
+  // A species' Candy (Matt, 2026-11-16); before it, read as Mega Energy and stored so.
+  z.object({
+    kind: z.literal('candy'),
+    dex: z.number().int().nullable(),
+    name: z.string(),
+    quantity: z.number(),
+    image: z.string().nullable(),
+  }),
 ]);
 
-/** The rewards of a task as a document keeps them (`ResearchTask.rewards`, a report's detail). */
-export const rewardsDocument = z.array(reward);
+/**
+ * The rewards of a task as a document keeps them (`ResearchTask.rewards`, a report's detail). A
+ * species' Candy kept as Mega Energy before 2026-11-16 (Leek Duck gives both one type) is read as
+ * Candy by the parser's own rule (`isSpeciesCandy`; review C-2).
+ */
+export const rewardsDocument = z.array(
+  reward.transform((read) =>
+    read.kind === 'energy' && isSpeciesCandy(read.image, read.name)
+      ? { ...read, kind: 'candy' as const }
+      : read,
+  ),
+);
 
 /** What a research report's `detail` holds. */
 const researchDocument = z.object({

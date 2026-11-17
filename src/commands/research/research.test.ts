@@ -29,7 +29,14 @@ import { expectV2Sendable } from '../../../test/support/post-limits.js';
 import { renderSubcommandHelp } from '../util/help-render.js';
 import { distanceWords } from '../../render/distance-words.js';
 import { dialogField, dialogText, shownDialog } from '../../../test/support/dialogs.js';
-import { pageTask, pikachuTask, researchTasksFixture } from '../../../test/support/research.js';
+import {
+  pageTask,
+  pikachuTask,
+  readResearchCandyPage,
+  researchTasksFixture,
+} from '../../../test/support/research.js';
+import { catalogueFixture } from '../../../test/support/game-data.js';
+import { parseResearchPage } from '../../domain/research/leekduck.js';
 import { MemoryStopReports, fixtureRewardHash } from '../../../test/support/stop-reports.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { keptRow, wayspotId } from '../../../test/support/wayspot-cases.js';
@@ -47,6 +54,7 @@ import {
   PICK_THE_REWARD,
   readTask,
   RESEARCH_FROM_A_REGION,
+  taskChoices,
   TASK_LIST_CHANGED,
 } from './research-input.js';
 import { Rehearsal } from '../../services/rehearsal.js';
@@ -325,11 +333,11 @@ describe('/research report', () => {
     }[];
     // A choice per version that holds Dratini (plan 8R-5), in the list's order.
     expect(choices.map((choice) => choice.name)).toEqual([
-      'Catch a Dragon-type Pokémon · Dratini',
       'Catch a Dragon-type Pokémon · one of Dratini, Bagon, Axew',
+      'Catch a Dragon-type Pokémon · Dratini',
       'Make 2 Excellent Throws · Dratini',
     ]);
-    expect(choices[1]?.value).toBe(DRAGON.key);
+    expect(choices[0]?.value).toBe(DRAGON.key);
     const stops = (await made.typing('stop2', 'mural')).respond.mock.calls[0]?.[0];
     expect(stops?.map((one) => one.value)).toEqual([stop(1)]);
   });
@@ -538,13 +546,32 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
     const choices = (await made.typing('task', 'excellent gible')).respond.mock
       .calls[0]?.[0] as Choices;
     expect(choices).toEqual([
-      { name: 'Make 3 Excellent Throws in a row · Gible', value: GIBLE },
-      // "One of" with the reward typed first (R12).
+      // "One of" first (Matt, 2026-11-16), with the reward typed first (R12).
       {
         name: 'Make 3 Excellent Throws in a row · one of Gible, Larvitar, Beldum',
         value: THROWS.key,
       },
+      { name: 'Make 3 Excellent Throws in a row · Gible', value: GIBLE },
     ]);
+  });
+
+  // Matt, 2026-11-16: a member looking for "Win a Max Battle", its reward not known yet, did not
+  // see its "one of", listed last, and "encounter" or "any" found nothing.
+  it('offers a task’s "one of" first, and finds it by encounter, any, unknown or pokemon', () => {
+    const tasks = parseResearchPage(readResearchCandyPage(), catalogueFixture(), PARTY_ZONE).tasks;
+    const { ctx } = createTestContext({ researchTasks: researchTasksFixture(tasks) });
+    const names = (typed: string) =>
+      taskChoices(ctx, typed, PARTY_ZONE).map((choice) => choice.name);
+    expect(names('win a max')).toEqual([
+      'Win a Max Battle · one of Drampa, Duraludon',
+      'Win a Max Battle · Drampa',
+      'Win a Max Battle · Duraludon',
+      'Win a Max Battle · Eternatus Candy ×10',
+      'Win a Max Battle · Stardust ×2000',
+    ]);
+    for (const typed of ['win a max encounter', 'max battle any', 'win unknown', 'pokemon max']) {
+      expect(names(typed), typed).toEqual(['Win a Max Battle · one of Drampa, Duraludon']);
+    }
   });
 
   it('finds the "one of" choices by "one of" (plan 8R-6, the staging’s finding 6)', async () => {
@@ -1198,7 +1225,7 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
     expect(() => readTask(ctx, null, candies.key, 'rare candy', PARTY_ZONE)).toThrow(
       PICK_THE_REWARD,
     );
-    const plain = ctx.researchTasks.versions(electric).find((one) => !one.costumed);
+    const plain = ctx.researchTasks.versions(electric).find((one) => !one.costumed && !one.oneOf);
     expect(readTask(ctx, null, electric.key, 'pikachu', PARTY_ZONE).subjectKey).toBe(plain?.value);
   });
 });

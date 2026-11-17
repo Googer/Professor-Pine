@@ -50,7 +50,7 @@ import { foldTaskText } from '../../domain/research/task.js';
 import { searchText, searchTokens } from '../../domain/search/text.js';
 import type { TargetWantList } from '../../db/repositories/target-want-repository.js';
 import { truncate } from '../../render/text.js';
-import { listedRewards } from '../research/research-input.js';
+import { candyNamed, listedRewards } from '../research/research-input.js';
 import { byName, CHOICE_NAME, type Choice } from '../choices.js';
 import { wildExceptionsOf } from './wild.js';
 import { typedWant, wantLabel } from './want-input.js';
@@ -58,7 +58,7 @@ import { typedWant, wantLabel } from './want-input.js';
 /*
  * What `/want`, `/unwant` and `/wants` make of the boxes of the dialog (plan 8R-1; design 7, 9.1,
  * 9.9): a target as a member names it (`Wanted`), the boxes a Pokémon's or a tier's dialog shows,
- * the items and Mega Energy of the task list as targets of their own, and the member's wants
+ * the items, Mega Energy and Candy of the task list as targets of their own, and the member's wants
  * grouped as the list shows them, one line per target with its boxes.
  */
 
@@ -447,13 +447,13 @@ function begins(name: string, words: readonly string[]): boolean {
 }
 
 /**
- * The items and Mega Energy of the task list as choices of `/want` (design 7, 9.9: research
+ * The items, Mega Energy and Candy of the task list as choices of `/want` (design 7, 9.9: research
  * rewards are targets of their own): those whose name every typed word begins, their value the
  * `TargetWant` token.
  */
 export function rewardWantChoices(ctx: AppContext, typed: string): Choice[] {
   const words = searchTokens(typed);
-  const { items, energies } = listedRewards(ctx);
+  const { items, energies, candies } = listedRewards(ctx);
   return [
     ...[...items].map(([item, name]): [string, TargetWant] => [
       name,
@@ -462,6 +462,10 @@ export function rewardWantChoices(ctx: AppContext, typed: string): Choice[] {
     ...[...energies].map(([dex, name]): [string, TargetWant] => [
       name,
       { kind: 'research-energy', dex },
+    ]),
+    ...[...candies].map(([dex, name]): [string, TargetWant] => [
+      name,
+      { kind: 'research-candy', dex },
     ]),
   ]
     .filter(([name]) => begins(name, words))
@@ -474,7 +478,7 @@ export function rewardWantChoices(ctx: AppContext, typed: string): Choice[] {
 
 /**
  * What the `target` option of `/want` or `/unwant` names: a research reward (a choice's token,
- * or an item or Mega Energy of the task list named in full), else what `typedWant` reads (a
+ * or an item, Mega Energy or Candy of the task list named in full), else what `typedWant` reads (a
  * Pokémon, a form, a tier, IVs; shadow raids are the Shadow box of their Pokémon's dialog, and
  * the shadow raids of a tier its tier's). A Pokémon is read by the server's search (`serverId`).
  */
@@ -485,7 +489,11 @@ export function readWanted(
   own = false,
 ): Wanted {
   const token = parseTargetWantToken(value.trim());
-  if (token?.kind === 'research-item' || token?.kind === 'research-energy') {
+  if (
+    token?.kind === 'research-item' ||
+    token?.kind === 'research-energy' ||
+    token?.kind === 'research-candy'
+  ) {
     return { kind: 'reward', want: token };
   }
   if (token?.kind === 'rocket') return { kind: 'rocket', want: token };
@@ -498,7 +506,7 @@ export function readWanted(
     }
   }
   const folded = foldTaskText(value);
-  const { items, energies } = listedRewards(ctx);
+  const { items, energies, candies } = listedRewards(ctx);
   for (const [item, name] of items) {
     if (foldTaskText(name) === folded)
       return { kind: 'reward', want: { kind: 'research-item', item } };
@@ -508,6 +516,8 @@ export function readWanted(
       return { kind: 'reward', want: { kind: 'research-energy', dex } };
     }
   }
+  const candy = candyNamed(candies, value);
+  if (candy !== undefined) return { kind: 'reward', want: { kind: 'research-candy', dex: candy } };
   const target = typedWant(ctx, serverId, value, own);
   const subject = subjectOf(target);
   return subject ? { kind: 'subject', subject, target } : { kind: 'iv', target };
@@ -570,7 +580,7 @@ function subjectEntry(ctx: AppContext, subject: BoxSubject, rows: readonly HeldR
  * A member's wants of both tables as `/wants` lists them (design 4, plan 8R-4): one line per
  * species with its forms named together (an Unown letter a line of its own), by species name;
  * the tiers in their order; Team GO Rocket; then the lines without a dialog, which keep Remove:
- * the items and Mega Energy by name, Perfect IVs, Zero IVs.
+ * the items, Mega Energy and Candy by name, Perfect IVs, Zero IVs.
  */
 export function wantEntries(
   ctx: AppContext,

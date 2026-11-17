@@ -5,6 +5,7 @@ import type {
   ResearchOptionsView,
   ResearchTaskOption,
 } from '../../domain/web/stop-report-data.js';
+import { ONE_OF_WORDS } from '../../domain/research/one-of-words.js';
 import { holdsSubject, taskOfSubject } from '../../domain/research/reports.js';
 import { sendButton } from './form-buttons.js';
 import type { PageNode } from './popup.js';
@@ -18,7 +19,7 @@ import type { LatLon } from './view.js';
  * under the map on a phone, as the meetup and train forms), the part with no page in it. A new
  * report: the task searched for in the whole list (`/api/research-options`, the server's order, an
  * event's tasks first, grouped by `category`), then its version where it has several (one reward
- * each, then "one of", with the rewards' pictures; a task of one version takes it without asking);
+ * each, "one of" first, with the rewards' pictures; a task of one version takes it without asking);
  * a task the list lacks typed in full with its reward ("I can't find my task"); the stops: the one
  * it was opened on and up to four more picked on the map ("Add stops…"). "Same task at more
  * stops…" (`sameAs`): the task of a report standing, at up to four more stops. Its Submit
@@ -212,7 +213,10 @@ export function sameTaskButton(report: Pick<MapResearch, 'id'>): PageNode {
 const fold = (text: string): string =>
   text.normalize('NFD').replace(/\p{M}/gu, '').replace(/['’]/gu, '').toLowerCase();
 
-/** The tasks a search shows, in the list's order: every word typed in its text or rewards. */
+/**
+ * The tasks a search shows, in the list's order: every word typed in its text or rewards, or in
+ * the words of its "one of" where it has one (`ONE_OF_WORDS`, as `/research` finds it).
+ */
 export function tasksFound(
   tasks: readonly ResearchTaskOption[],
   query: string,
@@ -221,7 +225,10 @@ export function tasksFound(
     .split(/\s+/u)
     .filter((word) => word !== '');
   return tasks.filter((task) => {
-    const said = fold([task.text, ...task.rewards.map((reward) => reward.name)].join(' '));
+    const oneOf = task.versions.some((version) => version.oneOf) ? [ONE_OF_WORDS] : [];
+    const said = fold(
+      [task.text, ...task.rewards.map((reward) => reward.name), ...oneOf].join(' '),
+    );
     return words.every((word) => said.includes(word));
   });
 }

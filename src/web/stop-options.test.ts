@@ -80,7 +80,7 @@ describe("a research task's versions in the pick list", () => {
       versions: (one) => taskVersions(one, catalogue),
       readAt: undefined,
       stale: false,
-      listed: { items: new Map(), energies: new Map() },
+      listed: { items: new Map(), energies: new Map(), candies: new Map() },
       origins: ['https://map.example.test'],
       picture: square,
     });
@@ -88,14 +88,56 @@ describe("a research task's versions in the pick list", () => {
     expect(
       versions.map((version) => [version.label, version.rewards.map((one) => one.name)]),
     ).toEqual([
+      ['one of Dratini, Bagon', ['Dratini', 'Bagon']],
       ['Dratini', ['Dratini']],
       ['Bagon', ['Bagon']],
-      ['one of Dratini, Bagon', ['Dratini', 'Bagon']],
     ]);
-    expect(versions[1]?.rewards[0]).toMatchObject({
+    expect(versions[2]?.rewards[0]).toMatchObject({
       value: 'pokemon:bagon',
       image: square(`${crop}pm371.icon.png`),
     });
+  });
+
+  // Matt, 2026-11-16: a species' Candy is a reward of its own, beside Mega Energy.
+  it('offers a species’ Candy of the list as Candy, its reward as Candy', () => {
+    const candy: TaskReward = {
+      kind: 'candy',
+      dex: 890,
+      name: 'Eternatus Candy',
+      quantity: 10,
+      image: null,
+    };
+    const task: ResearchTask = {
+      key: '0123456789abcdef',
+      text: 'Catch 8 Pokémon',
+      category: 'Dynamax Trails',
+      rewards: [candy],
+    };
+    const view = researchOptions({
+      tasks: [task],
+      versions: (one) => taskVersions(one, catalogueFixture()),
+      readAt: undefined,
+      stale: false,
+      listed: {
+        items: new Map(),
+        energies: new Map([[254, 'Sceptile Mega Energy']]),
+        candies: new Map([[890, 'Eternatus Candy']]),
+      },
+      origins: ['https://map.example.test'],
+    });
+    expect(view.rewards).toEqual([
+      { value: 'energy:254', name: 'Sceptile Mega Energy' },
+      { value: 'candy:890', name: 'Eternatus Candy' },
+    ]);
+    expect(view.tasks[0]?.rewards).toEqual([
+      {
+        kind: 'candy',
+        name: 'Eternatus Candy',
+        value: 'candy:890',
+        quantity: 10,
+        shiny: false,
+      },
+    ]);
   });
 });
 
@@ -131,19 +173,19 @@ describe('the pick lists of reports at stops', () => {
       name: 'Dratini',
       value: 'pokemon:dratini',
     });
-    // Its versions, as /research offers them (plan 8R-5, R13).
-    expect(shown?.versions[0]).toEqual({
+    // Its versions, as /research offers them (plan 8R-5, R13): "one of" first (2026-11-16).
+    expect(shown?.versions[1]).toEqual({
       value: expect.stringMatching(new RegExp(`^${dragon.key}:[0-9a-f]{8}$`)) as string,
       label: 'Dratini',
       oneOf: false,
       rewards: [shown?.rewards[0]],
     });
-    expect(shown?.versions.at(-1)).toMatchObject({
+    expect(shown?.versions[0]).toMatchObject({
       value: dragon.key,
       label: 'one of Dratini, Bagon, Axew',
       oneOf: true,
     });
-    expect(shown?.versions.at(-1)?.rewards.map((reward) => reward.name)).toEqual([
+    expect(shown?.versions[0]?.rewards.map((reward) => reward.name)).toEqual([
       'Dratini',
       'Bagon',
       'Axew',

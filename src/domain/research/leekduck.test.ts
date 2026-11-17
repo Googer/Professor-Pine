@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { catalogueFixture } from '../../../test/support/game-data.js';
-import { readResearchPage } from '../../../test/support/research.js';
+import { readResearchCandyPage, readResearchPage } from '../../../test/support/research.js';
 import { readEventPage } from '../../../test/support/spawn-events.js';
 import {
   eventPageTime,
@@ -81,6 +81,79 @@ describe('parseResearchPage', () => {
       quantity: 10,
       image: 'https://cdn.leekduck.com/assets/img/mega_energy/Sceptile%20Mega%20Energy.png',
     });
+  });
+
+  // Matt, 2026-11-16: the page gives a species' Candy `resource` as it does Mega Energy; the
+  // Eternatus event's tasks reward Eternatus Candy, which was read as Mega Energy.
+  it('reads a species’ Candy apart from Mega Energy, by its picture, else by its label', () => {
+    const CDN = 'https://cdn.leekduck.com/assets/img';
+    const resource = (picture: string, dex: number, label: string, quantity: number) =>
+      '<li class="reward" data-reward-type="resource" data-reward-filter="less">' +
+      `<span class="reward-bubble resource-reward"><img class="reward-image" src="${CDN}/${picture}" />` +
+      `<div class="resource-info"><img class="reward-image" src="${CDN}/pokemon_icons_crop/pm${String(dex)}.icon.png" />` +
+      `</div><div class="quantity">×${String(quantity)}</div></span>` +
+      `<span class="reward-label">${label} <span>×${String(quantity)}</span></span></li>`;
+    const page =
+      '<div class="task-category event-field-research"><h2>Dynamax Trails Tasks</h2><ul class="task-list">' +
+      '<li class="task-item"><span class="task-text"><span>Catch 8 Pokémon</span></span><ul class="reward-list">' +
+      resource('candy/regular/890.png', 890, 'Eternatus Candy', 10) +
+      resource('mega_energy/Sceptile Mega Energy.png', 254, 'Sceptile Mega Energy', 10) +
+      resource('candy/xl/890.png', 890, 'Eternatus Candy XL', 2) +
+      resource('unknown/890.png', 890, 'Eternatus Candy', 3) +
+      '</ul></li></ul></div>';
+    const read = parseResearchPage(page, catalogueFixture(), ZONE);
+    expect(read.tasks[0]?.rewards).toEqual([
+      {
+        kind: 'candy',
+        dex: 890,
+        name: 'Eternatus Candy',
+        quantity: 10,
+        image: `${CDN}/candy/regular/890.png`,
+      },
+      {
+        kind: 'energy',
+        dex: 254,
+        name: 'Sceptile Mega Energy',
+        quantity: 10,
+        image: `${CDN}/mega_energy/Sceptile%20Mega%20Energy.png`,
+      },
+      // Candy XL is that species' Candy, its own name kept.
+      {
+        kind: 'candy',
+        dex: 890,
+        name: 'Eternatus Candy XL',
+        quantity: 2,
+        image: `${CDN}/candy/xl/890.png`,
+      },
+      // A picture of no known folder: the label says Candy.
+      {
+        kind: 'candy',
+        dex: 890,
+        name: 'Eternatus Candy',
+        quantity: 3,
+        image: `${CDN}/unknown/890.png`,
+      },
+    ]);
+    expect(read.skipped).toBe(0);
+  });
+
+  it('reads the Eternatus Candy of the page of 2026-11-16 as Candy', () => {
+    const read = parseResearchPage(readResearchCandyPage(), catalogueFixture(), ZONE);
+    expect(read.tasks.map((one) => one.text)).toEqual(['Win a Max Battle']);
+    expect(read.tasks[0]?.rewards.map((reward) => [reward.kind, reward.name])).toEqual([
+      ['encounter', 'Drampa'],
+      ['encounter', 'Duraludon'],
+      ['candy', 'Eternatus Candy'],
+      ['item', 'Stardust'],
+    ]);
+    expect(read.tasks[0]?.rewards[2]).toEqual({
+      kind: 'candy',
+      dex: 890,
+      name: 'Eternatus Candy',
+      quantity: 10,
+      image: 'https://cdn.leekduck.com/assets/img/candy/regular/890.png',
+    });
+    expect(read.skipped).toBe(0);
   });
 
   it('reads a regional form as its form', () => {

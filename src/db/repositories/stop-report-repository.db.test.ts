@@ -15,6 +15,7 @@ import {
   TAKEN_BACK,
 } from '../../../test/support/stop-report-cases.js';
 import { createTestLogger } from '../../../test/support/test-logger.js';
+import type { TaskReward } from '../../domain/research/task.js';
 import type { DB } from '../types.js';
 import { StopReportRepository, SWEEP_BATCH } from './stop-report-repository.js';
 
@@ -143,6 +144,64 @@ describe('StopReportRepository', () => {
       true,
     );
     expect(await db.selectFrom('StopReport').select('id').execute()).toHaveLength(1);
+  });
+
+  // Matt, 2026-11-16: a species' Candy is a reward of its own, beside Mega Energy.
+  it('reads back a report whose reward is a species’ Candy, and one of Mega Energy as before', async () => {
+    const store = await fresh();
+    const candy: TaskReward = {
+      kind: 'candy',
+      dex: 890,
+      name: 'Eternatus Candy',
+      quantity: 10,
+      image: 'https://cdn.leekduck.com/assets/img/candy/regular/890.png',
+    };
+    const energy: TaskReward = {
+      kind: 'energy',
+      dex: 254,
+      name: 'Sceptile Mega Energy',
+      quantity: 10,
+      image: null,
+    };
+    const research = (rewards: TaskReward[]) => ({
+      text: 'Catch 8 Pokémon',
+      category: 'Dynamax Trails',
+      rewards,
+      typed: false,
+    });
+    await store.save(researchReport({ stop: reportedStop(1), research: research([candy]) }));
+    await store.save(researchReport({ stop: reportedStop(2), research: research([energy]) }));
+    const standing = await store.standing(REPORT_SERVER, REPORT_NOW);
+    expect(standing.map((one) => (one.kind === 'research' ? one.research.rewards : []))).toEqual(
+      expect.arrayContaining([[candy], [energy]]),
+    );
+    expect(standing).toHaveLength(2);
+  });
+
+  // Review C-2 (2026-11-16): a report made before Candy was read apart holds it as Mega Energy.
+  it('reads a species’ Candy a report kept as Mega Energy before 2026-11-16 as Candy', async () => {
+    const store = await fresh();
+    const asEnergy: TaskReward = {
+      kind: 'energy',
+      dex: 890,
+      name: 'Eternatus Candy',
+      quantity: 10,
+      image: 'https://cdn.leekduck.com/assets/img/candy/regular/890.png',
+    };
+    await store.save(
+      researchReport({
+        research: {
+          text: 'Catch 8 Pokémon',
+          category: 'Dynamax Trails',
+          rewards: [asEnergy],
+          typed: false,
+        },
+      }),
+    );
+    const [standing] = await store.standing(REPORT_SERVER, REPORT_NOW);
+    expect(standing?.kind === 'research' ? standing.research.rewards : []).toEqual([
+      { ...asEnergy, kind: 'candy' },
+    ]);
   });
 
   describe('the history of reports that end (plan 8H-2)', () => {

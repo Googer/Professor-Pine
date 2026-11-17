@@ -63,6 +63,7 @@ describe('the keys of wants (plan 8H-3: WantCountDay)', () => {
     expect(targetWantKey('grunt:water')).toBe('grunt:water');
     expect(targetWantKey('leader:any')).toBe('leader:any');
     expect(targetWantKey('giovanni')).toBe('giovanni');
+    expect(targetWantKey('research:candy:890')).toBe('research:candy:890');
     // A token of a later version, or none at all, is skipped.
     expect(targetWantKey('grunt:water:male')).toBeUndefined();
     expect(targetWantKey('research:pokemon:0')).toBeUndefined();
@@ -97,8 +98,9 @@ describe('the keys of wants (plan 8H-3: WantCountDay)', () => {
       ['alice', 'dynamax:25'],
       ['alice', 'gigantamax:25:pikachu_gmax'],
       ['bob', 'research:pokemon:25:pikachu_costume'],
-      // Mega Energy, a tier, a Rocket target and the like are no Pokémon wanted.
+      // Mega Energy, Candy, a tier, a Rocket target and the like are no Pokémon wanted.
       ['carol', 'research:energy:25'],
+      ['carol', 'research:candy:25'],
       ['carol', 'tier:T5'],
       ['carol', 'grunt:electric'],
       ['carol', 'gym:25'],

@@ -262,6 +262,7 @@ describe('runMigrations', () => {
       '2026_11_14_063_server_neighbors',
       '2026_11_14_064_activity_zone',
       '2026_11_14_065_web_session_servers',
+      '2026_11_16_066_research_candy_wants',
     ]);
     expect(
       await describeSchema(

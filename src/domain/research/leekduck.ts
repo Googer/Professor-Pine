@@ -9,10 +9,10 @@ import { rewardKey } from './versions.js';
  * Leek Duck's research page (`https://leekduck.com/research/`; plan 8R-1, design 4.1, decision 5)
  * read as the task list. The page is HTML of a stable shape: a `task-category` per heading
  * (`<h2>Catching Tasks</h2>`), a `task-item` per task with its `task-text`, and a `reward` per
- * reward with its `data-reward-type` (`encounter`, `item`, `resource` for Mega Energy). The
- * research breakthrough after the tasks is no task. Read with a few small scans, never a regular
- * expression over the whole page: what is not of that shape is skipped and counted. An event's
- * section says when it ends (`data-event-end`).
+ * reward with its `data-reward-type` (`encounter`, `item`, `resource` for Mega Energy and a
+ * species' Candy, `isSpeciesCandy`). The research breakthrough after the tasks is no task. Read
+ * with a few small scans, never a regular expression over the whole page: what is not of that
+ * shape is skipped and counted. An event's section says when it ends (`data-event-end`).
  */
 
 /** What the page gave: the tasks, and how many tasks and rewards could not be read. */
@@ -132,6 +132,23 @@ function dexOfPicture(src: string | undefined): number | null {
   return match?.[1] === undefined ? null : Number(match[1]);
 }
 
+/**
+ * Whether a `resource` reward is a species' Candy rather than Mega Energy (Matt, 2026-11-16):
+ * the page gives both that type. Candy's picture is under `candy/` (`candy/regular/890.png`; Candy
+ * XL's, should the page list it, presumably `candy/xl/`), Mega Energy's under `mega_energy/`;
+ * without either, a label that ends in `Candy` or `Candy XL` (`Eternatus Candy`). Candy XL is the
+ * same kind of that species, its name kept, so that a want of a species' Candy covers it. Any
+ * other `resource` stays Mega Energy, as before. The one rule: a reward stored as Mega Energy
+ * before 2026-11-16 is read back by it too (`rewardsDocument`, review C-2).
+ */
+export function isSpeciesCandy(picture: string | null | undefined, name: string): boolean {
+  if (picture !== undefined && picture !== null) {
+    if (/\/candy\//i.test(picture)) return true;
+    if (/\/mega_energy\//i.test(picture)) return false;
+  }
+  return /\bCandy(?: XL)?$/i.test(name);
+}
+
 interface Reading {
   catalogue: PokemonCatalogue;
   unknown: Set<string>;
@@ -170,7 +187,7 @@ function readReward(html: string, reading: Reading): TaskReward | undefined {
     const quantity = quantityOf(htmlText(label));
     if (type === 'resource') {
       return {
-        kind: 'energy',
+        kind: isSpeciesCandy(srcs[0], name) ? 'candy' : 'energy',
         dex: dexOfPicture(srcs[1]),
         name,
         quantity,

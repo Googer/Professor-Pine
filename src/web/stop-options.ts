@@ -17,7 +17,7 @@ import { mapCatch, mapReward } from '../domain/web/stop-report-view.js';
  * The pick lists of a research report on the map (plan 8R-3), as `/research` offers them: the
  * whole task list in the page's order (not the autocomplete's 25), each with its key, text,
  * category and rewards (pictures only from `origins`); whether it is out of date (`stale`, the
- * task list's own rule) and when it was read; and the items and Mega Energy of the list
+ * task list's own rule) and when it was read; and the items, Mega Energy and Candy of the list
  * (`listedRewards`), which a typed task's `reward` may name besides a Pokémon; the most stops a
  * report names and the longest text typed, `/research report`'s own (`STOP_OPTIONS`,
  * `MAX_TYPED`). Pure.
@@ -28,7 +28,11 @@ export function researchOptions(input: {
   versions: (task: ResearchTask) => readonly TaskVersion[];
   readAt: number | undefined;
   stale: boolean;
-  listed: { items: ReadonlyMap<string, string>; energies: ReadonlyMap<number, string> };
+  listed: {
+    items: ReadonlyMap<string, string>;
+    energies: ReadonlyMap<number, string>;
+    candies: ReadonlyMap<number, string>;
+  };
   origins: readonly string[];
   /**
    * The address of a picture as the post of the stops names it (plan 8M-9B, `StopPictures.url`: the
@@ -60,6 +64,7 @@ export function researchOptions(input: {
         value: `energy:${String(dex)}`,
         name,
       })),
+      ...[...input.listed.candies].map(([dex, name]) => ({ value: `candy:${String(dex)}`, name })),
     ],
   };
 }

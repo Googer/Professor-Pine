@@ -253,6 +253,26 @@ describe('researchWantsFiring (plan 8R-1)', () => {
       { kind: 'research-energy', dex: 6 },
     ]);
   });
+
+  // Matt, 2026-11-16: Eternatus Candy was read as Eternatus Mega Energy.
+  it('tells a want of a species’ Candy of its Candy, and never a want of its Mega Energy', () => {
+    const candy: TaskReward[] = [
+      { kind: 'candy', dex: 890, name: 'Eternatus Candy', quantity: 10, image: null },
+    ];
+    expect(researchTargets(candy)).toEqual([{ kind: 'research-candy', dex: 890 }]);
+    const wants = [
+      { kind: 'research-candy', dex: 890 } as const,
+      { kind: 'research-energy', dex: 890 } as const,
+      { kind: 'research-candy', dex: 6 } as const,
+      { kind: 'research-energy', dex: 6 } as const,
+    ];
+    expect(researchWantsFiring(catalogue, wants, candy)).toEqual([
+      { kind: 'research-candy', dex: 890 },
+    ]);
+    expect(researchWantsFiring(catalogue, wants, rewards)).toEqual([
+      { kind: 'research-energy', dex: 6 },
+    ]);
+  });
 });
 
 describe('Rocket wants (plan 8R-2)', () => {
