@@ -18,6 +18,7 @@ import {
   type ResearchTask,
   type TaskReward,
 } from '../../domain/research/task.js';
+import { ONE_OF_WORDS } from '../../domain/research/one-of-words.js';
 import { researchSubjectOf } from '../../domain/research/reports.js';
 import {
   oneOfLabel,
@@ -211,7 +212,9 @@ export function versionChoice(task: ResearchTask, label: string, value: string):
  * version of the period's tasks, in the list's order; with words typed, first every version of
  * the tasks whose text has every word (as the beginning of a word), then the versions that have
  * them across the task's text and their rewards' names together (`excellent gible` finds "Make 3
- * Excellent Throws in a row · Gible" and its "one of"), a "one of" naming the rewards typed first.
+ * Excellent Throws in a row · one of Gible, …" and its Gible), a "one of" naming the rewards
+ * typed first and found by its own words too (`ONE_OF_WORDS`: `win a max encounter`). A task's
+ * "one of" comes before its other versions (`taskVersions`).
  */
 export function taskChoices(
   ctx: Pick<AppContext, 'researchTasks' | 'gameData'>,
@@ -229,8 +232,9 @@ export function taskChoices(
       if (whole) {
         byText.push(versionChoice(task, version.label, version.value));
       } else if (
-        // "One of" found by its own words too (plan 8R-6, the staging's finding 6).
-        hasWords(`${task.text} ${version.oneOf ? 'one of ' : ''}${names.join(' ')}`, words)
+        // "One of" found by its own words too (plan 8R-6, the staging's finding 6; Matt,
+        // 2026-11-16: `encounter`, `any`, `unknown`, `pokemon`).
+        hasWords(`${task.text} ${version.oneOf ? `${ONE_OF_WORDS} ` : ''}${names.join(' ')}`, words)
       ) {
         // "One of" with the rewards typed first (R12).
         const label = version.oneOf

@@ -57,6 +57,13 @@ describe('the field research form of the map (plan 8M-9B, goal 7)', () => {
     expect(tasksFound(OPTIONS.tasks, '').map((task) => task.key)).toEqual(['dragon', 'spin']);
     expect(tasksFound(OPTIONS.tasks, 'BAGON').map((task) => task.key)).toEqual(['dragon']);
     expect(tasksFound(OPTIONS.tasks, 'pokestops rare').map((task) => task.key)).toEqual(['spin']);
+    // A task of a "one of" by its words too (Matt, 2026-11-16): the encounter not known yet.
+    for (const typed of ['dragon encounter', 'any', 'unknown', 'one of']) {
+      expect(
+        tasksFound(OPTIONS.tasks, typed).map((task) => task.key),
+        typed,
+      ).toEqual(['dragon']);
+    }
     const form = researchForm(OPTIONS, AT, { query: '' });
     expect(found(form, (one) => one.tag === 'h4').map((one) => one.text)).toEqual([
       'Catching',
@@ -73,7 +80,7 @@ describe('the field research form of the map (plan 8M-9B, goal 7)', () => {
     const picked = researchForm(OPTIONS, AT, { query: '', task: 'dragon' });
     expect(
       found(picked, (one) => one.attributes?.type === 'radio').map((one) => one.attributes?.value),
-    ).toEqual(['dragon:aaaa1111', 'dragon:bbbb2222', 'dragon']);
+    ).toEqual(['dragon', 'dragon:aaaa1111', 'dragon:bbbb2222']);
     expect(texts(researchForm(OPTIONS, AT, { query: '', task: 'spin' }))).not.toContain(
       'Its reward',
     );
@@ -109,7 +116,7 @@ describe('the field research form of the map (plan 8M-9B, goal 7)', () => {
       .map((label) =>
         found(label, (one) => one.tag === 'img').map((img) => img.attributes?.title ?? ''),
       );
-    expect(pictures).toEqual([['Dratini'], ['Bagon'], ['Dratini', 'Bagon']]);
+    expect(pictures).toEqual([['Dratini', 'Bagon'], ['Dratini'], ['Bagon']]);
   });
 
   it('types a task the list lacks, its reward offered from the list’s rewards, the list said stale', () => {

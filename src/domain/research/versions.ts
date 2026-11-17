@@ -133,10 +133,11 @@ export function versionIndex(
 }
 
 /**
- * The versions of a task (R1): one per reward in the page's order (one listed twice once, by
- * `rewardKey`), then "one of" its encounters
- * where it has two or more (its items, Mega Energy and Candy left out: they show before the task is
- * done). A task of no reward is one version, its key alone.
+ * The versions of a task (R1): "one of" its encounters first where it has two or more (its
+ * items, Mega Energy and Candy left out: they show before the task is done; first since Matt,
+ * 2026-11-16, for a member who has not done the task yet), then one per reward in the page's
+ * order (one listed twice once, by `rewardKey`). A task of no reward is one version, its key
+ * alone.
  */
 export function taskVersions(task: ResearchTask, catalogue: PokemonCatalogue): TaskVersion[] {
   if (task.rewards.length === 0) {
@@ -162,7 +163,8 @@ export function taskVersions(task: ResearchTask, catalogue: PokemonCatalogue): T
     .filter((reward) => reward.kind === 'encounter')
     .map((reward) => versionReward(reward, catalogue));
   if (encounters.length >= 2) {
-    versions.push({
+    // First (Matt, 2026-11-16): what a member who has not done the task yet looks for.
+    versions.unshift({
       value: task.key,
       label: oneOfLabel(encounters, undefined, catalogue),
       rewards: encounters,

@@ -197,7 +197,7 @@ export interface ResearchVersionOption {
 
 /**
  * A task as `/research` lists it (`GET /s/<guild>/api/research-options`): its key, text,
- * category, rewards, and its versions (plan 8R-5: one per reward, then "one of"), whose value a
+ * category, rewards, and its versions (plan 8R-5: "one of" first, then one per reward), whose value a
  * report sends as `task`.
  */
 export interface ResearchTaskOption {

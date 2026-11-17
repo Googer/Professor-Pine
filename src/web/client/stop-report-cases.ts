@@ -159,15 +159,16 @@ export const caseResearchOptions = (
       text: 'Catch a Dragon-type Pokémon',
       category: 'Catching',
       rewards: [DRATINI, BAGON],
+      // "One of" first, as the server orders them (2026-11-16).
       versions: [
-        { value: 'dragon:aaaa1111', label: 'Dratini', oneOf: false, rewards: [DRATINI] },
-        { value: 'dragon:bbbb2222', label: 'Bagon', oneOf: false, rewards: [BAGON] },
         {
           value: 'dragon',
           label: 'one of Dratini, Bagon',
           oneOf: true,
           rewards: [DRATINI, BAGON],
         },
+        { value: 'dragon:aaaa1111', label: 'Dratini', oneOf: false, rewards: [DRATINI] },
+        { value: 'dragon:bbbb2222', label: 'Bagon', oneOf: false, rewards: [BAGON] },
       ],
     },
     {

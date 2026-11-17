@@ -1104,7 +1104,9 @@ describe('StopPostService', () => {
       url: looked,
     });
     const task = pageTask('Make 3 Great Throws in a row');
-    const [lileep] = researchTasksFixture().versions(task);
+    const lileep = researchTasksFixture()
+      .versions(task)
+      .find((one) => one.label === 'Lileep');
     if (!lileep) throw new Error('a version');
     await made.reportVersion(task, lileep);
     await made.posts.flush();

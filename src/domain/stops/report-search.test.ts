@@ -84,10 +84,17 @@ describe("a report's search words and whether it is confirmed (plan 8M-12)", () 
     expect(finds(words, 'Skiddo')).toBe(true);
     expect(finds(words, 'petilil')).toBe(true);
     expect(unconfirmed).toEqual({ kind: 'one-of', count: 6, encounters: true });
+    // Its own words too (Matt, 2026-11-16): the encounter is not known yet.
+    for (const word of ['one of', 'encounter', 'any', 'unknown', 'pokemon']) {
+      expect(finds(words, word), word).toBe(true);
+    }
     // Skiddo told: confirmed.
     const told = reportSearch(reported(task, versionOf(task, 'Skiddo')), FACTS);
     expect(told.unconfirmed).toBeUndefined();
     expect(finds(told.words, 'petilil')).toBe(false);
+    for (const word of ['one of', 'encounter', 'any', 'unknown']) {
+      expect(finds(told.words, word), word).toBe(false);
+    }
   });
 
   it('finds the costumed Pikachu as costumed, and the plain one not', () => {

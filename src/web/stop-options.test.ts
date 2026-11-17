@@ -88,11 +88,11 @@ describe("a research task's versions in the pick list", () => {
     expect(
       versions.map((version) => [version.label, version.rewards.map((one) => one.name)]),
     ).toEqual([
+      ['one of Dratini, Bagon', ['Dratini', 'Bagon']],
       ['Dratini', ['Dratini']],
       ['Bagon', ['Bagon']],
-      ['one of Dratini, Bagon', ['Dratini', 'Bagon']],
     ]);
-    expect(versions[1]?.rewards[0]).toMatchObject({
+    expect(versions[2]?.rewards[0]).toMatchObject({
       value: 'pokemon:bagon',
       image: square(`${crop}pm371.icon.png`),
     });
@@ -173,19 +173,19 @@ describe('the pick lists of reports at stops', () => {
       name: 'Dratini',
       value: 'pokemon:dratini',
     });
-    // Its versions, as /research offers them (plan 8R-5, R13).
-    expect(shown?.versions[0]).toEqual({
+    // Its versions, as /research offers them (plan 8R-5, R13): "one of" first (2026-11-16).
+    expect(shown?.versions[1]).toEqual({
       value: expect.stringMatching(new RegExp(`^${dragon.key}:[0-9a-f]{8}$`)) as string,
       label: 'Dratini',
       oneOf: false,
       rewards: [shown?.rewards[0]],
     });
-    expect(shown?.versions.at(-1)).toMatchObject({
+    expect(shown?.versions[0]).toMatchObject({
       value: dragon.key,
       label: 'one of Dratini, Bagon, Axew',
       oneOf: true,
     });
-    expect(shown?.versions.at(-1)?.rewards.map((reward) => reward.name)).toEqual([
+    expect(shown?.versions[0]?.rewards.map((reward) => reward.name)).toEqual([
       'Dratini',
       'Bagon',
       'Axew',

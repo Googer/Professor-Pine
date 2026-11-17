@@ -96,7 +96,10 @@ export function pikachuTask(): {
     category: 'Catching',
     rewards: [pikachu('pm25.icon.png'), pikachu('pm25.fPXP_2026.icon.png')],
   };
-  const [plain, costumed, oneOf] = taskVersions(task, catalogueFixture());
+  const versions = taskVersions(task, catalogueFixture());
+  const oneOf = versions.find((one) => one.oneOf);
+  const plain = versions.find((one) => !one.oneOf && !one.costumed);
+  const costumed = versions.find((one) => one.costumed);
   if (!plain || !costumed || !oneOf) throw new Error('three versions');
   return { task, plain, costumed, oneOf };
 }

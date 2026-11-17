@@ -1,4 +1,5 @@
 import { wornBy } from '../pogo/raid-boss-feed.js';
+import { ONE_OF_WORDS } from '../research/one-of-words.js';
 import { isOneOf } from '../research/reports.js';
 import type { TaskReward } from '../research/task.js';
 import { parseRocketKey } from '../rocket/lineups.js';
@@ -46,9 +47,19 @@ function rewardWords(reward: TaskReward): string[] {
   return [...pokemonWords(reward.name, reward.key), ...(costumed ? ['costumed', 'costume'] : [])];
 }
 
-/** The words of research: its task's text and every reward it stands for. */
+/**
+ * The words of research: its task's text and every reward it stands for; a "one of" also its own
+ * words (`ONE_OF_WORDS`: the encounter not known yet) where it is of encounters.
+ */
 function researchWords(report: ResearchReport): string[] {
-  return [report.research.text, ...report.research.rewards.flatMap(rewardWords)];
+  return [
+    report.research.text,
+    ...report.research.rewards.flatMap(rewardWords),
+    // Of encounters only: "one of" items (a typed task's) is no Pokémon not known yet.
+    ...(isOneOf(report) && report.research.rewards.some((reward) => reward.kind === 'encounter')
+      ? [ONE_OF_WORDS]
+      : []),
+  ];
 }
 
 /**
