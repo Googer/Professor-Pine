@@ -18,7 +18,7 @@ import { parseTargetWantToken, targetWantToken } from './target-wants.js';
  * - A gym target: `gym:<id>`. New trains: `trains`.
  * - Beside those, a species: `species:<dex>`, the members with any want of a Pokémon of that
  *   Pokédex number (a Pokémon want of any form, scope or shadow, a research encounter, Dynamax,
- *   Gigantamax; never Mega Energy, a tier or a Rocket target), each once (review P1): what a
+ *   Gigantamax; never Mega Energy, Candy, a tier or a Rocket target), each once (review P1): what a
  *   board of the most wanted reads, since a member with several keys of one species would be
  *   counted for each by a sum of its keys, and the counts keep no member to tell them apart.
  *

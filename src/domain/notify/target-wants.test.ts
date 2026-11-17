@@ -13,6 +13,7 @@ const EVERY: readonly TargetWant[] = [
   boxTarget('research-pokemon', 37, 'vulpix_alola'),
   { kind: 'research-item', item: 'golden-razz-berry' },
   { kind: 'research-energy', dex: 6 },
+  { kind: 'research-candy', dex: 890 },
   boxTarget('dynamax', 68),
   boxTarget('gigantamax', 849, 'toxtricity_amped'),
   { kind: 'rocket', who: 'grunt:dragon' },
@@ -30,6 +31,7 @@ describe('the tokens of TargetWant', () => {
       'research:pokemon:37:vulpix_alola',
       'research:item:golden-razz-berry',
       'research:energy:6',
+      'research:candy:890',
       'dynamax:68',
       'gigantamax:849:toxtricity_amped',
       'grunt:dragon',
@@ -51,6 +53,8 @@ describe('the tokens of TargetWant', () => {
       'research:pokemon:147:Dratini',
       'research:item:Rare Candy',
       'research:energy:6:charizard_mega_x',
+      'research:candy:890:eternatus',
+      'research:candy:0',
       'dynamax',
       'dynamax:abc',
       'grunt:shadow',
@@ -75,6 +79,8 @@ describe('the tokens of TargetWant', () => {
     expect(readTargetWantArgs(['rp'])).toBeUndefined();
     expect(readTargetWantArgs(['ri', 'Rare Candy'])).toBeUndefined();
     expect(readTargetWantArgs(['re', '6', 'x'])).toBeUndefined();
+    expect(readTargetWantArgs(['rc', '890'])).toEqual({ kind: 'research-candy', dex: 890 });
+    expect(readTargetWantArgs(['rc', '890', 'x'])).toBeUndefined();
     expect(readTargetWantArgs(['zz', '6'])).toBeUndefined();
     expect(readTargetWantArgs(['rg', 'shadow'])).toBeUndefined();
     expect(readTargetWantArgs(['rl', 'jessie'])).toBeUndefined();

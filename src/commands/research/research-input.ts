@@ -248,28 +248,63 @@ export function taskChoices(
   return [...byText, ...byReward].slice(0, MAX_CHOICES);
 }
 
-/** The items and the Mega Energy of the task list, by key: what `reward:` and `/want` offer. */
+/**
+ * The items, the Mega Energy and the species' Candy of the task list, by key: what `reward:` and
+ * `/want` offer. A species' Candy is named by its plain Candy where the list has both it and its
+ * Candy XL (one want covers both).
+ */
 export function listedRewards(ctx: Pick<AppContext, 'researchTasks'>): {
   items: Map<string, string>;
   energies: Map<number, string>;
+  candies: Map<number, string>;
 } {
   const items = new Map<string, string>();
   const energies = new Map<number, string>();
+  const candies = new Map<number, string>();
   for (const task of ctx.researchTasks.storedTasks()) {
     for (const reward of task.rewards) {
       if (reward.kind === 'item') items.set(reward.item, reward.name);
       if (reward.kind === 'energy' && reward.dex !== null) energies.set(reward.dex, reward.name);
+      if (reward.kind === 'candy' && reward.dex !== null) {
+        const known = candies.get(reward.dex);
+        if (known === undefined || (isCandyXl(known) && !isCandyXl(reward.name))) {
+          candies.set(reward.dex, reward.name);
+        }
+      }
     }
   }
-  return { items, energies };
+  return { items, energies, candies };
 }
 
-/** A reward's value as a choice carries it: `pokemon:<key>`, `item:<key>`, `energy:<dex>`. */
-export type RewardValue = `pokemon:${string}` | `item:${string}` | `energy:${number}`;
+function isCandyXl(name: string): boolean {
+  return /\bXL$/i.test(name.trim());
+}
 
 /**
- * The choices of `reward:` (for a task typed in full): the items and Mega Energy of today's list
- * that fit what was typed, then the Pokémon the search finds.
+ * The species whose Candy of the list (`listedRewards`' `candies`) a text names in full, its
+ * Candy XL too (`Eternatus Candy XL` for the listed `Eternatus Candy`); undefined for none.
+ */
+export function candyNamed(candies: ReadonlyMap<number, string>, text: string): number | undefined {
+  const folded = foldTaskText(text);
+  for (const [dex, name] of candies) {
+    const plainName = name.trim().replace(/\s+XL$/i, '');
+    if (folded === foldTaskText(plainName) || folded === foldTaskText(`${plainName} XL`)) {
+      return dex;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * A reward's value as a choice carries it: `pokemon:<key>`, `item:<key>`, `energy:<dex>`,
+ * `candy:<dex>`.
+ */
+export type RewardValue =
+  `pokemon:${string}` | `item:${string}` | `energy:${number}` | `candy:${number}`;
+
+/**
+ * The choices of `reward:` (for a task typed in full): the items, Mega Energy and Candy of
+ * today's list that fit what was typed, then the Pokémon the search finds.
  */
 export function rewardChoices(
   ctx: Pick<AppContext, 'researchTasks' | 'pokemon'>,
@@ -278,13 +313,16 @@ export function rewardChoices(
 ): Choice[] {
   const words = searchTokens(typed);
   if (words.length === 0) return [];
-  const { items, energies } = listedRewards(ctx);
+  const { items, energies, candies } = listedRewards(ctx);
   const choices: Choice[] = [];
   for (const [key, name] of items) {
     if (hasWords(name, words)) choices.push({ name, value: `item:${key}` });
   }
   for (const [dex, name] of energies) {
     if (hasWords(name, words)) choices.push({ name, value: `energy:${String(dex)}` });
+  }
+  for (const [dex, name] of candies) {
+    if (hasWords(name, words)) choices.push({ name, value: `candy:${String(dex)}` });
   }
   for (const entry of ctx.pokemon.of(serverId).search(typed, { limit: MAX_CHOICES })) {
     choices.push({ name: truncate(entry.name, CHOICE_NAME), value: `pokemon:${entry.key}` });
@@ -294,8 +332,8 @@ export function rewardChoices(
 
 /**
  * The reward `reward:` names: a choice (`RewardValue`), or text that names one in full (an
- * item of today's list, `<species> Mega Energy` of one, or a Pokémon the server's search knows:
- * `serverId`, plan 19B-4). A typed reward's quantity is not said (0).
+ * item of today's list, `<species> Mega Energy` or `<species> Candy` of one, or a Pokémon the
+ * server's search knows: `serverId`, plan 19B-4). A typed reward's quantity is not said (0).
  */
 export function readReward(
   ctx: Pick<AppContext, 'researchTasks' | 'pokemon' | 'gameData'>,
@@ -304,8 +342,8 @@ export function readReward(
 ): TaskReward {
   const text = value.trim();
   const { catalogue } = ctx.gameData;
-  const { items, energies } = listedRewards(ctx);
-  const picked = /^(pokemon|item|energy):(.+)$/.exec(text);
+  const { items, energies, candies } = listedRewards(ctx);
+  const picked = /^(pokemon|item|energy|candy):(.+)$/.exec(text);
   if (picked?.[1] === 'pokemon') {
     const entry = catalogue.byKey(picked[2] ?? '');
     if (entry) return encounterOf(entry);
@@ -318,6 +356,10 @@ export function readReward(
     const dex = Number(picked[2]);
     const name = energies.get(dex);
     if (name !== undefined) return { kind: 'energy', dex, name, quantity: 0, image: null };
+  } else if (picked?.[1] === 'candy') {
+    const dex = Number(picked[2]);
+    const name = candies.get(dex);
+    if (name !== undefined) return { kind: 'candy', dex, name, quantity: 0, image: null };
   }
   const folded = foldTaskText(text);
   for (const [key, name] of items) {
@@ -327,6 +369,11 @@ export function readReward(
   for (const [dex, name] of energies) {
     if (foldTaskText(name) === folded)
       return { kind: 'energy', dex, name, quantity: 0, image: null };
+  }
+  const candy = candyNamed(candies, text);
+  const candyName = candy === undefined ? undefined : candies.get(candy);
+  if (candy !== undefined && candyName !== undefined) {
+    return { kind: 'candy', dex: candy, name: candyName, quantity: 0, image: null };
   }
   const entry = ctx.pokemon.of(serverId).exact(text);
   if (entry) return encounterOf(entry);
@@ -457,6 +504,7 @@ function sameReward(listedOne: TaskReward | undefined, named: TaskReward): boole
   }
   if (listedOne.kind === 'item' && named.kind === 'item') return listedOne.item === named.item;
   if (listedOne.kind === 'energy' && named.kind === 'energy') return listedOne.dex === named.dex;
+  if (listedOne.kind === 'candy' && named.kind === 'candy') return listedOne.dex === named.dex;
   return false;
 }
 

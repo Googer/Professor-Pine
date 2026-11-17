@@ -10,6 +10,7 @@ import {
   researchTaskCases,
   stopPostCases,
 } from '../../../test/support/research-store-cases.js';
+import type { TaskReward } from '../../domain/research/task.js';
 import type { DB } from '../types.js';
 import { PineStopRepository } from './pine-stop-repository.js';
 import { ResearchEventRepository } from './research-event-repository.js';
@@ -105,6 +106,41 @@ describe('the repositories of reports at stops', () => {
     researchTaskCases(async () => {
       await db.deleteFrom('ResearchTask').execute();
       return new ResearchTaskRepository(db);
+    });
+
+    // Review C-2 (2026-11-16): a list kept before Candy was read apart holds it as Mega Energy.
+    it('reads a species’ Candy kept as Mega Energy before 2026-11-16 as Candy', async () => {
+      await db.deleteFrom('ResearchTask').execute();
+      const asEnergy: TaskReward = {
+        kind: 'energy',
+        dex: 890,
+        name: 'Eternatus Candy',
+        quantity: 10,
+        image: 'https://cdn.leekduck.com/assets/img/candy/regular/890.png',
+      };
+      const energy: TaskReward = {
+        kind: 'energy',
+        dex: 254,
+        name: 'Sceptile Mega Energy',
+        quantity: 10,
+        image: 'https://cdn.leekduck.com/assets/img/mega_energy/Sceptile%20Mega%20Energy.png',
+      };
+      const store = new ResearchTaskRepository(db);
+      await store.replace(
+        [
+          {
+            key: '0123456789abcdef',
+            text: 'Catch 8 Pokémon',
+            category: 'Dynamax Trails',
+            rewards: [asEnergy, energy],
+          },
+        ],
+        1,
+      );
+      expect((await store.kept()).tasks[0]?.rewards).toEqual([
+        { ...asEnergy, kind: 'candy' },
+        energy,
+      ]);
     });
 
     it('draws no warning of MySQL as it keeps a list again', async () => {

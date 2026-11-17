@@ -80,7 +80,7 @@ describe("a research task's versions in the pick list", () => {
       versions: (one) => taskVersions(one, catalogue),
       readAt: undefined,
       stale: false,
-      listed: { items: new Map(), energies: new Map() },
+      listed: { items: new Map(), energies: new Map(), candies: new Map() },
       origins: ['https://map.example.test'],
       picture: square,
     });
@@ -96,6 +96,48 @@ describe("a research task's versions in the pick list", () => {
       value: 'pokemon:bagon',
       image: square(`${crop}pm371.icon.png`),
     });
+  });
+
+  // Matt, 2026-11-16: a species' Candy is a reward of its own, beside Mega Energy.
+  it('offers a species’ Candy of the list as Candy, its reward as Candy', () => {
+    const candy: TaskReward = {
+      kind: 'candy',
+      dex: 890,
+      name: 'Eternatus Candy',
+      quantity: 10,
+      image: null,
+    };
+    const task: ResearchTask = {
+      key: '0123456789abcdef',
+      text: 'Catch 8 Pokémon',
+      category: 'Dynamax Trails',
+      rewards: [candy],
+    };
+    const view = researchOptions({
+      tasks: [task],
+      versions: (one) => taskVersions(one, catalogueFixture()),
+      readAt: undefined,
+      stale: false,
+      listed: {
+        items: new Map(),
+        energies: new Map([[254, 'Sceptile Mega Energy']]),
+        candies: new Map([[890, 'Eternatus Candy']]),
+      },
+      origins: ['https://map.example.test'],
+    });
+    expect(view.rewards).toEqual([
+      { value: 'energy:254', name: 'Sceptile Mega Energy' },
+      { value: 'candy:890', name: 'Eternatus Candy' },
+    ]);
+    expect(view.tasks[0]?.rewards).toEqual([
+      {
+        kind: 'candy',
+        name: 'Eternatus Candy',
+        value: 'candy:890',
+        quantity: 10,
+        shiny: false,
+      },
+    ]);
   });
 });
 

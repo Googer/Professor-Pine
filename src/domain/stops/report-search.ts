@@ -39,7 +39,7 @@ function pokemonWords(name: string, key: string | null): string[] {
   return [name, ...(key === null ? [] : [key])];
 }
 
-/** The words of a reward: a Pokémon with its form and costume, an item, Mega Energy. */
+/** The words of a reward: a Pokémon with its form and costume, an item, Mega Energy, Candy. */
 function rewardWords(reward: TaskReward): string[] {
   if (reward.kind !== 'encounter') return [reward.name];
   const costumed = reward.costumed === true || wornBy(reward.name) !== undefined;
@@ -109,8 +109,8 @@ function wordsOf(report: StopReport): readonly string[] {
 
 /**
  * A report's search words and whether it is not confirmed (plan 8M-12): research by its task's
- * words and every reward's name (a Pokémon with its form and costume, an item, Mega Energy), Team
- * GO Rocket by who, the lineup's Pokémon, `rocket` and a leader's `leader`; never its reporter or
+ * words and every reward's name (a Pokémon with its form and costume, an item, Mega Energy,
+ * Candy), Team GO Rocket by who, the lineup's Pokémon, `rocket` and a leader's `leader`; never its reporter or
  * its stop. Research "one of" or without its reward, and a grunt of two lineups "not sure which",
  * are not confirmed.
  */

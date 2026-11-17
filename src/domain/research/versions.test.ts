@@ -139,6 +139,21 @@ describe('the versions of a task (plan 8R-5)', () => {
     ]);
   });
 
+  // Review C-1 (2026-11-16): reports and versions made before Candy was read apart hold the
+  // hash of Eternatus Candy read as Mega Energy; they must keep meaning the same version.
+  it('hashes a species’ Candy as the same reward read as Mega Energy hashed', () => {
+    const eternatus: TaskReward = {
+      kind: 'candy',
+      dex: 890,
+      name: 'Eternatus Candy',
+      quantity: 10,
+      image: null,
+    };
+    expect(rewardHash(eternatus, catalogue)).toBe(
+      rewardHash({ ...eternatus, kind: 'energy' }, catalogue),
+    );
+  });
+
   it('names the rewards of "one of" with those matched first', () => {
     const rewards = pageTask('Make 3 Excellent Throws in a row').rewards;
     expect(oneOfLabel(rewards)).toBe('one of Larvitar, Beldum, Gible');

@@ -6,8 +6,8 @@ import { POKEMON_TYPES } from '../pogo/types.js';
 /*
  * The wants that are no `PokemonNotification` row (plan 8R-1; design 9.1): table `TargetWant`,
  * one row per member, server and target, the target a token. Research rewards (a Pokémon, an
- * item, Mega Energy of a species) and the Dynamax and Gigantamax boxes of `/want`'s dialog;
- * plan 8R-2 adds the Rocket targets.
+ * item, Mega Energy or Candy of a species) and the Dynamax and Gigantamax boxes of `/want`'s
+ * dialog; plan 8R-2 adds the Rocket targets.
  */
 
 /**
@@ -19,6 +19,8 @@ export type TargetWant =
   | { kind: 'research-pokemon'; dex: number; form?: string; costumed?: true }
   | { kind: 'research-item'; item: string }
   | { kind: 'research-energy'; dex: number }
+  /** A species' Candy (Matt, 2026-11-16), its Candy XL too. */
+  | { kind: 'research-candy'; dex: number }
   | { kind: 'dynamax'; dex: number; form?: string; costumed?: true }
   | { kind: 'gigantamax'; dex: number; form?: string; costumed?: true }
   /**
@@ -75,13 +77,14 @@ const PREFIX: Readonly<Record<Exclude<TargetWant['kind'], 'rocket'>, string>> = 
   'research-pokemon': 'research:pokemon',
   'research-item': 'research:item',
   'research-energy': 'research:energy',
+  'research-candy': 'research:candy',
   dynamax: 'dynamax',
   gigantamax: 'gigantamax',
 };
 
 /**
  * A target as the column holds it (design 9.1): `research:pokemon:<dex>[:<form>]`,
- * `research:item:<key>`, `research:energy:<dex>`, `dynamax:<dex>[:<form>]`,
+ * `research:item:<key>`, `research:energy:<dex>`, `research:candy:<dex>`, `dynamax:<dex>[:<form>]`,
  * `gigantamax:<dex>[:<form>]`. At most 88 characters (a form key is 64 at most).
  */
 export function targetWantToken(want: TargetWant): string {
@@ -91,6 +94,7 @@ export function targetWantToken(want: TargetWant): string {
     case 'research-item':
       return `${PREFIX[want.kind]}:${want.item}`;
     case 'research-energy':
+    case 'research-candy':
       return `${PREFIX[want.kind]}:${String(want.dex)}`;
     default:
       return `${PREFIX[want.kind]}:${String(want.dex)}${want.form === undefined ? '' : `:${want.form}`}`;
@@ -123,6 +127,7 @@ export function parseTargetWantToken(token: string): TargetWant | undefined {
     if (dex === undefined) return undefined;
     if (second === 'energy')
       return form === undefined ? { kind: 'research-energy', dex } : undefined;
+    if (second === 'candy') return form === undefined ? { kind: 'research-candy', dex } : undefined;
     if (second !== 'pokemon') return undefined;
     if (form !== undefined && !isFormKey(form)) return undefined;
     return boxTarget('research-pokemon', dex, form);
@@ -144,7 +149,7 @@ export function sameTargetWant(a: TargetWant, b: TargetWant): boolean {
 
 /**
  * A target as the arguments of a custom id (`dm:<server>:stop:<these>`, a list's Remove), as
- * `stopArgs` spells the other reasons: `rp:<dex>[:<form>]`, `ri:<item>`, `re:<dex>`,
+ * `stopArgs` spells the other reasons: `rp:<dex>[:<form>]`, `ri:<item>`, `re:<dex>`, `rc:<dex>`,
  * `dx:<dex>[:<form>]`, `gx:<dex>[:<form>]`.
  */
 export function targetWantArgs(want: TargetWant): string[] {
@@ -155,6 +160,8 @@ export function targetWantArgs(want: TargetWant): string[] {
       return ['ri', want.item];
     case 'research-energy':
       return ['re', String(want.dex)];
+    case 'research-candy':
+      return ['rc', String(want.dex)];
     case 'research-pokemon':
       return ['rp', String(want.dex), ...(want.form === undefined ? [] : [want.form])];
     case 'dynamax':
@@ -212,6 +219,7 @@ export function readTargetWantArgs(args: readonly string[]): TargetWant | undefi
   const dex = dexOf(value);
   if (dex === undefined) return undefined;
   if (kind === 're') return form === undefined ? { kind: 'research-energy', dex } : undefined;
+  if (kind === 'rc') return form === undefined ? { kind: 'research-candy', dex } : undefined;
   // Its own kinds only: a word every object has (`constructor`) is none.
   const box = Object.hasOwn(ARG_KINDS, kind) ? ARG_KINDS[kind] : undefined;
   if (box === undefined) return undefined;

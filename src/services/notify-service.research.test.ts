@@ -17,7 +17,7 @@ import { INTO_THE_WILD } from '../../test/support/research-store-cases.js';
 import type { ResearchEvent } from '../domain/time/research-events.js';
 import { watchEachTest } from '../../test/support/timers.js';
 import { boxTarget, type TargetWant } from '../domain/notify/target-wants.js';
-import type { ResearchTask } from '../domain/research/task.js';
+import { taskKeyOf, type ResearchTask } from '../domain/research/task.js';
 import { rewardHash, taskVersions } from '../domain/research/versions.js';
 import { ENCOUNTER_PICTURE } from '../domain/stops/pictures.js';
 import type { ReportedStop } from '../domain/stops/report.js';
@@ -292,6 +292,22 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
     expect(made.dms.to(BOB).map(dmReasons)).toEqual([
       [expect.stringMatching(/^\S.* Mega Energy · Research$/)],
     ]);
+  });
+
+  // Matt, 2026-11-16: the event's Eternatus Candy told who wanted Eternatus Mega Energy.
+  it('tells who wants a species’ Candy of its Candy, and not who wants its Mega Energy', async () => {
+    const made = await researchWith();
+    const candy: ResearchTask = {
+      key: taskKeyOf('Catch 8 Pokémon'),
+      text: 'Catch 8 Pokémon',
+      category: 'Dynamax Trails',
+      rewards: [{ kind: 'candy', dex: 890, name: 'Eternatus Candy', quantity: 10, image: null }],
+    };
+    await made.want(ALICE, { kind: 'research-energy', dex: 890 });
+    await made.want(BOB, { kind: 'research-candy', dex: 890 });
+    await made.report(candy, [west(1)]);
+    expect(made.dms.to(ALICE)).toEqual([]);
+    expect(made.dms.to(BOB).map(dmReasons)).toEqual([['Eternatus Candy · Research']]);
   });
 
   it('says until when a multi-day event’s day and its last day hold (B7)', async () => {

@@ -120,7 +120,7 @@ import type { ServerSettingsLookup } from './server-settings.js';
  * Manage… of a reason (plan 8R-4, design 4): a want of a Pokémon in raids, spawns or as a shadow
  * (`p`, `ps`), a Pokémon's box of `TargetWant` (`rp`, `dx`, `gx`) and a tier's want (`t`, `ts`)
  * open the dialog of the species (a form beyond the Which field, an Unown letter, its own) or of
- * the tier, a Team GO Rocket target the one Rocket dialog; IV wants, items, Mega Energy, gym
+ * the tier, a Team GO Rocket target the one Rocket dialog; IV wants, items, Mega Energy, Candy, gym
  * targets and the settings keep Stop (undefined). The name says the want (`Costumed Pikachu`, made plain), the
  * box what fired.
  */
@@ -1010,8 +1010,8 @@ export class NotifyService implements PartyNotifier {
 
   /**
    * Field research was reported (`StopReportService`; plan 8R-1, design 7): who wants a reward of
-   * its task (`researchWantsFiring`: a Pokémon's Research box, an item, Mega Energy) is told at
-   * the normal priority, one DM per report and region channel naming the report's stops in that
+   * its task (`researchWantsFiring`: a Pokémon's Research box, an item, Mega Energy, Candy) is told
+   * at the normal priority, one DM per report and region channel naming the report's stops in that
    * region, when they can view the channel; not the reporter. A member told of the task at a stop
    * in the period is not told of it there again (`researchTold`): a later report of the task at
    * more stops names only the new ones. The DM ends with the report and links to the message of

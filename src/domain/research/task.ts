@@ -45,6 +45,18 @@ export type TaskReward =
       name: string;
       quantity: number;
       image: string | null;
+    }
+  /**
+   * A species' Candy (Matt, 2026-11-16: `Eternatus Candy`), as `energy` is: `dex` from the
+   * page's picture, `name` the page's. Candy XL of a species is this kind too, its own name kept
+   * (`Eternatus Candy XL`), so that a want of a species' Candy covers its XL.
+   */
+  | {
+      kind: 'candy';
+      dex: number | null;
+      name: string;
+      quantity: number;
+      image: string | null;
     };
 
 /**

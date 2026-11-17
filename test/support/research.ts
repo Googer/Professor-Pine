@@ -22,6 +22,14 @@ export function readResearchPage(): string {
   return readFileSync(path.join(fixtures, 'leekduck-research.html'), 'utf8');
 }
 
+/**
+ * One task of Leek Duck's research page of 2026-11-16 (`Win a Max Battle` of the Dynamax Trails
+ * section, its markup copied unchanged): Drampa, Duraludon, Eternatus Candy ×10, Stardust ×2000.
+ */
+export function readResearchCandyPage(): string {
+  return readFileSync(path.join(fixtures, 'leekduck-research-candy.html'), 'utf8');
+}
+
 let parsed: readonly ResearchTask[] | undefined;
 
 /** The tasks of the page of 2026-10-21, read once and shared (read-only). */

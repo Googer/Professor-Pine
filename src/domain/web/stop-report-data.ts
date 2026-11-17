@@ -20,13 +20,14 @@ export interface MapStop {
 
 /**
  * A reward of a task, or a Pokémon a Rocket report can give: what it is (`encounter`, an `item`,
- * Mega Energy as `energy`), its name, `value` (what a filter matches and `/want` names: the
- * value of a reward's choice, `pokemon:<catalogue key>`, `item:<item key>`, `energy:<dex>`; null
- * for one the game data does not know), how many (0 where none is said, and for an encounter),
- * whether it can be shiny, and its picture where the page may load it.
+ * Mega Energy as `energy`, a species' Candy as `candy`), its name, `value` (what a filter matches
+ * and `/want` names: the value of a reward's choice, `pokemon:<catalogue key>`, `item:<item key>`,
+ * `energy:<dex>`, `candy:<dex>`; null for one the game data does not know), how many (0 where
+ * none is said, and for an encounter), whether it can be shiny, and its picture where the page
+ * may load it.
  */
 export interface MapReward {
-  kind: 'encounter' | 'item' | 'energy';
+  kind: 'encounter' | 'item' | 'energy' | 'candy';
   name: string;
   value: string | null;
   quantity: number;

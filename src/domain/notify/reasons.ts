@@ -205,8 +205,8 @@ export function rewardCostumed(
 
 /**
  * The targets a want for a research task's rewards may be stored under (`TargetWant`; plan 8R-1,
- * design 7): each encounter's species and its own entry, each item, each species' Mega Energy.
- * What `TargetWantStorage.wanting` is asked for. A reward the game data does not know has none.
+ * design 7): each encounter's species and its own entry, each item, each species' Mega Energy and
+ * Candy. What `TargetWantStorage.wanting` is asked for. A reward the game data does not know has none.
  */
 export function researchTargets(rewards: readonly TaskReward[]): TargetWant[] {
   const targets: TargetWant[] = [];
@@ -222,6 +222,8 @@ export function researchTargets(rewards: readonly TaskReward[]): TargetWant[] {
       add({ kind: 'research-item', item: reward.item });
     } else if (reward.kind === 'energy' && reward.dex !== null) {
       add({ kind: 'research-energy', dex: reward.dex });
+    } else if (reward.kind === 'candy' && reward.dex !== null) {
+      add({ kind: 'research-candy', dex: reward.dex });
     }
   }
   return targets;
@@ -231,7 +233,7 @@ export function researchTargets(rewards: readonly TaskReward[]): TargetWant[] {
  * Those of a member's targets a research task may reward (design 7, "Matching"): a Pokémon's
  * Research box that fits one of its encounters (`pokemonWantFits`: the species in any form, the
  * one form; a costumed box only a costumed encounter, `rewardCostumed`), an item it gives
- * (whatever the quantity), the Mega Energy of a species it gives.
+ * (whatever the quantity), the Mega Energy or Candy of a species it gives.
  */
 export function researchWantsFiring(
   catalogue: PokemonCatalogue,
@@ -258,6 +260,8 @@ export function researchWantsFiring(
         return rewards.some((reward) => reward.kind === 'item' && reward.item === want.item);
       case 'research-energy':
         return rewards.some((reward) => reward.kind === 'energy' && reward.dex === want.dex);
+      case 'research-candy':
+        return rewards.some((reward) => reward.kind === 'candy' && reward.dex === want.dex);
       default:
         return false;
     }
@@ -375,8 +379,8 @@ export function spawnWantsFiring(
  * - `g:<gym id>` a gym target;
  * - `boss` the setting "tell me when my egg gets its boss", `train` the setting for new trains;
  * - a want of `TargetWant` as `targetWantArgs` spells it (`rp:<dex>[:<form>]`, `ri:<item>`,
- *   `re:<dex>`, `dx:<dex>[:<form>]`, `gx:<dex>[:<form>]`; plan 8R-1; and Team GO Rocket's
- *   `rg:<type|none>`, `rl:<leader|any>`, `rv`, `rd`; plan 8R-2);
+ *   `re:<dex>`, `rc:<dex>`, `dx:<dex>[:<form>]`, `gx:<dex>[:<form>]`; plan 8R-1; and Team GO
+ *   Rocket's `rg:<type|none>`, `rl:<leader|any>`, `rv`, `rd`; plan 8R-2);
  * - `sp:<dex>[:<form>]`, `st:<level>`: every box of a Pokémon or a tier (a line of `/wants`).
  *
  * A form key may be 64 characters, so with the server's snowflake before it an id can pass

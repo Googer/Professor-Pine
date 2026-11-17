@@ -117,6 +117,15 @@ export function mapReward(
         shiny: false,
         ...picture,
       };
+    case 'candy':
+      return {
+        kind: 'candy',
+        name: reward.name,
+        value: reward.dex === null ? null : `candy:${String(reward.dex)}`,
+        quantity: reward.quantity,
+        shiny: false,
+        ...picture,
+      };
   }
 }
 

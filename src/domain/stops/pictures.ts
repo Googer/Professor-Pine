@@ -7,7 +7,7 @@ import { GIOVANNI_PORTRAIT, LEADER_PORTRAITS } from '../rocket/portraits.js';
  * Which picture a report at a stop shows (plan 8R-6; design `2026-10-23-stop-pictures-design.md`,
  * "The rule for every picture"), in the post of the stops, the DMs and a grunt's message alike: when
  * the Pokémon is known, its picture; while it is not (a "one of", a grunt whose catch is open),
- * the game's encounter picture; an item or Mega Energy its own; a leader or Giovanni the
+ * the game's encounter picture; an item, Mega Energy or Candy its own; a leader or Giovanni the
  * portrait; none where there is none. The address given is the source (a feed's, or one of the
  * constants here): `StopPictures` makes it square and gives the address a message names. Pure.
  */
@@ -23,8 +23,8 @@ export const ENCOUNTER_PICTURE =
 
 /**
  * What a picture is of, for the busy day of the post of the stops (design, "The post's layout"): the
- * pictures of items and Mega Energy go first; the encounter picture and the portraits count as
- * Pokémon.
+ * pictures of items, Mega Energy and Candy go first; the encounter picture and the portraits
+ * count as Pokémon.
  */
 export type PictureKind = 'pokemon' | 'item';
 
@@ -68,8 +68,8 @@ function pictured(source: string | null, kind: PictureKind): StopPicture | undef
 
 /**
  * The picture of a research reward line, a research DM and a confirmation (rules 2 to 4, 6): of
- * one reward that reward's (a Pokémon, an item, Mega Energy); of two or more ("one of" a task's
- * encounters, or a report of before plan 8R-5 that holds every reward of its task) the encounter
+ * one reward that reward's (a Pokémon, an item, Mega Energy, Candy); of two or more ("one of" a
+ * task's encounters, or a report of before plan 8R-5 that holds every reward of its task) the encounter
  * picture, while any of them is a Pokémon (several items alone are no encounter: none); of none
  * (a typed task without its reward), none.
  */

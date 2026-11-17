@@ -23,7 +23,11 @@ export function rewardKey(reward: TaskReward, catalogue?: PokemonCatalogue): str
       return `e:${reward.key ?? reward.name}${rewardIsCostumed(reward, catalogue) ? ':costumed' : ''}`;
     case 'item':
       return `i:${reward.item}:${String(reward.quantity)}`;
+    // A species' Candy keeps Mega Energy's prefix (review C-1): until 2026-11-16 Eternatus Candy
+    // was read as Mega Energy, and the versions and reports' subject keys made then hold that
+    // hash; its name tells it from a species' Mega Energy all the same.
     case 'energy':
+    case 'candy':
       return `m:${reward.name}:${String(reward.quantity)}`;
   }
 }
@@ -131,7 +135,7 @@ export function versionIndex(
 /**
  * The versions of a task (R1): one per reward in the page's order (one listed twice once, by
  * `rewardKey`), then "one of" its encounters
- * where it has two or more (its items and Mega Energy left out: they show before the task is
+ * where it has two or more (its items, Mega Energy and Candy left out: they show before the task is
  * done). A task of no reward is one version, its key alone.
  */
 export function taskVersions(task: ResearchTask, catalogue: PokemonCatalogue): TaskVersion[] {
