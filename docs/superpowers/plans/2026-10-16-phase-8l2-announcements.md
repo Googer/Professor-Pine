@@ -77,14 +77,14 @@ A small bug-fix release: screenshots are read better.
 Update with `./pine update`; no new commands to deploy.
 ```
 
-## 4. The official post of 2.1.0 and 2.1.1
+## 4. The official post of 2.1 (2.1.0 to 2.1.3)
 
-**Not posted yet.** Drafted on 2026-11-15 (Matt: "We can make release notes as well for 2.1.0 and 2.1.1 since I never actually officially announced 2.1.0 either"). One post for both, its headline striking 2.1.0 through as the 2.0.2 post did, in two messages (about 1,620 and 1,040 characters). Checked against the code and the guides on 2026-11-15. `@Pine Admins`: retype it so that it pings.
+**Not posted yet.** Drafted on 2026-11-15 for 2.1.0 and 2.1.1 (Matt: "We can make release notes as well for 2.1.0 and 2.1.1 since I never actually officially announced 2.1.0 either"), and on 2026-11-16 made one post for 2.1.0 to 2.1.3 (Matt: "I never actually annoucned 2.1 at all still"; the draft of 2.1.2 and 2.1.3 that was section 5 is folded in). A changelog per release (Matt: "You can do as incremental changelogs between each release"); one post of two messages (Matt: "one post, or two if it ends up long enough"), each under Discord's 2,000 characters (about 1,630 and 1,780). Checked against the code and the guides on 2026-11-15 and 2026-11-16. `@Pine Admins`: retype it so that it pings.
 
 ```md
-**~~v2.1.0~~, v2.1.1 Released**
+**v2.1.0 to v2.1.3 Released**
 
-One Pine can now serve many Discord servers, each with its own setup. Nothing changes for a single server's members.
+**2.1.0**: one Pine can now serve many Discord servers, each with its own setup. Nothing changes for a single server's members.
 
 - `/admin settings`: a server's channels, roles, features and distance units, set on Discord. The settings file's values are only a new server's defaults
 - A time zone per server, in `/admin settings`: times, the boss list's changes, events and "Today's Stops" follow it
@@ -95,41 +95,30 @@ One Pine can now serve many Discord servers, each with its own setup. Nothing ch
 - A server that removes Pine is kept 30 days, then its data is deleted
 - Neighbors (`/admin neighbors`): two servers whose staff agree each see the other's party at the same gym or power spot on their posts
 - Servers take turns: DMs, the screenshot reader, post updates and Google lookups are shared fairly
-- 2.1.1: when a screenshot's CP and name fit two bosses (Black and White Kyurem), Pine posts the raid, then asks whoever sent it which one
+
+**2.1.1**
+- When a screenshot's CP and name fit two bosses (Black and White Kyurem), Pine posts the raid, then asks whoever sent it which one
 ```
 
 The second message, right after it:
 
 ```md
-To update: `./pine update` (it backs up first and migrates the database), then `./pine deploy-commands` for `/operator` and the new parts of `/admin`.
+**2.1.2**, for whoever runs a Pine
+- A guide for an Oracle Cloud Always Free VM, with the snags of a Linux host: <https://github.com/Googer/Professor-Pine/blob/master/docs/guides/oracle-cloud-host.md>
+- `scripts/host/offsite-upload.sh`: the nightly backups, encrypted, to a Cloudflare R2 bucket, with a DM to the owner when an upload fails (the guide's "Backups off the VM")
+- `./pine tell-owner <text>`: a DM to the owner from a script on the host
+- `./pine` makes the backup folder when `BACKUP_DIR` is blank, and checks that the bot can read the settings file before it starts it
 
-Notes:
-- Leave `servers` unset to keep your Pine as it was: the servers it already serves keep working, set up from your settings file at the first start; a server added later starts in setup
-- Check that `OWNER_ID` in `.env` is your own Discord user ID: it is who may use `/operator` everywhere and who gets the bot's alerts
-- If you allowed or refused `/admin` for some roles in Server Settings › Integrations, set `/operator` the same way: Discord does not carry it over
-- The web login now also asks which servers you are in, so the map shows only those of your Pine. The Privacy Policy and Terms in `docs/legal/` changed with it: if you publish your own, update them
-- Thinking of offering your Pine to other communities? Read "A public Pine" first: <https://github.com/Googer/Professor-Pine/blob/master/docs/guides/new-instance.md#9-a-public-pine>
+**2.1.3**
+- A Pokémon's Candy as a research reward was taken for its Mega Energy (`/want eternatus` offered Eternatus Mega Energy for the Eternatus Candy tasks). Candy is now a reward of its own, and a want of Eternatus Mega Energy gains one for its Candy
+- A task whose reward is not known yet ("one of Drampa, Duraludon") is listed first in `/research` and on the map, and is found by "encounter" or "any"
 
-@Pine Admins Questions? Ask here.
-```
-
-## 5. The official post of 2.1.2 and 2.1.3
-
-**Not posted yet.** Drafted on 2026-11-16 (Matt: "Draft release notes for 2.1.2 and 2.1.3"). One post for both, its headline striking 2.1.2 through as the 2.1 post does, in one message (about 1,500 characters). If section 4 is still unposted when this goes out, post it first: this one assumes 2.1. `@Pine Admins`: retype it so that it pings.
-
-```md
-**~~v2.1.2~~, v2.1.3 Released**
-
-2.1.2 is for whoever runs a Pine: copies of the backups away from the host, and a guide for a free cloud host. 2.1.3 fixes research rewards.
-
-- A guide for running Pine on an Oracle Cloud Always Free VM, with the snags of a Linux host: <https://github.com/Googer/Professor-Pine/blob/master/docs/guides/oracle-cloud-host.md>
-- Backups off the host: `scripts/host/offsite-upload.sh` copies the nightly backups, encrypted, to a Cloudflare R2 bucket, and DMs the owner when an upload fails or the nightly backup has stopped. Its setup and R2's free tier are in the guide's "Backups off the VM"
-- `./pine tell-owner <text>`: a DM to the owner (`OWNER_ID`) from a script on the host
-- `./pine` makes the backup folder when `BACKUP_DIR` is blank, and refuses to start the bot with a settings file it cannot read (a `chmod 644` mends it), where Docker Engine used to fail with an unclear error
-- 2.1.3: a Pokémon's Candy as a research reward was taken for its Mega Energy, so `/want eternatus` offered Eternatus Mega Energy for the event's Eternatus Candy tasks. Candy is now a reward of its own (`/want` offers "Eternatus Candy (research)"), and a want of Eternatus Mega Energy gains one for its Candy
-- 2.1.3: a task whose reward is not known yet ("one of Drampa, Duraludon") is listed first in `/research` and on the map, and is found by words such as "encounter" or "any"
-
-To update: `./pine update` (it backs up first and migrates the database); no new commands to deploy.
+To update: `./pine update` (it backs up first and migrates the database), then `./pine deploy-commands` if you are coming from 2.0.x.
+- Leave `servers` unset to keep your Pine as it was; a server added later starts in setup
+- `OWNER_ID` in `.env` must be your own Discord user ID: it may use `/operator` everywhere and gets the bot's alerts
+- If you set `/admin`'s roles in Server Settings › Integrations, set `/operator` the same way: Discord does not carry it over
+- The web login now also asks which servers you are in; the Privacy Policy and Terms in `docs/legal/` changed with it
+- Before offering your Pine to other communities, read "A public Pine": <https://github.com/Googer/Professor-Pine/blob/master/docs/guides/new-instance.md#9-a-public-pine>
 
 @Pine Admins Questions? Ask here.
 ```
