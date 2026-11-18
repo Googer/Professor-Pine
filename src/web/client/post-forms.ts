@@ -14,7 +14,7 @@ import {
   REMOVAL_CHOICES,
   REMOVAL_LABEL,
 } from '../../render/removal-words.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { PageNode } from './popup.js';
 import { safeHref } from './post-draw.js';
@@ -37,28 +37,12 @@ export interface FormTimes {
 
 const NEW_TAB = { target: '_blank', rel: 'noopener noreferrer' } as const;
 
-/** The line a form says its answer on, hidden until there is one. */
-const answerLine: PageNode = {
-  tag: 'p',
-  className: 'form-answer',
-  attributes: { hidden: '', role: 'status' },
-};
-
-/** Submit and Cancel, as Discord's dialogs have them. */
+/** Submit and Cancel, as Discord's dialogs have them, and the form's missing line (`formRow`). */
 function dialogButtons(submit: string): PageNode {
-  return {
-    tag: 'div',
-    className: 'form-buttons',
-    children: [
-      sendButton('Submit', { 'data-submit': submit }),
-      {
-        tag: 'button',
-        className: 'press secondary',
-        text: 'Cancel',
-        attributes: { type: 'button', 'data-cancel': '' },
-      },
-    ],
-  };
+  return formRow(
+    sendButton('Submit', { 'data-submit': submit }),
+    cancelButton('Cancel', 'press secondary'),
+  );
 }
 
 /**
@@ -123,12 +107,7 @@ export function dialogForm(
     tag: 'div',
     className: 'post-form',
     attributes: { 'data-form': form, 'data-party': partyId, role: 'group', 'aria-label': title },
-    children: [
-      { tag: 'h4', className: 'form-title', text: title },
-      ...parts,
-      dialogButtons(form),
-      answerLine,
-    ],
+    children: [{ tag: 'h4', className: 'form-title', text: title }, ...parts, dialogButtons(form)],
   };
 }
 

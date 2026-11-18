@@ -336,7 +336,8 @@ describe("a max battle report's answer (A3)", () => {
     const form = maxForm('Unlisted power spot', OPTIONS, step.state, ZONE);
     const buttons = tagged(form, 'button').map((button) => [button.text, button.attributes]);
     expect(buttons).toEqual([
-      ['Report', { type: 'button', 'data-submit': 'max', disabled: '' }],
+      // Off, not disabled (plan 8M-22): it keeps the focus, and a press says the line.
+      ['Report', { type: 'button', 'data-submit': 'max', 'aria-disabled': 'true' }],
       ['Cancel', { type: 'button', 'data-cancel': '' }],
       ['← Pick a Power Spot', { type: 'button', 'data-pick-spot': '' }],
     ]);
@@ -374,11 +375,12 @@ describe("a max battle report's answer (A3)", () => {
     expect(answerFocus(state({ pinRefused: true }))).toBe('button[data-pick-spot]');
   });
 
-  it('tells what is said under the form as it is said (aria-live)', () => {
-    const [answer] = tagged(maxForm('Lake Gazebo', OPTIONS, state(), ZONE), 'div').filter(
+  it('has its line in the row, no live region while the check writes it (plan 8M-22)', () => {
+    const [answer] = tagged(maxForm('Lake Gazebo', OPTIONS, state(), ZONE), 'p').filter(
       (one) => one.className === 'form-answer',
     );
-    expect(answer?.attributes).toMatchObject({ 'aria-live': 'polite' });
+    expect(answer?.text).toBe('Pick the boss first.');
+    expect(answer?.attributes?.['aria-live']).toBeUndefined();
   });
 
   // R1-2: the form's Submit as maxUi runs it (`submitMax`), the lists asked for again (A3).

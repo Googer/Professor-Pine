@@ -4,7 +4,7 @@ import type {
   RaidOptionsView,
 } from '../../domain/web/raid-options-data.js';
 import { MOVES_LATER, raidChangesAsked } from '../../domain/web/raid-manage.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, missingOf, sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { MapGym, PageNode } from './popup.js';
 import { zoneHint } from './post-time.js';
@@ -80,9 +80,6 @@ const labelled = (text: string, className: string, ...children: PageNode[]): Pag
   className,
   children: [{ tag: 'span', text }, ...children],
 });
-
-/** The line under a form where its answer is said. */
-const answerLine: PageNode = { tag: 'div', className: 'form-answer', attributes: { hidden: '' } };
 
 /** "Report raid" in a gym's popup (spec 3.6). */
 export function reportButton(gymId: number): PageNode {
@@ -181,20 +178,18 @@ export function reportForm(
             }),
           ]
         : []),
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Report', { 'data-submit': 'report' }),
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Cancel',
-            attributes: { type: 'button', 'data-cancel': '' },
-          },
-        ],
-      },
-      answerLine,
+      formRow(
+        sendButton('Report', { 'data-submit': 'report' }),
+        cancelButton(),
+        [],
+        missingOf(
+          reportBody(gym.id, {
+            boss: filled.boss ?? '',
+            time: filled.time ?? '',
+            region: filled.region ?? '',
+          }),
+        ),
+      ),
     ],
   };
 }
@@ -229,6 +224,17 @@ const moveSelect = (name: string, unchanged: string, moves: RaidMovesView['fast'
 
 /** Said while a boss is picked in the form of a change, whose moves are the raid's boss's. */
 export { MOVES_LATER, NOTHING_CHANGED } from '../../domain/web/raid-manage.js';
+
+/**
+ * The missing line of a raid's or a meetup's Manage… while nothing is typed in (plan 8M-22):
+ * its Submit is off until something is.
+ */
+export const NOTHING_CHANGED_YET = 'Nothing changed yet.';
+
+/** The missing line of a raid's change form: nothing asked for yet, or nothing. */
+export function changeMissing(values: Record<string, string>): string | undefined {
+  return changesAsked(values).length === 0 ? NOTHING_CHANGED_YET : undefined;
+}
 
 /**
  * The form of a change of a raid, as `/hatch`, `/end`, `/boss` and `/moveset` take it, one Submit
@@ -267,20 +273,12 @@ export function changeForm(
             },
           ]
         : []),
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Submit', { 'data-submit': 'change' }),
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Cancel',
-            attributes: { type: 'button', 'data-cancel': '' },
-          },
-        ],
-      },
-      answerLine,
+      formRow(
+        sendButton('Submit', { 'data-submit': 'change' }),
+        cancelButton(),
+        [],
+        NOTHING_CHANGED_YET,
+      ),
     ],
   };
 }

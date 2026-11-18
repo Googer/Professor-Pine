@@ -1,3 +1,5 @@
+import { isOff, missingOf } from './form-buttons.js';
+import { liveCheck, type FormCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
 import type {
   RaidChange,
@@ -15,6 +17,7 @@ import { readerZone } from './post-time.js';
 import type { ReportKindId } from './report-icons.js';
 import {
   changeForm,
+  changeMissing,
   changesAsked,
   type FormHold,
   formPlace,
@@ -114,6 +117,9 @@ export function sayUnder(form: HTMLElement, text: string): void {
 export function sayInForm(form: HTMLElement, text: string): void {
   const line = form.querySelector<HTMLElement>('.form-answer');
   if (line) {
+    // An answer after a press is read as it comes (plan 8M-22: the line is live only for what is
+    // said after a press, not while the form's check writes it as the member types).
+    line.setAttribute('aria-live', 'polite');
     line.textContent = text;
     line.hidden = false;
   }
@@ -140,7 +146,13 @@ export function raidUi(deps: RaidUiDeps) {
    * Its answer is said under the form and in the notice band (a report's), or under the form alone
    * where the caller says where else it goes (`inForm`: a change, plan 8M-11A).
    */
-  const send = async (form: HTMLElement, url: string, body: FormBody, inForm = false) => {
+  const send = async (
+    form: HTMLElement,
+    url: string,
+    body: FormBody,
+    inForm = false,
+    check?: FormCheck,
+  ) => {
     const tell = inForm ? sayInForm : sayUnder;
     if ('text' in body) {
       tell(form, body.text);
@@ -167,6 +179,8 @@ export function raidUi(deps: RaidUiDeps) {
     for (const each of buttons) each.disabled = false;
     // A change's answer that closes the form goes to the post's answer line instead.
     if (!inForm || !sent.ok) tell(form, sent.text);
+    // The check again (plan 8M-22): the answer may have emptied fields; it stays on the line.
+    check?.run(true);
     return sent;
   };
 
@@ -207,22 +221,23 @@ export function raidUi(deps: RaidUiDeps) {
       restore();
       hold.release(claim);
     };
+    const bodyNow = (): FormBody => {
+      const values = fieldsOf(form);
+      return reportBody(gym.id, {
+        boss: values.boss ?? '',
+        time: values.time ?? '',
+        region: values.region ?? '',
+      });
+    };
+    // Report off until a boss or an egg is picked (plan 8M-22).
+    const check = liveCheck(form, () => missingOf(bodyNow()));
     formKeys(form);
     form.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) close();
-      if (target.dataset.submit !== 'report') return;
-      const values = fieldsOf(form);
-      void send(
-        form,
-        `/s/${guild}/api/raids`,
-        reportBody(gym.id, {
-          boss: values.boss ?? '',
-          time: values.time ?? '',
-          region: values.region ?? '',
-        }),
-      ).then(async (sent) => {
+      if (target.dataset.submit !== 'report' || isOff(target)) return;
+      void send(form, `/s/${guild}/api/raids`, bodyNow(), false, check).then(async (sent) => {
         if (!sent || !reportClosesForm(sent)) return;
         // A form gone with its popup meanwhile: the list again, and nothing opened over what
         // the member does now.
@@ -293,6 +308,8 @@ export function raidUi(deps: RaidUiDeps) {
       if (movesLater) movesLater.hidden = !off;
       hold.fit();
     });
+    // Submit off with "Nothing changed yet." until something is typed (plan 8M-22).
+    const check = liveCheck(form, () => changeMissing(fieldsOf(form)));
     formKeys(form);
     form.addEventListener('click', (event) => {
       const target = event.target;
@@ -301,7 +318,7 @@ export function raidUi(deps: RaidUiDeps) {
         close();
         return;
       }
-      if (target.dataset.submit === undefined) return;
+      if (target.dataset.submit === undefined || isOff(target)) return;
       void submit();
     });
     /** What was filled in, one change after another; a refusal stops there, the form kept. */
@@ -311,7 +328,7 @@ export function raidUi(deps: RaidUiDeps) {
       const went: string[] = [];
       for (const { change, body } of asked) {
         const url = `/s/${guild}/api/raids/${encodeURIComponent(raidId)}/${change}`;
-        const sent = await send(form, url, { body }, true);
+        const sent = await send(form, url, { body }, true, check);
         if (sent === undefined) return;
         if (!sent.ok) {
           const told = [...went, sent.text].join(' ');
@@ -337,6 +354,7 @@ export function raidUi(deps: RaidUiDeps) {
           const field = form.querySelector<HTMLInputElement>(`[name="${name}"]`);
           if (field) field.value = '';
         }
+        check.run(true);
       }
       // Done: the answer in the post's answer line (plan 8M-11A, review fix F4), then the list
       // again, which shows the raid as it is now. A form gone with its popup meanwhile opens

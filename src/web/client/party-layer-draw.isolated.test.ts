@@ -519,6 +519,11 @@ class PageElement {
     return this.attributes.get(name) ?? null;
   }
 
+  removeAttribute(name: string): void {
+    this.attributes.delete(name);
+    if (name === 'hidden') this.hidden = false;
+  }
+
   getAttributeNames(): string[] {
     return [...this.attributes.keys()];
   }
@@ -3136,6 +3141,8 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
       ] as const) {
         const field = form.querySelector(`input[name="${name}"]`);
         if (field) Object.assign(field, { name, value });
+        // Typed: the form's check runs on the input (plan 8M-22), Report on.
+        field?.dispatch('input');
       }
       form.querySelector('button[data-submit="spawn"]')?.dispatch('click');
       return sent;
@@ -3449,9 +3456,14 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       expect(form).not.toBeNull();
       expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
       expect(reportHeader()?.disabled).toBe(true);
-      // What is missing is said under it; no second form asked for.
-      form?.querySelector('button[data-submit]')?.dispatch('click');
-      expect(notice()).toBe('Give the meetup a name first.');
+      // What is missing is said under it, Make the meetup off (plan 8M-22); a press of it asks
+      // for no second form.
+      const submit = form?.querySelector('button[data-submit]');
+      expect(submit?.getAttribute('aria-disabled')).toBe('true');
+      expect(form?.querySelector('.form-answer')?.textContent).toBe(
+        'Give the meetup a name first.',
+      );
+      submit?.dispatch('click');
       expect(popup.querySelectorAll('[data-form="meetup"]')).toHaveLength(1);
       popup.querySelector('button[data-cancel]')?.dispatch('click');
       expect(popup.querySelector('[data-form="meetup"]')).toBeNull();

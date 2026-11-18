@@ -7,10 +7,12 @@ import type { MapGym, PageNode } from './popup.js';
 import {
   changeBody,
   changeForm,
+  changeMissing,
   changesAsked,
   FormHold,
   keepingFocus,
   type FormClaim,
+  NOTHING_CHANGED_YET,
   OpenPopup,
   raidAnswerOf,
   reportBody,
@@ -741,6 +743,35 @@ describe('sending a raid form (sendRaidForm)', () => {
     expect(raidAnswerOf('nonsense')).toEqual({ ok: false });
     expect(raidAnswerOf({ ok: false, regions: [{ id: '1', name: 2 }] })).toEqual({ ok: false });
     expect(raidAnswerOf({ ok: false, regions: [{ id: 1, name: 'west' }] })).toEqual({ ok: false });
+  });
+});
+
+describe('the missing line of a raid form (plan 8M-22)', () => {
+  const submitOf = (form: PageNode) => all(form).find((node) => node.attributes?.['data-submit']);
+  const lineOf = (form: PageNode) => all(form).find((node) => node.className === 'form-answer');
+
+  it('draws Report off until a boss or an egg is picked, the line saying so', () => {
+    const empty = reportForm(gym([1]), OPTIONS, REGIONS);
+    expect(submitOf(empty)?.attributes?.['aria-disabled']).toBe('true');
+    expect(lineOf(empty)?.text).toBe('Pick the boss or the egg first.');
+    const picked = reportForm(gym([1]), OPTIONS, REGIONS, { boss: 'e:T5:0' });
+    expect(submitOf(picked)?.attributes?.['aria-disabled']).toBeUndefined();
+    expect(lineOf(picked)?.text).toBeUndefined();
+  });
+
+  it('draws Manage…’s Submit off with "Nothing changed yet." until something is typed', () => {
+    const form = changeForm(raid(), OPTIONS, MOVES);
+    expect(submitOf(form)?.attributes?.['aria-disabled']).toBe('true');
+    expect(lineOf(form)?.text).toBe(NOTHING_CHANGED_YET);
+    expect(changeMissing({ hatch: '', end: '', boss: '' })).toBe(NOTHING_CHANGED_YET);
+    expect(changeMissing({ hatch: '20', end: '', boss: '' })).toBeUndefined();
+  });
+
+  it('has the line in the row, after the buttons', () => {
+    const row = all(reportForm(gym([1]), OPTIONS, REGIONS)).find((node) =>
+      node.className?.includes('form-foot'),
+    );
+    expect(row?.children?.at(-1)?.className).toBe('form-answer');
   });
 });
 

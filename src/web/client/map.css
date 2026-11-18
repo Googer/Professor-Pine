@@ -2653,6 +2653,43 @@ path.highlighted {
 }
 
 /*
+ * The row of a form (plan 8M-22, `formRow`): its buttons on the left, the sending button first,
+ * then the missing line, small muted text right of them that wraps below them where the row is too
+ * narrow; the buttons never move with its text. What is said after a press (a refusal, a press of
+ * an off button: the line made live) has the answers' color.
+ */
+.form-foot,
+.post-form .form-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.form-foot > .form-answer,
+.raid-form .form-foot > .form-answer,
+.post-form .form-foot > .form-answer {
+  flex: 1 1 12em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.form-foot > .form-answer[aria-live] {
+  color: var(--form-answer);
+}
+
+/*
+ * A sending button off while its form's check says something is missing (`aria-disabled`, not
+ * `disabled`: it keeps the focus, and a press says the line).
+ */
+.press[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/*
  * A train's flow (plan 8M-13, T1): the dashes of a thin line over its legs ahead, and those of a
  * loop's closing leg, move slowly along its way. The keyframes move them by exactly one period of
  * the pattern, so the loop does not jump; from 0 to minus a period runs them from the line's

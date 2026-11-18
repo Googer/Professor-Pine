@@ -6,6 +6,7 @@ import {
   editorAfter,
   editorEnds,
   editorStep,
+  editorMissing,
   editorTyped,
   gymPick,
   meetupActions,
@@ -236,6 +237,8 @@ describe('the form of a new meetup', () => {
       'Information',
       'Make the meetup',
       'Cancel',
+      // Its missing line, Make the meetup off until the name is given (plan 8M-22).
+      'Give the meetup a name first.',
     ]);
     const selected = withAttribute(form, 'selected').map((node) => node.text);
     expect(selected).toEqual(['west']);
@@ -385,6 +388,13 @@ describe('the editor of a meetup', () => {
     expect(
       editorTyped({ meetup: stored, filled: {} }, { ...shown, info: 'Bring snacks.' }),
     ).toEqual({ info: { text: 'Bring snacks.', drawn: stored.info } });
+  });
+
+  it('says "Nothing changed yet." until something is typed in, then what a change lacks (plan 8M-22)', () => {
+    const state = { meetup: MEETUP, filled: {} };
+    expect(editorMissing(state, SHOWN)).toBe('Nothing changed yet.');
+    expect(editorMissing(state, { ...SHOWN, name: '' })).toBe('Give the meetup a name first.');
+    expect(editorMissing(state, { ...SHOWN, name: 'Park picnic' })).toBeUndefined();
   });
 
   it('sends each change alone with the value it was drawn from', () => {

@@ -82,6 +82,16 @@ class FakeElement {
     if (name === 'disabled') this.disabled = true;
   }
 
+  getAttribute(name: string): string | null {
+    return this.attributes.get(name) ?? null;
+  }
+
+  removeAttribute(name: string): void {
+    this.attributes.delete(name);
+    if (name === 'hidden') this.hidden = false;
+    if (name === 'disabled') this.disabled = false;
+  }
+
   append(...children: FakeElement[]): void {
     for (const child of children) {
       child.remove();
@@ -506,6 +516,8 @@ describe('"Start train here": a train started at a gym or a Power Spot', () => {
     if (!form || !name || !region) throw new Error('no start form');
     name.value = 'Mill run';
     region.value = '1';
+    // Typed: the form's check runs on the input (plan 8M-22), Start on.
+    region.dispatch('change');
     form.querySelector('button[data-submit="train"]')?.dispatch('click');
   };
 
@@ -649,6 +661,7 @@ describe('"Start train here": a train started at a gym or a Power Spot', () => {
       if (!form || !name || !region) throw new Error('no start form in the popup');
       name.value = 'Mill run';
       region.value = '1';
+      region.dispatch('change');
       form.querySelector('button[data-submit="train"]')?.dispatch('click');
     };
     const added = {

@@ -6,7 +6,7 @@ import {
   type RouteEdit,
   type SavedRouteView,
 } from '../../domain/web/train-data.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, missingOf, sendButton } from './form-buttons.js';
 import { newMeetupButton } from './meetup-forms.js';
 import {
   gymOfStop,
@@ -64,9 +64,6 @@ const labelled = (text: string, ...children: PageNode[]): PageNode => ({
 
 /** A body to send (a route's edits carry the route they were drawn from), or what is missing. */
 export type TrainBody = { body: Record<string, unknown> } | { text: string };
-
-/** The line under a form where its answer is said. */
-const answerLine: PageNode = { tag: 'div', className: 'form-answer', attributes: { hidden: '' } };
 
 /** A gym as a stop is named: its nickname, else its name (as the posts do). */
 export function stopName(
@@ -196,15 +193,17 @@ export function startForm(
       }),
       ...(zones === undefined ? [] : zoneHintNodes(zones.zone, zones.reader)),
       labelled('At the end', atEndSelect((filled.atEnd as MapAtEnd | undefined) ?? 'finish')),
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Start', { 'data-submit': 'train' }),
-          button('Cancel', { 'data-cancel': '' }),
-        ],
-      },
-      answerLine,
+      formRow(
+        sendButton('Start', { 'data-submit': 'train' }),
+        cancelButton(),
+        [],
+        startMissing({
+          name: filled.name ?? '',
+          region: filled.region ?? '',
+          time: filled.time ?? '',
+          atEnd: filled.atEnd ?? '',
+        }),
+      ),
     ],
   };
 }
@@ -216,6 +215,14 @@ function atEndSelect(picked: MapAtEnd): PageNode {
     attributes: { name: 'atEnd' },
     children: MAP_AT_ENDS.map((atEnd) => option(atEnd, AT_END_WORDS[atEnd], atEnd === picked)),
   };
+}
+
+/**
+ * What a new train lacks before it can be sent (plan 8M-22), as `startBody` says it (its kind goes
+ * only into the body).
+ */
+export function startMissing(values: StartValues): string | undefined {
+  return missingOf(startBody(values));
 }
 
 /** The body of a new train (`POST /s/<guild>/api/trains`), or what is missing. */
@@ -538,12 +545,8 @@ export function routeEditor(
               button('Save', { 'data-edit': 'save' }),
             ),
           ]),
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [button('Done', { 'data-cancel': '' })],
-      },
-      answerLine,
+      // Done is the route editor's sending button (plan 8M-22): every edit went already.
+      formRow(undefined, cancelButton('Done')),
     ],
   };
 }

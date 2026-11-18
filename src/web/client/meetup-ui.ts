@@ -1,3 +1,5 @@
+import { isOff, missingOf } from './form-buttons.js';
+import { liveCheck, type FormCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
 import { formHome, type FormHome } from './form-home.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
@@ -9,6 +11,7 @@ import { liveControl } from './list-ui.js';
 import {
   editorAfter,
   editorAfterTimes,
+  editorMissing,
   editorStep,
   editorTyped,
   gymPick,
@@ -126,7 +129,7 @@ export function meetupUi(deps: MeetupUiDeps) {
   };
 
   /** Sends a form's body with its buttons off meanwhile; what is missing is said under it. */
-  const sendForm = async (form: HTMLElement, url: string, body: MeetupBody) => {
+  const sendForm = async (form: HTMLElement, url: string, body: MeetupBody, check?: FormCheck) => {
     if ('text' in body) {
       sayUnder(form, body.text);
       return undefined;
@@ -135,7 +138,21 @@ export function meetupUi(deps: MeetupUiDeps) {
     for (const each of buttons) each.disabled = true;
     const sent = await send(url, body.body);
     for (const each of buttons) each.disabled = false;
+    // The check again (plan 8M-22), the answer kept on the line.
+    check?.run(true);
     return sent;
+  };
+
+  /** What a new meetup's form holds. */
+  const madeValues = (form: HTMLElement): NewMeetupValues => {
+    const fields = fieldsOf(form);
+    return {
+      name: fields.name ?? '',
+      region: fields.region ?? '',
+      start: fields.start ?? '',
+      end: fields.end ?? '',
+      info: fields.info ?? '',
+    };
   };
 
   /** The box shows "New train" and "New meetup" again. */
@@ -226,9 +243,11 @@ export function meetupUi(deps: MeetupUiDeps) {
       }),
       document,
     );
+    // Make the meetup off until it can be sent (plan 8M-22).
+    const check = liveCheck(form, () => missingOf(newMeetupBody(madeValues(form), making?.place)));
     formKeys(form);
     form.addEventListener('click', (event) => {
-      madeClicked(form, event);
+      madeClicked(form, event, check);
     });
     // A region the member picks stays whatever place is picked; none picked, it follows the place.
     form.addEventListener('change', (event) => {
@@ -248,7 +267,7 @@ export function meetupUi(deps: MeetupUiDeps) {
     open.home.close();
   };
 
-  const madeClicked = (form: HTMLElement, event: Event): void => {
+  const madeClicked = (form: HTMLElement, event: Event, check: FormCheck): void => {
     const target = event.target;
     if (!(target instanceof HTMLButtonElement) || !making) return;
     if (target.dataset.cancel !== undefined) {
@@ -271,20 +290,10 @@ export function meetupUi(deps: MeetupUiDeps) {
       drawMaking();
       return;
     }
-    if (target.dataset.submit !== 'meetup') return;
-    const fields = fieldsOf(form);
-    const body = newMeetupBody(
-      {
-        name: fields.name ?? '',
-        region: fields.region ?? '',
-        start: fields.start ?? '',
-        end: fields.end ?? '',
-        info: fields.info ?? '',
-      },
-      making.place,
-    );
+    if (target.dataset.submit !== 'meetup' || isOff(target)) return;
+    const body = newMeetupBody(madeValues(form), making.place);
     const open = making;
-    void sendForm(form, `/s/${guild}/api/meetups`, body).then(async (sent) => {
+    void sendForm(form, `/s/${guild}/api/meetups`, body, check).then(async (sent) => {
       if (!sent) return;
       // A form gone with its popup meanwhile: said, nothing opened or closed over what the member
       // does now, and the list again for what was made.
@@ -441,7 +450,7 @@ export function meetupUi(deps: MeetupUiDeps) {
         close();
         return;
       }
-      if (target.dataset.submit !== undefined) void submit(editor);
+      if (target.dataset.submit !== undefined && !isOff(target)) void submit(editor);
     };
 
     /** Draws the editor anew from the meetup as the last answer gave it, keeping what was typed. */
@@ -450,6 +459,8 @@ export function meetupUi(deps: MeetupUiDeps) {
         meetupEditor(open.meetup, deps.zone(), Date.now(), open.filled, readerZone()),
         document,
       );
+      // Submit off with "Nothing changed yet." until something is typed in (plan 8M-22).
+      liveCheck(editor, () => editorMissing(open, fieldsOf(editor)));
       formKeys(editor);
       editor.addEventListener('click', (event) => {
         clicked(editor, event);

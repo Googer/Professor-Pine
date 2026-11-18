@@ -1,3 +1,5 @@
+import { isOff } from './form-buttons.js';
+import { liveCheck, type FormCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
 import type { GeoView } from '../../domain/web/geo-data.js';
 import type { MaxOptionsView } from '../../domain/web/max-data.js';
@@ -10,6 +12,7 @@ import {
   fieldToFocus,
   maxBox,
   maxForm,
+  maxMissing,
   sendMaxForm,
   submitMax,
   type MaxField,
@@ -76,7 +79,7 @@ export function maxUi(deps: MaxUiDeps) {
   const options = (): Promise<MaxOptionsView> =>
     getJson<MaxOptionsView>(`/s/${guild}/api/max-options`);
 
-  const send = async (form: HTMLElement, body: Record<string, unknown>) => {
+  const send = async (form: HTMLElement, body: Record<string, unknown>, check?: FormCheck) => {
     const buttons = form.querySelectorAll('button');
     for (const each of buttons) each.disabled = true;
     const sent = await sendMaxForm(deps.csrf.get(), {
@@ -96,6 +99,8 @@ export function maxUi(deps: MaxUiDeps) {
     });
     deps.csrf.set(sent.csrf);
     for (const each of buttons) each.disabled = false;
+    // The check again (plan 8M-22), the answer kept on the line.
+    check?.run(true);
     return sent;
   };
 
@@ -158,9 +163,11 @@ export function maxUi(deps: MaxUiDeps) {
         }
         hold.fit();
       });
+      // Report off until a boss is picked, and at a pin refused (plan 8M-22).
+      const check = liveCheck(form, () => maxMissing(valuesOf(form), state));
       formKeys(form);
       form.addEventListener('click', (event) => {
-        clicked(form, event);
+        clicked(form, event, check);
       });
       box.replaceChildren(form);
       hold.fit();
@@ -181,7 +188,7 @@ export function maxUi(deps: MaxUiDeps) {
       if (shown instanceof HTMLElement) sayUnder(shown, text);
       else say(text);
     };
-    const clicked = (form: HTMLElement, event: Event): void => {
+    const clicked = (form: HTMLElement, event: Event, check: FormCheck): void => {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) {
@@ -194,10 +201,10 @@ export function maxUi(deps: MaxUiDeps) {
         deps.pickSpot?.();
         return;
       }
-      if (target.dataset.submit !== 'max') return;
+      if (target.dataset.submit !== 'max' || isOff(target)) return;
       const values = valuesOf(form);
       void submitMax(where, values, lists, state, {
-        send: (body) => send(form, body),
+        send: (body) => send(form, body, check),
         options,
         holds: () => hold.holds(claim),
       }).then(async (after) => {

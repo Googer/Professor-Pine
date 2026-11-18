@@ -1,3 +1,5 @@
+import { isOff } from './form-buttons.js';
+import { liveCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
 import type { RocketOptionsView } from '../../domain/web/stop-report-data.js';
 import { getJson, say } from './common.js';
@@ -9,6 +11,7 @@ import { formPlace, type FormClaim, type FormHold } from './raid-forms.js';
 import { sayUnder } from './raid-ui.js';
 import {
   rocketForm,
+  rocketMissing,
   submitRocket,
   type RocketAfter,
   type RocketFormState,
@@ -107,6 +110,11 @@ export function rocketUi(deps: RocketUiDeps) {
         state = { filled: valuesOf(form), ...(state.sending === true ? { sending: true } : {}) };
         draw('select[name="who"]');
       });
+      // Report off until who was met (and the lineup) is picked (plan 8M-22). A report on its way
+      // draws every control off; its answer draws the form anew.
+      liveCheck(form, () =>
+        state.replacing === undefined ? rocketMissing(lists, valuesOf(form)) : undefined,
+      );
       formKeys(form);
       form.addEventListener('click', (event) => {
         clicked(form, event);
@@ -158,6 +166,7 @@ export function rocketUi(deps: RocketUiDeps) {
         options,
         holds: () => hold.holds(claim),
       };
+      if (isOff(target)) return;
       if (target.dataset.submit === 'rocket') {
         void submitRocket(stop, lists, valuesOf(form), submitDeps).then(after);
       } else if (target.dataset.replace !== undefined) {

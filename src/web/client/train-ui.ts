@@ -1,5 +1,7 @@
 import { formKeys } from './form-keys.js';
 import { formHome } from './form-home.js';
+import { isOff } from './form-buttons.js';
+import { liveCheck } from './form-check.js';
 import type { PressAnswer } from './press-answer.js';
 import type { GeoView } from '../../domain/web/geo-data.js';
 import type { MapTrain } from '../../domain/web/party-data.js';
@@ -28,11 +30,13 @@ import {
   StopDrag,
   edgeScroll,
   startBody,
+  startMissing,
   startForm,
   type FirstStop,
   type RouteEditorFilled,
   type RouteEditValues,
   type TrainAnswered,
+  type StartValues,
   type TrainBody,
 } from './train-forms.js';
 
@@ -526,6 +530,17 @@ export function trainUi(deps: TrainUiDeps) {
       if (starting === claim) starting = undefined;
       home.close();
     };
+    const values = (): StartValues => {
+      const fields = fieldsOf(form);
+      return {
+        name: fields.name ?? '',
+        region: fields.region ?? '',
+        time: fields.time ?? '',
+        atEnd: fields.atEnd ?? '',
+      };
+    };
+    // Start off until the train can be made (plan 8M-22).
+    const check = liveCheck(form, () => startMissing(values()));
     formKeys(form);
     form.addEventListener('click', (event) => {
       const target = event.target;
@@ -534,18 +549,11 @@ export function trainUi(deps: TrainUiDeps) {
         close();
         return;
       }
-      if (target.dataset.submit !== 'train') return;
-      const fields = fieldsOf(form);
-      const body = startBody(
-        {
-          name: fields.name ?? '',
-          region: fields.region ?? '',
-          time: fields.time ?? '',
-          atEnd: fields.atEnd ?? '',
-        },
-        first?.kind,
-      );
+      if (target.dataset.submit !== 'train' || isOff(target)) return;
+      const body = startBody(values(), first?.kind);
       void sendForm(form, `/s/${guild}/api/trains`, body).then(async (sent) => {
+        // The check again (plan 8M-22), the answer kept on the line.
+        check.run(true);
         if (!sent) return;
         if (!sent.ok) {
           sayUnder(form, sent.text);

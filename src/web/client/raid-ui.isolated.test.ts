@@ -143,7 +143,10 @@ function changing(
 
 /** Types an end time into the form drawn in `section` and presses Submit. */
 function setEnd(section: FakeElement): void {
-  section.querySelector('input[name="end"]')?.setAttribute('value', '30');
+  const end = section.querySelector('input[name="end"]');
+  end?.setAttribute('value', '30');
+  // Typed: the form's check runs on the input (plan 8M-22), Submit on.
+  end?.dispatch('input');
   section.querySelector('button[data-submit]')?.dispatch('click');
 }
 
@@ -156,6 +159,18 @@ describe("a raid's Manage… on the map (review fix F4)", () => {
     const made = changing([]);
     await made.shown;
     expect(made.section.querySelector('.name')?.textContent).toBe('Manage the raid');
+  });
+
+  it('has Submit off with "Nothing changed yet." until something is typed (plan 8M-22)', async () => {
+    const made = changing({ status: 200, body: { ok: true, text: 'Done.' } });
+    await made.shown;
+    const submit = made.section.querySelector('button[data-submit]');
+    expect(submit?.getAttribute('aria-disabled')).toBe('true');
+    expect(made.section.querySelector('.form-answer')?.textContent).toBe('Nothing changed yet.');
+    // A press while off sends nothing, and the form stays.
+    submit?.dispatch('click');
+    expect(made.posted).toEqual([]);
+    expect(made.section.querySelector('button[data-submit]')).not.toBeNull();
   });
 
   it("answers a change that went through in the post's answer line, not the notice band", async () => {

@@ -5,7 +5,7 @@ import type {
   MapMaxTier,
 } from '../../domain/web/max-data.js';
 import type { MapMax } from '../../domain/web/party-data.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, missingOf, sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { PageNode } from './popup.js';
 import { radioChoice } from './post-forms.js';
@@ -241,36 +241,54 @@ export function maxForm(
             ]),
           ]
         : []),
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Report', {
-            'data-submit': 'max',
-            ...(state.pinRefused ? { disabled: '' } : {}),
-          }),
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Cancel',
-            attributes: { type: 'button', 'data-cancel': '' },
-          },
-          ...(state.pinRefused
-            ? [
-                {
-                  tag: 'button',
-                  className: 'press',
-                  text: '← Pick a Power Spot',
-                  attributes: { type: 'button', 'data-pick-spot': '' },
-                },
-              ]
-            : []),
-        ],
-      },
-      // Told as it is said (review B4), as a post's forms tell theirs.
-      { tag: 'div', className: 'form-answer', attributes: { hidden: '', 'aria-live': 'polite' } },
+      formRow(
+        sendButton('Report', { 'data-submit': 'max' }),
+        cancelButton(),
+        state.pinRefused
+          ? [
+              {
+                tag: 'button',
+                className: 'press',
+                text: '← Pick a Power Spot',
+                attributes: { type: 'button', 'data-pick-spot': '' },
+              },
+            ]
+          : [],
+        maxMissing(filledValues(filled), state),
+      ),
     ],
   };
+}
+
+/** What a form drawn from `filled` holds, every field given. */
+function filledValues(filled: Partial<MaxValues>): MaxValues {
+  return {
+    boss: filled.boss ?? '',
+    typed: filled.typed ?? '',
+    tier: filled.tier ?? '',
+    end: filled.end ?? '',
+    region: filled.region ?? '',
+    soon: filled.soon ?? '',
+  };
+}
+
+/**
+ * The missing line of a pin refused to a member blocked from pins (R1-4; plan 8M-22): Report off,
+ * the way on its own button.
+ */
+export const PIN_REFUSED_LINE = 'A battle needs a listed Power Spot here: ← Pick a Power Spot.';
+
+/**
+ * What the form lacks before it can be sent (plan 8M-22), as `maxBody` says it; at a pin refused,
+ * `PIN_REFUSED_LINE`. Nothing once it can be sent.
+ */
+export function maxMissing(
+  values: MaxValues,
+  state: Pick<MaxFormState, 'pinRefused'>,
+): string | undefined {
+  if (state.pinRefused === true) return PIN_REFUSED_LINE;
+  // The body's own check: where the battle is goes only into the body.
+  return missingOf(maxBody({ lat: 0, lon: 0 }, values));
 }
 
 const TIERS: readonly string[] = ['D1', 'D2', 'D3', 'D4', 'D5', 'G'] satisfies MapMaxTier[];

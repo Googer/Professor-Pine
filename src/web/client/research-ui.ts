@@ -1,3 +1,5 @@
+import { isOff } from './form-buttons.js';
+import { liveCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
 import { formHome, type FormHome } from './form-home.js';
 import {
@@ -15,6 +17,7 @@ import {
   heldStops,
   pickedFrom,
   researchForm,
+  researchMissing,
   submitResearch,
   taskChanged,
   taskList,
@@ -103,6 +106,8 @@ export function researchUi(deps: ResearchUiDeps) {
          */
         near: readonly NearPlace[] | Exclude<Nearest, readonly NearLine[]>;
         flying: boolean;
+        /** Its task list could not be loaded: the line says so, not "Loading…" (plan 8M-22). */
+        failed?: true;
       }
     | undefined;
 
@@ -216,6 +221,12 @@ export function researchUi(deps: ResearchUiDeps) {
         open.state.version = target.value;
       }
     });
+    // Report off until the form can be sent (plan 8M-22), read from the state the listeners above
+    // keep, after them; "Loading…" until the lists came.
+    const now = open;
+    liveCheck(form, () =>
+      now.failed === true ? NO_OPTIONS : researchMissing(now.lists, now.stops, now.state, now.mode),
+    );
     open.home.draw(form);
     if (focus !== undefined) form.querySelector<HTMLElement>(focus)?.focus();
     else if (near !== undefined) {
@@ -390,7 +401,7 @@ export function researchUi(deps: ResearchUiDeps) {
     } else if (removeStop !== undefined) {
       open.stops = open.stops.filter((stop) => stop.key !== removeStop);
       draw('button[data-add-stops], button[data-submit]');
-    } else if (submit === 'research') {
+    } else if (submit === 'research' && !isOff(target)) {
       const replacing =
         open.state.asks === undefined
           ? undefined
@@ -462,6 +473,7 @@ export function researchUi(deps: ResearchUiDeps) {
       },
       () => {
         if (open !== now) return;
+        now.failed = true;
         const form = formIsIn().firstElementChild;
         if (form instanceof HTMLElement) sayUnder(form, NO_OPTIONS);
         else say(NO_OPTIONS);

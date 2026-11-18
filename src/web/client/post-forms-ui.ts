@@ -9,6 +9,8 @@ import {
   splitForm,
 } from './train-post-forms.js';
 import { getJson } from './common.js';
+import { isOff, missingOf } from './form-buttons.js';
+import { liveCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
 import type { Me } from './notice.js';
 import { renderNode, type PageNode } from './popup.js';
@@ -116,13 +118,10 @@ export function postFormsUi(deps: PostFormsDeps) {
       // release may have drawn the popup anew, review B-1).
       focusBack(liveControl(button));
     };
+    // Submit off until the form can be sent (plan 8M-22): its body's own check, on what it holds.
+    const check = liveCheck(element, () => missingOf(bodyOf(postFields(element))));
     const submit = async (target: HTMLButtonElement) => {
-      const fields = fieldsOf(element);
-      // A radio choice is the one checked (`fieldsOf` reads every input by its name), else none.
-      const radios = [...element.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
-      for (const radio of radios) fields[radio.name] = '';
-      for (const radio of radios) if (radio.checked) fields[radio.name] = radio.value;
-      const body = bodyOf(fields);
+      const body = bodyOf(postFields(element));
       if ('text' in body) {
         sayInForm(element, body.text);
         return;
@@ -149,6 +148,7 @@ export function postFormsUi(deps: PostFormsDeps) {
       });
       deps.csrf.set(sent.csrf);
       for (const each of buttons) each.disabled = false;
+      check.run(true);
       // A refusal keeps the form, unless its choices may be stale (review W-2: Group…'s came with
       // the list, which is asked for again): said under the form, whose popup or card the page
       // moves (plan 8M-11A; plan 8M-13, A2).
@@ -174,7 +174,7 @@ export function postFormsUi(deps: PostFormsDeps) {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) close();
-      else if (target.dataset.submit !== undefined) void submit(target);
+      else if (target.dataset.submit !== undefined && !isOff(target)) void submit(target);
     });
     // Escape as Cancel, Enter as Submit, the popup or card under it left open.
     formKeys(element);
@@ -333,6 +333,18 @@ export function postFormsUi(deps: PostFormsDeps) {
       );
     },
   };
+}
+
+/**
+ * What a post's form holds, by its fields' names: a radio choice the one checked (`fieldsOf` reads
+ * every input by its name), else none.
+ */
+function postFields(element: HTMLElement): Record<string, string> {
+  const fields = fieldsOf(element);
+  const radios = [...element.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+  for (const radio of radios) fields[radio.name] = '';
+  for (const radio of radios) if (radio.checked) fields[radio.name] = radio.value;
+  return fields;
 }
 
 /** A form ready to draw, and what its Submit sends. */

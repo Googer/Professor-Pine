@@ -209,7 +209,10 @@ function managing(answers: readonly { status: number; body: unknown }[]) {
 
 /** Types a name into the editor in `section` and presses Submit. */
 function submitName(section: FakeElement, name = 'Feast'): void {
-  section.querySelector('input[name="name"]')?.setAttribute('value', name);
+  const field = section.querySelector('input[name="name"]');
+  field?.setAttribute('value', name);
+  // Typed: the form's check runs on the input (plan 8M-22), Submit on.
+  field?.dispatch('input');
   section.querySelector('button[data-submit]')?.dispatch('click');
 }
 
@@ -250,12 +253,16 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
     expect(made.answered).toEqual([{ id: 'm1', text: 'Named Feast. Ends at 8.', ok: true }]);
   });
 
-  it('Submit with nothing changed sends nothing and says so', async () => {
+  it('has Submit off with "Nothing changed yet." until something is typed (plan 8M-22)', () => {
     const made = managing([]);
-    made.section.querySelector('button[data-submit]')?.dispatch('click');
-    await made.done;
+    const submit = made.section.querySelector('button[data-submit]');
+    expect(submit?.getAttribute('aria-disabled')).toBe('true');
+    expect(made.section.querySelector('.form-answer')?.textContent).toBe('Nothing changed yet.');
+    // A press while off sends nothing, and the form stays.
+    submit?.dispatch('click');
     expect(made.posted).toEqual([]);
-    expect(made.answered).toEqual([{ id: 'm1', text: 'Nothing changed.', ok: true }]);
+    expect(made.answered).toEqual([]);
+    expect(made.section.querySelector('[data-form="meetup-edit"]')).not.toBeNull();
   });
 
   it('a refusal keeps the form, says what went through and does not send it again', async () => {
@@ -319,7 +326,9 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
 
   describe('both times, one request: the server orders them (re-review, 1)', () => {
     const type = (section: FakeElement, name: string, value: string) => {
-      section.querySelector(`input[name="${name}"]`)?.setAttribute('value', value);
+      const field = section.querySelector(`input[name="${name}"]`);
+      field?.setAttribute('value', value);
+      field?.dispatch('input');
     };
     const submit = (section: FakeElement) => {
       section.querySelector('button[data-submit]')?.dispatch('click');
@@ -467,7 +476,10 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
       made.section.append(box);
       made.ui.meetupHereClicked(GYM, here as unknown as HTMLButtonElement);
       const fill = (name: string, value: string) => {
-        box.querySelector(`[name="${name}"]`)?.setAttribute('value', value);
+        const field = box.querySelector(`[name="${name}"]`);
+        field?.setAttribute('value', value);
+        // Typed: the form's check runs on the input (plan 8M-22).
+        field?.dispatch('input');
       };
       fill('name', 'Picnic');
       fill('region', '1');

@@ -97,6 +97,16 @@ export class FakeElement {
     if (name === 'disabled') this.disabled = true;
   }
 
+  removeAttribute(name: string): void {
+    this.attributes.delete(name);
+    if (name.startsWith('data-')) {
+      const key = name.slice(5).replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+      delete this.dataset[key];
+    }
+    if (name === 'hidden') this.hidden = false;
+    if (name === 'disabled') this.disabled = false;
+  }
+
   getAttribute(name: string): string | null {
     return this.attributes.get(name) ?? null;
   }

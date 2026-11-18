@@ -1,3 +1,5 @@
+import { isOff } from './form-buttons.js';
+import { liveCheck, type FormCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { GeoView } from '../../domain/web/geo-data.js';
@@ -16,6 +18,7 @@ import {
   spawnBox,
   spotSpawnBox,
   spawnForm,
+  spawnMissing,
   spawnPoint,
   type PointRegion,
   type SpawnPlace,
@@ -51,11 +54,22 @@ const NO_OPTIONS = 'The list of Pokémon could not be loaded. Try again in a mom
 /** What the page says of a long press while another form is open. */
 const FORM_OPEN = 'Close the form that is open first.';
 
+/** What a spawn's form holds. */
+function valuesOf(form: HTMLElement): SpawnValues {
+  const fields = fieldsOf(form);
+  return {
+    pokemon: fields.pokemon ?? '',
+    details: fields.details ?? '',
+    iv: fields.iv ?? '',
+    region: fields.region ?? '',
+  };
+}
+
 export function spawnUi(deps: SpawnUiDeps) {
   const { guild, hold } = deps;
 
   /** Sends a report with the page's token; disables the form's buttons meanwhile. */
-  const send = async (form: HTMLElement, body: Record<string, unknown>) => {
+  const send = async (form: HTMLElement, body: Record<string, unknown>, check: FormCheck) => {
     const buttons = form.querySelectorAll('button');
     for (const each of buttons) each.disabled = true;
     const sent = await sendSpawnForm(deps.csrf.get(), {
@@ -75,6 +89,8 @@ export function spawnUi(deps: SpawnUiDeps) {
     });
     deps.csrf.set(sent.csrf);
     for (const each of buttons) each.disabled = false;
+    // The check again (plan 8M-22), the answer kept on the line.
+    check.run(true);
     return sent;
   };
 
@@ -107,34 +123,30 @@ export function spawnUi(deps: SpawnUiDeps) {
     // drawing has its own click handler.
     const draw = (filled: Partial<SpawnValues>): void => {
       const form = renderNode(spawnForm(options, regions, filled), document);
+      // Report off until the Pokémon and where it is are given (plan 8M-22).
+      const check = liveCheck(form, () => spawnMissing(valuesOf(form)));
       formKeys(form);
       form.addEventListener('click', (event) => {
-        clicked(form, event);
+        clicked(form, event, check);
       });
       box.replaceChildren(form);
       hold.fit();
     };
-    const clicked = (form: HTMLElement, event: Event): void => {
+    const clicked = (form: HTMLElement, event: Event, check: FormCheck): void => {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) {
         finish();
         return;
       }
-      if (target.dataset.submit !== 'spawn') return;
-      const fields = fieldsOf(form);
-      const values: SpawnValues = {
-        pokemon: fields.pokemon ?? '',
-        details: fields.details ?? '',
-        iv: fields.iv ?? '',
-        region: fields.region ?? '',
-      };
+      if (target.dataset.submit !== 'spawn' || isOff(target)) return;
+      const values = valuesOf(form);
       const body = spawnBody(where, values, options);
       if ('text' in body) {
         sayUnder(form, body.text);
         return;
       }
-      void send(form, body.body).then((sent) => {
+      void send(form, body.body, check).then((sent) => {
         if (sent.ok) deps.reported?.();
         // A form gone with its popup meanwhile: nothing more to do.
         if (!hold.holds(claim)) {

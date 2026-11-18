@@ -7,7 +7,7 @@ import type {
 } from '../../domain/web/stop-report-data.js';
 import { ONE_OF_WORDS } from '../../domain/research/one-of-words.js';
 import { holdsSubject, taskOfSubject } from '../../domain/research/reports.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, missingOf, sendButton } from './form-buttons.js';
 import type { PageNode } from './popup.js';
 import { nearestPart, type Nearest } from './report-flow.js';
 import { STOP_GONE } from './rocket-forms.js';
@@ -583,23 +583,35 @@ export function researchForm(
       },
       ...stopsPart(stops, state, mode.kind === 'more', options?.maxStops),
       ...body,
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Report', { 'data-submit': 'research' }),
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Cancel',
-            attributes: { type: 'button', 'data-cancel': '' },
-          },
-        ],
-      },
-      { tag: 'div', className: 'form-answer', attributes: { hidden: '', 'aria-live': 'polite' } },
+      formRow(
+        sendButton('Report', { 'data-submit': 'research' }),
+        cancelButton(),
+        [],
+        researchMissing(options, stops, state, mode),
+      ),
     ],
   };
   return offWhileSending(form, state);
+}
+
+/** The missing line of a new report's form while its task list is on its way (plan 8M-22). */
+export const LOADING_LINE = 'Loading…';
+
+/**
+ * What the form lacks before it can be sent (plan 8M-22), as `researchBody` says it: a new
+ * report's form is off with "Loading…" until its lists came ("Same task at more stops…" sends its
+ * report's task and needs none of them).
+ */
+export function researchMissing(
+  options: ResearchOptionsView | undefined,
+  stops: readonly PickedStop[],
+  state: ResearchFormState,
+  mode: ResearchMode,
+): string | undefined {
+  if (options === undefined && mode.kind === 'new' && state.typing === undefined) {
+    return LOADING_LINE;
+  }
+  return missingOf(researchBody(options, stops, state, mode));
 }
 
 /** A research report's body (`POST …/api/research`). */

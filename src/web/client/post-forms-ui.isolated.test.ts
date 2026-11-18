@@ -380,7 +380,10 @@ describe('the forms of the post’s controls in the page (plan 8M-8B)', () => {
     });
     ui.meetClicked(button as unknown as HTMLButtonElement, raid);
     await focusOn(undefined);
-    post.querySelector('select')?.setAttribute('value', String(NOW + 600_000));
+    const time = post.querySelector('select');
+    time?.setAttribute('value', String(NOW + 600_000));
+    // Picked: the form's check runs on the change (plan 8M-22), Submit on.
+    time?.dispatch('change');
     post.querySelector('button[data-submit]')?.dispatch('click');
     await done;
     expect(post.querySelector('button[data-submit]')).toBeNull();
