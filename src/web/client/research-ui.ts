@@ -10,7 +10,6 @@ import {
 import { getJson, say } from './common.js';
 import type { Me } from './notice.js';
 import { renderNode } from './popup.js';
-import type { FormHold } from './raid-forms.js';
 import { sayUnder } from './raid-ui.js';
 import {
   formSubject,
@@ -41,8 +40,8 @@ import { sendStop } from './stop-forms.js';
 
 /*
  * The field research form of the live map in the page (plan 8M-9B, goals 7 and 8; B8): from a
- * stop's popup in the place of its control (`formHome`), else in the side pane's box (docked under
- * the map on a phone), and there while stops are added, an aside claim of the hold, the list drawn
+ * stop's popup, in the side pane or on a phone the card (`formHome`, plan 8M-22), the pane docked under
+ * the map on a phone while stops are added, an aside claim of the hold, the list drawn
  * under it. "Report research here" in a stop's popup
  * and the Report button's step 3 at a stop open it with the stop; "Same task at more stops…" on a
  * research report opens it with that report's task, picking stops at once. "Add stops…" picks
@@ -54,7 +53,6 @@ export interface ResearchUiDeps {
   guild: string;
   /** The page's CSRF token, which a stale one's renewal changes. */
   csrf: { get(): string; set(token: string): void };
-  hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'release' | 'fit'>;
   /** Where the forms open (plan 8M-22, `formHome`): the side pane, the stop's popup closed. */
   frame: FormFrame;
   /** The side pane's box, where the form is drawn without a place, or while it adds stops. */
@@ -91,7 +89,7 @@ const FORM_OPEN = 'Close the form that is open first.';
 const NO_OPTIONS = 'The task list could not be loaded. Try again in a moment.';
 
 export function researchUi(deps: ResearchUiDeps) {
-  const { guild, hold } = deps;
+  const { guild } = deps;
   let open:
     | {
         home: FormHome;
@@ -210,10 +208,8 @@ export function researchUi(deps: ResearchUiDeps) {
       clicked(form, event);
     });
     form.addEventListener('input', (event) => {
-      typed(event.target, event.isComposing);
+      typed(event.target);
     });
-    // The fit a word held back while it was composed.
-    form.addEventListener('compositionend', fitToForm);
     form.addEventListener('change', (event) => {
       const target = event.target;
       if (open && target instanceof HTMLInputElement && target.name === 'version') {
@@ -240,17 +236,11 @@ export function researchUi(deps: ResearchUiDeps) {
     }
   };
 
-  /** A popup that holds the form fits it; none is fitted for a form in the side pane. */
-  const fitToForm = (): void => {
-    if (open && !open.home.inPane()) hold.fit();
-  };
-
   /**
    * What is typed: the search (the task list under it drawn anew, the field itself kept: review
-   * F3, an IME's word or a phone's keyboard is not cut, so a popup is fitted to the list only
-   * between words), the typed task and its reward (kept).
+   * F3, an IME's word or a phone's keyboard is not cut), the typed task and its reward (kept).
    */
-  const typed = (target: EventTarget | null, composing: boolean): void => {
+  const typed = (target: EventTarget | null): void => {
     if (!open || !(target instanceof HTMLInputElement)) return;
     if (target.name === 'query') {
       open.state.query = target.value;
@@ -258,7 +248,6 @@ export function researchUi(deps: ResearchUiDeps) {
       if (list && open.lists) {
         const fresh = renderNode(taskList(open.lists, open.state), document);
         list.replaceChildren(...fresh.childNodes);
-        if (!composing) fitToForm();
       }
     } else if (target.name === 'typedTask' && open.state.typing) {
       open.state.typing.task = target.value;

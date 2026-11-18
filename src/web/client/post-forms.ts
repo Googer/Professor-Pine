@@ -23,7 +23,7 @@ import { postTime, type TimeShown } from './post-time.js';
 /**
  * The post's controls that open a dialog on Discord, as forms of the live map (plan 8M-8B), the
  * parts that need no DOM: each form as a tree of nodes in Discord's dialog look (its title, its
- * text, its choice, Submit and Cancel), drawn in the place of the post (`formPlace`: a popup, a
+ * text, its choice, Submit and Cancel), drawn in the side pane or the card (`formHome`, plan 8M-22; the note box in the place of the post, `formPlace`: a popup, a
  * line of the list, the phone card), its body, and sending it with the page's CSRF token as a
  * press is sent. What the dialog says and decides is the server's, sent with the list (Group…'s
  * choices) or asked when the form opens; the page only words times in the reader's own zone.

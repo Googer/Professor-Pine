@@ -28,8 +28,9 @@ import {
 
 /**
  * The spawn form of the live map in the page (plan 8M-4S, spec 3.8): a long press or a right
- * click on the map opens it in a popup at that point; "Report spawn here" in a gym's, a PokéStop's
- * or a Power Spot's popup opens it in place of its button, the place being the point. The pick
+ * click on the map opens it at that point, step 2's pin there; "Report spawn here" in a gym's, a
+ * PokéStop's or a Power Spot's popup opens it at the place; in the side pane or on a phone the card
+ * (plan 8M-22, `formHome`). The pick
  * list comes from
  * `/api/wild-options` (the browser revalidates it by its ETag). It is held like the raid forms
  * (`FormHold`, one form at a time). A success is said and closes the form, and the spawns are
@@ -179,7 +180,7 @@ export function spawnUi(deps: SpawnUiDeps) {
   };
 
   /**
-   * A click on "Report spawn here" (`spawnBox`, `spawnAtBox`): the form in place of the button,
+   * A click on "Report spawn here" (`spawnBox`, `spawnAtBox`): the form in the side pane,
    * reporting at the place (a gym, a PokéStop or a Power Spot) itself, as `/wild near:` does
    * (Matt, 2026-11-07); its point the regions are read by.
    */

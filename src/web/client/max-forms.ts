@@ -75,7 +75,7 @@ export interface MaxPoint {
 export function maxBox(spotId: string): PageNode {
   return {
     tag: 'div',
-    className: 'max-box place-control',
+    className: 'max-box',
     children: [
       {
         tag: 'button',

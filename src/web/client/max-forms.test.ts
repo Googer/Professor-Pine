@@ -74,7 +74,7 @@ const battle = { kind: 'max', id: 'x1' } as unknown as MapMax;
 describe('"Report max battle here" (plan 8M-9A)', () => {
   it("is a button in a Power Spot's popup, naming the spot", () => {
     const box = maxBox('spot-1');
-    expect(box.className).toBe('max-box place-control');
+    expect(box.className).toBe('max-box');
     expect(tagged(box, 'button').map((button) => [button.text, button.attributes])).toEqual([
       ['Report max battle here', { type: 'button', 'data-report-max': 'spot-1' }],
     ]);

@@ -98,7 +98,7 @@ export function reportButton(gymId: number): PageNode {
  * nor the reverse).
  */
 export function reportBox(gymId: number): PageNode {
-  return { tag: 'div', className: 'report-box place-control', children: [reportButton(gymId)] };
+  return { tag: 'div', className: 'report-box', children: [reportButton(gymId)] };
 }
 
 /**
@@ -543,9 +543,13 @@ export class FormHold<V> {
     if (holder?.alive && !holder.alive()) this.release(holder);
   }
 
-  /** A popup's content function, held while a form is open (`heldContent`). */
+  /**
+   * A popup's content function, held while a form is open in a popup (`heldContent`: Take back's
+   * question, the note box); drawn anew under a form of the side pane or the card (plan 8M-22),
+   * which no popup holds.
+   */
   content<T>(draw: () => T): () => T {
-    return heldContent(draw, () => this.editing);
+    return heldContent(draw, () => this.holder?.inPopup === true);
   }
 
   /**

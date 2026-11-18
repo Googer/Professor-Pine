@@ -68,7 +68,7 @@ const optionsOf = (node: PageNode | undefined) =>
 describe('"Report spawn here" in a gym\'s popup (spawnBox)', () => {
   it('is a button that names the gym whose place is the point', () => {
     const box = spawnBox(4);
-    expect(box.className).toBe('spawn-box place-control');
+    expect(box.className).toBe('spawn-box');
     expect(box.children).toEqual([
       {
         tag: 'button',
@@ -81,7 +81,7 @@ describe('"Report spawn here" in a gym\'s popup (spawnBox)', () => {
 
   it("is a Power Spot's by an attribute of its own, the spot's id, in the same look", () => {
     const box = spotSpawnBox('abc.16');
-    expect(box.className).toBe('spawn-box place-control');
+    expect(box.className).toBe('spawn-box');
     expect(box.children).toEqual([
       {
         tag: 'button',
@@ -96,7 +96,7 @@ describe('"Report spawn here" in a gym\'s popup (spawnBox)', () => {
 describe('"Report spawn here" in a PokéStop\'s popup (spawnAtBox)', () => {
   it("is a button in the look of the stop's other actions, naming the stop and its place", () => {
     const box = spawnAtBox({ key: 'abc.16', at: { lat: 40.4451234567, lon: -79.95 } });
-    expect(box.className).toBe('spawn-box place-control');
+    expect(box.className).toBe('spawn-box');
     expect(box.children).toEqual([
       {
         tag: 'button',

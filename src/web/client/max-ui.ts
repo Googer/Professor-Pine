@@ -32,8 +32,9 @@ import { regionsAt, spawnPoint } from './spawn-forms.js';
 
 /**
  * The max battle form of the live map in the page (plan 8M-9A): "Report max battle here" in a
- * Power Spot's popup opens it in place of its button; a point of the map picked in the Report
- * button's step 2 opens it in a popup of its own there, an "Unlisted power spot" (`maxAt`). The
+ * Power Spot's popup opens it, a point of the map picked in the Report button's step 2 opens it
+ * there, an "Unlisted power spot" with step 2's pin (`maxAt`); in the side pane or on a phone the
+ * card (plan 8M-22, `formHome`). The
  * pick lists come from `/api/max-options` (the browser revalidates them by their ETag), asked for
  * again after any refusal but the ending-soon question and the regions (A3). It is held like the
  * other forms (`FormHold`, one form at a time). A battle made, joined, or there with another boss
@@ -264,7 +265,7 @@ export function maxUi(deps: MaxUiDeps) {
   };
 
   return {
-    /** "Report max battle here" for a Power Spot's popup; a click opens the form in its place. */
+    /** "Report max battle here" for a Power Spot's popup; a click opens the form (`maxClicked`). */
     maxControl(spot: MapSpot): HTMLElement {
       const box = renderNode(maxBox(spot.id), document);
       const button = box.querySelector('button');

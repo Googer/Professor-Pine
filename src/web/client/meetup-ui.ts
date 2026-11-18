@@ -48,7 +48,7 @@ import { fieldsOf, sayInForm, sayUnder } from './raid-ui.js';
  * meetup there; "Pick on the map" puts the map in "pick a place" mode, in which a gym clicked (its
  * dot or the marker of its raids), a PokéStop clicked (the stops of the view are shown meanwhile,
  * from `/api/stops`) or a point of the map clicked becomes its place, and no popup opens; "Manage…"
- * in a meetup's popup or item opens its editor in the place of its post, as a train's and a raid's
+ * in a meetup's popup or item opens its editor in the side pane or the card (plan 8M-22), as a train's and a raid's
  * do, whose Submit sends what was changed. One form at a time (`FormHold`, shared with the raid, spawn
  * and train forms): a new meetup's is a form of the box (`aside`), under which the list is drawn.
  * After a success the map refreshes (`done`).
@@ -326,8 +326,8 @@ export function meetupUi(deps: MeetupUiDeps) {
   };
 
   /**
-   * Opens a meetup's editor in the place of its post, as `post-forms-ui.ts` opens a train's forms.
-   * Submit sends what was changed and puts the post back, as they do; a refusal keeps the form.
+   * Opens a meetup's editor in the side pane or the card (`formHome`), as `post-forms-ui.ts` opens a train's forms.
+   * Submit sends what was changed and opens the post again, as they do; a refusal keeps the form.
    */
   const openEditing = (control: HTMLButtonElement, meetup: MapMeetup): void => {
     // In the side pane (plan 8M-22), the meetup's popup closed; Cancel opens it again.
@@ -472,7 +472,7 @@ export function meetupUi(deps: MeetupUiDeps) {
       if (stop) openMaking(stopPick(stop, deps.regions), control);
     },
 
-    /** A click on "Manage…" in a meetup's popup or item: its editor in the place of its post. */
+    /** A click on "Manage…" in a meetup's popup or item: its editor in the side pane or the card. */
     editClicked(control: HTMLButtonElement, meetup: MapMeetup): void {
       openEditing(control, meetup);
     },

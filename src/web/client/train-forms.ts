@@ -101,7 +101,7 @@ export function newTrainButton(): PageNode {
 export function trainHereBox(placeId: string): PageNode {
   return {
     tag: 'div',
-    className: 'train-here-box place-control',
+    className: 'train-here-box',
     children: [button('Start train here', { 'data-train-here': placeId }, 'train-here')],
   };
 }

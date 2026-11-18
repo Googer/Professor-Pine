@@ -21,8 +21,8 @@ import { sendStop } from './stop-forms.js';
 
 /*
  * The Team GO Rocket form of the live map in the page (plan 8M-9B, goal 9; B8): "Report Rocket
- * here" in a stop's popup or card (and the Report button's step 3 at a stop) opens it in place of
- * its button, held as the other forms (`FormHold`); its lists from `/api/rocket-options` (the
+ * here" in a stop's popup or card (and the Report button's step 3 at a stop) opens it in the side
+ * pane or on a phone the card (plan 8M-22, `formHome`), held as the other forms (`FormHold`); its lists from `/api/rocket-options` (the
  * browser revalidates them by their ETag). After a report or "Already reported", the form closes,
  * its words are said, and the reports are asked for at once, the stop's popup opened after the
  * poll (`done`, B15).

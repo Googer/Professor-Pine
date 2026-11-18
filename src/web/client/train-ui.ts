@@ -61,7 +61,7 @@ export interface TrainUiDeps {
   /** The gyms by id, as `/api/geo` gives them: the stops' names. */
   gyms: ReadonlyMap<number, MapGym>;
   /** The form that is open, shared with the raid and spawn forms. */
-  hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'ready' | 'fit' | 'release'>;
+  hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'ready' | 'release'>;
   /** Where the start form and the route editor are drawn: a box of the side panel. */
   tools: HTMLElement;
   /** Where the forms open (plan 8M-22, `formHome`): the side pane, the place's popup closed. */

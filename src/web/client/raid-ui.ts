@@ -32,8 +32,8 @@ import {
 
 /**
  * The raid forms of the live map in the page (plan 8M-4, spec 3.6): "Report raid" in a gym's
- * popup (also one that shows raids) opens the report form in its place; "Manage…" in a raid's
- * popup opens the change form in place of that raid. The pick lists come from
+ * popup (also one that shows raids) opens the report form, "Manage…" in a raid's popup the change
+ * form, in the side pane or on a phone the card (plan 8M-22, `formHome`). The pick lists come from
  * `/api/raid-options` (the browser revalidates them by their ETag), the moves from the raid's own
  * address. Every text is set as text (`renderNode`). After a success the party list is asked for
  * at once and the raid's popup opened (`done`); a refusal is said under the form and in the

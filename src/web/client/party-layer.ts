@@ -1058,7 +1058,6 @@ export function showParties(
         csrf = token;
       },
     },
-    hold,
     frame: formFrame,
     tools,
     done: async (stopKey) => {

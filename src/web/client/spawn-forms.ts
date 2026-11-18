@@ -70,7 +70,7 @@ export function pressedWhere(
 function placeSpawnBox(attribute: string, id: string): PageNode {
   return {
     tag: 'div',
-    className: 'spawn-box place-control',
+    className: 'spawn-box',
     children: [
       {
         tag: 'button',
@@ -123,7 +123,7 @@ export function spawnAtBox(stop: { key: string; at: LatLon }): PageNode {
   const point = spawnPoint(stop.at.lat, stop.at.lon);
   return {
     tag: 'div',
-    className: 'spawn-box place-control',
+    className: 'spawn-box',
     children: [
       {
         tag: 'button',

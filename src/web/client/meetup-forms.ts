@@ -101,7 +101,7 @@ export function newMeetupButton(): PageNode {
 export function meetupHereBox(gymId: number): PageNode {
   return {
     tag: 'div',
-    className: 'meetup-box place-control',
+    className: 'meetup-box',
     children: [button('Hold meetup here', { 'data-meetup-here': String(gymId) }, 'meetup-here')],
   };
 }
@@ -114,7 +114,7 @@ export function meetupHereBox(gymId: number): PageNode {
 export function meetupAtStopBox(stop: PickedStop): PageNode {
   return {
     tag: 'div',
-    className: 'meetup-box place-control',
+    className: 'meetup-box',
     children: [
       button(
         'Hold meetup here',

@@ -59,7 +59,7 @@ export const STOP_GONE = 'That PokéStop is gone: pick another.';
 export function rocketBox(stop: { key: string; name: string }): PageNode {
   return {
     tag: 'div',
-    className: 'rocket-box place-control',
+    className: 'rocket-box',
     children: [
       {
         tag: 'button',

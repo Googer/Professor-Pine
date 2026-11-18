@@ -189,7 +189,7 @@ describe('the form of a report (reportForm)', () => {
     expect(reports).toEqual([reportButton(4)]);
     expect(popup.children?.at(-1)).toEqual({
       tag: 'div',
-      className: 'report-box place-control',
+      className: 'report-box',
       children: [reportButton(4)],
     });
     const without = gymRaidsPopup(4, [raid()], context);
@@ -298,6 +298,27 @@ describe('a form open in a popup (FormHold)', () => {
     hold.fit();
     return claim;
   };
+
+  // Plan 8M-22: no form is in a popup under a form of the side pane or the card; a popup opened
+  // meanwhile shows its place as it is now.
+  it('draws a popup anew under a form of the side pane or the card, and holds it under its own', () => {
+    for (const place of [false, 'card'] as const) {
+      const { hold } = holding();
+      let count = 0;
+      const popup = new FakePopup(hold.content(() => ({ n: ++count })));
+      popup.update();
+      hold.take(place, place === false);
+      popup.update();
+      expect(popup.node).toEqual({ n: 2 });
+    }
+    const { hold } = holding();
+    let count = 0;
+    const popup = new FakePopup(hold.content(() => ({ n: ++count })));
+    popup.update();
+    hold.take(true);
+    popup.update();
+    expect(popup.node).toEqual({ n: 1 });
+  });
 
   it('keeps the form in place when the popup is fitted to it, and draws what came meanwhile once the popup closes', () => {
     const { shown, after, views, hold } = holding();

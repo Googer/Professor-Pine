@@ -175,7 +175,7 @@ export type ResearchMode = { kind: 'new' } | { kind: 'more'; report: MapResearch
 export function researchButton(stop: PickedStop): PageNode {
   return {
     tag: 'button',
-    className: 'press place-control',
+    className: 'press',
     text: 'Report research here',
     attributes: {
       type: 'button',
