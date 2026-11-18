@@ -160,7 +160,13 @@ export function reportForm(
     className: 'raid-form',
     attributes: { 'data-form': 'report', 'data-gym': String(gym.id) },
     children: [
-      { tag: 'strong', className: 'name', text: gym.name },
+      // What the form does; the gym is the place line under it (plan 8M-22, `formHome`).
+      {
+        tag: 'strong',
+        className: 'name',
+        attributes: { 'data-form-heading': '' },
+        text: 'Report a raid',
+      },
       labelled('Raid', 'form-row', bossSelect(options, filled.boss)),
       labelled(timeLabel(filled.boss ?? ''), 'form-row time-row', timeInput('time', filled.time)),
       ...zoneHintNodes(options.zone, reader),
@@ -252,7 +258,12 @@ export function changeForm(
     className: 'raid-form',
     attributes: { 'data-form': 'change', 'data-party': raid.id },
     children: [
-      { tag: 'strong', className: 'name', text: 'Manage the raid' },
+      {
+        tag: 'strong',
+        className: 'name',
+        attributes: { 'data-form-heading': '' },
+        text: 'Manage the raid',
+      },
       labelled('Hatches in', 'form-row', timeInput('hatch', undefined)),
       labelled('Ends in', 'form-row', timeInput('end', undefined)),
       ...zoneHintNodes(options.zone, reader),

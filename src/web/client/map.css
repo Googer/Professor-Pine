@@ -657,6 +657,36 @@ body.editing-regions #map {
 }
 
 /*
+ * A form in the side pane (plan 8M-22, `formHome`): the pane does not scroll while it shows, the
+ * form's box does, and the form's row stays at the foot of the box below its body.
+ */
+#parties.form-shown {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#parties.form-shown > .train-tools {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-bottom: 0;
+  overflow-y: auto;
+}
+
+#parties.form-shown > .train-tools > * > .form-foot {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 0;
+  background: var(--panel-bg);
+}
+
+/* The place a form is at, in a line under its heading (plan 8M-22). */
+.form-place {
+  margin: 0 0 4px;
+  color: var(--muted);
+}
+
+/*
  * The list of what is on (plan 8M-7): the side pane on the desktop; on a phone "List" swaps the
  * map for it (`body.list-open`).
  */
@@ -808,6 +838,11 @@ body.editing-regions #map {
     flex: none;
     max-height: 40vh;
     border-top: 1px solid var(--line);
+  }
+
+  /* A form in it keeps its own frame (plan 8M-22): its body scrolls, its row stays below. */
+  body.form-docked #parties.form-shown:not([hidden]) {
+    display: flex;
   }
 }
 

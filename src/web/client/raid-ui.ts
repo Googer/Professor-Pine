@@ -1,6 +1,7 @@
 import { isOff, missingOf } from './form-buttons.js';
 import { liveCheck, type FormCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
+import { formHome, type FormFrame } from './form-home.js';
 import type {
   RaidChange,
   RaidMovesView,
@@ -11,7 +12,6 @@ import { liveControl } from './list-ui.js';
 import type { Me } from './notice.js';
 import { addPickAgain } from './pick-again.js';
 import { renderNode, type MapGym } from './popup.js';
-import { focusBack } from './post-forms.js';
 import type { PressAnswer } from './press-answer.js';
 import { readerZone } from './post-time.js';
 import type { ReportKindId } from './report-icons.js';
@@ -19,8 +19,6 @@ import {
   changeForm,
   changeMissing,
   changesAsked,
-  type FormHold,
-  formPlace,
   NOTHING_CHANGED,
   reportBody,
   reportBox,
@@ -50,10 +48,10 @@ export interface RaidUiDeps {
   /** After a report or a change went through: the list again, and the raid opened. */
   done(raid: RaidAnswered['raid']): Promise<void>;
   /**
-   * The form that is open (`FormHold`), one at a time: taken by the click that opens a form,
-   * let go when it closes; the party list is not drawn anew under it.
+   * Where the forms open (plan 8M-22, `formHome`): the side pane, the place's popup closed; the
+   * form that is open holds the page's `FormHold`, one at a time.
    */
-  hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'ready' | 'fit' | 'release'>;
+  frame: FormFrame;
   /**
    * The answer of a raid's Manage… that went through, for its post's answer line (plan 8M-11A,
    * review fix F4), as a press's; `from` the control that opened the form.
@@ -185,31 +183,28 @@ export function raidUi(deps: RaidUiDeps) {
   };
 
   /**
-   * Opens the report form of a gym in `box`, in place of its button: only while no other form is
-   * open, and only when the box is still in the page once the lists came (its popup may have
-   * closed meanwhile).
+   * Opens the report form of a gym in the side pane (plan 8M-22, `formHome`), its popup closed:
+   * only while no other form is open. Cancel opens the gym's popup again, the focus on `control`.
    */
   const openReport = async (
-    box: HTMLElement,
     gym: MapGym,
-    restore: () => void,
+    control: HTMLElement | null,
     /** The Report button's step 3 (plan 8M-9A, R1-3): the boss menu takes the focus. */
     focusFirst = false,
     /** Opened by a tap in step 2: "← Another gym" (`addPickAgain`). */
     again?: ReportKindId,
   ) => {
-    const { hold } = deps;
-    const claim = hold.take(formPlace(box));
-    if (!claim) return;
+    const home = formHome(deps.frame, { control, place: () => gym.name });
+    if (!home.open()) return;
     let lists: RaidOptionsView;
     try {
       lists = await options();
     } catch {
-      hold.release(claim);
+      home.close('back');
       say(NO_OPTIONS);
       return;
     }
-    if (!hold.ready(claim, box.isConnected)) return;
+    if (!home.holds()) return;
     const form = renderNode(reportForm(gym, lists, deps.regionNames, {}, readerZone()), document);
     addPickAgain(form, again);
     const boss = form.querySelector<HTMLSelectElement>('select[name="boss"]');
@@ -217,10 +212,6 @@ export function raidUi(deps: RaidUiDeps) {
     boss?.addEventListener('change', () => {
       if (label) label.textContent = timeLabel(boss.value);
     });
-    const close = () => {
-      restore();
-      hold.release(claim);
-    };
     const bodyNow = (): FormBody => {
       const values = fieldsOf(form);
       return reportBody(gym.id, {
@@ -235,23 +226,21 @@ export function raidUi(deps: RaidUiDeps) {
     form.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
-      if (target.dataset.cancel !== undefined) close();
+      if (target.dataset.cancel !== undefined) home.close('back');
       if (target.dataset.submit !== 'report' || isOff(target)) return;
       void send(form, `/s/${guild}/api/raids`, bodyNow(), false, check).then(async (sent) => {
         if (!sent || !reportClosesForm(sent)) return;
-        // A form gone with its popup meanwhile: the list again, and nothing opened over what
-        // the member does now.
-        if (!hold.holds(claim)) {
+        // A form gone meanwhile: the list again, and nothing opened over what the member does now.
+        if (!home.holds()) {
           await deps.done(undefined);
           return;
         }
         // A new raid, or the raid that was there already: the list again, and the raid opened.
-        close();
+        home.close('done');
         await deps.done(sent.raid);
       });
     });
-    box.replaceChildren(form);
-    hold.fit();
+    home.draw(form);
     if (focusFirst) boss?.focus();
   };
 
@@ -264,33 +253,24 @@ export function raidUi(deps: RaidUiDeps) {
   };
 
   /**
-   * Opens the change form of a raid in place of its section of a popup or of the side panel, as
-   * `openReport` opens a report's.
+   * Opens the change form of a raid in the side pane (plan 8M-22), as `openReport` opens a
+   * report's; Cancel, and a change that went through, open the raid's popup again (`back`), its
+   * answer in the post's answer line.
    */
-  const openChange = async (section: HTMLElement, raidId: string, control: HTMLElement) => {
-    const { hold } = deps;
-    // Outside a popup (a line of the list), its claim goes with its form (fix round 1).
-    const popup = formPlace(section);
-    const claim = hold.take(popup, false, popup ? undefined : () => section.isConnected);
-    if (!claim) return;
+  const openChange = async (raidId: string, control: HTMLElement) => {
+    const home = formHome(deps.frame, { control });
+    if (!home.open()) return;
     let lists: RaidOptionsView;
     try {
       lists = await options();
     } catch {
-      hold.release(claim);
+      home.close('back');
       say(NO_OPTIONS);
       return;
     }
     const known = await moves(raidId);
-    if (!hold.ready(claim, section.isConnected)) return;
-    const before = [...section.childNodes];
+    if (!home.holds()) return;
     const form = renderNode(changeForm({ id: raidId }, lists, known, readerZone()), document);
-    const close = () => {
-      section.replaceChildren(...before);
-      hold.release(claim);
-      // The release may have drawn the popup anew: the control in it as it is now.
-      focusBack(liveControl(control));
-    };
     // The moves on the form are the old boss's: off and emptied while a boss is picked, and once
     // one went through in a Submit whose later change was refused.
     const bossPicked = form.querySelector<HTMLSelectElement>('select[name="boss"]');
@@ -306,7 +286,6 @@ export function raidUi(deps: RaidUiDeps) {
         if (off) select.value = '';
       }
       if (movesLater) movesLater.hidden = !off;
-      hold.fit();
     });
     // Submit off with "Nothing changed yet." until something is typed (plan 8M-22).
     const check = liveCheck(form, () => changeMissing(fieldsOf(form)));
@@ -315,7 +294,7 @@ export function raidUi(deps: RaidUiDeps) {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) {
-        close();
+        home.close('back');
         return;
       }
       if (target.dataset.submit === undefined || isOff(target)) return;
@@ -332,8 +311,8 @@ export function raidUi(deps: RaidUiDeps) {
         if (sent === undefined) return;
         if (!sent.ok) {
           const told = [...went, sent.text].join(' ');
-          // A form gone with its popup meanwhile: said where the member looks now.
-          const here = hold.holds(claim);
+          // A form gone meanwhile: said where the member looks now.
+          const here = home.holds();
           if (!here) say(told);
           // What went through is not sent again: its field is emptied and the post drawn anew.
           else if (went.length > 0) sayInForm(form, told);
@@ -357,45 +336,37 @@ export function raidUi(deps: RaidUiDeps) {
         check.run(true);
       }
       // Done: the answer in the post's answer line (plan 8M-11A, review fix F4), then the list
-      // again, which shows the raid as it is now. A form gone with its popup meanwhile opens
-      // nothing over what the member does now.
+      // again, which shows the raid as it is now. A form gone meanwhile opens nothing over what
+      // the member does now.
       const answer = { text: went.length === 0 ? NOTHING_CHANGED : went.join(' '), ok: true };
-      if (!hold.holds(claim)) {
+      if (!home.holds()) {
         deps.answered(raidId, answer, control);
         await deps.done(undefined);
         return;
       }
-      // The post back in the page first: its answer line takes the answer.
-      close();
-      deps.answered(raidId, answer, control);
+      // The raid's popup open again first (plan 8M-22): its answer line takes the answer.
+      home.close('back');
+      deps.answered(raidId, answer, liveControl(control));
       await deps.done(raid);
     };
-    section.replaceChildren(form);
-    hold.fit();
+    home.draw(form);
   };
 
-  /** A click on "Report raid" (`reportBox`): the form in place of the button, in its box. */
+  /**
+   * A click on "Report raid" (`reportBox`), or the Report button's step 3 at a gym (`control` the
+   * Report button, its popup not opened first): the form in the side pane.
+   */
   const reportClicked = (
-    button: HTMLButtonElement,
+    control: HTMLElement | null,
     gym: MapGym,
     focusFirst = false,
     again?: ReportKindId,
   ): void => {
-    const box = button.parentElement;
-    if (!box) return;
-    void openReport(
-      box,
-      gym,
-      () => {
-        box.replaceChildren(button);
-      },
-      focusFirst,
-      again,
-    );
+    void openReport(gym, control, focusFirst, again);
   };
 
   return {
-    /** "Report raid" for a gym's own popup; a click opens the form in its place. */
+    /** "Report raid" for a gym's own popup; a click opens the form in the side pane. */
     reportControl(gym: MapGym): HTMLElement {
       const box = renderNode(reportBox(gym.id), document);
       const button = box.querySelector('button');
@@ -405,15 +376,14 @@ export function raidUi(deps: RaidUiDeps) {
       return box;
     },
 
-    /** A click on "Report raid" in the popup of a gym that shows raids. */
+    /** A click on "Report raid" in the popup of a gym that shows raids, or step 3 at a gym. */
     reportClicked,
 
-    /** A click on "Manage…" of a raid: its form in place of the raid's section. */
+    /** A click on "Manage…" of a raid: its form in the side pane. */
     changeClicked(button: HTMLButtonElement): void {
       const raidId = button.dataset.changeRaid;
-      const section = button.closest<HTMLElement>('.raid');
-      if (raidId === undefined || !section) return;
-      void openChange(section, raidId, button);
+      if (raidId === undefined) return;
+      void openChange(raidId, button);
     },
   };
 }

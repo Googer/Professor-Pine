@@ -1,7 +1,7 @@
 import { isOff, missingOf } from './form-buttons.js';
 import { liveCheck, type FormCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
-import { formHome, type FormHome } from './form-home.js';
+import { formHome, type FormFrame, type FormHome } from './form-home.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { GeoView } from '../../domain/web/geo-data.js';
 import { MEETUP_CHANGES, type MeetupChange, type StopsView } from '../../domain/web/meetup-data.js';
@@ -38,11 +38,9 @@ import {
 import type { Me } from './notice.js';
 import { readerZone } from './post-time.js';
 import { renderNode, type MapGym } from './popup.js';
-import { focusBack } from './post-forms.js';
-import { formPlace, NOTHING_CHANGED, type FormHold } from './raid-forms.js';
+import { NOTHING_CHANGED } from './raid-forms.js';
 import type { PressAnswer } from './press-answer.js';
 import { fieldsOf, sayInForm, sayUnder } from './raid-ui.js';
-import { newTrainButton } from './train-forms.js';
 
 /**
  * The meetups of the live map in the page (plan 8M-5M, spec 3.7): "New meetup" in the side
@@ -63,10 +61,8 @@ export interface MeetupUiDeps {
   regions: GeoView['regions'];
   /** The gyms by id, as `/api/geo` gives them. */
   gyms: ReadonlyMap<number, MapGym>;
-  /** The form that is open, shared with the other forms. */
-  hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'release' | 'fit'>;
-  /** The side panel's box, where the forms are drawn. */
-  tools: HTMLElement;
+  /** Where the forms open (plan 8M-22, `formHome`): the side pane, the place's popup closed. */
+  frame: FormFrame;
   /** The server's zone (`PartiesView.zone`), in which the editor shows the times. */
   zone(): string;
   /**
@@ -102,7 +98,7 @@ const MORE_STOPS = 'Zoom in to see every PokéStop here.';
 const STOPS_REST_MS = 300;
 
 export function meetupUi(deps: MeetupUiDeps) {
-  const { guild, hold } = deps;
+  const { guild } = deps;
 
   /** Sends a body to an address of the meetups with the page's token. */
   const send = async (
@@ -153,11 +149,6 @@ export function meetupUi(deps: MeetupUiDeps) {
       end: fields.end ?? '',
       info: fields.info ?? '',
     };
-  };
-
-  /** The box shows "New train" and "New meetup" again. */
-  const toolsIdle = (): void => {
-    deps.tools.replaceChildren(renderNode(newTrainButton(), document));
   };
 
   const regionList = () => deps.regions.map((region) => ({ id: region.id, name: region.name }));
@@ -259,30 +250,30 @@ export function meetupUi(deps: MeetupUiDeps) {
     making.home.draw(form);
   };
 
-  const closeMaking = (): void => {
+  /** The form closed: `back` (Cancel) to the place's popup, `done` for the page to open it. */
+  const closeMaking = (how: 'back' | 'done'): void => {
     const open = making;
     if (!open) return;
     if (picking.picking) endPicking();
     making = undefined;
-    open.home.close();
+    open.home.close(how);
   };
 
   const madeClicked = (form: HTMLElement, event: Event, check: FormCheck): void => {
     const target = event.target;
     if (!(target instanceof HTMLButtonElement) || !making) return;
     if (target.dataset.cancel !== undefined) {
-      closeMaking();
+      closeMaking('back');
       return;
     }
     if (target.dataset.pick === 'start') {
-      // Picking needs the map: a form in a popup goes to the side pane, with what was typed.
-      const typed = making.home.inPane() ? undefined : fieldsOf(form);
+      // Picking needs the map: the form is in the side pane, with what was typed.
       if (!making.home.toPane()) {
         say(FORM_OPEN);
         return;
       }
       startPicking();
-      drawMaking(typed);
+      drawMaking(fieldsOf(form));
       return;
     }
     if (target.dataset.pick === 'stop') {
@@ -309,7 +300,7 @@ export function meetupUi(deps: MeetupUiDeps) {
         await deps.done(undefined);
         return;
       }
-      closeMaking();
+      closeMaking('done');
       say(sent.text);
       await deps.done(sent.meetup);
     });
@@ -320,23 +311,12 @@ export function meetupUi(deps: MeetupUiDeps) {
    * place of the control (`control`), else in the side panel's box.
    */
   const openMaking = (place: PickedPlace | undefined, control?: HTMLButtonElement): void => {
-    const box = control?.parentElement;
-    const home = formHome(
-      {
-        tools: deps.tools,
-        hold,
-        closePopup: () => {
-          deps.closePopup();
-        },
-        idle: toolsIdle,
-      },
-      box && control ? { box, control } : undefined,
-    );
+    // In the side pane (plan 8M-22), the place's popup closed; its fields name the place.
+    const home = formHome(deps.frame, { control, place: () => undefined });
     if (!home.open()) {
       say(FORM_OPEN);
       return;
     }
-    if (home.inPane()) deps.closePopup();
     making = { home, place, regionChosen: false };
     drawMaking();
     home.element().querySelector<HTMLElement>('input[name="name"]')?.focus();
@@ -347,23 +327,19 @@ export function meetupUi(deps: MeetupUiDeps) {
    * Submit sends what was changed and puts the post back, as they do; a refusal keeps the form.
    */
   const openEditing = (control: HTMLButtonElement, meetup: MapMeetup): void => {
-    const section =
-      control.closest<HTMLElement>('.post-popup') ?? control.closest<HTMLElement>('.party-popup');
-    if (!section) return;
-    const place = formPlace(section);
-    // Outside a popup or the card (a line of the list), its claim goes with its form.
-    const claim = hold.take(place, false, place === false ? () => section.isConnected : undefined);
-    if (!claim) {
+    // In the side pane (plan 8M-22), the meetup's popup closed; Cancel opens it again.
+    const home = formHome(deps.frame, {
+      control,
+      place: () => meetup.place?.words ?? meetup.name,
+    });
+    if (!home.open()) {
       say(FORM_OPEN);
       return;
     }
-    const before = [...section.childNodes];
+    const section = home.element();
     const open: EditorState = { meetup, filled: {} };
-    const close = (): void => {
-      section.replaceChildren(...before);
-      hold.release(claim);
-      // The release may have drawn the popup anew: the control in it as it is now.
-      focusBack(liveControl(control));
+    const close = (how: 'back' | 'done'): void => {
+      home.close(how);
     };
 
     /**
@@ -396,10 +372,10 @@ export function meetupUi(deps: MeetupUiDeps) {
         const sent = await sendForm(editor, url, body);
         if (!sent) return;
         const told = [...went, sent.text].join(' ');
-        const held = hold.holds(claim);
+        const held = home.holds();
         // Gone, or no longer the member's to change (`panel` null): the editor closes.
         if (editorStep(held, sent) === 'close') {
-          close();
+          close('done');
           say(told);
           await deps.done(undefined);
           return;
@@ -433,12 +409,12 @@ export function meetupUi(deps: MeetupUiDeps) {
         }
         went.push(sent.text);
       }
-      // Done: the post back first, whose answer line takes the answer; the list again, which shows
-      // the meetup as it is now. A form gone with its popup meanwhile only says it.
+      // Done: the post back first (its popup open again), whose answer line takes the answer; the
+      // list again, which shows the meetup as it is now. A form gone meanwhile only says it.
       const text = went.length === 0 ? NOTHING_CHANGED : went.join(' ');
-      if (hold.holds(claim)) {
-        close();
-        deps.answered(open.meetup.id, { text, ok: true }, control);
+      if (home.holds()) {
+        close('back');
+        deps.answered(open.meetup.id, { text, ok: true }, liveControl(control));
       } else say(text);
       await deps.done(undefined);
     };
@@ -447,7 +423,7 @@ export function meetupUi(deps: MeetupUiDeps) {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) {
-        close();
+        close('back');
         return;
       }
       if (target.dataset.submit !== undefined && !isOff(target)) void submit(editor);
@@ -465,8 +441,7 @@ export function meetupUi(deps: MeetupUiDeps) {
       editor.addEventListener('click', (event) => {
         clicked(editor, event);
       });
-      section.replaceChildren(editor);
-      hold.fit();
+      home.draw(editor);
       return editor;
     };
     draw().querySelector<HTMLElement>('input[name="name"]')?.focus();

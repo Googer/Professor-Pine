@@ -84,7 +84,8 @@ describe('"Report max battle here" (plan 8M-9A)', () => {
 describe('the max battle form (plan 8M-9A, A9)', () => {
   it("offers /max's bosses grouped by tier in the list's order, the featured marked", () => {
     const form = maxForm('Lake Gazebo', OPTIONS, state(), ZONE);
-    expect(texts(form)[0]).toBe('Lake Gazebo');
+    // What the form does, the place in a line under it (plan 8M-22).
+    expect(texts(form).slice(0, 2)).toEqual(['Report a max battle', 'Lake Gazebo']);
     const [boss] = tagged(form, 'select').filter((one) => one.attributes?.name === 'boss');
     expect(boss?.children?.map((child) => child.attributes?.label ?? child.text)).toEqual([
       'Pick the boss',
@@ -112,8 +113,11 @@ describe('the max battle form (plan 8M-9A, A9)', () => {
     ]);
     // No region asked of a place in one.
     expect(tagged(form, 'select').map((one) => one.attributes?.name)).toEqual(['boss', 'tier']);
-    // In a spot's popup, which names the spot already, it has no heading of its own.
-    expect(texts(maxForm(undefined, OPTIONS, state(), ZONE))[0]).toBe('Boss');
+    // At a spot its heading alone: the side pane names the spot under it (plan 8M-22).
+    expect(texts(maxForm(undefined, OPTIONS, state(), ZONE)).slice(0, 2)).toEqual([
+      'Report a max battle',
+      'Boss',
+    ]);
   });
 
   it('keeps what was filled in, shows the typed rows for a boss typed, and asks a region of several', () => {

@@ -834,6 +834,12 @@ export function reportUi(deps: ReportUiDeps) {
       offerReport();
     },
 
+    /**
+     * The Report button shown now (the header's, or the one over the map on a phone): a form its
+     * step 3 opened gives it the focus back on Cancel (plan 8M-22).
+     */
+    button: () => reportButton(),
+
     picks: (pick: ReportPick) => flow.picks(pick),
     inTools: () => flow.inTools(),
     gymClicked: (gym: MapGym) => flow.gymClicked(gym),

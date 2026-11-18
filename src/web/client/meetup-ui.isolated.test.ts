@@ -6,6 +6,7 @@ import {
   make,
   resetFocus,
 } from '../../../test/support/fake-page.js';
+import { fakeFormFrame } from './fake-form-frame.js';
 import type { MapMeetup } from '../../domain/web/party-data.js';
 import type { MapGym } from './popup.js';
 import { meetupUi } from './meetup-ui.js';
@@ -49,8 +50,9 @@ const OK = {
 };
 
 /**
- * A meetup's popup over a fake page with its Manage… pressed, the server answering each change in
- * turn as `answers` say; what the form did to the hold and the side panel's box.
+ * A meetup's popup over a fake page with its Manage… pressed, the side pane's box beside it (plan
+ * 8M-22, `fakeFormFrame`), the server answering each change in turn as `answers` say; what the
+ * form did to the hold, the popup and the side pane's box.
  */
 function managing(answers: readonly { status: number; body: unknown }[]) {
   resetFocus();
@@ -65,10 +67,9 @@ function managing(answers: readonly { status: number; body: unknown }[]) {
   control.setAttribute('data-edit-meetup', MEETUP.id);
   section.append(control);
   popup.append(section);
-  const tools = make('div');
-  const idle = make('button');
-  tools.append(idle);
-  body.append(popup, tools, notice);
+  body.append(popup, notice);
+  const pane = fakeFormFrame(body, popup, 'Schenley Park');
+  const { tools, idle } = pane;
   const said: string[] = [];
   /** What has the focus: the last focused, or the page itself. */
   const active = {
@@ -113,14 +114,10 @@ function managing(answers: readonly { status: number; body: unknown }[]) {
       json: () => Promise.resolve(answer.body),
     });
   });
-  let held = true;
-  /** What letting a form go does beside it: a held popup is drawn anew (`redrawOnRelease`). */
-  const onRelease: { run: () => void } = { run: () => undefined };
   const doneWith: unknown[] = [];
   /** Who waits for the next `done`, and for the next words of the notice. */
   const waitingDone: (() => void)[] = [];
   const waitingSaid: (() => void)[] = [];
-  const taken: unknown[][] = [];
   let finished: () => void = () => undefined;
   const done = new Promise<void>((resolve) => {
     finished = resolve;
@@ -142,20 +139,7 @@ function managing(answers: readonly { status: number; body: unknown }[]) {
       clear: () => undefined,
       moved: () => () => undefined,
     },
-    hold: {
-      take: (...args: unknown[]) => {
-        taken.push(args);
-        held = true;
-        return {} as never;
-      },
-      holds: () => held,
-      fit: () => undefined,
-      release: () => {
-        held = false;
-        onRelease.run();
-      },
-    },
-    tools: tools as unknown as HTMLElement,
+    frame: pane.frame,
     zone: () => 'America/New_York',
     closePopup,
     answered: (id: string, answer: { text: string; ok: boolean }) => {
@@ -179,7 +163,8 @@ function managing(answers: readonly { status: number; body: unknown }[]) {
     control,
     tools,
     idle,
-    taken,
+    pane,
+    taken: pane.takes,
     closePopup,
     done,
     said,
@@ -196,18 +181,18 @@ function managing(answers: readonly { status: number; body: unknown }[]) {
         waitingSaid.push(resolve);
       }),
     popup,
-    onRelease,
     pageFocused: () => {
       pageHas = true;
     },
-    held: () => held,
-    popupClosed: () => {
-      held = false;
+    held: () => pane.held(),
+    /** The form gone meanwhile (another took the hold). */
+    formGone: () => {
+      pane.takenElsewhere();
     },
   };
 }
 
-/** Types a name into the editor in `section` and presses Submit. */
+/** Types a name into the editor in `box` and presses Submit. */
 function submitName(section: FakeElement, name = 'Feast'): void {
   const field = section.querySelector('input[name="name"]');
   field?.setAttribute('value', name);
@@ -221,24 +206,23 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
     vi.unstubAllGlobals();
   });
 
-  it('opens in the place of its post, as a train and a raid do: the popup and the box stay', () => {
+  // Plan 8M-22: every form in the side pane, the place's popup closed, its place named.
+  it('opens in the side pane, the meetup’s popup closed, its place under the heading', () => {
     const made = managing([OK]);
-    expect(made.section.querySelector('[data-form="meetup-edit"]')).not.toBeNull();
-    expect(made.section.querySelector('[data-edit-meetup]')).toBeNull();
-    expect(made.section.querySelector('button[data-change]')).toBeNull();
-    expect(made.closePopup).not.toHaveBeenCalled();
-    expect(made.tools.childNodes).toEqual([made.idle]);
-    expect(made.taken[0]?.[0]).toBe(true);
-    expect(made.taken[0]?.[1]).toBe(false);
-    expect(made.ui.inTools()).toBe(false);
+    expect(made.tools.querySelector('[data-form="meetup-edit"]')).not.toBeNull();
+    expect(made.tools.querySelector('button[data-change]')).toBeNull();
+    expect(made.pane.isOpen()).toBe(false);
+    expect(made.taken[0]).toEqual([false, true]);
+    expect(made.tools.querySelector('.form-place')?.textContent).toBe('Picnic');
   });
 
-  it('Submit sends what was changed, puts the post back and answers in its line', async () => {
+  it('Submit sends what was changed, opens the post again and answers in its line', async () => {
     const made = managing([OK]);
-    submitName(made.section);
+    submitName(made.tools);
     await made.done;
     expect(made.posted).toEqual([{ url: 'name', body: { drawn: 'Picnic', name: 'Feast' } }]);
-    expect(made.section.childNodes).toEqual([made.control]);
+    expect(made.pane.isOpen()).toBe(true);
+    expect(made.tools.childNodes).toEqual([made.idle]);
     expect(made.held()).toBe(false);
     expect(made.answered).toEqual([{ id: 'm1', text: 'Named Feast.', ok: true }]);
     expect(made.said).toEqual([]);
@@ -246,8 +230,8 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
 
   it('Submit sends every change made, in turn, and joins their answers', async () => {
     const made = managing([OK, { status: 200, body: { ok: true, text: 'Ends at 8.' } }]);
-    made.section.querySelector('input[name="end"]')?.setAttribute('value', '8pm');
-    submitName(made.section);
+    made.tools.querySelector('input[name="end"]')?.setAttribute('value', '8pm');
+    submitName(made.tools);
     await made.done;
     expect(made.posted.map((one) => one.url)).toEqual(['name', 'end']);
     expect(made.answered).toEqual([{ id: 'm1', text: 'Named Feast. Ends at 8.', ok: true }]);
@@ -255,14 +239,14 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
 
   it('has Submit off with "Nothing changed yet." until something is typed (plan 8M-22)', () => {
     const made = managing([]);
-    const submit = made.section.querySelector('button[data-submit]');
+    const submit = made.tools.querySelector('button[data-submit]');
     expect(submit?.getAttribute('aria-disabled')).toBe('true');
-    expect(made.section.querySelector('.form-answer')?.textContent).toBe('Nothing changed yet.');
+    expect(made.tools.querySelector('.form-answer')?.textContent).toBe('Nothing changed yet.');
     // A press while off sends nothing, and the form stays.
     submit?.dispatch('click');
     expect(made.posted).toEqual([]);
     expect(made.answered).toEqual([]);
-    expect(made.section.querySelector('[data-form="meetup-edit"]')).not.toBeNull();
+    expect(made.tools.querySelector('[data-form="meetup-edit"]')).not.toBeNull();
   });
 
   it('a refusal keeps the form, says what went through and does not send it again', async () => {
@@ -271,23 +255,25 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
       body: { ok: false, text: 'That time has passed.', meetup: MEETUP },
     };
     const made = managing([OK, refused]);
-    made.section.querySelector('input[name="end"]')?.setAttribute('value', 'nonsense');
-    submitName(made.section);
+    made.tools.querySelector('input[name="end"]')?.setAttribute('value', 'nonsense');
+    submitName(made.tools);
     await made.shaken;
-    expect(made.section.querySelector('[data-form="meetup-edit"]')).not.toBeNull();
-    expect(made.section.querySelector('.form-answer')?.textContent).toBe(
+    expect(made.tools.querySelector('[data-form="meetup-edit"]')).not.toBeNull();
+    expect(made.tools.querySelector('.form-answer')?.textContent).toBe(
       'Named Feast. That time has passed.',
     );
     expect(made.held()).toBe(true);
     expect(made.answered).toEqual([]);
-    expect(made.section.querySelector('input[name="end"]')?.getAttribute('value')).toBe('nonsense');
+    expect(made.tools.querySelector('input[name="end"]')?.getAttribute('value')).toBe('nonsense');
   });
 
   // Asking for the list would open the popup anew once it came, over the focus just given back
   // (staging of 2026-10-30); nothing changed, and what waited is drawn as the hold lets go.
-  it('Cancel puts the post back, lets the hold go and leaves the list and the focus alone', () => {
+  it('Cancel opens the popup again, lets the hold go, the focus on Manage…', () => {
     const made = managing([]);
-    made.section.querySelector('button[data-cancel]')?.dispatch('click');
+    made.tools.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(made.pane.isOpen()).toBe(true);
+    expect(made.tools.childNodes).toEqual([made.idle]);
     expect(made.section.childNodes).toEqual([made.control]);
     expect(made.held()).toBe(false);
     expect(made.posted).toEqual([]);
@@ -295,31 +281,29 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
     expect(focused().at(-1) === made.control).toBe(true);
   });
 
-  it('closes when the answer ends it, in the band, the post back', async () => {
+  it('closes when the answer ends it, in the band, its popup not opened again', async () => {
     const made = managing([{ status: 409, body: { ok: false, text: 'This meetup is over.' } }]);
-    submitName(made.section);
+    submitName(made.tools);
     await made.done;
-    expect(made.section.childNodes).toEqual([made.control]);
+    expect(made.tools.childNodes).toEqual([made.idle]);
+    expect(made.pane.isOpen()).toBe(false);
     expect(made.held()).toBe(false);
     expect(made.said).toContain('This meetup is over.');
   });
 
-  it('"Hold meetup here" opens in the popup, and goes to the side pane to pick a place', () => {
+  it('"Hold meetup here" opens in the side pane, and stays there to pick a place', () => {
     const made = managing([]);
-    made.section.querySelector('button[data-cancel]')?.dispatch('click');
+    made.tools.querySelector('button[data-cancel]')?.dispatch('click');
     const box = make('div');
     const here = make('button');
     box.append(here);
     made.section.append(box);
     made.ui.meetupHereClicked(GYM, here as unknown as HTMLButtonElement);
-    expect(box.querySelector('[data-form="meetup"]')).not.toBeNull();
-    expect(made.tools.childNodes).toEqual([made.idle]);
-    expect(made.closePopup).not.toHaveBeenCalled();
-    expect(made.ui.inTools()).toBe(false);
-    box.querySelector('input[name="name"]')?.setAttribute('value', 'Picnic');
-    box.querySelector('button[data-pick="start"]')?.dispatch('click');
-    expect(box.childNodes).toEqual([here]);
-    expect(made.closePopup).toHaveBeenCalled();
+    expect(made.tools.querySelector('[data-form="meetup"]')).not.toBeNull();
+    expect(made.pane.isOpen()).toBe(false);
+    expect(made.ui.inTools()).toBe(true);
+    made.tools.querySelector('input[name="name"]')?.setAttribute('value', 'Picnic');
+    made.tools.querySelector('button[data-pick="start"]')?.dispatch('click');
     expect(made.ui.inTools()).toBe(true);
     expect(made.tools.querySelector('input[name="name"]')?.getAttribute('value')).toBe('Picnic');
   });
@@ -340,9 +324,9 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
       const made = managing([
         { status: 200, body: { ok: true, text: 'Ends at 9. Starts at 8.', meetup: MEETUP } },
       ]);
-      type(made.section, 'start', '8pm');
-      type(made.section, 'end', '9pm');
-      submit(made.section);
+      type(made.tools, 'start', '8pm');
+      type(made.tools, 'end', '9pm');
+      submit(made.tools);
       await made.done;
       expect(made.posted).toEqual([
         {
@@ -361,9 +345,9 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
         OK,
         { status: 200, body: { ok: true, text: 'Ends at 9. Starts at 8.', meetup: MEETUP } },
       ]);
-      type(made.section, 'start', '8pm');
-      type(made.section, 'end', '9pm');
-      submitName(made.section);
+      type(made.tools, 'start', '8pm');
+      type(made.tools, 'end', '9pm');
+      submitName(made.tools);
       await made.done;
       expect(made.posted.map((one) => one.url)).toEqual(['name', 'times']);
     });
@@ -372,8 +356,8 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
       const made = managing([
         { status: 200, body: { ok: true, text: 'Ends at 8.', meetup: MEETUP } },
       ]);
-      type(made.section, 'end', '8pm');
-      submit(made.section);
+      type(made.tools, 'end', '8pm');
+      submit(made.tools);
       await made.done;
       expect(made.posted.map((one) => one.url)).toEqual(['end']);
     });
@@ -382,14 +366,14 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
       const made = managing([
         { status: 422, body: { ok: false, text: 'Not a time.', meetup: MEETUP } },
       ]);
-      type(made.section, 'start', 'whenever');
-      type(made.section, 'end', '9pm');
-      submit(made.section);
+      type(made.tools, 'start', 'whenever');
+      type(made.tools, 'end', '9pm');
+      submit(made.tools);
       await made.shaken;
       expect(made.posted.map((one) => one.url)).toEqual(['times']);
-      expect(made.section.querySelector('.form-answer')?.textContent).toBe('Not a time.');
-      expect(value(made.section, 'start')).toBe('whenever');
-      expect(value(made.section, 'end')).toBe('9pm');
+      expect(made.tools.querySelector('.form-answer')?.textContent).toBe('Not a time.');
+      expect(value(made.tools, 'start')).toBe('whenever');
+      expect(value(made.tools, 'end')).toBe('9pm');
       expect(made.answered).toEqual([]);
     });
 
@@ -401,15 +385,15 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
           body: { ok: false, text: 'Ends at 9. Not after its end.', meetup: moved, went: ['end'] },
         },
       ]);
-      type(made.section, 'start', '8pm');
-      type(made.section, 'end', '9pm');
-      submit(made.section);
+      type(made.tools, 'start', '8pm');
+      type(made.tools, 'end', '9pm');
+      submit(made.tools);
       await made.shaken;
-      expect(made.section.querySelector('.form-answer')?.textContent).toBe(
+      expect(made.tools.querySelector('.form-answer')?.textContent).toBe(
         'Ends at 9. Not after its end.',
       );
-      expect(value(made.section, 'start')).toBe('8pm');
-      expect(value(made.section, 'end')).toBeNull();
+      expect(value(made.tools, 'start')).toBe('8pm');
+      expect(value(made.tools, 'end')).toBeNull();
     });
   });
 
@@ -417,17 +401,17 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
     it('opens with its first field focused, and stays on the form after a refusal', async () => {
       const made = managing([{ status: 422, body: { ok: false, text: 'No.', meetup: MEETUP } }]);
       expect(focused().at(-1)?.getAttribute('name')).toBe('name');
-      submitName(made.section);
+      submitName(made.tools);
       await made.shaken;
-      const submit = made.section.querySelector('button[data-submit]');
+      const submit = made.tools.querySelector('button[data-submit]');
       expect(focused().at(-1) === submit).toBe(true);
     });
 
     it('leaves the focus alone when it moved out of the form meanwhile (re-review, 5)', async () => {
       const made = managing([{ status: 422, body: { ok: false, text: 'No.', meetup: MEETUP } }]);
       const elsewhere = make('input');
-      made.tools.append(elsewhere);
-      submitName(made.section);
+      made.section.append(elsewhere);
+      submitName(made.tools);
       elsewhere.focus();
       await made.shaken;
       expect(focused().at(-1) === elsewhere).toBe(true);
@@ -435,26 +419,26 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
 
     it('takes the focus back from the page itself after an answer (re-review, 5)', async () => {
       const made = managing([{ status: 422, body: { ok: false, text: 'No.', meetup: MEETUP } }]);
-      submitName(made.section);
+      submitName(made.tools);
       made.pageFocused();
       await made.shaken;
-      expect(focused().at(-1) === made.section.querySelector('button[data-submit]')).toBe(true);
+      expect(focused().at(-1) === made.tools.querySelector('button[data-submit]')).toBe(true);
     });
 
-    it('goes back to the control as the popup is drawn anew when the form lets go', () => {
+    it('goes back to the control as the popup is drawn anew when it opens again', () => {
       const made = managing([]);
       const fresh = make('button');
       fresh.setAttribute('data-edit-meetup', MEETUP.id);
-      made.onRelease.run = () => {
+      made.pane.onBack.run = () => {
         made.popup.replaceChildren(fresh);
       };
-      made.section.querySelector('button[data-cancel]')?.dispatch('click');
+      made.tools.querySelector('button[data-cancel]')?.dispatch('click');
       expect(focused().at(-1) === fresh).toBe(true);
     });
 
     it('focuses the name of a new meetup', () => {
       const made = managing([]);
-      made.section.querySelector('button[data-cancel]')?.dispatch('click');
+      made.tools.querySelector('button[data-cancel]')?.dispatch('click');
       resetFocus();
       const box = make('div');
       const here = make('button');
@@ -465,18 +449,18 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
     });
   });
 
-  describe('a new meetup at a place whose popup closed meanwhile (review, finding 4)', () => {
+  describe('a new meetup at a place whose form went meanwhile (review, finding 4)', () => {
     /** "Hold meetup here" in the popup, the form filled in; `submit` sends it. */
     const madeAt = (answers: readonly { status: number; body: unknown }[]) => {
       const made = managing(answers);
-      made.section.querySelector('button[data-cancel]')?.dispatch('click');
+      made.tools.querySelector('button[data-cancel]')?.dispatch('click');
       const box = make('div');
       const here = make('button');
       box.append(here);
       made.section.append(box);
       made.ui.meetupHereClicked(GYM, here as unknown as HTMLButtonElement);
       const fill = (name: string, value: string) => {
-        const field = box.querySelector(`[name="${name}"]`);
+        const field = made.tools.querySelector(`[name="${name}"]`);
         field?.setAttribute('value', value);
         // Typed: the form's check runs on the input (plan 8M-22).
         field?.dispatch('input');
@@ -491,7 +475,7 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
         box,
         here,
         submit: () => {
-          box.querySelector('button[data-submit]')?.dispatch('click');
+          made.tools.querySelector('button[data-submit]')?.dispatch('click');
         },
       };
     };
@@ -500,7 +484,7 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
       const made = madeAt([{ status: 200, body: { ok: true, text: 'Made.', meetup: MEETUP } }]);
       const done = made.nextDone();
       made.submit();
-      made.popupClosed();
+      made.formGone();
       made.closePopup.mockClear();
       await done;
       expect(made.said.at(-1)).toBe('Made.');
@@ -513,7 +497,7 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
       const made = madeAt([{ status: 422, body: { ok: false, text: 'No such place.' } }]);
       const told = made.nextSaid();
       made.submit();
-      made.popupClosed();
+      made.formGone();
       await told;
       expect(made.said.at(-1)).toBe('No such place.');
       expect(made.doneWith).toEqual([]);
@@ -525,17 +509,17 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
       made.submit();
       await done;
       expect(made.doneWith.map((one) => (one as MapMeetup).id)).toEqual(['m1']);
-      expect(made.box.childNodes).toEqual([made.here]);
+      expect(made.tools.childNodes).toEqual([made.idle]);
     });
   });
 
-  it('only says the answer when its popup has closed meanwhile', async () => {
+  it('only says the answer when its form went meanwhile', async () => {
     const made = managing([OK]);
-    submitName(made.section);
-    made.popupClosed();
+    submitName(made.tools);
+    made.formGone();
     await made.done;
     expect(made.said).toEqual(['Named Feast.']);
     expect(made.answered).toEqual([]);
-    expect(made.section.querySelector('.form-answer')?.textContent).toBe('');
+    expect(made.tools.querySelector('.form-answer')?.textContent).toBe('');
   });
 });

@@ -177,6 +177,13 @@ export function rocketForm(options: RocketOptionsView, state: RocketFormState): 
     className: 'raid-form rocket-form stop-form',
     attributes: { 'data-form': 'rocket' },
     children: [
+      // Its heading (plan 8M-22): the form has a place of its own, the stop in a line under it.
+      {
+        tag: 'strong',
+        className: 'name',
+        attributes: { 'data-form-heading': '' },
+        text: 'Report Team GO Rocket',
+      },
       ...(replacing === undefined
         ? [
             {

@@ -1,13 +1,14 @@
 import { isOff } from './form-buttons.js';
 import { liveCheck, type FormCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
+import { formHome, type FormHome, type FormFrame } from './form-home.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { GeoView } from '../../domain/web/geo-data.js';
 import type { WildOptionsView } from '../../domain/web/spawn-data.js';
 import { getJson, say } from './common.js';
 import type { Me } from './notice.js';
 import { renderNode } from './popup.js';
-import { formPlace, type FormClaim, type FormHold } from './raid-forms.js';
+import type { FormHold } from './raid-forms.js';
 import { fieldsOf, sayUnder } from './raid-ui.js';
 import {
   pressedWhere,
@@ -41,9 +42,14 @@ export interface SpawnUiDeps {
   /** The server's regions with their outlines, as `/api/geo` gives them. */
   regions: GeoView['regions'];
   /** The form that is open, shared with the raid forms. */
-  hold: Pick<FormHold<unknown>, 'editing' | 'take' | 'holds' | 'ready' | 'fit' | 'release'>;
-  /** Opens a popup of its own at the point with this content; `close` closes it. */
-  popupAt(point: LatLon, content: HTMLElement): { close(): void };
+  hold: Pick<FormHold<unknown>, 'editing'>;
+  /** Where the forms open (plan 8M-22, `formHome`): the side pane, the place's popup closed. */
+  frame: FormFrame;
+  /**
+   * The pin of the Report button's step 2 (`report-pin`) at a point, fixed while its form is open;
+   * what takes it away.
+   */
+  pinAt(point: LatLon): () => void;
   /** A spawn was reported from this page: the spawns asked for at once. */
   reported?(): void;
 }
@@ -101,11 +107,10 @@ export function spawnUi(deps: SpawnUiDeps) {
    * (a gym, PokéStop or Power Spot) the report is at.
    */
   const openForm = async (
-    box: HTMLElement,
+    home: FormHome,
     where: LatLon | SpawnPlace,
     lying: readonly PointRegion[],
-    claim: FormClaim,
-    finish: () => void,
+    finish: (how: 'back' | 'done') => void,
     /** The Report button's step 3 (plan 8M-9A, R1-3): the Pokémon's field takes the focus. */
     focusFirst = false,
   ): Promise<void> => {
@@ -114,10 +119,11 @@ export function spawnUi(deps: SpawnUiDeps) {
       options = await getJson<WildOptionsView>(`/s/${guild}/api/wild-options`);
     } catch {
       say(NO_OPTIONS);
-      if (hold.holds(claim)) finish();
+      if (home.holds()) finish('back');
       return;
     }
-    if (!hold.ready(claim, box.isConnected)) return;
+    if (!home.holds()) return;
+    const box = home.element();
     let regions = lying;
     // The form is drawn anew whenever the server's answer names regions (`redrawnAfter`); each
     // drawing has its own click handler.
@@ -129,14 +135,13 @@ export function spawnUi(deps: SpawnUiDeps) {
       form.addEventListener('click', (event) => {
         clicked(form, event, check);
       });
-      box.replaceChildren(form);
-      hold.fit();
+      home.draw(form);
     };
     const clicked = (form: HTMLElement, event: Event, check: FormCheck): void => {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) {
-        finish();
+        finish('back');
         return;
       }
       if (target.dataset.submit !== 'spawn' || isOff(target)) return;
@@ -148,13 +153,13 @@ export function spawnUi(deps: SpawnUiDeps) {
       }
       void send(form, body.body, check).then((sent) => {
         if (sent.ok) deps.reported?.();
-        // A form gone with its popup meanwhile: nothing more to do.
-        if (!hold.holds(claim)) {
+        // A form gone meanwhile: nothing more to do.
+        if (!home.holds()) {
           say(sent.text);
           return;
         }
         if (sent.ok) {
-          finish();
+          finish('done');
           say(sent.text);
           return;
         }
@@ -178,15 +183,12 @@ export function spawnUi(deps: SpawnUiDeps) {
    * reporting at the place (a gym, a PokéStop or a Power Spot) itself, as `/wild near:` does
    * (Matt, 2026-11-07); its point the regions are read by.
    */
-  const spawnClicked = (button: HTMLButtonElement, place: SpawnPlace): void => {
-    const box = button.parentElement;
-    if (!box) return;
-    const claim = hold.take(formPlace(box));
-    if (!claim) return;
+  const spawnClicked = (button: HTMLElement, place: SpawnPlace): void => {
+    const home = formHome(deps.frame, { control: button });
+    if (!home.open()) return;
     const point = spawnPoint(place.lat, place.lon);
-    void openForm(box, { ...place, ...point }, regionsAt(point, deps.regions), claim, () => {
-      box.replaceChildren(button);
-      hold.release(claim);
+    void openForm(home, { ...place, ...point }, regionsAt(point, deps.regions), (how) => {
+      home.close(how);
     });
   };
 
@@ -214,11 +216,18 @@ export function spawnUi(deps: SpawnUiDeps) {
     spawnClicked,
 
     /**
-     * A long press or a right click on the map: the form in a popup at that point; a point in no
+     * A long press or a right click on the map: the form in the side pane, step 2's pin at the
+     * point while it is open (plan 8M-22, Matt's ruling 3), `where` read once here; a point in no
      * region of the map's outlines is said to be in none, and nothing opens. The Report button's
-     * pin at a gym, PokéStop or Power Spot tapped reports at that `place` itself.
+     * pin at a gym, PokéStop or Power Spot tapped reports at that `place` itself; Cancel gives the
+     * focus to `control` (the Report button).
      */
-    spawnAt(point: LatLon, focusFirst = false, place?: SpawnPlace): void {
+    spawnAt(
+      point: LatLon,
+      focusFirst = false,
+      place?: SpawnPlace,
+      control?: HTMLElement | null,
+    ): void {
       if (hold.editing) {
         say(FORM_OPEN);
         return;
@@ -228,25 +237,16 @@ export function spawnUi(deps: SpawnUiDeps) {
         say(where.text);
         return;
       }
-      const box = document.createElement('div');
-      box.className = 'spawn-box';
-      box.textContent = 'Loading the Pokémon…';
-      // Opened first: opening it closes any other popup, which must not take the new claim.
-      const popup = deps.popupAt(point, box);
-      const claim = hold.take(true);
-      // Another form took the hold meanwhile: no popup is left showing "Loading" for ever.
-      if (!claim) {
-        popup.close();
-        return;
-      }
+      const home = formHome(deps.frame, { control });
+      if (!home.open()) return;
+      const unpin = deps.pinAt(point);
       void openForm(
-        box,
+        home,
         place ?? point,
         where.regions,
-        claim,
-        () => {
-          hold.release(claim);
-          popup.close();
+        (how) => {
+          unpin();
+          home.close(how);
         },
         focusFirst,
       );

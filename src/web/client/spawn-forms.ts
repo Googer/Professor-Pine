@@ -210,7 +210,12 @@ export function spawnForm(
     className: 'raid-form spawn-form',
     attributes: { 'data-form': 'spawn' },
     children: [
-      { tag: 'strong', className: 'name', text: 'Wild Pokémon here' },
+      {
+        tag: 'strong',
+        className: 'name',
+        attributes: { 'data-form-heading': '' },
+        text: 'Wild Pokémon here',
+      },
       labelled(
         'Pokémon',
         text('pokemon', POKEMON_LENGTH, 'Type to pick from the list', filled.pokemon),

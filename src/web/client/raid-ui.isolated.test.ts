@@ -6,6 +6,7 @@ import {
   make,
   resetFocus,
 } from '../../../test/support/fake-page.js';
+import { fakeFormFrame } from './fake-form-frame.js';
 import type { RaidUiDeps } from './raid-ui.js';
 import { raidUi } from './raid-ui.js';
 
@@ -14,8 +15,9 @@ import { raidUi } from './raid-ui.js';
 vi.mock('leaflet', () => ({}));
 
 /**
- * A raid's popup over a fake page with its Manage…, the server answering the lists and a change
- * as `answer` says; what the form's answers went to (`answered`, the notice band `said`).
+ * A raid's popup over a fake page with its Manage…, the side pane's box beside it (plan 8M-22,
+ * `fakeFormFrame`), the server answering the lists and a change as `answer` says; what the form's
+ * answers went to (`answered`, the notice band `said`).
  */
 function changing(
   answer: { status: number; body: unknown } | { status: number; body: unknown }[],
@@ -69,18 +71,13 @@ function changing(
       json: () => Promise.resolve(reply.body),
     });
   });
-  let drawn: () => void = () => undefined;
-  const shown = new Promise<void>((resolve) => {
-    drawn = resolve;
-  });
+  const pane = fakeFormFrame(body, section, 'Library');
+  const shown = pane.tools.nextForm();
   let done: () => void = () => undefined;
   const finished = new Promise<void>((resolve) => {
     done = resolve;
   });
-  let held = false;
   let doneCalls = 0;
-  /** What letting a form go does beside it: a held popup is drawn anew. */
-  const onRelease: { run: () => void } = { run: () => undefined };
   const answered: { party: string; text: string; ok: boolean }[] = [];
   let shook: () => void = () => undefined;
   const shaken = new Promise<void>((resolve) => {
@@ -95,21 +92,7 @@ function changing(
       done();
       return Promise.resolve();
     },
-    hold: {
-      take: () => {
-        held = true;
-        return {} as never;
-      },
-      holds: () => held,
-      ready: () => true,
-      fit: () => {
-        drawn();
-      },
-      release: () => {
-        held = false;
-        onRelease.run();
-      },
-    },
+    frame: pane.frame,
     answered: (party, given) => {
       answered.push({ party, ...given });
     },
@@ -123,7 +106,8 @@ function changing(
     section,
     control,
     page: body,
-    onRelease,
+    tools: pane.tools,
+    pane,
     doneCalls: () => doneCalls,
     shown,
     finished,
@@ -131,8 +115,9 @@ function changing(
     said,
     shaken,
     posted,
-    popupClosed: () => {
-      held = false;
+    /** The form gone meanwhile (another took the hold). */
+    formGone: () => {
+      pane.takenElsewhere();
     },
     nextSaid: () =>
       new Promise<void>((resolve) => {
@@ -141,7 +126,7 @@ function changing(
   };
 }
 
-/** Types an end time into the form drawn in `section` and presses Submit. */
+/** Types an end time into the form drawn in `box` and presses Submit. */
 function setEnd(section: FakeElement): void {
   const end = section.querySelector('input[name="end"]');
   end?.setAttribute('value', '30');
@@ -158,73 +143,85 @@ describe("a raid's Manage… on the map (review fix F4)", () => {
   it('is titled as a train’s and a meetup’s are', async () => {
     const made = changing([]);
     await made.shown;
-    expect(made.section.querySelector('.name')?.textContent).toBe('Manage the raid');
+    expect(made.tools.querySelector('.name')?.textContent).toBe('Manage the raid');
+  });
+
+  // Plan 8M-22: every form in the side pane, the place's popup closed, its place named.
+  it('opens in the side pane, the raid’s popup closed, its place under the heading', async () => {
+    const made = changing([]);
+    await made.shown;
+    expect(made.pane.isOpen()).toBe(false);
+    expect(made.pane.takes[0]).toEqual([false, true]);
+    expect(made.tools.querySelector('.form-place')?.textContent).toBe('Library');
   });
 
   it('has Submit off with "Nothing changed yet." until something is typed (plan 8M-22)', async () => {
     const made = changing({ status: 200, body: { ok: true, text: 'Done.' } });
     await made.shown;
-    const submit = made.section.querySelector('button[data-submit]');
+    const submit = made.tools.querySelector('button[data-submit]');
     expect(submit?.getAttribute('aria-disabled')).toBe('true');
-    expect(made.section.querySelector('.form-answer')?.textContent).toBe('Nothing changed yet.');
+    expect(made.tools.querySelector('.form-answer')?.textContent).toBe('Nothing changed yet.');
     // A press while off sends nothing, and the form stays.
     submit?.dispatch('click');
     expect(made.posted).toEqual([]);
-    expect(made.section.querySelector('button[data-submit]')).not.toBeNull();
+    expect(made.tools.querySelector('button[data-submit]')).not.toBeNull();
   });
 
-  it("answers a change that went through in the post's answer line, not the notice band", async () => {
+  it("answers a change that went through in the post's answer line, the popup open again", async () => {
     const made = changing({ status: 200, body: { ok: true, text: 'Done. It ends at 3:15 PM.' } });
     await made.shown;
-    setEnd(made.section);
+    setEnd(made.tools);
     await made.finished;
     expect(made.answered).toEqual([{ party: 'r1', text: 'Done. It ends at 3:15 PM.', ok: true }]);
     expect(made.said).toEqual([]);
-    expect(made.section.querySelector('button[data-submit]')).toBeNull();
+    expect(made.tools.querySelector('button[data-submit]')).toBeNull();
+    expect(made.pane.isOpen()).toBe(true);
   });
 
   it('says a refusal that keeps the form under it and shakes it, not in the band', async () => {
     const made = changing({ status: 422, body: { ok: false, text: 'This raid is over.' } });
     await made.shown;
-    setEnd(made.section);
+    setEnd(made.tools);
     await made.shaken;
-    expect(made.section.querySelector('.form-answer')?.textContent).toBe('This raid is over.');
+    expect(made.tools.querySelector('.form-answer')?.textContent).toBe('This raid is over.');
     expect(made.said).toEqual([]);
     expect(made.answered).toEqual([]);
   });
 
   // Asking for the list would open the popup anew once it came, over the focus just given back
   // (staging of 2026-10-30); nothing changed, and what waited is drawn as the hold lets go.
-  it('Cancel puts the post back, leaves the list alone and gives the focus to Manage…', async () => {
+  it('Cancel opens the popup again, leaves the list alone and gives the focus to Manage…', async () => {
     resetFocus();
     const made = changing([]);
     await made.shown;
-    made.section.querySelector('button[data-cancel]')?.dispatch('click');
+    made.tools.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(made.pane.isOpen()).toBe(true);
+    expect(made.tools.childNodes).toEqual([made.pane.idle]);
     expect(made.section.childNodes).toEqual([made.control]);
     expect(made.doneCalls()).toBe(0);
     expect(focused().at(-1) === made.control).toBe(true);
   });
 
-  it('Cancel gives the focus to Manage… in the popup drawn anew as the form lets go', async () => {
+  it('Cancel gives the focus to Manage… in the popup drawn anew as it opens again', async () => {
     resetFocus();
     const made = changing([]);
     await made.shown;
     const fresh = make('button');
     fresh.setAttribute('data-change-raid', 'r1');
-    made.onRelease.run = () => {
-      made.page.replaceChildren(fresh);
+    made.pane.onBack.run = () => {
+      made.section.replaceChildren(fresh);
     };
-    made.section.querySelector('button[data-cancel]')?.dispatch('click');
+    made.tools.querySelector('button[data-cancel]')?.dispatch('click');
     expect(focused().at(-1) === fresh).toBe(true);
   });
 
-  describe('a refusal with its popup gone (review, finding 10)', () => {
+  describe('a refusal with its form gone (review, finding 10)', () => {
     it('says it in the band', async () => {
       const made = changing({ status: 422, body: { ok: false, text: 'This raid is over.' } });
       await made.shown;
       const told = made.nextSaid();
-      setEnd(made.section);
-      made.popupClosed();
+      setEnd(made.tools);
+      made.formGone();
       await told;
       expect(made.said).toEqual(['This raid is over.']);
     });
@@ -235,9 +232,9 @@ describe("a raid's Manage… on the map (review fix F4)", () => {
         { status: 422, body: { ok: false, text: 'Not that end.' } },
       ]);
       await made.shown;
-      made.section.querySelector('input[name="hatch"]')?.setAttribute('value', '10');
-      setEnd(made.section);
-      made.popupClosed();
+      made.tools.querySelector('input[name="hatch"]')?.setAttribute('value', '10');
+      setEnd(made.tools);
+      made.formGone();
       await made.finished;
       expect(made.said).toEqual(['It hatches soon. Not that end.']);
     });
@@ -263,7 +260,7 @@ describe("a raid's Manage… on the map (review fix F4)", () => {
     it('are off and emptied, with a hint, and back on when the boss is cleared', async () => {
       const made = changing({ status: 200, body: { ok: true, text: 'Done.' } }, MOVES);
       await made.shown;
-      const { boss, quick, charge, hint } = fields(made.section);
+      const { boss, quick, charge, hint } = fields(made.tools);
       expect(quick?.disabled).toBe(false);
       expect(hint?.hidden).toBe(true);
       quick?.setAttribute('value', 'SNARL_FAST');
@@ -288,13 +285,13 @@ describe("a raid's Manage… on the map (review fix F4)", () => {
         MOVES,
       );
       await made.shown;
-      const { boss, quick, charge, hint } = fields(made.section);
+      const { boss, quick, charge, hint } = fields(made.tools);
       const heading = quick?.parentElement?.querySelector('span');
       expect(heading?.textContent).toBe('Moves of Yveltal');
       pick(boss, 'e:T5:0');
       // Picked, not yet gone through: they are still Yveltal's, and off.
       expect(heading?.textContent).toBe('Moves of Yveltal');
-      setEnd(made.section);
+      setEnd(made.tools);
       await made.shaken;
       expect(heading?.textContent).toBe('Moves');
       expect(quick?.disabled).toBe(true);
@@ -311,10 +308,10 @@ describe("a raid's Manage… on the map (review fix F4)", () => {
         MOVES,
       );
       await made.shown;
-      const { boss, quick } = fields(made.section);
+      const { boss, quick } = fields(made.tools);
       quick?.setAttribute('value', 'SNARL_FAST');
       pick(boss, 'e:T5:0');
-      setEnd(made.section);
+      setEnd(made.tools);
       await made.shaken;
       expect(made.posted).toEqual(['boss', 'end']);
       // The boss is emptied, for it went through: the moves are still the old boss's.

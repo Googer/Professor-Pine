@@ -123,6 +123,27 @@ export class FakeElement {
     }
   }
 
+  prepend(...children: FakeElement[]): void {
+    const rest = this.childNodes;
+    this.childNodes = [];
+    this.append(...children);
+    this.childNodes.push(...rest);
+  }
+
+  /** Puts `children` right after this element, in its parent. */
+  after(...children: FakeElement[]): void {
+    const parent = this.parent;
+    if (!parent) return;
+    const at = parent.childNodes.indexOf(this) + 1;
+    const rest = parent.childNodes.splice(at);
+    parent.append(...children);
+    parent.childNodes.push(...rest);
+  }
+
+  hasAttribute(name: string): boolean {
+    return this.attributes.has(name);
+  }
+
   replaceChildren(...children: FakeElement[]): void {
     for (const child of this.childNodes) child.parent = undefined;
     this.childNodes = [];

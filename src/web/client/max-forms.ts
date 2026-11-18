@@ -172,7 +172,15 @@ export function maxForm(
     className: 'raid-form max-form',
     attributes: { 'data-form': 'max' },
     children: [
-      ...(name === undefined ? [] : [{ tag: 'strong', className: 'name', text: name }]),
+      {
+        tag: 'strong',
+        className: 'name',
+        attributes: { 'data-form-heading': '' },
+        text: MAX_HEADING,
+      },
+      // A point names itself ("Unlisted power spot"); a spot's name is the place line the side
+      // pane adds (`formHome`).
+      ...(name === undefined ? [] : [{ tag: 'p', className: 'form-place', text: name }]),
       labelled('Boss', [bossSelect(options, filled.boss)]),
       labelled(
         'Its name',
@@ -290,6 +298,9 @@ export function maxMissing(
   // The body's own check: where the battle is goes only into the body.
   return missingOf(maxBody({ lat: 0, lon: 0 }, values));
 }
+
+/** The heading of a max battle's form (plan 8M-22), its place in a line under it. */
+export const MAX_HEADING = 'Report a max battle';
 
 const TIERS: readonly string[] = ['D1', 'D2', 'D3', 'D4', 'D5', 'G'] satisfies MapMaxTier[];
 

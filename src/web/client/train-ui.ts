@@ -1,5 +1,5 @@
 import { formKeys } from './form-keys.js';
-import { formHome } from './form-home.js';
+import { formHome, type FormFrame } from './form-home.js';
 import { isOff } from './form-buttons.js';
 import { liveCheck } from './form-check.js';
 import type { PressAnswer } from './press-answer.js';
@@ -64,6 +64,8 @@ export interface TrainUiDeps {
   hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'ready' | 'fit' | 'release'>;
   /** Where the start form and the route editor are drawn: a box of the side panel. */
   tools: HTMLElement;
+  /** Where the forms open (plan 8M-22, `formHome`): the side pane, the place's popup closed. */
+  frame: FormFrame;
   /** The train's stops numbered on the map in route mode, and none once it ends. */
   overlay: { show(train: MapTrain): void; clear(): void };
   /** Closes the popup that is open (route mode works in the side panel and on the map). */
@@ -496,26 +498,14 @@ export function trainUi(deps: TrainUiDeps) {
     first?: FirstStop,
     control?: HTMLButtonElement | null,
   ): void => {
-    // A form at a place in its popup, as a raid's report; route mode then has the side pane.
-    const box = control?.parentElement;
-    const home = formHome(
-      {
-        tools: deps.tools,
-        hold,
-        closePopup: () => {
-          deps.closePopup();
-        },
-        idle: toolsIdle,
-      },
-      box && control ? { box, control } : undefined,
-    );
+    // In the side pane (plan 8M-22), the place's popup closed; route mode has it after.
+    const home = formHome(deps.frame, { control, place: () => undefined });
     const claim = home.open();
     if (!claim) {
       say(FORM_OPEN);
       return;
     }
-    if (first && home.inPane()) deps.closePopup();
-    if (home.inPane()) starting = claim;
+    starting = claim;
     const regions = deps.regions.map((region) => ({ id: region.id, name: region.name }));
     const form = renderNode(
       startForm(
@@ -526,9 +516,9 @@ export function trainUi(deps: TrainUiDeps) {
       ),
       document,
     );
-    const close = () => {
+    const close = (how: 'back' | 'done') => {
       if (starting === claim) starting = undefined;
-      home.close();
+      home.close(how);
     };
     const values = (): StartValues => {
       const fields = fieldsOf(form);
@@ -546,7 +536,7 @@ export function trainUi(deps: TrainUiDeps) {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) {
-        close();
+        close('back');
         return;
       }
       if (target.dataset.submit !== 'train' || isOff(target)) return;
@@ -571,7 +561,7 @@ export function trainUi(deps: TrainUiDeps) {
           await deps.done(undefined);
           return;
         }
-        close();
+        close('done');
         say(sent.text);
         // A new train has no stops: its route is laid at once, by who may.
         if (sent.train?.may.arrange) {

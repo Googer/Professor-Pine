@@ -1,7 +1,7 @@
 import { isOff } from './form-buttons.js';
 import { liveCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
-import { formHome, type FormHome } from './form-home.js';
+import { formHome, type FormFrame, type FormHome } from './form-home.js';
 import {
   stopsAtMost,
   type MapResearch,
@@ -38,7 +38,6 @@ import {
 } from './report-flow.js';
 import type { LatLon } from './view.js';
 import { sendStop } from './stop-forms.js';
-import { newTrainButton } from './train-forms.js';
 
 /*
  * The field research form of the live map in the page (plan 8M-9B, goals 7 and 8; B8): from a
@@ -56,10 +55,10 @@ export interface ResearchUiDeps {
   /** The page's CSRF token, which a stale one's renewal changes. */
   csrf: { get(): string; set(token: string): void };
   hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'release' | 'fit'>;
+  /** Where the forms open (plan 8M-22, `formHome`): the side pane, the stop's popup closed. */
+  frame: FormFrame;
   /** The side pane's box, where the form is drawn without a place, or while it adds stops. */
   tools: HTMLElement;
-  /** Closes the popup or card that is open, as the form goes to the side pane. */
-  closePopup(): void;
   /** After a report: the reports asked for at once, then the stop's popup opened. */
   done(stopKey: string | undefined): Promise<void>;
   /** The stops to pick drawn or taken away (`adding`), the map's look with them. */
@@ -311,12 +310,13 @@ export function researchUi(deps: ResearchUiDeps) {
     return true;
   };
 
-  const close = (): void => {
+  /** The form closed: `back` (Cancel) to the stop's popup, `done` for the page to open it. */
+  const close = (how: 'back' | 'done'): void => {
     const was = open;
     if (!was) return;
     setAdding(false);
     open = undefined;
-    was.home.close();
+    was.home.close(how);
   };
 
   const after = async (done: ResearchAfter): Promise<void> => {
@@ -332,7 +332,7 @@ export function researchUi(deps: ResearchUiDeps) {
         return;
       case 'close': {
         const first = open?.stops[0]?.key;
-        close();
+        close('done');
         say(done.text);
         await deps.done(first);
         return;
@@ -376,7 +376,7 @@ export function researchUi(deps: ResearchUiDeps) {
       }
     } else if (cancel !== undefined) {
       // Cancel sends nothing, the contradiction question's too (R7).
-      close();
+      close('back');
     } else if (changeTask !== undefined) {
       // The task list back, the task kept as the selection (plan 8M-11A, S26).
       // The list open again, the focus on its search field (plan 8M-22).
@@ -432,27 +432,23 @@ export function researchUi(deps: ResearchUiDeps) {
     stops: PickedStop[],
     mode: ResearchMode,
     focus: string | undefined,
-    control?: HTMLButtonElement,
+    control?: HTMLElement | null,
   ): void => {
-    const box = control?.parentElement;
-    const home = formHome(
-      {
-        tools: deps.tools,
-        hold,
-        closePopup: () => {
-          deps.closePopup();
-        },
-        idle: () => {
-          deps.tools.replaceChildren(renderNode(newTrainButton(), document));
-        },
+    // In the side pane (plan 8M-22), the stop's popup closed; its place the first stop and how
+    // many more ("Same task at more stops…": its report's stop until one is added).
+    const home = formHome(deps.frame, {
+      control,
+      place: () => {
+        const first = open?.stops[0]?.name;
+        const more = (open?.stops.length ?? 0) - 1;
+        if (first !== undefined) return more > 0 ? `${first} +${String(more)}` : first;
+        return open?.mode.kind === 'more' ? open.mode.report.stop.name : undefined;
       },
-      box && control ? { box, control } : undefined,
-    );
+    });
     if (!home.open()) {
       say(FORM_OPEN);
       return;
     }
-    if (home.inPane()) deps.closePopup();
     const state: ResearchFormState = { query: '' };
     open = { home, stops, state, mode, lists: undefined, near: 'loading', flying: false };
     if (mode.kind === 'more') setAdding(true);
@@ -491,9 +487,12 @@ export function researchUi(deps: ResearchUiDeps) {
       if (stop) openForm([stop], { kind: 'new' }, focus, button);
     },
 
-    /** The Report button's step 3 at a stop the map offers no popup's button for. */
-    researchAt(stop: PickedStop): void {
-      openForm([stop], { kind: 'new' }, 'input[name="query"]');
+    /**
+     * The Report button's step 3 at a stop (plan 8M-22: straight in the side pane, the stop's
+     * popup not opened first), Cancel giving the focus to `control` (the Report button).
+     */
+    researchAt(stop: PickedStop, control?: HTMLElement | null): void {
+      openForm([stop], { kind: 'new' }, 'input[name="query"]', control);
     },
 
     /** "Same task at more stops…" on a research report: its task, stops picked at once. */
