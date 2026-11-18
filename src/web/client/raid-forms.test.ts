@@ -259,6 +259,38 @@ describe('a form open in a popup (FormHold)', () => {
     return { shown, after, drawn, views, controls, hold };
   };
 
+  // Plan 8M-22: a form hops between the phone's card and the docked pane, its claim moved.
+  it('moves a claim to another place without letting go: the controls stay off, the old one holds no more', () => {
+    const { hold, controls } = holding();
+    const changed: number[] = [];
+    const watched = new FormHold<string>({
+      draw: () => undefined,
+      popup: () => undefined,
+      later: (run) => {
+        run();
+      },
+      controls: (on) => controls.push(on),
+      changed: () => changed.push(1),
+    });
+    const inCard = watched.take('card');
+    if (!inCard) throw new Error('no claim');
+    const aside = watched.moved(inCard, false, true);
+    expect(aside?.aside).toBe(true);
+    expect(aside?.inCard).toBeUndefined();
+    expect(watched.holds(inCard)).toBe(false);
+    expect(aside && watched.holds(aside)).toBe(true);
+    expect(watched.asideHeld).toBe(true);
+    // Taken once, never let go between.
+    expect(controls).toEqual([false]);
+    expect(changed).toEqual([1, 1]);
+    // The card's closing takes an aside claim nothing.
+    watched.cardClosed();
+    expect(watched.editing).toBe(true);
+    // A claim that no longer holds moves nothing.
+    expect(watched.moved(inCard, 'card')).toBeUndefined();
+    expect(hold.editing).toBe(false);
+  });
+
   /** A form opened: its claim taken, its lists come, drawn, and its popup fitted to it. */
   const openForm = (hold: FormHold<string>, inPopup = true): FormClaim => {
     const claim = hold.take(inPopup);

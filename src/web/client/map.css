@@ -2982,6 +2982,7 @@ path.highlighted {
   display: flex;
   flex-direction: column;
   max-height: 85vh;
+  max-height: 85dvh;
   border-top: var(--card-bar) solid var(--accent);
   border-radius: 12px 12px 0 0;
   background: var(--card-bg);
@@ -3057,6 +3058,36 @@ path.highlighted {
 .party-card .card-body {
   overflow-y: auto;
   padding: 0 16px 16px;
+}
+
+/*
+ * The card's form mode (plan 8M-22, `PhoneCard.openForm`): the card as tall as it may be (in `dvh`,
+ * which leaves out the browser's own bars; above the keyboard by `visualViewport`), its handle
+ * hidden and its × on the right, the form's body scrolling over its row, which stays at the card's
+ * foot.
+ */
+.party-card.form {
+  height: 85vh;
+  height: 85dvh;
+  max-height: 85dvh;
+}
+
+.party-card.form .card-top {
+  justify-content: flex-end;
+}
+
+.party-card .card-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 16px;
+}
+
+.party-card .card-form > * > .form-foot {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 0 12px;
+  background: var(--card-bg);
 }
 
 .party-card.summary .post > .post-text:not(.role-head),

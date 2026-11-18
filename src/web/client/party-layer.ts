@@ -610,6 +610,9 @@ function popupContent(popup: L.Popup | undefined): Element | null | undefined {
   return popup?.getElement()?.querySelector('.leaflet-popup-content');
 }
 
+/** What the page says of a place opened while a form is open in the phone's card (plan 8M-22). */
+const FORM_OPEN = 'Close the form that is open first.';
+
 /**
  * The place a popup or card shows, for the line under a form's heading (plan 8M-22): its name, else
  * its post's heading; none where it shows neither.
@@ -864,24 +867,42 @@ export function showParties(
 
   /**
    * Where every form opens (plan 8M-22, `formHome`): the side pane's box, an aside claim of the
-   * hold; the popup or card of the place it was opened from closed, the place it showed named
-   * under the form's heading, and opened again on Cancel (Matt's ruling 1): a party's by its key,
-   * on its own marker (`openParty` for a raid's or a battle's, as after their forms), none where
-   * the party has ended meanwhile; a plain popup (a gym's, a PokéStop's) as it was.
+   * hold, or on a phone the card's form mode (`cardWanted`, asked as the form opens); the popup of
+   * the place it was opened from closed (the card's party stays under a form in the card), the
+   * place it showed named under the form's heading, and opened again on Cancel (Matt's ruling 1):
+   * a party's by its key, on its own marker (`openParty` for a raid's or a battle's, as after their
+   * forms), none where the party has ended meanwhile; a plain popup (a gym's, a PokéStop's) as it
+   * was.
    */
   const formFrame: FormFrame = {
     tools,
     hold,
+    card: {
+      get key() {
+        return card.key;
+      },
+      openForm: (form, cancel) => {
+        card.openForm(form, cancel);
+      },
+      closeForm: () => {
+        card.closeForm();
+      },
+      close: () => {
+        card.close();
+      },
+      formElement: () => card.formElement(),
+    },
+    phone: () => cardWanted(),
     idle: () => {
       tools.replaceChildren(renderNode(newTrainButton(), document));
     },
-    leave: () => {
+    leave: (inCard = false) => {
       const shown = card.content() ?? popupContent(showing.popup) ?? undefined;
       const place = placeNamed(shown);
       const key = card.key ?? showing.key;
       const popup = card.key === undefined ? showing.popup : undefined;
       map.closePopup();
-      card.close();
+      if (!inCard) card.close();
       if (key === undefined && popup === undefined) return place === undefined ? {} : { place };
       const back = (): void => {
         if (key !== undefined) {
@@ -904,6 +925,8 @@ export function showParties(
       interactive: false,
       keyboard: false,
     }).addTo(map);
+    // On a phone the point clear above the form's card (Matt's ruling 3), as a tap's is.
+    if (card.formShown) panAboveCard(L.latLng(point.lat, point.lon));
     return () => {
       pin.remove();
     };
@@ -1564,16 +1587,17 @@ export function showParties(
       autoPan: !cardWanted(),
     });
     target.on('popupopen', () => {
+      // A form in the card (plan 8M-22): nothing else opens (the map's `popupopen` said so).
+      if (card.formShown) {
+        target.closePopup();
+        return;
+      }
       if (cardWanted()) {
         const at = target.getPopup()?.getLatLng();
         target.closePopup();
         card.open(key, () => contents.get(key)?.() ?? content());
         // What was tapped stays in sight above the card (review 8A-8).
-        if (at) {
-          const point = map.latLngToContainerPoint(at);
-          const clear = map.getSize().y - card.height - 24;
-          if (point.y > clear) map.panBy([0, point.y - clear]);
-        }
+        if (at) panAboveCard(at);
         drawBadges();
         return;
       }
@@ -1591,6 +1615,12 @@ export function showParties(
       prefetchKey(key);
     });
     return target;
+  };
+  /** The point `at` panned clear above the phone card (review 8A-8), where the card covers it. */
+  const panAboveCard = (at: L.LatLng): void => {
+    const point = map.latLngToContainerPoint(at);
+    const clear = map.getSize().y - card.height - 24;
+    if (point.y > clear) map.panBy([0, point.y - clear]);
   };
   /** What each popup shows, by its key: the phone card draws the same. */
   const contents = new Map<string, () => HTMLElement>();
@@ -2509,6 +2539,13 @@ export function showParties(
   // clicks stay in it (`keepClicksInPopup`): a button a click takes out of the page would
   // otherwise close the popup.
   map.on('popupopen', (event) => {
+    // A form in the phone's card (plan 8M-22, Matt's ruling 2): a tap on another marker, a plain
+    // popup, anything that would open one, opens nothing and says so.
+    if (card.formShown) {
+      map.closePopup(event.popup);
+      say(FORM_OPEN);
+      return;
+    }
     showing.opened(event.popup);
     // Anything else opened clears a train's numbers; a train's popup draws them under its key.
     drawBadges();

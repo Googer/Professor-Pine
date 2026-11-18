@@ -15,6 +15,13 @@ describe('the phone card of a party (plan 8M-8A)', () => {
     expect(afterSwipe('whole', SWIPE_PIXELS - 1)).toBe('whole');
   });
 
+  // Plan 8M-22: a slip of the finger would lose what was typed.
+  it('stays where it is in form mode, whatever the swipe', () => {
+    expect(afterSwipe('whole', SWIPE_PIXELS, true)).toBe('whole');
+    expect(afterSwipe('whole', 200, true)).toBe('whole');
+    expect(afterSwipe('whole', -200, true)).toBe('whole');
+  });
+
   it('switches between the summary and the whole post with a tap on its handle, saying which', () => {
     expect(afterTap('summary')).toBe('whole');
     expect(afterTap('whole')).toBe('summary');
@@ -280,6 +287,83 @@ describe('the phone card on the page (review 8A-1, 8A-8)', () => {
     summary.append(name);
     card.refresh(() => summary as unknown as HTMLElement);
     expect(element.attributes.get('aria-label')).toBe('Library');
+  });
+
+  // Plan 8M-22: a form in the card is a layer over what it showed, closed only as its Cancel.
+  describe('in form mode', () => {
+    /** A form with its heading, as the forms draw theirs. */
+    const formOf = (doc: FakeDocument) => {
+      const form = doc.createElement('div');
+      const heading = doc.createElement('strong');
+      heading.className = 'name';
+      heading.textContent = 'Report field research';
+      form.append(heading);
+      return form;
+    };
+
+    it('shows the form over the party, whole, its handle hidden, named by the form', () => {
+      const { doc, card, element, part } = opened();
+      const cancels: number[] = [];
+      card.openForm(formOf(doc) as unknown as HTMLElement, () => cancels.push(1));
+      expect(card.formShown).toBe(true);
+      expect(element.classList.contains('whole')).toBe(true);
+      expect(element.classList.contains('form')).toBe(true);
+      expect(part('card-handle').hidden).toBe(true);
+      expect(part('card-body').hidden).toBe(true);
+      expect(part('card-form').hidden).toBe(false);
+      expect(element.attributes.get('aria-label')).toBe('Report field research');
+      // The card's party stays what it is under it.
+      expect(card.key).toBe('gym:1');
+    });
+
+    it('is closed by its × and Escape as its Cancel, by nothing else', () => {
+      const { doc, card, element, part, closed } = opened();
+      const cancels: number[] = [];
+      card.openForm(formOf(doc) as unknown as HTMLElement, () => cancels.push(1));
+      // A tap on the map, a closePopup of the page: the card holds the form.
+      card.close();
+      expect(element.hidden).toBe(false);
+      expect(card.formShown).toBe(true);
+      // A swipe down does not close it.
+      const top = part('card-top');
+      top.fire('pointerdown', { clientY: 300 });
+      top.fire('pointerup', { clientY: 500 });
+      expect(element.hidden).toBe(false);
+      // Another party opening in its place opens nothing.
+      card.open('train:t1', () => doc.createElement('div') as unknown as HTMLElement);
+      expect(card.key).toBe('gym:1');
+      part('card-close').fire('click');
+      doc.activeElement = null;
+      doc.key('Escape');
+      expect(cancels).toEqual([1, 1]);
+      expect(closed).toEqual([]);
+    });
+
+    it('shows what it showed before as the form closes', () => {
+      const { doc, card, element, part, closed } = opened();
+      card.openForm(formOf(doc) as unknown as HTMLElement, () => undefined);
+      card.closeForm();
+      expect(card.formShown).toBe(false);
+      expect(element.classList.contains('summary')).toBe(true);
+      expect(element.classList.contains('form')).toBe(false);
+      expect(part('card-handle').hidden).toBe(false);
+      expect(part('card-body').hidden).toBe(false);
+      expect(part('card-form').hidden).toBe(true);
+      expect(card.key).toBe('gym:1');
+      expect(closed).toEqual([]);
+    });
+
+    it("opens from a closed card (a plain popup's form), and closes with the form", () => {
+      const { doc, card, element, closed } = opened();
+      card.close();
+      closed.length = 0;
+      card.openForm(formOf(doc) as unknown as HTMLElement, () => undefined);
+      expect(element.hidden).toBe(false);
+      expect(card.key).toBeUndefined();
+      card.closeForm();
+      expect(element.hidden).toBe(true);
+      expect(closed).toEqual([1]);
+    });
   });
 
   // Plan 8M-13 (A2): the card is drawn anew under a press, so it moves itself for a refusal.

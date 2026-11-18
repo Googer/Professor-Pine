@@ -267,16 +267,23 @@ export function researchUi(deps: ResearchUiDeps) {
     }
   };
 
-  const setAdding = (on: boolean): void => {
+  /**
+   * Stops picked on the map, or no longer. Picking needs the map: a phone's form goes from its
+   * card to the side pane docked under the map (plan 8M-22), its state with it, and back into the
+   * card when it ends (`back`; not as the form closes).
+   */
+  const setAdding = (on: boolean, back = true): void => {
     if (!open || (open.state.adding === true) === on) return;
-    // Picking stops needs the map: a form in a popup goes to the side pane, its state with it.
     if (on && !open.home.toPane()) {
       say(FORM_OPEN);
       return;
     }
     open.state.adding = on;
     deps.picking(on);
-    if (!on) return;
+    if (!on) {
+      if (back) open.home.toCard();
+      return;
+    }
     // As the Report button's step 2 (branch review W6): the map in to where the PokéStops are
     // drawn, at the form's last stop (re-review X2), whose answer lists the nearest (`onStops`).
     const now = open;
@@ -314,7 +321,7 @@ export function researchUi(deps: ResearchUiDeps) {
   const close = (how: 'back' | 'done'): void => {
     const was = open;
     if (!was) return;
-    setAdding(false);
+    setAdding(false, false);
     open = undefined;
     was.home.close(how);
   };

@@ -590,6 +590,24 @@ export class FormHold<V> {
     return claim;
   }
 
+  /**
+   * The form that holds moves (plan 8M-22: a phone's form between its card and the docked pane):
+   * its new claim, or none when `claim` no longer holds. Nothing is let go between, so nothing
+   * that waited is drawn and the controls stay off; the page hears of it (`changed`: the pane
+   * docked or not).
+   */
+  moved(claim: FormClaim, place: boolean | 'card', aside = false): FormClaim | undefined {
+    if (!this.holds(claim)) return undefined;
+    const next: FormClaim = {
+      inPopup: place === true,
+      ...(place === 'card' ? { inCard: true } : {}),
+      ...(aside ? { aside } : {}),
+    };
+    this.holder = next;
+    this.deps.changed?.();
+    return next;
+  }
+
   /** Whether this form is the one that holds. */
   holds(claim: FormClaim): boolean {
     return this.holder === claim;

@@ -74,6 +74,11 @@ export function fakeFormFrame(
       holder = undefined;
       onRelease.run();
     },
+    moved: (claim, place, aside) => {
+      if (claim !== holder) return undefined;
+      holder = { inPopup: place === true, aside: aside === true };
+      return holder as never;
+    },
   };
   const frame: FormFrame = {
     tools: tools as unknown as HTMLElement,

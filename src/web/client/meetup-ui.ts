@@ -165,6 +165,8 @@ export function meetupUi(deps: MeetupUiDeps) {
     if (!making) return;
     making.place = place;
     endPicking();
+    // The map no longer needed: a phone's form back into its card (plan 8M-22).
+    making.home.toCard();
     drawMaking();
   });
 
@@ -278,6 +280,7 @@ export function meetupUi(deps: MeetupUiDeps) {
     }
     if (target.dataset.pick === 'stop') {
       endPicking();
+      making.home.toCard();
       drawMaking();
       return;
     }

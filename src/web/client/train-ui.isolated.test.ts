@@ -455,6 +455,7 @@ function page(
       release: (claim) => {
         hold.release(claim);
       },
+      moved: (claim, place, aside) => hold.moved(claim, place, aside),
     },
     idle: () => {
       tools.replaceChildren(renderNode(newTrainButton(), document));

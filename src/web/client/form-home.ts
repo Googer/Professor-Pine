@@ -5,24 +5,45 @@ import type { FormClaim, FormHold } from './raid-forms.js';
 /**
  * Where a form of the map is (plan 8M-22, Matt 2026-11-18: "UI consistency is why I think we
  * actually want it for _anything_"): once a place is picked, every form opens in one place of its
- * own, the side pane's box, never in the place's popup or card, which closes as the form opens
- * (`FormFrame.leave`). Its heading names the place in a line of its own under it (`form-place`).
- * Cancel goes back to where the member was (Matt's ruling 1): the place's popup opened again, the
- * focus on the control that opened the form (`liveControl`: the popup drawn anew). A success
- * lets the page open what was made (`close('done')`), or the post the form changed
- * (`close('back')`).
+ * own, on a wide screen the side pane's box (an aside claim), narrower the phone's card in its form
+ * mode (a `'card'` claim, never aside: the pane is not docked for it). The place's popup closes
+ * (`FormFrame.leave`; a party the card showed stays under the form) and the form's heading names
+ * the place in a line of its own under it (`form-place`). Cancel goes back to where the member was
+ * (Matt's ruling 1): the card as it was, else the place's popup opened again, the focus on the
+ * control that opened the form (`liveControl`: the popup drawn anew). A success lets the page open
+ * what was made (`close('done')`), or the post the form changed (`close('back')`).
+ *
+ * Where it opened it stays until it closes (a window resized across 768 px moves nothing), but for
+ * a phone's form that needs the map ("Add stops…", "Pick on the map"): it hops to the side pane
+ * docked under the map (`toPane`) and back into the card when that ends (`toCard`), with what was
+ * typed.
  */
 export interface FormFrame {
   /** The side pane's box. */
   tools: HTMLElement;
-  hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'release'>;
+  hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'release' | 'moved'>;
   /** The side pane's box as it is without a form. */
   idle(): void;
   /**
-   * The popup or card the form opens from, closed: the place it showed (its name, for the form's
-   * place line) and what opens it again; nothing where none was open.
+   * The popup or card the form opens from, closed (not the card when the form opens in it,
+   * `inCard`): the place it showed (its name, for the form's place line) and what opens it again;
+   * nothing where none was open.
    */
-  leave(): { place?: string; back?: () => void };
+  leave(inCard?: boolean): { place?: string; back?: () => void };
+  /** The phone's card (`PhoneCard`), where a form opens on a phone. */
+  card?: FormCard;
+  /** Whether a form opens in the card now (`cardWanted`: a screen narrower than 768 px). */
+  phone?(): boolean;
+}
+
+/** What a form needs of the phone's card (`PhoneCard`). */
+export interface FormCard {
+  /** The party the card shows, if any. */
+  readonly key: string | undefined;
+  openForm(form: HTMLElement, cancel: () => void): void;
+  closeForm(): void;
+  close(): void;
+  formElement(): HTMLElement | undefined;
 }
 
 /** Where a form was opened from. */
@@ -50,17 +71,26 @@ export interface FormHome {
   element(): HTMLElement;
   /** Draws the form, its place under its heading; the heading takes the focus at the first. */
   draw(form: HTMLElement): void;
-  /** Where the form needs the map (Add stops…, Pick on the map): it is in the side pane. */
+  /**
+   * The form needs the map (Add stops…, Pick on the map): in the side pane, a phone's moved there
+   * from its card (docked under the map), its claim moved aside before the card closes; false
+   * where it no longer holds.
+   */
   toPane(): boolean;
   /**
-   * The form closed: the side pane's box as it is without a form, the claim let go; `back`
-   * (Cancel, a change that went through) also opens the place again with the focus on the form's
-   * control; `done` leaves the page to open what was made.
+   * The map no longer needed ("Done adding", a place picked): a phone's form back into its card,
+   * the claim the card's once the card has it. Nothing on a wide screen.
+   */
+  toCard(): void;
+  /**
+   * The form closed: the side pane's box as it is without a form (or the card as it was), the
+   * claim let go; `back` (Cancel, a change that went through) also opens the place again with the
+   * focus on the form's control; `done` leaves the page to open what was made.
    */
   close(how?: 'back' | 'done'): void;
 }
 
-/** What the side pane shows while a form's lists are on their way. */
+/** What the side pane or card shows while a form's lists are on their way. */
 const LOADING = 'Loading…';
 
 /** The heading of a form: the node marked as such, else its title or name. */
@@ -86,51 +116,111 @@ function placeLine(form: HTMLElement, place: string | undefined): void {
 }
 
 export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
-  const { hold } = frame;
+  const { hold, card } = frame;
   let claim: FormClaim | undefined;
   let left: { place?: string; back?: () => void } = {};
   let drawn = false;
+  /** Where the form is now: the side pane, or the phone's card. */
+  let where: 'pane' | 'card' = 'pane';
+  /** Whether the card showed a party under the form, which it shows again as the form closes. */
+  let cardShowed = false;
 
   const holds = (): boolean => claim !== undefined && hold.holds(claim);
+  const element = (): HTMLElement =>
+    where === 'card' ? (card?.formElement() ?? frame.tools) : frame.tools;
 
-  return {
+  /** The card's × and Escape: the form's own Cancel, or the form closed while it loads. */
+  const cancelPressed = (): void => {
+    const cancel = element().querySelector<HTMLButtonElement>('button[data-cancel]');
+    if (cancel) cancel.click();
+    else home.close('back');
+  };
+
+  const loadingLine = (): HTMLElement => {
+    const loading = document.createElement('p');
+    loading.className = 'hint form-loading';
+    loading.textContent = LOADING;
+    return loading;
+  };
+
+  const home: FormHome = {
     open() {
+      if (card && frame.phone?.() === true) {
+        claim = hold.take('card');
+        if (!claim) return undefined;
+        where = 'card';
+        cardShowed = card.key !== undefined;
+        left = frame.leave(true);
+        card.openForm(loadingLine(), cancelPressed);
+        return claim;
+      }
       // An aside claim (the review's ruling): the list goes on being drawn under it.
       claim = hold.take(false, true);
       if (!claim) return undefined;
       left = frame.leave();
-      const loading = document.createElement('p');
-      loading.className = 'hint form-loading';
-      loading.textContent = LOADING;
-      frame.tools.replaceChildren(loading);
+      frame.tools.replaceChildren(loadingLine());
       return claim;
     },
-    inPane: () => true,
+    inPane: () => where === 'pane',
     holds,
-    element: () => frame.tools,
+    element,
     draw(form) {
       placeLine(form, opener.place?.() ?? left.place);
-      frame.tools.replaceChildren(form);
+      if (where === 'card' && card) card.openForm(form, cancelPressed);
+      else frame.tools.replaceChildren(form);
       if (drawn) return;
       drawn = true;
       // The form's heading takes the focus as it opens (the control that had it is gone with its
-      // popup); a form that focuses a field of its own moves it on.
+      // popup, or under the card's form); a form that focuses a field of its own moves it on.
       const heading = headingOf(form);
       if (heading) {
         if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
         heading.focus();
       }
     },
-    toPane: holds,
+    toPane() {
+      if (where === 'pane') return holds();
+      if (!claim || !card) return false;
+      // The claim aside first (the review's ruling): the card's closing takes no aside claim.
+      const moved = hold.moved(claim, false, true);
+      if (!moved) return false;
+      claim = moved;
+      const form = card.formElement()?.firstElementChild;
+      card.closeForm();
+      card.close();
+      cardShowed = false;
+      where = 'pane';
+      if (form) frame.tools.replaceChildren(form);
+      return true;
+    },
+    toCard() {
+      if (where === 'card' || !card || frame.phone?.() !== true || !claim || !holds()) return;
+      const form = frame.tools.firstElementChild;
+      // The card opened first, the claim the card's after (its opening may close a party shown).
+      card.openForm(form instanceof HTMLElement ? form : loadingLine(), cancelPressed);
+      // In the card before the page hears of the move: the pane is docked no more.
+      where = 'card';
+      const moved = hold.moved(claim, 'card');
+      if (!moved) {
+        where = 'pane';
+        return;
+      }
+      claim = moved;
+      frame.idle();
+    },
     close(how = 'done') {
       const held = holds();
-      if (held) frame.idle();
+      const inCard = where === 'card';
+      if (held && !inCard) frame.idle();
       if (claim) hold.release(claim);
       claim = undefined;
+      // The card as it was: what it showed, or closed.
+      if (inCard) card?.closeForm();
       if (how !== 'back' || !held) return;
-      left.back?.();
+      if (!(inCard && cardShowed)) left.back?.();
       // Opening the place again drew it anew: the control in it as it is now.
       if (opener.control) focusBack(liveControl(opener.control));
     },
   };
+  return home;
 }

@@ -150,6 +150,10 @@ export class FakeElement {
     this.append(...children);
   }
 
+  get firstElementChild(): FakeElement | null {
+    return this.childNodes[0] ?? null;
+  }
+
   get parentElement(): FakeElement | null {
     return this.parent ?? null;
   }

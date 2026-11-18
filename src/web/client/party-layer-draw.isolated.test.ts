@@ -234,7 +234,37 @@ const fake = vi.hoisted(() => {
     }
     /** What it shows while open, as the party layer drew it. */
     drawn: unknown;
+    /**
+     * Its form mode (plan 8M-22), as the real card's: the form over what it shows, in a layer of
+     * the page; where it was before, and the form's Cancel, which its × and Escape press.
+     */
+    form: { before: string | undefined; cancel: () => void } | undefined;
+    layer: PageElement | undefined;
+    get formShown() {
+      return this.form !== undefined;
+    }
+    openForm(form: unknown, cancel: () => void) {
+      this.form ??= { before: this.key, cancel };
+      this.form.cancel = cancel;
+      this.layer ??= new PageElement('div');
+      this.layer.className = 'card-form';
+      page.body?.append(this.layer);
+      this.layer.replaceChildren(form as PageElement);
+    }
+    formElement() {
+      return this.form === undefined ? undefined : this.layer;
+    }
+    closeForm() {
+      const { form } = this;
+      if (!form) return;
+      this.form = undefined;
+      this.layer?.replaceChildren();
+      this.layer?.remove();
+      if (form.before === undefined) this.hooks.onClose?.();
+    }
     open(key: string, content?: () => unknown) {
+      // A form in the card stays (plan 8M-22): nothing opens in its place.
+      if (this.form) return;
       // As the real card: another party in its place closes the first for the page.
       if (this.key !== undefined && this.key !== key) this.hooks.onClose?.();
       this.key = key;
@@ -248,6 +278,7 @@ const fake = vi.hoisted(() => {
       if (content === undefined) this.close();
     }
     close() {
+      if (this.form) return;
       if (this.key === undefined) return;
       this.key = undefined;
       this.hooks.onClose?.();
@@ -3282,7 +3313,7 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
     });
 
     it("offers it in a Power Spot's card between Report max battle here and Start train here, reported at the spot", async () => {
-      const { raids, reportHeader, spawnSent, panel } = await started({
+      const { raids, reportHeader, spawnSent, panel, card } = await started({
         raids: true,
         phone: true,
         regions: REGIONS,
@@ -3298,7 +3329,9 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
       atSpot.querySelector('button[data-spawn-spot]')?.dispatch('click');
       expect(reportHeader()?.disabled).toBe(true);
       const form = await drawn;
-      expect(panel.querySelector('[data-form="spawn"]') === form).toBe(true);
+      // On a phone in the card's form mode (plan 8M-22), not in the side pane.
+      expect(card()?.formElement()?.querySelector('[data-form="spawn"]') === form).toBe(true);
+      expect(panel.querySelector('[data-form="spawn"]')).toBeNull();
       expect(await reported(form, spawnSent())).toEqual({
         pokemon: 'dratini',
         details: 'by the bench',
@@ -3633,7 +3666,33 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       expect(frameTold.picks).toEqual([true, false]);
     });
 
-    it("leaves no phone card over the pane when a meetup's form opens there", async () => {
+    // Plan 8M-22, Matt's ruling 2: only Cancel, × and Escape close a form in the card.
+    it('keeps a form in the card through a tap on the map and a long press, Cancel showing the party', async () => {
+      const { raids, panel, card, markerOf, fire } = await started({
+        raids: true,
+        phone: true,
+        regions: REGIONS,
+        parties: view({ raids: [raidAt(1)], maxes: [] }),
+      });
+      markerOf(raidAt(1).heading)?.openPopup();
+      const shown = placeShowing('party-card', raids.gymControls(LIBRARY));
+      shown.querySelector('button[data-train-here]')?.dispatch('click');
+      const form = () => card()?.formElement()?.querySelector('[data-form="train"]');
+      expect(form()).not.toBeNull();
+      expect(panel.querySelector('[data-form="train"]')).toBeNull();
+      fire('click', { latlng: { lat: 40.45, lng: -79.95 } });
+      expect(form()).not.toBeNull();
+      fire('contextmenu', { latlng: { lat: 40.45, lng: -79.95 } });
+      expect(page.byId.get('notice-text')?.textContent).toBe(FORM_OPEN);
+      expect(form()).not.toBeNull();
+      form()?.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(card()?.formShown).toBe(false);
+      expect(card()?.key).toBe('gym:1');
+    });
+
+    // Plan 8M-22: on a phone a form is a layer over the card; it hops to the docked pane while
+    // it needs the map, and back.
+    it("opens a meetup's form over the card's party, docked in the pane to pick its place, and back", async () => {
       const { raids, panel, card, markerOf } = await started({
         raids: true,
         phone: true,
@@ -3644,10 +3703,38 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       expect(card()?.key).toBe('gym:1');
       const shown = placeShowing('party-card', raids.gymControls(LIBRARY));
       shown.querySelector('button[data-meetup-here]')?.dispatch('click');
+      // Over the party the card shows, not in the pane, the pane not docked.
+      expect(card()?.key).toBe('gym:1');
+      expect(card()?.formElement()?.querySelector('[data-form="meetup"]')).not.toBeNull();
+      expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
+      expect(page.body?.classList.contains('form-docked')).toBe(false);
+      // A tap on another marker opens nothing, and says so.
+      markerOf(raidAt(1).heading)?.openPopup();
+      expect(page.byId.get('notice-text')?.textContent).toBe(FORM_OPEN);
+      // Pick on the map: to the docked pane, the card closed, what was typed kept.
+      const name = card()?.formElement()?.querySelector('input[name="name"]');
+      if (name) Object.assign(name, { name: 'name', value: 'Picnic' });
+      card()?.formElement()?.querySelector('button[data-pick="start"]')?.dispatch('click');
       expect(card()?.key).toBeUndefined();
-      panel.querySelector('button[data-pick="start"]')?.dispatch('click');
-      expect(card()?.key).toBeUndefined();
+      expect(card()?.formShown).toBe(false);
       expect(panel.querySelector('[data-form="meetup"]')).not.toBeNull();
+      expect(page.body?.classList.contains('form-docked')).toBe(true);
+      const docked = panel.querySelector('input[name="name"]');
+      expect(docked?.getAttribute('value')).toBe('Picnic');
+      // (These fakes keep a field's value apart from the attribute it was drawn with.)
+      if (docked) Object.assign(docked, { name: 'name', value: 'Picnic' });
+      // Stop picking: back into the card, with the name typed.
+      panel.querySelector('button[data-pick="stop"]')?.dispatch('click');
+      expect(card()?.formShown).toBe(true);
+      expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
+      expect(
+        card()?.formElement()?.querySelector('input[name="name"]')?.getAttribute('value'),
+      ).toBe('Picnic');
+      expect(page.body?.classList.contains('form-docked')).toBe(false);
+      // Cancel: the card's party it hopped out of opened again.
+      card()?.formElement()?.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(card()?.formShown).toBe(false);
+      expect(card()?.key).toBe('gym:1');
     });
   });
 
