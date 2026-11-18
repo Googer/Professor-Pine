@@ -67,7 +67,7 @@ function groupButton(): FakeElement {
  * `fetch`, and `done` drawing the post anew, as the list does after a form went through (its
  * buttons new elements).
  */
-function page() {
+function page(phone = false) {
   resetFocus();
   const body = make('body');
   body.page = true;
@@ -102,7 +102,14 @@ function page() {
     controls: () => undefined,
   });
   // The forms in the side pane (plan 8M-22), the post's popup closed while one is open.
-  const pane = fakeFormFrame(body, post, undefined, hold);
+  const pane = fakeFormFrame(
+    body,
+    post,
+    undefined,
+    hold,
+    // On a phone (review P7): the card shows the party, the form a layer over it.
+    phone ? { phone: { showing: 'gym:1' } } : {},
+  );
   let redrawn: FakeElement | undefined;
   /** The parties whose popup or card a form had closed. */
   const closed: unknown[] = [];
@@ -346,6 +353,26 @@ describe('the forms of the post’s controls in a popup drawn anew (review B-1)'
     content.querySelector('button[data-cancel]')?.dispatch('click');
     expect(content.querySelector('.note-box')).toBeNull();
     expect(current().isConnected).toBe(true);
+  });
+});
+
+// Review P7: on a phone a post's form is a layer over the card that shows its party.
+describe('the forms of the post’s controls on a phone (plan 8M-22)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('opens Group… over the card, claimed as the card’s; Cancel shows the post again', async () => {
+    const { ui, button, pane, post } = page(true);
+    const drawn = pane.tools.nextForm();
+    ui.regroupClicked(button as unknown as HTMLButtonElement, raid);
+    const form = await drawn;
+    expect(pane.card?.layer.childNodes).toEqual([form]);
+    expect(pane.tools.childNodes).toEqual([pane.idle]);
+    expect(post.isConnected).toBe(true);
+    form.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(pane.card?.formShown()).toBe(false);
+    expect(focused().at(-1) === button).toBe(true);
   });
 });
 

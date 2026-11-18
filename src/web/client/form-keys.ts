@@ -1,4 +1,5 @@
 import { isOff } from './form-buttons.js';
+import { sayMissing } from './form-check.js';
 
 /**
  * Enter on a field the form's own. Not a text area (a new line), a menu or a button (their own
@@ -54,8 +55,12 @@ export function formKeys(form: HTMLElement): void {
     event.stopPropagation();
     event.preventDefault();
     // A Submit off by the form's check (plan 8M-22: `aria-disabled`, which a click passes
-    // through) stays unpressed, as a disabled one does; its line says why.
-    if (event.key === 'Enter' && isOff(button)) return;
+    // through) stays unpressed, as a disabled one does; its line says why once more, as a press
+    // of it does (review P9).
+    if (event.key === 'Enter' && isOff(button)) {
+      sayMissing(form);
+      return;
+    }
     button.click();
   });
 }

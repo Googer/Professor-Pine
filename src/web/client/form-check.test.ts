@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FakeElement, make } from '../../../test/support/fake-page.js';
 import { liveCheck } from './form-check.js';
+import { formKeys } from './form-keys.js';
 
 /** A form with a field, Report and its line, as `formRow` draws them. */
 function form() {
@@ -74,6 +75,35 @@ describe('the live check of a form (plan 8M-22)', () => {
     made.send.dispatch('click');
     expect(made.line.textContent).toBe('');
     expect(made.line.getAttribute('aria-live')).toBe('polite');
+    expect(frames).toHaveLength(1);
+    frames[0]?.();
+    expect(made.line.textContent).toBe('Pick the boss first.');
+  });
+
+  // Review P9: Enter on an off Report says the line once, as a press of it does.
+  it('says the line once more on Enter in a field while Report is off, sending nothing', () => {
+    const made = form();
+    const frames: (() => void)[] = [];
+    const sent: number[] = [];
+    made.send.addEventListener('click', () => sent.push(1));
+    liveCheck(made.element as unknown as HTMLElement, () => 'Pick the boss first.', {
+      nextFrame: (run) => frames.push(run),
+    });
+    formKeys(made.element as unknown as HTMLElement);
+    made.field.setAttribute('type', 'text');
+    made.field.dispatch('keydown', {
+      key: 'Enter',
+      keyCode: 13,
+      repeat: false,
+      isComposing: false,
+      shiftKey: false,
+      ctrlKey: false,
+      altKey: false,
+      metaKey: false,
+      defaultPrevented: false,
+    });
+    expect(sent).toEqual([]);
+    expect(made.line.textContent).toBe('');
     expect(frames).toHaveLength(1);
     frames[0]?.();
     expect(made.line.textContent).toBe('Pick the boss first.');

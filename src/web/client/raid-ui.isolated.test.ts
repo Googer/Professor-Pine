@@ -22,6 +22,10 @@ vi.mock('leaflet', () => ({}));
 function changing(
   answer: { status: number; body: unknown } | { status: number; body: unknown }[],
   moves?: unknown,
+  /** On a phone (review P7): the form in the card, over the raid it shows. */
+  phone = false,
+  /** What is opened: the raid's Manage…, or a report at its gym. */
+  opens: 'change' | 'report' = 'change',
 ) {
   const answers = Array.isArray(answer) ? [...answer] : [answer];
   const posted: string[] = [];
@@ -71,7 +75,13 @@ function changing(
       json: () => Promise.resolve(reply.body),
     });
   });
-  const pane = fakeFormFrame(body, section, 'Library');
+  const pane = fakeFormFrame(
+    body,
+    section,
+    'Library',
+    undefined,
+    phone ? { phone: { showing: 'gym:1' } } : {},
+  );
   const shown = pane.tools.nextForm();
   let done: () => void = () => undefined;
   const finished = new Promise<void>((resolve) => {
@@ -101,7 +111,19 @@ function changing(
     },
   };
   const ui = raidUi(deps);
-  ui.changeClicked(control as unknown as HTMLButtonElement);
+  if (opens === 'change') ui.changeClicked(control as unknown as HTMLButtonElement);
+  else {
+    ui.reportClicked(
+      control as unknown as HTMLElement,
+      {
+        id: 1,
+        name: 'Library',
+        lat: 40.44,
+        lon: -79.95,
+        regionIds: [1],
+      } as never,
+    );
+  }
   return {
     section,
     control,
@@ -319,4 +341,28 @@ describe("a raid's Manage… on the map (review fix F4)", () => {
       expect(quick?.disabled).toBe(true);
     });
   });
+});
+
+// Review P7: on a phone every form is a layer over the card.
+describe("a raid's forms on a phone (plan 8M-22)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each(['change', 'report'] as const)(
+    'opens its %s form in the card over the raid it shows; Cancel shows the raid again',
+    async (opens) => {
+      resetFocus();
+      const made = changing([], undefined, true, opens);
+      const form = await made.shown;
+      expect(made.pane.places).toEqual(['card']);
+      expect(made.pane.card?.layer.childNodes).toEqual([form]);
+      expect(made.tools.childNodes).toEqual([made.pane.idle]);
+      expect(form.querySelector('.form-place')?.textContent).toBe('Library');
+      form.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(made.pane.card?.formShown()).toBe(false);
+      expect(made.pane.held()).toBe(false);
+      expect(focused().at(-1) === made.control).toBe(true);
+    },
+  );
 });

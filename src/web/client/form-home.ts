@@ -25,11 +25,11 @@ export interface FormFrame {
   /** The side pane's box as it is without a form. */
   idle(): void;
   /**
-   * The popup or card the form opens from, closed (not the card when the form opens in it,
-   * `inCard`): the place it showed (its name, for the form's place line) and what opens it again;
-   * nothing where none was open.
+   * The popup or card the form opens from (the one that holds its `control`, review P4), closed (not
+   * the card when the form opens in it, `inCard`): the place it showed (its name, for the form's
+   * place line) and what opens it again; nothing where the form came from none.
    */
-  leave(inCard?: boolean): { place?: string; back?: () => void };
+  leave(inCard?: boolean, control?: HTMLElement | null): { place?: string; back?: () => void };
   /** The phone's card (`PhoneCard`), where a form opens on a phone. */
   card?: FormCard;
   /** Whether a form opens in the card now (`cardWanted`: a screen narrower than 768 px). */
@@ -88,6 +88,16 @@ export interface FormHome {
    * focus on the form's control; `done` leaves the page to open what was made.
    */
   close(how?: 'back' | 'done'): void;
+  /**
+   * What runs as the form closes, whichever way (review P2: Cancel, the card's × or Escape while it
+   * loads, a success): a spawn's or a max battle's pin taken away. Once.
+   */
+  whenClosed(run: () => void): void;
+  /**
+   * What runs once the form is first drawn (review P10: the map pans a point clear of the card by
+   * the card's height with the form in it).
+   */
+  whenDrawn(run: () => void): void;
 }
 
 /** What the side pane or card shows while a form's lists are on their way. */
@@ -122,6 +132,15 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
   let drawn = false;
   /** Where the form is now: the side pane, or the phone's card. */
   let where: 'pane' | 'card' = 'pane';
+  /**
+   * Where it opened (review P6): only a form that opened in the card goes back into it after the
+   * map was needed; a window resized across 768 px moves nothing.
+   */
+  let opened: 'pane' | 'card' = 'pane';
+  /** What runs as the form closes (`whenClosed`). */
+  const closers: (() => void)[] = [];
+  /** What runs once the form is first drawn (`whenDrawn`). */
+  const drawers: (() => void)[] = [];
   /** Whether the card showed a party under the form, which it shows again as the form closes. */
   let cardShowed = false;
 
@@ -136,11 +155,26 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
     else home.close('back');
   };
 
+  /**
+   * "Loading…" while the form's lists are on their way, with a Cancel (review P2: an answer that
+   * never comes leaves no hold stuck), which the card's × and Escape press too.
+   */
   const loadingLine = (): HTMLElement => {
-    const loading = document.createElement('p');
-    loading.className = 'hint form-loading';
-    loading.textContent = LOADING;
-    return loading;
+    const box = document.createElement('div');
+    box.className = 'form-loading';
+    const words = document.createElement('p');
+    words.className = 'hint';
+    words.textContent = LOADING;
+    const cancel = document.createElement('button');
+    cancel.setAttribute('type', 'button');
+    cancel.className = 'press';
+    cancel.setAttribute('data-cancel', '');
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => {
+      home.close('back');
+    });
+    box.append(words, cancel);
+    return box;
   };
 
   const home: FormHome = {
@@ -149,15 +183,16 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
         claim = hold.take('card');
         if (!claim) return undefined;
         where = 'card';
+        opened = 'card';
         cardShowed = card.key !== undefined;
-        left = frame.leave(true);
+        left = frame.leave(true, opener.control);
         card.openForm(loadingLine(), cancelPressed);
         return claim;
       }
       // An aside claim (the review's ruling): the list goes on being drawn under it.
       claim = hold.take(false, true);
       if (!claim) return undefined;
-      left = frame.leave();
+      left = frame.leave(false, opener.control);
       frame.tools.replaceChildren(loadingLine());
       return claim;
     },
@@ -170,6 +205,7 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
       else frame.tools.replaceChildren(form);
       if (drawn) return;
       drawn = true;
+      for (const run of drawers.splice(0)) run();
       // The form's heading takes the focus as it opens (the control that had it is gone with its
       // popup, or under the card's form); a form that focuses a field of its own moves it on.
       const heading = headingOf(form);
@@ -194,7 +230,7 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
       return true;
     },
     toCard() {
-      if (where === 'card' || !card || frame.phone?.() !== true || !claim || !holds()) return;
+      if (where === 'card' || opened !== 'card' || !card || !claim || !holds()) return;
       const form = frame.tools.firstElementChild;
       // The card opened first, the claim the card's after (its opening may close a party shown).
       card.openForm(form instanceof HTMLElement ? form : loadingLine(), cancelPressed);
@@ -209,6 +245,7 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
       frame.idle();
     },
     close(how = 'done') {
+      for (const run of closers.splice(0)) run();
       const held = holds();
       const inCard = where === 'card';
       if (held && !inCard) frame.idle();
@@ -220,6 +257,12 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
       if (!(inCard && cardShowed)) left.back?.();
       // Opening the place again drew it anew: the control in it as it is now.
       if (opener.control) focusBack(liveControl(opener.control));
+    },
+    whenClosed(run) {
+      closers.push(run);
+    },
+    whenDrawn(run) {
+      drawers.push(run);
     },
   };
   return home;

@@ -51,10 +51,11 @@ export interface MaxUiDeps {
   /** Where the forms open (plan 8M-22, `formHome`): the side pane, the place's popup closed. */
   frame: FormFrame;
   /**
-   * The pin of the Report button's step 2 (`report-pin`) at a point, fixed while its form is open;
-   * what takes it away.
+   * The pin of the Report button's step 2 (`report-pin`) at a point, fixed while its form is open:
+   * `drawn` once the form is drawn (on a phone the map pans the point clear of the card, review
+   * P10), `remove` as it closes, whichever way (`whenClosed`, review P2).
    */
-  pinAt(point: { lat: number; lon: number }): () => void;
+  pinAt(point: { lat: number; lon: number }): { drawn: () => void; remove: () => void };
   /** After a report: the list again, and the battle it names opened. */
   done(max: MapMax | undefined): Promise<void>;
   /**
@@ -297,13 +298,14 @@ export function maxUi(deps: MaxUiDeps) {
       const at = spawnPoint(point.lat, point.lon);
       const home = formHome(deps.frame, { control });
       if (!home.open()) return;
-      const unpin = deps.pinAt(at);
+      const pin = deps.pinAt(at);
+      home.whenDrawn(pin.drawn);
+      home.whenClosed(pin.remove);
       void openForm(
         home,
         at,
         UNLISTED_SPOT,
         (how) => {
-          unpin();
           home.close(how);
         },
         focusFirst,

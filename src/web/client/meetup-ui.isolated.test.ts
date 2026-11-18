@@ -54,7 +54,7 @@ const OK = {
  * 8M-22, `fakeFormFrame`), the server answering each change in turn as `answers` say; what the
  * form did to the hold, the popup and the side pane's box.
  */
-function managing(answers: readonly { status: number; body: unknown }[]) {
+function managing(answers: readonly { status: number; body: unknown }[], phone = false) {
   resetFocus();
   const body = make('body');
   body.page = true;
@@ -68,7 +68,14 @@ function managing(answers: readonly { status: number; body: unknown }[]) {
   section.append(control);
   popup.append(section);
   body.append(popup, notice);
-  const pane = fakeFormFrame(body, popup, 'Schenley Park');
+  const pane = fakeFormFrame(
+    body,
+    popup,
+    'Schenley Park',
+    undefined,
+    // On a phone (review P7): the card shows the meetup, the form a layer over it.
+    phone ? { phone: { showing: 'meetup:m1' } } : {},
+  );
   const { tools, idle } = pane;
   const said: string[] = [];
   /** What has the focus: the last focused, or the page itself. */
@@ -200,6 +207,24 @@ function submitName(section: FakeElement, name = 'Feast'): void {
   field?.dispatch('input');
   section.querySelector('button[data-submit]')?.dispatch('click');
 }
+
+// Review P7: on a phone the editor is a layer over the card that shows the meetup.
+describe("a meetup's Manage… on a phone (plan 8M-22)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('opens over the card, claimed as the card’s; Cancel shows the meetup again', () => {
+    const made = managing([], true);
+    expect(made.pane.places).toEqual(['card']);
+    const editor = made.pane.card?.layer.querySelector('[data-form="meetup-edit"]');
+    expect(editor).not.toBeNull();
+    expect(made.tools.childNodes).toEqual([made.idle]);
+    editor?.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(made.pane.card?.formShown()).toBe(false);
+    expect(focused().at(-1) === made.control).toBe(true);
+  });
+});
 
 describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
   afterEach(() => {

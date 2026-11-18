@@ -2678,6 +2678,14 @@ path.highlighted {
   font-size: 12px;
 }
 
+/* "Loading…" while a form's lists are on their way, with its Cancel (review P2). */
+.form-loading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .form-foot > .form-answer[aria-live] {
   color: var(--form-answer);
 }
@@ -3028,14 +3036,13 @@ path.highlighted {
 }
 
 /*
- * The card's form mode (plan 8M-22, `PhoneCard.openForm`): the card as tall as it may be (in `dvh`,
- * which leaves out the browser's own bars; above the keyboard by `visualViewport`), its handle
- * hidden and its × on the right, the form's body scrolling over its row, which stays at the card's
- * foot.
+ * The card's form mode (plan 8M-22, `PhoneCard.openForm`): the card as tall as its form, up to 85% of
+ * the screen (in `dvh`, which leaves out the browser's own bars; review P10), above the keyboard by
+ * `visualViewport`, its handle hidden and its × on the right, the form's body scrolling over its
+ * row, which stays at the card's foot.
  */
 .party-card.form {
-  height: 85vh;
-  height: 85dvh;
+  max-height: 85vh;
   max-height: 85dvh;
 }
 

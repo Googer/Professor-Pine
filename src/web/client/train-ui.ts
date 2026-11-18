@@ -1,5 +1,5 @@
 import { formKeys } from './form-keys.js';
-import { formHome, type FormFrame } from './form-home.js';
+import { formHome, type FormFrame, type FormHome } from './form-home.js';
 import { isOff } from './form-buttons.js';
 import { liveCheck } from './form-check.js';
 import type { PressAnswer } from './press-answer.js';
@@ -168,8 +168,8 @@ export function trainUi(deps: TrainUiDeps) {
     deps.tools.replaceChildren(renderNode(newTrainButton(), document));
   };
 
-  /** The start form, while it is open. */
-  let starting: FormClaim | undefined;
+  /** The start form, while it is open: its claim and where it is (`formHome`). */
+  let starting: { claim: FormClaim; home: FormHome } | undefined;
 
   /**
    * Route mode: the train being arranged, its claim, its saved routes once they came, and what
@@ -505,7 +505,7 @@ export function trainUi(deps: TrainUiDeps) {
       say(FORM_OPEN);
       return;
     }
-    starting = claim;
+    starting = { claim, home };
     const regions = deps.regions.map((region) => ({ id: region.id, name: region.name }));
     const form = renderNode(
       startForm(
@@ -517,7 +517,7 @@ export function trainUi(deps: TrainUiDeps) {
       document,
     );
     const close = (how: 'back' | 'done') => {
-      if (starting === claim) starting = undefined;
+      if (starting?.claim === claim) starting = undefined;
       home.close(how);
     };
     const values = (): StartValues => {
@@ -654,7 +654,8 @@ export function trainUi(deps: TrainUiDeps) {
 
     /** Whether the trains' box holds the start form or the route editor: the list keeps it. */
     inTools(): boolean {
-      return starting !== undefined || routing !== undefined;
+      // The start form only while it is in the side pane, not in the phone's card (review P5).
+      return starting?.home.inPane() === true || routing !== undefined;
     },
   };
 }

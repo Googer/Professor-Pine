@@ -287,3 +287,85 @@ describe('a form on a phone (plan 8M-22)', () => {
     expect(made.isOpen()).toBe(true);
   });
 });
+
+// Review P2: a form whose lists never come is closed by its loading line's Cancel, and every way
+// it closes runs what it asked to be run then (a spawn's or a max battle's pin taken away).
+describe('a form while its lists are on their way', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('has a Cancel under "Loading…" in the side pane, which lets it go and opens the place again', () => {
+    const made = fixture();
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    const closed: string[] = [];
+    home.whenClosed(() => closed.push('pin away'));
+    const cancel = made.tools.querySelector('button[data-cancel]');
+    expect(made.tools.querySelector('.form-loading')).not.toBeNull();
+    cancel?.dispatch('click');
+    expect(home.holds()).toBe(false);
+    expect(made.tools.childNodes).toEqual([made.idle]);
+    expect(made.isOpen()).toBe(true);
+    expect(closed).toEqual(['pin away']);
+  });
+
+  it("runs what it asked once, the card's × pressed while it loads", () => {
+    const made = phone(undefined);
+    let pressX: () => void = () => undefined;
+    const frame: FormFrame = {
+      ...made.frame,
+      card: {
+        ...made.card,
+        openForm: (form, cancel) => {
+          pressX = cancel;
+          made.card.openForm(form);
+        },
+      },
+    };
+    const home = formHome(frame);
+    home.open();
+    const closed: string[] = [];
+    home.whenClosed(() => closed.push('pin away'));
+    pressX();
+    pressX();
+    expect(home.holds()).toBe(false);
+    expect(closed).toEqual(['pin away']);
+    expect(made.log.at(-1)).toBe('card back');
+  });
+
+  it('runs what it asked as a form drawn closes, whatever the way', () => {
+    const made = fixture();
+    const home = formHome(made.frame);
+    home.open();
+    const closed: string[] = [];
+    home.whenClosed(() => closed.push('pin away'));
+    home.draw(formEl().element);
+    home.close('done');
+    home.close('back');
+    expect(closed).toEqual(['pin away']);
+  });
+});
+
+// Review P6: a form stays where it opened; a window resized across 768 px moves nothing.
+describe('a form opened on a wide screen, the window then narrowed', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('stays in the side pane when its map work ends', () => {
+    const made = phone('gym:1');
+    let narrow = false;
+    const home = formHome({ ...made.frame, phone: () => narrow });
+    home.open();
+    const { form, element } = formEl();
+    home.draw(element);
+    narrow = true;
+    made.log.length = 0;
+    expect(home.toPane()).toBe(true);
+    home.toCard();
+    expect(made.log).toEqual([]);
+    expect(home.inPane()).toBe(true);
+    expect(made.tools.childNodes).toEqual([form]);
+  });
+});

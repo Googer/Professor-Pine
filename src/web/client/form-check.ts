@@ -10,6 +10,17 @@ export interface FormCheck {
 /** Ids of the missing lines, one per form drawn. */
 let lines = 0;
 
+/** How each form drawn says its missing line once more (`sayMissing`). */
+const sayers = new WeakMap<HTMLElement, () => void>();
+
+/**
+ * Says a form's missing line once more where its sending button is off (review P9: Enter on an
+ * off Report, `formKeys`), as a press of the button does; nothing for a form without a check.
+ */
+export function sayMissing(form: HTMLElement): void {
+  sayers.get(form)?.();
+}
+
 /**
  * Wires a form's pure check (plan 8M-22) to its fields: run at once and on every input and
  * change, its text (`check()`: what is missing, or nothing) on the form's line (`.form-answer`)
@@ -63,10 +74,9 @@ export function liveCheck(
   };
   form.addEventListener('input', typed);
   form.addEventListener('change', typed);
-  form.addEventListener('click', (event) => {
-    const target = event.target;
-    const pressed = target instanceof HTMLElement ? target.closest('button[data-submit]') : null;
-    if (pressed !== send || send.disabled || send.getAttribute('aria-disabled') !== 'true') return;
+  /** The line said once more, while the sending button is off: cleared, made live, written. */
+  const say = (): void => {
+    if (send.disabled || send.getAttribute('aria-disabled') !== 'true') return;
     const missing = check() ?? '';
     line.setAttribute('aria-live', 'polite');
     write('');
@@ -74,6 +84,12 @@ export function liveCheck(
     nextFrame(() => {
       write(missing);
     });
+  };
+  sayers.set(form, say);
+  form.addEventListener('click', (event) => {
+    const target = event.target;
+    const pressed = target instanceof HTMLElement ? target.closest('button[data-submit]') : null;
+    if (pressed === send) say();
   });
   run();
   return { run };

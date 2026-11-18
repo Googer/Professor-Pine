@@ -178,10 +178,18 @@ export class FakeElement {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
   }
 
+  /** A press, as the browser's `click()`. */
+  click(): void {
+    this.dispatch('click');
+  }
+
   /** An event at this element, bubbling up the tree until a listener stops it. */
-  dispatch(type: string): void {
+  dispatch(type: string, more: Record<string, unknown> = {}): void {
     let stopped = false;
     const event = {
+      // A key's own fields (`key`, `keyCode` …) where a test gives them.
+      preventDefault: () => undefined,
+      ...more,
       target: this,
       stopPropagation: () => {
         stopped = true;

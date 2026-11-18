@@ -254,6 +254,10 @@ const fake = vi.hoisted(() => {
     formElement() {
       return this.form === undefined ? undefined : this.layer;
     }
+    /** As the real card's: an element in it while it is open (here, under a `party-card`). */
+    holds(element: PageElement) {
+      return this.key !== undefined && element.closest('.party-card') !== null;
+    }
     closeForm() {
       const { form } = this;
       if (!form) return;
@@ -275,6 +279,13 @@ const fake = vi.hoisted(() => {
     }
     /** As the real card: without content its party is gone, and it closes. */
     refresh(content?: unknown) {
+      // Its party gone under a form (review P3): nothing kept, the card closing with the form.
+      if (content === undefined && this.form) {
+        this.key = undefined;
+        this.drawn = undefined;
+        this.form.before = undefined;
+        return;
+      }
       if (content === undefined) this.close();
     }
     close() {
@@ -1475,6 +1486,18 @@ describe("a max battle's form in the side pane (plan 8M-22)", () => {
     expect(reportHeader()?.disabled).toBe(false);
   });
 
+  // Review P1: a list turning read-only leaves a form of the side pane in the pane.
+  it('stays in the side pane when the list turns read-only', async () => {
+    const { raids, panel, poll } = await started({ raids: true, regions: REGIONS, max: MAX });
+    const atSpot = placeShowing('leaflet-popup', raids.spotControls(OLD_MILL));
+    const drawn = nextForm();
+    atSpot.querySelector('button[data-report-max]')?.dispatch('click');
+    const form = await drawn;
+    await poll(view({ readOnly: true }));
+    expect(panel.querySelector('[data-form="max"]') === form).toBe(true);
+    expect(form.parent?.parent === panel).toBe(true);
+  });
+
   it('opens at a pin of step 2 with the pin kept there, named an unlisted power spot', async () => {
     const { maxForms, panel, fire } = await started({ raids: true, regions: REGIONS, max: MAX });
     maxForms.pickSpot?.();
@@ -2600,6 +2623,30 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
     );
   });
 
+  // Review P7: on a phone research's form is in the card, docked in the pane while it adds stops.
+  it('opens research in the card on a phone, docked in the pane while stops are added', async () => {
+    const { markerOf, chooseReport, panel, card } = await started({
+      raids: true,
+      phone: true,
+      stops: STOPS,
+      research: caseResearchOptions(),
+    });
+    chooseReport('research');
+    markerOf('Yellow Mural 5')?.fire('click', {});
+    expect(card()?.formElement()?.querySelector('div.research-form')).not.toBeNull();
+    expect(panel.querySelector('div.research-form')).toBeNull();
+    expect(page.body?.classList.contains('form-docked')).toBe(false);
+    card()?.formElement()?.querySelector('button[data-add-stops="start"]')?.dispatch('click');
+    expect(card()?.formShown).toBe(false);
+    expect(panel.querySelector('div.research-form')).not.toBeNull();
+    expect(page.body?.classList.contains('form-docked')).toBe(true);
+    panel.querySelector('button[data-add-stops="done"]')?.dispatch('click');
+    expect(card()?.formElement()?.querySelector('div.research-form')).not.toBeNull();
+    expect(page.body?.classList.contains('form-docked')).toBe(false);
+    card()?.formElement()?.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(card()?.formShown).toBe(false);
+  });
+
   // Review F9: dimmed while "Add stops…" picks, as in the Report button's step 2 (review B7b).
   it("takes a raid's or a battle's tap and does nothing while stops are added", async () => {
     const { markerOf, raids, chooseReport, panel } = await started({ raids: true, stops: STOPS });
@@ -3605,6 +3652,25 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
     });
 
+    // Review P4: a form opened outside the popup that is open (a line of the list) neither names
+    // nor closes nor opens that popup.
+    it('leaves alone a popup the form was not opened from', async () => {
+      const { raids, panel, markerOf } = await started({
+        raids: true,
+        regions: REGIONS,
+        parties: view({ raids: [raidAt(1)], maxes: [] }),
+      });
+      markerOf(raidAt(1).heading)?.openPopup();
+      const elsewhere = placeShowing('what-is-on', raids.gymControls(LIBRARY));
+      elsewhere.querySelector('button[data-train-here]')?.dispatch('click');
+      const form = panel.querySelector('[data-form="train"]');
+      expect(form).not.toBeNull();
+      expect(form?.querySelector('.form-place')).toBeNull();
+      expect(fake.shown.popupOf === markerOf(raidAt(1).heading)).toBe(true);
+      form?.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(fake.shown.popupOf === markerOf(raidAt(1).heading)).toBe(true);
+    });
+
     it("a stop's research form: Cancel opens the stop's popup again, its button there", async () => {
       const { markerOf, reportHeader, panel } = await started({ raids: true, stops: STOPS_HERE });
       markerOf('Yellow Mural 5')?.fire('click', {});
@@ -3680,6 +3746,8 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       const form = () => card()?.formElement()?.querySelector('[data-form="train"]');
       expect(form()).not.toBeNull();
       expect(panel.querySelector('[data-form="train"]')).toBeNull();
+      // Review P5: a train's form in the card docks no pane and leaves the list where it is.
+      expect(page.body?.classList.contains('form-docked')).toBe(false);
       fire('click', { latlng: { lat: 40.45, lng: -79.95 } });
       expect(form()).not.toBeNull();
       fire('contextmenu', { latlng: { lat: 40.45, lng: -79.95 } });
@@ -3688,6 +3756,26 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       form()?.querySelector('button[data-cancel]')?.dispatch('click');
       expect(card()?.formShown).toBe(false);
       expect(card()?.key).toBe('gym:1');
+    });
+
+    // Review P3: a party that ended under a form in the card is not shown again by its Cancel.
+    it('closes the card with a form whose party ended under it', async () => {
+      const { raids, card, markerOf, lists, raidForms } = await started({
+        raids: true,
+        phone: true,
+        regions: REGIONS,
+        parties: view({ raids: [raidAt(1)], maxes: [] }),
+      });
+      markerOf(raidAt(1).heading)?.openPopup();
+      const shown = placeShowing('party-card', raids.gymControls(LIBRARY));
+      shown.querySelector('button[data-train-here]')?.dispatch('click');
+      expect(card()?.formShown).toBe(true);
+      // The raid ends meanwhile: its list, asked for, waits for the form.
+      lists({ parties: view({ raids: [], maxes: [] }) });
+      await raidForms.done(undefined);
+      card()?.formElement()?.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(card()?.formShown).toBe(false);
+      expect(card()?.key).toBeUndefined();
     });
 
     // Plan 8M-22: on a phone a form is a layer over the card; it hops to the docked pane while

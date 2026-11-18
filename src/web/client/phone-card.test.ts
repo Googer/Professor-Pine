@@ -353,6 +353,21 @@ describe('the phone card on the page (review 8A-1, 8A-8)', () => {
       expect(closed).toEqual([]);
     });
 
+    // Review P3: a party that ended under the form does not come back on Cancel.
+    it('closes with the form when its party ended under it, nothing of the party kept', () => {
+      const { doc, card, element, part, closed } = opened();
+      card.openForm(formOf(doc) as unknown as HTMLElement, () => undefined);
+      card.refresh(undefined);
+      // The form stays.
+      expect(card.formShown).toBe(true);
+      expect(element.hidden).toBe(false);
+      expect(card.key).toBeUndefined();
+      expect(part('card-body').children).toEqual([]);
+      card.closeForm();
+      expect(element.hidden).toBe(true);
+      expect(closed).toEqual([1]);
+    });
+
     it("opens from a closed card (a plain popup's form), and closes with the form", () => {
       const { doc, card, element, closed } = opened();
       card.close();

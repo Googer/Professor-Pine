@@ -545,7 +545,8 @@ export function routeEditor(
               button('Save', { 'data-edit': 'save' }),
             ),
           ]),
-      // Done is the route editor's sending button (plan 8M-22): every edit went already.
+      // No sending button (plan 8M-22, review P8): each edit went on its own; Done closes the
+      // editor as the row's Cancel.
       formRow(undefined, cancelButton('Done')),
     ],
   };

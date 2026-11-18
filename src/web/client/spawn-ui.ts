@@ -47,10 +47,11 @@ export interface SpawnUiDeps {
   /** Where the forms open (plan 8M-22, `formHome`): the side pane, the place's popup closed. */
   frame: FormFrame;
   /**
-   * The pin of the Report button's step 2 (`report-pin`) at a point, fixed while its form is open;
-   * what takes it away.
+   * The pin of the Report button's step 2 (`report-pin`) at a point, fixed while its form is open:
+   * `drawn` once the form is drawn (on a phone the map pans the point clear of the card, review
+   * P10), `remove` as it closes, whichever way (`whenClosed`, review P2).
    */
-  pinAt(point: LatLon): () => void;
+  pinAt(point: LatLon): { drawn: () => void; remove: () => void };
   /** A spawn was reported from this page: the spawns asked for at once. */
   reported?(): void;
 }
@@ -240,13 +241,14 @@ export function spawnUi(deps: SpawnUiDeps) {
       }
       const home = formHome(deps.frame, { control });
       if (!home.open()) return;
-      const unpin = deps.pinAt(point);
+      const pin = deps.pinAt(point);
+      home.whenDrawn(pin.drawn);
+      home.whenClosed(pin.remove);
       void openForm(
         home,
         place ?? point,
         where.regions,
         (how) => {
-          unpin();
           home.close(how);
         },
         focusFirst,

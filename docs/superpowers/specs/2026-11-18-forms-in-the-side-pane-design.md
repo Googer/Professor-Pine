@@ -57,7 +57,7 @@ The fresh review's points the builder decides, taken as recommended:
 - **The checks:** raid's `reportBody` (raid-forms.ts) and the moderators' `reportBody` (post-forms.ts, no check) are told apart; a meetup's Manage… is off with "Nothing changed yet." as a raid's is; research says "Loading…" with Report off until its lists come; max's "battle ends soon" question moves with its form.
 - **Step 3 of the Report button** opens the form straight in the pane or card, without opening the place's popup first.
 - **The phone keyboard:** the card's height in `dvh` with `visualViewport` where the keyboard covers it; checked on a phone at Matt's staging.
-- **The row's layout:** while a form shows, `#parties` does not scroll; the form's body does, the row below it stays; the row stays inside the form element (`formKeys`, `addPickAgain`). The route editor's Done is its sending button.
+- **The row's layout:** while a form shows, `#parties` does not scroll; the form's body does, the row below it stays; the row stays inside the form element (`formKeys`, `addPickAgain`). The route editor's Done closes the editor as the row's Cancel, since each edit is sent on its own (corrected after the prototype's review, P8).
 - **The place under the heading:** a post form's title stays Discord's dialog title (`manage-match.test.ts`); the place is a line of its own under it; with several stops, the first stop and "+2".
 - **Dead code goes:** `inPopup`, `popupClosed`, `fit`, `keepingFocus`, `heldContent` under pane forms and the `place-control` rules, where nothing uses them any more.
 - **A window resized across 768 px** with a form open closes nothing: the form stays where it opened until it closes.

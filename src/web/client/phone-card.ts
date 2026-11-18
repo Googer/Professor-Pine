@@ -200,6 +200,15 @@ export class PhoneCard {
   refresh(content: (() => HTMLElement) | undefined): void {
     if (this.shown === undefined || this.state === 'closed') return;
     if (content === undefined) {
+      // Its party gone under a form (review P3): nothing of it kept, and the card closes with the
+      // form rather than showing it again.
+      if (this.form) {
+        this.shown = undefined;
+        this.drawn = undefined;
+        this.made().body.replaceChildren();
+        this.form.before = 'closed';
+        return;
+      }
       this.close();
       return;
     }

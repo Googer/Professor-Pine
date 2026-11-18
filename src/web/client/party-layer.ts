@@ -896,11 +896,16 @@ export function showParties(
     idle: () => {
       tools.replaceChildren(renderNode(newTrainButton(), document));
     },
-    leave: (inCard = false) => {
-      const shown = card.content() ?? popupContent(showing.popup) ?? undefined;
+    leave: (inCard = false, control) => {
+      // Only the popup or card the form was opened from (review P4): a form of a line of the list,
+      // or with no control (step 3, a long press), names, closes and opens again no other.
+      const inTheCard = card.key !== undefined && control != null && card.holds(control);
+      const inThePopup = control != null && showing.popup?.getElement()?.contains(control) === true;
+      if (!inTheCard && !inThePopup) return {};
+      const shown = inTheCard ? card.content() : (popupContent(showing.popup) ?? undefined);
       const place = placeNamed(shown);
-      const key = card.key ?? showing.key;
-      const popup = card.key === undefined ? showing.popup : undefined;
+      const key = inTheCard ? card.key : showing.key;
+      const popup = inTheCard ? undefined : showing.popup;
       map.closePopup();
       if (!inCard) card.close();
       if (key === undefined && popup === undefined) return place === undefined ? {} : { place };
@@ -919,16 +924,21 @@ export function showParties(
    * The pin of the Report button's step 2 at a point (`report-pin`) while a spawn's or a max
    * battle's form there is open (Matt's ruling 3): fixed, taking no taps; what takes it away.
    */
-  const pinAt = (point: LatLon): (() => void) => {
+  const pinAt = (point: LatLon): { drawn: () => void; remove: () => void } => {
     const pin = L.marker([point.lat, point.lon], {
       icon: L.divIcon({ className: 'report-pin', iconSize: [22, 22] }),
       interactive: false,
       keyboard: false,
     }).addTo(map);
-    // On a phone the point clear above the form's card (Matt's ruling 3), as a tap's is.
-    if (card.formShown) panAboveCard(L.latLng(point.lat, point.lon));
-    return () => {
-      pin.remove();
+    return {
+      // On a phone the point clear above the form's card (Matt's ruling 3), as a tap's is: once
+      // the form is drawn, by the card's height with it (review P10).
+      drawn: () => {
+        if (card.formShown) panAboveCard(L.latLng(point.lat, point.lon));
+      },
+      remove: () => {
+        pin.remove();
+      },
     };
   };
 
@@ -2065,9 +2075,20 @@ export function showParties(
    * the hold or lets it go; on a phone a form that needs the map docks the pane under it (fix
    * round 1: `body.form-docked`, whatever "List" says).
    */
+  /**
+   * Whether a form is in the side pane's box (review P1 of plan 8M-22: one rule for the pane and
+   * the list's draw): any aside claim (every form of the pane since plan 8M-22, step 2, route
+   * mode, Your regions), and the forms of the box that say so themselves.
+   */
+  const formInPane = (): boolean =>
+    hold.asideHeld ||
+    trainForms.inTools() ||
+    meetupForms.inTools() ||
+    researchForms.inTools() ||
+    report.inTools() ||
+    regionsBox.inTools();
   const paneShown = (): void => {
-    const formOpen =
-      hold.asideHeld || trainForms.inTools() || meetupForms.inTools() || researchForms.inTools();
+    const formOpen = formInPane();
     listSection.hidden = paneShows({ loggedIn: true, formOpen }) === 'form';
     panel.classList.toggle('form-shown', formOpen);
     document.body.classList.toggle('form-docked', formOpen);
@@ -2433,12 +2454,7 @@ export function showParties(
     // "New train" (or the form or route editor open in its place) for a member who may; a form
     // open there stays whatever the list says, and is shown over the list (plan 8M-7), which
     // comes back when it closes.
-    const formOpen =
-      trainForms.inTools() ||
-      meetupForms.inTools() ||
-      report.inTools() ||
-      researchForms.inTools() ||
-      regionsBox.inTools();
+    const formOpen = formInPane();
     const reporting = reportOffered(mayReport, next);
     // The phone list's own Report line (plan 8M-9A, A7), over the list, while Report is offered
     // (review B2: not for a form left open while the list went read-only). The list stays in the

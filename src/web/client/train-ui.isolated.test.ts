@@ -795,6 +795,27 @@ describe('"Start train here": a train started at a gym or a Power Spot', () => {
     });
   });
 
+  // Review P5: in the card on a phone the start form is no form of the side pane's box.
+  it('says it is in the side pane only while it is there, not in the card', () => {
+    const shown = page();
+    const layer = make('div');
+    shown.frame.phone = () => true;
+    shown.frame.card = {
+      key: undefined,
+      openForm: (form) => {
+        layer.replaceChildren(form as unknown as FakeElement);
+      },
+      closeForm: () => {
+        layer.replaceChildren();
+      },
+      close: () => undefined,
+      formElement: () => layer as unknown as HTMLElement,
+    };
+    shown.ui.trainHereClicked({ name: 'The Stacks', stop: { gym: 1 } }, 1);
+    expect(layer.firstElementChild?.dataset.form).toBe('train');
+    expect(shown.ui.inTools()).toBe(false);
+  });
+
   it('refuses while another form is open, and makes nothing when Cancel is pressed', () => {
     const shown = page();
     shown.ui.trainHereClicked({ name: 'The Stacks', stop: { gym: 1 } }, 1);
