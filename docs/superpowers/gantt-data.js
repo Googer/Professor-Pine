@@ -10412,6 +10412,22 @@ window.GANTT = {
       "end": "2026-11-06T23:57"
     },
     {
+      "id": "8M-22",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8M-22 Forms in the side pane",
+      "size": 2,
+      "dependsOn": [
+        "8M-20"
+      ],
+      "scope": "Every form opened at a place opens in the side pane (wide) or the bottom card (phone), its Report and Cancel pinned below it, Report off until the page check passes, the research task list folded once picked",
+      "doneWhen": "Merged into main-dev",
+      "status": "progress",
+      "planning": {
+        "start": "2026-11-18T09:37"
+      }
+    },
+    {
       "id": "8Z",
       "kind": "plan",
       "parent": "16",
