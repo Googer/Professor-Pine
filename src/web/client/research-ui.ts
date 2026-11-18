@@ -379,18 +379,18 @@ export function researchUi(deps: ResearchUiDeps) {
       close();
     } else if (changeTask !== undefined) {
       // The task list back, the task kept as the selection (plan 8M-11A, S26).
+      // The list open again, the focus on its search field (plan 8M-22).
       const changed = taskChanged(open.state, open.mode, open.lists);
       open.state = changed.state;
       open.mode = changed.mode;
-      draw(
-        open.state.task === undefined
-          ? 'input[name="query"]'
-          : `button[data-task="${CSS.escape(open.state.task)}"]`,
-      );
+      draw('input[name="query"]');
     } else if (task !== undefined) {
+      // Picked: the list folds (plan 8M-22), the focus on its reward to pick, else on Change task.
       open.state.task = task;
       delete open.state.version;
-      draw(`button[data-task="${CSS.escape(task)}"]`);
+      delete open.state.listOpen;
+      const several = (open.lists?.tasks.find((one) => one.key === task)?.versions.length ?? 0) > 1;
+      draw(several ? 'input[name="version"]' : 'button[data-change-task]');
     } else if (typing !== undefined) {
       if (typing === 'start') open.state.typing = { task: '', reward: '' };
       else delete open.state.typing;

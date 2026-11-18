@@ -3611,12 +3611,27 @@ path.highlighted {
   align-self: flex-start;
 }
 
+/* The task list scrolls with its form (plan 8M-22): no scroll of its own. */
 .task-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 40vh;
-  overflow-y: auto;
+}
+
+/* The task picked, the list folded (plan 8M-22): the task, its reward, Change task. */
+.task-picked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+
+.task-picked .task-reward {
+  color: var(--muted);
+}
+
+.task-picked .press {
+  margin-left: auto;
 }
 
 .task-list h4 {

@@ -65,6 +65,11 @@ export interface ResearchFormState {
   nearest?: Nearest;
   /** Its report is on its way: every button is drawn off (review F3), whatever draws the form. */
   sending?: boolean;
+  /**
+   * The task list open again though a task is picked (plan 8M-22): "Change task", or the list
+   * changed under the form. Picking a task folds it again.
+   */
+  listOpen?: boolean;
 }
 
 /** What a report of the form is of: its version's value (`subjectKey`), and whether "one of". */
@@ -130,7 +135,9 @@ export function taskChanged(
   mode: ResearchMode,
   options: Pick<ResearchOptionsView, 'tasks'> | undefined,
 ): { state: ResearchFormState; mode: ResearchMode } {
-  const { asks: _asks, ...rest } = state;
+  const { asks: _asks, ...picked } = state;
+  // The list itself back (plan 8M-22), the task its selection.
+  const rest: ResearchFormState = { ...picked, listOpen: true };
   if (mode.kind === 'new') return { state: rest, mode };
   const subject = mode.report.task;
   const task =
@@ -362,8 +369,33 @@ export function taskList(options: ResearchOptionsView, state: ResearchFormState)
   return offWhileSending(list, state);
 }
 
-/** The task list: a search box, then the tasks it finds (`taskList`). */
+/**
+ * The task list: a search box, then the tasks it finds (`taskList`); once a task is picked
+ * (plan 8M-22) folded to one line, the task and its reward where one is picked (or it has one), with
+ * "Change task", which opens the list again (`taskChanged`). The list has no scroll of its own: it
+ * scrolls with the form.
+ */
 function tasksPart(options: ResearchOptionsView, state: ResearchFormState): PageNode[] {
+  const task = options.tasks.find((one) => one.key === state.task);
+  if (task !== undefined && state.listOpen !== true) {
+    const [only] = task.versions;
+    const version =
+      task.versions.length === 1 ? only : task.versions.find((one) => one.value === state.version);
+    return [
+      {
+        tag: 'div',
+        className: 'task-picked',
+        attributes: { role: 'group', 'aria-label': 'Task' },
+        children: [
+          { tag: 'span', className: 'task-text', text: task.text },
+          ...(version === undefined
+            ? []
+            : [{ tag: 'span', className: 'task-reward', text: version.label }]),
+          changeTaskButton,
+        ],
+      },
+    ];
+  }
   return [
     {
       tag: 'label',
@@ -751,7 +783,7 @@ export async function submitResearch(
       // report's version picked where the new lists still have it.
       const wanted = mode.report.task;
       const task = now?.tasks.find((one) => one.versions.some((each) => each.value === wanted));
-      const picked: ResearchFormState = { query: '' };
+      const picked: ResearchFormState = { query: '', listOpen: true };
       if (task) {
         picked.task = task.key;
         picked.version = wanted;
@@ -760,7 +792,8 @@ export async function submitResearch(
     }
     const task = now?.tasks.find((one) => one.key === state.task);
     const version = task?.versions.some((one) => one.value === state.version) === true;
-    const picked: ResearchFormState = { query: state.query };
+    // The list open again (plan 8M-22), the pick kept where the new lists have it.
+    const picked: ResearchFormState = { query: state.query, listOpen: true };
     if (task) picked.task = task.key;
     if (task && version && state.version !== undefined) picked.version = state.version;
     if (state.typing !== undefined) picked.typing = state.typing;
