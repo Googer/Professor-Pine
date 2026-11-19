@@ -77,12 +77,12 @@ A small bug-fix release: screenshots are read better.
 Update with `./pine update`; no new commands to deploy.
 ```
 
-## 4. The official post of 2.1 (2.1.0 to 2.1.3)
+## 4. The official post of 2.1 (2.1.0 to 2.1.4)
 
-**Not posted yet.** Drafted on 2026-11-15 for 2.1.0 and 2.1.1 (Matt: "We can make release notes as well for 2.1.0 and 2.1.1 since I never actually officially announced 2.1.0 either"), and on 2026-11-16 made one post for 2.1.0 to 2.1.3 (Matt: "I never actually annoucned 2.1 at all still"; the draft of 2.1.2 and 2.1.3 that was section 5 is folded in). A changelog per release (Matt: "You can do as incremental changelogs between each release"); one post of two messages (Matt: "one post, or two if it ends up long enough"), each under Discord's 2,000 characters (about 1,630 and 1,780). Checked against the code and the guides on 2026-11-15 and 2026-11-16. `@Pine Admins`: retype it so that it pings.
+**Not posted yet.** Drafted on 2026-11-15 for 2.1.0 and 2.1.1 (Matt: "We can make release notes as well for 2.1.0 and 2.1.1 since I never actually officially announced 2.1.0 either"), and on 2026-11-16 made one post for 2.1.0 to 2.1.3 (Matt: "I never actually annoucned 2.1 at all still"; the draft of 2.1.2 and 2.1.3 that was section 5 is folded in). A changelog per release (Matt: "You can do as incremental changelogs between each release"); one post of two messages (Matt: "one post, or two if it ends up long enough"), each under Discord's 2,000 characters (about 1,630 and 1,970). Checked against the code and the guides on 2026-11-15 and 2026-11-16. `@Pine Admins`: retype it so that it pings.
 
 ```md
-**v2.1.0 to v2.1.3 Released**
+**v2.1.0 to v2.1.4 Released**
 
 **2.1.0**: one Pine can now serve many Discord servers, each with its own setup. Nothing changes for a single server's members.
 
@@ -112,6 +112,9 @@ The second message, right after it:
 **2.1.3**
 - A Pokémon's Candy as a research reward was taken for its Mega Energy (`/want eternatus` offered Eternatus Mega Energy for the Eternatus Candy tasks). Candy is now a reward of its own, and a want of Eternatus Mega Energy gains one for its Candy
 - A task whose reward is not known yet ("one of Drampa, Duraludon") is listed first in `/research` and on the map, and is found by "encounter" or "any"
+
+**2.1.4**
+- On the web map every form opens in the side pane, or on a phone in the bottom card, never in a small popup. Report waits until the form is complete and says what is missing
 
 To update: `./pine update` (it backs up first and migrates the database), then `./pine deploy-commands` if you are coming from 2.0.x.
 - Leave `servers` unset to keep your Pine as it was; a server added later starts in setup
