@@ -154,7 +154,7 @@ export class PhoneCard {
   }
 
   /**
-   * The card's height while a form is in it (plan 8M-22): 85% of the screen (`map.css`, `dvh`),
+   * The card's height while a form is in it (plan 8M-22): as tall as its form, 85dvh at most (`map.css`),
    * and above the phone's keyboard where the keyboard covers it (`visualViewport`, which shrinks
    * with it); what stops it. Nothing where the browser has no `visualViewport`.
    */

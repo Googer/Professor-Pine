@@ -1452,7 +1452,7 @@ export function showParties(
         const open = choices.get(target.dataset.open);
         map.closePopup();
         open?.();
-      } else if (target.dataset.changeRaid !== undefined) raidForms.changeClicked(target);
+      } else if (target.dataset.changeRaid !== undefined) void raidForms.changeClicked(target);
       else if (target.dataset.report !== undefined) {
         const gym = gyms.get(Number(target.dataset.report));
         if (gym) raidForms.reportClicked(target, gym);
@@ -1490,15 +1490,15 @@ export function showParties(
       } else if (target.dataset.meet !== undefined) {
         // Meet… (plan 8M-8B): its form, from what the server offers now.
         const party = partyById(target.dataset.meet);
-        if (party) postForms.meetClicked(target, party);
+        if (party) void postForms.meetClicked(target, party);
       } else if (target.dataset.splitTrain !== undefined) {
         // A train's Split… (plan 8M-8C): the post's dialog as a form in the place of the post.
         const party = partyById(target.dataset.splitTrain);
-        if (party) postForms.splitClicked(target, party);
+        if (party) void postForms.splitClicked(target, party);
       } else if (target.dataset.manageTrain !== undefined) {
         // A train's Manage… (plan 8M-8C): the post's dialog as a form in the place of the post.
         const party = partyById(target.dataset.manageTrain);
-        if (party) postForms.manageClicked(target, party);
+        if (party) void postForms.manageClicked(target, party);
       } else if (target.dataset.closeParty !== undefined) {
         // Staff's Delete… (plan 8M-8B): `/delete`'s question in the place of the post.
         const party = partyById(target.dataset.closeParty);
@@ -1506,7 +1506,7 @@ export function showParties(
       } else if (target.dataset.reportParty !== undefined) {
         // Report… (plan 8M-8B): `/report`'s form in the place of the post.
         const party = partyById(target.dataset.reportParty);
-        if (party) postForms.reportClicked(target, party);
+        if (party) void postForms.reportClicked(target, party);
       } else if (target.dataset.reportResearch !== undefined) {
         // "Report research here" (plan 8M-9B): the research form in the place of the control.
         researchForms.researchClicked(target);

@@ -320,15 +320,38 @@ describe('the forms of the post’s controls in a popup drawn anew (review B-1)'
       status: 422,
       body: { error: 'You are not signed up for this raid.' },
     });
-    const focus = focusOn(undefined);
-    ui.meetClicked(button as unknown as HTMLButtonElement, raid);
-    await focus;
+    // Its opening done (the loading line's Cancel took the focus meanwhile, second review R2).
+    await ui.meetClicked(button as unknown as HTMLButtonElement, raid);
     expect(current() === button).toBe(false);
     expect(focused().at(-1) === current()).toBe(true);
     // Plan 8M-11A (S20): in the post's answer line (and a shake), not a line to Discord.
     expect(answers).toEqual([
       { party: 'r1', text: 'You are not signed up for this raid.', ok: false },
     ]);
+  });
+
+  // Second review R1: a form canceled while it loads says nothing of a refusal that comes after.
+  it('says no refusal that comes after Cancel while the form loads, and leaves the focus alone', async () => {
+    const { ui, button, tools, answers } = popupPage('meet', { status: 200, body: {} });
+    let answer: (value: unknown) => void = () => undefined;
+    vi.stubGlobal(
+      'fetch',
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    );
+    const opening = ui.meetClicked(button as unknown as HTMLButtonElement, raid);
+    tools.querySelector('button[data-cancel]')?.dispatch('click');
+    const before = focused().length;
+    answer({
+      ok: false,
+      status: 422,
+      json: () => Promise.resolve({ error: 'You are not signed up for this raid.' }),
+    });
+    await opening;
+    expect(answers).toEqual([]);
+    expect(focused()).toHaveLength(before);
   });
 
   // Plan 8M-11A (S9): "do this on Discord" as a note box in the form's place, the post's link a
@@ -434,7 +457,7 @@ describe('the forms of the post’s controls in the page (plan 8M-8B)', () => {
         json: () => Promise.resolve(posting ? { ok: false, text: refusal } : meet),
       });
     });
-    ui.meetClicked(button as unknown as HTMLButtonElement, raid);
+    void ui.meetClicked(button as unknown as HTMLButtonElement, raid);
     await focusOn(undefined);
     const time = tools.querySelector('select');
     time?.setAttribute('value', String(NOW + 600_000));
@@ -531,7 +554,7 @@ describe("a train's forms in the page (plan 8M-8C)", () => {
         json: () => Promise.resolve(answer.body),
       });
     });
-    ui.manageClicked(button as unknown as HTMLButtonElement, raid);
+    void ui.manageClicked(button as unknown as HTMLButtonElement, raid);
     await focusOn(undefined);
     const answered = focusOn(undefined);
     tools.querySelector('button[data-submit]')?.dispatch('click');
@@ -581,7 +604,7 @@ describe("a train's forms in the page (plan 8M-8C)", () => {
         json: () => Promise.resolve(answer.body),
       });
     });
-    ui.manageClicked(button as unknown as HTMLButtonElement, raid);
+    void ui.manageClicked(button as unknown as HTMLButtonElement, raid);
     await focusOn(undefined);
     tools.querySelector('button[data-submit]')?.dispatch('click');
     await done;

@@ -111,7 +111,7 @@ function changing(
     },
   };
   const ui = raidUi(deps);
-  if (opens === 'change') ui.changeClicked(control as unknown as HTMLButtonElement);
+  if (opens === 'change') void ui.changeClicked(control as unknown as HTMLButtonElement);
   else {
     ui.reportClicked(
       control as unknown as HTMLElement,
@@ -125,6 +125,7 @@ function changing(
     );
   }
   return {
+    deps,
     section,
     control,
     page: body,
@@ -344,6 +345,35 @@ describe("a raid's Manage… on the map (review fix F4)", () => {
 });
 
 // Review P7: on a phone every form is a layer over the card.
+// Second review R1: a form canceled while it loads says nothing of a failure that comes after.
+describe("a raid's Manage… canceled while it loads", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('says nothing when its lists fail after Cancel', async () => {
+    const made = changing([]);
+    await made.shown;
+    made.tools.querySelector('button[data-cancel]')?.dispatch('click');
+    let fail: (error: Error) => void = () => undefined;
+    vi.stubGlobal(
+      'fetch',
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = reject;
+        }),
+    );
+    const control = make('button');
+    control.setAttribute('data-change-raid', 'r2');
+    made.section.append(control);
+    const opening = raidUi({ ...made.deps }).changeClicked(control as unknown as HTMLButtonElement);
+    made.tools.querySelector('button[data-cancel]')?.dispatch('click');
+    fail(new Error('offline'));
+    await opening;
+    expect(made.said).toEqual([]);
+  });
+});
+
 describe("a raid's forms on a phone (plan 8M-22)", () => {
   afterEach(() => {
     vi.unstubAllGlobals();

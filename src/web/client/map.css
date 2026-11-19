@@ -3036,16 +3036,11 @@ path.highlighted {
 }
 
 /*
- * The card's form mode (plan 8M-22, `PhoneCard.openForm`): the card as tall as its form, up to 85% of
- * the screen (in `dvh`, which leaves out the browser's own bars; review P10), above the keyboard by
+ * The card's form mode (plan 8M-22, `PhoneCard.openForm`): the card as tall as its form, 85dvh at
+ * most by the card's own cap (reviews P10, R3), above the keyboard by
  * `visualViewport`, its handle hidden and its × on the right, the form's body scrolling over its
  * row, which stays at the card's foot.
  */
-.party-card.form {
-  max-height: 85vh;
-  max-height: 85dvh;
-}
-
 .party-card.form .card-top {
   justify-content: flex-end;
 }

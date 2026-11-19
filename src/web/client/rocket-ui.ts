@@ -96,8 +96,10 @@ export function rocketUi(deps: RocketUiDeps) {
     try {
       lists = await options();
     } catch {
+      // Canceled while it loaded (second review R1): nothing said.
+      if (!home.holds()) return;
       say(NO_OPTIONS);
-      if (home.holds()) finish('back');
+      finish('back');
       return;
     }
     if (!home.holds()) return;

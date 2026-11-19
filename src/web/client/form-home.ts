@@ -164,6 +164,8 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
     box.className = 'form-loading';
     const words = document.createElement('p');
     words.className = 'hint';
+    // Read as it comes and as it goes (second review R2).
+    words.setAttribute('role', 'status');
     words.textContent = LOADING;
     const cancel = document.createElement('button');
     cancel.setAttribute('type', 'button');
@@ -171,6 +173,13 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
     cancel.setAttribute('data-cancel', '');
     cancel.textContent = 'Cancel';
     cancel.addEventListener('click', () => {
+      home.close('back');
+    });
+    // Escape on it closes the form as its Cancel, as `formKeys` has it in a form.
+    cancel.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
       home.close('back');
     });
     box.append(words, cancel);
@@ -193,7 +202,10 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
       claim = hold.take(false, true);
       if (!claim) return undefined;
       left = frame.leave(false, opener.control);
-      frame.tools.replaceChildren(loadingLine());
+      const loading = loadingLine();
+      frame.tools.replaceChildren(loading);
+      // The focus on its Cancel (second review R2): the control that had it went with its popup.
+      loading.querySelector<HTMLElement>('button[data-cancel]')?.focus();
       return claim;
     },
     inPane: () => where === 'pane',

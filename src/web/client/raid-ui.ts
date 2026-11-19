@@ -200,6 +200,8 @@ export function raidUi(deps: RaidUiDeps) {
     try {
       lists = await options();
     } catch {
+      // Canceled while it loaded (second review R1): nothing said.
+      if (!home.holds()) return;
       home.close('back');
       say(NO_OPTIONS);
       return;
@@ -264,6 +266,8 @@ export function raidUi(deps: RaidUiDeps) {
     try {
       lists = await options();
     } catch {
+      // Canceled while it loaded (second review R1): nothing said.
+      if (!home.holds()) return;
       home.close('back');
       say(NO_OPTIONS);
       return;
@@ -379,11 +383,11 @@ export function raidUi(deps: RaidUiDeps) {
     /** A click on "Report raid" in the popup of a gym that shows raids, or step 3 at a gym. */
     reportClicked,
 
-    /** A click on "Manage…" of a raid: its form in the side pane. */
-    changeClicked(button: HTMLButtonElement): void {
+    /** A click on "Manage…" of a raid: its form in the side pane, done once drawn or not. */
+    changeClicked(button: HTMLButtonElement): Promise<void> {
       const raidId = button.dataset.changeRaid;
-      if (raidId === undefined) return;
-      void openChange(raidId, button);
+      if (raidId === undefined) return Promise.resolve();
+      return openChange(raidId, button);
     },
   };
 }

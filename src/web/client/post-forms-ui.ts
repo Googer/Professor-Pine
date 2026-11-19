@@ -147,6 +147,8 @@ export function postFormsUi(deps: PostFormsDeps) {
     if (!where?.open()) return;
     const loaded = await load();
     if ('refused' in loaded) {
+      // Canceled while it loaded (second review R1): nothing said, shaken or focused.
+      if (!where.holds()) return;
       where.close('back');
       // Its popup open again (review B-1: drawn anew): the answer line of the post as it is now
       // (plan 8M-11A, S20), its popup or card shaken.
@@ -284,8 +286,8 @@ export function postFormsUi(deps: PostFormsDeps) {
     },
 
     /** Report…: `/report`'s form, once the server said it may open (`GET …/report`), or why not. */
-    reportClicked(button: HTMLButtonElement, party: MapParty): void {
-      void open(button, 'report', party, async () => {
+    reportClicked(button: HTMLButtonElement, party: MapParty): Promise<void> {
+      return open(button, 'report', party, async () => {
         const report = await asked<MapReport>(party.id, 'report');
         if ('refused' in report) return report;
         return {
@@ -317,8 +319,8 @@ export function postFormsUi(deps: PostFormsDeps) {
      * …/trains/<id>/manage`), or why not. A refusal of its Submit closes it (its choices may be
      * stale) and the list is asked for again.
      */
-    manageClicked(button: HTMLButtonElement, party: MapParty): void {
-      void open(button, 'manage', party, async () => {
+    manageClicked(button: HTMLButtonElement, party: MapParty): Promise<void> {
+      return open(button, 'manage', party, async () => {
         const manage = await asked<MapManage>(party.id, 'manage');
         if ('refused' in manage) return manage;
         return {
@@ -334,8 +336,8 @@ export function postFormsUi(deps: PostFormsDeps) {
      * …/trains/<id>/split`), or why not. A refusal closes it (its groups may have changed) and the
      * list is asked for again; once split, the list shows both trains.
      */
-    splitClicked(button: HTMLButtonElement, party: MapParty): void {
-      void open(button, 'split', party, async () => {
+    splitClicked(button: HTMLButtonElement, party: MapParty): Promise<void> {
+      return open(button, 'split', party, async () => {
         const split = await asked<MapSplit>(party.id, 'split');
         if ('refused' in split) return split;
         return {
@@ -351,8 +353,8 @@ export function postFormsUi(deps: PostFormsDeps) {
      * its Submit closes it as Group…'s does (plan 8M-11A, S21: its group or times may be stale),
      * the answer in the answer line.
      */
-    meetClicked(button: HTMLButtonElement, party: MapParty): void {
-      void open(button, 'meet', party, async () => {
+    meetClicked(button: HTMLButtonElement, party: MapParty): Promise<void> {
+      return open(button, 'meet', party, async () => {
         const meet = await asked<MapMeet>(party.id, 'meet');
         if ('refused' in meet) return meet;
         return {

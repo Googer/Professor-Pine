@@ -310,6 +310,21 @@ describe('a form while its lists are on their way', () => {
     expect(closed).toEqual(['pin away']);
   });
 
+  // Second review R2: the loading line is read, its Cancel has the focus and Escape presses it.
+  it('says it loads as a status, the focus on its Cancel, and Escape there closes it', () => {
+    resetFocus();
+    const made = fixture();
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    expect(made.tools.querySelector('p.hint')?.getAttribute('role')).toBe('status');
+    const cancel = made.tools.querySelector('button[data-cancel]');
+    expect(focused().at(-1) === cancel).toBe(true);
+    cancel?.dispatch('keydown', { key: 'Escape' });
+    expect(home.holds()).toBe(false);
+    expect(made.tools.childNodes).toEqual([made.idle]);
+    expect(made.isOpen()).toBe(true);
+  });
+
   it("runs what it asked once, the card's × pressed while it loads", () => {
     const made = phone(undefined);
     let pressX: () => void = () => undefined;

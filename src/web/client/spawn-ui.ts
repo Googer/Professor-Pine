@@ -120,8 +120,10 @@ export function spawnUi(deps: SpawnUiDeps) {
     try {
       options = await getJson<WildOptionsView>(`/s/${guild}/api/wild-options`);
     } catch {
+      // Canceled while it loaded (second review R1): nothing said.
+      if (!home.holds()) return;
       say(NO_OPTIONS);
-      if (home.holds()) finish('back');
+      finish('back');
       return;
     }
     if (!home.holds()) return;

@@ -1276,7 +1276,7 @@ describe('a form in a popup on the map, as Leaflet takes its clicks', () => {
     // As the party layer hands "Manage…" to the raids' side (`draw`).
     section.addEventListener('click', (event) => {
       if (event.target.dataset.changeRaid !== undefined) {
-        raids.changeClicked(event.target as unknown as HTMLButtonElement);
+        void raids.changeClicked(event.target as unknown as HTMLButtonElement);
       }
     });
     const popup = popupWith(shown, section);
