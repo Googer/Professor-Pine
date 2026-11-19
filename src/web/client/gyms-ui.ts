@@ -9,7 +9,6 @@ import { GYM_DOT, gymClicks } from './party-layer.js';
 import { gymPopup, popupMaxHeight, renderNode, type MapGym, type PopupWhere } from './popup.js';
 import type { RouteFocus } from './route-focus.js';
 import { stopName } from './train-forms.js';
-import { heldContent } from './raid-forms.js';
 import { onThemeChange, theme } from './theme.js';
 
 /**
@@ -52,8 +51,6 @@ export interface GymDotsDeps {
   filter: HTMLInputElement;
   /** What a gym's popup shows beyond the gym: "Report raid" and the rest, for a member. */
   extras(gym: MapGym): HTMLElement[];
-  /** A form is open in the popup that is open: its content is held. */
-  editing(): boolean;
   /** A gym clicked: true when route mode or a place picked took it (no popup). */
   clicked(gym: MapGym): boolean;
   /** A gym is to be clicked: every gym is drawn. */
@@ -105,15 +102,13 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
       // Ringed while the Report button's step 2 picks gyms (plan 8M-9A, `map.css`).
       className: 'gym-dot',
     }).bindPopup(
-      // What the dot shows and does is for the gym as the last view has it (`setGyms`).
-      heldContent(
-        () => {
-          const popup = renderNode(gymPopup(now(gym), deps.where()), document);
-          popup.append(...deps.extras(now(gym)));
-          return popup;
-        },
-        () => deps.editing(),
-      ),
+      // What the dot shows and does is for the gym as the last view has it (`setGyms`), drawn anew
+      // at each opening: no form is in a gym's popup (plan 8M-22, branch review W5).
+      () => {
+        const popup = renderNode(gymPopup(now(gym), deps.where()), document);
+        popup.append(...deps.extras(now(gym)));
+        return popup;
+      },
       { maxHeight: popupMaxHeight(map) },
     );
     // In route mode a click (or Enter on the dot, a Tab stop then: `focus`) adds the gym as a

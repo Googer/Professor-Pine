@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FakeElement, make } from '../../../test/support/fake-page.js';
-import { liveCheck } from './form-check.js';
+import { liveCheck, sayLine } from './form-check.js';
 import { formKeys } from './form-keys.js';
 
 /** A form with a field, Report and its line, as `formRow` draws them. */
@@ -117,5 +117,24 @@ describe('the live check of a form (plan 8M-22)', () => {
     });
     made.send.dispatch('click');
     expect(frames).toHaveLength(0);
+  });
+});
+
+// Branch review W1: a line becomes live before its text changes, or screen readers miss it.
+describe('a line said after a press (sayLine)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('is made live and cleared, then written on the next frame', () => {
+    const made = form();
+    made.line.textContent = 'Pick the boss first.';
+    const frames: (() => void)[] = [];
+    sayLine(made.line as unknown as HTMLElement, 'This raid is over.', (run) => frames.push(run));
+    expect(made.line.getAttribute('aria-live')).toBe('polite');
+    expect(made.line.textContent).toBe('');
+    expect(made.line.hidden).toBe(false);
+    frames[0]?.();
+    expect(made.line.textContent).toBe('This raid is over.');
   });
 });

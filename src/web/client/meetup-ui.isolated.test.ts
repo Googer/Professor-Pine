@@ -232,13 +232,14 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
   });
 
   // Plan 8M-22: every form in the side pane, the place's popup closed, its place named.
-  it('opens in the side pane, the meetup’s popup closed, its place under the heading', () => {
+  // Branch review W8: a meetup without a place has no place line (nor the popup's name).
+  it('opens in the side pane, the meetup’s popup closed, no place line for a meetup without one', () => {
     const made = managing([OK]);
     expect(made.tools.querySelector('[data-form="meetup-edit"]')).not.toBeNull();
     expect(made.tools.querySelector('button[data-change]')).toBeNull();
     expect(made.pane.isOpen()).toBe(false);
     expect(made.taken[0]).toEqual([false, true]);
-    expect(made.tools.querySelector('.form-place')?.textContent).toBe('Picnic');
+    expect(made.tools.querySelector('.form-place')).toBeNull();
   });
 
   it('Submit sends what was changed, opens the post again and answers in its line', async () => {

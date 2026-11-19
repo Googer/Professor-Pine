@@ -2603,7 +2603,10 @@ path.highlighted {
   text-decoration: none;
 }
 
-/* A refusal shakes the popup or the card once, unless the device asks for less motion. */
+/*
+ * A refusal shakes the popup, the card or the side pane's box of a form (plan 8M-22) once, unless
+ * the device asks for less motion.
+ */
 @keyframes shake {
   0%,
   100% {
@@ -2623,7 +2626,8 @@ path.highlighted {
 
 @media (prefers-reduced-motion: no-preference) {
   .leaflet-popup.shake .leaflet-popup-content-wrapper,
-  .party-card.shake {
+  .party-card.shake,
+  .train-tools.shake {
     animation: shake var(--shake-time) ease-in-out 1;
   }
 }

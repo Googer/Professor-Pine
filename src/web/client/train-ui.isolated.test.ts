@@ -756,6 +756,8 @@ describe('"Start train here": a train started at a gym or a Power Spot', () => {
       const here = shown.action('data-train-here', '1', box);
       shown.ui.trainHereClicked({ name: 'The Stacks', stop: { gym: 1 } }, 1, here);
       expect(shown.tools.firstElementChild?.dataset.form).toBe('train');
+      // Its first stop names the place; no place line besides (branch review W8).
+      expect(shown.tools.querySelector('.form-place')).toBeNull();
       expect(shown.closed.popups).toBe(1);
       expect(popup.isConnected).toBe(false);
       expect(shown.ui.inTools()).toBe(true);

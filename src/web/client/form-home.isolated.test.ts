@@ -325,6 +325,17 @@ describe('a form while its lists are on their way', () => {
     expect(made.isOpen()).toBe(true);
   });
 
+  // Branch review W3: in the card too, the loading line's Cancel takes the focus.
+  it("puts the focus on the loading line's Cancel in the card", () => {
+    resetFocus();
+    const made = phone('gym:1');
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    const cancel = made.layer.querySelector('button[data-cancel]');
+    expect(cancel).not.toBeNull();
+    expect(focused().at(-1) === cancel).toBe(true);
+  });
+
   it("runs what it asked once, the card's × pressed while it loads", () => {
     const made = phone(undefined);
     let pressX: () => void = () => undefined;
@@ -382,5 +393,44 @@ describe('a form opened on a wide screen, the window then narrowed', () => {
     expect(made.log).toEqual([]);
     expect(home.inPane()).toBe(true);
     expect(made.tools.childNodes).toEqual([form]);
+  });
+});
+
+// Branch review W4: the card never keeps a form whose claim is gone.
+describe("a phone's form whose claim is gone", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('takes its form out of the card as it closes, the claim let go elsewhere', () => {
+    const made = phone('gym:1');
+    const home = formHome(made.frame);
+    const claim = home.open();
+    home.draw(formEl().element);
+    if (claim) made.frame.hold.release(claim);
+    home.close('back');
+    expect(made.log.at(-1)).toBe('card back');
+  });
+
+  it('takes its form out of the card when its claim cannot move back into it', () => {
+    const made = phone('gym:1');
+    let refuse = false;
+    const frame: FormFrame = {
+      ...made.frame,
+      hold: {
+        ...made.frame.hold,
+        moved: (claim, place, aside) =>
+          refuse ? undefined : made.frame.hold.moved(claim, place, aside),
+      },
+    };
+    const home = formHome(frame);
+    home.open();
+    home.draw(formEl().element);
+    home.toPane();
+    refuse = true;
+    made.log.length = 0;
+    home.toCard();
+    expect(made.log).toEqual(['card form', 'card back']);
+    expect(home.inPane()).toBe(true);
   });
 });

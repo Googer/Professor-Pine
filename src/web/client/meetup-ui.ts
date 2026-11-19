@@ -315,7 +315,7 @@ export function meetupUi(deps: MeetupUiDeps) {
    */
   const openMaking = (place: PickedPlace | undefined, control?: HTMLButtonElement): void => {
     // In the side pane (plan 8M-22), the place's popup closed; its fields name the place.
-    const home = formHome(deps.frame, { control, place: () => undefined });
+    const home = formHome(deps.frame, { control, place: () => '' });
     if (!home.open()) {
       say(FORM_OPEN);
       return;
@@ -333,7 +333,8 @@ export function meetupUi(deps: MeetupUiDeps) {
     // In the side pane (plan 8M-22), the meetup's popup closed; Cancel opens it again.
     const home = formHome(deps.frame, {
       control,
-      place: () => meetup.place?.words ?? meetup.name,
+      // Its place's words; none for a meetup without a place, not the popup's name (review W8).
+      place: () => meetup.place?.words ?? '',
     });
     if (!home.open()) {
       say(FORM_OPEN);

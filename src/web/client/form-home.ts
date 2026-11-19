@@ -54,8 +54,8 @@ export interface FormOpener {
    */
   control?: HTMLElement | null | undefined;
   /**
-   * The place the form is at, named under its heading (the first stop and "+2" of research's);
-   * else the name the popup it was opened from showed.
+   * The place the form is at, named under its heading (the first stop and "+2" of research's;
+   * `''` for none); else (undefined) the name the popup it was opened from showed.
    */
   place?: () => string | undefined;
 }
@@ -196,6 +196,8 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
         cardShowed = card.key !== undefined;
         left = frame.leave(true, opener.control);
         card.openForm(loadingLine(), cancelPressed);
+        // The focus on its Cancel, as in the pane (branch review W3).
+        card.formElement()?.querySelector<HTMLElement>('button[data-cancel]')?.focus();
         return claim;
       }
       // An aside claim (the review's ruling): the list goes on being drawn under it.
@@ -250,7 +252,9 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
       where = 'card';
       const moved = hold.moved(claim, 'card');
       if (!moved) {
+        // No longer the form that holds (branch review W4): nothing of it left in the card.
         where = 'pane';
+        card.closeForm();
         return;
       }
       claim = moved;

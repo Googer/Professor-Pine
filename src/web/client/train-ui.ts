@@ -499,7 +499,7 @@ export function trainUi(deps: TrainUiDeps) {
     control?: HTMLButtonElement | null,
   ): void => {
     // In the side pane (plan 8M-22), the place's popup closed; route mode has it after.
-    const home = formHome(deps.frame, { control, place: () => undefined });
+    const home = formHome(deps.frame, { control, place: () => '' });
     const claim = home.open();
     if (!claim) {
       say(FORM_OPEN);

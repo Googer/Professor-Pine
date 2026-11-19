@@ -1,5 +1,5 @@
 import { isOff, missingOf } from './form-buttons.js';
-import { liveCheck, type FormCheck } from './form-check.js';
+import { liveCheck, sayLine, type FormCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
 import { formHome, type FormFrame } from './form-home.js';
 import type {
@@ -114,13 +114,10 @@ export function sayUnder(form: HTMLElement, text: string): void {
  */
 export function sayInForm(form: HTMLElement, text: string): void {
   const line = form.querySelector<HTMLElement>('.form-answer');
-  if (line) {
-    // An answer after a press is read as it comes (plan 8M-22: the line is live only for what is
-    // said after a press, not while the form's check writes it as the member types).
-    line.setAttribute('aria-live', 'polite');
-    line.textContent = text;
-    line.hidden = false;
-  }
+  // An answer after a press is read as it comes (plan 8M-22: the line is live only for what is
+  // said after a press, not while the form's check writes it as the member types): live first,
+  // written on the next frame (branch review W1).
+  if (line) sayLine(line, text);
 }
 
 export function raidUi(deps: RaidUiDeps) {

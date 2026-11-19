@@ -10,6 +10,32 @@ export interface FormCheck {
 /** Ids of the missing lines, one per form drawn. */
 let lines = 0;
 
+/** Runs `run` on the next frame (`requestAnimationFrame`, else after this turn). */
+function nextFrameOf(run: () => void): void {
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+  else queueMicrotask(run);
+}
+
+/**
+ * Says `text` on a form's line after a press (branch review W1): the line made live and cleared
+ * first, the text written on the next frame, so that a screen reader hears the change (a line made
+ * live in the same change as its text is not read). Used for a press of an off Report and for the
+ * server's answer under a form (`sayInForm`).
+ */
+export function sayLine(
+  line: HTMLElement,
+  text: string,
+  nextFrame: (run: () => void) => void = nextFrameOf,
+): void {
+  line.setAttribute('aria-live', 'polite');
+  line.textContent = '';
+  line.hidden = false;
+  nextFrame(() => {
+    line.textContent = text;
+    line.hidden = text === '';
+  });
+}
+
 /** How each form drawn says its missing line once more (`sayMissing`). */
 const sayers = new WeakMap<HTMLElement, () => void>();
 
@@ -39,12 +65,7 @@ export function liveCheck(
 ): FormCheck {
   const send = form.querySelector<HTMLButtonElement>('button[data-submit]');
   const line = form.querySelector<HTMLElement>('.form-answer');
-  const nextFrame =
-    options.nextFrame ??
-    ((run: () => void) => {
-      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
-      else queueMicrotask(run);
-    });
+  const nextFrame = options.nextFrame ?? nextFrameOf;
   if (!send || !line) return { run: () => undefined };
   lines += 1;
   const id = `form-line-${String(lines)}`;
@@ -77,13 +98,7 @@ export function liveCheck(
   /** The line said once more, while the sending button is off: cleared, made live, written. */
   const say = (): void => {
     if (send.disabled || send.getAttribute('aria-disabled') !== 'true') return;
-    const missing = check() ?? '';
-    line.setAttribute('aria-live', 'polite');
-    write('');
-    line.hidden = false;
-    nextFrame(() => {
-      write(missing);
-    });
+    sayLine(line, check() ?? '', nextFrame);
   };
   sayers.set(form, say);
   form.addEventListener('click', (event) => {

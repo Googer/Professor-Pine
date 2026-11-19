@@ -87,8 +87,6 @@ const infoArea = (value: string | undefined): PageNode => ({
   ...(value === undefined ? {} : { text: value }),
 });
 
-/** The line under a form where its answer is said. */
-
 /** A body to send, or what is missing. */
 export type MeetupBody = { body: Record<string, unknown> } | { text: string };
 

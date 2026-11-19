@@ -2796,7 +2796,11 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
       });
     }
     expect(panel.querySelectorAll('span.stop-chip')).toHaveLength(6);
+    // The line is written on the next frame (branch review W1): the frames run by hand.
+    const frames: (() => void)[] = [];
+    vi.stubGlobal('requestAnimationFrame', (run: () => void) => frames.push(run));
     await search;
+    for (const frame of frames.splice(0)) frame();
     const answer = panel.querySelector('.form-answer');
     expect(answer?.textContent).toBe('A report names 5 stops at most.');
     expect(answer?.hidden).toBe(false);

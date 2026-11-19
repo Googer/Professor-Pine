@@ -86,14 +86,13 @@ const routeFocus = new RouteFocus();
 
 /**
  * What a gym's popup shows beyond the gym itself, once the page knows who is asking: "Report raid"
- * (plan 8M-4) and "Report spawn here" (plan 8M-4S) for a member, and whether a form is open (the
- * popup's content is held then: `heldContent`), and in route mode a click that adds the gym as
- * a stop instead of opening its popup (plan 8M-5); whether every gym must be drawn (route mode,
+ * (plan 8M-4) and "Report spawn here" (plan 8M-4S) for a member (their forms open in the side pane
+ * or the card, so the popup is drawn anew at each opening: plan 8M-22), and in route mode a click
+ * that adds the gym as a stop instead of opening its popup (plan 8M-5); whether every gym must be drawn (route mode,
  * a place picked: plan 8M-7). Nothing until then.
  */
 const gymExtras: {
   of: (gym: MapGym) => HTMLElement[];
-  editing: () => boolean;
   clicked: (gym: MapGym) => boolean;
   forced: () => boolean;
   raidGyms: () => readonly number[];
@@ -104,7 +103,6 @@ const gymExtras: {
   thins: () => boolean;
 } = {
   of: () => [],
-  editing: () => false,
   clicked: () => false,
   forced: () => false,
   raidGyms: () => [],
@@ -205,7 +203,6 @@ async function showGeo(
     registry,
     filter: byId('filter') as HTMLInputElement,
     extras: (gym) => [...activityLine('gym', String(gym.id)), ...gymExtras.of(gym)],
-    editing: () => gymExtras.editing(),
     clicked: (gym) => gymExtras.clicked(gym),
     forced: () => gymExtras.forced(),
     hidden: () => hiddenGyms(gymExtras.raidGyms(), gymExtras.raidsShown()),
@@ -973,7 +970,6 @@ function start(): void {
         clearPage();
       };
       tourHooks.finds = mayReport;
-      gymExtras.editing = () => raids.editing();
       gymExtras.of = (gym) => raids.gymControls(gym);
       gymExtras.clicked = (gym) => raids.gymClicked(gym);
       spotTaps.clicked = (spot) => raids.spotClicked(spot);

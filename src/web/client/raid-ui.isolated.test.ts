@@ -8,7 +8,7 @@ import {
 } from '../../../test/support/fake-page.js';
 import { fakeFormFrame } from './fake-form-frame.js';
 import type { RaidUiDeps } from './raid-ui.js';
-import { raidUi } from './raid-ui.js';
+import { raidUi, sayInForm } from './raid-ui.js';
 
 // The page's helpers this comes in with load Leaflet, which reads the browser's `window` as it
 // loads; none of it is used here. Isolated: a mocked module needs a module graph of its own.
@@ -395,4 +395,26 @@ describe("a raid's forms on a phone (plan 8M-22)", () => {
       expect(focused().at(-1) === made.control).toBe(true);
     },
   );
+});
+
+// Branch review W1: a server's refusal under a form is read: live first, written next frame.
+describe('an answer said under a form (sayInForm)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('makes the line live and clears it, then writes the answer on the next frame', () => {
+    const frames: (() => void)[] = [];
+    vi.stubGlobal('requestAnimationFrame', (run: () => void) => frames.push(run));
+    const form = make('div');
+    const line = make('p');
+    line.className = 'form-answer';
+    line.textContent = 'Nothing changed yet.';
+    form.append(line);
+    sayInForm(form as unknown as HTMLElement, 'You may not delete this raid.');
+    expect(line.getAttribute('aria-live')).toBe('polite');
+    expect(line.textContent).toBe('');
+    frames[0]?.();
+    expect(line.textContent).toBe('You may not delete this raid.');
+  });
 });
