@@ -1,4 +1,4 @@
-import { liveControl } from './list-ui.js';
+import { liveControl, sameControl } from './list-ui.js';
 import { focusBack } from './post-forms.js';
 import type { FormClaim, FormHold } from './raid-forms.js';
 
@@ -125,6 +125,58 @@ function placeLine(form: HTMLElement, place: string | undefined): void {
   else form.prepend(line);
 }
 
+/**
+ * The control of `form` that stands for `had` of the form it replaces (staging finding S1): the
+ * field of the same tag and name (a radio or checkbox also of the same value), else the control of
+ * the same data attributes (`sameControl`), else the form's heading.
+ */
+function sameIn(form: HTMLElement, had: HTMLElement): HTMLElement | null {
+  const name = had.getAttribute('name');
+  if (name !== null) {
+    const type = had.getAttribute('type');
+    const value = had.getAttribute('value');
+    const ofValue =
+      (type === 'radio' || type === 'checkbox') && value !== null
+        ? `[value="${CSS.escape(value)}"]`
+        : '';
+    const field = form.querySelector<HTMLElement>(
+      `${had.tagName.toLowerCase()}[name="${CSS.escape(name)}"]${ofValue}`,
+    );
+    if (field) return field;
+  }
+  return sameControl(form, had) ?? headingOf(form);
+}
+
+/**
+ * Draws `form` in place of what `box` shows, the focus kept where it was (staging finding S1): a
+ * control of the form it replaces that had the focus gives it to the same control of the new one
+ * (its caret kept in a text field); the focus elsewhere is left alone.
+ */
+function replaceKeepingFocus(box: HTMLElement, form: HTMLElement, show: () => void): void {
+  const active = document.activeElement;
+  const had = active instanceof HTMLElement && box.contains(active) ? active : undefined;
+  // A text field's caret (read by its fields: a page's fakes have no `HTMLInputElement`).
+  const field = had?.tagName === 'INPUT' ? (had as HTMLInputElement) : undefined;
+  const caret = field ? { from: field.selectionStart, to: field.selectionEnd } : undefined;
+  show();
+  if (!had || had.isConnected) return;
+  const again = sameIn(form, had);
+  if (!again) return;
+  if (!again.hasAttribute('tabindex') && headingOf(form) === again) {
+    again.setAttribute('tabindex', '-1');
+  }
+  again.focus();
+  const kept = again.tagName === 'INPUT' ? (again as HTMLInputElement) : undefined;
+  if (kept && caret && typeof caret.from === 'number' && typeof caret.to === 'number') {
+    // A field of a type without a caret (a radio) refuses a selection: nothing to keep there.
+    try {
+      kept.setSelectionRange(caret.from, caret.to);
+    } catch {
+      // Its focus is kept all the same.
+    }
+  }
+}
+
 export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
   const { hold, card } = frame;
   let claim: FormClaim | undefined;
@@ -215,8 +267,11 @@ export function formHome(frame: FormFrame, opener: FormOpener = {}): FormHome {
     element,
     draw(form) {
       placeLine(form, opener.place?.() ?? left.place);
-      if (where === 'card' && card) card.openForm(form, cancelPressed);
-      else frame.tools.replaceChildren(form);
+      // A form drawn anew (its lists came, an answer) keeps the focus where it was (S1).
+      replaceKeepingFocus(element(), form, () => {
+        if (where === 'card' && card) card.openForm(form, cancelPressed);
+        else frame.tools.replaceChildren(form);
+      });
       if (drawn) return;
       drawn = true;
       for (const run of drawers.splice(0)) run();

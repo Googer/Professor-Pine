@@ -3675,6 +3675,26 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       expect(fake.shown.popupOf === markerOf(raidAt(1).heading)).toBe(true);
     });
 
+    // Staging finding S1 (2026-11-18): drawn anew as its lists come, it keeps the focus.
+    it("keeps the focus on research's heading as its lists come", async () => {
+      const { markerOf, panel } = await started({
+        raids: true,
+        stops: STOPS_HERE,
+        research: caseResearchOptions(),
+      });
+      markerOf('Yellow Mural 5')?.fire('click', {});
+      popupNow()?.querySelector('button[data-report-research]')?.dispatch('click');
+      const first = panel.querySelector('div.research-form');
+      expect(page.active === first?.querySelector('[data-form-heading]')).toBe(true);
+      const again = new Promise<unknown>((resolve) => {
+        fake.formsDrawn.push(resolve);
+      });
+      await again;
+      const form = panel.querySelector('div.research-form');
+      expect(form === first).toBe(false);
+      expect(page.active === form?.querySelector('[data-form-heading]')).toBe(true);
+    });
+
     it("a stop's research form: Cancel opens the stop's popup again, its button there", async () => {
       const { markerOf, reportHeader, panel } = await started({ raids: true, stops: STOPS_HERE });
       markerOf('Yellow Mural 5')?.fire('click', {});

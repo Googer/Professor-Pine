@@ -31,6 +31,12 @@ function fixture() {
   vi.stubGlobal('document', {
     createElement: make,
     querySelector: (selector: string) => body.querySelector(selector),
+    // What took the focus last, while it is still in the page.
+    get activeElement() {
+      const last = focused().at(-1);
+      return last?.isConnected === true ? last : body;
+    },
+    body,
   });
   const takes: unknown[][] = [];
   let holder: unknown;
@@ -432,5 +438,58 @@ describe("a phone's form whose claim is gone", () => {
     home.toCard();
     expect(made.log).toEqual(['card form', 'card back']);
     expect(home.inPane()).toBe(true);
+  });
+});
+
+// Staging finding S1 (2026-11-18): a form drawn anew (its lists came) keeps the focus where it was.
+describe('a form drawn anew', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** A form with its heading and a search field, as research draws it. */
+  const withField = () => {
+    const { form, heading, element } = formEl();
+    const field = make('input');
+    field.setAttribute('name', 'query');
+    form.append(field);
+    return { form, heading, field, element };
+  };
+
+  it('keeps the focus on the heading, now the new form’s', () => {
+    resetFocus();
+    const made = fixture();
+    const home = formHome(made.frame);
+    home.open();
+    home.draw(formEl().element);
+    const again = withField();
+    home.draw(again.element);
+    expect(focused().at(-1) === again.heading).toBe(true);
+  });
+
+  it('keeps the focus on a field, now the same field of the new form', () => {
+    resetFocus();
+    const made = fixture();
+    const home = formHome(made.frame);
+    home.open();
+    const first = withField();
+    home.draw(first.element);
+    first.field.focus();
+    const again = withField();
+    home.draw(again.element);
+    expect(focused().at(-1) === again.field).toBe(true);
+  });
+
+  it('leaves the focus alone where it is outside the form', () => {
+    resetFocus();
+    const made = fixture();
+    const home = formHome(made.frame);
+    home.open();
+    home.draw(formEl().element);
+    made.idle.focus();
+    made.body.append(made.idle);
+    const before = focused().length;
+    home.draw(withField().element);
+    expect(focused()).toHaveLength(before);
   });
 });
