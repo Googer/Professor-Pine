@@ -59,6 +59,7 @@ import { gymSpawnPlace, spawnAtBox, spawnAtOf, spawnPoint } from './spawn-forms.
 import { spawnUi } from './spawn-ui.js';
 import { maxUi, type MapSpot } from './max-ui.js';
 import { reportUi } from './report-ui.js';
+import type { FormFrame } from './form-home.js';
 import { regionsUi } from './regions-ui.js';
 import type { RegionsMineView } from '../../domain/web/region-data.js';
 import {
@@ -609,6 +610,19 @@ function popupContent(popup: L.Popup | undefined): Element | null | undefined {
   return popup?.getElement()?.querySelector('.leaflet-popup-content');
 }
 
+/** What the page says of a place opened while a form is open in the phone's card (plan 8M-22). */
+const FORM_OPEN = 'Close the form that is open first.';
+
+/**
+ * The place a popup or card shows, for the line under a form's heading (plan 8M-22): its name, else
+ * its post's heading; none where it shows neither.
+ */
+function placeNamed(shown: Element | null | undefined): string | undefined {
+  const named = shown?.querySelector('.name') ?? shown?.querySelector('.post-heading');
+  const text = named?.textContent?.trim() ?? '';
+  return text === '' ? undefined : text;
+}
+
 /** Draws a popup anew where it is scrolled: Leaflet lets its height go to measure it, losing that. */
 function updateKeepingScroll(popup: L.Popup): void {
   const content = popupContent(popup);
@@ -852,6 +866,83 @@ export function showParties(
   const popups = new Map<string, L.Layer>();
 
   /**
+   * Where every form opens (plan 8M-22, `formHome`): the side pane's box, an aside claim of the
+   * hold, or on a phone the card's form mode (`cardWanted`, asked as the form opens); the popup of
+   * the place it was opened from closed (the card's party stays under a form in the card), the
+   * place it showed named under the form's heading, and opened again on Cancel (Matt's ruling 1):
+   * a party's by its key, on its own marker (`openParty` for a raid's or a battle's, as after their
+   * forms), none where the party has ended meanwhile; a plain popup (a gym's, a PokéStop's) as it
+   * was.
+   */
+  const formFrame: FormFrame = {
+    tools,
+    hold,
+    card: {
+      get key() {
+        return card.key;
+      },
+      openForm: (form, cancel) => {
+        card.openForm(form, cancel);
+      },
+      closeForm: () => {
+        card.closeForm();
+      },
+      close: () => {
+        card.close();
+      },
+      formElement: () => card.formElement(),
+    },
+    phone: () => cardWanted(),
+    idle: () => {
+      tools.replaceChildren(renderNode(newTrainButton(), document));
+    },
+    leave: (inCard = false, control) => {
+      // Only the popup or card the form was opened from (review P4): a form of a line of the list,
+      // or with no control (step 3, a long press), names, closes and opens again no other.
+      const inTheCard = card.key !== undefined && control != null && card.holds(control);
+      const inThePopup = control != null && showing.popup?.getElement()?.contains(control) === true;
+      if (!inTheCard && !inThePopup) return {};
+      const shown = inTheCard ? card.content() : (popupContent(showing.popup) ?? undefined);
+      const place = placeNamed(shown);
+      const key = inTheCard ? card.key : showing.key;
+      const popup = inTheCard ? undefined : showing.popup;
+      map.closePopup();
+      if (!inCard) card.close();
+      if (key === undefined && popup === undefined) return place === undefined ? {} : { place };
+      const back = (): void => {
+        if (key !== undefined) {
+          const raidsLayer = key.startsWith('gym:') || key.startsWith('max:');
+          if (!raidsLayer || !openParty(key)) popups.get(key)?.openPopup();
+          return;
+        }
+        if (popup) map.openPopup(popup);
+      };
+      return place === undefined ? { back } : { place, back };
+    },
+  };
+  /**
+   * The pin of the Report button's step 2 at a point (`report-pin`) while a spawn's or a max
+   * battle's form there is open (Matt's ruling 3): fixed, taking no taps; what takes it away.
+   */
+  const pinAt = (point: LatLon): { drawn: () => void; remove: () => void } => {
+    const pin = L.marker([point.lat, point.lon], {
+      icon: L.divIcon({ className: 'report-pin', iconSize: [22, 22] }),
+      interactive: false,
+      keyboard: false,
+    }).addTo(map);
+    return {
+      // On a phone the point clear above the form's card (Matt's ruling 3), as a tap's is: once
+      // the form is drawn, by the card's height with it (review P10).
+      drawn: () => {
+        if (card.formShown) panAboveCard(L.latLng(point.lat, point.lon));
+      },
+      remove: () => {
+        pin.remove();
+      },
+    };
+  };
+
+  /**
    * The reports at stops' controls (plan 8M-9B): Take back, held as the other forms; after it, the
    * reports asked for at once.
    */
@@ -878,7 +969,7 @@ export function showParties(
         csrf = token;
       },
     },
-    hold,
+    frame: formFrame,
     done: async (stopKey) => {
       await stopReports.now();
       if (stopKey !== undefined) popups.get(`stop:${stopKey}`)?.openPopup();
@@ -977,12 +1068,8 @@ export function showParties(
         csrf = token;
       },
     },
-    hold,
+    frame: formFrame,
     tools,
-    closePopup: () => {
-      map.closePopup();
-      card.close();
-    },
     done: async (stopKey) => {
       await stopReports.now();
       if (stopKey !== undefined) popups.get(`stop:${stopKey}`)?.openPopup();
@@ -1265,6 +1352,7 @@ export function showParties(
       },
     },
     hold,
+    frame: formFrame,
     origin: () => location.origin,
     times: () => ({ now: Date.now() }),
     done: async () => {
@@ -1364,7 +1452,7 @@ export function showParties(
         const open = choices.get(target.dataset.open);
         map.closePopup();
         open?.();
-      } else if (target.dataset.changeRaid !== undefined) raidForms.changeClicked(target);
+      } else if (target.dataset.changeRaid !== undefined) void raidForms.changeClicked(target);
       else if (target.dataset.report !== undefined) {
         const gym = gyms.get(Number(target.dataset.report));
         if (gym) raidForms.reportClicked(target, gym);
@@ -1402,15 +1490,15 @@ export function showParties(
       } else if (target.dataset.meet !== undefined) {
         // Meet… (plan 8M-8B): its form, from what the server offers now.
         const party = partyById(target.dataset.meet);
-        if (party) postForms.meetClicked(target, party);
+        if (party) void postForms.meetClicked(target, party);
       } else if (target.dataset.splitTrain !== undefined) {
         // A train's Split… (plan 8M-8C): the post's dialog as a form in the place of the post.
         const party = partyById(target.dataset.splitTrain);
-        if (party) postForms.splitClicked(target, party);
+        if (party) void postForms.splitClicked(target, party);
       } else if (target.dataset.manageTrain !== undefined) {
         // A train's Manage… (plan 8M-8C): the post's dialog as a form in the place of the post.
         const party = partyById(target.dataset.manageTrain);
-        if (party) postForms.manageClicked(target, party);
+        if (party) void postForms.manageClicked(target, party);
       } else if (target.dataset.closeParty !== undefined) {
         // Staff's Delete… (plan 8M-8B): `/delete`'s question in the place of the post.
         const party = partyById(target.dataset.closeParty);
@@ -1418,7 +1506,7 @@ export function showParties(
       } else if (target.dataset.reportParty !== undefined) {
         // Report… (plan 8M-8B): `/report`'s form in the place of the post.
         const party = partyById(target.dataset.reportParty);
-        if (party) postForms.reportClicked(target, party);
+        if (party) void postForms.reportClicked(target, party);
       } else if (target.dataset.reportResearch !== undefined) {
         // "Report research here" (plan 8M-9B): the research form in the place of the control.
         researchForms.researchClicked(target);
@@ -1508,16 +1596,17 @@ export function showParties(
       autoPan: !cardWanted(),
     });
     target.on('popupopen', () => {
+      // A form in the card (plan 8M-22): nothing else opens (the map's `popupopen` said so).
+      if (card.formShown) {
+        target.closePopup();
+        return;
+      }
       if (cardWanted()) {
         const at = target.getPopup()?.getLatLng();
         target.closePopup();
         card.open(key, () => contents.get(key)?.() ?? content());
         // What was tapped stays in sight above the card (review 8A-8).
-        if (at) {
-          const point = map.latLngToContainerPoint(at);
-          const clear = map.getSize().y - card.height - 24;
-          if (point.y > clear) map.panBy([0, point.y - clear]);
-        }
+        if (at) panAboveCard(at);
         drawBadges();
         return;
       }
@@ -1535,6 +1624,12 @@ export function showParties(
       prefetchKey(key);
     });
     return target;
+  };
+  /** The point `at` panned clear above the phone card (review 8A-8), where the card covers it. */
+  const panAboveCard = (at: L.LatLng): void => {
+    const point = map.latLngToContainerPoint(at);
+    const clear = map.getSize().y - card.height - 24;
+    if (point.y > clear) map.panBy([0, point.y - clear]);
   };
   /** What each popup shows, by its key: the phone card draws the same. */
   const contents = new Map<string, () => HTMLElement>();
@@ -1980,10 +2075,22 @@ export function showParties(
    * the hold or lets it go; on a phone a form that needs the map docks the pane under it (fix
    * round 1: `body.form-docked`, whatever "List" says).
    */
+  /**
+   * Whether a form is in the side pane's box (review P1 of plan 8M-22: one rule for the pane and
+   * the list's draw): any aside claim (every form of the pane since plan 8M-22, step 2, route
+   * mode, Your regions), and the forms of the box that say so themselves.
+   */
+  const formInPane = (): boolean =>
+    hold.asideHeld ||
+    trainForms.inTools() ||
+    meetupForms.inTools() ||
+    researchForms.inTools() ||
+    report.inTools() ||
+    regionsBox.inTools();
   const paneShown = (): void => {
-    const formOpen =
-      hold.asideHeld || trainForms.inTools() || meetupForms.inTools() || researchForms.inTools();
+    const formOpen = formInPane();
     listSection.hidden = paneShows({ loggedIn: true, formOpen }) === 'form';
+    panel.classList.toggle('form-shown', formOpen);
     document.body.classList.toggle('form-docked', formOpen);
     map.invalidateSize();
   };
@@ -2347,12 +2454,7 @@ export function showParties(
     // "New train" (or the form or route editor open in its place) for a member who may; a form
     // open there stays whatever the list says, and is shown over the list (plan 8M-7), which
     // comes back when it closes.
-    const formOpen =
-      trainForms.inTools() ||
-      meetupForms.inTools() ||
-      report.inTools() ||
-      researchForms.inTools() ||
-      regionsBox.inTools();
+    const formOpen = formInPane();
     const reporting = reportOffered(mayReport, next);
     // The phone list's own Report line (plan 8M-9A, A7), over the list, while Report is offered
     // (review B2: not for a form left open while the list went read-only). The list stays in the
@@ -2452,6 +2554,13 @@ export function showParties(
   // clicks stay in it (`keepClicksInPopup`): a button a click takes out of the page would
   // otherwise close the popup.
   map.on('popupopen', (event) => {
+    // A form in the phone's card (plan 8M-22, Matt's ruling 2): a tap on another marker, a plain
+    // popup, anything that would open one, opens nothing and says so.
+    if (card.formShown) {
+      map.closePopup(event.popup);
+      say(FORM_OPEN);
+      return;
+    }
     showing.opened(event.popup);
     // Anything else opened clears a train's numbers; a train's popup draws them under its key.
     drawBadges();
@@ -2488,7 +2597,7 @@ export function showParties(
       },
     },
     regionNames,
-    hold,
+    frame: formFrame,
     done: async (raid) => {
       if (raid?.gymId != null) {
         map.closePopup();
@@ -2526,14 +2635,8 @@ export function showParties(
     },
     regions,
     hold,
-    popupAt: (point, content) => {
-      const popup = L.popup().setLatLng([point.lat, point.lon]).setContent(content).openOn(map);
-      return {
-        close: () => {
-          map.closePopup(popup);
-        },
-      };
-    },
+    frame: formFrame,
+    pinAt,
     // A spawn reported: the spawns asked for at once, its marker drawn without waiting.
     reported: () => {
       void spawns.now();
@@ -2552,14 +2655,8 @@ export function showParties(
     },
     regions,
     hold,
-    popupAt: (point, content) => {
-      const popup = L.popup().setLatLng([point.lat, point.lon]).setContent(content).openOn(map);
-      return {
-        close: () => {
-          map.closePopup(popup);
-        },
-      };
-    },
+    frame: formFrame,
+    pinAt,
     // "← Pick a Power Spot" of a pin refused (R1-4): the Report button's step 2 of a max battle.
     pickSpot: () => {
       report.pickSpots();
@@ -2603,6 +2700,7 @@ export function showParties(
     gyms,
     hold,
     tools,
+    frame: formFrame,
     overlay: {
       show: (train) => {
         routeLayer.clearLayers();
@@ -2709,8 +2807,7 @@ export function showParties(
     },
     regions,
     gyms,
-    hold,
-    tools,
+    frame: formFrame,
     zone: () => view?.zone ?? 'UTC',
     answered: (meetupId, answer, from) => {
       answered(meetupId, answer, from);
@@ -2971,7 +3068,7 @@ export function showParties(
       meetupForms.newMeetupClicked(true);
     },
     spawnAt: (point, place) => {
-      spawnForms.spawnAt(spawnPoint(point.lat, point.lon), true, place);
+      spawnForms.spawnAt(spawnPoint(point.lat, point.lon), true, place, report.button());
     },
     regions,
     gyms,
@@ -2984,19 +3081,16 @@ export function showParties(
       return openParty(`gym:${String(gym.id)}`);
     },
     toRaidForm: (gym) => {
-      // The gym's popup, drawn now, and its "Report raid" pressed (A6: the form in its place).
-      const button = frame.openGym?.(gym)?.querySelector<HTMLButtonElement>('button[data-report]');
-      if (button) raidForms.reportClicked(button, gym, true, 'raid');
+      // Straight in the side pane (plan 8M-22), the gym's popup not opened first; Cancel gives
+      // the focus to the Report button.
+      raidForms.reportClicked(report.button(), gym, true, 'raid');
     },
     openBattle,
     toMaxForm: (spot) => {
-      const button = frame
-        .openSpot?.(spot)
-        ?.querySelector<HTMLButtonElement>('button[data-report-max]');
-      if (button) maxForms.maxClicked(button, spot, true, 'max');
+      maxForms.maxClicked(report.button(), spot, true, 'max');
     },
     maxAt: (point) => {
-      maxForms.maxAt(point, true);
+      maxForms.maxAt(point, true, report.button());
     },
     onSpots: (listener) => {
       frame.onSpots?.(listener);
@@ -3004,24 +3098,17 @@ export function showParties(
     onStops: (listener) => {
       frame.onStops?.(listener);
     },
-    // A report at a stop's step 3 (B9): the stop's own popup (or card) opened at it, and its
-    // kind's form in it, its first field focused (B8).
+    // A report at a stop's step 3 (B9): its kind's form straight in the side pane (plan 8M-22),
+    // its first field focused (B8); Cancel gives the focus to the Report button.
     toStop: (kind, stop) => {
-      const shown = openStopAt(stop);
       if (kind === 'research') {
-        const research = shown?.querySelector<HTMLButtonElement>('button[data-report-research]');
-        if (research) researchForms.researchClicked(research, 'input[name="query"]');
-        else {
-          researchForms.researchAt({
-            key: stop.id,
-            name: stop.title,
-            at: { lat: stop.lat, lon: stop.lon },
-          });
-        }
+        researchForms.researchAt(
+          { key: stop.id, name: stop.title, at: { lat: stop.lat, lon: stop.lon } },
+          report.button(),
+        );
         return;
       }
-      const button = shown?.querySelector<HTMLButtonElement>('button[data-report-rocket]');
-      if (button) rocketForms.rocketClicked(button, true, 'rocket');
+      rocketForms.rocketAt(stop.id, report.button(), true, 'rocket', stop.title);
     },
   });
   report.refresh();

@@ -9,7 +9,10 @@ import {
   splitForm,
 } from './train-post-forms.js';
 import { getJson } from './common.js';
+import { isOff, missingOf } from './form-buttons.js';
+import { liveCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
+import { formHome, type FormFrame } from './form-home.js';
 import type { Me } from './notice.js';
 import { renderNode, type PageNode } from './popup.js';
 import {
@@ -29,7 +32,7 @@ import {
   type PostFormBody,
 } from './post-forms.js';
 import { liveControl, sameControl } from './list-ui.js';
-import { formPlace, type FormHold } from './raid-forms.js';
+import { formPlace, type FormClaim, type FormHold } from './raid-forms.js';
 import { fieldsOf, sayInForm } from './raid-ui.js';
 import { readerZone } from './post-time.js';
 import type { PressAnswer } from './press-answer.js';
@@ -47,6 +50,8 @@ export interface PostFormsDeps {
   /** The page's CSRF token, which a stale one's renewal changes. */
   csrf: { get(): string; set(token: string): void };
   hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'ready' | 'release' | 'fit'>;
+  /** Where the forms open (plan 8M-22, `formHome`): the side pane, the party's popup closed. */
+  frame: FormFrame;
   /** Where the page is now: Pine's origin, the reader's times. */
   origin(): string;
   times(): FormTimes;
@@ -74,11 +79,62 @@ export function postFormsUi(deps: PostFormsDeps) {
   const { guild, hold } = deps;
 
   /**
-   * Opens a form in the place of the post of the button pressed, only while no other form is
-   * open: the hold is taken at once, then `load` says what to draw (a form that asks the server
-   * first waits for it) or why it does not open; drawn only while its claim holds and its place is
-   * still in the page. `bodyOf` makes what Submit sends from the form's fields (or what is
-   * missing), to `control`.
+   * The note box's place (plan 8M-11A, S9; it stays where it is, plan 8M-22: a notice, nothing
+   * sent): in the place of the post of the button pressed, held as it is (its popup, its line of
+   * the list or the phone card: `formPlace`); its closing puts the post back, the focus on the
+   * button in the post as it is now (review W-5; the release may have drawn the popup anew, B-1).
+   */
+  const inPlace = (button: HTMLButtonElement): FormPlace | undefined => {
+    // A party's post, or its own summary while the page has not got the post (a train's).
+    const section =
+      button.closest<HTMLElement>('.post-popup') ?? button.closest<HTMLElement>('.party-popup');
+    if (!section) return undefined;
+    const place = formPlace(section);
+    let claim: FormClaim | undefined;
+    let before: ChildNode[] = [];
+    return {
+      open: () => {
+        // Outside a popup or the card (a line of the list), its claim goes with its form.
+        claim = hold.take(place, false, place === false ? () => section.isConnected : undefined);
+        before = [...section.childNodes];
+        return claim !== undefined;
+      },
+      holds: () => claim !== undefined && hold.ready(claim, section.isConnected),
+      draw: (element) => {
+        section.replaceChildren(element);
+        hold.fit();
+      },
+      close: () => {
+        section.replaceChildren(...before);
+        if (claim) hold.release(claim);
+        focusBack(liveControl(button));
+      },
+    };
+  };
+
+  /**
+   * Every other form's place (plan 8M-22): the side pane, the party's popup closed (`formHome`);
+   * `back` opens it again with the focus on the button pressed.
+   */
+  const inPane = (button: HTMLButtonElement): FormPlace => {
+    const home = formHome(deps.frame, { control: button });
+    return {
+      open: () => home.open() !== undefined,
+      holds: () => home.holds(),
+      draw: (element) => {
+        home.draw(element);
+      },
+      close: (how) => {
+        home.close(how);
+      },
+    };
+  };
+
+  /**
+   * Opens a form of the post of the button pressed, only while no other form is open: the hold is
+   * taken at once, then `load` says what to draw (a form that asks the server first waits for it)
+   * or why it does not open; drawn only while its claim holds. `bodyOf` makes what Submit sends
+   * from the form's fields (or what is missing), to `control`.
    */
   const open = async (
     button: HTMLButtonElement,
@@ -87,42 +143,30 @@ export function postFormsUi(deps: PostFormsDeps) {
     load: () => Promise<Opened | { refused: string }>,
     ends = false,
   ): Promise<void> => {
-    // A party's post, or its own summary while the page has not got the post (a train's).
-    const section =
-      button.closest<HTMLElement>('.post-popup') ?? button.closest<HTMLElement>('.party-popup');
-    if (!section) return;
-    const place = formPlace(section);
-    // Outside a popup or the card (a line of the list), its claim goes with its form.
-    const claim = hold.take(place, false, place === false ? () => section.isConnected : undefined);
-    if (!claim) return;
+    const where = control === 'note' ? inPlace(button) : inPane(button);
+    if (!where?.open()) return;
     const loaded = await load();
     if ('refused' in loaded) {
-      hold.release(claim);
-      // The release may have drawn the popup anew (review B-1): the answer line of the post as it
-      // is now (plan 8M-11A, S20), its popup or card shaken.
+      // Canceled while it loaded (second review R1): nothing said, shaken or focused.
+      if (!where.holds()) return;
+      where.close('back');
+      // Its popup open again (review B-1: drawn anew): the answer line of the post as it is now
+      // (plan 8M-11A, S20), its popup or card shaken.
       const control = liveControl(button);
       deps.answered(party, { text: loaded.refused, ok: false }, control);
       control.focus();
       return;
     }
-    if (!hold.ready(claim, section.isConnected)) return;
+    if (!where.holds()) return;
     const { form, bodyOf } = loaded;
-    const before = [...section.childNodes];
     const element = renderNode(form, document);
-    const close = () => {
-      section.replaceChildren(...before);
-      hold.release(claim);
-      // The focus back where it was (review W-5), on the button in the post as it is now (the
-      // release may have drawn the popup anew, review B-1).
-      focusBack(liveControl(button));
+    const close = (how: 'back' | 'done') => {
+      where.close(how);
     };
+    // Submit off until the form can be sent (plan 8M-22): its body's own check, on what it holds.
+    const check = liveCheck(element, () => missingOf(bodyOf(postFields(element))));
     const submit = async (target: HTMLButtonElement) => {
-      const fields = fieldsOf(element);
-      // A radio choice is the one checked (`fieldsOf` reads every input by its name), else none.
-      const radios = [...element.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
-      for (const radio of radios) fields[radio.name] = '';
-      for (const radio of radios) if (radio.checked) fields[radio.name] = radio.value;
-      const body = bodyOf(fields);
+      const body = bodyOf(postFields(element));
       if ('text' in body) {
         sayInForm(element, body.text);
         return;
@@ -149,6 +193,7 @@ export function postFormsUi(deps: PostFormsDeps) {
       });
       deps.csrf.set(sent.csrf);
       for (const each of buttons) each.disabled = false;
+      check.run(true);
       // A refusal keeps the form, unless its choices may be stale (review W-2: Group…'s came with
       // the list, which is asked for again): said under the form, whose popup or card the page
       // moves (plan 8M-11A; plan 8M-13, A2).
@@ -162,9 +207,11 @@ export function postFormsUi(deps: PostFormsDeps) {
       // the answer in the post's answer line, where the member looks (plan 8M-11A, S9; review
       // BR-1: with the post in the page again, so that the line takes it and a refusal shakes its
       // popup or card). A party closed (or over) closes its popup or card (`ends`).
-      if (hold.holds(claim)) close();
+      // The party's popup open again (`back`), unless it is over (plan 8M-22).
+      const over = ends || sent.gone;
+      if (where.holds()) close(over ? 'done' : 'back');
       deps.answered(party, { text: sent.text, ok: sent.ok }, liveControl(button));
-      if (ends || sent.gone) deps.closeParty(party);
+      if (over) deps.closeParty(party);
       await deps.done();
       // The list drew the post anew: the focus on its control there (review N-1), as the list
       // finds a focused control again (`sameControl`).
@@ -173,13 +220,12 @@ export function postFormsUi(deps: PostFormsDeps) {
     element.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
-      if (target.dataset.cancel !== undefined) close();
-      else if (target.dataset.submit !== undefined) void submit(target);
+      if (target.dataset.cancel !== undefined) close('back');
+      else if (target.dataset.submit !== undefined && !isOff(target)) void submit(target);
     });
     // Escape as Cancel, Enter as Submit, the popup or card under it left open.
     formKeys(element);
-    section.replaceChildren(element);
-    hold.fit();
+    where.draw(element);
     (
       element.querySelector<HTMLElement>('input[type="radio"]:checked, select, textarea') ??
       element.querySelector<HTMLElement>('button[data-submit]') ??
@@ -240,8 +286,8 @@ export function postFormsUi(deps: PostFormsDeps) {
     },
 
     /** Report…: `/report`'s form, once the server said it may open (`GET …/report`), or why not. */
-    reportClicked(button: HTMLButtonElement, party: MapParty): void {
-      void open(button, 'report', party, async () => {
+    reportClicked(button: HTMLButtonElement, party: MapParty): Promise<void> {
+      return open(button, 'report', party, async () => {
         const report = await asked<MapReport>(party.id, 'report');
         if ('refused' in report) return report;
         return {
@@ -273,8 +319,8 @@ export function postFormsUi(deps: PostFormsDeps) {
      * …/trains/<id>/manage`), or why not. A refusal of its Submit closes it (its choices may be
      * stale) and the list is asked for again.
      */
-    manageClicked(button: HTMLButtonElement, party: MapParty): void {
-      void open(button, 'manage', party, async () => {
+    manageClicked(button: HTMLButtonElement, party: MapParty): Promise<void> {
+      return open(button, 'manage', party, async () => {
         const manage = await asked<MapManage>(party.id, 'manage');
         if ('refused' in manage) return manage;
         return {
@@ -290,8 +336,8 @@ export function postFormsUi(deps: PostFormsDeps) {
      * …/trains/<id>/split`), or why not. A refusal closes it (its groups may have changed) and the
      * list is asked for again; once split, the list shows both trains.
      */
-    splitClicked(button: HTMLButtonElement, party: MapParty): void {
-      void open(button, 'split', party, async () => {
+    splitClicked(button: HTMLButtonElement, party: MapParty): Promise<void> {
+      return open(button, 'split', party, async () => {
         const split = await asked<MapSplit>(party.id, 'split');
         if ('refused' in split) return split;
         return {
@@ -307,8 +353,8 @@ export function postFormsUi(deps: PostFormsDeps) {
      * its Submit closes it as Group…'s does (plan 8M-11A, S21: its group or times may be stale),
      * the answer in the answer line.
      */
-    meetClicked(button: HTMLButtonElement, party: MapParty): void {
-      void open(button, 'meet', party, async () => {
+    meetClicked(button: HTMLButtonElement, party: MapParty): Promise<void> {
+      return open(button, 'meet', party, async () => {
         const meet = await asked<MapMeet>(party.id, 'meet');
         if ('refused' in meet) return meet;
         return {
@@ -333,6 +379,26 @@ export function postFormsUi(deps: PostFormsDeps) {
       );
     },
   };
+}
+
+/**
+ * What a post's form holds, by its fields' names: a radio choice the one checked (`fieldsOf` reads
+ * every input by its name), else none.
+ */
+function postFields(element: HTMLElement): Record<string, string> {
+  const fields = fieldsOf(element);
+  const radios = [...element.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+  for (const radio of radios) fields[radio.name] = '';
+  for (const radio of radios) if (radio.checked) fields[radio.name] = radio.value;
+  return fields;
+}
+
+/** Where a form of the post is: opened, still held, drawn, closed. */
+interface FormPlace {
+  open(): boolean;
+  holds(): boolean;
+  draw(element: HTMLElement): void;
+  close(how: 'back' | 'done'): void;
 }
 
 /** A form ready to draw, and what its Submit sends. */

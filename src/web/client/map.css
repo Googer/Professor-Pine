@@ -657,6 +657,36 @@ body.editing-regions #map {
 }
 
 /*
+ * A form in the side pane (plan 8M-22, `formHome`): the pane does not scroll while it shows, the
+ * form's box does, and the form's row stays at the foot of the box below its body.
+ */
+#parties.form-shown {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#parties.form-shown > .train-tools {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-bottom: 0;
+  overflow-y: auto;
+}
+
+#parties.form-shown > .train-tools > * > .form-foot {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 0;
+  background: var(--panel-bg);
+}
+
+/* The place a form is at, in a line under its heading (plan 8M-22). */
+.form-place {
+  margin: 0 0 4px;
+  color: var(--muted);
+}
+
+/*
  * The list of what is on (plan 8M-7): the side pane on the desktop; on a phone "List" swaps the
  * map for it (`body.list-open`).
  */
@@ -808,6 +838,11 @@ body.editing-regions #map {
     flex: none;
     max-height: 40vh;
     border-top: 1px solid var(--line);
+  }
+
+  /* A form in it keeps its own frame (plan 8M-22): its body scrolls, its row stays below. */
+  body.form-docked #parties.form-shown:not([hidden]) {
+    display: flex;
   }
 }
 
@@ -1638,39 +1673,6 @@ path.highlighted {
 
 .leaflet-popup-content-wrapper:has(.gym-popup) {
   border-left-color: var(--gym);
-}
-
-/*
- * A form open in a place's popup or card: the place's other controls are hidden, not grayed, so
- * that the form's own buttons stay above the fold (its box holds anything but its button). They are
- * back when the form's Cancel puts the button back. A raid's post above the form stays, without its
- * controls, as does the summary drawn while the post has not come (`.raids`: its counts, the
- * member's line and its links stay); a stop's research form has the box of all its actions, its
- * Rocket, spawn and meetup forms a box of their own among them (a box that holds its button is no
- * form: its reports' Take back stays).
- */
-.place-control:has(> :not(button)) ~ .place-control,
-.place-control:has(~ .place-control > :not(button)),
-:is(.post-popup, .raids):has(> .place-control > :not(button))
-  :is(
-    .post-controls,
-    .mine-part,
-    .presses,
-    .change-raid,
-    .map-line .link-button,
-    .map-line .sep:has(+ .link-button)
-  ),
-.raid-choices:has(> .place-control > :not(button)) .choices,
-.stop-popup:has(
-    .stop-actions > .place-control > :not(button),
-    .stop-actions > :not(button, .place-control)
-  )
-  :is(
-    [data-take-back],
-    [data-same-task],
-    .report-actions .sep:has(+ [data-take-back], + [data-same-task])
-  ) {
-  display: none;
 }
 
 .leaflet-tooltip {
@@ -2601,7 +2603,10 @@ path.highlighted {
   text-decoration: none;
 }
 
-/* A refusal shakes the popup or the card once, unless the device asks for less motion. */
+/*
+ * A refusal shakes the popup, the card or the side pane's box of a form (plan 8M-22) once, unless
+ * the device asks for less motion.
+ */
 @keyframes shake {
   0%,
   100% {
@@ -2621,7 +2626,8 @@ path.highlighted {
 
 @media (prefers-reduced-motion: no-preference) {
   .leaflet-popup.shake .leaflet-popup-content-wrapper,
-  .party-card.shake {
+  .party-card.shake,
+  .train-tools.shake {
     animation: shake var(--shake-time) ease-in-out 1;
   }
 }
@@ -2650,6 +2656,51 @@ path.highlighted {
 /* An answer under a form keeps its line breaks, as the notice band and the answer line do. */
 .form-answer {
   white-space: pre-line;
+}
+
+/*
+ * The row of a form (plan 8M-22, `formRow`): its buttons on the left, the sending button first,
+ * then the missing line, small muted text right of them that wraps below them where the row is too
+ * narrow; the buttons never move with its text. What is said after a press (a refusal, a press of
+ * an off button: the line made live) has the answers' color.
+ */
+.form-foot,
+.post-form .form-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.form-foot > .form-answer,
+.raid-form .form-foot > .form-answer,
+.post-form .form-foot > .form-answer {
+  flex: 1 1 12em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* "Loading…" while a form's lists are on their way, with its Cancel (review P2). */
+.form-loading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-foot > .form-answer[aria-live] {
+  color: var(--form-answer);
+}
+
+/*
+ * A sending button off while its form's check says something is missing (`aria-disabled`, not
+ * `disabled`: it keeps the focus, and a press says the line).
+ */
+.press[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /*
@@ -2910,6 +2961,7 @@ path.highlighted {
   display: flex;
   flex-direction: column;
   max-height: 85vh;
+  max-height: 85dvh;
   border-top: var(--card-bar) solid var(--accent);
   border-radius: 12px 12px 0 0;
   background: var(--card-bg);
@@ -2985,6 +3037,30 @@ path.highlighted {
 .party-card .card-body {
   overflow-y: auto;
   padding: 0 16px 16px;
+}
+
+/*
+ * The card's form mode (plan 8M-22, `PhoneCard.openForm`): the card as tall as its form, 85dvh at
+ * most by the card's own cap (reviews P10, R3), above the keyboard by
+ * `visualViewport`, its handle hidden and its × on the right, the form's body scrolling over its
+ * row, which stays at the card's foot.
+ */
+.party-card.form .card-top {
+  justify-content: flex-end;
+}
+
+.party-card .card-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 16px;
+}
+
+.party-card .card-form > * > .form-foot {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 0 12px;
+  background: var(--card-bg);
 }
 
 .party-card.summary .post > .post-text:not(.role-head),
@@ -3574,12 +3650,27 @@ path.highlighted {
   align-self: flex-start;
 }
 
+/* The task list scrolls with its form (plan 8M-22): no scroll of its own. */
 .task-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 40vh;
-  overflow-y: auto;
+}
+
+/* The task picked, the list folded (plan 8M-22): the task, its reward, Change task. */
+.task-picked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+
+.task-picked .task-reward {
+  color: var(--muted);
+}
+
+.task-picked .press {
+  margin-left: auto;
 }
 
 .task-list h4 {

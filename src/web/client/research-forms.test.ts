@@ -293,9 +293,10 @@ describe('the field research form of the map (plan 8M-9B, goal 7)', () => {
       changed.made,
     );
     expect(changed.asked()).toBe(1);
+    // The list open again (plan 8M-22), the version picked where the new lists have it.
     expect(after).toMatchObject({
       kind: 'draw',
-      state: { query: 'dra', task: 'dragon', version: 'dragon:aaaa1111' },
+      state: { query: 'dra', task: 'dragon', version: 'dragon:aaaa1111', listOpen: true },
     });
     const gone = deps([
       {
@@ -394,7 +395,11 @@ describe('"Same task at more stops…" (plan 8M-9B, goal 8)', () => {
     if (after.kind !== 'draw') throw new Error(after.kind);
     expect(after.mode).toEqual({ kind: 'new' });
     // Its version still listed: picked in the new lists.
-    expect(after.state).toMatchObject({ task: 'dragon', version: 'dragon:aaaa1111' });
+    expect(after.state).toMatchObject({
+      task: 'dragon',
+      version: 'dragon:aaaa1111',
+      listOpen: true,
+    });
     expect(after.text).toBe('The task list just changed: pick the task again.');
   });
 
@@ -482,7 +487,48 @@ describe('changing the task of a research form', () => {
       { kind: 'more', report: caseResearch(1) },
     );
     expect(changeTask(more)).toHaveLength(1);
-    expect(changeTask(researchForm(OPTIONS, AT, { query: '', task: 'dragon' }))).toEqual([]);
+    // Over the list opened again, none.
+    expect(
+      changeTask(researchForm(OPTIONS, AT, { query: '', task: 'dragon', listOpen: true })),
+    ).toEqual([]);
+  });
+
+  // Plan 8M-22: the list is the form's own scroll no longer; once a task is picked it folds.
+  it('folds the list once a task is picked: the task and its reward on one line, with Change task', () => {
+    const picked = researchForm(OPTIONS, AT, {
+      query: 'dra',
+      task: 'dragon',
+      version: 'dragon:aaaa1111',
+    });
+    expect(found(picked, (one) => one.className === 'task-list')).toEqual([]);
+    expect(found(picked, (one) => one.attributes?.name === 'query')).toEqual([]);
+    const [line] = found(picked, (one) => one.className === 'task-picked');
+    expect(line && texts(line)).toEqual(['Catch a Dragon-type Pokémon', 'Dratini', CHANGE_TASK]);
+    // Its reward is still asked where the task has several.
+    expect(
+      found(picked, (one) => one.attributes?.type === 'radio').map((one) => one.attributes?.value),
+    ).toEqual(['dragon', 'dragon:aaaa1111', 'dragon:bbbb2222']);
+    // A task of one reward names it.
+    const one = researchForm(OPTIONS, AT, { query: '', task: 'spin' });
+    const [spin] = found(one, (node) => node.className === 'task-picked');
+    expect(spin && texts(spin)).toEqual(['Spin 3 PokéStops', 'Rare Candy ×3', CHANGE_TASK]);
+    // Nothing picked yet: the search and the list.
+    const none = researchForm(OPTIONS, AT, { query: '' });
+    expect(found(none, (node) => node.className === 'task-list')).toHaveLength(1);
+    expect(found(none, (node) => node.className === 'task-picked')).toEqual([]);
+  });
+
+  it('opens the list again by Change task, the task kept as its selection', () => {
+    const state = { query: '', task: 'dragon', version: 'dragon:bbbb2222' };
+    const changed = taskChanged(state, { kind: 'new' }, OPTIONS);
+    expect(changed.state.listOpen).toBe(true);
+    const form = researchForm(OPTIONS, AT, changed.state);
+    expect(found(form, (one) => one.className === 'task-list')).toHaveLength(1);
+    expect(
+      found(form, (one) => one.attributes?.['aria-pressed'] === 'true').map(
+        (one) => one.attributes?.['data-task'],
+      ),
+    ).toEqual(['dragon']);
   });
 
   it('brings the list back from the question, the task and its reward kept', () => {
@@ -490,7 +536,7 @@ describe('changing the task of a research form', () => {
     const state = { query: '', task: 'dragon', version: 'dragon:bbbb2222', asks };
     const changed = taskChanged(state, { kind: 'new' }, OPTIONS);
     expect(changed).toEqual({
-      state: { query: '', task: 'dragon', version: 'dragon:bbbb2222' },
+      state: { query: '', task: 'dragon', version: 'dragon:bbbb2222', listOpen: true },
       mode: { kind: 'new' },
     });
     expect(texts(researchForm(OPTIONS, AT, changed.state))).toContain('Bagon');
@@ -499,13 +545,13 @@ describe('changing the task of a research form', () => {
   it("makes Same task at more stops… a new report of the list, its report's task picked", () => {
     const report = caseResearch(1, { task: 'dragon', oneOf: true });
     expect(taskChanged({ query: '' }, { kind: 'more', report }, OPTIONS)).toEqual({
-      state: { query: '', task: 'dragon', version: 'dragon' },
+      state: { query: '', task: 'dragon', version: 'dragon', listOpen: true },
       mode: { kind: 'new' },
     });
     // A typed task is not in the list: nothing picked.
     const typed = caseResearch(1, { task: 'typed:0123456789abcdef', typed: true });
     expect(taskChanged({ query: '' }, { kind: 'more', report: typed }, OPTIONS)).toEqual({
-      state: { query: '' },
+      state: { query: '', listOpen: true },
       mode: { kind: 'new' },
     });
   });

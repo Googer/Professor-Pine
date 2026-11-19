@@ -97,6 +97,16 @@ export class FakeElement {
     if (name === 'disabled') this.disabled = true;
   }
 
+  removeAttribute(name: string): void {
+    this.attributes.delete(name);
+    if (name.startsWith('data-')) {
+      const key = name.slice(5).replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+      delete this.dataset[key];
+    }
+    if (name === 'hidden') this.hidden = false;
+    if (name === 'disabled') this.disabled = false;
+  }
+
   getAttribute(name: string): string | null {
     return this.attributes.get(name) ?? null;
   }
@@ -113,10 +123,35 @@ export class FakeElement {
     }
   }
 
+  prepend(...children: FakeElement[]): void {
+    const rest = this.childNodes;
+    this.childNodes = [];
+    this.append(...children);
+    this.childNodes.push(...rest);
+  }
+
+  /** Puts `children` right after this element, in its parent. */
+  after(...children: FakeElement[]): void {
+    const parent = this.parent;
+    if (!parent) return;
+    const at = parent.childNodes.indexOf(this) + 1;
+    const rest = parent.childNodes.splice(at);
+    parent.append(...children);
+    parent.childNodes.push(...rest);
+  }
+
+  hasAttribute(name: string): boolean {
+    return this.attributes.has(name);
+  }
+
   replaceChildren(...children: FakeElement[]): void {
     for (const child of this.childNodes) child.parent = undefined;
     this.childNodes = [];
     this.append(...children);
+  }
+
+  get firstElementChild(): FakeElement | null {
+    return this.childNodes[0] ?? null;
   }
 
   get parentElement(): FakeElement | null {
@@ -143,10 +178,18 @@ export class FakeElement {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
   }
 
+  /** A press, as the browser's `click()`. */
+  click(): void {
+    this.dispatch('click');
+  }
+
   /** An event at this element, bubbling up the tree until a listener stops it. */
-  dispatch(type: string): void {
+  dispatch(type: string, more: Record<string, unknown> = {}): void {
     let stopped = false;
     const event = {
+      // A key's own fields (`key`, `keyCode` …) where a test gives them.
+      preventDefault: () => undefined,
+      ...more,
       target: this,
       stopPropagation: () => {
         stopped = true;

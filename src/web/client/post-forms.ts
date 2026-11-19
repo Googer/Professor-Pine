@@ -14,7 +14,7 @@ import {
   REMOVAL_CHOICES,
   REMOVAL_LABEL,
 } from '../../render/removal-words.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { PageNode } from './popup.js';
 import { safeHref } from './post-draw.js';
@@ -23,7 +23,7 @@ import { postTime, type TimeShown } from './post-time.js';
 /**
  * The post's controls that open a dialog on Discord, as forms of the live map (plan 8M-8B), the
  * parts that need no DOM: each form as a tree of nodes in Discord's dialog look (its title, its
- * text, its choice, Submit and Cancel), drawn in the place of the post (`formPlace`: a popup, a
+ * text, its choice, Submit and Cancel), drawn in the side pane or the card (`formHome`, plan 8M-22; the note box in the place of the post, `formPlace`: a popup, a
  * line of the list, the phone card), its body, and sending it with the page's CSRF token as a
  * press is sent. What the dialog says and decides is the server's, sent with the list (Group…'s
  * choices) or asked when the form opens; the page only words times in the reader's own zone.
@@ -37,28 +37,12 @@ export interface FormTimes {
 
 const NEW_TAB = { target: '_blank', rel: 'noopener noreferrer' } as const;
 
-/** The line a form says its answer on, hidden until there is one. */
-const answerLine: PageNode = {
-  tag: 'p',
-  className: 'form-answer',
-  attributes: { hidden: '', role: 'status' },
-};
-
-/** Submit and Cancel, as Discord's dialogs have them. */
+/** Submit and Cancel, as Discord's dialogs have them, and the form's missing line (`formRow`). */
 function dialogButtons(submit: string): PageNode {
-  return {
-    tag: 'div',
-    className: 'form-buttons',
-    children: [
-      sendButton('Submit', { 'data-submit': submit }),
-      {
-        tag: 'button',
-        className: 'press secondary',
-        text: 'Cancel',
-        attributes: { type: 'button', 'data-cancel': '' },
-      },
-    ],
-  };
+  return formRow(
+    sendButton('Submit', { 'data-submit': submit }),
+    cancelButton('Cancel', 'press secondary'),
+  );
 }
 
 /**
@@ -123,12 +107,7 @@ export function dialogForm(
     tag: 'div',
     className: 'post-form',
     attributes: { 'data-form': form, 'data-party': partyId, role: 'group', 'aria-label': title },
-    children: [
-      { tag: 'h4', className: 'form-title', text: title },
-      ...parts,
-      dialogButtons(form),
-      answerLine,
-    ],
+    children: [{ tag: 'h4', className: 'form-title', text: title }, ...parts, dialogButtons(form)],
   };
 }
 

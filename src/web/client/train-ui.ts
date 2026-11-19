@@ -1,5 +1,7 @@
 import { formKeys } from './form-keys.js';
-import { formHome } from './form-home.js';
+import { formHome, type FormFrame, type FormHome } from './form-home.js';
+import { isOff } from './form-buttons.js';
+import { liveCheck } from './form-check.js';
 import type { PressAnswer } from './press-answer.js';
 import type { GeoView } from '../../domain/web/geo-data.js';
 import type { MapTrain } from '../../domain/web/party-data.js';
@@ -28,11 +30,13 @@ import {
   StopDrag,
   edgeScroll,
   startBody,
+  startMissing,
   startForm,
   type FirstStop,
   type RouteEditorFilled,
   type RouteEditValues,
   type TrainAnswered,
+  type StartValues,
   type TrainBody,
 } from './train-forms.js';
 
@@ -57,9 +61,11 @@ export interface TrainUiDeps {
   /** The gyms by id, as `/api/geo` gives them: the stops' names. */
   gyms: ReadonlyMap<number, MapGym>;
   /** The form that is open, shared with the raid and spawn forms. */
-  hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'ready' | 'fit' | 'release'>;
+  hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'ready' | 'release'>;
   /** Where the start form and the route editor are drawn: a box of the side panel. */
   tools: HTMLElement;
+  /** Where the forms open (plan 8M-22, `formHome`): the side pane, the place's popup closed. */
+  frame: FormFrame;
   /** The train's stops numbered on the map in route mode, and none once it ends. */
   overlay: { show(train: MapTrain): void; clear(): void };
   /** Closes the popup that is open (route mode works in the side panel and on the map). */
@@ -162,8 +168,8 @@ export function trainUi(deps: TrainUiDeps) {
     deps.tools.replaceChildren(renderNode(newTrainButton(), document));
   };
 
-  /** The start form, while it is open. */
-  let starting: FormClaim | undefined;
+  /** The start form, while it is open: its claim and where it is (`formHome`). */
+  let starting: { claim: FormClaim; home: FormHome } | undefined;
 
   /**
    * Route mode: the train being arranged, its claim, its saved routes once they came, and what
@@ -492,26 +498,14 @@ export function trainUi(deps: TrainUiDeps) {
     first?: FirstStop,
     control?: HTMLButtonElement | null,
   ): void => {
-    // A form at a place in its popup, as a raid's report; route mode then has the side pane.
-    const box = control?.parentElement;
-    const home = formHome(
-      {
-        tools: deps.tools,
-        hold,
-        closePopup: () => {
-          deps.closePopup();
-        },
-        idle: toolsIdle,
-      },
-      box && control ? { box, control } : undefined,
-    );
+    // In the side pane (plan 8M-22), the place's popup closed; route mode has it after.
+    const home = formHome(deps.frame, { control, place: () => '' });
     const claim = home.open();
     if (!claim) {
       say(FORM_OPEN);
       return;
     }
-    if (first && home.inPane()) deps.closePopup();
-    if (home.inPane()) starting = claim;
+    starting = { claim, home };
     const regions = deps.regions.map((region) => ({ id: region.id, name: region.name }));
     const form = renderNode(
       startForm(
@@ -522,30 +516,34 @@ export function trainUi(deps: TrainUiDeps) {
       ),
       document,
     );
-    const close = () => {
-      if (starting === claim) starting = undefined;
-      home.close();
+    const close = (how: 'back' | 'done') => {
+      if (starting?.claim === claim) starting = undefined;
+      home.close(how);
     };
+    const values = (): StartValues => {
+      const fields = fieldsOf(form);
+      return {
+        name: fields.name ?? '',
+        region: fields.region ?? '',
+        time: fields.time ?? '',
+        atEnd: fields.atEnd ?? '',
+      };
+    };
+    // Start off until the train can be made (plan 8M-22).
+    const check = liveCheck(form, () => startMissing(values()));
     formKeys(form);
     form.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) {
-        close();
+        close('back');
         return;
       }
-      if (target.dataset.submit !== 'train') return;
-      const fields = fieldsOf(form);
-      const body = startBody(
-        {
-          name: fields.name ?? '',
-          region: fields.region ?? '',
-          time: fields.time ?? '',
-          atEnd: fields.atEnd ?? '',
-        },
-        first?.kind,
-      );
+      if (target.dataset.submit !== 'train' || isOff(target)) return;
+      const body = startBody(values(), first?.kind);
       void sendForm(form, `/s/${guild}/api/trains`, body).then(async (sent) => {
+        // The check again (plan 8M-22), the answer kept on the line.
+        check.run(true);
         if (!sent) return;
         if (!sent.ok) {
           sayUnder(form, sent.text);
@@ -563,7 +561,7 @@ export function trainUi(deps: TrainUiDeps) {
           await deps.done(undefined);
           return;
         }
-        close();
+        close('done');
         say(sent.text);
         // A new train has no stops: its route is laid at once, by who may.
         if (sent.train?.may.arrange) {
@@ -656,7 +654,8 @@ export function trainUi(deps: TrainUiDeps) {
 
     /** Whether the trains' box holds the start form or the route editor: the list keeps it. */
     inTools(): boolean {
-      return starting !== undefined || routing !== undefined;
+      // The start form only while it is in the side pane, not in the phone's card (review P5).
+      return starting?.home.inPane() === true || routing !== undefined;
     },
   };
 }

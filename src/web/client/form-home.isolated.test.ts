@@ -1,27 +1,44 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FakeElement, focused, make, resetFocus } from '../../../test/support/fake-page.js';
-import { formHome } from './form-home.js';
+import { formHome, type FormFrame } from './form-home.js';
 
 // The page's helpers this comes in with load Leaflet, which reads the browser's `window` as it
 // loads; none of it is used here. Isolated: a mocked module needs a module graph of its own.
 vi.mock('leaflet', () => ({}));
 
+/**
+ * A page with a place's popup (its name, the control that opens a form) and the side pane's box,
+ * a hold that takes one claim at a time, and the frame the party layer gives the forms: leaving
+ * closes the popup, and its way back opens it again, drawn anew.
+ */
 function fixture() {
   const body = make('body');
   body.page = true;
   const popup = make('div');
   popup.className = 'leaflet-popup';
-  const box = make('div');
+  const name = make('strong');
+  name.className = 'name';
+  name.textContent = 'East Fountain';
   const control = make('button');
-  box.append(control);
-  popup.append(box);
+  control.setAttribute('data-report-research', 's1');
+  popup.append(name, control);
   const tools = make('div');
   const idle = make('button');
   tools.append(idle);
   body.append(popup, tools);
   vi.stubGlobal('HTMLElement', FakeElement);
+  vi.stubGlobal('CSS', { escape: (text: string) => text });
+  vi.stubGlobal('document', {
+    createElement: make,
+    querySelector: (selector: string) => body.querySelector(selector),
+    // What took the focus last, while it is still in the page.
+    get activeElement() {
+      const last = focused().at(-1);
+      return last?.isConnected === true ? last : body;
+    },
+    body,
+  });
   const takes: unknown[][] = [];
-  const released: unknown[] = [];
   let holder: unknown;
   const hold = {
     take: (...args: unknown[]) => {
@@ -32,131 +49,447 @@ function fixture() {
     },
     holds: (claim: unknown) => claim === holder,
     release: (claim: unknown) => {
-      released.push(claim);
       if (claim === holder) holder = undefined;
     },
-    fit: vi.fn(),
+    moved: (claim: unknown) => {
+      if (claim !== holder) return undefined;
+      holder = {};
+      return holder as never;
+    },
   };
-  const closePopup = vi.fn();
-  const deps = {
+  let open = true;
+  /** The popup drawn anew as it opens again: a fresh control in it. */
+  const fresh = make('button');
+  fresh.setAttribute('data-report-research', 's1');
+  const frame: FormFrame = {
     tools: tools as unknown as HTMLElement,
     hold,
-    closePopup,
     idle: () => {
       tools.replaceChildren(idle);
     },
+    leave: () => {
+      if (!open) return {};
+      open = false;
+      body.replaceChildren(tools);
+      return {
+        place: 'East Fountain',
+        back: () => {
+          open = true;
+          popup.replaceChildren(name, fresh);
+          body.replaceChildren(popup, tools);
+        },
+      };
+    },
   };
-  const anchored = {
-    box: box as unknown as HTMLElement,
-    control: control as unknown as HTMLButtonElement,
-  };
-  return { body, box, control, tools, idle, takes, hold, closePopup, deps, anchored };
+  return { body, popup, control, fresh, tools, idle, takes, frame, isOpen: () => open };
 }
 
-const formEl = () => make('div') as unknown as HTMLElement;
+/** A form with its heading, as the forms draw theirs. */
+function formEl() {
+  const form = make('div');
+  const heading = make('strong');
+  heading.className = 'name';
+  heading.setAttribute('data-form-heading', '');
+  heading.textContent = 'Report field research';
+  form.append(heading);
+  return { form, heading, element: form as unknown as HTMLElement };
+}
 
-describe('where a form opened at a place is (Matt, 2026-10-30)', () => {
+describe('where a form opened at a place is (plan 8M-22)', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('is in the place of its control, claimed as a form of that popup', () => {
+  it('opens in the side pane, an aside claim, the place’s popup closed', () => {
     const made = fixture();
-    const home = formHome(made.deps, made.anchored);
-    expect(home.open()).toBeDefined();
-    const form = formEl();
-    home.draw(form);
-    expect(made.box.childNodes).toEqual([form]);
-    expect(made.tools.childNodes).toEqual([made.idle]);
-    expect(made.takes[0]?.slice(0, 2)).toEqual([true, false]);
-    expect(made.hold.fit).toHaveBeenCalled();
-    expect(made.closePopup).not.toHaveBeenCalled();
-    expect(home.inPane()).toBe(false);
-  });
-
-  it('puts back what was there and lets go when it closes', () => {
-    const made = fixture();
-    const home = formHome(made.deps, made.anchored);
-    home.open();
-    home.draw(formEl());
-    home.close();
-    expect(made.box.childNodes).toEqual([made.control]);
-    expect(home.holds()).toBe(false);
-  });
-
-  it('goes to the side pane when it needs the map, the popup closed, the claim an aside one', () => {
-    const made = fixture();
-    const home = formHome(made.deps, made.anchored);
-    home.open();
-    home.draw(formEl());
-    expect(home.toPane()).toBe(true);
-    expect(made.box.childNodes).toEqual([made.control]);
-    expect(made.closePopup).toHaveBeenCalled();
-    expect(made.takes[1]).toEqual([false, true]);
-    expect(home.holds()).toBe(true);
-    expect(home.inPane()).toBe(true);
-    const form = formEl();
-    home.draw(form);
-    expect(made.tools.childNodes).toEqual([form]);
-    home.close();
-    expect(made.tools.childNodes).toEqual([made.idle]);
-    expect(home.holds()).toBe(false);
-  });
-
-  it('stays where it was when it cannot move: gone with its popup, another form open', () => {
-    const made = fixture();
-    const home = formHome(made.deps, made.anchored);
-    const claim = home.open();
-    const form = formEl();
-    home.draw(form);
-    // The popup closed, and another form took the hold.
-    made.hold.release(claim);
-    formHome(made.deps).open();
-    made.closePopup.mockClear();
-    expect(home.toPane()).toBe(false);
-    expect(home.inPane()).toBe(false);
-    expect(home.element()).toBe(made.anchored.box);
-    expect(made.box.childNodes).toEqual([form]);
-    expect(made.closePopup).not.toHaveBeenCalled();
-    expect(home.holds()).toBe(false);
-  });
-
-  it('gives the focus back to the control as the popup drew it anew when the form let go', () => {
-    resetFocus();
-    const made = fixture();
-    const fresh = make('button');
-    fresh.setAttribute('data-meetup-here', '1');
-    made.control.setAttribute('data-meetup-here', '1');
-    vi.stubGlobal('CSS', { escape: (text: string) => text });
-    vi.stubGlobal('document', {
-      querySelector: (selector: string) => made.body.querySelector(selector),
-    });
-    const home = formHome(
-      {
-        ...made.deps,
-        hold: {
-          ...made.hold,
-          release: (claim) => {
-            made.hold.release(claim);
-            made.box.replaceChildren(fresh);
-          },
-        },
-      },
-      made.anchored,
-    );
-    home.open();
-    home.draw(formEl());
-    home.close();
-    expect(focused().at(-1) === fresh).toBe(true);
-  });
-
-  it('is in the side pane without a place, and refused while another form is open', () => {
-    const made = fixture();
-    const home = formHome(made.deps);
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
     expect(home.open()).toBeDefined();
     expect(made.takes[0]).toEqual([false, true]);
+    expect(made.isOpen()).toBe(false);
     expect(home.inPane()).toBe(true);
-    expect(formHome(made.deps, made.anchored).open()).toBeUndefined();
-    expect(made.box.childNodes).toEqual([made.control]);
+    const { form, element } = formEl();
+    home.draw(element);
+    expect(made.tools.childNodes).toEqual([form]);
+  });
+
+  it('names the place in a line under its heading, and gives the heading the focus', () => {
+    resetFocus();
+    const made = fixture();
+    const home = formHome(made.frame);
+    home.open();
+    const { form, heading, element } = formEl();
+    home.draw(element);
+    expect(form.childNodes.map((child) => child.className)).toEqual(['name', 'form-place']);
+    expect(form.querySelector('.form-place')?.textContent).toBe('East Fountain');
+    expect(focused().at(-1) === heading).toBe(true);
+  });
+
+  it('names the place its opener gives, a stop and how many more', () => {
+    const made = fixture();
+    const home = formHome(made.frame, { place: () => 'East Fountain +2' });
+    home.open();
+    const { form, element } = formEl();
+    home.draw(element);
+    expect(form.querySelector('.form-place')?.textContent).toBe('East Fountain +2');
+  });
+
+  it('Cancel: the side pane as it was, the popup open again, the focus on its control there', () => {
+    resetFocus();
+    const made = fixture();
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    home.draw(formEl().element);
+    home.close('back');
+    expect(made.tools.childNodes).toEqual([made.idle]);
+    expect(home.holds()).toBe(false);
+    expect(made.isOpen()).toBe(true);
+    expect(focused().at(-1) === made.fresh).toBe(true);
+  });
+
+  it('a success leaves the page to open what was made: the popup stays closed', () => {
+    const made = fixture();
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    home.draw(formEl().element);
+    home.close('done');
+    expect(made.tools.childNodes).toEqual([made.idle]);
+    expect(home.holds()).toBe(false);
+    expect(made.isOpen()).toBe(false);
+  });
+
+  it('is refused while another form is open, the popup left open', () => {
+    const made = fixture();
+    expect(formHome(made.frame).open()).toBeDefined();
+    const other = fixture();
+    other.frame.hold.take(false, true);
+    expect(formHome(other.frame).open()).toBeUndefined();
+    expect(other.isOpen()).toBe(true);
+  });
+});
+
+/**
+ * The phone's card over the fixture's page (plan 8M-22): a layer for the form over what it shows
+ * (a party, `key`, or nothing), and the order of what was done to it and to the hold.
+ */
+function phone(showing: string | undefined) {
+  const made = fixture();
+  const log: string[] = [];
+  const layer = make('div');
+  layer.page = true;
+  let key = showing;
+  let formShown = false;
+  const card = {
+    get key() {
+      return key;
+    },
+    openForm: (form: HTMLElement) => {
+      log.push('card form');
+      formShown = true;
+      layer.replaceChildren(form as unknown as FakeElement);
+    },
+    closeForm: () => {
+      log.push('card back');
+      formShown = false;
+      layer.replaceChildren();
+    },
+    close: () => {
+      log.push('card closed');
+      key = undefined;
+    },
+    formElement: () => (formShown ? (layer as unknown as HTMLElement) : undefined),
+  };
+  const { hold } = made.frame;
+  let claimed: unknown;
+  const frame: FormFrame = {
+    ...made.frame,
+    hold: {
+      ...hold,
+      take: (...args) => {
+        log.push(`take ${String(args[0])}`);
+        claimed = hold.take(...args);
+        return claimed as never;
+      },
+      moved: (claim, place, aside) => {
+        log.push(`moved ${String(place)} ${String(aside ?? false)}`);
+        if (!hold.holds(claim)) return undefined;
+        hold.release(claim);
+        claimed = hold.take(place, aside);
+        return claimed as never;
+      },
+    },
+    card,
+    phone: () => true,
+    leave: (inCard) => {
+      log.push(`leave ${String(inCard)}`);
+      // A party shown in the card stays under the form; a plain popup closes.
+      return made.frame.leave(inCard);
+    },
+  };
+  return { ...made, log, layer, card, frame };
+}
+
+describe('a form on a phone (plan 8M-22)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("opens in the card, claimed as the card's, its heading taking the focus", () => {
+    resetFocus();
+    const made = phone('gym:1');
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    expect(home.open()).toBeDefined();
+    expect(made.log.slice(0, 3)).toEqual(['take card', 'leave true', 'card form']);
+    expect(home.inPane()).toBe(false);
+    const { form, heading, element } = formEl();
+    home.draw(element);
+    expect(made.layer.childNodes).toEqual([form]);
+    expect(home.element() === (made.layer as unknown as HTMLElement)).toBe(true);
+    expect(focused().at(-1) === heading).toBe(true);
+  });
+
+  it("Cancel shows what the card showed, the focus on the form's control", () => {
+    resetFocus();
+    const made = phone('gym:1');
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    home.draw(formEl().element);
+    home.close('back');
+    expect(made.log.at(-1)).toBe('card back');
+    expect(home.holds()).toBe(false);
+    expect(focused().at(-1)).toBeDefined();
+  });
+
+  it('hops to the docked pane, the claim aside before the card is closed, and back', () => {
+    const made = phone('gym:1');
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    const { form, element } = formEl();
+    home.draw(element);
+    made.log.length = 0;
+    expect(home.toPane()).toBe(true);
+    expect(made.log).toEqual(['moved false true', 'card back', 'card closed']);
+    expect(home.inPane()).toBe(true);
+    expect(made.tools.childNodes).toEqual([form]);
+    made.log.length = 0;
+    home.toCard();
+    // The card opened first, the claim the card's after (its opening may close another party).
+    expect(made.log).toEqual(['card form', 'moved card false']);
+    expect(made.layer.childNodes).toEqual([form]);
+    expect(made.tools.childNodes).toEqual([made.idle]);
+    expect(home.holds()).toBe(true);
+    // Cancel now: the card it hopped out of is gone, so the place opens again.
+    home.close('back');
+    expect(made.isOpen()).toBe(true);
+  });
+
+  it('opened from a plain popup, Cancel opens the popup again', () => {
+    const made = phone(undefined);
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    expect(made.isOpen()).toBe(false);
+    home.draw(formEl().element);
+    home.close('back');
+    expect(made.log.at(-1)).toBe('card back');
+    expect(made.isOpen()).toBe(true);
+  });
+});
+
+// Review P2: a form whose lists never come is closed by its loading line's Cancel, and every way
+// it closes runs what it asked to be run then (a spawn's or a max battle's pin taken away).
+describe('a form while its lists are on their way', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('has a Cancel under "Loading…" in the side pane, which lets it go and opens the place again', () => {
+    const made = fixture();
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    const closed: string[] = [];
+    home.whenClosed(() => closed.push('pin away'));
+    const cancel = made.tools.querySelector('button[data-cancel]');
+    expect(made.tools.querySelector('.form-loading')).not.toBeNull();
+    cancel?.dispatch('click');
+    expect(home.holds()).toBe(false);
+    expect(made.tools.childNodes).toEqual([made.idle]);
+    expect(made.isOpen()).toBe(true);
+    expect(closed).toEqual(['pin away']);
+  });
+
+  // Second review R2: the loading line is read, its Cancel has the focus and Escape presses it.
+  it('says it loads as a status, the focus on its Cancel, and Escape there closes it', () => {
+    resetFocus();
+    const made = fixture();
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    expect(made.tools.querySelector('p.hint')?.getAttribute('role')).toBe('status');
+    const cancel = made.tools.querySelector('button[data-cancel]');
+    expect(focused().at(-1) === cancel).toBe(true);
+    cancel?.dispatch('keydown', { key: 'Escape' });
+    expect(home.holds()).toBe(false);
+    expect(made.tools.childNodes).toEqual([made.idle]);
+    expect(made.isOpen()).toBe(true);
+  });
+
+  // Branch review W3: in the card too, the loading line's Cancel takes the focus.
+  it("puts the focus on the loading line's Cancel in the card", () => {
+    resetFocus();
+    const made = phone('gym:1');
+    const home = formHome(made.frame, { control: made.control as unknown as HTMLElement });
+    home.open();
+    const cancel = made.layer.querySelector('button[data-cancel]');
+    expect(cancel).not.toBeNull();
+    expect(focused().at(-1) === cancel).toBe(true);
+  });
+
+  it("runs what it asked once, the card's × pressed while it loads", () => {
+    const made = phone(undefined);
+    let pressX: () => void = () => undefined;
+    const frame: FormFrame = {
+      ...made.frame,
+      card: {
+        ...made.card,
+        openForm: (form, cancel) => {
+          pressX = cancel;
+          made.card.openForm(form);
+        },
+      },
+    };
+    const home = formHome(frame);
+    home.open();
+    const closed: string[] = [];
+    home.whenClosed(() => closed.push('pin away'));
+    pressX();
+    pressX();
+    expect(home.holds()).toBe(false);
+    expect(closed).toEqual(['pin away']);
+    expect(made.log.at(-1)).toBe('card back');
+  });
+
+  it('runs what it asked as a form drawn closes, whatever the way', () => {
+    const made = fixture();
+    const home = formHome(made.frame);
+    home.open();
+    const closed: string[] = [];
+    home.whenClosed(() => closed.push('pin away'));
+    home.draw(formEl().element);
+    home.close('done');
+    home.close('back');
+    expect(closed).toEqual(['pin away']);
+  });
+});
+
+// Review P6: a form stays where it opened; a window resized across 768 px moves nothing.
+describe('a form opened on a wide screen, the window then narrowed', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('stays in the side pane when its map work ends', () => {
+    const made = phone('gym:1');
+    let narrow = false;
+    const home = formHome({ ...made.frame, phone: () => narrow });
+    home.open();
+    const { form, element } = formEl();
+    home.draw(element);
+    narrow = true;
+    made.log.length = 0;
+    expect(home.toPane()).toBe(true);
+    home.toCard();
+    expect(made.log).toEqual([]);
+    expect(home.inPane()).toBe(true);
+    expect(made.tools.childNodes).toEqual([form]);
+  });
+});
+
+// Branch review W4: the card never keeps a form whose claim is gone.
+describe("a phone's form whose claim is gone", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('takes its form out of the card as it closes, the claim let go elsewhere', () => {
+    const made = phone('gym:1');
+    const home = formHome(made.frame);
+    const claim = home.open();
+    home.draw(formEl().element);
+    if (claim) made.frame.hold.release(claim);
+    home.close('back');
+    expect(made.log.at(-1)).toBe('card back');
+  });
+
+  it('takes its form out of the card when its claim cannot move back into it', () => {
+    const made = phone('gym:1');
+    let refuse = false;
+    const frame: FormFrame = {
+      ...made.frame,
+      hold: {
+        ...made.frame.hold,
+        moved: (claim, place, aside) =>
+          refuse ? undefined : made.frame.hold.moved(claim, place, aside),
+      },
+    };
+    const home = formHome(frame);
+    home.open();
+    home.draw(formEl().element);
+    home.toPane();
+    refuse = true;
+    made.log.length = 0;
+    home.toCard();
+    expect(made.log).toEqual(['card form', 'card back']);
+    expect(home.inPane()).toBe(true);
+  });
+});
+
+// Staging finding S1 (2026-11-18): a form drawn anew (its lists came) keeps the focus where it was.
+describe('a form drawn anew', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** A form with its heading and a search field, as research draws it. */
+  const withField = () => {
+    const { form, heading, element } = formEl();
+    const field = make('input');
+    field.setAttribute('name', 'query');
+    form.append(field);
+    return { form, heading, field, element };
+  };
+
+  it('keeps the focus on the heading, now the new form’s', () => {
+    resetFocus();
+    const made = fixture();
+    const home = formHome(made.frame);
+    home.open();
+    home.draw(formEl().element);
+    const again = withField();
+    home.draw(again.element);
+    expect(focused().at(-1) === again.heading).toBe(true);
+  });
+
+  it('keeps the focus on a field, now the same field of the new form', () => {
+    resetFocus();
+    const made = fixture();
+    const home = formHome(made.frame);
+    home.open();
+    const first = withField();
+    home.draw(first.element);
+    first.field.focus();
+    const again = withField();
+    home.draw(again.element);
+    expect(focused().at(-1) === again.field).toBe(true);
+  });
+
+  it('leaves the focus alone where it is outside the form', () => {
+    resetFocus();
+    const made = fixture();
+    const home = formHome(made.frame);
+    home.open();
+    home.draw(formEl().element);
+    made.idle.focus();
+    made.body.append(made.idle);
+    const before = focused().length;
+    home.draw(withField().element);
+    expect(focused()).toHaveLength(before);
   });
 });

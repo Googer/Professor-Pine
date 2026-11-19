@@ -2,7 +2,7 @@ import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { ringContains } from '@pine/wayspot-core/region-membership';
 import type { GeoView } from '../../domain/web/geo-data.js';
 import type { WildOptionsView } from '../../domain/web/spawn-data.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, missingOf, sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { PageNode } from './popup.js';
 
@@ -70,7 +70,7 @@ export function pressedWhere(
 function placeSpawnBox(attribute: string, id: string): PageNode {
   return {
     tag: 'div',
-    className: 'spawn-box place-control',
+    className: 'spawn-box',
     children: [
       {
         tag: 'button',
@@ -123,7 +123,7 @@ export function spawnAtBox(stop: { key: string; at: LatLon }): PageNode {
   const point = spawnPoint(stop.at.lat, stop.at.lon);
   return {
     tag: 'div',
-    className: 'spawn-box place-control',
+    className: 'spawn-box',
     children: [
       {
         tag: 'button',
@@ -210,7 +210,12 @@ export function spawnForm(
     className: 'raid-form spawn-form',
     attributes: { 'data-form': 'spawn' },
     children: [
-      { tag: 'strong', className: 'name', text: 'Wild Pokémon here' },
+      {
+        tag: 'strong',
+        className: 'name',
+        attributes: { 'data-form-heading': '' },
+        text: 'Wild Pokémon here',
+      },
       labelled(
         'Pokémon',
         text('pokemon', POKEMON_LENGTH, 'Type to pick from the list', filled.pokemon),
@@ -248,22 +253,27 @@ export function spawnForm(
             }),
           ]
         : []),
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Report', { 'data-submit': 'spawn' }),
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Cancel',
-            attributes: { type: 'button', 'data-cancel': '' },
-          },
-        ],
-      },
-      { tag: 'div', className: 'form-answer', attributes: { hidden: '' } },
+      formRow(
+        sendButton('Report', { 'data-submit': 'spawn' }),
+        cancelButton(),
+        [],
+        spawnMissing({
+          pokemon: filled.pokemon ?? '',
+          details: filled.details ?? '',
+          iv: filled.iv ?? '',
+          region: filled.region ?? '',
+        }),
+      ),
     ],
   };
+}
+
+/**
+ * What a spawn report lacks before it can be sent (plan 8M-22), as `spawnBody` says it: the body's
+ * own check (where it is and the list go only into the body).
+ */
+export function spawnMissing(values: SpawnValues): string | undefined {
+  return missingOf(spawnBody({ lat: 0, lon: 0 }, values, { pokemon: [] }));
 }
 
 /**

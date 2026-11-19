@@ -1,5 +1,7 @@
+import { isOff } from './form-buttons.js';
+import { liveCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
-import { formHome, type FormHome } from './form-home.js';
+import { formHome, type FormFrame, type FormHome } from './form-home.js';
 import {
   stopsAtMost,
   type MapResearch,
@@ -8,13 +10,13 @@ import {
 import { getJson, say } from './common.js';
 import type { Me } from './notice.js';
 import { renderNode } from './popup.js';
-import type { FormHold } from './raid-forms.js';
 import { sayUnder } from './raid-ui.js';
 import {
   formSubject,
   heldStops,
   pickedFrom,
   researchForm,
+  researchMissing,
   submitResearch,
   taskChanged,
   taskList,
@@ -35,12 +37,11 @@ import {
 } from './report-flow.js';
 import type { LatLon } from './view.js';
 import { sendStop } from './stop-forms.js';
-import { newTrainButton } from './train-forms.js';
 
 /*
  * The field research form of the live map in the page (plan 8M-9B, goals 7 and 8; B8): from a
- * stop's popup in the place of its control (`formHome`), else in the side pane's box (docked under
- * the map on a phone), and there while stops are added, an aside claim of the hold, the list drawn
+ * stop's popup, in the side pane or on a phone the card (`formHome`, plan 8M-22), the pane docked under
+ * the map on a phone while stops are added, an aside claim of the hold, the list drawn
  * under it. "Report research here" in a stop's popup
  * and the Report button's step 3 at a stop open it with the stop; "Same task at more stops…" on a
  * research report opens it with that report's task, picking stops at once. "Add stops…" picks
@@ -52,11 +53,10 @@ export interface ResearchUiDeps {
   guild: string;
   /** The page's CSRF token, which a stale one's renewal changes. */
   csrf: { get(): string; set(token: string): void };
-  hold: Pick<FormHold<unknown>, 'take' | 'holds' | 'release' | 'fit'>;
+  /** Where the forms open (plan 8M-22, `formHome`): the side pane, the stop's popup closed. */
+  frame: FormFrame;
   /** The side pane's box, where the form is drawn without a place, or while it adds stops. */
   tools: HTMLElement;
-  /** Closes the popup or card that is open, as the form goes to the side pane. */
-  closePopup(): void;
   /** After a report: the reports asked for at once, then the stop's popup opened. */
   done(stopKey: string | undefined): Promise<void>;
   /** The stops to pick drawn or taken away (`adding`), the map's look with them. */
@@ -89,7 +89,7 @@ const FORM_OPEN = 'Close the form that is open first.';
 const NO_OPTIONS = 'The task list could not be loaded. Try again in a moment.';
 
 export function researchUi(deps: ResearchUiDeps) {
-  const { guild, hold } = deps;
+  const { guild } = deps;
   let open:
     | {
         home: FormHome;
@@ -103,6 +103,8 @@ export function researchUi(deps: ResearchUiDeps) {
          */
         near: readonly NearPlace[] | Exclude<Nearest, readonly NearLine[]>;
         flying: boolean;
+        /** Its task list could not be loaded: the line says so, not "Loading…" (plan 8M-22). */
+        failed?: true;
       }
     | undefined;
 
@@ -206,16 +208,20 @@ export function researchUi(deps: ResearchUiDeps) {
       clicked(form, event);
     });
     form.addEventListener('input', (event) => {
-      typed(event.target, event.isComposing);
+      typed(event.target);
     });
-    // The fit a word held back while it was composed.
-    form.addEventListener('compositionend', fitToForm);
     form.addEventListener('change', (event) => {
       const target = event.target;
       if (open && target instanceof HTMLInputElement && target.name === 'version') {
         open.state.version = target.value;
       }
     });
+    // Report off until the form can be sent (plan 8M-22), read from the state the listeners above
+    // keep, after them; "Loading…" until the lists came.
+    const now = open;
+    liveCheck(form, () =>
+      now.failed === true ? NO_OPTIONS : researchMissing(now.lists, now.stops, now.state, now.mode),
+    );
     open.home.draw(form);
     if (focus !== undefined) form.querySelector<HTMLElement>(focus)?.focus();
     else if (near !== undefined) {
@@ -230,17 +236,11 @@ export function researchUi(deps: ResearchUiDeps) {
     }
   };
 
-  /** A popup that holds the form fits it; none is fitted for a form in the side pane. */
-  const fitToForm = (): void => {
-    if (open && !open.home.inPane()) hold.fit();
-  };
-
   /**
    * What is typed: the search (the task list under it drawn anew, the field itself kept: review
-   * F3, an IME's word or a phone's keyboard is not cut, so a popup is fitted to the list only
-   * between words), the typed task and its reward (kept).
+   * F3, an IME's word or a phone's keyboard is not cut), the typed task and its reward (kept).
    */
-  const typed = (target: EventTarget | null, composing: boolean): void => {
+  const typed = (target: EventTarget | null): void => {
     if (!open || !(target instanceof HTMLInputElement)) return;
     if (target.name === 'query') {
       open.state.query = target.value;
@@ -248,7 +248,6 @@ export function researchUi(deps: ResearchUiDeps) {
       if (list && open.lists) {
         const fresh = renderNode(taskList(open.lists, open.state), document);
         list.replaceChildren(...fresh.childNodes);
-        if (!composing) fitToForm();
       }
     } else if (target.name === 'typedTask' && open.state.typing) {
       open.state.typing.task = target.value;
@@ -257,16 +256,23 @@ export function researchUi(deps: ResearchUiDeps) {
     }
   };
 
-  const setAdding = (on: boolean): void => {
+  /**
+   * Stops picked on the map, or no longer. Picking needs the map: a phone's form goes from its
+   * card to the side pane docked under the map (plan 8M-22), its state with it, and back into the
+   * card when it ends (`back`; not as the form closes).
+   */
+  const setAdding = (on: boolean, back = true): void => {
     if (!open || (open.state.adding === true) === on) return;
-    // Picking stops needs the map: a form in a popup goes to the side pane, its state with it.
     if (on && !open.home.toPane()) {
       say(FORM_OPEN);
       return;
     }
     open.state.adding = on;
     deps.picking(on);
-    if (!on) return;
+    if (!on) {
+      if (back) open.home.toCard();
+      return;
+    }
     // As the Report button's step 2 (branch review W6): the map in to where the PokéStops are
     // drawn, at the form's last stop (re-review X2), whose answer lists the nearest (`onStops`).
     const now = open;
@@ -300,12 +306,13 @@ export function researchUi(deps: ResearchUiDeps) {
     return true;
   };
 
-  const close = (): void => {
+  /** The form closed: `back` (Cancel) to the stop's popup, `done` for the page to open it. */
+  const close = (how: 'back' | 'done'): void => {
     const was = open;
     if (!was) return;
-    setAdding(false);
+    setAdding(false, false);
     open = undefined;
-    was.home.close();
+    was.home.close(how);
   };
 
   const after = async (done: ResearchAfter): Promise<void> => {
@@ -321,7 +328,7 @@ export function researchUi(deps: ResearchUiDeps) {
         return;
       case 'close': {
         const first = open?.stops[0]?.key;
-        close();
+        close('done');
         say(done.text);
         await deps.done(first);
         return;
@@ -365,21 +372,21 @@ export function researchUi(deps: ResearchUiDeps) {
       }
     } else if (cancel !== undefined) {
       // Cancel sends nothing, the contradiction question's too (R7).
-      close();
+      close('back');
     } else if (changeTask !== undefined) {
       // The task list back, the task kept as the selection (plan 8M-11A, S26).
+      // The list open again, the focus on its search field (plan 8M-22).
       const changed = taskChanged(open.state, open.mode, open.lists);
       open.state = changed.state;
       open.mode = changed.mode;
-      draw(
-        open.state.task === undefined
-          ? 'input[name="query"]'
-          : `button[data-task="${CSS.escape(open.state.task)}"]`,
-      );
+      draw('input[name="query"]');
     } else if (task !== undefined) {
+      // Picked: the list folds (plan 8M-22), the focus on its reward to pick, else on Change task.
       open.state.task = task;
       delete open.state.version;
-      draw(`button[data-task="${CSS.escape(task)}"]`);
+      delete open.state.listOpen;
+      const several = (open.lists?.tasks.find((one) => one.key === task)?.versions.length ?? 0) > 1;
+      draw(several ? 'input[name="version"]' : 'button[data-change-task]');
     } else if (typing !== undefined) {
       if (typing === 'start') open.state.typing = { task: '', reward: '' };
       else delete open.state.typing;
@@ -390,7 +397,7 @@ export function researchUi(deps: ResearchUiDeps) {
     } else if (removeStop !== undefined) {
       open.stops = open.stops.filter((stop) => stop.key !== removeStop);
       draw('button[data-add-stops], button[data-submit]');
-    } else if (submit === 'research') {
+    } else if (submit === 'research' && !isOff(target)) {
       const replacing =
         open.state.asks === undefined
           ? undefined
@@ -421,27 +428,23 @@ export function researchUi(deps: ResearchUiDeps) {
     stops: PickedStop[],
     mode: ResearchMode,
     focus: string | undefined,
-    control?: HTMLButtonElement,
+    control?: HTMLElement | null,
   ): void => {
-    const box = control?.parentElement;
-    const home = formHome(
-      {
-        tools: deps.tools,
-        hold,
-        closePopup: () => {
-          deps.closePopup();
-        },
-        idle: () => {
-          deps.tools.replaceChildren(renderNode(newTrainButton(), document));
-        },
+    // In the side pane (plan 8M-22), the stop's popup closed; its place the first stop and how
+    // many more ("Same task at more stops…": its report's stop until one is added).
+    const home = formHome(deps.frame, {
+      control,
+      place: () => {
+        const first = open?.stops[0]?.name;
+        const more = (open?.stops.length ?? 0) - 1;
+        if (first !== undefined) return more > 0 ? `${first} +${String(more)}` : first;
+        return open?.mode.kind === 'more' ? open.mode.report.stop.name : undefined;
       },
-      box && control ? { box, control } : undefined,
-    );
+    });
     if (!home.open()) {
       say(FORM_OPEN);
       return;
     }
-    if (home.inPane()) deps.closePopup();
     const state: ResearchFormState = { query: '' };
     open = { home, stops, state, mode, lists: undefined, near: 'loading', flying: false };
     if (mode.kind === 'more') setAdding(true);
@@ -462,6 +465,7 @@ export function researchUi(deps: ResearchUiDeps) {
       },
       () => {
         if (open !== now) return;
+        now.failed = true;
         const form = formIsIn().firstElementChild;
         if (form instanceof HTMLElement) sayUnder(form, NO_OPTIONS);
         else say(NO_OPTIONS);
@@ -479,9 +483,12 @@ export function researchUi(deps: ResearchUiDeps) {
       if (stop) openForm([stop], { kind: 'new' }, focus, button);
     },
 
-    /** The Report button's step 3 at a stop the map offers no popup's button for. */
-    researchAt(stop: PickedStop): void {
-      openForm([stop], { kind: 'new' }, 'input[name="query"]');
+    /**
+     * The Report button's step 3 at a stop (plan 8M-22: straight in the side pane, the stop's
+     * popup not opened first), Cancel giving the focus to `control` (the Report button).
+     */
+    researchAt(stop: PickedStop, control?: HTMLElement | null): void {
+      openForm([stop], { kind: 'new' }, 'input[name="query"]', control);
     },
 
     /** "Same task at more stops…" on a research report: its task, stops picked at once. */

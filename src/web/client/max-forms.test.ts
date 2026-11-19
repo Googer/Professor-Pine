@@ -74,7 +74,7 @@ const battle = { kind: 'max', id: 'x1' } as unknown as MapMax;
 describe('"Report max battle here" (plan 8M-9A)', () => {
   it("is a button in a Power Spot's popup, naming the spot", () => {
     const box = maxBox('spot-1');
-    expect(box.className).toBe('max-box place-control');
+    expect(box.className).toBe('max-box');
     expect(tagged(box, 'button').map((button) => [button.text, button.attributes])).toEqual([
       ['Report max battle here', { type: 'button', 'data-report-max': 'spot-1' }],
     ]);
@@ -84,7 +84,8 @@ describe('"Report max battle here" (plan 8M-9A)', () => {
 describe('the max battle form (plan 8M-9A, A9)', () => {
   it("offers /max's bosses grouped by tier in the list's order, the featured marked", () => {
     const form = maxForm('Lake Gazebo', OPTIONS, state(), ZONE);
-    expect(texts(form)[0]).toBe('Lake Gazebo');
+    // What the form does, the place in a line under it (plan 8M-22).
+    expect(texts(form).slice(0, 2)).toEqual(['Report a max battle', 'Lake Gazebo']);
     const [boss] = tagged(form, 'select').filter((one) => one.attributes?.name === 'boss');
     expect(boss?.children?.map((child) => child.attributes?.label ?? child.text)).toEqual([
       'Pick the boss',
@@ -112,8 +113,11 @@ describe('the max battle form (plan 8M-9A, A9)', () => {
     ]);
     // No region asked of a place in one.
     expect(tagged(form, 'select').map((one) => one.attributes?.name)).toEqual(['boss', 'tier']);
-    // In a spot's popup, which names the spot already, it has no heading of its own.
-    expect(texts(maxForm(undefined, OPTIONS, state(), ZONE))[0]).toBe('Boss');
+    // At a spot its heading alone: the side pane names the spot under it (plan 8M-22).
+    expect(texts(maxForm(undefined, OPTIONS, state(), ZONE)).slice(0, 2)).toEqual([
+      'Report a max battle',
+      'Boss',
+    ]);
   });
 
   it('keeps what was filled in, shows the typed rows for a boss typed, and asks a region of several', () => {
@@ -336,7 +340,8 @@ describe("a max battle report's answer (A3)", () => {
     const form = maxForm('Unlisted power spot', OPTIONS, step.state, ZONE);
     const buttons = tagged(form, 'button').map((button) => [button.text, button.attributes]);
     expect(buttons).toEqual([
-      ['Report', { type: 'button', 'data-submit': 'max', disabled: '' }],
+      // Off, not disabled (plan 8M-22): it keeps the focus, and a press says the line.
+      ['Report', { type: 'button', 'data-submit': 'max', 'aria-disabled': 'true' }],
       ['Cancel', { type: 'button', 'data-cancel': '' }],
       ['← Pick a Power Spot', { type: 'button', 'data-pick-spot': '' }],
     ]);
@@ -374,11 +379,12 @@ describe("a max battle report's answer (A3)", () => {
     expect(answerFocus(state({ pinRefused: true }))).toBe('button[data-pick-spot]');
   });
 
-  it('tells what is said under the form as it is said (aria-live)', () => {
-    const [answer] = tagged(maxForm('Lake Gazebo', OPTIONS, state(), ZONE), 'div').filter(
+  it('has its line in the row, no live region while the check writes it (plan 8M-22)', () => {
+    const [answer] = tagged(maxForm('Lake Gazebo', OPTIONS, state(), ZONE), 'p').filter(
       (one) => one.className === 'form-answer',
     );
-    expect(answer?.attributes).toMatchObject({ 'aria-live': 'polite' });
+    expect(answer?.text).toBe('Pick the boss first.');
+    expect(answer?.attributes?.['aria-live']).toBeUndefined();
   });
 
   // R1-2: the form's Submit as maxUi runs it (`submitMax`), the lists asked for again (A3).

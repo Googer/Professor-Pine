@@ -88,11 +88,14 @@ export function refusalMoves(from: Element, partyId: string | undefined, card: N
 }
 
 /**
- * Shakes the popup or card of `from` once (a refusal): the class taken off and put back, so that a
- * second refusal shakes again; `map.css` runs it only where the device allows motion.
+ * Shakes the popup or card of `from` once (a refusal), or the side pane's box of a form there
+ * (plan 8M-22, branch review W2): the class taken off and put back, so that a second refusal
+ * shakes again; `map.css` runs it only where the device allows motion.
  */
 export function shake(from: Element): void {
-  const box = from.closest<HTMLElement>('.leaflet-popup, .party-card');
+  const box =
+    from.closest<HTMLElement>('.leaflet-popup, .party-card') ??
+    from.closest<HTMLElement>('.train-tools');
   if (!box) return;
   box.classList.remove('shake');
   // Read a size so that the browser sees the class gone before it comes back.

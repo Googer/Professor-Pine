@@ -7,7 +7,7 @@ import type {
 } from '../../domain/web/stop-report-data.js';
 import { ONE_OF_WORDS } from '../../domain/research/one-of-words.js';
 import { holdsSubject, taskOfSubject } from '../../domain/research/reports.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, missingOf, sendButton } from './form-buttons.js';
 import type { PageNode } from './popup.js';
 import { nearestPart, type Nearest } from './report-flow.js';
 import { STOP_GONE } from './rocket-forms.js';
@@ -65,6 +65,11 @@ export interface ResearchFormState {
   nearest?: Nearest;
   /** Its report is on its way: every button is drawn off (review F3), whatever draws the form. */
   sending?: boolean;
+  /**
+   * The task list open again though a task is picked (plan 8M-22): "Change task", or the list
+   * changed under the form. Picking a task folds it again.
+   */
+  listOpen?: boolean;
 }
 
 /** What a report of the form is of: its version's value (`subjectKey`), and whether "one of". */
@@ -130,7 +135,9 @@ export function taskChanged(
   mode: ResearchMode,
   options: Pick<ResearchOptionsView, 'tasks'> | undefined,
 ): { state: ResearchFormState; mode: ResearchMode } {
-  const { asks: _asks, ...rest } = state;
+  const { asks: _asks, ...picked } = state;
+  // The list itself back (plan 8M-22), the task its selection.
+  const rest: ResearchFormState = { ...picked, listOpen: true };
   if (mode.kind === 'new') return { state: rest, mode };
   const subject = mode.report.task;
   const task =
@@ -168,7 +175,7 @@ export type ResearchMode = { kind: 'new' } | { kind: 'more'; report: MapResearch
 export function researchButton(stop: PickedStop): PageNode {
   return {
     tag: 'button',
-    className: 'press place-control',
+    className: 'press',
     text: 'Report research here',
     attributes: {
       type: 'button',
@@ -362,8 +369,33 @@ export function taskList(options: ResearchOptionsView, state: ResearchFormState)
   return offWhileSending(list, state);
 }
 
-/** The task list: a search box, then the tasks it finds (`taskList`). */
+/**
+ * The task list: a search box, then the tasks it finds (`taskList`); once a task is picked
+ * (plan 8M-22) folded to one line, the task and its reward where one is picked (or it has one), with
+ * "Change task", which opens the list again (`taskChanged`). The list has no scroll of its own: it
+ * scrolls with the form.
+ */
 function tasksPart(options: ResearchOptionsView, state: ResearchFormState): PageNode[] {
+  const task = options.tasks.find((one) => one.key === state.task);
+  if (task !== undefined && state.listOpen !== true) {
+    const [only] = task.versions;
+    const version =
+      task.versions.length === 1 ? only : task.versions.find((one) => one.value === state.version);
+    return [
+      {
+        tag: 'div',
+        className: 'task-picked',
+        attributes: { role: 'group', 'aria-label': 'Task' },
+        children: [
+          { tag: 'span', className: 'task-text', text: task.text },
+          ...(version === undefined
+            ? []
+            : [{ tag: 'span', className: 'task-reward', text: version.label }]),
+          changeTaskButton,
+        ],
+      },
+    ];
+  }
   return [
     {
       tag: 'label',
@@ -583,23 +615,35 @@ export function researchForm(
       },
       ...stopsPart(stops, state, mode.kind === 'more', options?.maxStops),
       ...body,
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Report', { 'data-submit': 'research' }),
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Cancel',
-            attributes: { type: 'button', 'data-cancel': '' },
-          },
-        ],
-      },
-      { tag: 'div', className: 'form-answer', attributes: { hidden: '', 'aria-live': 'polite' } },
+      formRow(
+        sendButton('Report', { 'data-submit': 'research' }),
+        cancelButton(),
+        [],
+        researchMissing(options, stops, state, mode),
+      ),
     ],
   };
   return offWhileSending(form, state);
+}
+
+/** The missing line of a new report's form while its task list is on its way (plan 8M-22). */
+export const LOADING_LINE = 'Loading…';
+
+/**
+ * What the form lacks before it can be sent (plan 8M-22), as `researchBody` says it: a new
+ * report's form is off with "Loading…" until its lists came ("Same task at more stops…" sends its
+ * report's task and needs none of them).
+ */
+export function researchMissing(
+  options: ResearchOptionsView | undefined,
+  stops: readonly PickedStop[],
+  state: ResearchFormState,
+  mode: ResearchMode,
+): string | undefined {
+  if (options === undefined && mode.kind === 'new' && state.typing === undefined) {
+    return LOADING_LINE;
+  }
+  return missingOf(researchBody(options, stops, state, mode));
 }
 
 /** A research report's body (`POST …/api/research`). */
@@ -739,7 +783,7 @@ export async function submitResearch(
       // report's version picked where the new lists still have it.
       const wanted = mode.report.task;
       const task = now?.tasks.find((one) => one.versions.some((each) => each.value === wanted));
-      const picked: ResearchFormState = { query: '' };
+      const picked: ResearchFormState = { query: '', listOpen: true };
       if (task) {
         picked.task = task.key;
         picked.version = wanted;
@@ -748,7 +792,8 @@ export async function submitResearch(
     }
     const task = now?.tasks.find((one) => one.key === state.task);
     const version = task?.versions.some((one) => one.value === state.version) === true;
-    const picked: ResearchFormState = { query: state.query };
+    // The list open again (plan 8M-22), the pick kept where the new lists have it.
+    const picked: ResearchFormState = { query: state.query, listOpen: true };
     if (task) picked.task = task.key;
     if (task && version && state.version !== undefined) picked.version = state.version;
     if (state.typing !== undefined) picked.typing = state.typing;

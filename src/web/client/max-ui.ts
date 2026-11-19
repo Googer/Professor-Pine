@@ -1,4 +1,7 @@
+import { isOff } from './form-buttons.js';
+import { liveCheck, type FormCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
+import { formHome, type FormHome, type FormFrame } from './form-home.js';
 import type { GeoView } from '../../domain/web/geo-data.js';
 import type { MaxOptionsView } from '../../domain/web/max-data.js';
 import type { MapMax } from '../../domain/web/party-data.js';
@@ -10,6 +13,7 @@ import {
   fieldToFocus,
   maxBox,
   maxForm,
+  maxMissing,
   sendMaxForm,
   submitMax,
   type MaxField,
@@ -22,14 +26,15 @@ import { addPickAgain } from './pick-again.js';
 import { renderNode } from './popup.js';
 import { readerZone } from './post-time.js';
 import type { ReportKindId } from './report-icons.js';
-import { formPlace, type FormClaim, type FormHold } from './raid-forms.js';
+import type { FormHold } from './raid-forms.js';
 import { fieldsOf, sayUnder } from './raid-ui.js';
 import { regionsAt, spawnPoint } from './spawn-forms.js';
 
 /**
  * The max battle form of the live map in the page (plan 8M-9A): "Report max battle here" in a
- * Power Spot's popup opens it in place of its button; a point of the map picked in the Report
- * button's step 2 opens it in a popup of its own there, an "Unlisted power spot" (`maxAt`). The
+ * Power Spot's popup opens it, a point of the map picked in the Report button's step 2 opens it
+ * there, an "Unlisted power spot" with step 2's pin (`maxAt`); in the side pane or on a phone the
+ * card (plan 8M-22, `formHome`). The
  * pick lists come from `/api/max-options` (the browser revalidates them by their ETag), asked for
  * again after any refusal but the ending-soon question and the regions (A3). It is held like the
  * other forms (`FormHold`, one form at a time). A battle made, joined, or there with another boss
@@ -42,9 +47,15 @@ export interface MaxUiDeps {
   /** The server's regions with their outlines, as `/api/geo` gives them. */
   regions: GeoView['regions'];
   /** The form that is open, shared with the other forms. */
-  hold: Pick<FormHold<unknown>, 'editing' | 'take' | 'holds' | 'ready' | 'fit' | 'release'>;
-  /** Opens a popup of its own at the point with this content; `close` closes it. */
-  popupAt(point: { lat: number; lon: number }, content: HTMLElement): { close(): void };
+  hold: Pick<FormHold<unknown>, 'editing'>;
+  /** Where the forms open (plan 8M-22, `formHome`): the side pane, the place's popup closed. */
+  frame: FormFrame;
+  /**
+   * The pin of the Report button's step 2 (`report-pin`) at a point, fixed while its form is open:
+   * `drawn` once the form is drawn (on a phone the map pans the point clear of the card, review
+   * P10), `remove` as it closes, whichever way (`whenClosed`, review P2).
+   */
+  pinAt(point: { lat: number; lon: number }): { drawn: () => void; remove: () => void };
   /** After a report: the list again, and the battle it names opened. */
   done(max: MapMax | undefined): Promise<void>;
   /**
@@ -76,7 +87,7 @@ export function maxUi(deps: MaxUiDeps) {
   const options = (): Promise<MaxOptionsView> =>
     getJson<MaxOptionsView>(`/s/${guild}/api/max-options`);
 
-  const send = async (form: HTMLElement, body: Record<string, unknown>) => {
+  const send = async (form: HTMLElement, body: Record<string, unknown>, check?: FormCheck) => {
     const buttons = form.querySelectorAll('button');
     for (const each of buttons) each.disabled = true;
     const sent = await sendMaxForm(deps.csrf.get(), {
@@ -96,6 +107,8 @@ export function maxUi(deps: MaxUiDeps) {
     });
     deps.csrf.set(sent.csrf);
     for (const each of buttons) each.disabled = false;
+    // The check again (plan 8M-22), the answer kept on the line.
+    check?.run(true);
     return sent;
   };
 
@@ -114,15 +127,14 @@ export function maxUi(deps: MaxUiDeps) {
   };
 
   /**
-   * Draws the form into `box` once the lists came, when its claim still holds and the box is
-   * still in the page; `finish` closes it (and lets the hold go).
+   * Draws the form in the side pane once the lists came, while it still holds; `finish` closes it
+   * (and lets the hold go): `back` to where the member was, or `done`.
    */
   const openForm = async (
-    box: HTMLElement,
+    home: FormHome,
     where: MaxWhere,
     name: string | undefined,
-    claim: FormClaim,
-    finish: () => void,
+    finish: (how: 'back' | 'done') => void,
     /** The Report button's step 3 (R1-3): the form's first field takes the focus. */
     focusFirst = false,
     /** Opened by a tap in step 2: "← Another Power Spot" (`addPickAgain`). */
@@ -132,11 +144,14 @@ export function maxUi(deps: MaxUiDeps) {
     try {
       lists = await options();
     } catch {
+      // Canceled while it loaded (second review R1): nothing said.
+      if (!home.holds()) return;
       say(NO_OPTIONS);
-      if (hold.holds(claim)) finish();
+      finish('back');
       return;
     }
-    if (!hold.ready(claim, box.isConnected)) return;
+    if (!home.holds()) return;
+    const box = home.element();
     let state: MaxFormState = {
       filled: {},
       regions: regionsAt(spawnPoint(where.lat, where.lon), deps.regions),
@@ -156,14 +171,14 @@ export function maxUi(deps: MaxUiDeps) {
         for (const row of form.querySelectorAll<HTMLElement>('[data-typed]')) {
           row.hidden = boss.value !== ANOTHER_BOSS;
         }
-        hold.fit();
       });
+      // Report off until a boss is picked, and at a pin refused (plan 8M-22).
+      const check = liveCheck(form, () => maxMissing(valuesOf(form), state));
       formKeys(form);
       form.addEventListener('click', (event) => {
-        clicked(form, event);
+        clicked(form, event, check);
       });
-      box.replaceChildren(form);
-      hold.fit();
+      home.draw(form);
       if (focus === 'answer') {
         // The question asked takes it on its checked choice, which is read with its words.
         // Not after a pin refused (review B4b): the control that had it, Report, is off.
@@ -181,25 +196,25 @@ export function maxUi(deps: MaxUiDeps) {
       if (shown instanceof HTMLElement) sayUnder(shown, text);
       else say(text);
     };
-    const clicked = (form: HTMLElement, event: Event): void => {
+    const clicked = (form: HTMLElement, event: Event, check: FormCheck): void => {
       const target = event.target;
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) {
-        finish();
+        finish('back');
         return;
       }
       // A member blocked from pins (R1-4): back to the Power Spots, the form closed.
       if (target.dataset.pickSpot !== undefined) {
-        finish();
+        finish('done');
         deps.pickSpot?.();
         return;
       }
-      if (target.dataset.submit !== 'max') return;
+      if (target.dataset.submit !== 'max' || isOff(target)) return;
       const values = valuesOf(form);
       void submitMax(where, values, lists, state, {
-        send: (body) => send(form, body),
+        send: (body) => send(form, body, check),
         options,
-        holds: () => hold.holds(claim),
+        holds: () => home.holds(),
       }).then(async (after) => {
         switch (after.kind) {
           case 'missing':
@@ -211,12 +226,12 @@ export function maxUi(deps: MaxUiDeps) {
             await deps.done(undefined);
             return;
           case 'close':
-            finish();
+            finish('done');
             say(after.text);
             await deps.done(after.max);
             return;
           case 'draw':
-            if (!hold.holds(claim)) return;
+            if (!home.holds()) return;
             lists = after.lists;
             state = after.state;
             draw(after.focus ?? 'answer');
@@ -228,25 +243,24 @@ export function maxUi(deps: MaxUiDeps) {
     draw(focusFirst ? 'boss' : undefined);
   };
 
-  /** A click on "Report max battle here" (`maxBox`): the form in place of the button. */
+  /**
+   * A click on "Report max battle here" (`maxBox`), or the Report button's step 3 at a Power Spot
+   * (`control` the Report button): the form in the side pane, the spot's popup closed.
+   */
   const maxClicked = (
-    button: HTMLButtonElement,
+    control: HTMLElement | null,
     spot: MapSpot,
     focusFirst = false,
     again?: ReportKindId,
   ): void => {
-    const box = button.parentElement;
-    if (!box) return;
-    const claim = hold.take(formPlace(box));
-    if (!claim) return;
+    const home = formHome(deps.frame, { control, place: () => spot.title });
+    if (!home.open()) return;
     void openForm(
-      box,
+      home,
       { spot: spot.id, name: spot.title, lat: spot.lat, lon: spot.lon },
       undefined,
-      claim,
-      () => {
-        box.replaceChildren(button);
-        hold.release(claim);
+      (how) => {
+        home.close(how);
       },
       focusFirst,
       again,
@@ -254,7 +268,7 @@ export function maxUi(deps: MaxUiDeps) {
   };
 
   return {
-    /** "Report max battle here" for a Power Spot's popup; a click opens the form in its place. */
+    /** "Report max battle here" for a Power Spot's popup; a click opens the form (`maxClicked`). */
     maxControl(spot: MapSpot): HTMLElement {
       const box = renderNode(maxBox(spot.id), document);
       const button = box.querySelector('button');
@@ -269,33 +283,32 @@ export function maxUi(deps: MaxUiDeps) {
 
     /**
      * A point of the map picked for a max battle (the Report button's step 2): the form of an
-     * unlisted power spot in a popup of its own there; the server names the point (the nearest
-     * Power Spot within 50 meters, else a pin), as `/max` takes a maps link.
+     * unlisted power spot in the side pane, step 2's pin at the point while it is open (plan
+     * 8M-22, Matt's ruling 3), `where` read once here; the server names the point (the nearest
+     * Power Spot within 50 meters, else a pin), as `/max` takes a maps link. Cancel gives the focus
+     * to `control` (the Report button).
      */
-    maxAt(point: { lat: number; lon: number }, focusFirst = false): void {
+    maxAt(
+      point: { lat: number; lon: number },
+      focusFirst = false,
+      control?: HTMLElement | null,
+    ): void {
       if (hold.editing) {
         say(FORM_OPEN);
         return;
       }
       const at = spawnPoint(point.lat, point.lon);
-      const box = document.createElement('div');
-      box.className = 'max-box';
-      box.textContent = 'Loading the bosses…';
-      // Opened first: opening it closes any other popup, which must not take the new claim.
-      const popup = deps.popupAt(at, box);
-      const claim = hold.take(true);
-      if (!claim) {
-        popup.close();
-        return;
-      }
+      const home = formHome(deps.frame, { control });
+      if (!home.open()) return;
+      const pin = deps.pinAt(at);
+      home.whenDrawn(pin.drawn);
+      home.whenClosed(pin.remove);
       void openForm(
-        box,
+        home,
         at,
         UNLISTED_SPOT,
-        claim,
-        () => {
-          hold.release(claim);
-          popup.close();
+        (how) => {
+          home.close(how);
         },
         focusFirst,
       );

@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-14T05:23",
+  "updated": "2026-11-18T20:10",
   "items": [
     {
       "id": "0",
@@ -10410,6 +10410,99 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-06T23:56",
       "end": "2026-11-06T23:57"
+    },
+    {
+      "id": "8M-22",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8M-22 Forms in the side pane",
+      "size": 2,
+      "dependsOn": [
+        "8M-20"
+      ],
+      "scope": "Every form opened at a place opens in the side pane (wide) or the bottom card (phone), its Report and Cancel pinned below it, Report off until the page check passes, the research task list folded once picked",
+      "doneWhen": "Merged into main-dev",
+      "status": "done",
+      "planning": {
+        "start": "2026-11-16T21:53",
+        "end": "2026-11-18T11:46",
+        "review": {
+          "start": "2026-11-18T14:44",
+          "end": "2026-11-18T19:36"
+        }
+      },
+      "review": {
+        "start": "2026-11-18T14:44",
+        "end": "2026-11-18T20:03"
+      }
+    },
+    {
+      "id": "8M-22.1",
+      "kind": "task",
+      "parent": "8M-22",
+      "name": "One row with the missing line, Report off until the check passes",
+      "dependsOn": [],
+      "scope": "One row with the missing line, Report off until the check passes",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "done",
+      "start": "2026-11-18T11:46",
+      "end": "2026-11-18T12:14"
+    },
+    {
+      "id": "8M-22.2",
+      "kind": "task",
+      "parent": "8M-22",
+      "name": "The research task list folds once a task is picked",
+      "dependsOn": [
+        "8M-22.1"
+      ],
+      "scope": "The research task list folds once a task is picked",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "done",
+      "start": "2026-11-18T12:14",
+      "end": "2026-11-18T12:16"
+    },
+    {
+      "id": "8M-22.3",
+      "kind": "task",
+      "parent": "8M-22",
+      "name": "Every form opens in the side pane on a wide screen",
+      "dependsOn": [
+        "8M-22.2"
+      ],
+      "scope": "Every form opens in the side pane on a wide screen",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "done",
+      "start": "2026-11-18T12:16",
+      "end": "2026-11-18T12:47"
+    },
+    {
+      "id": "8M-22.4",
+      "kind": "task",
+      "parent": "8M-22",
+      "name": "A form in the phone card, its own layer",
+      "dependsOn": [
+        "8M-22.3"
+      ],
+      "scope": "A form in the phone card, its own layer",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "done",
+      "start": "2026-11-18T12:47",
+      "end": "2026-11-18T12:59"
+    },
+    {
+      "id": "8M-22.5",
+      "kind": "task",
+      "parent": "8M-22",
+      "name": "Dead code and the docs",
+      "dependsOn": [
+        "8M-22.4"
+      ],
+      "scope": "Dead code and the docs",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "done",
+      "start": "2026-11-18T12:59",
+      "end": "2026-11-18T14:44"
     },
     {
       "id": "8Z",

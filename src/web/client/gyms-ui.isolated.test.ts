@@ -26,9 +26,11 @@ const counted = vi.hoisted(() => {
     off() {
       return this;
     }
-    /** What the popup was bound with. */
+    /** What the popup was bound with: its content and its options. */
+    popupContent: unknown;
     popupOptions: unknown;
-    bindPopup(_content?: unknown, options?: unknown) {
+    bindPopup(content?: unknown, options?: unknown) {
+      this.popupContent = content;
       this.popupOptions = options;
       return this;
     }
@@ -148,7 +150,6 @@ vi.mock('./party-layer.js', () => ({
     counted.clicks.set(marker, clicked);
   },
 }));
-vi.mock('./raid-forms.js', () => ({ heldContent: (draw: () => unknown) => draw }));
 vi.mock('./train-forms.js', () => ({ stopName: () => 'a gym' }));
 vi.mock('./theme.js', async (importOriginal) => {
   const real = await importOriginal<typeof import('./theme.js')>();
@@ -195,6 +196,8 @@ function shown(
     drawn?: () => void;
     /** A gym's dot clicked; none: nothing takes it. */
     clicked?: (gym: MapGym) => boolean;
+    /** What a gym's popup shows beyond the gym; nothing without it. */
+    extras?: (gym: MapGym) => unknown[];
   } = {},
 ) {
   vi.stubGlobal('document', {
@@ -268,8 +271,7 @@ function shown(
     where: () => ({ located: undefined, units: 'imperial' }),
     registry,
     filter,
-    extras: () => [],
-    editing: () => false,
+    extras: more.extras ?? (() => []),
     clicked: more.clicked ?? (() => false),
     forced: () => false,
     hidden: () => {
@@ -583,5 +585,37 @@ describe('the box over the gyms (plan 8M-12)', () => {
     const was = visitor.refreshed.count;
     visitor.type('Gym 7');
     expect(visitor.refreshed.count).toBe(was + 1);
+  });
+});
+
+// Branch review W5: no form is in a gym's popup any more (plan 8M-22): its content is drawn anew at
+// each opening, also while a form of the side pane or the card is open.
+describe("a gym's popup under a form", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('is drawn anew at each opening', () => {
+    let drawn = 0;
+    const { group } = shown(17, {
+      extras: () => {
+        drawn += 1;
+        return [];
+      },
+    });
+    const made = (tag: string) => ({
+      tag,
+      className: '',
+      textContent: '',
+      setAttribute: () => undefined,
+      append: () => undefined,
+    });
+    vi.stubGlobal('document', { createElement: made, addEventListener: () => undefined });
+    const dot = [...group.layers][0];
+    const content = dot?.popupContent as (() => unknown) | undefined;
+    expect(content).toBeDefined();
+    content?.();
+    content?.();
+    expect(drawn).toBe(2);
   });
 });

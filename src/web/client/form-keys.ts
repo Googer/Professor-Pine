@@ -1,3 +1,6 @@
+import { isOff } from './form-buttons.js';
+import { sayMissing } from './form-check.js';
+
 /**
  * Enter on a field the form's own. Not a text area (a new line), a menu or a button (their own
  * key), a search box (research's task box, where nothing is picked yet), a field with suggestions
@@ -25,7 +28,8 @@ function enterSubmits(event: KeyboardEvent): boolean {
  *
  * - Escape closes the form as its Cancel does (plan 8M-11A, S16).
  * - Enter presses its Submit (Matt, 2026-10-31; `enterSubmits`): the forms are no `<form>`, so the
- *   browser's own does nothing. A Submit that is disabled stays unpressed. Held down it does nothing
+ *   browser's own does nothing. A Submit that is off (disabled, or `aria-disabled` while its form's
+ *   check says something is missing) stays unpressed. Held down it does nothing
  *   more, also on a button an answer moved the focus to, which its repeats would press; a text area
  *   keeps its lines.
  *
@@ -50,6 +54,13 @@ export function formKeys(form: HTMLElement): void {
     if (!button) return;
     event.stopPropagation();
     event.preventDefault();
+    // A Submit off by the form's check (plan 8M-22: `aria-disabled`, which a click passes
+    // through) stays unpressed, as a disabled one does; its line says why once more, as a press
+    // of it does (review P9).
+    if (event.key === 'Enter' && isOff(button)) {
+      sayMissing(form);
+      return;
+    }
     button.click();
   });
 }

@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MapTrain } from '../../domain/web/party-data.js';
 import type { RaidOptionsView } from '../../domain/web/raid-options-data.js';
 import type { MapGym } from './popup.js';
-import { FormHold, keepClicksInPopup } from './raid-forms.js';
+import type { FormFrame } from './form-home.js';
+import { renderNode } from './popup.js';
+import { FormHold, type FormClaim } from './raid-forms.js';
 import { formControls, raidUi } from './raid-ui.js';
 import { spawnUi } from './spawn-ui.js';
 import { gymSpawnPlace } from './spawn-forms.js';
-import type { FirstStop } from './train-forms.js';
+import { newTrainButton, type FirstStop } from './train-forms.js';
 import { trainUi } from './train-ui.js';
 
 // Leaflet reads the browser's `window` as it loads; the page's helpers it comes in with are not
@@ -82,6 +84,16 @@ class FakeElement {
     if (name === 'disabled') this.disabled = true;
   }
 
+  getAttribute(name: string): string | null {
+    return this.attributes.get(name) ?? null;
+  }
+
+  removeAttribute(name: string): void {
+    this.attributes.delete(name);
+    if (name === 'hidden') this.hidden = false;
+    if (name === 'disabled') this.disabled = false;
+  }
+
   append(...children: FakeElement[]): void {
     for (const child of children) {
       child.remove();
@@ -94,6 +106,26 @@ class FakeElement {
     for (const child of this.childNodes) child.parent = undefined;
     this.childNodes = [];
     this.append(...children);
+  }
+
+  /** Puts `children` right after this element, in its parent. */
+  after(...children: FakeElement[]): void {
+    const parent = this.parent;
+    if (!parent) return;
+    const rest = parent.childNodes.splice(parent.childNodes.indexOf(this) + 1);
+    parent.append(...children);
+    parent.childNodes.push(...rest);
+  }
+
+  prepend(...children: FakeElement[]): void {
+    const rest = this.childNodes;
+    this.childNodes = [];
+    this.append(...children);
+    this.childNodes.push(...rest);
+  }
+
+  hasAttribute(name: string): boolean {
+    return this.attributes.has(name);
   }
 
   remove(): void {
@@ -400,6 +432,49 @@ function page(
   const map = { holds: 0, held: false };
   /** How often the open popup or card was closed. */
   const closed = { popups: 0 };
+  /** Each form drawn into the side pane's box (plan 8M-22). */
+  const formsDrawn = new Count();
+  const putInTools = tools.replaceChildren.bind(tools);
+  tools.replaceChildren = (...children: FakeElement[]) => {
+    putInTools(...children);
+    if (children[0]?.dataset.form !== undefined) formsDrawn.add();
+  };
+  /** The claim the last form took, to let it go as a form elsewhere would (`formGone`). */
+  let claimed: FormClaim | undefined;
+  /** The place's popup that a form left (`leave`), and opening it again. */
+  const place: { popup?: FakeElement; back?: () => void } = {};
+  // The forms in the side pane (plan 8M-22): the place's popup closed as one opens.
+  const frame: FormFrame = {
+    tools: tools as unknown as HTMLElement,
+    hold: {
+      take: (...args: Parameters<typeof hold.take>) => {
+        claimed = hold.take(...args);
+        return claimed;
+      },
+      holds: (claim) => hold.holds(claim),
+      release: (claim) => {
+        hold.release(claim);
+      },
+      moved: (claim, place, aside) => hold.moved(claim, place, aside),
+    },
+    idle: () => {
+      tools.replaceChildren(renderNode(newTrainButton(), document));
+    },
+    leave: () => {
+      closed.popups += 1;
+      const { popup } = place;
+      if (!popup) return {};
+      const parent = popup.parent;
+      popup.remove();
+      return {
+        place: 'The Stacks',
+        back: () => {
+          parent?.append(popup);
+          place.back?.();
+        },
+      };
+    },
+  };
   const ui = trainUi({
     answered: (partyId, answer) => {
       answers.push({ partyId, ...answer });
@@ -410,6 +485,7 @@ function page(
     gyms: GYMS,
     hold,
     tools: tools as unknown as HTMLElement,
+    frame,
     overlay: {
       show: (shown) => {
         overlays.push(shown);
@@ -463,6 +539,13 @@ function page(
     tools,
     body,
     hold,
+    frame,
+    formsDrawn,
+    place,
+    /** The form gone meanwhile: its claim let go, as another form's would. */
+    formGone: () => {
+      if (claimed) hold.release(claimed);
+    },
     popups,
     sent,
     requests,
@@ -506,6 +589,8 @@ describe('"Start train here": a train started at a gym or a Power Spot', () => {
     if (!form || !name || !region) throw new Error('no start form');
     name.value = 'Mill run';
     region.value = '1';
+    // Typed: the form's check runs on the input (plan 8M-22), Start on.
+    region.dispatch('change');
     form.querySelector('button[data-submit="train"]')?.dispatch('click');
   };
 
@@ -633,22 +718,24 @@ describe('"Start train here": a train started at a gym or a Power Spot', () => {
     expect(shown.ui.routing()).toBeUndefined();
   });
 
-  describe('at a place, its popup closed while the train is made (review, finding 4)', () => {
-    /** The start form in a popup, in the place of its control, filled in and sent. */
+  describe('at a place, its form gone while the train is made (review, finding 4)', () => {
+    /** The start form opened from a popup, filled in and sent. */
     const sentFromPopup = (shown: ReturnType<typeof page>) => {
       const popup = make('div');
       popup.className = 'leaflet-popup';
       const box = make('div');
       popup.append(box);
       shown.body.append(popup);
+      shown.place.popup = popup;
       const here = shown.action('data-train-here', '1', box);
       shown.ui.trainHereClicked({ name: 'The Stacks', stop: { gym: 1 } }, 1, here);
-      const form = box.firstElementChild;
+      const form = shown.tools.firstElementChild;
       const name = form?.querySelector('input[name="name"]');
       const region = form?.querySelector('select[name="region"]');
-      if (!form || !name || !region) throw new Error('no start form in the popup');
+      if (!form || !name || !region) throw new Error('no start form in the side pane');
       name.value = 'Mill run';
       region.value = '1';
+      region.dispatch('change');
       form.querySelector('button[data-submit="train"]')?.dispatch('click');
     };
     const added = {
@@ -656,24 +743,34 @@ describe('"Start train here": a train started at a gym or a Power Spot', () => {
       body: { ok: true, text: 'The Stacks is stop 1.', train: train() },
     };
 
-    it('is drawn in the place of its control, the popup and the side pane left alone', () => {
+    // Plan 8M-22: in the side pane, the popup closed; Cancel opens it again, the focus on its
+    // control.
+    it('is drawn in the side pane, its popup closed, and Cancel opens the popup again', () => {
       const shown = page();
       const popup = make('div');
       popup.className = 'leaflet-popup';
       const box = make('div');
       popup.append(box);
       shown.body.append(popup);
+      shown.place.popup = popup;
       const here = shown.action('data-train-here', '1', box);
       shown.ui.trainHereClicked({ name: 'The Stacks', stop: { gym: 1 } }, 1, here);
-      expect(box.firstElementChild?.dataset.form).toBe('train');
-      expect(shown.closed.popups).toBe(0);
-      expect(shown.ui.inTools()).toBe(false);
+      expect(shown.tools.firstElementChild?.dataset.form).toBe('train');
+      // Its first stop names the place; no place line besides (branch review W8).
+      expect(shown.tools.querySelector('.form-place')).toBeNull();
+      expect(shown.closed.popups).toBe(1);
+      expect(popup.isConnected).toBe(false);
+      expect(shown.ui.inTools()).toBe(true);
+      shown.tools.firstElementChild?.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(popup.isConnected).toBe(true);
+      expect(FakeElement.focused === (here as unknown as FakeElement)).toBe(true);
+      expect(shown.hold.editing).toBe(false);
     });
 
     it('says the train, adds its first stop without route mode, and opens nothing', async () => {
       const shown = page(answers(added));
       sentFromPopup(shown);
-      shown.hold.popupClosed();
+      shown.formGone();
       await shown.finished.reached(1);
       expect(shown.sent.map((one) => one.url.split('/').slice(-2).join('/'))).toEqual([
         'api/trains',
@@ -683,7 +780,8 @@ describe('"Start train here": a train started at a gym or a Power Spot', () => {
       expect(shown.done).toEqual([undefined]);
       expect(shown.ui.routing()).toBeUndefined();
       expect(shown.modes).toEqual([]);
-      expect(shown.closed.popups).toBe(0);
+      // Only the popup it was opened from, as it opened.
+      expect(shown.closed.popups).toBe(1);
     });
 
     it('says a refusal of the train, and adds nothing', async () => {
@@ -691,12 +789,33 @@ describe('"Start train here": a train started at a gym or a Power Spot', () => {
         url.endsWith('/api/trains') ? { status: 422, body: { ok: false, text: 'No.' } } : undefined,
       );
       sentFromPopup(shown);
-      shown.hold.popupClosed();
+      shown.formGone();
       await shown.notices.reached(1);
       expect(shown.said).toEqual(['No.']);
       expect(shown.sent).toHaveLength(1);
       expect(shown.done).toEqual([]);
     });
+  });
+
+  // Review P5: in the card on a phone the start form is no form of the side pane's box.
+  it('says it is in the side pane only while it is there, not in the card', () => {
+    const shown = page();
+    const layer = make('div');
+    shown.frame.phone = () => true;
+    shown.frame.card = {
+      key: undefined,
+      openForm: (form) => {
+        layer.replaceChildren(form as unknown as FakeElement);
+      },
+      closeForm: () => {
+        layer.replaceChildren();
+      },
+      close: () => undefined,
+      formElement: () => layer as unknown as HTMLElement,
+    };
+    shown.ui.trainHereClicked({ name: 'The Stacks', stop: { gym: 1 } }, 1);
+    expect(layer.firstElementChild?.dataset.form).toBe('train');
+    expect(shown.ui.inTools()).toBe(false);
   });
 
   it('refuses while another form is open, and makes nothing when Cancel is pressed', () => {
@@ -1055,54 +1174,20 @@ describe('a form in a popup on the map, as Leaflet takes its clicks', () => {
     vi.unstubAllGlobals();
   });
 
-  /** Whether Leaflet marked an element as one whose clicks are not the map's. */
-  const marked = (element: FakeElement): boolean =>
-    (element as unknown as Record<string, unknown>)._leaflet_disable_click === true;
-
   /**
-   * A popup open on the map as Leaflet 1.9.4 makes it: the map's element; the popup's, which
-   * `DomEvent.disableClickPropagation` marks `_leaflet_disable_click`, around its content's; the
-   * content a function held while a form is open (`FormHold.content`), which `update()` asks
-   * again and puts in anew (`DivOverlay._updateContent`); and the map's click as
-   * `Map._handleDOMEvent` takes it: the map's own unless a marked element is found walking up from
-   * the click's target (`_isClickDisabled`), and a click of the map's closes the popup that is
-   * open (`closePopupOnClick`, by the `preclick` it fires first). The page keeps the clicks in a
-   * popup as it opens (`keepClicksInPopup`, the map's `popupopen` in `party-layer.ts`).
+   * A popup open on the map with `content` (plan 8M-22): a form opened from it closes it, and
+   * Cancel opens it again (`leave`'s way back).
    */
-  const leafletPopup = (shown: ReturnType<typeof page>, draw: () => FakeElement) => {
-    const map = make('div');
-    shown.body.append(map);
+  const popupWith = (shown: ReturnType<typeof page>, content: FakeElement) => {
     const element = make('div');
     element.className = 'leaflet-popup';
-    (element as unknown as Record<string, unknown>)._leaflet_disable_click = true;
-    const content = make('div');
     element.append(content);
-    map.append(element);
-    const held = shown.hold.content(draw);
-    const updates = new Count();
-    const popup = {
-      update: () => {
-        content.replaceChildren(held());
-        updates.add();
-      },
-    };
-    let closed = false;
-    map.addEventListener('click', (event) => {
-      for (let at: FakeElement | undefined = event.target; at && at !== map; at = at.parent) {
-        if (marked(at)) return;
-      }
-      closed = true;
-      element.remove();
-      shown.popups.open = undefined;
-      shown.hold.popupClosed();
-    });
-    popup.update();
-    shown.popups.open = popup;
-    keepClicksInPopup(element);
-    return { updates, closed: () => closed };
+    shown.body.append(element);
+    shown.place.popup = element;
+    return { open: () => element.isConnected };
   };
 
-  it("puts a gym's button back when the spawn form in its popup is cancelled, the popup open", async () => {
+  it("opens a gym's spawn form in the side pane, and Cancel opens the gym's popup again", async () => {
     const shown = page((url) =>
       url.endsWith('/wild-options')
         ? { status: 200, body: { pokemon: [['pikachu', 'Pikachu']] } }
@@ -1113,25 +1198,24 @@ describe('a form in a popup on the map, as Leaflet takes its clicks', () => {
       csrf: { get: () => 'token', set: () => undefined },
       regions: [],
       hold: shown.hold,
-      popupAt: () => {
-        throw new Error('the form opens in the gym’s popup');
+      frame: shown.frame,
+      pinAt: () => {
+        throw new Error('a place puts no pin');
       },
     });
     const stacks = GYMS.get(1);
     if (!stacks) throw new Error('no Stacks');
     const control = spawns.spawnControl(gymSpawnPlace(stacks)) as unknown as FakeElement;
     const button = control.querySelector('button');
-    const popup = leafletPopup(shown, () => {
-      const drawn = make('div');
-      drawn.append(control);
-      return drawn;
-    });
+    const popup = popupWith(shown, control);
     button?.dispatch('click');
-    // Fitted to the form once the list of Pokémon came.
-    await popup.updates.reached(2);
-    control.querySelector('button[data-cancel]')?.dispatch('click');
-    expect(popup.closed()).toBe(false);
+    expect(popup.open()).toBe(false);
+    await shown.formsDrawn.reached(1);
+    expect(shown.tools.querySelector('.form-place')?.textContent).toBe('The Stacks');
+    shown.tools.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(popup.open()).toBe(true);
     expect(control.childNodes).toEqual([button]);
+    expect(FakeElement.focused === button).toBe(true);
     expect(shown.hold.editing).toBe(false);
   });
 
@@ -1142,7 +1226,7 @@ describe('a form in a popup on the map, as Leaflet takes its clicks', () => {
       guild: GUILD,
       csrf: { get: () => 'token', set: () => undefined },
       regionNames: new Map([[1, 'downtown']]),
-      hold: shown.hold,
+      frame: shown.frame,
       done: (raid) => {
         done.push(raid);
         return Promise.resolve();
@@ -1161,30 +1245,27 @@ describe('a form in a popup on the map, as Leaflet takes its clicks', () => {
         ? { status: 404, body: {} }
         : undefined;
 
-  it("puts a gym's Report raid button back when the report form in its popup is cancelled, the popup open", async () => {
+  it("opens a gym's raid report in the side pane, and Cancel opens the gym's popup again", async () => {
     const shown = page(raidLists);
     const { raids } = raidsOf(shown);
     const stacks = GYMS.get(1);
     if (!stacks) throw new Error('no Stacks');
     const control = raids.reportControl(stacks) as unknown as FakeElement;
     const button = control.querySelector('button');
-    const popup = leafletPopup(shown, () => {
-      const drawn = make('div');
-      drawn.append(control);
-      return drawn;
-    });
+    const popup = popupWith(shown, control);
     button?.dispatch('click');
-    // Fitted to the form once the pick lists came.
-    await popup.updates.reached(2);
-    expect(control.querySelector('select[name]')).not.toBeNull();
+    expect(popup.open()).toBe(false);
+    await shown.formsDrawn.reached(1);
+    expect(shown.tools.querySelector('select[name]')).not.toBeNull();
     expect(shown.hold.editing).toBe(true);
-    control.querySelector('button[data-cancel]')?.dispatch('click');
-    expect(popup.closed()).toBe(false);
+    shown.tools.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(popup.open()).toBe(true);
     expect(control.childNodes).toEqual([button]);
+    expect(FakeElement.focused === button).toBe(true);
     expect(shown.hold.editing).toBe(false);
   });
 
-  it("puts a raid's section back when the change form in its popup is cancelled, the popup open", async () => {
+  it("opens a raid's Manage… in the side pane, and Cancel opens the raid's popup again", async () => {
     const shown = page(raidLists);
     const { raids, done } = raidsOf(shown);
     const section = make('div');
@@ -1194,26 +1275,21 @@ describe('a form in a popup on the map, as Leaflet takes its clicks', () => {
     const change = make('button');
     change.setAttribute('data-change-raid', 'r1');
     section.append(title, change);
-    const popup = leafletPopup(shown, () => {
-      const drawn = make('div');
-      drawn.append(section);
-      // As the party layer hands "Manage…" to the raids' side (`draw`).
-      drawn.addEventListener('click', (event) => {
-        if (event.target.dataset.changeRaid !== undefined) {
-          raids.changeClicked(event.target as unknown as HTMLButtonElement);
-        }
-      });
-      return drawn;
+    // As the party layer hands "Manage…" to the raids' side (`draw`).
+    section.addEventListener('click', (event) => {
+      if (event.target.dataset.changeRaid !== undefined) {
+        void raids.changeClicked(event.target as unknown as HTMLButtonElement);
+      }
     });
+    const popup = popupWith(shown, section);
     change.dispatch('click');
-    // Fitted to the form once the pick lists and the moves were asked for.
-    await popup.updates.reached(2);
-    expect(section.childNodes.includes(title)).toBe(false);
-    expect(section.querySelector('button[data-cancel]')).not.toBeNull();
-    expect(shown.hold.editing).toBe(true);
-    section.querySelector('button[data-cancel]')?.dispatch('click');
-    expect(popup.closed()).toBe(false);
+    expect(popup.open()).toBe(false);
+    await shown.formsDrawn.reached(1);
     expect(section.childNodes).toEqual([title, change]);
+    expect(shown.hold.editing).toBe(true);
+    shown.tools.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(popup.open()).toBe(true);
+    expect(FakeElement.focused === change).toBe(true);
     expect(shown.hold.editing).toBe(false);
     expect(done).toEqual([]);
   });

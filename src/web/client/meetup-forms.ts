@@ -12,11 +12,11 @@ import {
   type StopsView,
 } from '../../domain/web/meetup-data.js';
 import type { MapMeetup } from '../../domain/web/party-data.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, missingOf, sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { MapGym, PageNode } from './popup.js';
 import type { PickedStop } from './research-forms.js';
-import { zoneHintNodes, type FormZones } from './raid-forms.js';
+import { NOTHING_CHANGED_YET, zoneHintNodes, type FormZones } from './raid-forms.js';
 import { regionsAt, spawnPoint, type PointRegion } from './spawn-forms.js';
 
 /**
@@ -87,9 +87,6 @@ const infoArea = (value: string | undefined): PageNode => ({
   ...(value === undefined ? {} : { text: value }),
 });
 
-/** The line under a form where its answer is said. */
-const answerLine: PageNode = { tag: 'div', className: 'form-answer', attributes: { hidden: '' } };
-
 /** A body to send, or what is missing. */
 export type MeetupBody = { body: Record<string, unknown> } | { text: string };
 
@@ -102,7 +99,7 @@ export function newMeetupButton(): PageNode {
 export function meetupHereBox(gymId: number): PageNode {
   return {
     tag: 'div',
-    className: 'meetup-box place-control',
+    className: 'meetup-box',
     children: [button('Hold meetup here', { 'data-meetup-here': String(gymId) }, 'meetup-here')],
   };
 }
@@ -115,7 +112,7 @@ export function meetupHereBox(gymId: number): PageNode {
 export function meetupAtStopBox(stop: PickedStop): PageNode {
   return {
     tag: 'div',
-    className: 'meetup-box place-control',
+    className: 'meetup-box',
     children: [
       button(
         'Hold meetup here',
@@ -280,15 +277,23 @@ export function newMeetupForm(
       ),
       ...(zones === undefined ? [] : zoneHintNodes(zones.zone, zones.reader)),
       labelled('Information', infoArea(filled.info)),
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Make the meetup', { 'data-submit': 'meetup' }),
-          button('Cancel', { 'data-cancel': '' }),
-        ],
-      },
-      answerLine,
+      formRow(
+        sendButton('Make the meetup', { 'data-submit': 'meetup' }),
+        cancelButton(),
+        [],
+        missingOf(
+          newMeetupBody(
+            {
+              name: filled.name ?? '',
+              region,
+              start: filled.start ?? '',
+              end: filled.end ?? '',
+              info: filled.info ?? '',
+            },
+            place,
+          ),
+        ),
+      ),
     ],
   };
 }
@@ -515,17 +520,29 @@ export function meetupEditor(
       ...start,
       nowLine('Ends now', meetup.endTime, zone, now, reader),
       labelled('Ends', textInput('end', TIME_LENGTH, '8pm, in 90, or none', shown('end'))),
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Submit', { 'data-submit': 'meetup-edit' }),
-          button('Cancel', { 'data-cancel': '' }),
-        ],
-      },
-      answerLine,
+      // Its check reads what was typed against what the meetup shows (`editorMissing`), at its draw.
+      formRow(sendButton('Submit', { 'data-submit': 'meetup-edit' }), cancelButton()),
     ],
   };
+}
+
+/**
+ * The missing line of a meetup's Manage… (plan 8M-22), as its Submit checks before it sends:
+ * "Nothing changed yet." while nothing typed in differs from what the meetup shows, else what the
+ * first change typed lacks (`meetupChangeBody`), else nothing.
+ */
+export function editorMissing(
+  state: EditorState,
+  typed: Readonly<Record<string, string>>,
+): string | undefined {
+  const filled = editorTyped(state, typed);
+  const changes = MEETUP_CHANGES.filter((change) => filled[change] !== undefined);
+  if (changes.length === 0) return NOTHING_CHANGED_YET;
+  for (const change of changes) {
+    const body = meetupChangeBody(change, state.meetup, filled);
+    if ('text' in body) return body.text;
+  }
+  return undefined;
 }
 
 /**

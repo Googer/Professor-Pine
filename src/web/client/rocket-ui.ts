@@ -1,14 +1,17 @@
+import { isOff } from './form-buttons.js';
+import { liveCheck } from './form-check.js';
 import { formKeys } from './form-keys.js';
+import { formHome, type FormHome, type FormFrame } from './form-home.js';
 import type { RocketOptionsView } from '../../domain/web/stop-report-data.js';
 import { getJson, say } from './common.js';
 import type { Me } from './notice.js';
 import { addPickAgain } from './pick-again.js';
 import { renderNode } from './popup.js';
 import type { ReportKindId } from './report-icons.js';
-import { formPlace, type FormClaim, type FormHold } from './raid-forms.js';
 import { sayUnder } from './raid-ui.js';
 import {
   rocketForm,
+  rocketMissing,
   submitRocket,
   type RocketAfter,
   type RocketFormState,
@@ -18,8 +21,8 @@ import { sendStop } from './stop-forms.js';
 
 /*
  * The Team GO Rocket form of the live map in the page (plan 8M-9B, goal 9; B8): "Report Rocket
- * here" in a stop's popup or card (and the Report button's step 3 at a stop) opens it in place of
- * its button, held as the other forms (`FormHold`); its lists from `/api/rocket-options` (the
+ * here" in a stop's popup or card (and the Report button's step 3 at a stop) opens it in the side
+ * pane or on a phone the card (plan 8M-22, `formHome`), held as the other forms (`FormHold`); its lists from `/api/rocket-options` (the
  * browser revalidates them by their ETag). After a report or "Already reported", the form closes,
  * its words are said, and the reports are asked for at once, the stop's popup opened after the
  * poll (`done`, B15).
@@ -28,7 +31,8 @@ export interface RocketUiDeps {
   guild: string;
   /** The page's CSRF token, which a stale one's renewal changes. */
   csrf: { get(): string; set(token: string): void };
-  hold: Pick<FormHold<unknown>, 'editing' | 'take' | 'holds' | 'ready' | 'fit' | 'release'>;
+  /** Where the forms open (plan 8M-22, `formHome`): the side pane, the stop's popup closed. */
+  frame: FormFrame;
   /** After a report: the reports asked for at once, then the stop's popup opened. */
   done(stopKey: string | undefined): Promise<void>;
 }
@@ -37,7 +41,7 @@ export interface RocketUiDeps {
 const NO_OPTIONS = 'Team GO Rocket could not be loaded. Try again in a moment.';
 
 export function rocketUi(deps: RocketUiDeps) {
-  const { guild, hold } = deps;
+  const { guild } = deps;
   const options = (): Promise<RocketOptionsView> =>
     getJson<RocketOptionsView>(`/s/${guild}/api/rocket-options`);
 
@@ -79,12 +83,11 @@ export function rocketUi(deps: RocketUiDeps) {
     return sent;
   };
 
-  /** Draws the form into `box` once the lists came, while its claim holds and the box is there. */
+  /** Draws the form in the side pane once the lists came, while it holds. */
   const openForm = async (
-    box: HTMLElement,
+    home: FormHome,
     stop: string,
-    claim: FormClaim,
-    finish: () => void,
+    finish: (how: 'back' | 'done') => void,
     focusFirst: boolean,
     /** Opened by a tap in step 2: "← Another PokéStop" (`addPickAgain`). */
     again: ReportKindId | undefined,
@@ -93,11 +96,14 @@ export function rocketUi(deps: RocketUiDeps) {
     try {
       lists = await options();
     } catch {
+      // Canceled while it loaded (second review R1): nothing said.
+      if (!home.holds()) return;
       say(NO_OPTIONS);
-      if (hold.holds(claim)) finish();
+      finish('back');
       return;
     }
-    if (!hold.ready(claim, box.isConnected)) return;
+    if (!home.holds()) return;
+    const box = home.element();
     let state: RocketFormState = { filled: {} };
     const draw = (focus?: string): void => {
       const form = renderNode(rocketForm(lists, state), document);
@@ -107,12 +113,16 @@ export function rocketUi(deps: RocketUiDeps) {
         state = { filled: valuesOf(form), ...(state.sending === true ? { sending: true } : {}) };
         draw('select[name="who"]');
       });
+      // Report off until who was met (and the lineup) is picked (plan 8M-22). A report on its way
+      // draws every control off; its answer draws the form anew.
+      liveCheck(form, () =>
+        state.replacing === undefined ? rocketMissing(lists, valuesOf(form)) : undefined,
+      );
       formKeys(form);
       form.addEventListener('click', (event) => {
         clicked(form, event);
       });
-      box.replaceChildren(form);
-      hold.fit();
+      home.draw(form);
       if (focus !== undefined) form.querySelector<HTMLElement>(focus)?.focus();
     };
     const after = async (done: RocketAfter): Promise<void> => {
@@ -127,12 +137,12 @@ export function rocketUi(deps: RocketUiDeps) {
           await deps.done(undefined);
           return;
         case 'close':
-          finish();
+          finish('done');
           say(done.text);
           await deps.done(stop);
           return;
         case 'draw': {
-          if (!hold.holds(claim)) return;
+          if (!home.holds()) return;
           lists = done.options;
           state = done.state;
           // The hideout question takes the focus on Replace, read with its words; else Report.
@@ -150,14 +160,15 @@ export function rocketUi(deps: RocketUiDeps) {
       if (!(target instanceof HTMLButtonElement)) return;
       if (target.dataset.cancel !== undefined) {
         // Cancel sends nothing, the hideout question's too.
-        finish();
+        finish('back');
         return;
       }
       const submitDeps = {
         send: (body: Record<string, unknown>) => send(form, state, body),
         options,
-        holds: () => hold.holds(claim),
+        holds: () => home.holds(),
       };
+      if (isOff(target)) return;
       if (target.dataset.submit === 'rocket') {
         void submitRocket(stop, lists, valuesOf(form), submitDeps).then(after);
       } else if (target.dataset.replace !== undefined) {
@@ -168,33 +179,41 @@ export function rocketUi(deps: RocketUiDeps) {
     draw(focusFirst ? 'select[name="who"]' : undefined);
   };
 
-  /** A click on "Report Rocket here" (`rocketBox`): the form in place of the button. */
-  const rocketClicked = (
-    button: HTMLButtonElement,
+  /**
+   * The form at a stop in the side pane (plan 8M-22), the stop's popup closed; Cancel opens it
+   * again with the focus on `control`. `place`: the stop's name, where no popup names it.
+   */
+  const rocketAt = (
+    stop: string,
+    control: HTMLElement | null,
     focusFirst = false,
     again?: ReportKindId,
+    place?: string,
   ): void => {
-    const box = button.parentElement;
-    const stop = button.dataset.reportRocket;
-    if (!box || stop === undefined) return;
-    const claim = hold.take(formPlace(box));
-    if (!claim) return;
-    box.textContent = 'Loading Team GO Rocket…';
-    hold.fit();
+    const home = formHome(deps.frame, { control, place: () => place });
+    if (!home.open()) return;
     void openForm(
-      box,
+      home,
       stop,
-      claim,
-      () => {
-        box.replaceChildren(button);
-        hold.release(claim);
+      (how) => {
+        home.close(how);
       },
       focusFirst,
       again,
     );
   };
 
-  return { rocketClicked };
+  /** A click on "Report Rocket here" (`rocketBox`): the form in the side pane. */
+  const rocketClicked = (
+    button: HTMLButtonElement,
+    focusFirst = false,
+    again?: ReportKindId,
+  ): void => {
+    const stop = button.dataset.reportRocket;
+    if (stop !== undefined) rocketAt(stop, button, focusFirst, again);
+  };
+
+  return { rocketClicked, rocketAt };
 }
 
 export type RocketUi = ReturnType<typeof rocketUi>;

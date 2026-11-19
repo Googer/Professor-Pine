@@ -618,7 +618,7 @@ export function gymWithRaidBoxes(gymId: number): PageNode[] {
 /** Back from a raid's post to the list of the raids at its gym. */
 export const ALL_RAIDS_HERE: PageNode = {
   tag: 'button',
-  className: 'press back place-control',
+  className: 'press back',
   text: '← All raids here',
   attributes: { type: 'button', 'data-show-raid': '' },
 };

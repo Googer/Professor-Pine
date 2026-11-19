@@ -10,6 +10,7 @@ import {
   make,
   resetFocus,
 } from '../../../test/support/fake-page.js';
+import { fakeFormFrame } from './fake-form-frame.js';
 
 // The page's helpers this comes in with load Leaflet, which reads the browser's `window` as it
 // loads; none of it is used here. Isolated: a mocked module needs a module graph of its own.
@@ -66,7 +67,7 @@ function groupButton(): FakeElement {
  * `fetch`, and `done` drawing the post anew, as the list does after a form went through (its
  * buttons new elements).
  */
-function page() {
+function page(phone = false) {
   resetFocus();
   const body = make('body');
   body.page = true;
@@ -100,6 +101,15 @@ function page() {
     },
     controls: () => undefined,
   });
+  // The forms in the side pane (plan 8M-22), the post's popup closed while one is open.
+  const pane = fakeFormFrame(
+    body,
+    post,
+    undefined,
+    hold,
+    // On a phone (review P7): the card shows the party, the form a layer over it.
+    phone ? { phone: { showing: 'gym:1' } } : {},
+  );
   let redrawn: FakeElement | undefined;
   /** The parties whose popup or card a form had closed. */
   const closed: unknown[] = [];
@@ -115,6 +125,7 @@ function page() {
     guild: '100000000000000001',
     csrf: { get: () => 'token', set: () => undefined },
     hold,
+    frame: pane.frame,
     origin: () => 'https://map.example.test',
     times: () => ({ now: NOW }),
     done: () => {
@@ -134,7 +145,18 @@ function page() {
       moved.push({ party: party.id, form: from.className });
     },
   });
-  return { ui, button, post, done, redrawn: () => redrawn, closed, answers, moved };
+  return {
+    ui,
+    button,
+    post,
+    tools: pane.tools,
+    pane,
+    done,
+    redrawn: () => redrawn,
+    closed,
+    answers,
+    moved,
+  };
 }
 
 /**
@@ -213,10 +235,19 @@ function popupPage(data: string, answer: { status: number; body: unknown }) {
     },
     controls: () => undefined,
   });
+  // The forms in the side pane (plan 8M-22): the popup closed while one is open, and drawn anew
+  // as it opens again (Cancel, a form that went through).
+  const pane = fakeFormFrame(body, content, undefined, hold);
+  pane.onBack.run = () => {
+    const again = drawnPost(data);
+    current = again.control;
+    content.replaceChildren(again.post);
+  };
   const ui = postFormsUi({
     guild: '100000000000000001',
     csrf: { get: () => 'token', set: () => undefined },
     hold,
+    frame: pane.frame,
     origin: () => 'https://map.example.test',
     times: () => ({ now: NOW }),
     done: () => Promise.resolve(),
@@ -235,6 +266,8 @@ function popupPage(data: string, answer: { status: number; body: unknown }) {
     ui,
     button: first.control,
     content,
+    tools: pane.tools,
+    pane,
     current: () => current,
     answers,
     landed,
@@ -248,14 +281,17 @@ describe('the forms of the post’s controls in a popup drawn anew (review B-1)'
   });
 
   it('gives the focus back to the control in the post drawn anew when Cancel closes the form', async () => {
-    const { ui, button, content, current } = popupPage('regroup', {
+    const { ui, button, tools, current, pane } = popupPage('regroup', {
       status: 200,
       body: { ok: true, text: 'Done.' },
     });
     ui.regroupClicked(button as unknown as HTMLButtonElement, raid);
     await Promise.resolve();
     await Promise.resolve();
-    content.querySelector('button[data-cancel]')?.dispatch('click');
+    // In the side pane, the popup closed (plan 8M-22); Cancel opens it again.
+    expect(pane.isOpen()).toBe(false);
+    tools.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(pane.isOpen()).toBe(true);
     // Compared as booleans: the fake elements do not print.
     expect(current() === button).toBe(false);
     expect(focused().at(-1) === current()).toBe(true);
@@ -272,7 +308,7 @@ describe('the forms of the post’s controls in a popup drawn anew (review B-1)'
       made.ui.regroupClicked(made.button as unknown as HTMLButtonElement, raid);
       await Promise.resolve();
       await Promise.resolve();
-      made.content.querySelector('button[data-submit]')?.dispatch('click');
+      made.tools.querySelector('button[data-submit]')?.dispatch('click');
       await made.answered;
       expect(made.answers).toEqual([{ party: 'r1', ...body }]);
       expect(made.landed).toEqual([{ control: true, line: true }]);
@@ -284,15 +320,38 @@ describe('the forms of the post’s controls in a popup drawn anew (review B-1)'
       status: 422,
       body: { error: 'You are not signed up for this raid.' },
     });
-    const focus = focusOn(undefined);
-    ui.meetClicked(button as unknown as HTMLButtonElement, raid);
-    await focus;
+    // Its opening done (the loading line's Cancel took the focus meanwhile, second review R2).
+    await ui.meetClicked(button as unknown as HTMLButtonElement, raid);
     expect(current() === button).toBe(false);
     expect(focused().at(-1) === current()).toBe(true);
     // Plan 8M-11A (S20): in the post's answer line (and a shake), not a line to Discord.
     expect(answers).toEqual([
       { party: 'r1', text: 'You are not signed up for this raid.', ok: false },
     ]);
+  });
+
+  // Second review R1: a form canceled while it loads says nothing of a refusal that comes after.
+  it('says no refusal that comes after Cancel while the form loads, and leaves the focus alone', async () => {
+    const { ui, button, tools, answers } = popupPage('meet', { status: 200, body: {} });
+    let answer: (value: unknown) => void = () => undefined;
+    vi.stubGlobal(
+      'fetch',
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    );
+    const opening = ui.meetClicked(button as unknown as HTMLButtonElement, raid);
+    tools.querySelector('button[data-cancel]')?.dispatch('click');
+    const before = focused().length;
+    answer({
+      ok: false,
+      status: 422,
+      json: () => Promise.resolve({ error: 'You are not signed up for this raid.' }),
+    });
+    await opening;
+    expect(answers).toEqual([]);
+    expect(focused()).toHaveLength(before);
   });
 
   // Plan 8M-11A (S9): "do this on Discord" as a note box in the form's place, the post's link a
@@ -320,6 +379,26 @@ describe('the forms of the post’s controls in a popup drawn anew (review B-1)'
   });
 });
 
+// Review P7: on a phone a post's form is a layer over the card that shows its party.
+describe('the forms of the post’s controls on a phone (plan 8M-22)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('opens Group… over the card, claimed as the card’s; Cancel shows the post again', async () => {
+    const { ui, button, pane, post } = page(true);
+    const drawn = pane.tools.nextForm();
+    ui.regroupClicked(button as unknown as HTMLButtonElement, raid);
+    const form = await drawn;
+    expect(pane.card?.layer.childNodes).toEqual([form]);
+    expect(pane.tools.childNodes).toEqual([pane.idle]);
+    expect(post.isConnected).toBe(true);
+    form.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(pane.card?.formShown()).toBe(false);
+    expect(focused().at(-1) === button).toBe(true);
+  });
+});
+
 describe('the forms of the post’s controls in the page (plan 8M-8B)', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -328,12 +407,12 @@ describe('the forms of the post’s controls in the page (plan 8M-8B)', () => {
   // Review N-1: a form that went through draws the post anew; the focus goes to its control
   // there, not to the page.
   it('gives the focus to the control that opened the form, found again in the post drawn anew', async () => {
-    const { ui, button, post, done, redrawn } = page();
+    const { ui, button, tools, done, redrawn } = page();
     ui.regroupClicked(button as unknown as HTMLButtonElement, raid);
     // The form is drawn once its (here, ready) choices are in.
     await Promise.resolve();
     await Promise.resolve();
-    const submit = post.querySelector('button[data-submit]');
+    const submit = tools.querySelector('button[data-submit]');
     expect(submit).not.toBeNull();
     submit?.dispatch('click');
     await done;
@@ -346,11 +425,11 @@ describe('the forms of the post’s controls in the page (plan 8M-8B)', () => {
 
   // Plan 8M-11A (S9): a form that went through answers in the post's answer line.
   it('puts the answer of a form that went through into the post’s answer line', async () => {
-    const { ui, button, post, done, answers } = page();
+    const { ui, button, tools, done, answers } = page();
     ui.regroupClicked(button as unknown as HTMLButtonElement, raid);
     await Promise.resolve();
     await Promise.resolve();
-    post.querySelector('button[data-submit]')?.dispatch('click');
+    tools.querySelector('button[data-submit]')?.dispatch('click');
     await done;
     expect(answers).toEqual([{ party: 'r1', text: 'You are coming, in group B.', ok: true }]);
   });
@@ -358,7 +437,7 @@ describe('the forms of the post’s controls in the page (plan 8M-8B)', () => {
   // Plan 8M-11A (S21): Meet…'s group changed since: the form closes as Group…'s does, the answer
   // in the answer line.
   it('closes Meet… on a refusal of a group changed since, the answer in the answer line', async () => {
-    const { ui, button, post, done, answers } = page();
+    const { ui, button, tools, done, answers } = page();
     const meet = {
       title: 'Meeting time',
       text: 'For your group: everybody in it is told.',
@@ -378,24 +457,27 @@ describe('the forms of the post’s controls in the page (plan 8M-8B)', () => {
         json: () => Promise.resolve(posting ? { ok: false, text: refusal } : meet),
       });
     });
-    ui.meetClicked(button as unknown as HTMLButtonElement, raid);
+    void ui.meetClicked(button as unknown as HTMLButtonElement, raid);
     await focusOn(undefined);
-    post.querySelector('select')?.setAttribute('value', String(NOW + 600_000));
-    post.querySelector('button[data-submit]')?.dispatch('click');
+    const time = tools.querySelector('select');
+    time?.setAttribute('value', String(NOW + 600_000));
+    // Picked: the form's check runs on the change (plan 8M-22), Submit on.
+    time?.dispatch('change');
+    tools.querySelector('button[data-submit]')?.dispatch('click');
     await done;
-    expect(post.querySelector('button[data-submit]')).toBeNull();
+    expect(tools.querySelector('button[data-submit]')).toBeNull();
     expect(answers).toEqual([{ party: 'r1', text: refusal, ok: false }]);
   });
 
   // Review N-3: the popup or card of the party closed is that of the party the form was opened
   // for, which a poll may have taken out of the list before the answer came.
   it('closes the popup or card of the party Delete… was opened for, by the party it holds', async () => {
-    const { ui, button, post, done, closed } = page();
+    const { ui, button, tools, done, closed } = page();
     const staffs = { ...raid, close: { mayDelete: false, forum: '#west-raids', word: 'raid' } };
     ui.closeClicked(button as unknown as HTMLButtonElement, staffs);
     await Promise.resolve();
     await Promise.resolve();
-    post.querySelector('button[data-submit]')?.dispatch('click');
+    tools.querySelector('button[data-submit]')?.dispatch('click');
     await done;
     expect(closed).toEqual([staffs]);
   });
@@ -403,7 +485,7 @@ describe('the forms of the post’s controls in the page (plan 8M-8B)', () => {
   // Plan 8M-13 (A2): a refusal that keeps its form moves the form's popup or card as the page
   // decides (the card nudged where it holds the form), not by a shake of its own.
   it('hands a refusal that keeps its form to the page, with the form, said under it', async () => {
-    const { ui, button, post, answers, moved } = page();
+    const { ui, button, tools, answers, moved } = page();
     const refusal = 'You may not delete this raid.';
     let refused: () => void = () => undefined;
     const said = new Promise<void>((resolve) => {
@@ -421,13 +503,13 @@ describe('the forms of the post’s controls in the page (plan 8M-8B)', () => {
     ui.closeClicked(button as unknown as HTMLButtonElement, staffs);
     await Promise.resolve();
     await Promise.resolve();
-    post.querySelector('button[data-submit]')?.dispatch('click');
+    tools.querySelector('button[data-submit]')?.dispatch('click');
     await said;
     await focusOn(undefined);
     expect(moved).toHaveLength(1);
     expect(moved[0]?.party).toBe('r1');
     // The form stays, its words under it; nothing in the answer line.
-    expect(post.querySelector('button[data-submit]')).not.toBeNull();
+    expect(tools.querySelector('button[data-submit]')).not.toBeNull();
     expect(answers).toEqual([]);
   });
 });
@@ -453,7 +535,7 @@ describe("a train's forms in the page (plan 8M-8C)", () => {
       said: 'You can do that again in 3 minutes.',
     },
   ])('keeps Manage… open when the server says $why', async ({ status, body, said }) => {
-    const { ui, button, post, moved, answers } = page();
+    const { ui, button, tools, moved, answers } = page();
     const manage = {
       title: 'Manage the train',
       text: 'At stop 1 of 3: Veterans Memorial Bridge',
@@ -472,13 +554,13 @@ describe("a train's forms in the page (plan 8M-8C)", () => {
         json: () => Promise.resolve(answer.body),
       });
     });
-    ui.manageClicked(button as unknown as HTMLButtonElement, raid);
+    void ui.manageClicked(button as unknown as HTMLButtonElement, raid);
     await focusOn(undefined);
     const answered = focusOn(undefined);
-    post.querySelector('button[data-submit]')?.dispatch('click');
+    tools.querySelector('button[data-submit]')?.dispatch('click');
     await answered;
-    expect(post.querySelector('button[data-submit]')).not.toBeNull();
-    expect(post.querySelector('.form-answer')?.textContent).toBe(said);
+    expect(tools.querySelector('button[data-submit]')).not.toBeNull();
+    expect(tools.querySelector('.form-answer')?.textContent).toBe(said);
     expect(moved).toHaveLength(1);
     expect(answers).toEqual([]);
   });
@@ -487,7 +569,7 @@ describe("a train's forms in the page (plan 8M-8C)", () => {
   // refusal that gives the train as it is now (moved on meanwhile) closes the form and asks for
   // the list again, without taking the train for over.
   it('opens Manage… from the trains’ address, and a refusal with the train closes it without closing the popup', async () => {
-    const { ui, button, post, done, closed } = page();
+    const { ui, button, tools, done, closed } = page();
     const asked: Array<{ url: string; method: string; body?: unknown }> = [];
     const manage = {
       title: 'Manage the train',
@@ -522,9 +604,9 @@ describe("a train's forms in the page (plan 8M-8C)", () => {
         json: () => Promise.resolve(answer.body),
       });
     });
-    ui.manageClicked(button as unknown as HTMLButtonElement, raid);
+    void ui.manageClicked(button as unknown as HTMLButtonElement, raid);
     await focusOn(undefined);
-    post.querySelector('button[data-submit]')?.dispatch('click');
+    tools.querySelector('button[data-submit]')?.dispatch('click');
     await done;
     expect(asked).toEqual([
       { url: '/s/100000000000000001/api/trains/r1/manage', method: 'GET' },

@@ -5,7 +5,14 @@
  * row of buttons, the map's line: `map.css` shows only those, by the blocks' roles), the whole
  * post once tapped or swiped up; swiped down it goes back to the summary, then closes, as does a
  * tap on the map or Escape. The content is the popup's own (`withPopup`), drawn anew with each
- * list, but not under a form.
+ * list.
+ *
+ * A form opened at a place on a phone (plan 8M-22) is the card's form mode (`openForm`): a layer
+ * over what the card shows (or opened from a closed card: a plain popup's form), always whole, its
+ * handle hidden, named by the form's heading; only the form's Cancel, the card's × and Escape close
+ * it, the two as its Cancel (Matt's ruling 2): a tap on the map, a swipe or a page's `close`
+ * leave it, and another party opens nothing in its place. Closed (`closeForm`), the card shows
+ * what it showed before. Its height follows the keyboard (`visualViewport`).
  */
 
 /** Where the card is. */
@@ -14,8 +21,12 @@ export type CardState = 'closed' | 'summary' | 'whole';
 /** How far a finger moves up or down before it is a swipe and not a tap. */
 export const SWIPE_PIXELS = 40;
 
-/** Where a swipe of `dy` pixels (up is negative) takes the card. */
-export function afterSwipe(state: CardState, dy: number): CardState {
+/**
+ * Where a swipe of `dy` pixels (up is negative) takes the card; in form mode (`form`) nowhere: a
+ * slip of the finger would lose what was typed (plan 8M-22).
+ */
+export function afterSwipe(state: CardState, dy: number, form = false): CardState {
+  if (form) return state;
   if (dy <= -SWIPE_PIXELS) return state === 'closed' ? 'closed' : 'whole';
   if (dy >= SWIPE_PIXELS) return state === 'whole' ? 'summary' : 'closed';
   return state;
@@ -41,6 +52,8 @@ interface CardParts {
   element: HTMLElement;
   handle: HTMLButtonElement;
   body: HTMLElement;
+  /** The form's layer over the body (plan 8M-22). */
+  layer: HTMLElement;
 }
 
 /** What the page wants to hear of the card. */
@@ -70,6 +83,10 @@ export class PhoneCard {
   private swiped = false;
   /** What had the focus before the card took it. */
   private focusBefore: HTMLElement | undefined;
+  /** The form shown over the card (plan 8M-22): where the card was, and the form's Cancel. */
+  private form: { before: CardState; cancel: () => void } | undefined;
+  /** Stops the card following the keyboard (`visualViewport`) while a form is shown. */
+  private unfit: (() => void) | undefined;
 
   constructor(
     private readonly document: Document,
@@ -91,8 +108,79 @@ export class PhoneCard {
     return this.parts?.element.getBoundingClientRect?.().height ?? 0;
   }
 
+  /** Whether the card shows a form (plan 8M-22): nothing else opens in its place meanwhile. */
+  get formShown(): boolean {
+    return this.form !== undefined;
+  }
+
+  /**
+   * Shows a form over what the card shows (plan 8M-22), or the card opened for it alone; `cancel`
+   * is the form's Cancel, which the card's × and Escape press. A form drawn anew comes here too.
+   */
+  openForm(form: HTMLElement, cancel: () => void): void {
+    const { element, handle, body, layer } = this.made();
+    if (this.form) this.form.cancel = cancel;
+    else this.form = { before: this.state, cancel };
+    layer.replaceChildren(form);
+    layer.hidden = false;
+    body.hidden = true;
+    handle.hidden = true;
+    element.classList.add('form');
+    this.go('whole');
+    this.named();
+    this.unfit ??= this.fitKeyboard(element);
+  }
+
+  /** The form's layer while a form is shown. */
+  formElement(): HTMLElement | undefined {
+    return this.form === undefined ? undefined : this.parts?.layer;
+  }
+
+  /** The form closed: the card shows what it showed before, or closes where it was closed. */
+  closeForm(): void {
+    const { form } = this;
+    if (!form || !this.parts) return;
+    const { element, handle, body, layer } = this.parts;
+    this.form = undefined;
+    this.unfit?.();
+    this.unfit = undefined;
+    layer.replaceChildren();
+    layer.hidden = true;
+    body.hidden = false;
+    handle.hidden = false;
+    element.classList.remove('form');
+    this.go(form.before);
+    if (form.before !== 'closed') this.named();
+  }
+
+  /**
+   * The card's height while a form is in it (plan 8M-22): as tall as its form, 85dvh at most (`map.css`),
+   * and above the phone's keyboard where the keyboard covers it (`visualViewport`, which shrinks
+   * with it); what stops it. Nothing where the browser has no `visualViewport`.
+   */
+  private fitKeyboard(element: HTMLElement): () => void {
+    const view = this.document.defaultView;
+    const viewport = view?.visualViewport;
+    if (!view || !viewport) return () => undefined;
+    const fit = (): void => {
+      const covered = Math.max(0, view.innerHeight - viewport.height - viewport.offsetTop);
+      element.style.bottom = covered > 0 ? `${String(Math.round(covered))}px` : '';
+      element.style.maxHeight =
+        covered > 0 ? `${String(Math.round(viewport.height * 0.95))}px` : '';
+    };
+    viewport.addEventListener('resize', fit);
+    fit();
+    return () => {
+      viewport.removeEventListener('resize', fit);
+      element.style.bottom = '';
+      element.style.maxHeight = '';
+    };
+  }
+
   /** Shows a party's summary. */
   open(key: string, content: () => HTMLElement): void {
+    // A form in the card stays (Matt's ruling 2): nothing opens in its place.
+    if (this.form) return;
     const { element, handle, body } = this.made();
     const active = this.document.activeElement;
     if (this.state === 'closed' && active instanceof HTMLElement && !element.contains(active)) {
@@ -112,6 +200,15 @@ export class PhoneCard {
   refresh(content: (() => HTMLElement) | undefined): void {
     if (this.shown === undefined || this.state === 'closed') return;
     if (content === undefined) {
+      // Its party gone under a form (review P3): nothing of it kept, and the card closes with the
+      // form rather than showing it again.
+      if (this.form) {
+        this.shown = undefined;
+        this.drawn = undefined;
+        this.made().body.replaceChildren();
+        this.form.before = 'closed';
+        return;
+      }
       this.close();
       return;
     }
@@ -126,13 +223,18 @@ export class PhoneCard {
    * heading, else the name the map's own summary shows, else `Party`.
    */
   private named(): void {
-    const { element, body } = this.made();
-    const heading = body.querySelector('.post-heading') ?? body.querySelector('.name');
+    const { element, body, layer } = this.made();
+    // A form's own heading in form mode (plan 8M-22): a dialog's title, else its name.
+    const heading = this.form
+      ? (layer.querySelector('.form-title') ?? layer.querySelector('.name'))
+      : (body.querySelector('.post-heading') ?? body.querySelector('.name'));
     const words = heading?.textContent?.trim() ?? '';
     element.setAttribute('aria-label', words === '' ? 'Party' : words);
   }
 
+  /** Closes the card; not while it shows a form, which only its Cancel closes (plan 8M-22). */
   close(): void {
+    if (this.form) return;
     if (this.state !== 'closed') this.go('closed');
   }
 
@@ -210,7 +312,10 @@ export class PhoneCard {
     top.append(handle, close);
     const body = document.createElement('div');
     body.className = 'card-body';
-    element.append(top, body);
+    const layer = document.createElement('div');
+    layer.className = 'card-form';
+    layer.hidden = true;
+    element.append(top, body, layer);
     document.body.append(element);
     handle.addEventListener('click', () => {
       if (this.swiped) {
@@ -220,7 +325,9 @@ export class PhoneCard {
       this.go(afterTap(this.state));
     });
     close.addEventListener('click', () => {
-      this.close();
+      // A form's × is its Cancel (plan 8M-22).
+      if (this.form) this.form.cancel();
+      else this.close();
     });
     top.addEventListener('pointerdown', (event) => {
       this.swipeFrom = event.clientY;
@@ -232,15 +339,18 @@ export class PhoneCard {
       this.swipeFrom = undefined;
       if (Math.abs(dy) < SWIPE_PIXELS) return;
       this.swiped = true;
-      this.go(afterSwipe(this.state, dy));
+      this.go(afterSwipe(this.state, dy, this.form !== undefined));
     });
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape' || this.state === 'closed') return;
       const active = document.activeElement;
       const nowhere = active === null || active === document.body;
-      if (nowhere || element.contains(active)) this.close();
+      if (!nowhere && !element.contains(active)) return;
+      // A form's Escape is its Cancel (plan 8M-22), also with the focus on the card's ×.
+      if (this.form) this.form.cancel();
+      else this.close();
     });
-    this.parts = { element, handle, body };
+    this.parts = { element, handle, body, layer };
     return this.parts;
   }
 }

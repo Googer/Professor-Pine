@@ -27,11 +27,14 @@ const field = (tag: string, attributes: Record<string, string> = {}, form = 'man
 const TEXT = field('INPUT', { type: 'text' });
 
 /** A form with its Submit and Cancel (or without), the keydown listener it was given, what was done. */
-function form(buttons: { cancel?: boolean; submit?: boolean } = {}) {
-  const { cancel = true, submit = true } = buttons;
+function form(buttons: { cancel?: boolean; submit?: boolean; off?: boolean } = {}) {
+  const { cancel = true, submit = true, off = false } = buttons;
   const done: string[] = [];
   let listener: ((event: KeyEvent) => void) | undefined;
   const pressable = (name: string) => ({
+    disabled: false,
+    getAttribute: (attribute: string) =>
+      attribute === 'aria-disabled' && off && name === 'submit' ? 'true' : null,
     click: () => {
       done.push(name);
     },
@@ -100,6 +103,12 @@ describe('Enter in a form of the map', () => {
     const { done, press } = form();
     press('Enter', target);
     expect(done).toEqual(['stopped', 'prevented', 'submit']);
+  });
+
+  it('leaves a Submit off by its check unpressed (plan 8M-22: aria-disabled is off)', () => {
+    const { done, press } = form({ off: true });
+    press('Enter');
+    expect(done).toEqual(['stopped', 'prevented']);
   });
 
   it.each([

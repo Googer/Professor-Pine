@@ -75,6 +75,23 @@ describe('what a refusal moves (refusalMoves)', () => {
     expect(nudges).toEqual([1]);
   });
 
+  // Branch review W2: a form of the side pane is in no popup or card; its box shakes.
+  it("shakes the side pane's box of a form there", () => {
+    const classes = new Set<string>();
+    const box = {
+      classList: {
+        add: (name: string) => classes.add(name),
+        remove: (name: string) => classes.delete(name),
+      },
+      offsetWidth: 0,
+      addEventListener: () => undefined,
+    };
+    const form = { closest: (selector: string) => (selector === '.train-tools' ? box : null) };
+    const { card } = cardThat(undefined, false);
+    refusalMoves(form as unknown as Element, 'r1', card);
+    expect(classes.has('shake')).toBe(true);
+  });
+
   it('shakes the popup otherwise', () => {
     const { control, classes } = popupControl();
     const { card, nudges } = cardThat('r2', false);

@@ -3,7 +3,7 @@ import type {
   RocketOptionsView,
   RocketWhoOption,
 } from '../../domain/web/stop-report-data.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, missingOf, sendButton } from './form-buttons.js';
 import type { PageNode } from './popup.js';
 import type { StopAnswered } from './stop-forms.js';
 
@@ -59,7 +59,7 @@ export const STOP_GONE = 'That PokéStop is gone: pick another.';
 export function rocketBox(stop: { key: string; name: string }): PageNode {
   return {
     tag: 'div',
-    className: 'rocket-box place-control',
+    className: 'rocket-box',
     children: [
       {
         tag: 'button',
@@ -156,42 +156,34 @@ export function rocketForm(options: RocketOptionsView, state: RocketFormState): 
   const choice = chosenWho(options, filled);
   const buttons: PageNode =
     replacing === undefined
-      ? {
-          tag: 'div',
-          className: 'form-buttons',
-          children: [
-            sendButton('Report', { 'data-submit': 'rocket' }),
-            {
-              tag: 'button',
-              className: 'press',
-              text: 'Cancel',
-              attributes: { type: 'button', 'data-cancel': '' },
-            },
-          ],
-        }
-      : {
-          tag: 'div',
-          className: 'form-buttons',
-          children: [
-            {
-              tag: 'button',
-              className: 'press danger',
-              text: 'Replace',
-              attributes: { type: 'button', 'data-replace': String(replacing.id) },
-            },
-            {
-              tag: 'button',
-              className: 'press',
-              text: 'Cancel',
-              attributes: { type: 'button', 'data-cancel': '' },
-            },
-          ],
-        };
+      ? formRow(
+          sendButton('Report', { 'data-submit': 'rocket' }),
+          cancelButton(),
+          [],
+          rocketMissing(options, filled),
+        )
+      : // The hideout question (moves with its form): Replace is the row's sending button.
+        formRow(
+          {
+            tag: 'button',
+            className: 'press danger',
+            text: 'Replace',
+            attributes: { type: 'button', 'data-replace': String(replacing.id) },
+          },
+          cancelButton(),
+        );
   const form: PageNode = {
     tag: 'div',
     className: 'raid-form rocket-form stop-form',
     attributes: { 'data-form': 'rocket' },
     children: [
+      // Its heading (plan 8M-22): the form has a place of its own, the stop in a line under it.
+      {
+        tag: 'strong',
+        className: 'name',
+        attributes: { 'data-form-heading': '' },
+        text: 'Report Team GO Rocket',
+      },
       ...(replacing === undefined
         ? [
             {
@@ -235,10 +227,20 @@ export function rocketForm(options: RocketOptionsView, state: RocketFormState): 
             },
           ]),
       buttons,
-      { tag: 'div', className: 'form-answer', attributes: { hidden: '', 'aria-live': 'polite' } },
     ],
   };
   return offWhileSending(form, state);
+}
+
+/**
+ * What a Rocket report lacks before it can be sent (plan 8M-22), as `rocketBody` says it (the stop
+ * goes only into the body).
+ */
+export function rocketMissing(
+  options: RocketOptionsView,
+  values: Partial<RocketValues>,
+): string | undefined {
+  return missingOf(rocketBody('', options, values));
 }
 
 /** The body of a Rocket report, or what must be picked first. */

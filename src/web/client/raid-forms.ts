@@ -4,7 +4,7 @@ import type {
   RaidOptionsView,
 } from '../../domain/web/raid-options-data.js';
 import { MOVES_LATER, raidChangesAsked } from '../../domain/web/raid-manage.js';
-import { sendButton } from './form-buttons.js';
+import { cancelButton, formRow, missingOf, sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { MapGym, PageNode } from './popup.js';
 import { zoneHint } from './post-time.js';
@@ -81,9 +81,6 @@ const labelled = (text: string, className: string, ...children: PageNode[]): Pag
   children: [{ tag: 'span', text }, ...children],
 });
 
-/** The line under a form where its answer is said. */
-const answerLine: PageNode = { tag: 'div', className: 'form-answer', attributes: { hidden: '' } };
-
 /** "Report raid" in a gym's popup (spec 3.6). */
 export function reportButton(gymId: number): PageNode {
   return {
@@ -101,7 +98,7 @@ export function reportButton(gymId: number): PageNode {
  * nor the reverse).
  */
 export function reportBox(gymId: number): PageNode {
-  return { tag: 'div', className: 'report-box place-control', children: [reportButton(gymId)] };
+  return { tag: 'div', className: 'report-box', children: [reportButton(gymId)] };
 }
 
 /**
@@ -163,7 +160,13 @@ export function reportForm(
     className: 'raid-form',
     attributes: { 'data-form': 'report', 'data-gym': String(gym.id) },
     children: [
-      { tag: 'strong', className: 'name', text: gym.name },
+      // What the form does; the gym is the place line under it (plan 8M-22, `formHome`).
+      {
+        tag: 'strong',
+        className: 'name',
+        attributes: { 'data-form-heading': '' },
+        text: 'Report a raid',
+      },
       labelled('Raid', 'form-row', bossSelect(options, filled.boss)),
       labelled(timeLabel(filled.boss ?? ''), 'form-row time-row', timeInput('time', filled.time)),
       ...zoneHintNodes(options.zone, reader),
@@ -181,20 +184,18 @@ export function reportForm(
             }),
           ]
         : []),
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Report', { 'data-submit': 'report' }),
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Cancel',
-            attributes: { type: 'button', 'data-cancel': '' },
-          },
-        ],
-      },
-      answerLine,
+      formRow(
+        sendButton('Report', { 'data-submit': 'report' }),
+        cancelButton(),
+        [],
+        missingOf(
+          reportBody(gym.id, {
+            boss: filled.boss ?? '',
+            time: filled.time ?? '',
+            region: filled.region ?? '',
+          }),
+        ),
+      ),
     ],
   };
 }
@@ -231,6 +232,17 @@ const moveSelect = (name: string, unchanged: string, moves: RaidMovesView['fast'
 export { MOVES_LATER, NOTHING_CHANGED } from '../../domain/web/raid-manage.js';
 
 /**
+ * The missing line of a raid's or a meetup's Manage… while nothing is typed in (plan 8M-22):
+ * its Submit is off until something is.
+ */
+export const NOTHING_CHANGED_YET = 'Nothing changed yet.';
+
+/** The missing line of a raid's change form: nothing asked for yet, or nothing. */
+export function changeMissing(values: Record<string, string>): string | undefined {
+  return changesAsked(values).length === 0 ? NOTHING_CHANGED_YET : undefined;
+}
+
+/**
  * The form of a change of a raid, as `/hatch`, `/end`, `/boss` and `/moveset` take it, one Submit
  * for what was filled in (`changesAsked`); the moves only when the raid has a boss whose moves are
  * known (`moves`), off while another boss is picked (`raid-ui.ts`), which `MOVES_LATER` says.
@@ -246,7 +258,12 @@ export function changeForm(
     className: 'raid-form',
     attributes: { 'data-form': 'change', 'data-party': raid.id },
     children: [
-      { tag: 'strong', className: 'name', text: 'Manage the raid' },
+      {
+        tag: 'strong',
+        className: 'name',
+        attributes: { 'data-form-heading': '' },
+        text: 'Manage the raid',
+      },
       labelled('Hatches in', 'form-row', timeInput('hatch', undefined)),
       labelled('Ends in', 'form-row', timeInput('end', undefined)),
       ...zoneHintNodes(options.zone, reader),
@@ -267,20 +284,12 @@ export function changeForm(
             },
           ]
         : []),
-      {
-        tag: 'div',
-        className: 'form-buttons',
-        children: [
-          sendButton('Submit', { 'data-submit': 'change' }),
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Cancel',
-            attributes: { type: 'button', 'data-cancel': '' },
-          },
-        ],
-      },
-      answerLine,
+      formRow(
+        sendButton('Submit', { 'data-submit': 'change' }),
+        cancelButton(),
+        [],
+        NOTHING_CHANGED_YET,
+      ),
     ],
   };
 }
@@ -534,9 +543,13 @@ export class FormHold<V> {
     if (holder?.alive && !holder.alive()) this.release(holder);
   }
 
-  /** A popup's content function, held while a form is open (`heldContent`). */
+  /**
+   * A popup's content function, held while a form is open in a popup (`heldContent`: Take back's
+   * question, the note box); drawn anew under a form of the side pane or the card (plan 8M-22),
+   * which no popup holds.
+   */
   content<T>(draw: () => T): () => T {
-    return heldContent(draw, () => this.editing);
+    return heldContent(draw, () => this.holder?.inPopup === true);
   }
 
   /**
@@ -579,6 +592,24 @@ export class FormHold<V> {
     this.deps.controls(false);
     this.deps.changed?.();
     return claim;
+  }
+
+  /**
+   * The form that holds moves (plan 8M-22: a phone's form between its card and the docked pane):
+   * its new claim, or none when `claim` no longer holds. Nothing is let go between, so nothing
+   * that waited is drawn and the controls stay off; the page hears of it (`changed`: the pane
+   * docked or not).
+   */
+  moved(claim: FormClaim, place: boolean | 'card', aside = false): FormClaim | undefined {
+    if (!this.holds(claim)) return undefined;
+    const next: FormClaim = {
+      inPopup: place === true,
+      ...(place === 'card' ? { inCard: true } : {}),
+      ...(aside ? { aside } : {}),
+    };
+    this.holder = next;
+    this.deps.changed?.();
+    return next;
   }
 
   /** Whether this form is the one that holds. */

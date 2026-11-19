@@ -7,10 +7,12 @@ import type { MapGym, PageNode } from './popup.js';
 import {
   changeBody,
   changeForm,
+  changeMissing,
   changesAsked,
   FormHold,
   keepingFocus,
   type FormClaim,
+  NOTHING_CHANGED_YET,
   OpenPopup,
   raidAnswerOf,
   reportBody,
@@ -187,7 +189,7 @@ describe('the form of a report (reportForm)', () => {
     expect(reports).toEqual([reportButton(4)]);
     expect(popup.children?.at(-1)).toEqual({
       tag: 'div',
-      className: 'report-box place-control',
+      className: 'report-box',
       children: [reportButton(4)],
     });
     const without = gymRaidsPopup(4, [raid()], context);
@@ -257,6 +259,38 @@ describe('a form open in a popup (FormHold)', () => {
     return { shown, after, drawn, views, controls, hold };
   };
 
+  // Plan 8M-22: a form hops between the phone's card and the docked pane, its claim moved.
+  it('moves a claim to another place without letting go: the controls stay off, the old one holds no more', () => {
+    const { hold, controls } = holding();
+    const changed: number[] = [];
+    const watched = new FormHold<string>({
+      draw: () => undefined,
+      popup: () => undefined,
+      later: (run) => {
+        run();
+      },
+      controls: (on) => controls.push(on),
+      changed: () => changed.push(1),
+    });
+    const inCard = watched.take('card');
+    if (!inCard) throw new Error('no claim');
+    const aside = watched.moved(inCard, false, true);
+    expect(aside?.aside).toBe(true);
+    expect(aside?.inCard).toBeUndefined();
+    expect(watched.holds(inCard)).toBe(false);
+    expect(aside && watched.holds(aside)).toBe(true);
+    expect(watched.asideHeld).toBe(true);
+    // Taken once, never let go between.
+    expect(controls).toEqual([false]);
+    expect(changed).toEqual([1, 1]);
+    // The card's closing takes an aside claim nothing.
+    watched.cardClosed();
+    expect(watched.editing).toBe(true);
+    // A claim that no longer holds moves nothing.
+    expect(watched.moved(inCard, 'card')).toBeUndefined();
+    expect(hold.editing).toBe(false);
+  });
+
   /** A form opened: its claim taken, its lists come, drawn, and its popup fitted to it. */
   const openForm = (hold: FormHold<string>, inPopup = true): FormClaim => {
     const claim = hold.take(inPopup);
@@ -264,6 +298,27 @@ describe('a form open in a popup (FormHold)', () => {
     hold.fit();
     return claim;
   };
+
+  // Plan 8M-22: no form is in a popup under a form of the side pane or the card; a popup opened
+  // meanwhile shows its place as it is now.
+  it('draws a popup anew under a form of the side pane or the card, and holds it under its own', () => {
+    for (const place of [false, 'card'] as const) {
+      const { hold } = holding();
+      let count = 0;
+      const popup = new FakePopup(hold.content(() => ({ n: ++count })));
+      popup.update();
+      hold.take(place, place === false);
+      popup.update();
+      expect(popup.node).toEqual({ n: 2 });
+    }
+    const { hold } = holding();
+    let count = 0;
+    const popup = new FakePopup(hold.content(() => ({ n: ++count })));
+    popup.update();
+    hold.take(true);
+    popup.update();
+    expect(popup.node).toEqual({ n: 1 });
+  });
 
   it('keeps the form in place when the popup is fitted to it, and draws what came meanwhile once the popup closes', () => {
     const { shown, after, views, hold } = holding();
@@ -741,6 +796,35 @@ describe('sending a raid form (sendRaidForm)', () => {
     expect(raidAnswerOf('nonsense')).toEqual({ ok: false });
     expect(raidAnswerOf({ ok: false, regions: [{ id: '1', name: 2 }] })).toEqual({ ok: false });
     expect(raidAnswerOf({ ok: false, regions: [{ id: 1, name: 'west' }] })).toEqual({ ok: false });
+  });
+});
+
+describe('the missing line of a raid form (plan 8M-22)', () => {
+  const submitOf = (form: PageNode) => all(form).find((node) => node.attributes?.['data-submit']);
+  const lineOf = (form: PageNode) => all(form).find((node) => node.className === 'form-answer');
+
+  it('draws Report off until a boss or an egg is picked, the line saying so', () => {
+    const empty = reportForm(gym([1]), OPTIONS, REGIONS);
+    expect(submitOf(empty)?.attributes?.['aria-disabled']).toBe('true');
+    expect(lineOf(empty)?.text).toBe('Pick the boss or the egg first.');
+    const picked = reportForm(gym([1]), OPTIONS, REGIONS, { boss: 'e:T5:0' });
+    expect(submitOf(picked)?.attributes?.['aria-disabled']).toBeUndefined();
+    expect(lineOf(picked)?.text).toBeUndefined();
+  });
+
+  it('draws Manage…’s Submit off with "Nothing changed yet." until something is typed', () => {
+    const form = changeForm(raid(), OPTIONS, MOVES);
+    expect(submitOf(form)?.attributes?.['aria-disabled']).toBe('true');
+    expect(lineOf(form)?.text).toBe(NOTHING_CHANGED_YET);
+    expect(changeMissing({ hatch: '', end: '', boss: '' })).toBe(NOTHING_CHANGED_YET);
+    expect(changeMissing({ hatch: '20', end: '', boss: '' })).toBeUndefined();
+  });
+
+  it('has the line in the row, after the buttons', () => {
+    const row = all(reportForm(gym([1]), OPTIONS, REGIONS)).find((node) =>
+      node.className?.includes('form-foot'),
+    );
+    expect(row?.children?.at(-1)?.className).toBe('form-answer');
   });
 });
 

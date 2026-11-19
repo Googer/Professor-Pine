@@ -8,8 +8,13 @@ import type {
   PartiesView,
 } from '../../domain/web/party-data.js';
 import type { SpawnsView, WildOptionsView } from '../../domain/web/spawn-data.js';
-import type { ResearchOptionsView, StopReportsView } from '../../domain/web/stop-report-data.js';
+import type {
+  ResearchOptionsView,
+  RocketOptionsView,
+  StopReportsView,
+} from '../../domain/web/stop-report-data.js';
 import { LayerRegistry, LAYERS_KEY, MAP_LAYERS } from './layer-registry.js';
+import type { MaxOptionsView } from '../../domain/web/max-data.js';
 import type { MapSpot, MaxUiDeps } from './max-ui.js';
 import { LIST_ASK_LIMIT_MS } from './live.js';
 import { RING_PANE, showParties } from './party-layer.js';
@@ -25,6 +30,7 @@ import {
   caseGrunt,
   caseResearch,
   caseResearchOptions,
+  caseRocketOptions,
   caseSpawn,
   caseSpawns,
   caseStop,
@@ -228,7 +234,41 @@ const fake = vi.hoisted(() => {
     }
     /** What it shows while open, as the party layer drew it. */
     drawn: unknown;
+    /**
+     * Its form mode (plan 8M-22), as the real card's: the form over what it shows, in a layer of
+     * the page; where it was before, and the form's Cancel, which its × and Escape press.
+     */
+    form: { before: string | undefined; cancel: () => void } | undefined;
+    layer: PageElement | undefined;
+    get formShown() {
+      return this.form !== undefined;
+    }
+    openForm(form: unknown, cancel: () => void) {
+      this.form ??= { before: this.key, cancel };
+      this.form.cancel = cancel;
+      this.layer ??= new PageElement('div');
+      this.layer.className = 'card-form';
+      page.body?.append(this.layer);
+      this.layer.replaceChildren(form as PageElement);
+    }
+    formElement() {
+      return this.form === undefined ? undefined : this.layer;
+    }
+    /** As the real card's: an element in it while it is open (here, under a `party-card`). */
+    holds(element: PageElement) {
+      return this.key !== undefined && element.closest('.party-card') !== null;
+    }
+    closeForm() {
+      const { form } = this;
+      if (!form) return;
+      this.form = undefined;
+      this.layer?.replaceChildren();
+      this.layer?.remove();
+      if (form.before === undefined) this.hooks.onClose?.();
+    }
     open(key: string, content?: () => unknown) {
+      // A form in the card stays (plan 8M-22): nothing opens in its place.
+      if (this.form) return;
       // As the real card: another party in its place closes the first for the page.
       if (this.key !== undefined && this.key !== key) this.hooks.onClose?.();
       this.key = key;
@@ -239,9 +279,17 @@ const fake = vi.hoisted(() => {
     }
     /** As the real card: without content its party is gone, and it closes. */
     refresh(content?: unknown) {
+      // Its party gone under a form (review P3): nothing kept, the card closing with the form.
+      if (content === undefined && this.form) {
+        this.key = undefined;
+        this.drawn = undefined;
+        this.form.before = undefined;
+        return;
+      }
       if (content === undefined) this.close();
     }
     close() {
+      if (this.form) return;
       if (this.key === undefined) return;
       this.key = undefined;
       this.hooks.onClose?.();
@@ -519,6 +567,11 @@ class PageElement {
     return this.attributes.get(name) ?? null;
   }
 
+  removeAttribute(name: string): void {
+    this.attributes.delete(name);
+    if (name === 'hidden') this.hidden = false;
+  }
+
   getAttributeNames(): string[] {
     return [...this.attributes.keys()];
   }
@@ -563,6 +616,23 @@ class PageElement {
 
   removeChild(child: PageElement): void {
     child.remove();
+  }
+
+  /** Puts `children` right after this element, in its parent. */
+  after(...children: PageElement[]): void {
+    const { parent } = this;
+    if (!parent) return;
+    const next = parent.childNodes[parent.childNodes.indexOf(this) + 1] ?? null;
+    for (const child of children) parent.insertBefore(child, next);
+  }
+
+  prepend(...children: PageElement[]): void {
+    const first = this.childNodes[0] ?? null;
+    for (const child of children) this.insertBefore(child, first);
+  }
+
+  hasAttribute(name: string): boolean {
+    return this.attributes.has(name);
   }
 
   insertBefore(child: PageElement, before: PageElement | null): void {
@@ -775,9 +845,9 @@ afterEach(() => {
 const popupNow = (): PageElement | undefined =>
   fake.shown.popupOf?.popupElement as PageElement | undefined;
 
-/** "Add stops…" pressed in the research form in the popup open now: the form moves to the pane. */
+/** "Add stops…" pressed in the research form, in the side pane (plan 8M-22). */
 const addStopsInPopup = (): void => {
-  popupNow()?.querySelector('button[data-add-stops="start"]')?.dispatch('click');
+  page.byId.get('parties')?.querySelector('button[data-add-stops="start"]')?.dispatch('click');
 };
 
 /** A place's controls (`gymControls`, `spotControls`) as a popup or the phone card has them. */
@@ -814,6 +884,10 @@ async function started(options: {
   inView?: (at: [number, number]) => boolean;
   /** The pick lists of a research report `/api/research-options` gives. */
   research?: ResearchOptionsView;
+  /** The pick list of a Rocket report `/api/rocket-options` gives (plan 8M-22). */
+  rocket?: RocketOptionsView;
+  /** The bosses of a max battle's report `/api/max-options` gives (plan 8M-22). */
+  max?: MaxOptionsView;
   /** A research report sent is never answered. */
   sendsForever?: boolean;
   /** The posts `…/post` answers, by party id (none without it: 404). */
@@ -980,6 +1054,14 @@ async function started(options: {
       }
       if (url.endsWith('/api/research-options') && options.research !== undefined) {
         const lists = options.research;
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(lists) });
+      }
+      if (url.endsWith('/api/max-options') && options.max !== undefined) {
+        const lists = options.max;
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(lists) });
+      }
+      if (url.endsWith('/api/rocket-options') && options.rocket !== undefined) {
+        const lists = options.rocket;
         return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(lists) });
       }
       // A report on its way, never answered.
@@ -1363,6 +1445,79 @@ describe("a max battle's step 2 of the Report button, from where you are (review
     const { maxForms, flights } = await started({ raids: true, regions: REGIONS, located });
     maxForms.pickSpot?.();
     expect(flights).toEqual([[40.44, -79.95]]);
+  });
+});
+
+describe("a max battle's form in the side pane (plan 8M-22)", () => {
+  const MAX: MaxOptionsView = {
+    zone: ZONE,
+    bosses: [
+      { value: 'm:D5:zapdos', name: 'Zapdos', level: 'D5', tier: 'Dynamax 5★', featured: true },
+    ],
+    tiers: [{ value: 'D5', tier: 'Dynamax 5★' }],
+  };
+  const OLD_MILL = { id: 'spot-abc', title: 'Old Mill', lat: 40.44, lon: -79.95 };
+  /** The next form of the map drawn. */
+  const nextForm = () =>
+    new Promise<PageElement>((resolve) => {
+      fake.formsDrawn.push((form) => {
+        resolve(form as PageElement);
+      });
+    });
+
+  it("opens from a Power Spot's popup, the spot named under its heading; Cancel lets it go", async () => {
+    const { raids, panel, reportHeader } = await started({
+      raids: true,
+      regions: REGIONS,
+      max: MAX,
+    });
+    const atSpot = placeShowing('leaflet-popup', raids.spotControls(OLD_MILL));
+    const drawn = nextForm();
+    atSpot.querySelector('button[data-report-max]')?.dispatch('click');
+    const form = await drawn;
+    expect(panel.querySelector('[data-form="max"]') === form).toBe(true);
+    expect(form.querySelector('.name')?.textContent).toBe('Report a max battle');
+    expect(form.querySelector('.form-place')?.textContent).toBe('Old Mill');
+    // Off until a boss is picked (task 1), its line saying so.
+    expect(form.querySelector('button[data-submit]')?.getAttribute('aria-disabled')).toBe('true');
+    expect(reportHeader()?.disabled).toBe(true);
+    form.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(panel.querySelector('[data-form="max"]')).toBeNull();
+    expect(reportHeader()?.disabled).toBe(false);
+  });
+
+  // Review P1: a list turning read-only leaves a form of the side pane in the pane.
+  it('stays in the side pane when the list turns read-only', async () => {
+    const { raids, panel, poll } = await started({ raids: true, regions: REGIONS, max: MAX });
+    const atSpot = placeShowing('leaflet-popup', raids.spotControls(OLD_MILL));
+    const drawn = nextForm();
+    atSpot.querySelector('button[data-report-max]')?.dispatch('click');
+    const form = await drawn;
+    await poll(view({ readOnly: true }));
+    expect(panel.querySelector('[data-form="max"]') === form).toBe(true);
+    expect(form.parent?.parent === panel).toBe(true);
+  });
+
+  it('opens at a pin of step 2 with the pin kept there, named an unlisted power spot', async () => {
+    const { maxForms, panel, fire } = await started({ raids: true, regions: REGIONS, max: MAX });
+    maxForms.pickSpot?.();
+    fire('click', { latlng: { lat: 40.45, lng: -79.95 } });
+    const pins = () =>
+      fake.shown.markers.filter(
+        (marker) =>
+          (marker.options.icon as { options?: { className?: string } } | undefined)?.options
+            ?.className === 'report-pin',
+      );
+    const before = pins().length;
+    const drawn = nextForm();
+    panel.querySelector('button[data-report-pin]')?.dispatch('click');
+    const form = await drawn;
+    expect(form.querySelector('.form-place')?.textContent).toBe('Unlisted power spot');
+    // The form's own pin at the point, step 2's gone with step 2 (Matt's ruling 3).
+    expect(pins().length).toBe(before + 1);
+    expect(fake.shown.popupOf).toBeUndefined();
+    form.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(panel.querySelector('[data-form="max"]')).toBeNull();
   });
 });
 
@@ -2127,13 +2282,13 @@ describe('a battle at a Power Spot and one at a pin on the map', () => {
       it('follows a zoom under a form, which holds the parties', async () => {
         const shown = await started({ raids: false, parties: view({ trains: [loop(1)] }) });
         ringOf()?.openPopup();
-        const claim = shown.raidForms.hold.take(false);
-        if (!claim || !shown.raidForms.hold.ready(claim, true)) throw new Error('no form opened');
+        const claim = shown.raidForms.frame.hold.take(false);
+        if (!claim || !shown.raidForms.frame.hold.holds(claim)) throw new Error('no form opened');
         shown.zoomedTo(10_000, 14);
         expect(numbers()).toEqual([]);
         shown.zoomedTo(10_000, 15);
         expect(numbers()).toEqual(['1', '2']);
-        shown.raidForms.hold.release(claim);
+        shown.raidForms.frame.hold.release(claim);
       });
 
       // Review SEL-4: a form holds the raids at the size they were drawn at.
@@ -2144,14 +2299,14 @@ describe('a battle at a Power Spot and one at a pin on the map', () => {
           parties: view({ trains: [loop(1)], raids: [raidAt(1)], maxes: [] }),
         });
         ringOf()?.openPopup();
-        const claim = shown.raidForms.hold.take(false);
-        if (!claim || !shown.raidForms.hold.ready(claim, true)) throw new Error('no form opened');
+        const claim = shown.raidForms.frame.hold.take(false);
+        if (!claim || !shown.raidForms.frame.hold.holds(claim)) throw new Error('no form opened');
         shown.zoomedTo(10_000, 15);
         const library = badges().find((one) => one.getLatLng().lat === 40.441);
         const { options } = library?.options.icon as { options: { iconAnchor: number[] } };
         // A raid of the middle size, 30 pixels wide, and half of the number of 20.
         expect(options.iconAnchor).toEqual([25, 25]);
-        shown.raidForms.hold.release(claim);
+        shown.raidForms.frame.hold.release(claim);
       });
 
       it('takes no tap, in a pane above every marker, on the corner of what the stop holds', async () => {
@@ -2183,12 +2338,12 @@ describe('a battle at a Power Spot and one at a pin on the map', () => {
     // Review R2 of 8M-11B: the arrowheads follow every zoom, also while a form holds the parties.
     it('draws the arrowheads for the new zoom while a form holds the parties', async () => {
       const shown = await started({ raids: false, parties: view({ trains: [loop(0)] }) });
-      const claim = shown.raidForms.hold.take(false);
-      if (!claim || !shown.raidForms.hold.ready(claim, true)) throw new Error('no form opened');
+      const claim = shown.raidForms.frame.hold.take(false);
+      if (!claim || !shown.raidForms.frame.hold.holds(claim)) throw new Error('no form opened');
       // To zoom 13 (another size of markers: the parties wait for the form), far out.
       shown.zoomedTo(1_000, 13);
       expect(arrows()).toEqual([]);
-      shown.raidForms.hold.release(claim);
+      shown.raidForms.frame.hold.release(claim);
     });
 
     it('draws the arrowheads anew at each zoom: none on legs too short on the screen', async () => {
@@ -2272,8 +2427,8 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
       raids: true,
       stops: STOPS,
     });
-    const claim = raidForms.hold.take(false);
-    if (!claim || !raidForms.hold.ready(claim, true)) throw new Error('the form did not open');
+    const claim = raidForms.frame.hold.take(false);
+    if (!claim || !raidForms.frame.hold.holds(claim)) throw new Error('the form did not open');
     // A raid reported on Discord meanwhile: its list waits for the form.
     const lugia = { ...raidAt(1), id: 'r1b', boss: 'Lugia', heading: 'Level 5 raid against Lugia' };
     lists({ parties: view({ raids: [lugia] }) });
@@ -2282,7 +2437,7 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
     lists({ stops: caseView({ research: [caseResearch(5)], grunts: [caseGrunt(5)] }) });
     await rocketForms.done(undefined);
     expect(markerOf(lugia.heading)).toBeUndefined();
-    raidForms.hold.release(claim);
+    raidForms.frame.hold.release(claim);
     expect(markerOf(lugia.heading)?.group?.onMap).toBe(true);
     expect([...raids.reportStops()]).toEqual(['stop-5']);
   });
@@ -2400,31 +2555,44 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
 
   // B9: a stop with reports is pickable in the Report button's step 2 of a report at a stop.
   it("takes a stop's marker in research's step 2 as its stop, and step 3 opens there", async () => {
-    const { markerOf, raids, chooseReport, panel } = await started({ raids: true, stops: STOPS });
+    const { markerOf, raids, chooseReport, panel } = await started({
+      raids: true,
+      stops: STOPS,
+      rocket: caseRocketOptions(),
+    });
+    // The header's Report button, in the page.
+    const header = page.byId.get('report-button');
+    if (header) page.body?.append(header);
     chooseReport('research');
     expect(raids.forcedPlaces('stops')).toBe(true);
     // Its marker takes taps while stops are picked.
     expect(markerOf('Yellow Mural 5')?.options.interactive).toBe(true);
     markerOf('Yellow Mural 5')?.fire('click', {});
     expect(raids.forcedPlaces('stops')).toBe(false);
-    // Field research's form in the stop's popup, in the place of its control, with the stop.
-    expect(fake.shown.popupOf === markerOf('Yellow Mural 5')).toBe(true);
-    expect(panel.querySelector('div.research-form')).toBeNull();
-    const form = popupNow()?.querySelector('div.research-form');
+    // Field research's form straight in the side pane (plan 8M-22), the stop's popup not opened.
+    expect(fake.shown.popupOf).toBeUndefined();
+    const form = panel.querySelector('div.research-form');
     expect(
       form
         ?.querySelector('span.stop-chip')
         ?.all()
         .map((one) => one.textContent),
     ).toContain('Yellow Mural 5');
+    expect(form?.querySelector('.form-place')?.textContent).toBe('Yellow Mural 5');
     form?.querySelector('button[data-cancel]')?.dispatch('click');
-    expect(popupNow()?.querySelector('div.research-form')).toBeNull();
-    expect(popupNow()?.querySelector('button[data-report-research]')).not.toBeNull();
-    // Team GO Rocket's in the stop's popup, in place of its "Report Rocket here" (B8).
-    fake.shown.popupOf?.closePopup();
+    expect(panel.querySelector('div.research-form')).toBeNull();
+    // Opened by the Report button's step 3: the focus back on it.
+    expect(page.active === page.byId.get('report-button')).toBe(true);
+    // Team GO Rocket's too, in the side pane (B8), once its lists came.
     chooseReport('rocket');
+    const drawn = new Promise<unknown>((resolve) => {
+      fake.formsDrawn.push(resolve);
+    });
     markerOf('Yellow Mural 5')?.fire('click', {});
-    expect(fake.shown.popupOf).toBe(markerOf('Yellow Mural 5'));
+    expect(fake.shown.popupOf).toBeUndefined();
+    await drawn;
+    expect(panel.querySelector('div.rocket-form')).not.toBeNull();
+    panel.querySelector('button[data-cancel]')?.dispatch('click');
     // While gyms are picked it lets taps through, as the rings do.
     fake.shown.popupOf?.closePopup();
     chooseReport('raid');
@@ -2453,6 +2621,30 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
     expect(raids.stopTapped({ id: 'stop-10', title: 'Red Bench', lat: 40.45, lon: -79.95 })).toBe(
       false,
     );
+  });
+
+  // Review P7: on a phone research's form is in the card, docked in the pane while it adds stops.
+  it('opens research in the card on a phone, docked in the pane while stops are added', async () => {
+    const { markerOf, chooseReport, panel, card } = await started({
+      raids: true,
+      phone: true,
+      stops: STOPS,
+      research: caseResearchOptions(),
+    });
+    chooseReport('research');
+    markerOf('Yellow Mural 5')?.fire('click', {});
+    expect(card()?.formElement()?.querySelector('div.research-form')).not.toBeNull();
+    expect(panel.querySelector('div.research-form')).toBeNull();
+    expect(page.body?.classList.contains('form-docked')).toBe(false);
+    card()?.formElement()?.querySelector('button[data-add-stops="start"]')?.dispatch('click');
+    expect(card()?.formShown).toBe(false);
+    expect(panel.querySelector('div.research-form')).not.toBeNull();
+    expect(page.body?.classList.contains('form-docked')).toBe(true);
+    panel.querySelector('button[data-add-stops="done"]')?.dispatch('click');
+    expect(card()?.formElement()?.querySelector('div.research-form')).not.toBeNull();
+    expect(page.body?.classList.contains('form-docked')).toBe(false);
+    card()?.formElement()?.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(card()?.formShown).toBe(false);
   });
 
   // Review F9: dimmed while "Add stops…" picks, as in the Report button's step 2 (review B7b).
@@ -2533,23 +2725,17 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
     // Typed in: the page's own field.
     vi.stubGlobal('HTMLInputElement', PageElement);
     Object.assign(field, { name: 'query', value: 'spin' });
-    const fitted = fake.shown.popupOf?.updates ?? 0;
     field.dispatch('input');
-    // The list changed its height: the popup fits it (review, finding 12), which takes its
-    // content out of the page and puts it back: the field keeps the focus for the next key.
-    expect(fake.shown.popupOf?.updates).toBe(fitted + 1);
+    // The list drawn anew alone: the field keeps the focus for the next key.
     expect(page.active === field).toBe(true);
-    // Not in the middle of an IME's word, which its going out of the page would cut.
     field.dispatch('input', { isComposing: true });
-    expect(fake.shown.popupOf?.updates).toBe(fitted + 1);
-    // Compared, not printed: the fakes are no page chai can show.
-    const inPopup = popupNow();
-    expect(inPopup?.querySelector('input[name="query"]') === field).toBe(true);
-    expect(inPopup?.querySelectorAll('button[data-task]').map((one) => one.dataset.task)).toEqual([
+    // Compared, not printed: the fakes are no page chai can show. In the side pane (plan 8M-22).
+    expect(panel.querySelector('input[name="query"]') === field).toBe(true);
+    expect(panel.querySelectorAll('button[data-task]').map((one) => one.dataset.task)).toEqual([
       'spin',
     ]);
     // Reported, its answer still to come: a stop added meanwhile draws the form again.
-    inPopup?.querySelector('button[data-task="spin"]')?.dispatch('click');
+    panel.querySelector('button[data-task="spin"]')?.dispatch('click');
     addStopsInPopup();
     panel.querySelector('button[data-submit="research"]')?.dispatch('click');
     markerOf('Yellow Mural 7')?.fire('click', {});
@@ -2557,8 +2743,8 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
     expect(submit?.disabled === true || submit?.getAttribute('disabled') !== null).toBe(true);
   });
 
-  // Re-review 2, 3: only a form in a popup fits one, and it fits once a word is composed.
-  it('fits no popup for a form in the side pane, and fits its own once composition ends', async () => {
+  // Re-review 2, 3: a form in the side pane fits no popup (plan 8M-22: every form is there).
+  it('fits no popup for a form in the side pane, another popup open beside it', async () => {
     const { markerOf, chooseReport, panel } = await started({
       raids: true,
       stops: STOPS,
@@ -2571,14 +2757,7 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
     });
     chooseReport('research');
     markerOf('Yellow Mural 5')?.fire('click', {});
-    const field = await search;
-    vi.stubGlobal('HTMLInputElement', PageElement);
-    Object.assign(field, { name: 'query', value: 'spin' });
-    field.dispatch('input', { isComposing: true });
-    const fitted = fake.shown.popupOf?.updates ?? 0;
-    field.dispatch('compositionend');
-    expect(fake.shown.popupOf?.updates).toBe(fitted + 1);
-    // In the side pane, another popup open beside it.
+    await search;
     addStopsInPopup();
     panel.querySelector('button[data-add-stops="done"]')?.dispatch('click');
     markerOf('Yellow Mural 7')?.fire('click', {});
@@ -2617,7 +2796,11 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
       });
     }
     expect(panel.querySelectorAll('span.stop-chip')).toHaveLength(6);
+    // The line is written on the next frame (branch review W1): the frames run by hand.
+    const frames: (() => void)[] = [];
+    vi.stubGlobal('requestAnimationFrame', (run: () => void) => frames.push(run));
     await search;
+    for (const frame of frames.splice(0)) frame();
     const answer = panel.querySelector('.form-answer');
     expect(answer?.textContent).toBe('A report names 5 stops at most.');
     expect(answer?.hidden).toBe(false);
@@ -2697,7 +2880,7 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
     expect(page.active?.getAttribute('data-report-near')).toBe('stop-9');
   });
 
-  it('offers a meetup at a PokéStop, the form in its popup, the stop its place', async () => {
+  it('offers a meetup at a PokéStop, the form in the side pane, the stop its place', async () => {
     const { markerOf, panel, raids } = await started({
       raids: true,
       regions: REGIONS,
@@ -2705,9 +2888,13 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
     });
     markerOf('Yellow Mural 5')?.fire('click', {});
     popupNow()?.querySelector('button[data-meetup-at-stop]')?.dispatch('click');
-    expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
-    const form = popupNow()?.querySelector('[data-form="meetup"]');
+    // The stop's popup closed (plan 8M-22).
+    expect(fake.shown.popupOf).toBeUndefined();
+    const form = panel.querySelector('[data-form="meetup"]');
     expect(form?.querySelector('.picked')?.textContent).toBe('Yellow Mural 5 (PokéStop)');
+    form?.querySelector('button[data-cancel]')?.dispatch('click');
+    // Cancel opens the stop's popup again.
+    expect(fake.shown.popupOf === markerOf('Yellow Mural 5')).toBe(true);
     // Never at a Power Spot (Matt, 2026-10-17): it offers a train, no meetup.
     const spot = { id: 'abc', title: 'Old Mill', lat: 40.44, lon: -79.95 };
     const atSpot = placeShowing('party-card', raids.spotControls(spot));
@@ -3079,10 +3266,10 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
     panel.querySelector('button[data-add-stops="done"]')?.dispatch('click');
     expect(taken()).toBe(true);
     panel.querySelector('button[data-cancel]')?.dispatch('click');
-    // A meetup's place picked on the map.
+    // A meetup's place picked on the map (its form in the side pane, plan 8M-22).
     const popup = placeShowing('leaflet-popup', raids.gymControls(GYMS.get(1)!));
     popup.querySelector('button[data-meetup-here]')?.dispatch('click');
-    popup.querySelector('button[data-pick="start"]')?.dispatch('click');
+    panel.querySelector('button[data-pick="start"]')?.dispatch('click');
     expect(taken()).toBe(false);
     panel.querySelector('button[data-pick="stop"]')?.dispatch('click');
     expect(taken()).toBe(true);
@@ -3136,13 +3323,15 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
       ] as const) {
         const field = form.querySelector(`input[name="${name}"]`);
         if (field) Object.assign(field, { name, value });
+        // Typed: the form's check runs on the input (plan 8M-22), Report on.
+        field?.dispatch('input');
       }
       form.querySelector('button[data-submit="spawn"]')?.dispatch('click');
       return sent;
     };
 
-    it("offers it in a PokéStop's popup after Report Rocket here, the form in its place, reported at the stop", async () => {
-      const { markerOf, reportHeader, spawnSent } = await started({
+    it("offers it in a PokéStop's popup after Report Rocket here, the form in the side pane, reported at the stop", async () => {
+      const { markerOf, reportHeader, spawnSent, panel } = await started({
         raids: true,
         regions: REGIONS,
         stops: STOP_REPORTS,
@@ -3162,7 +3351,10 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
       expect(reportHeader()?.disabled).toBe(true);
       const form = await drawn;
       expect(form.getAttribute('data-form')).toBe('spawn');
-      expect(popupNow()?.querySelector('[data-form="spawn"]') === form).toBe(true);
+      // In the side pane, the stop's popup closed (plan 8M-22), the stop named under its heading.
+      expect(panel.querySelector('[data-form="spawn"]') === form).toBe(true);
+      expect(fake.shown.popupOf).toBeUndefined();
+      expect(form.querySelector('.form-place')?.textContent).toBe('Yellow Mural 5');
       // The stop itself (Matt, 2026-11-07), as `/wild near:` names it.
       expect(await reported(form, spawnSent())).toEqual({
         pokemon: 'dratini',
@@ -3172,7 +3364,7 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
     });
 
     it("offers it in a Power Spot's card between Report max battle here and Start train here, reported at the spot", async () => {
-      const { raids, reportHeader, spawnSent } = await started({
+      const { raids, reportHeader, spawnSent, panel, card } = await started({
         raids: true,
         phone: true,
         regions: REGIONS,
@@ -3188,7 +3380,9 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
       atSpot.querySelector('button[data-spawn-spot]')?.dispatch('click');
       expect(reportHeader()?.disabled).toBe(true);
       const form = await drawn;
-      expect(atSpot.querySelector('[data-form="spawn"]') === form).toBe(true);
+      // On a phone in the card's form mode (plan 8M-22), not in the side pane.
+      expect(card()?.formElement()?.querySelector('[data-form="spawn"]') === form).toBe(true);
+      expect(panel.querySelector('[data-form="spawn"]')).toBeNull();
       expect(await reported(form, spawnSent())).toEqual({
         pokemon: 'dratini',
         details: 'by the bench',
@@ -3374,41 +3568,38 @@ describe("Find's pick on the map (plan 8M-12)", () => {
     expect(fake.shown.popupOf).toBe(markerOf('Yellow Mural 5'));
   });
 
-  // Matt, 2026-10-30: a train reported from a gym or a Power Spot, with it as the first stop; if a
-  // form can be anchored to a place, it is.
-  it("offers Start train here in a gym's and a Power Spot's popup or card, the form in its place", async () => {
+  // Matt, 2026-10-30: a train reported from a gym or a Power Spot, with it as the first stop; its
+  // form in the side pane (plan 8M-22), the card closed, and Cancel opens the card again.
+  it("offers Start train here in a gym's and a Power Spot's popup or card, the form in the side pane", async () => {
     const { raids, panel, card, markerOf, reportHeader } = await started({
       raids: true,
-      phone: true,
       regions: REGIONS,
       parties: view({ raids: [raidAt(1)], maxes: [] }),
     });
     const spot = { id: 'abc', title: 'Old Mill', lat: 40.44, lon: -79.95 };
-    markerOf(raidAt(1).heading)?.openPopup();
-    expect(card()?.key).toBe('gym:1');
-    const atSpot = placeShowing('party-card', raids.spotControls(spot));
+    const atSpot = placeShowing('leaflet-popup', raids.spotControls(spot));
     atSpot.querySelector('button[data-train-here]')?.dispatch('click');
-    expect(card()?.key).toBe('gym:1');
-    expect(panel.querySelector('[data-form="train"]')).toBeNull();
-    const form = atSpot.querySelector('[data-form="train"]');
+    const form = panel.querySelector('[data-form="train"]');
     expect(form?.querySelector('.first-stop')?.textContent).toBe(
       'First stop: Old Mill (Power Spot)',
     );
     form?.querySelector('button[data-cancel]')?.dispatch('click');
-    expect(atSpot.querySelector('[data-form="train"]')).toBeNull();
-    expect(atSpot.querySelector('button[data-train-here]')).not.toBeNull();
+    expect(panel.querySelector('[data-form="train"]')).toBeNull();
     expect(reportHeader()?.disabled).toBe(false);
-    const gym = [...GYMS.values()][0];
-    if (!gym) throw new Error('no gym');
-    const atGym = placeShowing('party-card', raids.gymControls(gym));
-    atGym.querySelector('button[data-train-here]')?.dispatch('click');
+    // From a raid's popup: closed as the form opens, opened again by Cancel.
+    markerOf(raidAt(1).heading)?.openPopup();
+    popupNow()?.querySelector('button[data-train-here="1"]')?.dispatch('click');
+    expect(fake.shown.popupOf).toBeUndefined();
+    expect(card()?.key).toBeUndefined();
     expect(
-      atGym.querySelector('[data-form="train"]')?.querySelector('.first-stop')?.textContent,
+      panel.querySelector('[data-form="train"]')?.querySelector('.first-stop')?.textContent,
     ).toBe('First stop: Library');
+    panel.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(fake.shown.popupOf === markerOf(raidAt(1).heading)).toBe(true);
   });
 
   // Review N3: the button under a raid's post, through the post's own clicks.
-  it("opens the form in a raid's popup, its region filled in only where one region holds the gym", async () => {
+  it("opens the form from a raid's popup, its region filled in only where one region holds the gym", async () => {
     const oneRegion = await started({
       raids: true,
       regions: REGIONS,
@@ -3417,8 +3608,7 @@ describe("Find's pick on the map (plan 8M-12)", () => {
     const filledIn = (shown: typeof oneRegion) => {
       shown.markerOf(raidAt(1).heading)?.openPopup();
       popupNow()?.querySelector('button[data-train-here="1"]')?.dispatch('click');
-      expect(shown.panel.querySelector('[data-form="train"]')).toBeNull();
-      const form = popupNow()?.querySelector('[data-form="train"]');
+      const form = shown.panel.querySelector('[data-form="train"]');
       expect(form?.querySelector('.first-stop')?.textContent).toBe('First stop: Library');
       return form
         ?.querySelector('select[name="region"]')
@@ -3435,7 +3625,7 @@ describe("Find's pick on the map (plan 8M-12)", () => {
     expect(filledIn(twoRegions)).toEqual(['']);
   });
 
-  describe('a form at its place, on the map (Matt, 2026-10-30)', () => {
+  describe('a form opened at its place, in the side pane (plan 8M-22)', () => {
     const LIBRARY = gym(1, 'Library', 40.441, -79.95);
     const STOPS_HERE = caseView({ research: [caseResearch(5)] });
     const notice = () => page.byId.get('notice-text')?.textContent;
@@ -3445,42 +3635,91 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       const { raids, panel, reportHeader } = await started({ raids: true, regions: REGIONS });
       const popup = placeShowing('leaflet-popup', raids.gymControls(LIBRARY));
       popup.querySelector('button[data-meetup-here]')?.dispatch('click');
-      const form = popup.querySelector('[data-form="meetup"]');
+      const form = panel.querySelector('[data-form="meetup"]');
       expect(form).not.toBeNull();
-      expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
-      expect(reportHeader()?.disabled).toBe(true);
-      // What is missing is said under it; no second form asked for.
-      form?.querySelector('button[data-submit]')?.dispatch('click');
-      expect(notice()).toBe('Give the meetup a name first.');
-      expect(popup.querySelectorAll('[data-form="meetup"]')).toHaveLength(1);
-      popup.querySelector('button[data-cancel]')?.dispatch('click');
       expect(popup.querySelector('[data-form="meetup"]')).toBeNull();
+      expect(reportHeader()?.disabled).toBe(true);
+      // What is missing is said under it, Make the meetup off (plan 8M-22); a press of it asks
+      // for no second form.
+      const submit = form?.querySelector('button[data-submit]');
+      expect(submit?.getAttribute('aria-disabled')).toBe('true');
+      expect(form?.querySelector('.form-answer')?.textContent).toBe(
+        'Give the meetup a name first.',
+      );
+      submit?.dispatch('click');
+      expect(panel.querySelectorAll('[data-form="meetup"]')).toHaveLength(1);
+      panel.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
       expect(popup.querySelector('button[data-meetup-here]')).not.toBeNull();
       expect(notice()).not.toBe(FORM_OPEN);
       expect(reportHeader()?.disabled).toBe(false);
       expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
     });
 
-    it("a stop's research form: Cancel puts its button back, the hold free", async () => {
-      const { markerOf, reportHeader } = await started({ raids: true, stops: STOPS_HERE });
+    // Review P4: a form opened outside the popup that is open (a line of the list) neither names
+    // nor closes nor opens that popup.
+    it('leaves alone a popup the form was not opened from', async () => {
+      const { raids, panel, markerOf } = await started({
+        raids: true,
+        regions: REGIONS,
+        parties: view({ raids: [raidAt(1)], maxes: [] }),
+      });
+      markerOf(raidAt(1).heading)?.openPopup();
+      const elsewhere = placeShowing('what-is-on', raids.gymControls(LIBRARY));
+      elsewhere.querySelector('button[data-train-here]')?.dispatch('click');
+      const form = panel.querySelector('[data-form="train"]');
+      expect(form).not.toBeNull();
+      expect(form?.querySelector('.form-place')).toBeNull();
+      expect(fake.shown.popupOf === markerOf(raidAt(1).heading)).toBe(true);
+      form?.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(fake.shown.popupOf === markerOf(raidAt(1).heading)).toBe(true);
+    });
+
+    // Staging finding S1 (2026-11-18): drawn anew as its lists come, it keeps the focus.
+    it("keeps the focus on research's heading as its lists come", async () => {
+      const { markerOf, panel } = await started({
+        raids: true,
+        stops: STOPS_HERE,
+        research: caseResearchOptions(),
+      });
       markerOf('Yellow Mural 5')?.fire('click', {});
       popupNow()?.querySelector('button[data-report-research]')?.dispatch('click');
-      expect(popupNow()?.querySelector('div.research-form')).not.toBeNull();
+      const first = panel.querySelector('div.research-form');
+      expect(page.active === first?.querySelector('[data-form-heading]')).toBe(true);
+      const again = new Promise<unknown>((resolve) => {
+        fake.formsDrawn.push(resolve);
+      });
+      await again;
+      const form = panel.querySelector('div.research-form');
+      expect(form === first).toBe(false);
+      expect(page.active === form?.querySelector('[data-form-heading]')).toBe(true);
+    });
+
+    it("a stop's research form: Cancel opens the stop's popup again, its button there", async () => {
+      const { markerOf, reportHeader, panel } = await started({ raids: true, stops: STOPS_HERE });
+      markerOf('Yellow Mural 5')?.fire('click', {});
+      popupNow()?.querySelector('button[data-report-research]')?.dispatch('click');
+      expect(fake.shown.popupOf).toBeUndefined();
+      expect(panel.querySelector('div.research-form')).not.toBeNull();
       expect(reportHeader()?.disabled).toBe(true);
-      popupNow()?.querySelector('button[data-cancel]')?.dispatch('click');
-      expect(popupNow()?.querySelector('div.research-form')).toBeNull();
+      panel.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(panel.querySelector('div.research-form')).toBeNull();
+      expect(fake.shown.popupOf === markerOf('Yellow Mural 5')).toBe(true);
+      // Its button back in the popup (the focus on it: form-home's own test; these fakes match no
+      // selector of a value with spaces, which finding it again asks).
       expect(popupNow()?.querySelector('button[data-report-research]')).not.toBeNull();
       expect(reportHeader()?.disabled).toBe(false);
     });
 
-    it('a popup closed takes the form with it and frees the hold', async () => {
+    it('another popup opened under a form in the side pane leaves the form and its hold', async () => {
       const { markerOf, reportHeader, panel } = await started({ raids: true, stops: STOPS_HERE });
       markerOf('Yellow Mural 5')?.fire('click', {});
       popupNow()?.querySelector('button[data-report-research]')?.dispatch('click');
       expect(reportHeader()?.disabled).toBe(true);
+      markerOf('Yellow Mural 5')?.fire('click', {});
       fake.shown.popupOf?.closePopup();
-      expect(reportHeader()?.disabled).toBe(false);
-      expect(panel.querySelector('div.research-form')).toBeNull();
+      expect(reportHeader()?.disabled).toBe(true);
+      expect(panel.querySelector('div.research-form')).not.toBeNull();
     });
 
     it('moves to the side pane to pick on the map, the popup closed, the hold kept', async () => {
@@ -3499,7 +3738,7 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       expect(reportHeader()?.disabled).toBe(false);
       const popup = placeShowing('leaflet-popup', raids.gymControls(LIBRARY));
       popup.querySelector('button[data-meetup-here]')?.dispatch('click');
-      popup.querySelector('button[data-pick="start"]')?.dispatch('click');
+      panel.querySelector('button[data-pick="start"]')?.dispatch('click');
       expect(panel.querySelector('[data-form="meetup"]')).not.toBeNull();
       expect(popup.querySelector('[data-form="meetup"]')).toBeNull();
       expect(reportHeader()?.disabled).toBe(true);
@@ -3511,13 +3750,61 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       const popup = placeShowing('leaflet-popup', raids.gymControls(LIBRARY));
       popup.querySelector('button[data-meetup-here]')?.dispatch('click');
       expect(frameTold.picks).toEqual([]);
-      popup.querySelector('button[data-pick="start"]')?.dispatch('click');
+      panel.querySelector('button[data-pick="start"]')?.dispatch('click');
       expect(frameTold.picks).toEqual([true]);
       panel.querySelector('button[data-pick="stop"]')?.dispatch('click');
       expect(frameTold.picks).toEqual([true, false]);
     });
 
-    it("leaves no phone card over the pane when Pick on the map moves a meetup's form there", async () => {
+    // Plan 8M-22, Matt's ruling 2: only Cancel, × and Escape close a form in the card.
+    it('keeps a form in the card through a tap on the map and a long press, Cancel showing the party', async () => {
+      const { raids, panel, card, markerOf, fire } = await started({
+        raids: true,
+        phone: true,
+        regions: REGIONS,
+        parties: view({ raids: [raidAt(1)], maxes: [] }),
+      });
+      markerOf(raidAt(1).heading)?.openPopup();
+      const shown = placeShowing('party-card', raids.gymControls(LIBRARY));
+      shown.querySelector('button[data-train-here]')?.dispatch('click');
+      const form = () => card()?.formElement()?.querySelector('[data-form="train"]');
+      expect(form()).not.toBeNull();
+      expect(panel.querySelector('[data-form="train"]')).toBeNull();
+      // Review P5: a train's form in the card docks no pane and leaves the list where it is.
+      expect(page.body?.classList.contains('form-docked')).toBe(false);
+      fire('click', { latlng: { lat: 40.45, lng: -79.95 } });
+      expect(form()).not.toBeNull();
+      fire('contextmenu', { latlng: { lat: 40.45, lng: -79.95 } });
+      expect(page.byId.get('notice-text')?.textContent).toBe(FORM_OPEN);
+      expect(form()).not.toBeNull();
+      form()?.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(card()?.formShown).toBe(false);
+      expect(card()?.key).toBe('gym:1');
+    });
+
+    // Review P3: a party that ended under a form in the card is not shown again by its Cancel.
+    it('closes the card with a form whose party ended under it', async () => {
+      const { raids, card, markerOf, lists, raidForms } = await started({
+        raids: true,
+        phone: true,
+        regions: REGIONS,
+        parties: view({ raids: [raidAt(1)], maxes: [] }),
+      });
+      markerOf(raidAt(1).heading)?.openPopup();
+      const shown = placeShowing('party-card', raids.gymControls(LIBRARY));
+      shown.querySelector('button[data-train-here]')?.dispatch('click');
+      expect(card()?.formShown).toBe(true);
+      // The raid ends meanwhile: its list, asked for, waits for the form.
+      lists({ parties: view({ raids: [], maxes: [] }) });
+      await raidForms.done(undefined);
+      card()?.formElement()?.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(card()?.formShown).toBe(false);
+      expect(card()?.key).toBeUndefined();
+    });
+
+    // Plan 8M-22: on a phone a form is a layer over the card; it hops to the docked pane while
+    // it needs the map, and back.
+    it("opens a meetup's form over the card's party, docked in the pane to pick its place, and back", async () => {
       const { raids, panel, card, markerOf } = await started({
         raids: true,
         phone: true,
@@ -3528,10 +3815,38 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       expect(card()?.key).toBe('gym:1');
       const shown = placeShowing('party-card', raids.gymControls(LIBRARY));
       shown.querySelector('button[data-meetup-here]')?.dispatch('click');
+      // Over the party the card shows, not in the pane, the pane not docked.
       expect(card()?.key).toBe('gym:1');
-      shown.querySelector('button[data-pick="start"]')?.dispatch('click');
+      expect(card()?.formElement()?.querySelector('[data-form="meetup"]')).not.toBeNull();
+      expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
+      expect(page.body?.classList.contains('form-docked')).toBe(false);
+      // A tap on another marker opens nothing, and says so.
+      markerOf(raidAt(1).heading)?.openPopup();
+      expect(page.byId.get('notice-text')?.textContent).toBe(FORM_OPEN);
+      // Pick on the map: to the docked pane, the card closed, what was typed kept.
+      const name = card()?.formElement()?.querySelector('input[name="name"]');
+      if (name) Object.assign(name, { name: 'name', value: 'Picnic' });
+      card()?.formElement()?.querySelector('button[data-pick="start"]')?.dispatch('click');
       expect(card()?.key).toBeUndefined();
+      expect(card()?.formShown).toBe(false);
       expect(panel.querySelector('[data-form="meetup"]')).not.toBeNull();
+      expect(page.body?.classList.contains('form-docked')).toBe(true);
+      const docked = panel.querySelector('input[name="name"]');
+      expect(docked?.getAttribute('value')).toBe('Picnic');
+      // (These fakes keep a field's value apart from the attribute it was drawn with.)
+      if (docked) Object.assign(docked, { name: 'name', value: 'Picnic' });
+      // Stop picking: back into the card, with the name typed.
+      panel.querySelector('button[data-pick="stop"]')?.dispatch('click');
+      expect(card()?.formShown).toBe(true);
+      expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
+      expect(
+        card()?.formElement()?.querySelector('input[name="name"]')?.getAttribute('value'),
+      ).toBe('Picnic');
+      expect(page.body?.classList.contains('form-docked')).toBe(false);
+      // Cancel: the card's party it hopped out of opened again.
+      card()?.formElement()?.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(card()?.formShown).toBe(false);
+      expect(card()?.key).toBe('gym:1');
     });
   });
 
