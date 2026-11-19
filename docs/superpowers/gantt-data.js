@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-18T19:43",
+  "updated": "2026-11-18T20:10",
   "items": [
     {
       "id": "0",
@@ -10422,7 +10422,7 @@ window.GANTT = {
       ],
       "scope": "Every form opened at a place opens in the side pane (wide) or the bottom card (phone), its Report and Cancel pinned below it, Report off until the page check passes, the research task list folded once picked",
       "doneWhen": "Merged into main-dev",
-      "status": "review",
+      "status": "done",
       "planning": {
         "start": "2026-11-16T21:53",
         "end": "2026-11-18T11:46",
@@ -10430,6 +10430,10 @@ window.GANTT = {
           "start": "2026-11-18T14:44",
           "end": "2026-11-18T19:36"
         }
+      },
+      "review": {
+        "start": "2026-11-18T14:44",
+        "end": "2026-11-18T20:03"
       }
     },
     {
