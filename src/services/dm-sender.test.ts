@@ -1043,6 +1043,10 @@ describe('nodeLoopDelay', () => {
     const meter = nodeLoopDelay();
     expect(meter.read()).toEqual({ meanMs: 0, maxMs: 0 });
     meter.start();
+    // The meter's sampling timer runs only once the loop turns: a block held before its first
+    // sample can fall between samples and read as an ordinary 20 ms interval (CI, 2026-11-18).
+    // eslint-disable-next-line no-restricted-syntax -- it measures the real event loop: real time is what it reads
+    await new Promise((resolve) => setTimeout(resolve, 30));
     const until = Date.now() + 80;
     while (Date.now() < until) {
       // Hold the loop.
@@ -1051,7 +1055,8 @@ describe('nodeLoopDelay', () => {
     await new Promise((resolve) => setTimeout(resolve, 60));
     const read = meter.read();
     meter.stop();
-    expect(read.maxMs).toBeGreaterThan(20);
+    // The 80 ms held, not an ordinary interval of the 20 ms sampling.
+    expect(read.maxMs).toBeGreaterThan(40);
     expect(read.meanMs).toBeGreaterThan(0);
   });
 });

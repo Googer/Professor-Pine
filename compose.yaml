@@ -166,7 +166,7 @@ services:
   # both get theirs): a tag alone is whatever was last pushed there, and this one holds the
   # socket. Dependabot proposes a newer one by pull request (.github/dependabot.yml).
   docker-proxy:
-    image: wollomatic/socket-proxy:1.13.2@sha256:ff95d6ff6c27853005ef85eb8f4ab5923dc3d2f1e055f98fb6aeeaceec3fe848
+    image: wollomatic/socket-proxy:1.14.0@sha256:fead157c4de4092461267092be49c993c2e6dd296a54c89ed04b8c870016b045
     user: '0'
     environment:
       SP_LISTENIP: 0.0.0.0
@@ -263,7 +263,7 @@ services:
   # Pinned by version and digest (of the image index), as the socket proxy is: every cookie and
   # login of the web pages passes through it. Dependabot proposes a newer one by pull request.
   cloudflared:
-    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+    image: cloudflare/cloudflared:2026.11.1@sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d
     profiles: ['tunnel']
     command: ['tunnel', '--no-autoupdate', 'run']
     environment:
