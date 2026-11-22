@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   asV2,
   fakeAutocomplete,
@@ -12,6 +12,7 @@ import {
   NEIGHBOR_ASH as ASH,
   NEIGHBOR_BROCK as BROCK,
   NEIGHBOR_MISTY as MISTY,
+  NEIGHBOR_NOW,
   neighborRow,
 } from '../../../test/support/server-neighbor-cases.js';
 import { neighborsWith } from '../../../test/support/server-neighbors.js';
@@ -97,6 +98,10 @@ async function neighborCommandsWith(
 }
 
 describe('/admin neighbors (plan 19E)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('asks a server by its id or an invite link, and its staff are told in their lab', async () => {
     const made = await neighborCommandsWith();
     expect(said(await made.use('ask', { server: 'https://discord.gg/pewter-gym' }))).toBe(
@@ -271,6 +276,8 @@ describe('/admin neighbors (plan 19E)', () => {
   });
 
   it('lists the server’s neighbors and requests, naming only what it may', async () => {
+    // The rows' own clock: a request expires a week after it was asked, read against now.
+    vi.useFakeTimers({ toFake: ['Date'], now: NEIGHBOR_NOW });
     const made = await neighborCommandsWith({
       rows: [
         neighborRow({ acceptedAt: Date.parse('2026-11-10T12:00:00Z') }),
