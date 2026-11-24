@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,6 +30,13 @@ function folders() {
       BACKUP_LOCK: path.join(root, 'lock'),
     },
   };
+}
+
+// Sets a file's times to so many days ago. From Node rather than `touch -d "100 days ago"`,
+// which only GNU touch reads (macOS's takes a timestamp alone).
+function aged(file: string, days: number) {
+  const then = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  utimesSync(file, then, then);
 }
 
 describe('the DB_SCHEMA of docker/backup.sh', () => {
@@ -311,14 +319,12 @@ describe('the backup folder of docker/backup.sh', () => {
     ]) {
       writeFileSync(path.join(out, name), '');
     }
+    // 100 and 1 days old, by the file's time.
+    aged(path.join(out, 'pine-backup-20260701.sql.gz'), 100);
+    aged(path.join(out, 'pine-20260701.sql'), 100);
+    aged(path.join(out, 'pine-backup-20261015.sql.gz'), 1);
     const run = runBackupScript(
-      [
-        'OWNER_UID=0 OWNER_GID=0 KEEP=90',
-        // 100 and 1 days old, by the file's time.
-        'touch -d "100 days ago" "$OUT/pine-backup-20260701.sql.gz" "$OUT/pine-20260701.sql"',
-        'touch -d "1 day ago" "$OUT/pine-backup-20261015.sql.gz"',
-        'prune_old; echo "failed: [$prune_failed]"',
-      ].join('\n'),
+      ['OWNER_UID=0 OWNER_GID=0 KEEP=90', 'prune_old; echo "failed: [$prune_failed]"'].join('\n'),
       env,
     );
     if (!run) return context.skip('no sh here');
@@ -338,12 +344,9 @@ describe('the backup folder of docker/backup.sh', () => {
     for (const name of ['pine-backup-2026 0701.sql.gz', 'pine-backup-20261015.sql.gz']) {
       writeFileSync(path.join(out, name), '');
     }
+    aged(path.join(out, 'pine-backup-2026 0701.sql.gz'), 100);
     const run = runBackupScript(
-      [
-        'OWNER_UID=0 OWNER_GID=0 KEEP=90',
-        'touch -d "100 days ago" "$OUT/pine-backup-2026 0701.sql.gz"',
-        'prune_old; echo "failed: [$prune_failed]"',
-      ].join('\n'),
+      ['OWNER_UID=0 OWNER_GID=0 KEEP=90', 'prune_old; echo "failed: [$prune_failed]"'].join('\n'),
       env,
     );
     if (!run) return context.skip('no sh here');
@@ -357,10 +360,10 @@ describe('the backup folder of docker/backup.sh', () => {
     for (const name of ['pine-backup-20260701.sql.gz', 'pine-backup-20261015.sql.gz']) {
       writeFileSync(path.join(out, name), '');
     }
+    aged(path.join(out, 'pine-backup-20260701.sql.gz'), 100);
     const run = runBackupScript(
       [
         'OWNER_UID=0 OWNER_GID=0 KEEP=90',
-        'touch -d "100 days ago" "$OUT/pine-backup-20260701.sql.gz"',
         // The folder's owner may list the dumps and delete none (a share that went read-only).
         'as_owner() { case " $* " in *" -exec "*) return 1 ;; esac; "$@"; }',
         'prune_old; echo "failed: [$prune_failed]"',
@@ -385,11 +388,13 @@ describe('the backup folder of docker/backup.sh', () => {
       'pine-backup-20260702.sql.gz',
       'pine-backup-20260703.sql.gz',
     ];
-    for (const name of old) writeFileSync(path.join(out, name), '');
+    for (const name of old) {
+      writeFileSync(path.join(out, name), '');
+      aged(path.join(out, name), 100);
+    }
     const run = runBackupScript(
       [
         'OWNER_UID=0 OWNER_GID=0 KEEP=90',
-        'touch -d "100 days ago" "$OUT"/pine-backup-2026070*.sql.gz',
         // Deletes nothing, and lists in an order of its own.
         'as_owner() { case " $* " in *" -exec "*) return 1 ;; esac; "$@" | sort -r; }',
         'prune_old; echo "failed: [$prune_failed]"',
